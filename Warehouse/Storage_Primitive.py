@@ -1,3 +1,5 @@
+import itertools
+
 class Storage_Size:
 
     def __init__(self):
@@ -12,7 +14,7 @@ class Storage_Size:
 
 class Storage_Type:
     def __init__(self):
-        self.available_storage_types = ['conveyable', 'non-conveyable']
-        self.available_sub_storage_types = ['food', 'clothing', 'electronic', 
+        self.handling_storage_types = ['conveyable', 'non-conveyable']
+        self.category_storage_types = ['food', 'clothing', 'electronic', 
                                             'furniture', 'seasonal', 'chemical']
-    
+        self.available_storage_types = list(itertools.product(self.handling_storage_types, self.category_storage_types))
