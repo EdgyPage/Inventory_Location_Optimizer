@@ -1,4 +1,5 @@
 from __future__ import annotations
+from Storage_Primitive import StorageUnit
 
 
 class Aisle:
@@ -11,7 +12,7 @@ class Aisle:
             self.bayY: int = bayY
             self.storage_size: str = storage_size
             self.storage_type: str = aisle.storage_type
-            self.quantity: int = 0
+            self.storage: StorageUnit | None = None
 
         @property
         def location(self) -> tuple[int, int, int]:

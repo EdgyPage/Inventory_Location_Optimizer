@@ -1,4 +1,5 @@
 import itertools
+from abc import ABC, abstractmethod
 from Carton import Carton
 
 
@@ -26,11 +27,7 @@ class Storage_Type:
         )
 
 
-class Singleton:
-    max_height: int = 48
-    max_width: int = 16
-    max_length: int = 16
-
+class StorageUnit(ABC):
     def __init__(self, carton: Carton, quantity: int) -> None:
         self._height: int | None = None
         self._width: int | None = None
@@ -39,6 +36,32 @@ class Singleton:
         self.carton: Carton = carton
         self.quantity: int = quantity
         self._fit(carton)
+
+    @abstractmethod
+    def _fit(self, carton: Carton) -> None:
+        pass
+
+    @property
+    def height(self) -> int | None:
+        return self._height
+
+    @property
+    def width(self) -> int | None:
+        return self._width
+
+    @property
+    def length(self) -> int | None:
+        return self._length
+
+    @property
+    def stack_axis(self) -> str | None:
+        return self._stack_axis
+
+
+class Singleton(StorageUnit):
+    max_height: int = 48
+    max_width: int = 16
+    max_length: int = 16
 
     def _fit(self, carton: Carton) -> None:
         dims: list[int] = [carton.height, carton.width, carton.length]
@@ -58,36 +81,14 @@ class Singleton:
             f"({self.max_height}, {self.max_width}, {self.max_length})"
         )
 
-    @property
-    def height(self) -> int | None:
-        return self._height
 
-    @property
-    def width(self) -> int | None:
-        return self._width
-
-    @property
-    def length(self) -> int | None:
-        return self._length
-
-    @property
-    def stack_axis(self) -> str | None:
-        return self._stack_axis
-
-
-class Pallet:
+class Pallet(StorageUnit):
     max_length: int = 48
     max_width: int = 48
 
     def __init__(self, carton: Carton, quantity: int) -> None:
-        self._height: int | None = None
-        self._width: int | None = None
-        self._length: int | None = None
-        self._stack_axis: str | None = None
         self.storage_size: str | None = None
-        self.carton: Carton = carton
-        self.quantity: int = quantity
-        self._fit(carton)
+        super().__init__(carton, quantity)
 
     def _fit(self, carton: Carton) -> None:
         dims: list[int] = [carton.height, carton.width, carton.length]
@@ -114,19 +115,3 @@ class Pallet:
             )
 
         _, self.storage_size, self._height, self._width, self._length, self._stack_axis = best
-
-    @property
-    def height(self) -> int | None:
-        return self._height
-
-    @property
-    def width(self) -> int | None:
-        return self._width
-
-    @property
-    def length(self) -> int | None:
-        return self._length
-
-    @property
-    def stack_axis(self) -> str | None:
-        return self._stack_axis
