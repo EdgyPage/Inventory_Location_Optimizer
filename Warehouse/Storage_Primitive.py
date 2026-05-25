@@ -1,47 +1,52 @@
 import itertools
 from Carton import Carton
 
+
 class Storage_Size:
-    available_sizes_heights = {
+    available_sizes_heights: dict[str, int] = {
         'small': 12,
         'medium': 24,
         'large': 36,
         'extra_large': 48
     }
 
-    def __init__(self):
-        self.max_length = 48
-        self.max_width = 48
-        self.max_height = self.available_sizes_heights["extra_large"]
+    def __init__(self) -> None:
+        self.max_length: int = 48
+        self.max_width: int = 48
+        self.max_height: int = self.available_sizes_heights["extra_large"]
+
 
 class Storage_Type:
-    def __init__(self):
-        self.handling_storage_types = ['conveyable', 'non-conveyable']
-        self.category_storage_types = ['food', 'clothing', 'electronic',
-                                            'furniture', 'seasonal', 'chemical']
-        self.available_storage_types = list(itertools.product(self.handling_storage_types, self.category_storage_types))
+    def __init__(self) -> None:
+        self.handling_storage_types: list[str] = ['conveyable', 'non-conveyable']
+        self.category_storage_types: list[str] = ['food', 'clothing', 'electronic',
+                                                   'furniture', 'seasonal', 'chemical']
+        self.available_storage_types: list[tuple[str, str]] = list(
+            itertools.product(self.handling_storage_types, self.category_storage_types)
+        )
+
 
 class Singleton:
-    max_height = 48
-    max_width = 16
-    max_length = 16
+    max_height: int = 48
+    max_width: int = 16
+    max_length: int = 16
 
-    def __init__(self, carton: Carton, quantity):
-        self._height = None
-        self._width = None
-        self._length = None
-        self._stack_axis = None
-        self.carton = carton
-        self.quantity = quantity
+    def __init__(self, carton: Carton, quantity: int) -> None:
+        self._height: int | None = None
+        self._width: int | None = None
+        self._length: int | None = None
+        self._stack_axis: str | None = None
+        self.carton: Carton = carton
+        self.quantity: int = quantity
         self._fit(carton)
 
-    def _fit(self, carton):
-        dims = [carton.height, carton.width, carton.length]
+    def _fit(self, carton: Carton) -> None:
+        dims: list[int] = [carton.height, carton.width, carton.length]
         for h, w, l in itertools.permutations(dims):
             for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
                 if (h * stack_h <= self.max_height and
-                    w * stack_w <= self.max_width and
-                    l * stack_l <= self.max_length):
+                        w * stack_w <= self.max_width and
+                        l * stack_l <= self.max_length):
                     self._height = h
                     self._width = w
                     self._length = l
@@ -54,48 +59,51 @@ class Singleton:
         )
 
     @property
-    def height(self):
+    def height(self) -> int | None:
         return self._height
 
     @property
-    def width(self):
+    def width(self) -> int | None:
         return self._width
 
     @property
-    def length(self):
+    def length(self) -> int | None:
         return self._length
 
     @property
-    def stack_axis(self):
+    def stack_axis(self) -> str | None:
         return self._stack_axis
 
-class Pallet:
-    max_length = 48
-    max_width = 48
 
-    def __init__(self, carton: Carton, quantity):
-        self._height = None
-        self._width = None
-        self._length = None
-        self._stack_axis = None
-        self.storage_size = None
-        self.carton = carton
-        self.quantity = quantity
+class Pallet:
+    max_length: int = 48
+    max_width: int = 48
+
+    def __init__(self, carton: Carton, quantity: int) -> None:
+        self._height: int | None = None
+        self._width: int | None = None
+        self._length: int | None = None
+        self._stack_axis: str | None = None
+        self.storage_size: str | None = None
+        self.carton: Carton = carton
+        self.quantity: int = quantity
         self._fit(carton)
 
-    def _fit(self, carton):
-        dims = [carton.height, carton.width, carton.length]
-        sorted_sizes = sorted(Storage_Size.available_sizes_heights.items(), key=lambda x: x[1])
+    def _fit(self, carton: Carton) -> None:
+        dims: list[int] = [carton.height, carton.width, carton.length]
+        sorted_sizes: list[tuple[str, int]] = sorted(
+            Storage_Size.available_sizes_heights.items(), key=lambda x: x[1]
+        )
 
-        best = None
+        best: tuple[int, str, int, int, int, str] | None = None
         for h, w, l in itertools.permutations(dims):
             for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
                 if w * stack_w <= self.max_width and l * stack_l <= self.max_length:
-                    stacked_height = h * stack_h
+                    stacked_height: int = h * stack_h
                     for size_name, size_height in sorted_sizes:
                         if stacked_height <= size_height:
                             if best is None or size_height < best[0]:
-                                axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
+                                axis: str = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
                                 best = (size_height, size_name, h, w, l, axis)
                             break
 
@@ -108,17 +116,17 @@ class Pallet:
         _, self.storage_size, self._height, self._width, self._length, self._stack_axis = best
 
     @property
-    def height(self):
+    def height(self) -> int | None:
         return self._height
 
     @property
-    def width(self):
+    def width(self) -> int | None:
         return self._width
 
     @property
-    def length(self):
+    def length(self) -> int | None:
         return self._length
 
     @property
-    def stack_axis(self):
+    def stack_axis(self) -> str | None:
         return self._stack_axis
