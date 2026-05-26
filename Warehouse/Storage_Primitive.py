@@ -25,8 +25,9 @@ class Storage_Type:
         self.handling_storage_types: list[str] = ['conveyable', 'non-conveyable']
         self.category_storage_types: list[str] = ['food', 'clothing', 'electronic',
                                                    'furniture', 'seasonal', 'chemical']
-        self.available_storage_types: list[tuple[str, str]] = list(
-            itertools.product(self.handling_storage_types, self.category_storage_types)
+        self.unit_storage_types: list[str] = ['pallet', 'singleton']
+        self.available_storage_types: list[tuple[str, str, str]] = list(
+            itertools.product(self.handling_storage_types, self.category_storage_types, self.unit_storage_types)
         )
 
 

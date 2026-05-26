@@ -13,6 +13,7 @@ class Aisle:
             self.storage_size: str = storage_size
             self.handling_type: str = aisle.handling_type
             self.storage_type: str = aisle.storage_type
+            self.unit_type: str = aisle.unit_type
             self.storage: StorageUnit | None = None
 
         @property
@@ -23,12 +24,13 @@ class Aisle:
         def storage_handling_type(self) -> tuple[str, str]:
             return (self.handling_type, self.storage_type)
 
-    def __init__(self, storage_size: str, handling_type: str, storage_type: str, bayXPerAisle: int, bayYPerAisle: int) -> None:
+    def __init__(self, storage_size: str, handling_type: str, storage_type: str, unit_type: str, bayXPerAisle: int, bayYPerAisle: int) -> None:
         self.aisle_id: int = Aisle.next_aisle_id
         Aisle.next_aisle_id += 1
         self.storage_size: str | None = storage_size
         self.handling_type: str = handling_type
         self.storage_type: str = storage_type
+        self.unit_type: str = unit_type
         self.bayXPerAisle: int = bayXPerAisle
         self.bayYPerAisle: int = bayYPerAisle
 
@@ -49,6 +51,7 @@ class Aisle:
         probabilities: list[float],
         handling_type: str,
         storage_type: str,
+        unit_type: str,
         bayXPerAisle: int,
         bayYPerAisle: int,
     ) -> Aisle:
@@ -58,6 +61,7 @@ class Aisle:
         aisle.storage_size = None
         aisle.handling_type = handling_type
         aisle.storage_type = storage_type
+        aisle.unit_type = unit_type
         aisle.bayXPerAisle = bayXPerAisle
         aisle.bayYPerAisle = bayYPerAisle
 

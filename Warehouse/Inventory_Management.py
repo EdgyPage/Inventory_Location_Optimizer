@@ -1,18 +1,27 @@
 import random
+from collections import defaultdict, deque
 from typing import Callable
+
 from Carton import Carton
 from Warehouse_Builder import Warehouse
 from Aisle_Storage import Aisle
-from Storage_Primitive import StorageUnit, Singleton, Pallet, viable_storage_units
+from Storage_Primitive import StorageUnit, Singleton, Pallet, Storage_Size, viable_storage_units
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
 
+# Maps size name → rank so we can query "this size or larger" in O(sizes) time.
+_SIZE_RANKS: dict[str, int] = {
+    size: rank
+    for rank, size in enumerate(
+        sorted(Storage_Size.available_sizes_heights, key=Storage_Size.available_sizes_heights.__getitem__)
+    )
+}
 
-def _uniform_assignment(unit: StorageUnit, available_bins: list[Aisle.Bin]) -> Aisle.Bin | None:
-    candidates: list[Aisle.Bin] = [
-        b for b in available_bins
-        if b.storage_handling_type == unit.carton.storage_type
-    ]
+# (handling_type, storage_type, storage_size, unit_type) → available bins
+BinKey = tuple[str, str, str, str]
+
+
+def _uniform_assignment(_: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
     return random.choice(candidates) if candidates else None
 
 
@@ -24,43 +33,119 @@ class Inventory_Manager:
     ) -> None:
         self.warehouse: Warehouse = warehouse
         self.assignment_fn: AssignmentFn = assignment_fn
-        self.unassigned: list[StorageUnit] = []
+        self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
+        self._unavailable: list[Aisle.Bin] = []
+        self._queue: deque[tuple[Carton, int]] = deque()
 
-    def place(self, carton: Carton, quantity: int = 1) -> list[Aisle.Bin]:
-        units: list[StorageUnit] = viable_storage_units(carton, quantity)
-        available: list[Aisle.Bin] = [b for b in self.warehouse.bins if b.storage is None]
-        placed: list[Aisle.Bin] = []
-
-        for unit in units:
-            bin_ = self.assignment_fn(unit, available)
-            if bin_ is None:
-                self.unassigned.append(unit)
+        for b in warehouse.bins:
+            if b.storage is None:
+                self._index_add(b)
             else:
-                bin_.storage = unit
-                available.remove(bin_)
-                placed.append(bin_)
+                self._unavailable.append(b)
 
-        return placed
+    # ── public API ──────────────────────────────────────────────────────────
 
-    def place_all(self, cartons: list[Carton], quantity: int = 1) -> 'Inventory_Manager':
+    def enqueue(self, carton: Carton, quantity: int = 1) -> 'Inventory_Manager':
+        """Add one carton config to the queue and attempt to drain."""
+        self._queue.append((carton, quantity))
+        self._drain()
+        return self
+
+    def enqueue_all(self, cartons: list[Carton], quantity: int = 1) -> 'Inventory_Manager':
+        """Add all carton configs to the queue in order, then attempt to drain."""
         for carton in cartons:
-            self.place(carton, quantity)
+            self._queue.append((carton, quantity))
+        self._drain()
         return self
 
     @property
+    def available(self) -> list[Aisle.Bin]:
+        return [b for bins in self._index.values() for b in bins]
+
+    @property
+    def unavailable(self) -> list[Aisle.Bin]:
+        return list(self._unavailable)
+
+    @property
+    def queue_depth(self) -> int:
+        return len(self._queue)
+
+    @property
     def assigned_bins(self) -> list[Aisle.Bin]:
-        return [b for b in self.warehouse.bins if b.storage is not None]
+        return list(self._unavailable)
 
     @property
     def empty_bins(self) -> list[Aisle.Bin]:
-        return [b for b in self.warehouse.bins if b.storage is None]
+        return self.available
 
     def summary(self) -> None:
         total: int = len(self.warehouse.bins)
-        filled: int = len(self.assigned_bins)
-        singles: int = sum(1 for b in self.assigned_bins if isinstance(b.storage, Singleton))
-        pallets: int = sum(1 for b in self.assigned_bins if isinstance(b.storage, Pallet))
+        filled: int = len(self._unavailable)
+        singles: int = sum(1 for b in self._unavailable if isinstance(b.storage, Singleton))
+        pallets: int = sum(1 for b in self._unavailable if isinstance(b.storage, Pallet))
+        available: int = sum(len(v) for v in self._index.values())
         print(f'Total bins  : {total}')
         print(f'Filled      : {filled}  ({singles} singletons, {pallets} pallets)')
-        print(f'Empty       : {total - filled}')
-        print(f'Unassigned  : {len(self.unassigned)} units')
+        print(f'Empty       : {available}')
+        print(f'Queued      : {self.queue_depth} items pending')
+
+    # ── index maintenance ────────────────────────────────────────────────────
+
+    def _key(self, bin_: Aisle.Bin) -> BinKey:
+        return (bin_.handling_type, bin_.storage_type, bin_.storage_size, bin_.unit_type)
+
+    def _index_add(self, bin_: Aisle.Bin) -> None:
+        self._index[self._key(bin_)].append(bin_)
+
+    def _index_remove(self, bin_: Aisle.Bin) -> None:
+        self._index[self._key(bin_)].remove(bin_)
+
+    # ── placement ───────────────────────────────────────────────────────────
+
+    def _candidates(self, unit: StorageUnit, excluded: set[int]) -> list[Aisle.Bin]:
+        """Look up compatible bins from the index, skipping speculatively-taken ones.
+
+        Pallets query their required size and all larger sizes.
+        Singletons have no height constraint and query all sizes.
+        """
+        handling, category = unit.carton.storage_type
+        unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
+        result: list[Aisle.Bin] = []
+        min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+        for size, rank in _SIZE_RANKS.items():
+            if rank >= min_rank:
+                result.extend(
+                    b for b in self._index.get((handling, category, size, unit_type), [])
+                    if id(b) not in excluded
+                )
+        return result
+
+    def _try_place(self, carton: Carton, qty: int) -> list[tuple[StorageUnit, Aisle.Bin]] | None:
+        """Speculatively assign all units without committing.
+        Returns (unit, bin) pairs to commit, or None if any unit has no compatible bin."""
+        units = viable_storage_units(carton, qty)
+        excluded: set[int] = set()
+        assigned: list[tuple[StorageUnit, Aisle.Bin]] = []
+        for unit in units:
+            candidates = self._candidates(unit, excluded)
+            bin_ = self.assignment_fn(unit, candidates)
+            if bin_ is None:
+                return None
+            excluded.add(id(bin_))
+            assigned.append((unit, bin_))
+        return assigned
+
+    def _drain(self) -> None:
+        """One FIFO pass: place each entry if all its units fit, else keep it in position."""
+        pending: deque[tuple[Carton, int]] = deque()
+        while self._queue:
+            carton, qty = self._queue.popleft()
+            assigned = self._try_place(carton, qty)
+            if assigned is not None:
+                for unit, bin_ in assigned:
+                    bin_.storage = unit
+                    self._index_remove(bin_)
+                    self._unavailable.append(bin_)
+            else:
+                pending.append((carton, qty))
+        self._queue = pending
