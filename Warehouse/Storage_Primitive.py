@@ -1,6 +1,9 @@
 import itertools
 from abc import ABC, abstractmethod
+from typing import TypeVar
 from Carton import Carton
+
+T = TypeVar('T', bound='StorageUnit')
 
 
 class Storage_Size:
@@ -42,20 +45,20 @@ class StorageUnit(ABC):
         pass
 
     @property
-    def height(self) -> int | None:
-        return self._height
+    def height(self) -> int:
+        return self._height  # type: ignore[return-value]
 
     @property
-    def width(self) -> int | None:
-        return self._width
+    def width(self) -> int:
+        return self._width  # type: ignore[return-value]
 
     @property
-    def length(self) -> int | None:
-        return self._length
+    def length(self) -> int:
+        return self._length  # type: ignore[return-value]
 
     @property
-    def stack_axis(self) -> str | None:
-        return self._stack_axis
+    def stack_axis(self) -> str:
+        return self._stack_axis  # type: ignore[return-value]
 
 
 class Singleton(StorageUnit):
@@ -115,3 +118,52 @@ class Pallet(StorageUnit):
             )
 
         _, self.storage_size, self._height, self._width, self._length, self._stack_axis = best
+
+
+def _can_fit(carton: Carton, unit_class: type[T], qty: int) -> bool:
+    try:
+        unit_class(carton, qty)
+        return True
+    except ValueError:
+        return False
+
+
+def _max_qty_fits(carton: Carton, unit_class: type[T]) -> int:
+    if not _can_fit(carton, unit_class, 1):
+        return 0
+    lo: int = 1
+    hi: int = max(Storage_Size.available_sizes_heights.values()) // 3
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _can_fit(carton, unit_class, mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo
+
+
+def _build_units(carton: Carton, unit_class: type[T], quantity: int) -> list[T]:
+    max_qty: int = _max_qty_fits(carton, unit_class)
+    if max_qty == 0:
+        return []
+    units: list[T] = []
+    remaining: int = quantity
+    while remaining > 0:
+        n: int = min(remaining, max_qty)
+        units.append(unit_class(carton, n))
+        remaining -= n
+    return units
+
+
+def _total_volume(units: list[StorageUnit]) -> int:
+    return sum(u.height * u.width * u.length for u in units)
+
+
+def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
+    pallets: list[StorageUnit] = _build_units(carton, Pallet, quantity)
+    singletons: list[StorageUnit] = _build_units(carton, Singleton, quantity)
+
+    pallet_vol: float = _total_volume(pallets) if pallets else float('inf')
+    singleton_vol: float = _total_volume(singletons) if singletons else float('inf')
+
+    return singletons if singleton_vol <= pallet_vol else pallets
