@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from collections import defaultdict
 from dataclasses import dataclass
@@ -7,6 +8,9 @@ from dataclasses import dataclass
 from Inventory_Builder import Inventory
 from Aisle_Storage import Aisle
 from Warehouse_Builder import Warehouse
+from Storage_Primitive import StorageCart
+
+_CART_VOLUME: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
 
 
 @dataclass
@@ -44,6 +48,14 @@ class Task:
         self.aisle_id: int          = aisle_id
         self.path: list[Aisle.Bin]  = path         # bins in visit order
         self.items: dict[int, int]  = items         # sku -> quantity for this aisle
+        self.x_traversed: int = sum(abs(path[i].bayX - path[i+1].bayX) for i in range(len(path) - 1))
+        self.y_traversed: int = sum(abs(path[i].bayY - path[i+1].bayY) for i in range(len(path) - 1))
+        sku_to_vol: dict[int, int] = {
+            b.storage.carton.sku: b.storage.carton.volume()
+            for b in path if b.storage is not None
+        }
+        total_vol: int = sum(sku_to_vol.get(sku, 0) * qty for sku, qty in items.items())
+        self.carts_required: int = math.ceil(total_vol / _CART_VOLUME) if total_vol > 0 else 0
 
     @staticmethod
     def from_batch(batch: Batch, warehouse: Warehouse) -> list[Task]:

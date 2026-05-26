@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 import itertools
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
+
 from Carton import Carton
+
+if TYPE_CHECKING:
+    from Aisle_Storage import Aisle
 
 T = TypeVar('T', bound='StorageUnit')
 
@@ -168,3 +174,50 @@ def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
     singleton_vol: float = _total_volume(singletons) if singletons else float('inf')
 
     return singletons if singleton_vol <= pallet_vol else pallets
+
+
+class StorageCart:
+    max_length: int = 50
+    max_width: int = 50
+    max_height: int = 50
+
+    def __init__(self) -> None:
+        self._remaining_volume: int = self.max_length * self.max_width * self.max_height
+        self._contents: list[tuple[Carton, int]] = []
+
+    @property
+    def total_volume(self) -> int:
+        return self.max_length * self.max_width * self.max_height
+
+    @property
+    def remaining_volume(self) -> int:
+        return self._remaining_volume
+
+    @property
+    def contents(self) -> list[tuple[Carton, int]]:
+        return list(self._contents)
+
+    def add_from_bin(self, bin_: Aisle.Bin, quantity: int) -> int:
+        """Take up to `quantity` units of the bin's carton into the cart.
+
+        Assumes perfect packing — placement succeeds if carton volume fits in
+        remaining cart volume, regardless of orientation.
+        Returns the number of units actually taken.
+        Clears bin_.storage when its quantity reaches zero.
+        """
+        if bin_.storage is None or quantity <= 0:
+            return 0
+        unit = bin_.storage
+        carton_vol = unit.carton.volume()
+        if carton_vol > self._remaining_volume:
+            return 0
+        max_fits = self._remaining_volume // carton_vol
+        actual = min(quantity, unit.quantity, max_fits)
+        if actual <= 0:
+            return 0
+        self._remaining_volume -= actual * carton_vol
+        self._contents.append((unit.carton, actual))
+        unit.quantity -= actual
+        if unit.quantity == 0:
+            bin_.storage = None
+        return actual
