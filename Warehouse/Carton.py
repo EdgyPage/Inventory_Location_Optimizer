@@ -28,3 +28,8 @@ class Carton:
     @property
     def sku(self) -> int:
         return self._sku
+
+    @property
+    def popularity(self) -> float:
+        """Pick weight for weighted random selection; backed by demand frequency."""
+        return self.demand.frequency
