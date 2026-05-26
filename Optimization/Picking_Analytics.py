@@ -201,7 +201,7 @@ def build_velocity_assignment_fn(
     def _fn(unit: Any, available_bins: list[Any]) -> Any | None:
         candidates: list[Any] = [
             b for b in available_bins
-            if b.storage_type == unit.carton.storage_type[0] and b.storage is None
+            if b.storage_handling_type == unit.carton.storage_type and b.storage is None
         ]
         if not candidates:
             return None

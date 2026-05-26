@@ -11,6 +11,7 @@ class Aisle:
             self.bayX: int = bayX
             self.bayY: int = bayY
             self.storage_size: str = storage_size
+            self.handling_type: str = aisle.handling_type
             self.storage_type: str = aisle.storage_type
             self.storage: StorageUnit | None = None
 
@@ -18,10 +19,15 @@ class Aisle:
         def location(self) -> tuple[int, int, int]:
             return (self.aisle.aisle_id, self.bayX, self.bayY)
 
-    def __init__(self, storage_size: str, storage_type: str, bayXPerAisle: int, bayYPerAisle: int) -> None:
+        @property
+        def storage_handling_type(self) -> tuple[str, str]:
+            return (self.handling_type, self.storage_type)
+
+    def __init__(self, storage_size: str, handling_type: str, storage_type: str, bayXPerAisle: int, bayYPerAisle: int) -> None:
         self.aisle_id: int = Aisle.next_aisle_id
         Aisle.next_aisle_id += 1
         self.storage_size: str | None = storage_size
+        self.handling_type: str = handling_type
         self.storage_type: str = storage_type
         self.bayXPerAisle: int = bayXPerAisle
         self.bayYPerAisle: int = bayYPerAisle
@@ -32,12 +38,25 @@ class Aisle:
             for y in range(1, bayYPerAisle + 1)
         ]
 
+    @property
+    def storage_handling_type(self) -> tuple[str, str]:
+        return (self.handling_type, self.storage_type)
+
     @classmethod
-    def from_size_distribution(cls, storage_sizes: list[str], probabilities: list[float], storage_type: str, bayXPerAisle: int, bayYPerAisle: int) -> Aisle:
+    def from_size_distribution(
+        cls,
+        storage_sizes: list[str],
+        probabilities: list[float],
+        handling_type: str,
+        storage_type: str,
+        bayXPerAisle: int,
+        bayYPerAisle: int,
+    ) -> Aisle:
         aisle = object.__new__(cls)
         aisle.aisle_id = cls.next_aisle_id
         cls.next_aisle_id += 1
         aisle.storage_size = None
+        aisle.handling_type = handling_type
         aisle.storage_type = storage_type
         aisle.bayXPerAisle = bayXPerAisle
         aisle.bayYPerAisle = bayYPerAisle

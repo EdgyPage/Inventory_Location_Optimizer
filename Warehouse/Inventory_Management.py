@@ -11,7 +11,7 @@ AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
 def _uniform_assignment(unit: StorageUnit, available_bins: list[Aisle.Bin]) -> Aisle.Bin | None:
     candidates: list[Aisle.Bin] = [
         b for b in available_bins
-        if b.storage_type == unit.carton.storage_type[0]
+        if b.storage_handling_type == unit.carton.storage_type
     ]
     return random.choice(candidates) if candidates else None
 
