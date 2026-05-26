@@ -3,7 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-from Picking_Simulation import Task
+from Workload_Builder import Task
 
 _EMPTY   = '#e0e0e0'
 _STOCKED = '#aec6cf'
