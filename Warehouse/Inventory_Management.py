@@ -62,20 +62,41 @@ class Inventory_Manager:
         self._drain()
         return self
 
+    def _reclaim_empty_bins(self) -> None:
+        """Return bins emptied by picking back to the available index.
+
+        StorageCart.add_from_bin sets bin_.storage = None when a bin is fully
+        picked but does not notify the manager.  This sweep keeps _unavailable
+        and _index consistent before any quantity check or reorder decision.
+        """
+        still_filled: list[Aisle.Bin] = []
+        for bin_ in self._unavailable:
+            if bin_.storage is None:
+                self._index_add(bin_)
+            else:
+                still_filled.append(bin_)
+        self._unavailable = still_filled
+
     def check_reorders(self) -> list[int]:
-        """Enqueue replenishment for any SKU whose remaining quantity is at or below
-        10% of its initial placement quantity. Returns SKU IDs of triggered reorders."""
+        """Enqueue replenishment for any SKU whose total warehouse quantity is at
+        or below 10% of its initial placement quantity.
+
+        Empty bins are reclaimed first so that reorder stock has slots to fill
+        and the quantity totals reflect only bins that are actually stocked.
+        Returns the SKU IDs of triggered reorders.
+        """
+        self._reclaim_empty_bins()
+
         current: dict[int, int] = {}
         for bin_ in self._unavailable:
-            if bin_.storage is not None:
-                sku = bin_.storage.carton.sku
-                current[sku] = current.get(sku, 0) + bin_.storage.quantity
+            sku = bin_.storage.carton.sku  # type: ignore[union-attr]
+            current[sku] = current.get(sku, 0) + bin_.storage.quantity  # type: ignore[union-attr]
 
         queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
 
         triggered: list[int] = []
         for sku, initial_qty in self._initial_quantities.items():
-            threshold = max(1, round(initial_qty * self.REORDER_THRESHOLD))
+            threshold: int = max(1, round(initial_qty * self.REORDER_THRESHOLD))
             if current.get(sku, 0) <= threshold and sku not in queued_skus:
                 self._queue.append((self._originals[sku].reorder(), initial_qty))
                 triggered.append(sku)

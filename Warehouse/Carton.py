@@ -3,6 +3,7 @@ from Demand import Demand
 
 _MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
+_NUM_LIFT_GROUPS: int = 5
 
 
 def _sample_dim() -> int:
@@ -21,6 +22,7 @@ class Carton:
         self._sku: int = Carton.next_sku
         Carton.next_sku += 1
         self.demand: Demand = Demand()
+        self.lift_group: int = random.randint(1, _NUM_LIFT_GROUPS)
 
     def volume(self) -> int:
         return self.length * self.width * self.height
@@ -39,6 +41,7 @@ class Carton:
         c.storage_type = self.storage_type
         c._sku = self._sku
         c.demand = Demand.from_rates(self.demand.frequency, self.demand.quantity_rate)
+        c.lift_group = self.lift_group
         return c
 
     @property

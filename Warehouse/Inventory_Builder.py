@@ -1,7 +1,10 @@
 import random
+from collections import defaultdict
 from dataclasses import dataclass
 from Carton import Carton
 from Storage_Primitive import Storage_Type
+
+AffMatrix = dict[tuple[int, int], float]
 
 
 @dataclass
@@ -14,6 +17,31 @@ class InventoryConfig:
 class Inventory:
     def __init__(self, cartons: list[Carton]) -> None:
         self.cartons: list[Carton] = cartons
+
+    def affinity_matrix(
+        self,
+        min_lift: float = 1.5,
+        max_lift: float = 5.0,
+    ) -> AffMatrix:
+        """Return per-pair lift values for every within-group SKU pair.
+
+        Each unordered pair draws its own lift from uniform(min_lift, max_lift),
+        so within-group SKUs have varying correlation strength rather than a
+        flat value.  Both directions are stored identically (lift is symmetric).
+        Absent pairs are treated as 0.0 by callers.
+        """
+        by_group: dict[int, list[int]] = defaultdict(list)
+        for c in self.cartons:
+            by_group[c.lift_group].append(c.sku)
+
+        affinity: AffMatrix = {}
+        for skus in by_group.values():
+            for i, sku_i in enumerate(skus):
+                for sku_j in skus[i + 1:]:
+                    lift_val: float = random.uniform(min_lift, max_lift)
+                    affinity[(sku_i, sku_j)] = lift_val
+                    affinity[(sku_j, sku_i)] = lift_val
+        return affinity
 
 
 class Inventory_Builder:

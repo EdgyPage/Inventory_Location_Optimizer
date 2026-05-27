@@ -8,6 +8,7 @@ from typing import Any, Callable
 import numpy as np
 
 from Picking_Data import PickRecord
+from Workload import WorkloadParams, aisle_workload
 
 
 @dataclass
@@ -79,27 +80,37 @@ class Batch:
         skus = list(self.config.items.keys())
         return sum(affinity.get((i, j), 0.0) for i in skus for j in skus if i != j)
 
-    def true_load(self, params: LoadParams, affinity: AffMatrix) -> float:
-        """L_a = W_a + (lambda * (W_a / k) ^ gamma) * SUM_ij(B_ij)"""
-        W = float(self.total_quantity)
-        return W + (params.lambda_ * (W / params.k) ** params.gamma) * self.sum_affinity(affinity)
+    def true_load(self, params: LoadParams, affinity: AffMatrix, W_a: float) -> float:
+        """L_a = W_a + (lambda * (W_a / k) ^ gamma) * SUM_ij(B_ij)
+
+        W_a is the aisle workload computed externally via aisle_workload().
+        """
+        return W_a + (params.lambda_ * (W_a / params.k) ** params.gamma) * self.sum_affinity(affinity)
 
 
 def simulate_loads(
     batches: list[Batch],
+    workloads: list[float],
     params: LoadParams,
     affinity: AffMatrix,
     noise_std: float = 1.0,
     seed: int | None = None,
 ) -> list[float]:
-    """Return noisy load observations generated from the true equation."""
+    """Return noisy load observations generated from the true equation.
+
+    workloads[i] is W_a for batches[i], computed via aisle_workload().
+    """
     rng = random.Random(seed)
-    return [b.true_load(params, affinity) + rng.gauss(0.0, noise_std) for b in batches]
+    return [
+        b.true_load(params, affinity, W_a) + rng.gauss(0.0, noise_std)
+        for b, W_a in zip(batches, workloads)
+    ]
 
 
 def recover_load_params(
     batches: list[Batch],
     observed_loads: list[float],
+    workloads: list[float],
     affinity: AffMatrix,
     k: float,
 ) -> LoadParams:
@@ -109,12 +120,13 @@ def recover_load_params(
         log((L_a - W_a) / SUM_B) = log(lambda) + gamma * log(W_a / k)
     which is linear in [log(lambda), gamma].  Samples where L_a - W_a <= 0
     or SUM_B <= 0 are skipped (noise drove them out of the valid domain).
+
+    workloads[i] is W_a for batches[i], computed via aisle_workload().
     """
     rows_x: list[list[float]] = []
     rows_y: list[float] = []
 
-    for batch, L_obs in zip(batches, observed_loads):
-        W = float(batch.total_quantity)
+    for batch, L_obs, W in zip(batches, observed_loads, workloads):
         s = batch.sum_affinity(affinity)
         residual = L_obs - W
         if residual <= 0 or s <= 0 or W <= 0:
@@ -185,13 +197,19 @@ def travel_cost(
     return float(sum(abs(a - b) for a, b in zip(location, origin)))
 
 
+_SINGLETON_SIZES: frozenset[str] = frozenset({'small', 'medium'})
+_PALLET_SIZES: frozenset[str] = frozenset({'large', 'extra_large'})
+
+
 def build_velocity_assignment_fn(
     records: list[PickRecord],
     origin: tuple[int, int, int] = (1, 1, 1),
 ) -> Callable[[Any, list[Any]], Any | None]:
     """
-    Returns an AssignmentFn that places high-velocity SKUs closest to origin.
+    Returns an AssignmentFn that places high-velocity SKUs closest to origin,
+    prioritising singleton bins (small/medium) over pallet bins (large/extra_large).
 
+    Singleton bins are filled first; pallet bins absorb the remainder.
     SKUs absent from pick history receive a default mid-velocity score of 0.5.
     Compatible with Inventory_Manager's AssignmentFn signature:
         (StorageUnit, list[Aisle.Bin]) -> Aisle.Bin | None
@@ -201,13 +219,22 @@ def build_velocity_assignment_fn(
     def _fn(unit: Any, available_bins: list[Any]) -> Any | None:
         candidates: list[Any] = [
             b for b in available_bins
-            if b.storage_handling_type == unit.carton.storage_type and b.storage is None
+            if b.handling_type == unit.carton.storage_type[0]
+            and b.storage_type == unit.carton.storage_type[1]
+            and b.storage is None
         ]
         if not candidates:
             return None
+
+        singleton_bins: list[Any] = [b for b in candidates if b.storage_size in _SINGLETON_SIZES]
+        pallet_bins: list[Any]    = [b for b in candidates if b.storage_size in _PALLET_SIZES]
+        pool: list[Any] = singleton_bins if singleton_bins else pallet_bins
+        if not pool:
+            pool = candidates
+
         v_score: float = scores.get(unit.carton.sku, 0.5)
-        sorted_bins: list[Any] = sorted(candidates, key=lambda b: travel_cost(b.location, origin))
-        idx: int = round((1.0 - v_score) * (len(sorted_bins) - 1))
-        return sorted_bins[idx]
+        sorted_pool: list[Any] = sorted(pool, key=lambda b: travel_cost(b.location, origin))
+        idx: int = round((1.0 - v_score) * (len(sorted_pool) - 1))
+        return sorted_pool[idx]
 
     return _fn
