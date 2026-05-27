@@ -6,18 +6,18 @@ _MIN_DIM: int = 3
 _NUM_LIFT_GROUPS: int = 5
 
 
-def _sample_dim() -> int:
-    # mode=_MAX_DIM left-skews the distribution; most cartons cluster near the maximum dimension
-    return round(random.triangular(_MIN_DIM, _MAX_DIM, _MAX_DIM))
+def _sample_dim(max_dim: int = _MAX_DIM) -> int:
+    # mode=max_dim left-skews the distribution; most cartons cluster near the maximum dimension
+    return round(random.triangular(_MIN_DIM, max_dim, max_dim))
 
 
 class Carton:
     next_sku: int = 1
 
-    def __init__(self, storage_type: tuple[str, str], weight: int = 5) -> None:
-        self.length: int = _sample_dim()
-        self.width: int = _sample_dim()
-        self.height: int = _sample_dim()
+    def __init__(self, storage_type: tuple[str, str], weight: int = 5, max_dim: int = _MAX_DIM) -> None:
+        self.length: int = _sample_dim(max_dim)
+        self.width: int = _sample_dim(max_dim)
+        self.height: int = _sample_dim(max_dim)
         self.weight: int = weight
         self.storage_type: tuple[str, str] = storage_type
         self._sku: int = Carton.next_sku

@@ -2,9 +2,12 @@ import random
 from collections import defaultdict
 from dataclasses import dataclass
 from Carton import Carton
-from Storage_Primitive import Storage_Type
+from Storage_Primitive import Storage_Type, Singleton
 
 AffMatrix = dict[tuple[int, int], float]
+
+# largest dimension that still fits in a Singleton bin in any orientation
+_SINGLETON_MAX_DIM: int = Singleton.max_width   # 16
 
 
 @dataclass
@@ -12,6 +15,7 @@ class InventoryConfig:
     num_skus: int
     handling_splits: list[float]
     category_splits: list[float]
+    singleton_fraction: float = 0.0   # fraction of SKUs sized to fit singleton bins
 
 
 class Inventory:
@@ -61,7 +65,15 @@ class Inventory_Builder:
                 weights=config.category_splits,
                 k=1
             )[0]
-            self._cartons.append(Carton((handling, category)))
+            max_dim = (
+                _SINGLETON_MAX_DIM
+                if random.random() < config.singleton_fraction
+                else None
+            )
+            self._cartons.append(
+                Carton((handling, category)) if max_dim is None
+                else Carton((handling, category), max_dim=max_dim)
+            )
         return self
 
     def build(self) -> Inventory:
