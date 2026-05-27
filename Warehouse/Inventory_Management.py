@@ -26,6 +26,8 @@ def _uniform_assignment(_: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bi
 
 
 class Inventory_Manager:
+    REORDER_THRESHOLD: float = 0.10
+
     def __init__(
         self,
         warehouse: Warehouse,
@@ -36,6 +38,8 @@ class Inventory_Manager:
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         self._unavailable: list[Aisle.Bin] = []
         self._queue: deque[tuple[Carton, int]] = deque()
+        self._initial_quantities: dict[int, int] = {}   # sku → qty on first placement
+        self._originals: dict[int, Carton] = {}         # sku → original carton
 
         for b in warehouse.bins:
             if b.storage is None:
@@ -57,6 +61,28 @@ class Inventory_Manager:
             self._queue.append((carton, quantity))
         self._drain()
         return self
+
+    def check_reorders(self) -> list[int]:
+        """Enqueue replenishment for any SKU whose remaining quantity is at or below
+        10% of its initial placement quantity. Returns SKU IDs of triggered reorders."""
+        current: dict[int, int] = {}
+        for bin_ in self._unavailable:
+            if bin_.storage is not None:
+                sku = bin_.storage.carton.sku
+                current[sku] = current.get(sku, 0) + bin_.storage.quantity
+
+        queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
+
+        triggered: list[int] = []
+        for sku, initial_qty in self._initial_quantities.items():
+            threshold = max(1, round(initial_qty * self.REORDER_THRESHOLD))
+            if current.get(sku, 0) <= threshold and sku not in queued_skus:
+                self._queue.append((self._originals[sku].reorder(), initial_qty))
+                triggered.append(sku)
+
+        if triggered:
+            self._drain()
+        return triggered
 
     @property
     def available(self) -> list[Aisle.Bin]:
@@ -146,6 +172,9 @@ class Inventory_Manager:
                     bin_.storage = unit
                     self._index_remove(bin_)
                     self._unavailable.append(bin_)
+                if carton.sku not in self._initial_quantities:
+                    self._initial_quantities[carton.sku] = sum(u.quantity for u, _ in assigned)
+                    self._originals[carton.sku] = carton
             else:
                 pending.append((carton, qty))
         self._queue = pending
