@@ -78,6 +78,14 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# AffinityStore SQLite cache
+*.db
+*.db-shm
+*.db-wal
+
+# Claude Code memory
+.claude/
+
 # IPython
 profile_default/
 ipython_config.py
