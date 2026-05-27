@@ -9,6 +9,7 @@ from Inventory_Builder import Inventory, AffMatrix
 from Aisle_Storage import Aisle
 from Warehouse_Builder import Warehouse
 from Storage_Primitive import StorageCart
+from Affinity_Store import AffinityStore
 
 _CART_VOLUME: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
 
@@ -50,7 +51,7 @@ class Batch:
         self,
         config: BatchConfig,
         inventory: Inventory,
-        affinity: AffMatrix | None = None,
+        affinity: AffMatrix | AffinityStore | None = None,
     ) -> None:
         self.config = config
 
@@ -64,12 +65,21 @@ class Batch:
         candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]
         k = min(self.num_skus, len(candidates))
 
-        if affinity and k > 0:
+        if isinstance(affinity, dict) and k > 0:
+            # Pre-computed AffMatrix: use lift-weighted selection across candidates
             selected = _lift_weighted_sample(candidates, k, affinity)
         else:
+            # AffinityStore or None: random selection; pairs are loaded post-selection
             selected = random.sample(candidates, k) if k > 0 else []
 
         self.items: dict[int, int] = {c.sku: max(1, c.demand.sample()) for c in selected}
+
+        # Load pairwise lifts for the selected SKUs only — O(k²/G) per batch,
+        # not O(N²/G) for the full inventory. Available for analytics via batch.aff.
+        if isinstance(affinity, AffinityStore):
+            self.aff: AffMatrix = affinity.load_for_skus(list(self.items.keys()))
+        else:
+            self.aff: AffMatrix = affinity if isinstance(affinity, dict) else {}
 
 
 class Task:
