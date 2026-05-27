@@ -139,6 +139,7 @@ def _max_qty_fits(carton: Carton, unit_class: type[T]) -> int:
     if not _can_fit(carton, unit_class, 1):
         return 0
     lo: int = 1
+    # upper bound: tallest storage tier (48) divided by the minimum carton dimension (3)
     hi: int = max(Storage_Size.available_sizes_heights.values()) // 3
     while lo < hi:
         mid = (lo + hi + 1) // 2
@@ -173,6 +174,7 @@ def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
     pallet_vol: float = _total_volume(pallets) if pallets else float('inf')
     singleton_vol: float = _total_volume(singletons) if singletons else float('inf')
 
+    # tie goes to singletons: smaller footprint fits narrower forward-pick aisles
     return singletons if singleton_vol <= pallet_vol else pallets
 
 
@@ -217,6 +219,8 @@ class StorageCart:
             return 0
         self._remaining_volume -= actual * carton_vol
         self._contents.append((unit.carton, actual))
+        # mutates unit in-place; Inventory_Manager only learns the bin is empty
+        # when _reclaim_empty_bins() is called, not at pick time
         unit.quantity -= actual
         if unit.quantity == 0:
             bin_.storage = None

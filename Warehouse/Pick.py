@@ -237,7 +237,7 @@ class PickSimulation:
             'task_start': 'traveling',
             'arrive':     'picking',
             'cart_swap':  'cart_swap',
-            'pick':       'traveling',
+            'pick':       'traveling',  # pick is recorded at completion; picker is already moving
             'task_end':   'traveling',
         }
         status   = status_map.get(last.event_type, 'idle')

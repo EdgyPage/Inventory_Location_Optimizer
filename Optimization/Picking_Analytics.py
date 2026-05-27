@@ -234,6 +234,7 @@ def build_velocity_assignment_fn(
 
         v_score: float = scores.get(unit.carton.sku, 0.5)
         sorted_pool: list[Any] = sorted(pool, key=lambda b: travel_cost(b.location, origin))
+        # inverted: v_score=1.0 → idx=0 (nearest bin); v_score=0.0 → idx=last (furthest)
         idx: int = round((1.0 - v_score) * (len(sorted_pool) - 1))
         return sorted_pool[idx]
 

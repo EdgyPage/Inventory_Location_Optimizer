@@ -57,6 +57,8 @@ class Batch:
         mean = config.mean_fraction * config.inventory_size
         std  = config.std_fraction  * config.inventory_size
         self.num_skus: int    = max(1, min(config.inventory_size, round(random.gauss(mean, std))))
+        # random threshold gives each batch a different eligibility cutoff,
+        # modelling the variability in order selectivity across batches
         self.threshold: float = random.random()
 
         candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]

@@ -7,6 +7,7 @@ _NUM_LIFT_GROUPS: int = 5
 
 
 def _sample_dim() -> int:
+    # mode=_MAX_DIM left-skews the distribution; most cartons cluster near the maximum dimension
     return round(random.triangular(_MIN_DIM, _MAX_DIM, _MAX_DIM))
 
 
@@ -33,6 +34,7 @@ class Carton:
 
     def reorder(self) -> 'Carton':
         """Return a new shipment of this carton: same SKU, dimensions, weight, type, and demand rates."""
+        # object.__new__ bypasses __init__ so next_sku is not incremented for a restock
         c = object.__new__(Carton)
         c.length = self.length
         c.width = self.width

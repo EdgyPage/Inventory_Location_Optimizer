@@ -178,6 +178,7 @@ class Inventory_Manager:
             bin_ = self.assignment_fn(unit, candidates)
             if bin_ is None:
                 return None
+            # id(b) rather than b itself: Aisle.Bin defines no __hash__
             excluded.add(id(bin_))
             assigned.append((unit, bin_))
         return assigned
