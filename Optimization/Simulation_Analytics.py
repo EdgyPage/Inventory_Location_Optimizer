@@ -19,6 +19,15 @@ flag_batch_outliers(stats, iqr_factor)
 
 flag_task_outliers(stats, iqr_factor)
     IQR outlier detection on task duration.
+
+build_placed_affinity(warehouse, inventory, max_per_group)
+    Sparse lift matrix for only the SKUs that have a physical bin.
+
+task_stats_to_aisle_loads(task_stats, run_id)
+    Convert TaskStats records into AisleLoadRecords for parameter recovery.
+
+recover_params_to_db(db_path, run_id, records, k_per_task, ...)
+    Full IQR-clean recovery pipeline — fits LoadParams and persists to DB.
 """
 from __future__ import annotations
 
@@ -294,3 +303,205 @@ def flag_task_outliers(
         )
         for s, d in zip(stats, durations)
     ]
+
+
+# ── affinity helpers ──────────────────────────────────────────────────────────
+
+def build_placed_affinity(
+    warehouse,
+    inventory,
+    max_per_group: int = 300,
+) -> dict:
+    """Build a sparse lift matrix covering only placed SKUs.
+
+    Calling inventory.affinity_matrix() on 50 000+ SKUs with 5 lift groups
+    of ~10 000 each generates ~250 M pairs — impractical.  This function caps
+    each lift group at max_per_group placed SKUs, yielding a bounded dict
+    (5 * C(300,2) * 2 ≈ 450 k entries at the default) while still producing
+    non-zero lift_sums for tasks that contain two or more eligible SKUs.
+
+    Parameters
+    ----------
+    warehouse      : built Warehouse object (bins already stocked)
+    inventory      : Inventory object whose cartons have .sku and .lift_group
+    max_per_group  : SKUs with affinity per lift group; higher → denser lift
+                     coverage but more memory (~150 MB at 1 000 per group)
+    """
+    import random as _rng
+    from collections import defaultdict
+
+    placed_skus: set[int] = {
+        b.storage.carton.sku
+        for b in warehouse.bins
+        if b.storage is not None
+    }
+
+    by_group: defaultdict[int, list[int]] = defaultdict(list)
+    for c in inventory.cartons:
+        if c.sku in placed_skus:
+            by_group[c.lift_group].append(c.sku)
+
+    affinity: dict = {}
+    for skus in by_group.values():
+        eligible = skus[:max_per_group]
+        for i, sku_i in enumerate(eligible):
+            for sku_j in eligible[i + 1:]:
+                lv = _rng.uniform(1.5, 5.0)
+                affinity[(sku_i, sku_j)] = lv
+                affinity[(sku_j, sku_i)] = lv
+
+    return affinity
+
+
+# ── recovery pipeline ─────────────────────────────────────────────────────────
+
+def task_stats_to_aisle_loads(
+    task_stats: list[TaskStats],
+    run_id: int = 0,
+) -> list:
+    """Convert TaskStats records into AisleLoadRecords for parameter recovery.
+
+    Maps task simulation duration → observed_L_a.  Records with duration <= 0
+    or W_a <= 0 are excluded; they cannot contribute to OLS regression.
+    """
+    from Picking_Data import AisleLoadRecord
+
+    return [
+        AisleLoadRecord(
+            run_id       = run_id,
+            batch_id     = s.batch_id,
+            aisle_id     = s.aisle_id,
+            W_a          = s.W_a,
+            lift_sum     = s.lift_sum,
+            observed_L_a = s.duration,
+        )
+        for s in task_stats
+        if s.duration > 0.0 and s.W_a > 0.0
+    ]
+
+
+def recover_params_to_db(
+    db_path: str,
+    run_id: int,
+    records: list,
+    k_per_task: int = 1,
+    json_path: str | None = None,
+    do_plot: bool = False,
+) -> object:
+    """Full IQR-clean recovery pipeline: fit LoadParams and persist to DB.
+
+    Steps
+    -----
+    1. OLS fit on all records → raw_params.
+    2. Flag outliers via IQR on (observed_L_a - W_a) residual.
+    3. OLS fit on clean subset → clean_params.
+    4. RMSE for raw and clean fits.
+    5. Save flagged AisleLoadRecords to aisle_loads table.
+    6. Save RecoveredParams to recovered_params table.
+    7. Optionally export JSON and plot.
+
+    Returns the RecoveredParams instance stored in the DB, or None if there
+    are no usable records (lift_sum = 0 for all, or fewer than 2 valid points).
+
+    Parameters
+    ----------
+    k_per_task : pickers assigned to a single aisle task — almost always 1
+        in a simulation where each task goes to one picker.  This is NOT the
+        total picker count; passing the fleet size will shrink W_a/k by that
+        factor and produce wrong λ/γ estimates.
+
+    Notes
+    -----
+    Records with lift_sum = 0 are automatically skipped by
+    recover_params_from_records — they contribute to the outlier / RMSE
+    calculation but not to the OLS fit.  Use build_placed_affinity() before
+    the simulation loop to ensure non-zero lift_sums.
+    """
+    from math import sqrt
+    from datetime import datetime, timezone
+
+    from Picking_Analytics import (
+        aisle_load_from_sum,
+        flag_outliers,
+        plot_loads,
+        recover_params_from_records,
+    )
+    from Picking_Data import (
+        RecoveredParams,
+        export_params_json,
+        save_aisle_loads,
+        save_recovered_params,
+    )
+
+    if not records:
+        print('  [recovery] No records supplied — skipping.')
+        return None
+
+    k = float(k_per_task)
+
+    # ── raw fit ────────────────────────────────────────────────────────────────
+    raw_params = recover_params_from_records(records, k)
+    raw_rmse   = sqrt(
+        sum(
+            (aisle_load_from_sum(r.W_a, r.lift_sum, raw_params) - r.observed_L_a) ** 2
+            for r in records
+        ) / max(len(records), 1)
+    )
+
+    # ── IQR outlier flagging + clean fit ───────────────────────────────────────
+    flagged = flag_outliers(records, iqr_factor=1.5)
+    clean   = [r for r in flagged if not r.is_outlier]
+
+    if len(clean) >= 3:
+        clean_params = recover_params_from_records(clean, k)
+        clean_rmse   = sqrt(
+            sum(
+                (aisle_load_from_sum(r.W_a, r.lift_sum, clean_params) - r.observed_L_a) ** 2
+                for r in clean
+            ) / len(clean)
+        )
+    else:
+        clean_params = raw_params
+        clean_rmse   = raw_rmse
+
+    # ── persist ────────────────────────────────────────────────────────────────
+    for r in flagged:
+        r.run_id = run_id
+    save_aisle_loads(db_path, run_id, flagged)
+
+    rp = RecoveredParams(
+        run_id     = run_id,
+        lambda_    = clean_params.lambda_,
+        k          = clean_params.k,
+        gamma      = clean_params.gamma,
+        n_samples  = len(records),
+        n_clean    = len(clean),
+        rmse_raw   = raw_rmse,
+        rmse_clean = clean_rmse,
+        timestamp  = datetime.now(timezone.utc).isoformat(),
+    )
+    save_recovered_params(db_path, rp)
+
+    if json_path:
+        export_params_json(rp, json_path)
+
+    n_valid = sum(1 for r in records if r.lift_sum > 0)
+    print(
+        f'  Records : {len(records):,}  |  lift_sum > 0 : {n_valid:,}  |  '
+        f'outliers : {len(records) - len(clean):,}  |  clean : {len(clean):,}\n'
+        f'  Raw    — RMSE={raw_rmse:.4f}  '
+        f'lambda={raw_params.lambda_:.4f}  gamma={raw_params.gamma:.4f}\n'
+        f'  Clean  — RMSE={clean_rmse:.4f}  '
+        f'lambda={clean_params.lambda_:.4f}  gamma={clean_params.gamma:.4f}  '
+        f'k={clean_params.k:.1f}'
+    )
+
+    if do_plot:
+        plot_loads(
+            flagged,
+            raw_params   = raw_params,
+            clean_params = clean_params,
+            title        = f'Run {run_id} — LoadParams Recovery (simulation data)',
+        )
+
+    return rp

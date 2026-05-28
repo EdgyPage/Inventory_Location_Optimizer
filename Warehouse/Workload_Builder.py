@@ -5,6 +5,8 @@ import random
 from collections import defaultdict
 from dataclasses import dataclass
 
+import numpy as np
+
 from Inventory_Builder import Inventory, AffMatrix
 from Aisle_Storage import Aisle
 from Warehouse_Builder import Warehouse
@@ -12,6 +14,22 @@ from Storage_Primitive import StorageCart
 from Affinity_Store import AffinityStore
 
 _CART_VOLUME: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
+
+# Module-level cache keyed by affinity dict id so the O(|affinity|) partner-map
+# build is paid only once per unique affinity object across all batch calls in a run.
+_partner_map_cache: dict[int, dict[int, list[tuple[int, float]]]] = {}
+
+
+def _get_partner_map(affinity: AffMatrix) -> dict[int, list[tuple[int, float]]]:
+    key = id(affinity)
+    if key not in _partner_map_cache:
+        pm: dict[int, list[tuple[int, float]]] = defaultdict(list)
+        for (si, sj), v in affinity.items():
+            if si < sj:
+                pm[si].append((sj, v))
+                pm[sj].append((si, v))
+        _partner_map_cache[key] = dict(pm)
+    return _partner_map_cache[key]
 
 
 @dataclass
@@ -28,20 +46,41 @@ def _lift_weighted_sample(
 ) -> list:
     """Sample k items from candidates, weighting each by demand.frequency plus
     cumulative lift to already-selected SKUs.  High-lift partners of chosen SKUs
-    become progressively more likely to be drawn next."""
-    remaining = list(candidates)
-    selected: list = []
-    selected_skus: set[int] = set()
+    become progressively more likely to be drawn next.
 
-    while len(selected) < k and remaining:
-        weights = [
-            c.demand.frequency + sum(affinity.get((s, c.sku), 0.0) for s in selected_skus)
-            for c in remaining
-        ]
-        chosen = random.choices(remaining, weights=weights, k=1)[0]
+    Uses numpy vectorised cumsum for O(N) weighted selection per step and a
+    module-level partner_map cache so the O(|affinity|) adjacency build is paid
+    only once per unique affinity dict across all batches in a run.
+    """
+    partner_map = _get_partner_map(affinity)
+
+    n = len(candidates)
+    sku_to_idx: dict[int, int] = {c.sku: i for i, c in enumerate(candidates)}
+    base_weights = np.fromiter(
+        (c.demand.frequency for c in candidates), dtype=np.float64, count=n
+    )
+    lift_bonus = np.zeros(n, dtype=np.float64)
+    active = np.ones(n, dtype=bool)
+    w = np.empty(n, dtype=np.float64)
+    selected: list = []
+
+    for _ in range(k):
+        np.add(base_weights, lift_bonus, out=w)
+        w[~active] = 0.0
+        total: float = float(w.sum())
+        if total <= 0.0:
+            break
+        cumw = np.cumsum(w)
+        idx = int(np.searchsorted(cumw, random.uniform(0.0, total)))
+        if idx >= n:
+            idx = n - 1
+        chosen = candidates[idx]
         selected.append(chosen)
-        selected_skus.add(chosen.sku)
-        remaining.remove(chosen)
+        active[idx] = False
+        for partner_sku, lv in partner_map.get(chosen.sku, []):
+            j = sku_to_idx.get(partner_sku)
+            if j is not None:
+                lift_bonus[j] += lv
 
     return selected
 

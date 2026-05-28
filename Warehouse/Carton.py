@@ -3,7 +3,6 @@ from Demand import Demand, poisson_sample
 
 _MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
-_NUM_LIFT_GROUPS: int = 5
 
 
 def _sample_dim(max_dim: int = _MAX_DIM) -> int:
@@ -30,7 +29,7 @@ class Carton:
         self._sku: int = Carton.next_sku
         Carton.next_sku += 1
         self.demand: Demand = Demand()
-        self.lift_group: int = random.randint(1, _NUM_LIFT_GROUPS)
+        self.lift_group: tuple[str, str] = storage_type
 
     def volume(self) -> int:
         return self.length * self.width * self.height

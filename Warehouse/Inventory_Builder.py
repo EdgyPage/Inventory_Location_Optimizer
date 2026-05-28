@@ -26,22 +26,24 @@ class Inventory:
         self,
         min_lift: float = 1.5,
         max_lift: float = 5.0,
+        max_per_group: int = 500,
     ) -> AffMatrix:
-        """Return per-pair lift values for every within-group SKU pair.
+        """Return per-pair lift values for within-(handling, category) SKU pairs.
 
-        Each unordered pair draws its own lift from uniform(min_lift, max_lift),
-        so within-group SKUs have varying correlation strength rather than a
-        flat value.  Both directions are stored identically (lift is symmetric).
-        Absent pairs are treated as 0.0 by callers.
+        SKUs are grouped by storage_type — only items that share the same handling
+        and category can be co-located, so cross-group lift is always zero.
+        Each group is capped at max_per_group SKUs to keep the matrix sparse
+        enough for batch sampling at warehouse scale.
         """
-        by_group: dict[int, list[int]] = defaultdict(list)
+        by_group: dict[tuple[str, str], list[int]] = defaultdict(list)
         for c in self.cartons:
             by_group[c.lift_group].append(c.sku)
 
         affinity: AffMatrix = {}
         for skus in by_group.values():
-            for i, sku_i in enumerate(skus):
-                for sku_j in skus[i + 1:]:
+            eligible = skus[:max_per_group]
+            for i, sku_i in enumerate(eligible):
+                for sku_j in eligible[i + 1:]:
                     lift_val: float = random.uniform(min_lift, max_lift)
                     affinity[(sku_i, sku_j)] = lift_val
                     affinity[(sku_j, sku_i)] = lift_val
