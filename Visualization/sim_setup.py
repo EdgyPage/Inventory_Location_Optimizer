@@ -87,7 +87,7 @@ def build_simulation(seed: int = 42) -> dict:
         x_move_time=1.0,
         y_move_time=0.5,
         pick_intercept=1.0,
-        pick_weight_coef=0.1,
+        pick_weight_coef=0.02,
         pick_volume_coef=1e-4,
         cart_swap_coef=5.0,
     )

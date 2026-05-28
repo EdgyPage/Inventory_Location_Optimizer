@@ -22,7 +22,7 @@ class WorkloadParams:
     x_move_time: float      = 1.0
     y_move_time: float      = 0.5
     pick_intercept: float   = 1.0
-    pick_weight_coef: float = 0.1
+    pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
     cart_swap_coef: float   = 5.0
 

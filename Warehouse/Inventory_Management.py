@@ -21,8 +21,18 @@ _SIZE_RANKS: dict[str, int] = {
 BinKey = tuple[str, str, str, str]
 
 
-def _uniform_assignment(_: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
-    return random.choice(candidates) if candidates else None
+def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
+    handling, category = unit.carton.storage_type
+    unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
+    min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+    compatible = [
+        b for b in candidates
+        if b.handling_type == handling
+        and b.storage_type == category
+        and b.unit_type == unit_type
+        and _SIZE_RANKS[b.storage_size] >= min_rank
+    ]
+    return random.choice(compatible) if compatible else None
 
 
 class Inventory_Manager:
