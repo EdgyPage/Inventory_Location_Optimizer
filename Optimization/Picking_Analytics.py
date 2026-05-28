@@ -508,6 +508,103 @@ def build_load_minimizing_assignment_fn(
     return assign
 
 
+def build_load_maximizing_assignment_fn(
+    params: LoadParams,
+    affinity: AffMatrix,
+    wp: WorkloadParams,
+) -> Callable[[Any, list[Any]], Any | None]:
+    """Build an AssignmentFn that greedily maximises the L2 norm of predicted
+    aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
+
+    Structural mirror of build_load_minimizing_assignment_fn — identical scoring
+    logic but takes the maximum delta_l2 aisle instead of the minimum, concentrating
+    high-affinity SKUs together and amplifying congestion.  Useful as a worst-case
+    baseline when benchmarking load-minimizing strategies.
+
+    Tiebreak on equal delta_l2: prefers the currently *heavier* aisle (larger old_L)
+    to further concentrate load rather than spread it.
+
+    Parameters
+    ----------
+    params   : LoadParams — lambda_, k (pickers *per task*, normally 1), gamma
+    affinity : symmetric lift matrix produced by build_placed_affinity()
+    wp       : WorkloadParams — x_move_time and y_move_time are used for W_a
+    """
+    from collections import defaultdict as _dd
+    import random as _rand
+
+    sku_partners: dict[int, dict[int, float]] = _dd(dict)
+    for (i, j), v in affinity.items():
+        sku_partners[i][j] = v
+
+    aisle_sku_sets: dict[int, set[int]]  = _dd(set)
+    aisle_lift_sum: dict[int, float]     = _dd(float)
+    aisle_W_cache:  dict[int, float]     = {}
+
+    lam = params.lambda_
+    k   = params.k
+    gam = params.gamma
+
+    def _w(aisle_obj: Any) -> float:
+        aid = aisle_obj.aisle_id
+        if aid not in aisle_W_cache:
+            aisle_W_cache[aid] = (
+                wp.x_move_time * aisle_obj.bayXPerAisle
+                + wp.y_move_time * aisle_obj.bayYPerAisle
+            )
+        return aisle_W_cache[aid]
+
+    def _L(W: float, ls: float) -> float:
+        return W + lam * (W / k) ** gam * ls
+
+    def assign(unit: Any, candidates: list[Any]) -> Any | None:
+        if not candidates:
+            return None
+
+        sku      = unit.carton.sku
+        partners = sku_partners.get(sku, {})
+
+        bins_by_aisle: dict[int, list[Any]] = _dd(list)
+        aisle_obj_map: dict[int, Any]       = {}
+        for b in candidates:
+            aid = b.location[0]
+            bins_by_aisle[aid].append(b)
+            if aid not in aisle_obj_map:
+                aisle_obj_map[aid] = b.aisle
+
+        best_aid:        int   = -1
+        best_score: tuple[float, float] = (float('-inf'), float('-inf'))
+        best_delta_lift: float = 0.0
+
+        for aid, _bins in bins_by_aisle.items():
+            W  = _w(aisle_obj_map[aid])
+            ls = aisle_lift_sum[aid]
+
+            delta_lift = 2.0 * sum(
+                v for si, v in partners.items() if si in aisle_sku_sets[aid]
+            )
+
+            old_L    = _L(W, ls)
+            new_L    = _L(W, ls + delta_lift)
+            delta_l2 = new_L * new_L - old_L * old_L
+
+            score = (delta_l2, old_L)   # tiebreak: prefer currently heavier aisle
+            if score > best_score:
+                best_score       = score
+                best_aid         = aid
+                best_delta_lift  = delta_lift
+
+        if best_aid == -1:
+            return None
+
+        aisle_lift_sum[best_aid] += best_delta_lift
+        aisle_sku_sets[best_aid].add(sku)
+
+        return _rand.choice(bins_by_aisle[best_aid])
+
+    return assign
+
+
 def build_velocity_assignment_fn(
     records: list[PickRecord],
     origin: tuple[int, int, int] = (1, 1, 1),

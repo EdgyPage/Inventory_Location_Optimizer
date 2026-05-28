@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -53,8 +54,8 @@ def aisle_workload(
     W_a = travel_time + pick_time + cart_penalty
 
     travel_time  = x_traversed * x_move_time + y_traversed * y_move_time
-    pick_time    = Σ_stops (intercept + weight_coef*weight*qty
-                                      + volume_coef*volume*qty)
+    pick_time    = Σ_stops (intercept + weight_coef*ln(weight)*qty
+                                      + volume_coef*ln(volume)*qty)
     cart_penalty = cart_swap_coef * max(0, carts_required - 1)
 
     Parameters
@@ -71,8 +72,8 @@ def aisle_workload(
     )
     pick: float = sum(
         params.pick_intercept
-        + params.pick_weight_coef * weight * qty
-        + params.pick_volume_coef * volume * qty
+        + params.pick_weight_coef * math.log(weight) * qty
+        + params.pick_volume_coef * math.log(volume) * qty
         for weight, volume, qty in pick_lines
     )
     cart_penalty: float = params.cart_swap_coef * max(0, carts_required - 1)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from Storage_Primitive import StorageCart
@@ -15,7 +16,7 @@ class PickConfig:
     num_pickers: int        = 1
     x_move_time: float      = 1.0   # time units per bayX step
     y_move_time: float      = 0.5   # time units per bayY step (half of x)
-    # Linear model: pick_time = intercept + weight_coef*weight*qty + volume_coef*volume*qty + cart_swap_coef*swapped
+    # Log model: pick_time = intercept + weight_coef*ln(weight)*qty + volume_coef*ln(volume)*qty + cart_swap_coef*swapped
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
@@ -73,11 +74,11 @@ class PickerProgress:
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int, cart_swapped: bool) -> float:
-    """Linear regression model for time to pick `quantity` units of a carton."""
+    """Log-linear regression model for time to pick `quantity` units of a carton."""
     return (
         cfg.pick_intercept
-        + cfg.pick_weight_coef * weight * quantity
-        + cfg.pick_volume_coef * volume * quantity
+        + cfg.pick_weight_coef * math.log(weight) * quantity
+        + cfg.pick_volume_coef * math.log(volume) * quantity
         + cfg.cart_swap_coef * int(cart_swapped)
     )
 
