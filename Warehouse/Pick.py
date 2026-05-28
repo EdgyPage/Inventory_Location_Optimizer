@@ -17,7 +17,7 @@ class PickConfig:
     y_move_time: float      = 0.5   # time units per bayY step (half of x)
     # Linear model: pick_time = intercept + weight_coef*weight*qty + volume_coef*volume*qty + cart_swap_coef*swapped
     pick_intercept: float   = 1.0
-    pick_weight_coef: float = 0.1
+    pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
     cart_swap_coef: float   = 5.0
 

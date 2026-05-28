@@ -1,5 +1,15 @@
-import random
 import math
+import random
+
+
+def poisson_sample(lam: float) -> int:
+    """Knuth's algorithm: return a Poisson-distributed integer with mean `lam`."""
+    threshold = math.exp(-lam)
+    k, p = 0, 1.0
+    while p > threshold:
+        k += 1
+        p *= random.random()
+    return k - 1
 
 
 class Demand:
@@ -27,11 +37,4 @@ class Demand:
         return self.quantity_rate
 
     def sample(self) -> int:
-        # Knuth's algorithm: Poisson sample with mean = quantity_rate
-        L: float = math.exp(-self.quantity_rate)
-        k: int = 0
-        p: float = 1.0
-        while p > L:
-            k += 1
-            p *= random.random()
-        return k - 1
+        return poisson_sample(self.quantity_rate)

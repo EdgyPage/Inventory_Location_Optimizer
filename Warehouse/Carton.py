@@ -1,6 +1,5 @@
-import math
 import random
-from Demand import Demand
+from Demand import Demand, poisson_sample
 
 _MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
@@ -12,21 +11,11 @@ def _sample_dim(max_dim: int = _MAX_DIM) -> int:
     return round(random.triangular(_MIN_DIM, max_dim, max_dim))
 
 
-def _poisson(lam: float) -> int:
-    """Knuth's algorithm — same approach used in Demand.sample()."""
-    threshold = math.exp(-lam)
-    k, p = 0, 1.0
-    while p > threshold:
-        k += 1
-        p *= random.random()
-    return k - 1
-
-
 def _sample_weight(length: int, width: int, height: int) -> int:
     # λ = cube root of volume so weight correlates with linear size, not volume;
     # large pallets average ~48 weight units, small singletons average ~3–16.
-    lam = max(1.0, (length * width * height) ** (1 / 3))
-    return max(1, _poisson(lam))
+    lam = (length * width * height) ** (1 / 3)
+    return max(1, poisson_sample(lam))
 
 
 class Carton:
