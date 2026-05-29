@@ -1,0 +1,17 @@
+{
+  "name": "high_cart_weight_volume_penalty",
+  "pick_weight_coef": 2.5,
+  "pick_volume_coef": 0.005,
+  "pick_intercept": 1.0,
+  "cart_swap_coef": 25.0,
+  "x_move_time": 1.0,
+  "y_move_time": 0.5,
+  "num_pickers": 25,
+  "total_aisles": 180,
+  "bins_per_aisle": 500,
+  "fill_target": 0.85,
+  "batch_mean_frac": 0.25,
+  "n_batches": 1000,
+  "seed_world": 42,
+  "seed_batches": 1337
+}
