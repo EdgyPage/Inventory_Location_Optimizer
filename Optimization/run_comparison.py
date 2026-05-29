@@ -42,12 +42,12 @@ from Pick import PickConfig, PickSimulation
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import Batch, BatchConfig, Task
 
-from Picking_Analytics import (
+from Inventory_Management import (
     LoadParams,
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
-    sum_lift as _sum_lift,
 )
+from Picking_Analytics import sum_lift as _sum_lift
 from Picking_Data import (
     BatchStats, TaskStats,
     create_run, init_run_db,
