@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from Storage_Primitive import StorageCart
 from Workload_Builder import Task
+
+if TYPE_CHECKING:
+    from Inventory_Management import Inventory_Manager
 
 _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
 
@@ -92,12 +96,18 @@ class PickSimulation:
     each picker works through their assigned aisles in order.
     """
 
-    def __init__(self, tasks: list[Task], config: PickConfig) -> None:
+    def __init__(
+        self,
+        tasks  : list[Task],
+        config : PickConfig,
+        manager: Inventory_Manager | None = None,
+    ) -> None:
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
         self._picker_tasks: list[list[Task]] = [[] for _ in range(config.num_pickers)]
         for i, task in enumerate(sorted_tasks):
             self._picker_tasks[i % config.num_pickers].append(task)
-        self._config = config
+        self._config  = config
+        self._manager = manager
         self._events: list[PickEvent] | None = None
 
     def run(self) -> list[PickEvent]:
@@ -199,6 +209,14 @@ class PickSimulation:
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
                 ))
+
+                # Deplete the bin; if emptied set storage to None so the
+                # manager reclaims it during check_reorders().
+                bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
+                if bin_.storage.quantity == 0:
+                    bin_.storage = None
+                if self._manager is not None:
+                    self._manager.check_reorders()
 
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_end',

@@ -377,11 +377,20 @@ def velocity_scores(metrics: dict[int, SkuMetrics]) -> dict[int, float]:
 
 
 def travel_cost(
-    location: tuple[int, int, int],
-    origin: tuple[int, int, int] = (1, 1, 1),
+    bin_: Any,
+    x_time: float = 1.0,
+    y_time: float = 0.5,
+    origin_x: int = 1,
+    origin_y: int = 1,
 ) -> float:
-    """Manhattan distance from origin to bin location (aisle_id, bayX, bayY)."""
-    return float(sum(abs(a - b) for a, b in zip(location, origin)))
+    """Estimated travel time from origin to a bin using its actual coordinates.
+
+    Uses b.bayX and b.bayY (the bin's physical position within the aisle)
+    weighted by the per-step move times, matching the simulation's cost model.
+    The aisle_id dimension is excluded — cross-aisle routing is handled by the
+    Inventory_Manager's candidate pre-filtering, not by this cost.
+    """
+    return x_time * abs(bin_.bayX - origin_x) + y_time * abs(bin_.bayY - origin_y)
 
 
 _SINGLETON_SIZES: frozenset[str] = frozenset({'small', 'medium'})
@@ -389,14 +398,29 @@ _PALLET_SIZES: frozenset[str] = frozenset({'large', 'extra_large'})
 
 
 def build_velocity_assignment_fn(
-    records: list[PickRecord],
-    origin: tuple[int, int, int] = (1, 1, 1),
+    records : list[PickRecord],
+    wp      : WorkloadParams | None = None,
+    origin_x: int = 1,
+    origin_y: int = 1,
 ) -> Callable[[Any, list[Any]], Any | None]:
     """Returns an AssignmentFn placing high-velocity SKUs closest to origin.
+
+    Bins are ranked by weighted travel cost (b.bayX * x_time + b.bayY * y_time)
+    so the scoring reflects how long a picker physically takes to reach each bin,
+    consistent with the simulation's move-time model.
+
+    wp          : WorkloadParams supplying x_move_time / y_move_time.
+                  Defaults to WorkloadParams() (x=1.0, y=0.5) if not provided.
+    origin_x/y  : starting position within an aisle (default: bay (1, 1)).
 
     Compatible with Inventory_Manager's AssignmentFn signature:
         (StorageUnit, list[Aisle.Bin]) -> Aisle.Bin | None
     """
+    if wp is None:
+        wp = WorkloadParams()
+    x_time = wp.x_move_time
+    y_time = wp.y_move_time
+
     scores: dict[int, float] = velocity_scores(compute_sku_metrics(records))
 
     def _fn(unit: Any, available_bins: list[Any]) -> Any | None:
@@ -416,7 +440,9 @@ def build_velocity_assignment_fn(
             pool = candidates
 
         v_score: float = scores.get(unit.carton.sku, 0.5)
-        sorted_pool: list[Any] = sorted(pool, key=lambda b: travel_cost(b.location, origin))
+        sorted_pool: list[Any] = sorted(
+            pool, key=lambda b: travel_cost(b, x_time, y_time, origin_x, origin_y)
+        )
         idx: int = round((1.0 - v_score) * (len(sorted_pool) - 1))
         return sorted_pool[idx]
 

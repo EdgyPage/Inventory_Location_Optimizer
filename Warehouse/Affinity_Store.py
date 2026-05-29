@@ -118,6 +118,36 @@ class AffinityStore:
 
         return result
 
+    def partners(self, sku: int) -> dict[int, float]:
+        """Return {partner_sku: lift} for every stored pair where sku is sku_i.
+
+        Uses the idx_affinity_sku_i index, so this is an O(degree) lookup with
+        no full-table scan.  Called once per SKU during inventory placement.
+        """
+        rows = self._conn.execute(
+            'SELECT sku_j, lift FROM affinity WHERE sku_i = ?', (sku,)
+        ).fetchall()
+        return dict(rows)
+
+    def sum_lift(self, skus: list[int]) -> float:
+        """Total pairwise lift for all ordered pairs within skus.
+
+        Equivalent to sum_lift(skus, affinity_dict) from Picking_Analytics but
+        computed with a single SQL SUM instead of a Python loop over the dict.
+        Both (i,j) and (j,i) are stored, so the WHERE clause naturally counts
+        each undirected pair twice — matching the ordered-pair convention used
+        throughout the codebase.
+        """
+        if len(skus) < 2:
+            return 0.0
+        ph  = ','.join('?' * len(skus))
+        row = self._conn.execute(
+            f'SELECT COALESCE(SUM(lift), 0.0) FROM affinity '
+            f'WHERE sku_i IN ({ph}) AND sku_j IN ({ph})',
+            skus + skus,
+        ).fetchone()
+        return float(row[0])
+
     def close(self) -> None:
         self._conn.close()
 

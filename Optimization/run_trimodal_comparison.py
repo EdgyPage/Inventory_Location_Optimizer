@@ -1,16 +1,35 @@
 """
-Warehouse assignment strategy comparison — standalone runner.
+Warehouse assignment strategy comparison using pre-generated inventory and
+affinity databases (trimodal_spiky profile or any compatible DB pair).
 
-Replicates assignment_comparison.ipynb but runs as a plain Python process:
-  - No Jupyter kernel / no GUI (matplotlib Agg backend)
-  - Logs progress to both stdout and a log file in the output directory
-  - Checkpoints random state every 100 batches so a crash can be resumed:
-      python run_comparison.py                        # new run
-      python run_comparison.py --resume <base_dir>    # continue crashed run
+Differences from run_comparison.py
+-----------------------------------
+- Inventory is loaded from an inventory.db (generate_inventory.py output)
+  instead of being built at startup.
+- Affinity is loaded from an affinity.db (generate_affinity.py output)
+  instead of being computed from the inventory.
+- Warehouse size is set so total bins = ceil(N_SKUS * 1.10) — 10% more bins
+  than the inventory.  With 60 aisle types × 500 bins/aisle, this means the
+  smallest number of replicas such that replicas × 30,000 ≥ N_SKUS × 1.1.
+- Crash resume works the same way as run_comparison.py (resume.pkl).
+
+Usage
+-----
+python run_trimodal_comparison.py \\
+    --inventory-db Warehouse/generated/batches/<batch>/trimodal_spiky/inventory/inventory.db \\
+    --affinity-db  Warehouse/generated/batches/<batch>/trimodal_spiky/affinity/affinity.db
+
+# Resume a crashed run:
+python run_trimodal_comparison.py \\
+    --inventory-db ... --affinity-db ... \\
+    --resume Optimization/trimodal_comparison_<timestamp>
+
+# Cap affinity to 500 SKUs/group for fast testing:
+python run_trimodal_comparison.py --inventory-db ... --affinity-db ... --max-per-group 500
 """
 
 import matplotlib
-matplotlib.use('Agg')  # must come before pyplot import
+matplotlib.use('Agg')
 
 import argparse
 import json
@@ -30,26 +49,25 @@ import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
 
-# ── path setup ────────────────────────────────────────────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(_HERE, '..', 'Warehouse')))
 sys.path.insert(0, _HERE)
 
 from Aisle_Storage import Aisle
-from Affinity_Store import AffinityStore
-from Inventory_Management import Inventory_Manager
-from generate_inventory import load_inventory_from_db
-from Pick import PickConfig, PickSimulation
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Workload_Builder import Batch, BatchConfig, Task
-
+from Carton import Carton
 from Inventory_Management import (
+    Inventory_Manager,
     LoadParams,
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
 )
+from Pick import PickConfig, PickSimulation
+from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Workload_Builder import Batch, BatchConfig, Task
+
+from Affinity_Store import AffinityStore
+from generate_inventory import load_inventory_from_db
 from Picking_Data import (
-    BatchStats, TaskStats,
     create_run, init_run_db,
     save_batch_stats, load_batch_stats,
     save_task_stats, load_task_stats,
@@ -69,11 +87,6 @@ _CHECKPOINT      = 100
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_BINS_PER_AISLE  = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
-
-_DEFAULT_BATCHES_DIR = os.path.normpath(
-    os.path.join(_HERE, '..', 'Warehouse', 'generated', 'batches')
-)
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
@@ -89,8 +102,8 @@ _B_COL      = '#f4a030'
 _C_COL      = '#70ad47'
 _TRAVEL_COL = '#a9a9a9'
 
-# ── warehouse configuration ────────────────────────────────────────────────────
-_AISLE_CFGS = []
+# Fixed aisle type layout — same physical shape as run_comparison.py
+_AISLE_CFGS: list[AisleConfig] = []
 for _size in _ALL_SIZES:
     for _cat in _CATEGORIES:
         _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 20, [_size], None))
@@ -99,7 +112,8 @@ for _cat in _CATEGORIES:
     _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 20, _CONV_SIZES,  _CONV_PROBS))
     _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 20, _NCONV_SIZES, _NCONV_PROBS))
 
-_N_TYPES = len(_AISLE_CFGS)   # 60
+_N_TYPES       = len(_AISLE_CFGS)   # 60
+_BINS_PER_AISLE = 25 * 20           # 500
 
 REGRESSION_CONFIGS = [
     {
@@ -140,10 +154,12 @@ REGRESSION_CONFIGS = [
 ]
 
 
+
+
 # ── logging ────────────────────────────────────────────────────────────────────
 
 def _setup_logging(log_path: str) -> logging.Logger:
-    log = logging.getLogger('comparison')
+    log = logging.getLogger('trimodal_comparison')
     log.setLevel(logging.INFO)
     fmt = logging.Formatter('%(asctime)s  %(message)s', datefmt='%H:%M:%S')
     fh = logging.FileHandler(log_path, encoding='utf-8')
@@ -162,13 +178,12 @@ def _resume_path(run_dir: str) -> str:
 
 
 def _save_resume(run_dir: str, next_batch_id: int, run_ids: dict) -> None:
-    state = {
-        'next_batch_id': next_batch_id,
-        'run_ids'      : run_ids,
-        'random_state' : random.getstate(),
-    }
     with open(_resume_path(run_dir), 'wb') as f:
-        pickle.dump(state, f)
+        pickle.dump({
+            'next_batch_id': next_batch_id,
+            'run_ids'      : run_ids,
+            'random_state' : random.getstate(),
+        }, f)
 
 
 def _load_resume(run_dir: str):
@@ -227,34 +242,6 @@ def _roll(df, col, win=50):
     return df.sort_values('batch_id')[col].rolling(win, min_periods=1).mean().values
 
 
-# ── DB helpers ─────────────────────────────────────────────────────────────────
-
-
-def discover_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
-    """Scan batches_dir and return (label, inventory_db, affinity_db) for every valid pair.
-
-    Expected layout (produced by generate_batch.py):
-        <batches_dir>/<batch_name>/<profile_name>/inventory/inventory.db
-        <batches_dir>/<batch_name>/<profile_name>/affinity/affinity.db
-    """
-    pairs: list[tuple[str, str, str]] = []
-    if not os.path.isdir(batches_dir):
-        return pairs
-    for batch_name in sorted(os.listdir(batches_dir)):
-        batch_path = os.path.join(batches_dir, batch_name)
-        if not os.path.isdir(batch_path):
-            continue
-        for profile_name in sorted(os.listdir(batch_path)):
-            profile_path = os.path.join(batch_path, profile_name)
-            if not os.path.isdir(profile_path):
-                continue
-            inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
-            aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
-            if os.path.exists(inv_db) and os.path.exists(aff_db):
-                pairs.append((f'{batch_name}__{profile_name}', inv_db, aff_db))
-    return pairs
-
-
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
@@ -262,23 +249,37 @@ def build_shared_assets(
     affinity_db : str,
     log         : logging.Logger,
 ) -> dict:
-    """Load inventory + affinity from DB and build warehouse A.
+    """Load inventory + affinity from DB, then build warehouse A and size config.
 
-    Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the
-    60-type layout satisfying that constraint).
+    Warehouse sizing
+    ----------------
+    Total bins = ceil(N_SKUS * 1.1) rounded up to the next multiple of
+    _N_TYPES * _BINS_PER_AISLE (= 30,000).  This gives the minimum number of
+    replicas such that bins / SKUs >= 1.1.
+
+    For 76,500 SKUs:
+      target = ceil(76,500 * 1.1) = 84,150
+      replicas = ceil(84,150 / 30,000) = 3  →  90,000 bins  (17.6% slack)
+
+    The actual slack exceeds 10% because replicas must be whole numbers.
+    The minimum-replica constraint guarantees at least 10% slack.
     """
-    log.info(f'  Loading inventory  : {inventory_db}')
+    # ── inventory ──────────────────────────────────────────────────────────────
+    log.info(f'Loading inventory from {inventory_db}')
     t0        = time.perf_counter()
     inventory = load_inventory_from_db(inventory_db)
     n_skus    = len(inventory.cartons)
-    log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
+    log.info(f'  {n_skus:,} cartons loaded  ({time.perf_counter()-t0:.2f}s)')
 
-    replicas     = math.ceil(n_skus * 1.1 / (_N_TYPES * _BINS_PER_AISLE))
-    total_aisles = _N_TYPES * replicas
-    total_bins   = total_aisles * _BINS_PER_AISLE
-    log.info(f'  Warehouse : {_N_TYPES} types × {replicas} replicas = '
-             f'{total_aisles} aisles / {total_bins:,} bins  '
-             f'({total_bins/n_skus:.3f}× inventory)')
+    # ── warehouse sizing ───────────────────────────────────────────────────────
+    bins_per_replica = _N_TYPES * _BINS_PER_AISLE   # 30,000
+    replicas         = math.ceil(n_skus * 1.1 / bins_per_replica)
+    total_aisles     = _N_TYPES * replicas
+    total_bins       = total_aisles * _BINS_PER_AISLE
+    actual_ratio     = total_bins / n_skus
+    log.info(f'Warehouse sizing: {n_skus:,} SKUs  →  '
+             f'{replicas} replicas × {_N_TYPES} types × {_BINS_PER_AISLE} bins '
+             f'= {total_bins:,} bins  ({actual_ratio:.3f}× = {actual_ratio-1:.1%} slack)')
 
     warehouse_cfg = WarehouseConfig(
         total_aisles  = total_aisles,
@@ -289,35 +290,38 @@ def build_shared_assets(
     log.info(f'  Opening affinity DB: {affinity_db}')
     affinity_store = AffinityStore(affinity_db)
 
+    # ── load params ────────────────────────────────────────────────────────────
     param_path = os.path.join(_HERE, 'recovered_params.json')
     if os.path.exists(param_path):
         p           = json.load(open(param_path))
         load_params = LoadParams(lambda_=p['lambda_'], k=1.0, gamma=p['gamma'])
-        log.info(f'  Params  λ={load_params.lambda_:.4f}  γ={load_params.gamma:.4f}')
+        log.info(f'Recovered params  λ={load_params.lambda_:.4f}  γ={load_params.gamma:.4f}')
     else:
         load_params = LoadParams(lambda_=1.0, k=1.0, gamma=1.5)
-        log.info('  recovered_params.json not found — using defaults (λ=1.0  γ=1.5)')
+        log.info('recovered_params.json not found — using defaults (λ=1.0  γ=1.5)')
 
+    # ── batch config ───────────────────────────────────────────────────────────
     batch_cfg = BatchConfig(
         inventory_size = n_skus,
         mean_fraction  = _BATCH_MEAN_FRAC,
         std_fraction   = _BATCH_STD_FRAC,
     )
 
+    # ── warehouse A: uniform assignment ───────────────────────────────────────
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_A = Warehouse_Builder().from_config(warehouse_cfg).build()
     random.seed(SEED_WORLD + 100)
     manager_A   = Inventory_Manager(warehouse_A)
     manager_A.enqueue_all(inventory.cartons, quantity=1)
-    placed_A = len(manager_A.unavailable)
-    log.info(f'  Warehouse A (uniform): {placed_A:,} / {total_bins:,} bins  ({placed_A/total_bins:.1%})')
+    placed_A    = len(manager_A.unavailable)
+    log.info(f'Warehouse A (uniform): {placed_A:,} / {total_bins:,} bins filled  '
+             f'({placed_A/total_bins:.1%})')
 
     return dict(
         inventory          = inventory,
         affinity_store     = affinity_store,
         warehouse_A        = warehouse_A,
-        manager_A          = manager_A,
         batch_cfg          = batch_cfg,
         load_params        = load_params,
         warehouse_cfg      = warehouse_cfg,
@@ -341,7 +345,7 @@ def _kde_plot(ax, data, color, bins):
     ax.axvline(np.median(data), color='orange', lw=1.5, linestyle=':',  label=f'Median {np.median(data):.1f}')
 
 
-def _save_close(fig, path):
+def _save_close(fig, path: str) -> None:
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
@@ -387,7 +391,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     log.info(f'{"="*64}')
 
     config_record = {
-        'name'            : name,
+        'name': name,
         'pick_weight_coef': pick_cfg.pick_weight_coef,
         'pick_volume_coef': pick_cfg.pick_volume_coef,
         'pick_intercept'  : pick_cfg.pick_intercept,
@@ -399,7 +403,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         'total_bins'      : total_bins,
         'n_skus'          : len(inventory.cartons),
         'bin_slack_pct'   : round((total_bins / len(inventory.cartons) - 1) * 100, 2),
-        'batch_mean_frac' : _BATCH_MEAN_FRAC,
         'n_batches'       : N_BATCHES,
         'seed_world'      : SEED_WORLD,
         'seed_batches'    : SEED_BATCHES,
@@ -407,7 +410,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
 
-    # ── warehouses B and C ────────────────────────────────────────────────────
+    # ── warehouses B and C ─────────────────────────────────────────────────────
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_B = Warehouse_Builder().from_config(warehouse_cfg).build()
@@ -434,7 +437,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     manager_C.enqueue_all(inventory.cartons, quantity=1)
     log.info(f'  C ready  {time.perf_counter()-t0:.1f}s  ({len(manager_C.unavailable):,} bins)')
 
-    # ── lift distribution plot (pre-simulation) ───────────────────────────────
+    # ── pre-simulation lift distribution plot ──────────────────────────────────
     la = np.array([_aisle_lift_sums(warehouse_A, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
     lb = np.array([_aisle_lift_sums(warehouse_B, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
     lc = np.array([_aisle_lift_sums(warehouse_C, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
@@ -460,15 +463,15 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     plt.tight_layout()
     _save_close(fig, os.path.join(run_dir, 'lift_distribution.png'))
 
-    # ── DB init / resume ──────────────────────────────────────────────────────
-    resume = _load_resume(run_dir)
+    # ── DB init / resume ───────────────────────────────────────────────────────
+    resume  = _load_resume(run_dir)
     if resume:
         run_a   = resume['run_ids']['A']
         run_b   = resume['run_ids']['B']
         run_c   = resume['run_ids']['C']
         start_i = resume['next_batch_id']
         random.setstate(resume['random_state'])
-        log.info(f'  Resuming from batch {start_i}  (run_ids A={run_a} B={run_b} C={run_c})')
+        log.info(f'  Resuming from batch {start_i}')
     else:
         init_run_db(db_path)
         run_a   = create_run(db_path, 'uniform_assignment')
@@ -480,7 +483,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
 
     run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
 
-    # ── simulation loop ───────────────────────────────────────────────────────
+    # ── simulation loop ────────────────────────────────────────────────────────
     pb_A: list = [];  pb_B: list = [];  pb_C: list = []
     pt_A: list = [];  pt_B: list = [];  pt_C: list = []
     skipped = 0
@@ -525,7 +528,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
             pb_A.clear();  pb_B.clear();  pb_C.clear()
             pt_A.clear();  pt_B.clear();  pt_C.clear()
 
-    # flush remainder
     for run_id, pb, pt in [(run_a, pb_A, pt_A), (run_b, pb_B, pt_B), (run_c, pb_C, pt_C)]:
         if pb:
             save_batch_stats(db_path, run_id, pb)
@@ -535,12 +537,11 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     done    = N_BATCHES - start_i - skipped
     log.info(f'  Done: {done} triplets in {elapsed:.1f}s  ({skipped} skipped)')
 
-    # remove resume checkpoint — run is complete
     rp = _resume_path(run_dir)
     if os.path.exists(rp):
         os.remove(rp)
 
-    # ── analysis ──────────────────────────────────────────────────────────────
+    # ── analysis ───────────────────────────────────────────────────────────────
     bs_fA = flag_batch_outliers(load_batch_stats(db_path, run_a))
     bs_fB = flag_batch_outliers(load_batch_stats(db_path, run_b))
     bs_fC = flag_batch_outliers(load_batch_stats(db_path, run_c))
@@ -555,7 +556,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     df_tB = _tdf([s for s in ts_fB if not s.is_outlier], aisle_size_map, aisle_unittype_map, aisle_handling_map)
     df_tC = _tdf([s for s in ts_fC if not s.is_outlier], aisle_size_map, aisle_unittype_map, aisle_handling_map)
 
-    # summary CSVs
     bcols  = ['duration', 'completion_rate', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct']
     tcols  = ['duration', 'W_a', 'lift_sum', 'num_bins']
     summ_b = pd.concat(
@@ -690,7 +690,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     axes[0].set_ylabel('Mean task duration', fontsize=10)
     axes[0].set_title('Mean task duration per pallet size', fontsize=10)
     axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
-
     dB2 = [(b-a)/abs(a)*100 if a else 0 for a, b in zip(mdA, mdB)]
     dC2 = [(c-a)/abs(a)*100 if a else 0 for a, c in zip(mdA, mdC)]
     axes[1].bar(x2 - w2/2, dB2, width=w2, color=[_B_COL if d < 0 else '#c00000' for d in dB2], alpha=0.85, label='B vs A')
@@ -703,17 +702,17 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     axes[1].set_ylabel('Δ (X − A) / A  %', fontsize=10);  axes[1].set_title('Duration delta per size', fontsize=10)
     axes[1].yaxis.set_major_formatter(mticker.PercentFormatter())
     axes[1].legend(fontsize=8);  axes[1].grid(axis='y', alpha=0.3)
-
     scols = ['#9dc3e6', '#5b9bd5', '#2e75b6', '#1f4e79']
     for sz, sc, sl in zip(_SIZE_ORDER, scols, _SIZE_LABELS):
         vA = dp_A[dp_A['pallet_size']==sz]['duration'].values
         vB = dp_B[dp_B['pallet_size']==sz]['duration'].values
         vC = dp_C[dp_C['pallet_size']==sz]['duration'].values
-        lo = min(vA.min(), vB.min(), vC.min());  hi = max(vA.max(), vB.max(), vC.max())
-        xs = np.linspace(lo, hi, 300)
-        if len(vA) > 1: axes[2].plot(xs, gaussian_kde(vA, 'silverman')(xs), color=sc, lw=2,   ls='-',  label=f'{sl} A')
-        if len(vB) > 1: axes[2].plot(xs, gaussian_kde(vB, 'silverman')(xs), color=sc, lw=2,   ls='--', label=f'{sl} B')
-        if len(vC) > 1: axes[2].plot(xs, gaussian_kde(vC, 'silverman')(xs), color=sc, lw=1.5, ls=':',  label=f'{sl} C')
+        if len(vA) > 1 and len(vB) > 1 and len(vC) > 1:
+            lo = min(vA.min(), vB.min(), vC.min());  hi = max(vA.max(), vB.max(), vC.max())
+            xs = np.linspace(lo, hi, 300)
+            axes[2].plot(xs, gaussian_kde(vA, 'silverman')(xs), color=sc, lw=2,   ls='-',  label=f'{sl} A')
+            axes[2].plot(xs, gaussian_kde(vB, 'silverman')(xs), color=sc, lw=2,   ls='--', label=f'{sl} B')
+            axes[2].plot(xs, gaussian_kde(vC, 'silverman')(xs), color=sc, lw=1.5, ls=':',  label=f'{sl} C')
     axes[2].set_xlabel('Task duration', fontsize=10);  axes[2].set_ylabel('Density', fontsize=10)
     axes[2].set_title('KDE: solid=A, dashed=B, dot=C', fontsize=10)
     axes[2].legend(fontsize=6, ncol=3);  axes[2].grid(alpha=0.3)
@@ -768,9 +767,9 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     dBv = acmp['dB'].values;  dCv = acmp['dC'].values
     axes[2].hist(dBv, bins=50, color=_B_COL, alpha=0.55, edgecolor='white', label=f'B vs A  mean={dBv.mean():.2f}%')
     axes[2].hist(dCv, bins=50, color=_C_COL, alpha=0.55, edgecolor='white', label=f'C vs A  mean={dCv.mean():.2f}%')
-    axes[2].axvline(0,         color='black', lw=1.5, linestyle='--')
-    axes[2].axvline(dBv.mean(), color=_B_COL, lw=2,   linestyle='--')
-    axes[2].axvline(dCv.mean(), color=_C_COL, lw=2,   linestyle='--')
+    axes[2].axvline(0,          color='black', lw=1.5, linestyle='--')
+    axes[2].axvline(dBv.mean(), color=_B_COL,  lw=2,   linestyle='--')
+    axes[2].axvline(dCv.mean(), color=_C_COL,  lw=2,   linestyle='--')
     axes[2].set_xlabel('Δ (X − A) / A  %', fontsize=10)
     axes[2].set_ylabel('Aisle count', fontsize=10)
     axes[2].set_title('Per-aisle % duration change (vs Uniform A)', fontsize=10)
@@ -787,51 +786,46 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
 
 # ── entry point ────────────────────────────────────────────────────────────────
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
-        description='Warehouse assignment comparison — loads all inventory+affinity DB pairs.',
+        description='Warehouse assignment comparison using pre-generated inventory + affinity DBs.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('--batches-dir', default=_DEFAULT_BATCHES_DIR,
-                        help='Root directory produced by generate_batch.py to scan for DB pairs')
+    parser.add_argument('--inventory-db', required=True,
+                        help='Path to inventory.db (from generate_inventory.py / generate_batch.py)')
+    parser.add_argument('--affinity-db', required=True,
+                        help='Path to affinity.db (from generate_affinity.py / generate_batch.py)')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
+    parser.add_argument('--out-dir', default=os.path.join(_HERE, '..', 'Optimization'),
+                        help='Parent directory for output; run folder created inside it')
     args = parser.parse_args()
 
+    inv_db = os.path.abspath(args.inventory_db)
+    aff_db = os.path.abspath(args.affinity_db)
+    for path, label in [(inv_db, 'inventory-db'), (aff_db, 'affinity-db')]:
+        if not os.path.exists(path):
+            sys.exit(f'--{label} not found: {path}')
+
     if args.resume:
-        base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_HERE, args.resume)
+        base_dir = os.path.abspath(args.resume)
         if not os.path.isdir(base_dir):
             sys.exit(f'Resume directory not found: {base_dir}')
     else:
         ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-        base_dir = os.path.join(_HERE, f'comparison_{ts}')
+        base_dir = os.path.join(os.path.abspath(args.out_dir), f'trimodal_comparison_{ts}')
         os.makedirs(base_dir, exist_ok=True)
 
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
-    log.info(f'Output directory : {base_dir}')
-    log.info(f'Batches dir      : {args.batches_dir}')
+    log.info(f'Output directory  : {base_dir}')
+    log.info(f'Inventory DB      : {inv_db}')
+    log.info(f'Affinity DB       : {aff_db}')
+    shared = build_shared_assets(inv_db, aff_db, log)
 
-    pairs = discover_db_pairs(args.batches_dir)
-    if not pairs:
-        sys.exit(f'No inventory+affinity DB pairs found in: {args.batches_dir}')
+    for cfg in REGRESSION_CONFIGS:
+        run_config(cfg, shared, base_dir, log)
 
-    log.info(f'Discovered {len(pairs)} DB pair(s):')
-    for label, inv_db, aff_db in pairs:
-        log.info(f'  {label}')
-        log.info(f'    inv : {inv_db}')
-        log.info(f'    aff : {aff_db}')
-
-    for label, inv_db, aff_db in pairs:
-        log.info(f'\n{"="*64}')
-        log.info(f'  Dataset : {label}')
-        log.info(f'{"="*64}')
-        pair_dir = os.path.join(base_dir, label)
-        shared   = build_shared_assets(inv_db, aff_db, log)
-        for cfg in REGRESSION_CONFIGS:
-            run_config(cfg, shared, pair_dir, log)
-
-    log.info(f'\nAll {len(pairs)} dataset(s) × {len(REGRESSION_CONFIGS)} config(s) complete.'
-             f'  Root: {base_dir}')
+    log.info(f'\nAll {len(REGRESSION_CONFIGS)} config(s) complete.  Root: {base_dir}')
 
 
 if __name__ == '__main__':
