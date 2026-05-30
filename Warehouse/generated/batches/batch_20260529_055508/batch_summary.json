@@ -1,0 +1,151 @@
+{
+  "batch_name": "batch_20260529_055508",
+  "total_elapsed_s": 32670.3,
+  "profiles_run": 12,
+  "profiles": {
+    "default": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\default\\inventory",
+      "inventory_elapsed_s": 9.52,
+      "weight_mean": 21.436235294117647,
+      "weight_std": 12.206160957028588,
+      "weight_p95": 43.0,
+      "volume_mean": 18705.149294117648,
+      "singleton_fraction": 0.50159477124183,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\default\\affinity",
+      "affinity_elapsed_s": 2572.18,
+      "total_unique_pairs": 243855649
+    },
+    "uniform_sizes": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\uniform_sizes\\inventory",
+      "inventory_elapsed_s": 8.51,
+      "weight_mean": 15.819254901960784,
+      "weight_std": 10.086502710502376,
+      "weight_p95": 36.0,
+      "volume_mean": 8762.720980392156,
+      "singleton_fraction": 0.5133725490196078,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\uniform_sizes\\affinity",
+      "affinity_elapsed_s": 2584.32,
+      "total_unique_pairs": 243864819
+    },
+    "small_dense": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\small_dense\\inventory",
+      "inventory_elapsed_s": 8.97,
+      "weight_mean": 45.078640522875816,
+      "weight_std": 14.732139040644334,
+      "weight_p95": 68.0,
+      "volume_mean": 1219.397019607843,
+      "singleton_fraction": 0.9626143790849673,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\small_dense\\affinity",
+      "affinity_elapsed_s": 2592.17,
+      "total_unique_pairs": 243847028
+    },
+    "large_light": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\large_light\\inventory",
+      "inventory_elapsed_s": 8.91,
+      "weight_mean": 3.049124183006536,
+      "weight_std": 1.6560056426719802,
+      "weight_p95": 6.0,
+      "volume_mean": 30972.45848366013,
+      "singleton_fraction": 0.4996993464052288,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\large_light\\affinity",
+      "affinity_elapsed_s": 2621.71,
+      "total_unique_pairs": 243838961
+    },
+    "bimodal_size": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\bimodal_size\\inventory",
+      "inventory_elapsed_s": 8.9,
+      "weight_mean": 16.118980392156864,
+      "weight_std": 8.731945172820224,
+      "weight_p95": 35.0,
+      "volume_mean": 7837.119843137255,
+      "singleton_fraction": 0.5617254901960784,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\bimodal_size\\affinity",
+      "affinity_elapsed_s": 2591.65,
+      "total_unique_pairs": 243831699
+    },
+    "bimodal_size_decoupled_weight": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\bimodal_size_decoupled_weight\\inventory",
+      "inventory_elapsed_s": 9.21,
+      "weight_mean": 20.37372549019608,
+      "weight_std": 20.575205119666563,
+      "weight_p95": 53.0,
+      "volume_mean": 7790.302758169934,
+      "singleton_fraction": 0.5652156862745098,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\bimodal_size_decoupled_weight\\affinity",
+      "affinity_elapsed_s": 2976.91,
+      "total_unique_pairs": 243820552
+    },
+    "heavy_tail_weight": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\heavy_tail_weight\\inventory",
+      "inventory_elapsed_s": 9.25,
+      "weight_mean": 21.93362091503268,
+      "weight_std": 34.264055548740565,
+      "weight_p95": 96.0,
+      "volume_mean": 18822.8928627451,
+      "singleton_fraction": 0.4981437908496732,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\heavy_tail_weight\\affinity",
+      "affinity_elapsed_s": 3133.34,
+      "total_unique_pairs": 243878194
+    },
+    "clustered_medium": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\clustered_medium\\inventory",
+      "inventory_elapsed_s": 10.33,
+      "weight_mean": 29.824013071895425,
+      "weight_std": 8.388619786391475,
+      "weight_p95": 45.0,
+      "volume_mean": 8963.746993464052,
+      "singleton_fraction": 0.4980130718954248,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\clustered_medium\\affinity",
+      "affinity_elapsed_s": 2665.82,
+      "total_unique_pairs": 243848720
+    },
+    "trimodal_spiky": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\trimodal_spiky\\inventory",
+      "inventory_elapsed_s": 8.99,
+      "weight_mean": 31.10213071895425,
+      "weight_std": 30.860066502327406,
+      "weight_p95": 88.0,
+      "volume_mean": 8382.986052287582,
+      "singleton_fraction": 0.5156993464052287,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\trimodal_spiky\\affinity",
+      "affinity_elapsed_s": 2725.76,
+      "total_unique_pairs": 243841798
+    },
+    "beta_right_skewed": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\beta_right_skewed\\inventory",
+      "inventory_elapsed_s": 8.0,
+      "weight_mean": 14.076339869281046,
+      "weight_std": 5.952598826740053,
+      "weight_p95": 24.0,
+      "volume_mean": 946.6345751633987,
+      "singleton_fraction": 0.7627320261437909,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\beta_right_skewed\\affinity",
+      "affinity_elapsed_s": 2703.65,
+      "total_unique_pairs": 243829529
+    },
+    "beta_left_skewed": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\beta_left_skewed\\inventory",
+      "inventory_elapsed_s": 9.38,
+      "weight_mean": 25.991124183006537,
+      "weight_std": 13.90196028769992,
+      "weight_p95": 48.0,
+      "volume_mean": 30826.516588235296,
+      "singleton_fraction": 0.5004444444444445,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\beta_left_skewed\\affinity",
+      "affinity_elapsed_s": 2705.4,
+      "total_unique_pairs": 243842264
+    },
+    "uniform_weight": {
+      "inventory_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\uniform_weight\\inventory",
+      "inventory_elapsed_s": 9.22,
+      "weight_mean": 60.62956862745098,
+      "weight_std": 34.679525402751544,
+      "weight_p95": 115.0,
+      "volume_mean": 18784.30994771242,
+      "singleton_fraction": 0.502078431372549,
+      "affinity_dir": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260529_055508\\uniform_weight\\affinity",
+      "affinity_elapsed_s": 2687.77,
+      "total_unique_pairs": 243845139
+    }
+  }
+}

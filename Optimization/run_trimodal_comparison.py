@@ -40,7 +40,6 @@ import pickle
 import random
 import sys
 import time
-from collections import defaultdict
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -112,8 +111,10 @@ for _cat in _CATEGORIES:
     _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 20, _CONV_SIZES,  _CONV_PROBS))
     _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 20, _NCONV_SIZES, _NCONV_PROBS))
 
-_N_TYPES       = len(_AISLE_CFGS)   # 60
-_BINS_PER_AISLE = 25 * 20           # 500
+_BINS_PER_AISLE    = 25 * 20   # 500
+_N_PALLET_TYPES    = 48         # 4 sizes × 6 categories × 2 handling
+_N_SINGLETON_TYPES = 12         # 1 type  × 6 categories × 2 handling
+_SINGLETON_MAX_DIM = 16         # Singleton.max_width
 
 REGRESSION_CONFIGS = [
     {
@@ -230,12 +231,6 @@ def _pallet_df(df):
     return d
 
 
-def _aisle_lift_sums(wh, affinity_store: AffinityStore):
-    by_aisle = defaultdict(list)
-    for b in wh.bins:
-        if b.storage is not None:
-            by_aisle[b.location[0]].append(b.storage.carton.sku)
-    return {aid: affinity_store.sum_lift(skus) for aid, skus in by_aisle.items()}
 
 
 def _roll(df, col, win=50):
@@ -272,18 +267,30 @@ def build_shared_assets(
     log.info(f'  {n_skus:,} cartons loaded  ({time.perf_counter()-t0:.2f}s)')
 
     # ── warehouse sizing ───────────────────────────────────────────────────────
-    bins_per_replica = _N_TYPES * _BINS_PER_AISLE   # 30,000
-    replicas         = math.ceil(n_skus * 1.1 / bins_per_replica)
-    total_aisles     = _N_TYPES * replicas
-    total_bins       = total_aisles * _BINS_PER_AISLE
-    actual_ratio     = total_bins / n_skus
-    log.info(f'Warehouse sizing: {n_skus:,} SKUs  →  '
-             f'{replicas} replicas × {_N_TYPES} types × {_BINS_PER_AISLE} bins '
-             f'= {total_bins:,} bins  ({actual_ratio:.3f}× = {actual_ratio-1:.1%} slack)')
+    n_singleton = sum(
+        1 for c in inventory.cartons
+        if max(c.length, c.width, c.height) <= _SINGLETON_MAX_DIM
+    )
+    n_pallet = n_skus - n_singleton
+
+    sing_replicas = max(1, math.ceil(n_singleton * 1.1 / (_N_SINGLETON_TYPES * _BINS_PER_AISLE)))
+    pall_replicas = max(1, math.ceil(n_pallet    * 1.1 / (_N_PALLET_TYPES    * _BINS_PER_AISLE)))
+
+    total_aisles = _N_SINGLETON_TYPES * sing_replicas + _N_PALLET_TYPES * pall_replicas
+    total_bins   = total_aisles * _BINS_PER_AISLE
+
+    _pall_w = pall_replicas / total_aisles
+    _sing_w = sing_replicas / total_aisles
+    aisle_splits = [_pall_w] * _N_PALLET_TYPES + [_sing_w] * _N_SINGLETON_TYPES
+
+    log.info(f'  Inventory : {n_pallet:,} pallet  {n_singleton:,} singleton cartons')
+    log.info(f'  Warehouse : {_N_PALLET_TYPES} pallet types × {pall_replicas} replicas'
+             f' + {_N_SINGLETON_TYPES} singleton types × {sing_replicas} replicas'
+             f' = {total_aisles} aisles / {total_bins:,} bins  ({total_bins/n_skus:.3f}× inventory)')
 
     warehouse_cfg = WarehouseConfig(
         total_aisles  = total_aisles,
-        aisle_splits  = [1 / _N_TYPES] * _N_TYPES,
+        aisle_splits  = aisle_splits,
         aisle_configs = _AISLE_CFGS,
     )
 
@@ -414,54 +421,32 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_B = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking B (load-min)...')
+    log.info('  Stocking B (uniform initial)...')
     t0 = time.perf_counter()
-    random.seed(SEED_WORLD + 200)
-    manager_B = Inventory_Manager(
-        warehouse_B,
-        assignment_fn=build_load_minimizing_assignment_fn(load_params, affinity_store, wp),
-    )
+    random.seed(SEED_WORLD + 100)
+    manager_B = Inventory_Manager(warehouse_B, affinity=affinity_store)
     manager_B.enqueue_all(inventory.cartons, quantity=1)
+    manager_B.init_lift_state(affinity_store)
+    manager_B.assignment_fn = build_load_minimizing_assignment_fn(
+        load_params, affinity_store, wp,
+        manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
+    )
     log.info(f'  B ready  {time.perf_counter()-t0:.1f}s  ({len(manager_B.unavailable):,} bins)')
 
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_C = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking C (load-max)...')
+    log.info('  Stocking C (uniform initial)...')
     t0 = time.perf_counter()
-    random.seed(SEED_WORLD + 300)
-    manager_C = Inventory_Manager(
-        warehouse_C,
-        assignment_fn=build_load_maximizing_assignment_fn(load_params, affinity_store, wp),
-    )
+    random.seed(SEED_WORLD + 100)
+    manager_C = Inventory_Manager(warehouse_C, affinity=affinity_store)
     manager_C.enqueue_all(inventory.cartons, quantity=1)
+    manager_C.init_lift_state(affinity_store)
+    manager_C.assignment_fn = build_load_maximizing_assignment_fn(
+        load_params, affinity_store, wp,
+        manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
+    )
     log.info(f'  C ready  {time.perf_counter()-t0:.1f}s  ({len(manager_C.unavailable):,} bins)')
-
-    # ── pre-simulation lift distribution plot ──────────────────────────────────
-    la = np.array([_aisle_lift_sums(warehouse_A, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
-    lb = np.array([_aisle_lift_sums(warehouse_B, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
-    lc = np.array([_aisle_lift_sums(warehouse_C, affinity_store).get(a, 0.0) for a in range(1, total_aisles + 1)])
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4.5))
-    fig.suptitle(f'Per-Aisle Lift Sum after Assignment  [{name}]', fontsize=12, fontweight='bold')
-    for v, lbl, c in [(la[la>0], 'Uniform (A)', _A_COL),
-                      (lb[lb>0], 'Load-Min (B)', _B_COL),
-                      (lc[lc>0], 'Load-Max (C)', _C_COL)]:
-        axes[0].hist(v, bins=50, color=c, alpha=0.50, edgecolor='white', label=f'{lbl}  μ={v.mean():.1f}')
-        axes[0].axvline(v.mean(), color=c, lw=2, linestyle='--')
-    axes[0].set_title('Lift sum distribution  (aisles with lift > 0)', fontsize=10)
-    axes[0].set_xlabel('Σ lift');  axes[0].set_ylabel('Aisle count')
-    axes[0].legend(fontsize=9);   axes[0].grid(axis='y', alpha=0.3)
-    for v, lbl, c in [(np.sort(la), 'Uniform (A)',   _A_COL),
-                      (np.sort(lb), 'Load-Min (B)', _B_COL),
-                      (np.sort(lc), 'Load-Max (C)', _C_COL)]:
-        axes[1].plot(v, np.arange(1, len(v)+1) / len(v), color=c, lw=2, label=lbl)
-    axes[1].set_xlabel('Per-aisle lift sum');  axes[1].set_ylabel('Cumulative fraction')
-    axes[1].set_title('CDF of per-aisle lift sum', fontsize=10)
-    axes[1].yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
-    axes[1].legend(fontsize=9);  axes[1].grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'lift_distribution.png'))
 
     # ── DB init / resume ───────────────────────────────────────────────────────
     resume  = _load_resume(run_dir)
@@ -506,9 +491,10 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         bsA = extract_batch_stats(ea, batch_id=i, k_pickers=K_PICKERS, run_id=run_a)
         bsB = extract_batch_stats(eb, batch_id=i, k_pickers=K_PICKERS, run_id=run_b)
         bsC = extract_batch_stats(ec, batch_id=i, k_pickers=K_PICKERS, run_id=run_c)
-        tsA = extract_task_stats(ea, ta, batch_id=i, affinity=batch.aff, wp=wp, run_id=run_a)
-        tsB = extract_task_stats(eb, tb, batch_id=i, affinity=batch.aff, wp=wp, run_id=run_b)
-        tsC = extract_task_stats(ec, tc, batch_id=i, affinity=batch.aff, wp=wp, run_id=run_c)
+        _lc: dict = {}
+        tsA = extract_task_stats(ea, ta, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_a, lift_cache=_lc)
+        tsB = extract_task_stats(eb, tb, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_b, lift_cache=_lc)
+        tsC = extract_task_stats(ec, tc, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_c, lift_cache=_lc)
 
         pb_A.append(bsA);  pb_B.append(bsB);  pb_C.append(bsC)
         pt_A.extend(tsA);  pt_B.extend(tsB);  pt_C.extend(tsC)

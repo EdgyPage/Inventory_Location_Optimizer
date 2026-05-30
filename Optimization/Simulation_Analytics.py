@@ -196,12 +196,13 @@ def extract_batch_stats(
 
 
 def extract_task_stats(
-    events: list,
-    tasks: list,
-    batch_id: int,
-    affinity: dict,
-    wp: WorkloadParams,
-    run_id: int = 0,
+    events     : list,
+    tasks      : list,
+    batch_id   : int,
+    affinity,
+    wp         : WorkloadParams,
+    run_id     : int = 0,
+    lift_cache : dict | None = None,
 ) -> list[TaskStats]:
     """Extract per-aisle TaskStats from one PickSimulation.run() result.
 
@@ -236,7 +237,16 @@ def extract_task_stats(
             task.x_traversed, task.y_traversed,
             task.carts_required, lines, wp,
         ) if lines else 0.0
-        ls       = sum_lift(list(task.items.keys()), affinity)
+        task_skus = list(task.items.keys())
+        cache_key = frozenset(task_skus)
+        if lift_cache is not None and cache_key in lift_cache:
+            ls = lift_cache[cache_key]
+        else:
+            ls = (affinity.sum_lift(task_skus)
+                  if hasattr(affinity, 'sum_lift')
+                  else sum_lift(task_skus, affinity))
+            if lift_cache is not None:
+                lift_cache[cache_key] = ls
         num_bins = sum(
             1 for b in task.path
             if b.storage is not None and b.storage.carton.sku in task.items

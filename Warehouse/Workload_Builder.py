@@ -113,12 +113,11 @@ class Batch:
 
         self.items: dict[int, int] = {c.sku: max(1, c.demand.sample()) for c in selected}
 
-        # Load pairwise lifts for the selected SKUs only — O(k²/G) per batch,
-        # not O(N²/G) for the full inventory. Available for analytics via batch.aff.
-        if isinstance(affinity, AffinityStore):
-            self.aff: AffMatrix = affinity.load_for_skus(list(self.items.keys()))
-        else:
-            self.aff: AffMatrix = affinity if isinstance(affinity, dict) else {}
+        # For a plain dict, store it directly for use in analytics.
+        # For AffinityStore, lift_sum is computed on-demand per task in
+        # extract_task_stats — pre-loading all batch pairs would fetch O(k²) rows
+        # from a potentially huge DB on every batch creation.
+        self.aff: AffMatrix = affinity if isinstance(affinity, dict) else {}
 
 
 class Task:
