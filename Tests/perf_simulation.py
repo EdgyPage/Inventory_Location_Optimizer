@@ -54,6 +54,51 @@ from Workload_Builder import Batch, BatchConfig, Task
 from Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 
+def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) -> AffinityStore:
+    """Build a small in-memory AffinityStore with synthetic demand-weighted affinity."""
+    import sqlite3, math
+    conn = sqlite3.connect(':memory:')
+    conn.executescript('''
+        CREATE TABLE affinity (
+            sku_i INTEGER NOT NULL,
+            sku_j INTEGER NOT NULL,
+            lift  REAL    NOT NULL,
+            PRIMARY KEY (sku_i, sku_j)
+        );
+        CREATE INDEX idx_affinity_sku_i ON affinity(sku_i);
+    ''')
+    rng = random.Random(seed)
+    # Group by storage_type; within each group assign Pareto rank scores
+    from collections import defaultdict
+    groups: dict[tuple, list] = defaultdict(list)
+    for c in inventory.cartons:
+        groups[c.storage_type].append(c)
+    rows = []
+    for group_cartons in groups.values():
+        n = len(group_cartons)
+        sorted_g = sorted(group_cartons, key=lambda c: c.demand.frequency * c.demand.quantity_rate, reverse=True)
+        rank_score = {c.sku: 1.0 / (r + 1) ** 0.5 for r, c in enumerate(sorted_g)}
+        cand_k = min(top_k + 10, n - 1)
+        for c_i in sorted_g:
+            candidates = [c for c in sorted_g[:cand_k + 1] if c is not c_i][:cand_k]
+            scored = []
+            for c_j in candidates:
+                geo  = (rank_score[c_i.sku] * rank_score[c_j.sku]) ** 0.5
+                lift = max(1.0, min(5.0, 1.0 + 4.0 * geo + rng.gauss(0, 0.15)))
+                scored.append((lift, c_j.sku))
+            scored.sort(reverse=True)
+            for lift_val, sku_j in scored[:top_k]:
+                rows.append((c_i.sku, sku_j, lift_val))
+                rows.append((sku_j, c_i.sku, lift_val))
+    conn.executemany('INSERT OR IGNORE INTO affinity VALUES (?,?,?)', rows)
+    conn.commit()
+    store = AffinityStore.__new__(AffinityStore)
+    store._conn = conn
+    store._rng  = random.Random(seed)
+    store._load_matrix()
+    return store
+
+
 # ── synthetic inventory builder ──────────────────────────────────────────────
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
@@ -145,25 +190,7 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_A.enqueue_all(inventory.cartons, quantity=1)
 
-    Aisle.next_aisle_id = 1
-    random.seed(seed)
-    warehouse_B = Warehouse_Builder().from_config(wh_cfg).build()
-    manager_B   = Inventory_Manager(warehouse_B)
-    random.seed(seed + 1)
-    manager_B.enqueue_all(inventory.cartons, quantity=1)
-
-    Aisle.next_aisle_id = 1
-    random.seed(seed)
-    warehouse_C = Warehouse_Builder().from_config(wh_cfg).build()
-    manager_C   = Inventory_Manager(warehouse_C)
-    random.seed(seed + 1)
-    manager_C.enqueue_all(inventory.cartons, quantity=1)
-
-    placed_A = len(manager_A.unavailable)
-    total_bins = len(warehouse_A.bins)
-    print(f'  Warehouse : {total_bins:,} bins  filled={placed_A:,} ({placed_A/total_bins:.1%})')
-    print(f'  Setup     : {time.perf_counter()-t0:.2f}s')
-
+    from Workload import WorkloadParams
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
         x_move_time      = 1.0,
@@ -173,10 +200,41 @@ def run_benchmark(
         pick_volume_coef = 1e-3,
         cart_swap_coef   = 10.0,
     )
-    from Workload import WorkloadParams
-    wp = WorkloadParams.from_pick_config(pick_cfg)
-
+    wp          = WorkloadParams.from_pick_config(pick_cfg)
     load_params = LoadParams(lambda_=1.0, k=1.0, gamma=1.5)
+
+    print(f'  Building affinity store...')
+    affinity_store = _build_affinity_store(inventory, top_k=20, seed=seed)
+
+    Aisle.next_aisle_id = 1
+    random.seed(seed)
+    warehouse_B = Warehouse_Builder().from_config(wh_cfg).build()
+    manager_B   = Inventory_Manager(warehouse_B, affinity=affinity_store)
+    random.seed(seed + 1)
+    manager_B.enqueue_all(inventory.cartons, quantity=1)
+    manager_B.init_lift_state(affinity_store)
+    manager_B.assignment_fn = build_load_minimizing_assignment_fn(
+        load_params, affinity_store, wp,
+        manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
+    )
+
+    Aisle.next_aisle_id = 1
+    random.seed(seed)
+    warehouse_C = Warehouse_Builder().from_config(wh_cfg).build()
+    manager_C   = Inventory_Manager(warehouse_C, affinity=affinity_store)
+    random.seed(seed + 1)
+    manager_C.enqueue_all(inventory.cartons, quantity=1)
+    manager_C.init_lift_state(affinity_store)
+    manager_C.assignment_fn = build_load_maximizing_assignment_fn(
+        load_params, affinity_store, wp,
+        manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
+    )
+
+    placed_A = len(manager_A.unavailable)
+    total_bins = len(warehouse_A.bins)
+    print(f'  Warehouse : {total_bins:,} bins  filled={placed_A:,} ({placed_A/total_bins:.1%})')
+    print(f'  Setup     : {time.perf_counter()-t0:.2f}s')
+
     batch_cfg   = BatchConfig(
         inventory_size = n_skus,
         mean_fraction  = 0.25,
