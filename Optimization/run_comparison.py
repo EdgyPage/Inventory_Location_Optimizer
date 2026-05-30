@@ -315,8 +315,8 @@ def build_shared_assets(
         load_params = LoadParams(lambda_=p['lambda_'], k=1.0, gamma=p['gamma'])
         log.info(f'  Params  λ={load_params.lambda_:.4f}  γ={load_params.gamma:.4f}')
     else:
-        load_params = LoadParams(lambda_=1.0, k=1.0, gamma=1.5)
-        log.info('  recovered_params.json not found — using defaults (λ=1.0  γ=1.5)')
+        load_params = LoadParams(lambda_=1.1, k=1.0, gamma=1.5)
+        log.info('  recovered_params.json not found — using defaults (λ=1.1  γ=1.5)')
 
     batch_cfg = BatchConfig(
         inventory_size = n_skus,
