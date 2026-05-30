@@ -44,7 +44,7 @@ python generate_inventory.py [--name NAME] [--num-skus 76500] [--seed 42]
     [--weight-spec '{"dist":"volume_poisson"}']
 python generate_inventory.py --help
 
-Callable API (used by generate_batch.py)
+Callable API (used by generate_profile_suite.py)
 -----------------------------------------
 from generate_inventory import generate_run, load_inventory_from_db
 run_dir  = generate_run(name='default', num_skus=76500, seed=42, out_dir='...')

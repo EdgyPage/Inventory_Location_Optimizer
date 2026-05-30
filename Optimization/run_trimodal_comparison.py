@@ -778,9 +778,9 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--inventory-db', required=True,
-                        help='Path to inventory.db (from generate_inventory.py / generate_batch.py)')
+                        help='Path to inventory.db (from generate_inventory.py / generate_profile_suite.py)')
     parser.add_argument('--affinity-db', required=True,
-                        help='Path to affinity.db (from generate_affinity.py / generate_batch.py)')
+                        help='Path to affinity.db (from generate_affinity.py / generate_profile_suite.py)')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     parser.add_argument('--out-dir', default=os.path.join(_HERE, '..', 'Optimization'),

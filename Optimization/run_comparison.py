@@ -228,7 +228,7 @@ def _roll(df, col, win=50):
 def discover_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
     """Scan batches_dir and return (label, inventory_db, affinity_db) for every valid pair.
 
-    Expected layout (produced by generate_batch.py):
+    Expected layout (produced by generate_profile_suite.py):
         <batches_dir>/<batch_name>/<profile_name>/inventory/inventory.db
         <batches_dir>/<batch_name>/<profile_name>/affinity/affinity.db
     """
@@ -817,7 +817,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--batches-dir', default=_DEFAULT_BATCHES_DIR,
-                        help='Root directory produced by generate_batch.py to scan for DB pairs')
+                        help='Root directory produced by generate_profile_suite.py to scan for DB pairs')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     args = parser.parse_args()

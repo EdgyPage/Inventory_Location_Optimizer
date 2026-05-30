@@ -24,16 +24,13 @@ Warehouse/generated/batches/<batch_name>/
 Usage
 -----
 # dry run — print profile list and estimated affinity sizes, then exit
-python generate_batch.py --estimate
+python generate_profile_suite.py --estimate
 
-# full overnight run (no affinity SKU cap)
-python generate_batch.py
-
-# quick test: cap affinity at 500 SKUs/group (matches old runtime limit)
-python generate_batch.py --max-per-group 500
+# full overnight run
+python generate_profile_suite.py
 
 # run only selected profiles
-python generate_batch.py --profiles default bimodal_size heavy_tail_weight
+python generate_profile_suite.py --profiles default bimodal_size heavy_tail_weight
 
 Options
 -------
