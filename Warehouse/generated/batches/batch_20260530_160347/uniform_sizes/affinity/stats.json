@@ -1,0 +1,139 @@
+{
+  "total_unique_pairs": 1527512,
+  "total_db_rows": 3055024,
+  "estimated_db_mb": 81.57794189453125,
+  "lift_sample_size": 1527512,
+  "lift_stats": {
+    "min": 1.1887271404266357,
+    "max": 4.6361918449401855,
+    "mean": 1.4603818655014038,
+    "median": 1.4286761283874512,
+    "std": 0.1469143182039261,
+    "p25": 1.3617815971374512,
+    "p75": 1.5212751626968384,
+    "p95": 1.722541093826294
+  },
+  "groups": {
+    "conveyable/chemical": {
+      "eligible_skus": 6358,
+      "pairs_stored": 127160,
+      "db_rows": 254320,
+      "lift_mean": 1.462126612663269,
+      "lift_std": 0.1530752182006836,
+      "lift_min": 1.2045173645019531,
+      "lift_max": 4.5568132400512695,
+      "lift_median": 1.4291048049926758
+    },
+    "conveyable/clothing": {
+      "eligible_skus": 6273,
+      "pairs_stored": 125460,
+      "db_rows": 250920,
+      "lift_mean": 1.4630309343338013,
+      "lift_std": 0.15271981060504913,
+      "lift_min": 1.214042067527771,
+      "lift_max": 4.310797214508057,
+      "lift_median": 1.4298756122589111
+    },
+    "conveyable/electronic": {
+      "eligible_skus": 6426,
+      "pairs_stored": 128520,
+      "db_rows": 257040,
+      "lift_mean": 1.460962176322937,
+      "lift_std": 0.1525450497865677,
+      "lift_min": 1.1887271404266357,
+      "lift_max": 4.464420795440674,
+      "lift_median": 1.4278119802474976
+    },
+    "conveyable/food": {
+      "eligible_skus": 6460,
+      "pairs_stored": 129200,
+      "db_rows": 258400,
+      "lift_mean": 1.4609935283660889,
+      "lift_std": 0.1522185206413269,
+      "lift_min": 1.2017148733139038,
+      "lift_max": 4.479983806610107,
+      "lift_median": 1.4279811382293701
+    },
+    "conveyable/furniture": {
+      "eligible_skus": 6213,
+      "pairs_stored": 124260,
+      "db_rows": 248520,
+      "lift_mean": 1.463836669921875,
+      "lift_std": 0.15325690805912018,
+      "lift_min": 1.2072254419326782,
+      "lift_max": 4.347489356994629,
+      "lift_median": 1.430834174156189
+    },
+    "conveyable/seasonal": {
+      "eligible_skus": 6353,
+      "pairs_stored": 127060,
+      "db_rows": 254120,
+      "lift_mean": 1.4625614881515503,
+      "lift_std": 0.1529431939125061,
+      "lift_min": 1.1975053548812866,
+      "lift_max": 4.396502494812012,
+      "lift_median": 1.4296152591705322
+    },
+    "non-conveyable/chemical": {
+      "eligible_skus": 6390,
+      "pairs_stored": 127800,
+      "db_rows": 255600,
+      "lift_mean": 1.4618711471557617,
+      "lift_std": 0.15213114023208618,
+      "lift_min": 1.205039381980896,
+      "lift_max": 4.488393306732178,
+      "lift_median": 1.4288727045059204
+    },
+    "non-conveyable/clothing": {
+      "eligible_skus": 6434,
+      "pairs_stored": 128680,
+      "db_rows": 257360,
+      "lift_mean": 1.461002230644226,
+      "lift_std": 0.1524314135313034,
+      "lift_min": 1.2049587965011597,
+      "lift_max": 4.456506252288818,
+      "lift_median": 1.4279139041900635
+    },
+    "non-conveyable/electronic": {
+      "eligible_skus": 6246,
+      "pairs_stored": 124920,
+      "db_rows": 249840,
+      "lift_mean": 1.4640134572982788,
+      "lift_std": 0.15333200991153717,
+      "lift_min": 1.2005372047424316,
+      "lift_max": 4.446195125579834,
+      "lift_median": 1.430907964706421
+    },
+    "non-conveyable/food": {
+      "eligible_skus": 6325,
+      "pairs_stored": 126500,
+      "db_rows": 253000,
+      "lift_mean": 1.4626561403274536,
+      "lift_std": 0.15323203802108765,
+      "lift_min": 1.2013636827468872,
+      "lift_max": 4.7805352210998535,
+      "lift_median": 1.429460048675537
+    },
+    "non-conveyable/furniture": {
+      "eligible_skus": 6587,
+      "pairs_stored": 131740,
+      "db_rows": 263480,
+      "lift_mean": 1.4593952894210815,
+      "lift_std": 0.1509786695241928,
+      "lift_min": 1.2018930912017822,
+      "lift_max": 4.529407978057861,
+      "lift_median": 1.4268064498901367
+    },
+    "non-conveyable/seasonal": {
+      "eligible_skus": 6435,
+      "pairs_stored": 128700,
+      "db_rows": 257400,
+      "lift_mean": 1.4603270292282104,
+      "lift_std": 0.1521887630224228,
+      "lift_min": 1.2121341228485107,
+      "lift_max": 4.6361918449401855,
+      "lift_median": 1.4275805950164795
+    }
+  },
+  "source_inventory_db": "c:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260530_160347\\uniform_sizes\\inventory\\inventory.db"
+}
