@@ -17,7 +17,6 @@ class LoadParams:
     k: float       = 1.0   # pickers per task (normally 1 for single-aisle tasks)
     gamma: float   = 1.5   # congestion exponent
 
-# Maps size name → rank so we can query "this size or larger" in O(sizes) time.
 _SIZE_RANKS: dict[str, int] = {
     size: rank
     for rank, size in enumerate(
@@ -25,7 +24,6 @@ _SIZE_RANKS: dict[str, int] = {
     )
 }
 
-# (handling_type, storage_type, storage_size, unit_type) → available bins
 BinKey = tuple[str, str, str, str]
 
 
@@ -56,37 +54,41 @@ class Inventory_Manager:
         self.assignment_fn: AssignmentFn = assignment_fn
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
-        self._unavailable: list[Aisle.Bin] = []
+
+        # Keyed by id(bin) for O(1) removal when bins are reclaimed.
+        self._unavailable: dict[int, Aisle.Bin] = {}
+
         self._queue: deque[tuple[Carton, int]] = deque()
-        self._initial_quantities: dict[int, int] = {}   # sku → qty on first placement
-        self._originals: dict[int, Carton] = {}         # sku → original carton
+        self._initial_quantities: dict[int, int] = {}
+        self._originals: dict[int, Carton] = {}
+
+        # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
+        self._current_quantities: dict[int, int] = {}
+
+        # Bins emptied by picks, pending return to _index at next check_reorders.
+        self._pending_reclaim: list[Aisle.Bin] = []
 
         # Persistent lift state shared with load-aware assignment functions.
-        # Updated incrementally: on placement (via assignment_fn + _drain)
-        # and on removal (via _reclaim_empty_bins).
-        self._aisle_sku_sets: dict[int, set[int]]          = defaultdict(set)
-        self._aisle_lift_sum: dict[int, float]              = defaultdict(float)
-        # Reference count so we know when the last bin of a SKU leaves an aisle.
-        self._aisle_sku_counts: dict[int, dict[int, int]]  = defaultdict(dict)
-        # id(bin) → sku; needed in _reclaim_empty_bins after storage is cleared.
+        self._aisle_sku_sets: dict[int, set[int]]         = defaultdict(set)
+        self._aisle_lift_sum: dict[int, float]             = defaultdict(float)
+        self._aisle_sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
+        # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
         for b in warehouse.bins:
             if b.storage is None:
                 self._index_add(b)
             else:
-                self._unavailable.append(b)
+                self._unavailable[id(b)] = b
 
     # ── public API ──────────────────────────────────────────────────────────
 
     def enqueue(self, carton: Carton, quantity: int = 1) -> 'Inventory_Manager':
-        """Add one carton config to the queue and attempt to drain."""
         self._queue.append((carton, quantity))
         self._drain()
         return self
 
     def enqueue_all(self, cartons: list[Carton], quantity: int = 1) -> 'Inventory_Manager':
-        """Add all carton configs to the queue in order, then attempt to drain."""
         for carton in cartons:
             self._queue.append((carton, quantity))
         self._drain()
@@ -95,84 +97,107 @@ class Inventory_Manager:
     def init_lift_state(self, affinity: AffinityStore) -> None:
         """Populate aisle lift state from current warehouse contents.
 
-        Call after uniform stocking and before swapping to a load-aware
-        assignment_fn.  This ensures reorder decisions see the actual aisle
-        composition rather than starting from zero, which would cause the first
-        reorder wave to ignore all existing inventory when scoring aisles.
-
-        Internally: scans filled bins to build sku_sets and sku_counts, then
-        calls affinity.sum_lift once per aisle (~60 calls, all fast via CSR).
+        Call after uniform stocking, before swapping to a load-aware
+        assignment_fn.  Ensures reorder decisions see the actual aisle
+        composition rather than starting from zero.  Also rebuilds
+        _current_quantities so the incremental counter is consistent with
+        the actual bin contents after any bulk stocking operation.
         """
         self._aisle_sku_sets.clear()
         self._aisle_lift_sum.clear()
         self._aisle_sku_counts.clear()
         self._bin_sku.clear()
+        self._current_quantities.clear()
 
-        for bin_ in self._unavailable:
+        for bin_ in self._unavailable.values():
             if bin_.storage is not None:
                 sku = bin_.storage.carton.sku
                 aid = bin_.location[0]
+                qty = bin_.storage.quantity
                 self._aisle_sku_sets[aid].add(sku)
                 counts = self._aisle_sku_counts[aid]
                 counts[sku] = counts.get(sku, 0) + 1
                 self._bin_sku[id(bin_)] = sku
+                self._current_quantities[sku] = (
+                    self._current_quantities.get(sku, 0) + qty
+                )
 
         for aid, sku_set in self._aisle_sku_sets.items():
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
 
-    def _reclaim_empty_bins(self) -> None:
-        """Return bins emptied by picking back to the available index.
+    # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
-        When a bin's last SKU is removed from an aisle, decrements the aisle's
-        lift sum so that reorder placement decisions reflect the current aisle
-        composition rather than the composition at stocking time.
+    def _notify_pick(self, sku: int, qty: int) -> None:
+        """Decrement the incremental quantity counter by the picked amount.
+
+        Called by PickSimulation after each pick event — must be O(1).
+        Does NOT reclaim the bin or check reorder thresholds; those happen
+        in bulk at check_reorders() between batches.
         """
-        still_filled: list[Aisle.Bin] = []
-        for bin_ in self._unavailable:
-            if bin_.storage is None:
-                bin_id = id(bin_)
-                sku    = self._bin_sku.pop(bin_id, None)
-                if sku is not None and self._affinity is not None:
-                    aid    = bin_.location[0]
-                    counts = self._aisle_sku_counts[aid]
-                    n      = counts.get(sku, 0)
-                    if n > 1:
-                        counts[sku] = n - 1
-                    else:
-                        counts.pop(sku, None)
-                        self._aisle_sku_sets[aid].discard(sku)
-                        delta = 2.0 * self._affinity.delta_lift(
-                            sku, list(self._aisle_sku_sets[aid])
-                        )
-                        self._aisle_lift_sum[aid] = max(
-                            0.0, self._aisle_lift_sum[aid] - delta
-                        )
-                self._index_add(bin_)
-            else:
-                still_filled.append(bin_)
-        self._unavailable = still_filled
+        cur = self._current_quantities.get(sku, 0)
+        if cur > 0:
+            self._current_quantities[sku] = max(0, cur - qty)
+
+    def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
+        """Queue an emptied bin for reclaim at the next check_reorders call.
+
+        Called by PickSimulation immediately after bin_.storage is set to
+        None — must be O(1).  The bin stays in _unavailable until
+        _reclaim_empty_bins processes _pending_reclaim.
+        """
+        self._pending_reclaim.append(bin_)
+
+    # ── reorder logic ────────────────────────────────────────────────────────
+
+    def _reclaim_empty_bins(self) -> None:
+        """Return bins in _pending_reclaim to the available index.
+
+        With _unavailable as a dict and _pending_reclaim as a targeted list,
+        this is O(pending_bins) — typically a handful per batch — instead of
+        the previous O(total_bins) full scan.
+        """
+        if not self._pending_reclaim:
+            return
+
+        for bin_ in self._pending_reclaim:
+            bin_id = id(bin_)
+            sku    = self._bin_sku.pop(bin_id, None)
+            if sku is not None and self._affinity is not None:
+                aid    = bin_.location[0]
+                counts = self._aisle_sku_counts[aid]
+                n      = counts.get(sku, 0)
+                if n > 1:
+                    counts[sku] = n - 1
+                else:
+                    counts.pop(sku, None)
+                    self._aisle_sku_sets[aid].discard(sku)
+                    delta = 2.0 * self._affinity.delta_lift(
+                        sku, list(self._aisle_sku_sets[aid])
+                    )
+                    self._aisle_lift_sum[aid] = max(
+                        0.0, self._aisle_lift_sum[aid] - delta
+                    )
+            self._index_add(bin_)
+            self._unavailable.pop(bin_id, None)
+
+        self._pending_reclaim.clear()
 
     def check_reorders(self) -> list[int]:
-        """Enqueue replenishment for any SKU whose total warehouse quantity is at
-        or below 10% of its initial placement quantity.
+        """Enqueue replenishment for any SKU at or below 10% of initial quantity.
 
-        Empty bins are reclaimed first so that reorder stock has slots to fill
-        and the quantity totals reflect only bins that are actually stocked.
-        Returns the SKU IDs of triggered reorders.
+        Uses _current_quantities (maintained incrementally by _notify_pick)
+        instead of scanning all bins — O(N_skus) instead of O(N_bins).
+        Called once per batch loop in the run script, not inside Pick.py.
         """
         self._reclaim_empty_bins()
-
-        current: dict[int, int] = {}
-        for bin_ in self._unavailable:
-            sku = bin_.storage.carton.sku  # type: ignore[union-attr]
-            current[sku] = current.get(sku, 0) + bin_.storage.quantity  # type: ignore[union-attr]
 
         queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
 
         triggered: list[int] = []
         for sku, initial_qty in self._initial_quantities.items():
             threshold: int = max(1, round(initial_qty * self.REORDER_THRESHOLD))
-            if current.get(sku, 0) <= threshold and sku not in queued_skus:
+            if (self._current_quantities.get(sku, 0) <= threshold
+                    and sku not in queued_skus):
                 self._queue.append((self._originals[sku].reorder(), initial_qty))
                 triggered.append(sku)
 
@@ -186,7 +211,7 @@ class Inventory_Manager:
 
     @property
     def unavailable(self) -> list[Aisle.Bin]:
-        return list(self._unavailable)
+        return list(self._unavailable.values())
 
     @property
     def queue_depth(self) -> int:
@@ -194,17 +219,17 @@ class Inventory_Manager:
 
     @property
     def assigned_bins(self) -> list[Aisle.Bin]:
-        return list(self._unavailable)
+        return list(self._unavailable.values())
 
     @property
     def empty_bins(self) -> list[Aisle.Bin]:
         return self.available
 
     def summary(self) -> None:
-        total: int = len(self.warehouse.bins)
-        filled: int = len(self._unavailable)
-        singles: int = sum(1 for b in self._unavailable if isinstance(b.storage, Singleton))
-        pallets: int = sum(1 for b in self._unavailable if isinstance(b.storage, Pallet))
+        total: int     = len(self.warehouse.bins)
+        filled: int    = len(self._unavailable)
+        singles: int   = sum(1 for b in self._unavailable.values() if isinstance(b.storage, Singleton))
+        pallets: int   = sum(1 for b in self._unavailable.values() if isinstance(b.storage, Pallet))
         available: int = sum(len(v) for v in self._index.values())
         print(f'Total bins  : {total}')
         print(f'Filled      : {filled}  ({singles} singletons, {pallets} pallets)')
@@ -225,7 +250,6 @@ class Inventory_Manager:
     # ── placement ───────────────────────────────────────────────────────────
 
     def _candidates(self, unit: StorageUnit, excluded: set[int]) -> list[Aisle.Bin]:
-        """Look up compatible bins from the index, skipping speculatively-taken ones."""
         handling, category = unit.carton.storage_type
         unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
         result: list[Aisle.Bin] = []
@@ -239,8 +263,6 @@ class Inventory_Manager:
         return result
 
     def _try_place(self, carton: Carton, qty: int) -> list[tuple[StorageUnit, Aisle.Bin]] | None:
-        """Speculatively assign all units without committing.
-        Returns (unit, bin) pairs to commit, or None if any unit has no compatible bin."""
         units = viable_storage_units(carton, qty)
         excluded: set[int] = set()
         assigned: list[tuple[StorageUnit, Aisle.Bin]] = []
@@ -254,7 +276,6 @@ class Inventory_Manager:
         return assigned
 
     def _drain(self) -> None:
-        """One FIFO pass: place each entry if all its units fit, else keep it in position."""
         pending: deque[tuple[Carton, int]] = deque()
         while self._queue:
             carton, qty = self._queue.popleft()
@@ -263,14 +284,17 @@ class Inventory_Manager:
                 for unit, bin_ in assigned:
                     bin_.storage = unit
                     self._index_remove(bin_)
-                    self._unavailable.append(bin_)
-                    # Track bin→sku so _reclaim_empty_bins can update lift state
-                    # after Pick.py has already cleared bin_.storage.
+                    self._unavailable[id(bin_)] = bin_
                     self._bin_sku[id(bin_)] = unit.carton.sku
+                    # Maintain incremental quantity counter
+                    sku = unit.carton.sku
+                    self._current_quantities[sku] = (
+                        self._current_quantities.get(sku, 0) + unit.quantity
+                    )
                     if self._affinity is not None:
                         aid    = bin_.location[0]
                         counts = self._aisle_sku_counts[aid]
-                        counts[unit.carton.sku] = counts.get(unit.carton.sku, 0) + 1
+                        counts[sku] = counts.get(sku, 0) + 1
                 if carton.sku not in self._initial_quantities:
                     self._initial_quantities[carton.sku] = sum(u.quantity for u, _ in assigned)
                     self._originals[carton.sku] = carton
@@ -294,11 +318,7 @@ def build_load_minimizing_assignment_fn(
     aisle_sku_sets and aisle_lift_sum are the Inventory_Manager's persistent
     dicts (_aisle_sku_sets, _aisle_lift_sum).  The function reads and updates
     them on every placement so that subsequent placements in the same drain
-    cycle score against the current aisle composition.  The manager updates
-    _aisle_sku_counts and _bin_sku in _drain; _reclaim_empty_bins handles
-    decrements when picks empty a bin.
-
-    wp must expose .x_move_time and .y_move_time (e.g. WorkloadParams).
+    cycle score against the current aisle composition.
     """
     lam = params.lambda_
     k   = params.k
@@ -319,10 +339,10 @@ def build_load_minimizing_assignment_fn(
             for aid in aisle_ids
         }
 
-        best_bin        : Any | None            = None
-        best_aid        : int                   = -1
-        best_score      : tuple[float, float]   = (float('inf'), float('inf'))
-        best_delta_lift : float                 = 0.0
+        best_bin        : Any | None          = None
+        best_aid        : int                 = -1
+        best_score      : tuple[float, float] = (float('inf'), float('inf'))
+        best_delta_lift : float               = 0.0
 
         for b in candidates:
             aid        = b.location[0]
@@ -359,9 +379,7 @@ def build_load_maximizing_assignment_fn(
     """Build an AssignmentFn that greedily maximises the L2 norm of predicted
     aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
 
-    Structural mirror of build_load_minimizing_assignment_fn — identical state
-    sharing and update logic, but selects the maximum delta_l2 bin.
-    Tiebreak on equal delta_l2: prefers the currently heavier aisle.
+    Structural mirror of build_load_minimizing_assignment_fn.
     """
     lam = params.lambda_
     k   = params.k
@@ -382,10 +400,10 @@ def build_load_maximizing_assignment_fn(
             for aid in aisle_ids
         }
 
-        best_bin        : Any | None            = None
-        best_aid        : int                   = -1
-        best_score      : tuple[float, float]   = (float('-inf'), float('-inf'))
-        best_delta_lift : float                 = 0.0
+        best_bin        : Any | None          = None
+        best_aid        : int                 = -1
+        best_score      : tuple[float, float] = (float('-inf'), float('-inf'))
+        best_delta_lift : float               = 0.0
 
         for b in candidates:
             aid        = b.location[0]

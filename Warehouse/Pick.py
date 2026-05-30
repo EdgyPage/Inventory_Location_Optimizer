@@ -210,13 +210,16 @@ class PickSimulation:
                     items_picked=session_items, total_items=total_items,
                 ))
 
-                # Deplete the bin; if emptied set storage to None so the
-                # manager reclaims it during check_reorders().
+                # Deplete the bin; notify the manager incrementally so
+                # check_reorders() can be called once per batch instead of
+                # once per pick (avoids O(N_bins) scan on every pick event).
                 bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
+                if self._manager is not None:
+                    self._manager._notify_pick(carton.sku, qty)
                 if bin_.storage.quantity == 0:
                     bin_.storage = None
-                if self._manager is not None:
-                    self._manager.check_reorders()
+                    if self._manager is not None:
+                        self._manager._notify_bin_emptied(bin_)
 
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_end',

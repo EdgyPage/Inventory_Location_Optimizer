@@ -494,6 +494,12 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     }
 
     for i in range(start_i, N_BATCHES):
+        # Restock bins depleted by the previous batch's picks — called once
+        # here instead of after every pick event to avoid O(N_bins) hot loop.
+        manager_A.check_reorders()
+        manager_B.check_reorders()
+        manager_C.check_reorders()
+
         _t0 = time.perf_counter()
         batch = Batch(batch_cfg, inventory, affinity=affinity_store)
         _t['batch'] += time.perf_counter() - _t0
