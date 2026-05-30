@@ -77,8 +77,6 @@ class AffinityStore:
             self._matrix: csr_matrix | None = None
             return
 
-        print(f'[AffinityStore] loading {len(rows):,} pairs into CSR matrix…')
-
         sku_i_list, sku_j_list, lift_list = zip(*rows)
         sku_i = np.asarray(sku_i_list, dtype=np.int32)
         sku_j = np.asarray(sku_j_list, dtype=np.int32)
@@ -89,7 +87,6 @@ class AffinityStore:
 
         row_idxs = np.searchsorted(all_skus, sku_i).astype(np.int32)
         col_idxs = np.searchsorted(all_skus, sku_j).astype(np.int32)
-        n = int(all_skus[-1] - all_skus[0]) + 1  # upper bound; csr_matrix packs it
         self._matrix = csr_matrix(
             (lift, (row_idxs, col_idxs)),
             shape=(len(all_skus), len(all_skus)),
@@ -97,7 +94,6 @@ class AffinityStore:
         )
         mb = (self._matrix.data.nbytes + self._matrix.indices.nbytes +
               self._matrix.indptr.nbytes) / 1_048_576
-        print(f'[AffinityStore] CSR matrix ready  shape={self._matrix.shape}  {mb:.0f} MB')
 
     def index_inventory(self, inventory: Inventory) -> None:
         """Store sku → lift_group for every carton. Safe to call multiple times."""

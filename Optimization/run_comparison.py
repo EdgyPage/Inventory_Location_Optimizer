@@ -298,8 +298,16 @@ def build_shared_assets(
         aisle_configs = _AISLE_CFGS,
     )
 
-    log.info(f'  Opening affinity DB: {affinity_db}')
+    log.info(f'  Loading affinity DB : {affinity_db}')
+    t0             = time.perf_counter()
     affinity_store = AffinityStore(affinity_db)
+    n_aff_rows     = affinity_store._matrix.nnz if affinity_store._matrix is not None else 0
+    mb             = (0 if affinity_store._matrix is None else
+                      (affinity_store._matrix.data.nbytes +
+                       affinity_store._matrix.indices.nbytes +
+                       affinity_store._matrix.indptr.nbytes) / 1_048_576)
+    log.info(f'  Affinity CSR ready : {n_aff_rows:,} entries  {mb:.0f} MB  '
+             f'({time.perf_counter()-t0:.1f}s)')
 
     param_path = os.path.join(_HERE, 'recovered_params.json')
     if os.path.exists(param_path):
