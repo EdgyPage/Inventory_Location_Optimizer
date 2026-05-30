@@ -309,8 +309,10 @@ def main() -> None:
                         help='SKU count applied to all profiles')
     parser.add_argument('--seed', type=int, default=42,
                         help='Base inventory seed; profile i uses seed + i')
-    parser.add_argument('--max-per-group', type=int, default=None,
-                        help='Affinity SKU cap per group (default: no cap)')
+    parser.add_argument('--top-k', type=int, default=20,
+                        help='Partners stored per SKU in affinity matrix (default: 20)')
+    parser.add_argument('--candidate-k', type=int, default=60,
+                        help='Candidate pool per SKU before noise reranking (default: 60)')
     parser.add_argument('--skip-affinity', action='store_true',
                         help='Generate inventories only, skip affinity generation')
     parser.add_argument('--profiles', nargs='+', default=None,
@@ -321,7 +323,7 @@ def main() -> None:
                         help='Root directory for batch output')
     parser.add_argument('--affinity-seed', type=int, default=0,
                         help='Base seed for lift value generation')
-    parser.add_argument('--affinity-min-lift', type=float, default=1.5)
+    parser.add_argument('--affinity-min-lift', type=float, default=1.0)
     parser.add_argument('--affinity-max-lift', type=float, default=5.0)
     parser.add_argument('--estimate', action='store_true',
                         help='Print profile specs and estimated affinity sizes, then exit')
@@ -340,20 +342,18 @@ def main() -> None:
     # ── estimate / dry-run ─────────────────────────────────────────────────────
     if args.estimate:
         print(f'\n{"="*60}')
-        print(f'  {len(selected)} profile(s)  num_skus={args.num_skus:,}  '
-              f'max_per_group={args.max_per_group or "none"}')
+        print(f'  {len(selected)} profile(s)  num_skus={args.num_skus:,}  top_k={args.top_k}')
         print(f'{"="*60}')
         for i, p in enumerate(selected):
             print(f'\n  [{i+1}/{len(selected)}] {p["name"]}')
             print(f'    {p["description"]}')
             print(f'    dim_spec    : {json.dumps(p["dim_spec"])}')
             print(f'    weight_spec : {json.dumps(p["weight_spec"])}')
-        approx_skus_per_group = args.num_skus // 12
-        n = args.max_per_group or approx_skus_per_group
-        pairs_per_profile = 12 * n * (n - 1) // 2
+        # top-K is linear: N × top_k pairs per profile (× 2 directions)
+        pairs_per_profile = args.num_skus * args.top_k
         mb_per_profile    = pairs_per_profile * 2 * 28 / 1_048_576
         print(f'\n  Affinity estimate per profile: ~{pairs_per_profile:,} pairs  '
-              f'~{mb_per_profile:.0f} MB')
+              f'~{mb_per_profile:.0f} MB  (top-{args.top_k} sparse)')
         print(f'  Total affinity estimate: ~{mb_per_profile * len(selected):.0f} MB  '
               f'({mb_per_profile * len(selected) / 1024:.1f} GB)\n')
         return
@@ -370,7 +370,8 @@ def main() -> None:
         'timestamp'     : ts,
         'num_skus'      : args.num_skus,
         'base_seed'     : args.seed,
-        'max_per_group' : args.max_per_group,
+        'top_k'         : args.top_k,
+        'candidate_k'   : args.candidate_k,
         'skip_affinity' : args.skip_affinity,
         'profiles'      : [
             {'name': p['name'], 'description': p['description'],
@@ -386,7 +387,7 @@ def main() -> None:
     print(f'  Dir   : {batch_dir}')
     print(f'  {len(selected)} profile(s)  |  '
           f'num_skus={args.num_skus:,}  |  '
-          f'affinity cap={args.max_per_group or "none"}')
+          f'affinity top-{args.top_k}')
     print(f'{"="*64}\n')
 
     # ── profile loop ───────────────────────────────────────────────────────────
@@ -437,7 +438,8 @@ def main() -> None:
                 inventory_db  = inv_db,
                 name          = 'affinity',
                 out_dir       = prof_dir,
-                max_per_group = args.max_per_group,
+                top_k         = args.top_k,
+                candidate_k   = args.candidate_k,
                 min_lift      = args.affinity_min_lift,
                 max_lift      = args.affinity_max_lift,
                 seed          = aff_seed,
