@@ -9,11 +9,7 @@ import numpy as np
 
 from Picking_Data import AisleLoadRecord, PickRecord
 from Workload import WorkloadParams, aisle_workload
-from Inventory_Management import (
-    LoadParams,
-    build_load_minimizing_assignment_fn,
-    build_load_maximizing_assignment_fn,
-)
+from Inventory_Management import LoadParams
 
 
 @dataclass
