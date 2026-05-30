@@ -68,12 +68,23 @@ class Inventory_Manager:
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
 
+        # SKUs whose current quantity has dropped to or below the reorder threshold
+        # since the last check_reorders call.  Maintained by _notify_pick so
+        # check_reorders scans only depleted SKUs instead of all N_skus.
+        self._depleted_skus: set[int] = set()
+
         # Persistent lift state shared with load-aware assignment functions.
         self._aisle_sku_sets: dict[int, set[int]]         = defaultdict(set)
         self._aisle_lift_sum: dict[int, float]             = defaultdict(float)
         self._aisle_sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
+
+        # SKU → bins split by unit type for O(1) Task.from_batch lookups.
+        # Singletons are kept separate so forward-pick locations are always
+        # iterated first without sorting on every batch.
+        self._sku_singleton_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
+        self._sku_pallet_bins: dict[int, list[Aisle.Bin]]    = defaultdict(list)
 
         for b in warehouse.bins:
             if b.storage is None:
@@ -108,6 +119,8 @@ class Inventory_Manager:
         self._aisle_sku_counts.clear()
         self._bin_sku.clear()
         self._current_quantities.clear()
+        self._sku_singleton_bins.clear()
+        self._sku_pallet_bins.clear()
 
         for bin_ in self._unavailable.values():
             if bin_.storage is not None:
@@ -121,6 +134,10 @@ class Inventory_Manager:
                 self._current_quantities[sku] = (
                     self._current_quantities.get(sku, 0) + qty
                 )
+                if bin_.unit_type == 'singleton':
+                    self._sku_singleton_bins[sku].append(bin_)
+                else:
+                    self._sku_pallet_bins[sku].append(bin_)
 
         for aid, sku_set in self._aisle_sku_sets.items():
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
@@ -128,15 +145,23 @@ class Inventory_Manager:
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
     def _notify_pick(self, sku: int, qty: int) -> None:
-        """Decrement the incremental quantity counter by the picked amount.
+        """Decrement the incremental quantity counter and flag the SKU if it
+        crosses the reorder threshold.
 
         Called by PickSimulation after each pick event — must be O(1).
-        Does NOT reclaim the bin or check reorder thresholds; those happen
-        in bulk at check_reorders() between batches.
+        Adds the SKU to _depleted_skus so check_reorders only iterates SKUs
+        that actually need attention rather than all N_skus.
         """
         cur = self._current_quantities.get(sku, 0)
-        if cur > 0:
-            self._current_quantities[sku] = max(0, cur - qty)
+        if cur <= 0:
+            return
+        new_qty = max(0, cur - qty)
+        self._current_quantities[sku] = new_qty
+        initial = self._initial_quantities.get(sku, 0)
+        if initial > 0:
+            threshold = max(1, round(initial * self.REORDER_THRESHOLD))
+            if new_qty <= threshold:
+                self._depleted_skus.add(sku)
 
     def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
         """Queue an emptied bin for reclaim at the next check_reorders call.
@@ -162,21 +187,33 @@ class Inventory_Manager:
         for bin_ in self._pending_reclaim:
             bin_id = id(bin_)
             sku    = self._bin_sku.pop(bin_id, None)
-            if sku is not None and self._affinity is not None:
-                aid    = bin_.location[0]
-                counts = self._aisle_sku_counts[aid]
-                n      = counts.get(sku, 0)
-                if n > 1:
-                    counts[sku] = n - 1
+            if sku is not None:
+                # Remove from SKU→bins index
+                if bin_.unit_type == 'singleton':
+                    lst = self._sku_singleton_bins.get(sku)
                 else:
-                    counts.pop(sku, None)
-                    self._aisle_sku_sets[aid].discard(sku)
-                    delta = 2.0 * self._affinity.delta_lift(
-                        sku, list(self._aisle_sku_sets[aid])
-                    )
-                    self._aisle_lift_sum[aid] = max(
-                        0.0, self._aisle_lift_sum[aid] - delta
-                    )
+                    lst = self._sku_pallet_bins.get(sku)
+                if lst:
+                    try:
+                        lst.remove(bin_)
+                    except ValueError:
+                        pass
+                # Update lift state
+                if self._affinity is not None:
+                    aid    = bin_.location[0]
+                    counts = self._aisle_sku_counts[aid]
+                    n      = counts.get(sku, 0)
+                    if n > 1:
+                        counts[sku] = n - 1
+                    else:
+                        counts.pop(sku, None)
+                        self._aisle_sku_sets[aid].discard(sku)
+                        delta = 2.0 * self._affinity.delta_lift(
+                            sku, list(self._aisle_sku_sets[aid])
+                        )
+                        self._aisle_lift_sum[aid] = max(
+                            0.0, self._aisle_lift_sum[aid] - delta
+                        )
             self._index_add(bin_)
             self._unavailable.pop(bin_id, None)
 
@@ -191,15 +228,19 @@ class Inventory_Manager:
         """
         self._reclaim_empty_bins()
 
+        if not self._depleted_skus:
+            return []
+
         queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
 
         triggered: list[int] = []
-        for sku, initial_qty in self._initial_quantities.items():
-            threshold: int = max(1, round(initial_qty * self.REORDER_THRESHOLD))
-            if (self._current_quantities.get(sku, 0) <= threshold
-                    and sku not in queued_skus):
-                self._queue.append((self._originals[sku].reorder(), initial_qty))
-                triggered.append(sku)
+        for sku in self._depleted_skus:
+            if sku not in queued_skus:
+                initial_qty = self._initial_quantities.get(sku, 0)
+                if initial_qty > 0:
+                    self._queue.append((self._originals[sku].reorder(), initial_qty))
+                    triggered.append(sku)
+        self._depleted_skus.clear()
 
         if triggered:
             self._drain()
@@ -285,12 +326,17 @@ class Inventory_Manager:
                     bin_.storage = unit
                     self._index_remove(bin_)
                     self._unavailable[id(bin_)] = bin_
-                    self._bin_sku[id(bin_)] = unit.carton.sku
-                    # Maintain incremental quantity counter
                     sku = unit.carton.sku
+                    self._bin_sku[id(bin_)] = sku
+                    # Incremental quantity counter (avoids O(N_bins) scan in check_reorders)
                     self._current_quantities[sku] = (
                         self._current_quantities.get(sku, 0) + unit.quantity
                     )
+                    # SKU→bins index split by type (used by Task.from_batch)
+                    if isinstance(unit, Singleton):
+                        self._sku_singleton_bins[sku].append(bin_)
+                    else:
+                        self._sku_pallet_bins[sku].append(bin_)
                     if self._affinity is not None:
                         aid    = bin_.location[0]
                         counts = self._aisle_sku_counts[aid]

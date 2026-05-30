@@ -505,9 +505,9 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         _t['batch'] += time.perf_counter() - _t0
 
         _t0 = time.perf_counter()
-        ta = Task.from_batch(batch, warehouse_A)
-        tb = Task.from_batch(batch, warehouse_B)
-        tc = Task.from_batch(batch, warehouse_C)
+        ta = Task.from_batch(batch, warehouse_A, manager=manager_A)
+        tb = Task.from_batch(batch, warehouse_B, manager=manager_B)
+        tc = Task.from_batch(batch, warehouse_C, manager=manager_C)
         _t['tasks'] += time.perf_counter() - _t0
 
         if not ta or not tb or not tc:

@@ -93,6 +93,20 @@ def avg_concurrent_pickers(events: list) -> float:
 
 # ── picker utilisation ────────────────────────────────────────────────────────
 
+def _group_events_by_picker(events: list, k_pickers: int) -> list[list]:
+    """Partition events into per-picker lists in a single O(N) pass.
+
+    Pick.py generates events in time order within each picker's timeline so
+    no sort is needed — the per-picker lists are already time-ordered.
+    """
+    grouped: list[list] = [[] for _ in range(k_pickers)]
+    for e in events:
+        pid = e.picker_id
+        if pid is not None and 0 <= pid < k_pickers:
+            grouped[pid].append(e)
+    return grouped
+
+
 def picker_time_breakdown(events: list, k_pickers: int) -> dict[str, float]:
     """Aggregate picking vs traveling fractions across all k_pickers.
 
@@ -103,21 +117,19 @@ def picker_time_breakdown(events: list, k_pickers: int) -> dict[str, float]:
     Picking time per picker = sum of (pick.time - arrive.time) for each bin.
     Traveling time = total picker duration - picking time.
     """
+    return _picker_time_breakdown_grouped(_group_events_by_picker(events, k_pickers))
+
+
+def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
+    """Compute picking/traveling breakdown from pre-grouped picker event lists."""
     total_time   = 0.0
     picking_time = 0.0
 
-    for pid in range(k_pickers):
-        picker_evs = sorted(
-            [e for e in events if e.picker_id == pid],
-            key=lambda e: e.time,
-        )
-        done_evs = [e for e in picker_evs if e.event_type == 'done']
-        if not done_evs:
+    for picker_evs in grouped:
+        done_t = next((e.time for e in reversed(picker_evs) if e.event_type == 'done'), None)
+        if done_t is None or done_t <= 0.0:
             continue
-        picker_total = done_evs[-1].time
-        if picker_total <= 0.0:
-            continue
-        total_time += picker_total
+        total_time += done_t
 
         last_arrive: float | None = None
         for e in picker_evs:
@@ -162,25 +174,29 @@ def extract_batch_stats(
     avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
     picking/traveling pct  : aggregate fractions (see picker_time_breakdown)
     """
-    done_times = [e.time for e in events if e.event_type == 'done']
-    duration   = max(done_times, default=0.0)
+    # Group once; reuse for total_items and picker_time_breakdown.
+    grouped = _group_events_by_picker(events, k_pickers)
 
-    num_tasks = len({
-        e.aisle_id for e in events
-        if e.event_type == 'task_start' and e.aisle_id is not None
-    })
+    duration = 0.0
+    num_tasks_set: set = set()
+    total_items = 0
 
-    total_items = sum(
-        max(
-            (e.items_picked for e in events
-             if e.picker_id == pid and e.event_type == 'done'),
-            default=0,
-        )
-        for pid in range(k_pickers)
-    )
+    for e in events:
+        if e.event_type == 'done':
+            if e.time > duration:
+                duration = e.time
+        elif e.event_type == 'task_start' and e.aisle_id is not None:
+            num_tasks_set.add(e.aisle_id)
+    num_tasks = len(num_tasks_set)
+
+    for picker_evs in grouped:
+        for e in reversed(picker_evs):
+            if e.event_type == 'done':
+                total_items += e.items_picked
+                break
 
     conc      = avg_concurrent_pickers(events)
-    breakdown = picker_time_breakdown(events, k_pickers)
+    breakdown = _picker_time_breakdown_grouped(grouped)
 
     return BatchStats(
         run_id                 = run_id,

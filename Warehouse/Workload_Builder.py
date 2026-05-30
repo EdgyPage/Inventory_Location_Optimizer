@@ -132,8 +132,13 @@ class Task:
         self.aisle_id: int          = aisle_id
         self.path: list[Aisle.Bin]  = path         # bins in visit order
         self.items: dict[int, int]  = items         # sku -> quantity for this aisle
-        self.x_traversed: int = sum(abs(path[i].bayX - path[i+1].bayX) for i in range(len(path) - 1))
-        self.y_traversed: int = sum(abs(path[i].bayY - path[i+1].bayY) for i in range(len(path) - 1))
+        x_trav = 0
+        y_trav = 0
+        for i in range(len(path) - 1):
+            x_trav += abs(path[i].bayX - path[i+1].bayX)
+            y_trav += abs(path[i].bayY - path[i+1].bayY)
+        self.x_traversed: int = x_trav
+        self.y_traversed: int = y_trav
         sku_to_vol: dict[int, int] = {
             b.storage.carton.sku: b.storage.carton.volume()
             for b in path if b.storage is not None
@@ -142,33 +147,57 @@ class Task:
         self.carts_required: int = math.ceil(total_vol / _CART_VOLUME) if total_vol > 0 else 0
 
     @staticmethod
-    def from_batch(batch: Batch, warehouse: Warehouse) -> list[Task]:
+    def from_batch(batch: Batch, warehouse: Warehouse, manager=None) -> list[Task]:
         """Decompose a Batch into one Task per aisle.
 
         For each SKU in the batch, singleton bins are drained before pallet bins
         so that forward-pick locations are always preferred over reserve locations.
+
+        If manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins
+        dicts are used directly, skipping the O(N_all_bins) warehouse scan that
+        would otherwise rebuild the index on every batch.
         """
-        sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
-        for bin_ in warehouse.bins:
-            if bin_.storage is not None:
-                sku_to_bins[bin_.storage.carton.sku].append(bin_)
-
-        # Singleton bins first within each SKU's bin list
-        for bins in sku_to_bins.values():
-            bins.sort(key=lambda b: 0 if b.unit_type == 'singleton' else 1)
-
         # Distribute each batch quantity: drain singleton bins before pallet bins
         bin_pick: dict[Aisle.Bin, int] = {}
-        for sku, qty in batch.items.items():
-            remaining: int = qty
-            for bin_ in sku_to_bins.get(sku, []):
-                if remaining <= 0:
-                    break
-                available: int = bin_.storage.quantity if bin_.storage is not None else 0
-                take: int = min(remaining, available)
-                if take > 0:
-                    bin_pick[bin_] = bin_pick.get(bin_, 0) + take
-                    remaining -= take
+
+        if manager is not None:
+            # O(N_batch_skus) — uses maintained index, no full warehouse scan
+            for sku, qty in batch.items.items():
+                remaining: int = qty
+                for bin_ in manager._sku_singleton_bins.get(sku, []):
+                    if remaining <= 0:
+                        break
+                    available: int = bin_.storage.quantity if bin_.storage is not None else 0
+                    take: int = min(remaining, available)
+                    if take > 0:
+                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        remaining -= take
+                for bin_ in manager._sku_pallet_bins.get(sku, []):
+                    if remaining <= 0:
+                        break
+                    available = bin_.storage.quantity if bin_.storage is not None else 0
+                    take = min(remaining, available)
+                    if take > 0:
+                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        remaining -= take
+        else:
+            # Fallback: O(N_all_bins) scan — used when no manager is available
+            sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
+            for bin_ in warehouse.bins:
+                if bin_.storage is not None:
+                    sku_to_bins[bin_.storage.carton.sku].append(bin_)
+            for bins in sku_to_bins.values():
+                bins.sort(key=lambda b: 0 if b.unit_type == 'singleton' else 1)
+            for sku, qty in batch.items.items():
+                remaining = qty
+                for bin_ in sku_to_bins.get(sku, []):
+                    if remaining <= 0:
+                        break
+                    available = bin_.storage.quantity if bin_.storage is not None else 0
+                    take = min(remaining, available)
+                    if take > 0:
+                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        remaining -= take
 
         aisle_bins:  dict[int, list[Aisle.Bin]] = defaultdict(list)
         aisle_items: dict[int, dict[int, int]]  = defaultdict(dict)
