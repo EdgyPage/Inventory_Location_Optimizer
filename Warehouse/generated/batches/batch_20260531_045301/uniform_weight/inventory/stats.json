@@ -1,0 +1,151 @@
+{
+  "total_skus": 76500,
+  "groups": {
+    "conveyable/chemical": {
+      "count": 6374,
+      "fraction": 0.0833202614379085
+    },
+    "conveyable/clothing": {
+      "count": 6350,
+      "fraction": 0.08300653594771241
+    },
+    "conveyable/electronic": {
+      "count": 6475,
+      "fraction": 0.084640522875817
+    },
+    "conveyable/food": {
+      "count": 6385,
+      "fraction": 0.0834640522875817
+    },
+    "conveyable/furniture": {
+      "count": 6205,
+      "fraction": 0.0811111111111111
+    },
+    "conveyable/seasonal": {
+      "count": 6385,
+      "fraction": 0.0834640522875817
+    },
+    "non-conveyable/chemical": {
+      "count": 6288,
+      "fraction": 0.08219607843137255
+    },
+    "non-conveyable/clothing": {
+      "count": 6386,
+      "fraction": 0.08347712418300654
+    },
+    "non-conveyable/electronic": {
+      "count": 6350,
+      "fraction": 0.08300653594771241
+    },
+    "non-conveyable/food": {
+      "count": 6338,
+      "fraction": 0.08284967320261438
+    },
+    "non-conveyable/furniture": {
+      "count": 6481,
+      "fraction": 0.08471895424836601
+    },
+    "non-conveyable/seasonal": {
+      "count": 6483,
+      "fraction": 0.08474509803921569
+    }
+  },
+  "handling_counts": {
+    "non-conveyable": 38326,
+    "conveyable": 38174
+  },
+  "category_counts": {
+    "seasonal": 12868,
+    "electronic": 12825,
+    "clothing": 12736,
+    "food": 12723,
+    "furniture": 12686,
+    "chemical": 12662
+  },
+  "singleton_count": 38503,
+  "singleton_fraction": 0.5033071895424837,
+  "dimensions": {
+    "length": {
+      "min": 3.0,
+      "max": 48.0,
+      "mean": 22.309660130718953,
+      "median": 15.0,
+      "std": 13.238700805263079,
+      "p25": 12.0,
+      "p75": 35.0,
+      "p95": 46.0
+    },
+    "width": {
+      "min": 3.0,
+      "max": 48.0,
+      "mean": 22.22670588235294,
+      "median": 15.0,
+      "std": 13.188411021875602,
+      "p25": 12.0,
+      "p75": 35.0,
+      "p95": 46.0
+    },
+    "height": {
+      "min": 3.0,
+      "max": 48.0,
+      "mean": 22.320444444444444,
+      "median": 15.0,
+      "std": 13.217391654487589,
+      "p25": 12.0,
+      "p75": 35.0,
+      "p95": 46.0
+    },
+    "volume": {
+      "min": 100.0,
+      "max": 108288.0,
+      "mean": 18691.626875816994,
+      "median": 3360.0,
+      "std": 22724.907289033643,
+      "p25": 1485.0,
+      "p75": 32640.0,
+      "p95": 66010.0
+    }
+  },
+  "weight": {
+    "min": 1.0,
+    "max": 120.0,
+    "mean": 60.56711111111111,
+    "median": 61.0,
+    "std": 34.65710832909771,
+    "p25": 31.0,
+    "p75": 91.0,
+    "p95": 115.0
+  },
+  "demand": {
+    "frequency": {
+      "min": 2.903052034619602e-05,
+      "max": 0.9999724006596842,
+      "mean": 0.5012191626146659,
+      "median": 0.5020796876734984,
+      "std": 0.28801215859345375,
+      "p25": 0.252020740173925,
+      "p75": 0.7508131211041422,
+      "p95": 0.9502323828793153
+    },
+    "quantity_rate": {
+      "min": 0.500141801682014,
+      "max": 19.999662111913796,
+      "mean": 10.24881904529831,
+      "median": 10.272910759922862,
+      "std": 5.626108898187919,
+      "p25": 5.375369061077804,
+      "p75": 15.098821200093033,
+      "p95": 19.04407290934731
+    }
+  },
+  "stock_qty": {
+    "min": 5.0,
+    "max": 173.0,
+    "mean": 50.02324183006536,
+    "median": 46.0,
+    "std": 26.050827975165983,
+    "p25": 30.0,
+    "p75": 66.0,
+    "p95": 99.0
+  }
+}

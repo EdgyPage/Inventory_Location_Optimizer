@@ -1,0 +1,96 @@
+{
+  "name": "inventory",
+  "timestamp": "20260531_045645",
+  "seed": 50,
+  "num_skus": 76500,
+  "handling_splits": [
+    0.5,
+    0.5
+  ],
+  "category_splits": [
+    0.16666666666666669,
+    0.16666666666666669,
+    0.16666666666666669,
+    0.16666666666666669,
+    0.16666666666666669,
+    0.16666666666666669
+  ],
+  "handling_labels": [
+    "conveyable",
+    "non-conveyable"
+  ],
+  "category_labels": [
+    "food",
+    "clothing",
+    "electronic",
+    "furniture",
+    "seasonal",
+    "chemical"
+  ],
+  "singleton_fraction": 0.5,
+  "dim_spec": {
+    "dist": "mixture",
+    "components": [
+      {
+        "prob": 0.3,
+        "spec": {
+          "dist": "normal",
+          "mean": 7,
+          "std": 2
+        }
+      },
+      {
+        "prob": 0.4,
+        "spec": {
+          "dist": "normal",
+          "mean": 24,
+          "std": 3
+        }
+      },
+      {
+        "prob": 0.3,
+        "spec": {
+          "dist": "normal",
+          "mean": 42,
+          "std": 3
+        }
+      }
+    ]
+  },
+  "weight_spec": {
+    "dist": "mixture",
+    "components": [
+      {
+        "prob": 0.4,
+        "spec": {
+          "dist": "poisson_fixed",
+          "lam": 3.0
+        }
+      },
+      {
+        "prob": 0.35,
+        "spec": {
+          "dist": "poisson_fixed",
+          "lam": 28.0
+        }
+      },
+      {
+        "prob": 0.25,
+        "spec": {
+          "dist": "poisson_fixed",
+          "lam": 80.0
+        }
+      }
+    ]
+  },
+  "quantity_spec": {
+    "dist": "beta_scaled",
+    "alpha": 2.076923076923077,
+    "beta": 6.923076923076923,
+    "low": 5,
+    "high": 200
+  },
+  "carton_min_dim": 3,
+  "carton_max_dim": 48,
+  "singleton_max_dim": 16
+}

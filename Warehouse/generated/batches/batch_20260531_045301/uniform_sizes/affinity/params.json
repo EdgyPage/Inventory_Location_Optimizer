@@ -1,0 +1,28 @@
+{
+  "name": "affinity",
+  "timestamp": "20260531_045339",
+  "seed": 1,
+  "source_inventory_db": "C:\\Users\\myfir\\Code and Repos\\Inventory_Location_Optimizer\\Warehouse\\generated\\batches\\batch_20260531_045301\\uniform_sizes\\inventory\\inventory.db",
+  "top_k": 20,
+  "candidate_k": 60,
+  "min_lift": 1.0,
+  "max_lift": 5.0,
+  "noise_std": 0.15,
+  "batch_size": 500000,
+  "total_sku_count": 76500,
+  "group_counts": {
+    "conveyable/seasonal": 6382,
+    "non-conveyable/clothing": 6451,
+    "conveyable/furniture": 6468,
+    "conveyable/food": 6384,
+    "non-conveyable/chemical": 6312,
+    "non-conveyable/food": 6406,
+    "non-conveyable/furniture": 6329,
+    "conveyable/electronic": 6313,
+    "conveyable/clothing": 6351,
+    "non-conveyable/seasonal": 6197,
+    "non-conveyable/electronic": 6487,
+    "conveyable/chemical": 6420
+  },
+  "estimated_db_mb": 81.7108154296875
+}
