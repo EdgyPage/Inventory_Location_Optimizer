@@ -85,8 +85,14 @@ _CATEGORIES       = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 
 _CARTON_MAX_DIM   = 48
 _SINGLETON_MAX_DIM = 16
 
-DEFAULT_DIM_SPEC    = {'dist': 'triangular', 'low': 3, 'high': 48, 'mode': 48}
-DEFAULT_WEIGHT_SPEC = {'dist': 'volume_poisson'}
+DEFAULT_DIM_SPEC      = {'dist': 'triangular', 'low': 3, 'high': 48, 'mode': 48}
+DEFAULT_WEIGHT_SPEC   = {'dist': 'volume_poisson'}
+# Beta(27/13, 90/13) scaled to [5, 200]: mode=35, mean=50, right-skewed bell.
+# Derivation: solving mode = low + (α-1)/(α+β-2)*(high-low) = 35
+#             and    mean = low +  α/(α+β)       *(high-low) = 50
+#             gives α+β = 9, α = 27/13.
+DEFAULT_QUANTITY_SPEC = {'dist': 'beta_scaled', 'alpha': 27/13, 'beta': 90/13,
+                         'low': 5, 'high': 200}
 
 
 # ── distribution samplers ──────────────────────────────────────────────────────
@@ -103,6 +109,31 @@ def _poisson_rng(lam: float, rng: random.Random) -> int:
         k += 1
         p *= rng.random()
     return k - 1
+
+
+def sample_quantity(spec: dict, rng: random.Random) -> int:
+    """Sample initial stock quantity per bin from *spec*.
+
+    Supported distributions
+    -----------------------
+    beta_scaled   alpha, beta, low, high — beta variate scaled to [low, high]
+    uniform       low, high
+    fixed         value
+    """
+    dist = spec.get('dist', 'beta_scaled')
+    if dist == 'beta_scaled':
+        alpha = spec.get('alpha', 27 / 13)
+        beta  = spec.get('beta',  90 / 13)
+        low   = int(spec.get('low',  5))
+        high  = int(spec.get('high', 200))
+        v = rng.betavariate(alpha, beta)
+        return max(low, min(high, round(low + v * (high - low))))
+    elif dist == 'uniform':
+        return rng.randint(int(spec['low']), int(spec['high']))
+    elif dist == 'fixed':
+        return int(spec['value'])
+    else:
+        raise ValueError(f'Unknown quantity distribution: {dist!r}')
 
 
 def sample_dim(spec: dict, rng: random.Random, max_cap: int = _CARTON_MAX_DIM) -> int:
@@ -196,12 +227,15 @@ def build_inventory_with_profile(
     dim_spec          : dict,
     weight_spec       : dict,
     seed              : int,
+    quantity_spec     : dict | None = None,
 ) -> Inventory:
     """Build an Inventory using custom dim / weight specs.
 
     Bypasses Carton.__init__ so any distribution can be used.
     Carton.next_sku is reset to 1 at the start of this function.
     """
+    if quantity_spec is None:
+        quantity_spec = DEFAULT_QUANTITY_SPEC
     storage = Storage_Type()
     rng     = random.Random(seed)
     Carton.next_sku = 1
@@ -231,6 +265,7 @@ def build_inventory_with_profile(
         c.height       = h
         c.weight       = wt
         c.demand       = Demand.from_rates(freq, qty_rate)
+        c.stock_qty    = sample_quantity(quantity_spec, rng)
         cartons.append(c)
 
     return Inventory(cartons)
@@ -249,7 +284,8 @@ _SCHEMA = '''
         weight           INTEGER NOT NULL,
         demand_frequency REAL    NOT NULL,
         demand_qty_rate  REAL    NOT NULL,
-        is_singleton     INTEGER NOT NULL
+        is_singleton     INTEGER NOT NULL,
+        stock_qty        INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -279,8 +315,9 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             c.length, c.width, c.height, c.weight,
             c.demand.frequency, c.demand.quantity_rate,
             is_singleton,
+            getattr(c, 'stock_qty', 1),
         ))
-    conn.executemany('INSERT OR REPLACE INTO cartons VALUES (?,?,?,?,?,?,?,?,?,?)', rows)
+    conn.executemany('INSERT OR REPLACE INTO cartons VALUES (?,?,?,?,?,?,?,?,?,?,?)', rows)
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
                  ('params_json', json.dumps(params, indent=2)))
     conn.commit()
@@ -290,15 +327,23 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
 def load_inventory_from_db(db_path: str) -> Inventory:
     """Reconstruct an Inventory object from a previously saved DB."""
     conn = sqlite3.connect(db_path)
-    rows = conn.execute(
+    # stock_qty column added in v2; fall back to 1 for older DBs.
+    col_names = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
+    has_stock_qty = 'stock_qty' in col_names
+    select = (
         'SELECT sku, handling, category, length, width, height, weight, '
-        'demand_frequency, demand_qty_rate FROM cartons ORDER BY sku'
-    ).fetchall()
+        'demand_frequency, demand_qty_rate'
+        + (', stock_qty' if has_stock_qty else '')
+        + ' FROM cartons ORDER BY sku'
+    )
+    rows = conn.execute(select).fetchall()
     conn.close()
 
     cartons = []
     max_sku = 0
-    for sku, handling, category, length, width, height, weight, freq, qty_rate in rows:
+    for row in rows:
+        sku, handling, category, length, width, height, weight, freq, qty_rate = row[:9]
+        stock_qty = int(row[9]) if has_stock_qty else 1
         c              = object.__new__(Carton)
         c._sku         = sku
         c.storage_type = (handling, category)
@@ -308,6 +353,7 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         c.height       = height
         c.weight       = weight
         c.demand       = Demand.from_rates(freq, qty_rate)
+        c.stock_qty    = stock_qty
         cartons.append(c)
         max_sku = max(max_sku, sku)
 
@@ -351,6 +397,7 @@ def compute_stats(df: pd.DataFrame) -> dict:
             'frequency'    : _summary(df['demand_frequency']),
             'quantity_rate': _summary(df['demand_qty_rate']),
         },
+        'stock_qty': _summary(df['stock_qty']) if 'stock_qty' in df.columns else {},
     }
 
 
@@ -443,6 +490,39 @@ def plot_demand(df: pd.DataFrame, out_dir: str) -> None:
     _save_close(fig, os.path.join(out_dir, 'demand.png'))
 
 
+def plot_stock_qty(df: pd.DataFrame, out_dir: str) -> None:
+    """Histogram + KDE of the stock_qty distribution."""
+    if 'stock_qty' not in df.columns:
+        return
+    vals = df['stock_qty'].values.astype(float)
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
+    fig.suptitle('Initial Stock Quantity Distribution', fontsize=13, fontweight='bold')
+
+    axes[0].hist(vals, bins=60, color='#9966cc', alpha=0.75, edgecolor='white')
+    axes[0].axvline(vals.mean(),     color='red',    lw=1.5, linestyle='--',
+                    label=f'Mean   {vals.mean():.1f}')
+    axes[0].axvline(np.median(vals), color='orange', lw=1.5, linestyle=':',
+                    label=f'Median {np.median(vals):.1f}')
+    axes[0].set_xlabel('Stock quantity per bin')
+    axes[0].set_ylabel('SKU count')
+    axes[0].set_title('Histogram  (mode≈35, mean≈50, range [5,200])')
+    axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
+
+    if vals.max() > vals.min():
+        kde = gaussian_kde(vals, bw_method='silverman')
+        xs  = np.linspace(vals.min(), vals.max(), 500)
+        axes[1].fill_between(xs, kde(xs), alpha=0.4, color='#9966cc')
+        axes[1].plot(xs, kde(xs), color='#9966cc', lw=2)
+        axes[1].axvline(vals.mean(),     color='red',    lw=1.5, linestyle='--')
+        axes[1].axvline(np.median(vals), color='orange', lw=1.5, linestyle=':')
+    axes[1].set_xlabel('Stock quantity per bin')
+    axes[1].set_ylabel('Density')
+    axes[1].set_title('KDE')
+    axes[1].grid(alpha=0.3)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(out_dir, 'stock_qty.png'))
+
+
 def plot_volume_vs_weight(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> None:
     df = df.copy()
     df['volume'] = df['length'] * df['width'] * df['height']
@@ -511,6 +591,7 @@ def generate_run(
     out_dir            : str                = _DEFAULT_OUT_DIR,
     dim_spec           : dict | None        = None,
     weight_spec        : dict | None        = None,
+    quantity_spec      : dict | None        = None,
     verbose            : bool               = True,
 ) -> str:
     """Generate one inventory run and return the path to the created run_dir.
@@ -536,6 +617,8 @@ def generate_run(
         dim_spec = DEFAULT_DIM_SPEC
     if weight_spec is None:
         weight_spec = DEFAULT_WEIGHT_SPEC
+    if quantity_spec is None:
+        quantity_spec = DEFAULT_QUANTITY_SPEC
 
     h_splits = [w / sum(handling_splits) for w in handling_splits]
     c_splits = [w / sum(category_splits) for w in category_splits]
@@ -556,6 +639,7 @@ def generate_run(
         'singleton_fraction' : singleton_fraction,
         'dim_spec'           : dim_spec,
         'weight_spec'        : weight_spec,
+        'quantity_spec'      : quantity_spec,
         'carton_min_dim'     : 3,
         'carton_max_dim'     : _CARTON_MAX_DIM,
         'singleton_max_dim'  : _SINGLETON_MAX_DIM,
@@ -579,6 +663,7 @@ def generate_run(
         dim_spec           = dim_spec,
         weight_spec        = weight_spec,
         seed               = seed,
+        quantity_spec      = quantity_spec,
     )
     _log(f'[inventory:{name}] Built {len(inventory.cartons):,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
@@ -603,6 +688,7 @@ def generate_run(
     plot_dimensions(df, plot_dir, sfx)
     plot_weight(df, plot_dir, sfx)
     plot_demand(df, plot_dir)
+    plot_stock_qty(df, plot_dir)
     plot_volume_vs_weight(df, plot_dir, sfx)
     plot_singleton_split(df, plot_dir)
     plot_dim_kde_overlay(df, plot_dir, sfx)

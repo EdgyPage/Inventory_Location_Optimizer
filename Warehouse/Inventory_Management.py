@@ -334,7 +334,13 @@ class Inventory_Manager:
             carton, qty = self._queue.popleft()
             assigned = self._try_place(carton, qty)
             if assigned is not None:
+                # If the carton carries a stock_qty, override each unit's quantity
+                # so the bin starts with more units without needing additional bins.
+                # One bin per SKU is preserved; reorders fire far less frequently.
+                stock_qty = getattr(carton, 'stock_qty', None)
                 for unit, bin_ in assigned:
+                    if stock_qty is not None:
+                        unit.quantity = stock_qty
                     bin_.storage = unit
                     self._index_remove(bin_)
                     self._unavailable[id(bin_)] = bin_
