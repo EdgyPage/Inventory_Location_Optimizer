@@ -72,6 +72,8 @@ _BINS_PER_AISLE      = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
 _N_PALLET_TYPES      = 48         # 4 sizes × 6 categories × 2 handling
 _N_SINGLETON_TYPES   = 12         # 1 type  × 6 categories × 2 handling
 _SINGLETON_MAX_DIM   = 16         # Singleton.max_width — used to classify cartons
+_SING_FRACTION_CAP   = 0.35       # singleton bins ≤ 35% of total warehouse bins
+_TARGET_FILL         = 0.90       # target bin fill rate after overstock sampling
 
 _DEFAULT_BATCHES_DIR = os.path.normpath(
     os.path.join(_HERE, '..', 'Warehouse', 'generated', 'batches')
@@ -226,12 +228,7 @@ def _roll(df, col, win=50):
 
 
 def discover_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
-    """Scan batches_dir and return (label, inventory_db, affinity_db) for every valid pair.
-
-    Expected layout (produced by generate_profile_suite.py):
-        <batches_dir>/<batch_name>/<profile_name>/inventory/inventory.db
-        <batches_dir>/<batch_name>/<profile_name>/affinity/affinity.db
-    """
+    """Scan batches_dir and return (label, inventory_db, affinity_db) for every valid pair."""
     pairs: list[tuple[str, str, str]] = []
     if not os.path.isdir(batches_dir):
         return pairs
@@ -248,6 +245,77 @@ def discover_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
             if os.path.exists(inv_db) and os.path.exists(aff_db):
                 pairs.append((f'{batch_name}__{profile_name}', inv_db, aff_db))
     return pairs
+
+
+def find_latest_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
+    """Return DB pairs from the most recently generated batch only.
+
+    Batch directories are named batch_YYYYMMDD_HHMMSS, so the last entry
+    when sorted lexicographically is always the newest.  Walks backwards
+    through batches until one with valid inventory+affinity pairs is found.
+    """
+    if not os.path.isdir(batches_dir):
+        return []
+    batch_names = sorted([
+        d for d in os.listdir(batches_dir)
+        if os.path.isdir(os.path.join(batches_dir, d))
+    ])
+    for batch_name in reversed(batch_names):
+        batch_path = os.path.join(batches_dir, batch_name)
+        pairs: list[tuple[str, str, str]] = []
+        for profile_name in sorted(os.listdir(batch_path)):
+            profile_path = os.path.join(batch_path, profile_name)
+            if not os.path.isdir(profile_path):
+                continue
+            inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
+            aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
+            if os.path.exists(inv_db) and os.path.exists(aff_db):
+                pairs.append((f'{batch_name}__{profile_name}', inv_db, aff_db))
+        if pairs:
+            return pairs
+    return []
+
+
+def _stock_to_target_fill(
+    manager  : 'Inventory_Manager',
+    inventory,
+    target   : float = _TARGET_FILL,
+    log      : logging.Logger | None = None,
+) -> int:
+    """Oversample inventory until the manager reaches *target* bin fill rate.
+
+    Every SKU must already be stocked at least once before calling this.
+    Additional bins are drawn weighted by demand.frequency so fast-moving
+    SKUs accumulate more stock locations.  Enqueues a batch of candidates
+    and clears any that couldn't be placed due to full aisles.
+
+    Returns the number of extra bins successfully stocked.
+    """
+    total_bins  = len(manager.warehouse.bins)
+    target_bins = round(target * total_bins)
+    current     = len(manager.unavailable)
+
+    if current >= target_bins:
+        return 0
+
+    needed  = target_bins - current
+    weights = [c.demand.frequency for c in inventory.cartons]
+    total_w = sum(weights)
+    norm_w  = [w / total_w for w in weights]
+
+    # Sample generously — some will fail if bins of that type are full
+    sample = random.choices(inventory.cartons, weights=norm_w, k=needed * 3)
+    before = len(manager.unavailable)
+    manager.enqueue_all(sample, quantity=1)
+    # Clear cartons that couldn't be placed (warehouse section full)
+    manager._queue.clear()
+    added = len(manager.unavailable) - before
+
+    if log:
+        fill_pct = len(manager.unavailable) / total_bins
+        log.info(f'  Overstock: +{added:,} bins  fill={fill_pct:.1%}  '
+                 f'(target {target:.0%})')
+    return added
 
 
 # ── shared asset loader ────────────────────────────────────────────────────────
@@ -275,12 +343,40 @@ def build_shared_assets(
     )
     n_pallet = n_skus - n_singleton
 
-    # Compute per-type replicas independently so each storage class gets ≥10% slack
-    sing_replicas = max(1, math.ceil(n_singleton * 1.1 / (_N_SINGLETON_TYPES * _BINS_PER_AISLE)))
-    pall_replicas = max(1, math.ceil(n_pallet    * 1.1 / (_N_PALLET_TYPES    * _BINS_PER_AISLE)))
+    # ── Warehouse sizing ───────────────────────────────────────────────────────
+    # Three constraints must all hold simultaneously:
+    #   1. Every SKU gets at least one bin (n_sing ≤ sing_bins, n_pall ≤ pall_bins)
+    #   2. Singleton bins ≤ _SING_FRACTION_CAP (35%) of total bins
+    #   3. Total bins large enough to reach _TARGET_FILL (90%) via overstock
+    #
+    # (1) sets the minimum replicas per type.
+    # (2) may require extra pallet replicas when singletons are abundant.
+    # (3) sets a lower bound on total_bins = n_skus / _TARGET_FILL.
+
+    sing_replicas = max(1, math.ceil(n_singleton / (_N_SINGLETON_TYPES * _BINS_PER_AISLE)))
+    pall_replicas = max(1, math.ceil(n_pallet    / (_N_PALLET_TYPES    * _BINS_PER_AISLE)))
+
+    # Enforce singleton cap: sing_bins/(sing_bins + pall_bins) ≤ _SING_FRACTION_CAP
+    sing_bins_now = _N_SINGLETON_TYPES * sing_replicas * _BINS_PER_AISLE
+    min_pall_bins = math.ceil(
+        sing_bins_now * (1 - _SING_FRACTION_CAP) / _SING_FRACTION_CAP
+    )
+    pall_replicas = max(
+        pall_replicas,
+        math.ceil(min_pall_bins / (_N_PALLET_TYPES * _BINS_PER_AISLE)),
+    )
+
+    # Enforce 90% fill target: total_bins ≥ n_skus / _TARGET_FILL
+    sing_bins  = _N_SINGLETON_TYPES * sing_replicas * _BINS_PER_AISLE
+    pall_bins  = _N_PALLET_TYPES    * pall_replicas * _BINS_PER_AISLE
+    min_total  = math.ceil(n_skus / _TARGET_FILL)
+    if sing_bins + pall_bins < min_total:
+        extra_pall = math.ceil((min_total - sing_bins - pall_bins) / (_N_PALLET_TYPES * _BINS_PER_AISLE))
+        pall_replicas += extra_pall
 
     total_aisles = _N_SINGLETON_TYPES * sing_replicas + _N_PALLET_TYPES * pall_replicas
     total_bins   = total_aisles * _BINS_PER_AISLE
+    sing_frac    = (_N_SINGLETON_TYPES * sing_replicas) / total_aisles
 
     # _AISLE_CFGS is ordered: 48 pallet types first, then 12 singleton types
     _pall_w = pall_replicas / total_aisles
@@ -288,9 +384,10 @@ def build_shared_assets(
     aisle_splits = [_pall_w] * _N_PALLET_TYPES + [_sing_w] * _N_SINGLETON_TYPES
 
     log.info(f'  Inventory : {n_pallet:,} pallet  {n_singleton:,} singleton cartons')
-    log.info(f'  Warehouse : {_N_PALLET_TYPES} pallet types × {pall_replicas} replicas'
-             f' + {_N_SINGLETON_TYPES} singleton types × {sing_replicas} replicas'
-             f' = {total_aisles} aisles / {total_bins:,} bins  ({total_bins/n_skus:.3f}× inventory)')
+    log.info(f'  Warehouse : {_N_PALLET_TYPES}×{pall_replicas} pallet'
+             f' + {_N_SINGLETON_TYPES}×{sing_replicas} singleton'
+             f' = {total_aisles} aisles / {total_bins:,} bins'
+             f'  sing={sing_frac:.1%}  target_fill={_TARGET_FILL:.0%}')
 
     warehouse_cfg = WarehouseConfig(
         total_aisles  = total_aisles,
@@ -330,8 +427,11 @@ def build_shared_assets(
     random.seed(SEED_WORLD + 100)
     manager_A   = Inventory_Manager(warehouse_A)
     manager_A.enqueue_all(inventory.cartons, quantity=1)
+    log.info(f'  Warehouse A base stock: {len(manager_A.unavailable):,} / {total_bins:,} bins'
+             f'  ({len(manager_A.unavailable)/total_bins:.1%})')
+    _stock_to_target_fill(manager_A, inventory, target=_TARGET_FILL, log=log)
     placed_A = len(manager_A.unavailable)
-    log.info(f'  Warehouse A (uniform): {placed_A:,} / {total_bins:,} bins  ({placed_A/total_bins:.1%})')
+    log.info(f'  Warehouse A final     : {placed_A:,} / {total_bins:,} bins  ({placed_A/total_bins:.1%})')
 
     return dict(
         inventory          = inventory,
@@ -438,6 +538,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     random.seed(SEED_WORLD + 100)
     manager_B = Inventory_Manager(warehouse_B, affinity=affinity_store)
     manager_B.enqueue_all(inventory.cartons, quantity=1)
+    _stock_to_target_fill(manager_B, inventory, target=_TARGET_FILL)
     manager_B.init_lift_state(affinity_store)
     manager_B.assignment_fn = build_load_minimizing_assignment_fn(
         load_params, affinity_store, wp,
@@ -454,6 +555,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     random.seed(SEED_WORLD + 100)
     manager_C = Inventory_Manager(warehouse_C, affinity=affinity_store)
     manager_C.enqueue_all(inventory.cartons, quantity=1)
+    _stock_to_target_fill(manager_C, inventory, target=_TARGET_FILL)
     manager_C.init_lift_state(affinity_store)
     manager_C.assignment_fn = build_load_maximizing_assignment_fn(
         load_params, affinity_store, wp,
@@ -829,11 +931,13 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Warehouse assignment comparison — loads all inventory+affinity DB pairs.',
+        description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--batches-dir', default=_DEFAULT_BATCHES_DIR,
-                        help='Root directory produced by generate_profile_suite.py to scan for DB pairs')
+                        help='Root directory produced by generate_profile_suite.py')
+    parser.add_argument('--all-batches', action='store_true',
+                        help='Run every batch/profile pair instead of only the newest batch')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     args = parser.parse_args()
@@ -850,8 +954,13 @@ def main():
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
     log.info(f'Output directory : {base_dir}')
     log.info(f'Batches dir      : {args.batches_dir}')
+    log.info(f'Mode             : {"all batches" if args.all_batches else "latest batch only"}')
 
-    pairs = discover_db_pairs(args.batches_dir)
+    if args.all_batches:
+        pairs = discover_db_pairs(args.batches_dir)
+    else:
+        pairs = find_latest_db_pairs(args.batches_dir)
+
     if not pairs:
         sys.exit(f'No inventory+affinity DB pairs found in: {args.batches_dir}')
 
