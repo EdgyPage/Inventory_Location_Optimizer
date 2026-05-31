@@ -216,6 +216,7 @@ def run_benchmark(
     manager_B.assignment_fn = build_load_minimizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
+        manager_B._aisle_idx_sets,
     )
 
     Aisle.next_aisle_id = 1
@@ -228,6 +229,7 @@ def run_benchmark(
     manager_C.assignment_fn = build_load_maximizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
+        manager_C._aisle_idx_sets,
     )
 
     placed_A = len(manager_A.unavailable)

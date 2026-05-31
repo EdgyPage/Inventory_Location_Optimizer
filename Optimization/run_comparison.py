@@ -442,6 +442,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     manager_B.assignment_fn = build_load_minimizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
+        manager_B._aisle_idx_sets,
     )
     log.info(f'  B ready  {time.perf_counter()-t0:.1f}s  ({len(manager_B.unavailable):,} bins)')
 
@@ -457,6 +458,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     manager_C.assignment_fn = build_load_maximizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
+        manager_C._aisle_idx_sets,
     )
     log.info(f'  C ready  {time.perf_counter()-t0:.1f}s  ({len(manager_C.unavailable):,} bins)')
 

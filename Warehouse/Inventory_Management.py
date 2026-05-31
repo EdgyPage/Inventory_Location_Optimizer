@@ -77,6 +77,9 @@ class Inventory_Manager:
         self._aisle_sku_sets: dict[int, set[int]]         = defaultdict(set)
         self._aisle_lift_sum: dict[int, float]             = defaultdict(float)
         self._aisle_sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
+        # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
+        # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
+        self._aisle_idx_sets: dict[int, set[int]]         = defaultdict(set)
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
@@ -117,10 +120,13 @@ class Inventory_Manager:
         self._aisle_sku_sets.clear()
         self._aisle_lift_sum.clear()
         self._aisle_sku_counts.clear()
+        self._aisle_idx_sets.clear()
         self._bin_sku.clear()
         self._current_quantities.clear()
         self._sku_singleton_bins.clear()
         self._sku_pallet_bins.clear()
+
+        sku_to_idx = affinity._sku_to_idx
 
         for bin_ in self._unavailable.values():
             if bin_.storage is not None:
@@ -134,6 +140,9 @@ class Inventory_Manager:
                 self._current_quantities[sku] = (
                     self._current_quantities.get(sku, 0) + qty
                 )
+                idx = sku_to_idx.get(sku)
+                if idx is not None:
+                    self._aisle_idx_sets[aid].add(idx)
                 if bin_.unit_type == 'singleton':
                     self._sku_singleton_bins[sku].append(bin_)
                 else:
@@ -208,8 +217,11 @@ class Inventory_Manager:
                     else:
                         counts.pop(sku, None)
                         self._aisle_sku_sets[aid].discard(sku)
-                        delta = 2.0 * self._affinity.delta_lift(
-                            sku, list(self._aisle_sku_sets[aid])
+                        idx = self._affinity._sku_to_idx.get(sku)
+                        if idx is not None:
+                            self._aisle_idx_sets[aid].discard(idx)
+                        delta = 2.0 * self._affinity.delta_lift_idxs(
+                            sku, self._aisle_idx_sets[aid]
                         )
                         self._aisle_lift_sum[aid] = max(
                             0.0, self._aisle_lift_sum[aid] - delta
@@ -390,6 +402,7 @@ def build_load_minimizing_assignment_fn(
     wp             : Any,
     aisle_sku_sets : dict[int, set[int]],
     aisle_lift_sum : dict[int, float],
+    aisle_idx_sets : dict[int, set[int]],
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily minimises the L2 norm of predicted
     aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
@@ -443,7 +456,7 @@ def build_load_minimizing_assignment_fn(
                 break
 
             ls         = aisle_lift_sum[aid]
-            dl         = 2.0 * affinity.delta_lift(sku, list(aisle_sku_sets[aid]))
+            dl         = 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid])
             old_L      = _L(W, ls)
             new_L      = _L(W, ls + dl)
             delta_l2   = new_L * new_L - old_L * old_L
@@ -460,6 +473,9 @@ def build_load_minimizing_assignment_fn(
 
         aisle_lift_sum[best_aid] += best_delta_lift
         aisle_sku_sets[best_aid].add(sku)
+        idx = affinity._sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
     return assign
@@ -471,6 +487,7 @@ def build_load_maximizing_assignment_fn(
     wp             : Any,
     aisle_sku_sets : dict[int, set[int]],
     aisle_lift_sum : dict[int, float],
+    aisle_idx_sets : dict[int, set[int]],
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily maximises the L2 norm of predicted
     aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
@@ -513,7 +530,7 @@ def build_load_maximizing_assignment_fn(
         for aid in sorted_aids:
             W          = best_W[aid]
             ls         = aisle_lift_sum[aid]
-            dl         = 2.0 * affinity.delta_lift(sku, list(aisle_sku_sets[aid]))
+            dl         = 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid])
             old_L      = _L(W, ls)
             new_L      = _L(W, ls + dl)
             delta_l2   = new_L * new_L - old_L * old_L
@@ -530,6 +547,9 @@ def build_load_maximizing_assignment_fn(
 
         aisle_lift_sum[best_aid] += best_delta_lift
         aisle_sku_sets[best_aid].add(sku)
+        idx = affinity._sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
     return assign

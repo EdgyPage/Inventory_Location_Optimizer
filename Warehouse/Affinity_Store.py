@@ -185,6 +185,28 @@ class AffinityStore:
             return 0.0
         return float(sum(d for ci, d in zip(col_indices, data) if ci in member_set))
 
+    def delta_lift_idxs(self, sku: int, member_idx_set: set[int]) -> float:
+        """Sum of lift between sku and a pre-translated set of matrix indices.
+
+        Drop-in replacement for delta_lift() that accepts a set of matrix
+        indices directly instead of SKU IDs, eliminating the per-call
+        {_sku_to_idx[s] for s in aisle_members} set-comprehension that
+        otherwise costs O(N_aisle_members) dict lookups on every call.
+
+        The caller is responsible for keeping member_idx_set current with
+        the aisle's SKU composition (add on placement, discard on removal).
+        """
+        if not member_idx_set or self._matrix is None or sku not in self._sku_to_idx:
+            return 0.0
+        i     = self._sku_to_idx[sku]
+        start = int(self._matrix.indptr[i])
+        end   = int(self._matrix.indptr[i + 1])
+        if start == end:
+            return 0.0
+        col_indices = self._matrix.indices[start:end]
+        data        = self._matrix.data[start:end]
+        return float(sum(d for ci, d in zip(col_indices, data) if ci in member_idx_set))
+
     def sum_lift(self, skus: list[int]) -> float:
         """Total pairwise lift for all ordered pairs within skus.
 
