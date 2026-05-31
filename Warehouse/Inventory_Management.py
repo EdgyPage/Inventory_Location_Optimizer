@@ -250,7 +250,10 @@ class Inventory_Manager:
             if sku not in queued_skus:
                 initial_qty = self._initial_quantities.get(sku, 0)
                 if initial_qty > 0:
-                    self._queue.append((self._originals[sku].reorder(), initial_qty))
+                    # Always reorder 1 unit — _drain overrides unit.quantity
+                    # to carton.stock_qty, so the bin is restocked to the
+                    # correct level without needing multiple bins.
+                    self._queue.append((self._originals[sku].reorder(), 1))
                     triggered.append(sku)
         self._depleted_skus.clear()
 
