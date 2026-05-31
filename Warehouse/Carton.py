@@ -51,6 +51,7 @@ class Carton:
         c.demand = Demand.from_rates(self.demand.frequency, self.demand.quantity_rate)
         c.lift_group = self.lift_group
         c.stock_qty = getattr(self, 'stock_qty', 1)
+        c._is_reorder = True   # tells _drain to use randomised qty + pallet-first assignment
         return c
 
     @property

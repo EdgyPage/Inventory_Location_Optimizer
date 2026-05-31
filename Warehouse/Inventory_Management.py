@@ -41,6 +41,32 @@ def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle
     return random.choice(compatible) if compatible else None
 
 
+def _reorder_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
+    """Assignment function used exclusively for restock placements.
+
+    Strategy: prefer pallet bins over singleton bins, and within pallet bins
+    prefer the largest available size — maximises items per physical slot before
+    falling back to singletons for any overflow.  Singleton units (physically
+    small items) use random selection among available singleton bins.
+    """
+    handling, category = unit.carton.storage_type
+    unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
+    min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+    compatible = [
+        b for b in candidates
+        if b.handling_type == handling
+        and b.storage_type == category
+        and b.unit_type == unit_type
+        and _SIZE_RANKS[b.storage_size] >= min_rank
+    ]
+    if not compatible:
+        return None
+    if unit_type == 'pallet':
+        # Greedy: fill the largest available pallet slot first
+        return max(compatible, key=lambda b: _SIZE_RANKS[b.storage_size])
+    return random.choice(compatible)
+
+
 class Inventory_Manager:
     REORDER_THRESHOLD: float = 0.10
 
@@ -52,6 +78,10 @@ class Inventory_Manager:
     ) -> None:
         self.warehouse: Warehouse = warehouse
         self.assignment_fn: AssignmentFn = assignment_fn
+        # Separate assignment function used only for reorder placements.
+        # Defaults to pallet-first greedy; can be overridden independently
+        # of the main assignment_fn.
+        self.reorder_assignment_fn: AssignmentFn = _reorder_assignment
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
 
@@ -322,9 +352,10 @@ class Inventory_Manager:
         units = viable_storage_units(carton, qty)
         excluded: set[int] = set()
         assigned: list[tuple[StorageUnit, Aisle.Bin]] = []
+        fn = self.reorder_assignment_fn if getattr(carton, '_is_reorder', False) else self.assignment_fn
         for unit in units:
             candidates = self._candidates(unit, excluded)
-            bin_ = self.assignment_fn(unit, candidates)
+            bin_ = fn(unit, candidates)
             if bin_ is None:
                 return None
             excluded.add(id(bin_))
@@ -337,13 +368,19 @@ class Inventory_Manager:
             carton, qty = self._queue.popleft()
             assigned = self._try_place(carton, qty)
             if assigned is not None:
-                # If the carton carries a stock_qty, override each unit's quantity
-                # so the bin starts with more units without needing additional bins.
-                # One bin per SKU is preserved; reorders fire far less frequently.
-                stock_qty = getattr(carton, 'stock_qty', None)
+                stock_qty  = getattr(carton, 'stock_qty', None)
+                is_reorder = getattr(carton, '_is_reorder', False)
                 for unit, bin_ in assigned:
                     if stock_qty is not None:
-                        unit.quantity = stock_qty
+                        if is_reorder:
+                            # Randomised restock quantity: Normal(stock_qty, 20% std)
+                            # clipped to [1, 2×stock_qty] so restocks vary naturally.
+                            sigma = max(1.0, stock_qty * 0.20)
+                            unit.quantity = max(1, min(stock_qty * 2,
+                                                       round(random.gauss(stock_qty, sigma))))
+                        else:
+                            # Initial stocking: deterministic stock_qty per bin.
+                            unit.quantity = stock_qty
                     bin_.storage = unit
                     self._index_remove(bin_)
                     self._unavailable[id(bin_)] = bin_
