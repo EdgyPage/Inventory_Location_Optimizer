@@ -303,12 +303,12 @@ def _stock_to_target_fill(
     total_w = sum(weights)
     norm_w  = [w / total_w for w in weights]
 
-    # Sample generously — some will fail if bins of that type are full
+    # Sample generously — some will fail if bins of that type are full.
+    # Unplaced items stay in the queue (FIFO) and are retried each batch
+    # as picks free up bin slots.
     sample = random.choices(inventory.cartons, weights=norm_w, k=needed * 3)
     before = len(manager.unavailable)
     manager.enqueue_all(sample, quantity=1)
-    # Clear cartons that couldn't be placed (warehouse section full)
-    manager._queue.clear()
     added = len(manager.unavailable) - before
 
     if log:

@@ -264,13 +264,18 @@ class Inventory_Manager:
     def check_reorders(self) -> list[int]:
         """Enqueue replenishment for any SKU at or below 10% of initial quantity.
 
-        Uses _current_quantities (maintained incrementally by _notify_pick)
-        instead of scanning all bins — O(N_skus) instead of O(N_bins).
-        Called once per batch loop in the run script, not inside Pick.py.
+        Queue semantics (FIFO, persistent across batches):
+          - Items that cannot be placed remain in the queue in arrival order.
+          - A SKU already in the queue is never re-enqueued — the existing
+            entry will be placed as soon as a compatible bin becomes free.
+          - _drain() is called whenever the queue is non-empty (not only when
+            new reorders are triggered) so previously-unplaceable items are
+            retried every batch as reclaimed bins return to the index.
         """
         self._reclaim_empty_bins()
 
-        if not self._depleted_skus:
+        # Fast exit only when there is genuinely nothing to do.
+        if not self._depleted_skus and not self._queue:
             return []
 
         queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
@@ -280,14 +285,16 @@ class Inventory_Manager:
             if sku not in queued_skus:
                 initial_qty = self._initial_quantities.get(sku, 0)
                 if initial_qty > 0:
-                    # Always reorder 1 unit — _drain overrides unit.quantity
-                    # to carton.stock_qty, so the bin is restocked to the
-                    # correct level without needing multiple bins.
+                    # Enqueue with qty=1; _drain overrides unit.quantity to
+                    # the randomised stock_qty via the carton._is_reorder path.
                     self._queue.append((self._originals[sku].reorder(), 1))
                     triggered.append(sku)
         self._depleted_skus.clear()
 
-        if triggered:
+        # Always drain — retries pending items from prior batches as well as
+        # newly triggered reorders.  Items that still can't be placed stay in
+        # the queue for the next call.
+        if self._queue:
             self._drain()
         return triggered
 
