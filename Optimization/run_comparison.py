@@ -848,10 +848,16 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
 
     scols = ['#9dc3e6', '#5b9bd5', '#2e75b6', '#1f4e79']
     for sz, sc, sl in zip(_SIZE_ORDER, scols, _SIZE_LABELS):
-        vA = dp_A[dp_A['pallet_size']==sz]['duration'].values
-        vB = dp_B[dp_B['pallet_size']==sz]['duration'].values
-        vC = dp_C[dp_C['pallet_size']==sz]['duration'].values
-        lo = min(vA.min(), vB.min(), vC.min());  hi = max(vA.max(), vB.max(), vC.max())
+        vA = np.asarray(dp_A[dp_A['pallet_size']==sz]['duration'], dtype=float)
+        vB = np.asarray(dp_B[dp_B['pallet_size']==sz]['duration'], dtype=float)
+        vC = np.asarray(dp_C[dp_C['pallet_size']==sz]['duration'], dtype=float)
+        all_v = [v for v in (vA, vB, vC) if len(v) > 1]
+        if not all_v:
+            continue
+        combined = np.concatenate(all_v)
+        lo, hi = float(combined.min()), float(combined.max())
+        if lo >= hi:
+            continue
         xs = np.linspace(lo, hi, 300)
         if len(vA) > 1: axes[2].plot(xs, gaussian_kde(vA, 'silverman')(xs), color=sc, lw=2,   ls='-',  label=f'{sl} A')
         if len(vB) > 1: axes[2].plot(xs, gaussian_kde(vB, 'silverman')(xs), color=sc, lw=2,   ls='--', label=f'{sl} B')
