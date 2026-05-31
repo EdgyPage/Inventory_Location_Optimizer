@@ -533,7 +533,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_B = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking B (uniform initial)...')
+    log.info('  Stocking B (uniform initial, load-minimizing reorders)...')
     t0 = time.perf_counter()
     random.seed(SEED_WORLD + 100)
     manager_B = Inventory_Manager(warehouse_B, affinity=affinity_store)
@@ -550,7 +550,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
     warehouse_C = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking C (uniform initial)...')
+    log.info('  Stocking C (uniform initial, load-maximizing reorders)...')
     t0 = time.perf_counter()
     random.seed(SEED_WORLD + 100)
     manager_C = Inventory_Manager(warehouse_C, affinity=affinity_store)

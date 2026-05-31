@@ -41,31 +41,6 @@ def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle
     return random.choice(compatible) if compatible else None
 
 
-def _reorder_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
-    """Assignment function used exclusively for restock placements.
-
-    Strategy: prefer pallet bins over singleton bins, and within pallet bins
-    prefer the largest available size — maximises items per physical slot before
-    falling back to singletons for any overflow.  Singleton units (physically
-    small items) use random selection among available singleton bins.
-    """
-    handling, category = unit.carton.storage_type
-    unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
-    min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
-    compatible = [
-        b for b in candidates
-        if b.handling_type == handling
-        and b.storage_type == category
-        and b.unit_type == unit_type
-        and _SIZE_RANKS[b.storage_size] >= min_rank
-    ]
-    if not compatible:
-        return None
-    if unit_type == 'pallet':
-        # Greedy: fill the largest available pallet slot first
-        return max(compatible, key=lambda b: _SIZE_RANKS[b.storage_size])
-    return random.choice(compatible)
-
 
 class Inventory_Manager:
     REORDER_THRESHOLD: float = 0.10
@@ -78,17 +53,14 @@ class Inventory_Manager:
     ) -> None:
         self.warehouse: Warehouse = warehouse
         self.assignment_fn: AssignmentFn = assignment_fn
-        # Separate assignment function used only for reorder placements.
-        # Defaults to pallet-first greedy; can be overridden independently
-        # of the main assignment_fn.
-        self.reorder_assignment_fn: AssignmentFn = _reorder_assignment
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
 
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
 
-        self._queue: deque[tuple[Carton, int]] = deque()
+        # Queue holds pre-palletized StorageUnit objects ready for bin assignment.
+        self._queue: deque[StorageUnit] = deque()
         self._initial_quantities: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
 
@@ -128,13 +100,19 @@ class Inventory_Manager:
     # ── public API ──────────────────────────────────────────────────────────
 
     def enqueue(self, carton: Carton, quantity: int = 1) -> 'Inventory_Manager':
-        self._queue.append((carton, quantity))
+        for unit in viable_storage_units(carton, quantity):
+            self._queue.append(unit)
+        if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
+            self._originals[carton.sku] = carton
         self._drain()
         return self
 
     def enqueue_all(self, cartons: list[Carton], quantity: int = 1) -> 'Inventory_Manager':
         for carton in cartons:
-            self._queue.append((carton, quantity))
+            for unit in viable_storage_units(carton, quantity):
+                self._queue.append(unit)
+            if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
+                self._originals[carton.sku] = carton
         self._drain()
         return self
 
@@ -278,16 +256,20 @@ class Inventory_Manager:
         if not self._depleted_skus and not self._queue:
             return []
 
-        queued_skus: set[int] = {carton.sku for carton, _ in self._queue}
+        queued_skus: set[int] = {unit.carton.sku for unit in self._queue}
 
         triggered: list[int] = []
         for sku in self._depleted_skus:
             if sku not in queued_skus:
                 initial_qty = self._initial_quantities.get(sku, 0)
                 if initial_qty > 0:
-                    # Enqueue with qty=1; _drain overrides unit.quantity to
-                    # the randomised stock_qty via the carton._is_reorder path.
-                    self._queue.append((self._originals[sku].reorder(), 1))
+                    rc        = self._originals[sku].reorder()
+                    stock_qty = getattr(rc, 'stock_qty', 1)
+                    sigma     = max(1.0, stock_qty * 0.20)
+                    reorder_qty = max(1, min(stock_qty * 2,
+                                            round(random.gauss(stock_qty, sigma))))
+                    for unit in viable_storage_units(rc, reorder_qty):
+                        self._queue.append(unit)
                     triggered.append(sku)
         self._depleted_skus.clear()
 
@@ -342,75 +324,62 @@ class Inventory_Manager:
 
     # ── placement ───────────────────────────────────────────────────────────
 
-    def _candidates(self, unit: StorageUnit, excluded: set[int]) -> list[Aisle.Bin]:
+    def _candidates(self, unit: StorageUnit) -> list[Aisle.Bin]:
         handling, category = unit.carton.storage_type
         unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
-        result: list[Aisle.Bin] = []
         min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+        result: list[Aisle.Bin] = []
         for size, rank in _SIZE_RANKS.items():
             if rank >= min_rank:
-                result.extend(
-                    b for b in self._index.get((handling, category, size, unit_type), [])
-                    if id(b) not in excluded
-                )
+                result.extend(self._index.get((handling, category, size, unit_type), []))
         return result
 
-    def _try_place(self, carton: Carton, qty: int) -> list[tuple[StorageUnit, Aisle.Bin]] | None:
-        units = viable_storage_units(carton, qty)
-        excluded: set[int] = set()
-        assigned: list[tuple[StorageUnit, Aisle.Bin]] = []
-        fn = self.reorder_assignment_fn if getattr(carton, '_is_reorder', False) else self.assignment_fn
-        for unit in units:
-            candidates = self._candidates(unit, excluded)
-            bin_ = fn(unit, candidates)
-            if bin_ is None:
-                return None
-            excluded.add(id(bin_))
-            assigned.append((unit, bin_))
-        return assigned
-
     def _drain(self) -> None:
-        pending: deque[tuple[Carton, int]] = deque()
+        """Place queued StorageUnit objects into warehouse bins.
+
+        Units are pre-palletized (created by viable_storage_units) before being
+        enqueued.  Each unit is placed independently via assignment_fn — no
+        all-or-nothing grouping.  For initial stock (non-reorder) units, the
+        bin quantity is overridden to stock_qty so bins reflect the correct
+        on-hand level rather than the palletizing quantity of 1.
+        """
+        pending: deque[StorageUnit] = deque()
         while self._queue:
-            carton, qty = self._queue.popleft()
-            assigned = self._try_place(carton, qty)
-            if assigned is not None:
-                stock_qty  = getattr(carton, 'stock_qty', None)
-                is_reorder = getattr(carton, '_is_reorder', False)
-                for unit, bin_ in assigned:
-                    if stock_qty is not None:
-                        if is_reorder:
-                            # Randomised restock quantity: Normal(stock_qty, 20% std)
-                            # clipped to [1, 2×stock_qty] so restocks vary naturally.
-                            sigma = max(1.0, stock_qty * 0.20)
-                            unit.quantity = max(1, min(stock_qty * 2,
-                                                       round(random.gauss(stock_qty, sigma))))
-                        else:
-                            # Initial stocking: deterministic stock_qty per bin.
-                            unit.quantity = stock_qty
-                    bin_.storage = unit
-                    self._index_remove(bin_)
-                    self._unavailable[id(bin_)] = bin_
-                    sku = unit.carton.sku
-                    self._bin_sku[id(bin_)] = sku
-                    # Incremental quantity counter (avoids O(N_bins) scan in check_reorders)
-                    self._current_quantities[sku] = (
-                        self._current_quantities.get(sku, 0) + unit.quantity
-                    )
-                    # SKU→bins index split by type (used by Task.from_batch)
-                    if isinstance(unit, Singleton):
-                        self._sku_singleton_bins[sku].append(bin_)
-                    else:
-                        self._sku_pallet_bins[sku].append(bin_)
-                    if self._affinity is not None:
-                        aid    = bin_.location[0]
-                        counts = self._aisle_sku_counts[aid]
-                        counts[sku] = counts.get(sku, 0) + 1
-                if carton.sku not in self._initial_quantities:
-                    self._initial_quantities[carton.sku] = sum(u.quantity for u, _ in assigned)
-                    self._originals[carton.sku] = carton
+            unit   = self._queue.popleft()
+            carton = unit.carton
+            sku    = carton.sku
+
+            candidates = self._candidates(unit)
+            bin_       = self.assignment_fn(unit, candidates)
+
+            if bin_ is not None:
+                # Initial stock override: viable_storage_units was called with
+                # quantity=1 for initial/overstock; override to the full stock_qty
+                # so each bin carries the correct on-hand count.
+                if not getattr(carton, '_is_reorder', False):
+                    sq = getattr(carton, 'stock_qty', None)
+                    if sq is not None:
+                        unit.quantity = sq
+
+                bin_.storage = unit
+                self._index_remove(bin_)
+                self._unavailable[id(bin_)] = bin_
+                self._bin_sku[id(bin_)] = sku
+                self._current_quantities[sku] = (
+                    self._current_quantities.get(sku, 0) + unit.quantity
+                )
+                if isinstance(unit, Singleton):
+                    self._sku_singleton_bins[sku].append(bin_)
+                else:
+                    self._sku_pallet_bins[sku].append(bin_)
+                if self._affinity is not None:
+                    aid    = bin_.location[0]
+                    counts = self._aisle_sku_counts[aid]
+                    counts[sku] = counts.get(sku, 0) + 1
+                if sku not in self._initial_quantities and not getattr(carton, '_is_reorder', False):
+                    self._initial_quantities[sku] = unit.quantity
             else:
-                pending.append((carton, qty))
+                pending.append(unit)
         self._queue = pending
 
 
@@ -508,12 +477,16 @@ def build_load_minimizing_assignment_fn(
             if best_score[0] == 0.0 and W >= best_score[1]:
                 break
 
-            ls         = aisle_lift_sum[aid]
-            dl         = 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid])
-            old_L      = _L(W, ls)
-            new_L      = _L(W, ls + dl)
-            delta_l2   = new_L * new_L - old_L * old_L
-            score      = (delta_l2, old_L)
+            ls = aisle_lift_sum[aid]
+            # Marginal lift is zero when the SKU already lives in this aisle —
+            # it's already counted in aisle_lift_sum and adding a duplicate bin
+            # does not create a new unique SKU pair.
+            dl = (0.0 if sku in aisle_sku_sets[aid]
+                  else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
+            old_L    = _L(W, ls)
+            new_L    = _L(W, ls + dl)
+            delta_l2 = new_L * new_L - old_L * old_L
+            score    = (delta_l2, old_L)
 
             if score < best_score:
                 best_score      = score
@@ -524,11 +497,13 @@ def build_load_minimizing_assignment_fn(
         if best_bin is None:
             return None
 
-        aisle_lift_sum[best_aid] += best_delta_lift
-        aisle_sku_sets[best_aid].add(sku)
-        idx = affinity._sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[best_aid].add(idx)
+        # Only update lift state when this is a genuinely new SKU for the aisle.
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_lift_sum[best_aid] += best_delta_lift
+            aisle_sku_sets[best_aid].add(sku)
+            idx = affinity._sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
     return assign
@@ -581,13 +556,14 @@ def build_load_maximizing_assignment_fn(
         best_delta_lift : float               = 0.0
 
         for aid in sorted_aids:
-            W          = best_W[aid]
-            ls         = aisle_lift_sum[aid]
-            dl         = 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid])
-            old_L      = _L(W, ls)
-            new_L      = _L(W, ls + dl)
-            delta_l2   = new_L * new_L - old_L * old_L
-            score      = (delta_l2, old_L)
+            W  = best_W[aid]
+            ls = aisle_lift_sum[aid]
+            dl = (0.0 if sku in aisle_sku_sets[aid]
+                  else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
+            old_L    = _L(W, ls)
+            new_L    = _L(W, ls + dl)
+            delta_l2 = new_L * new_L - old_L * old_L
+            score    = (delta_l2, old_L)
 
             if score > best_score:
                 best_score      = score
@@ -598,11 +574,12 @@ def build_load_maximizing_assignment_fn(
         if best_bin is None:
             return None
 
-        aisle_lift_sum[best_aid] += best_delta_lift
-        aisle_sku_sets[best_aid].add(sku)
-        idx = affinity._sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[best_aid].add(idx)
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_lift_sum[best_aid] += best_delta_lift
+            aisle_sku_sets[best_aid].add(sku)
+            idx = affinity._sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
     return assign
