@@ -347,8 +347,11 @@ def run_strategies_parallel(
     worker.  Worker checkpoint files are cleaned up on successful completion.
     Raises the first worker exception encountered (via future.result()).
     """
-    log_queue = multiprocessing.Queue(-1)
-    listener  = logging.handlers.QueueListener(
+    # multiprocessing.Queue cannot be pickled for spawn-mode workers on Windows;
+    # Manager().Queue() creates a proxy object that IS picklable across processes.
+    mp_manager = multiprocessing.Manager()
+    log_queue  = mp_manager.Queue(-1)
+    listener   = logging.handlers.QueueListener(
         log_queue, *log.handlers, respect_handler_level=True
     )
     listener.start()
@@ -357,8 +360,8 @@ def run_strategies_parallel(
     # Inject queue; keep original dicts untouched
     args_with_queue = [{**a, 'log_queue': log_queue} for a in strategy_args]
 
-    results  : dict[str, dict] = {}
-    t_wall   = time.perf_counter()
+    results : dict[str, dict] = {}
+    t_wall  = time.perf_counter()
 
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=3) as pool:
@@ -378,7 +381,7 @@ def run_strategies_parallel(
                 )
     finally:
         listener.stop()
-        log_queue.close()
+        mp_manager.shutdown()
         log.info('  Log queue listener stopped')
 
     elapsed = time.perf_counter() - t_wall
