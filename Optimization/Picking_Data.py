@@ -204,7 +204,7 @@ def load_picks_db(path: str) -> list[PickRecord]:
 
 
 def save_picks_db(records: list[PickRecord], path: str) -> None:
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         con.execute(_CREATE_PICKS)
         con.executemany(
@@ -219,9 +219,24 @@ def save_picks_db(records: list[PickRecord], path: str) -> None:
 
 # ── Run DB public API ─────────────────────────────────────────────────────────
 
+def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
+    """Open *path* with WAL journal mode and a generous busy timeout.
+
+    WAL allows multiple concurrent readers and one writer without blocking
+    readers.  Writers that arrive while another write is in progress wait up
+    to *timeout* seconds before raising OperationalError, giving the three
+    parallel strategy workers enough headroom to avoid spurious lock errors
+    when their 100-batch checkpoints happen to coincide.
+    """
+    con = sqlite3.connect(path, timeout=timeout)
+    con.execute('PRAGMA journal_mode=WAL')
+    con.execute('PRAGMA synchronous=NORMAL')
+    return con
+
+
 def init_run_db(path: str) -> None:
-    """Create all tables if they don't already exist."""
-    con = sqlite3.connect(path)
+    """Create all tables if they don't already exist, and enable WAL mode."""
+    con = _open_db(path)
     try:
         con.execute(_CREATE_PICKS)
         con.execute(_CREATE_RUNS)
@@ -236,7 +251,7 @@ def init_run_db(path: str) -> None:
 
 def create_run(path: str, run_type: str) -> int:
     """Insert a new simulation run row; return the assigned run_id."""
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         cur = con.execute(
             'INSERT INTO simulation_runs (run_type, created) VALUES (?, ?)',
@@ -250,7 +265,7 @@ def create_run(path: str, run_type: str) -> int:
 
 def save_aisle_loads(path: str, run_id: int, records: list[AisleLoadRecord]) -> None:
     """Insert aisle load records, overwriting run_id on each record."""
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         con.executemany(
             'INSERT INTO aisle_loads '
@@ -291,7 +306,7 @@ def load_aisle_loads(path: str, run_id: int) -> list[AisleLoadRecord]:
 
 
 def save_recovered_params(path: str, rp: RecoveredParams) -> None:
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         con.execute(
             'INSERT OR REPLACE INTO recovered_params '
@@ -357,7 +372,7 @@ def export_params_json(rp: RecoveredParams, path: str) -> None:
 # ── BatchStats DB ─────────────────────────────────────────────────────────────
 
 def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         con.executemany(
             'INSERT INTO batch_stats '
@@ -404,7 +419,7 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
 # ── TaskStats DB ──────────────────────────────────────────────────────────────
 
 def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
-    con = sqlite3.connect(path)
+    con = _open_db(path)
     try:
         con.executemany(
             'INSERT INTO task_stats '
