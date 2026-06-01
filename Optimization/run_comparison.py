@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use('Agg')  # must come before pyplot import
 
 import argparse
+import concurrent.futures
 import json
 import logging
 import math
@@ -164,11 +165,12 @@ def _resume_path(run_dir: str) -> str:
     return os.path.join(run_dir, 'resume.pkl')
 
 
-def _save_resume(run_dir: str, next_batch_id: int, run_ids: dict) -> None:
+def _save_resume(run_dir: str, run_ids: dict,
+                 next_A: int, next_B: int, next_C: int) -> None:
+    """Persist per-strategy batch counters and run IDs for crash recovery."""
     state = {
-        'next_batch_id': next_batch_id,
-        'run_ids'      : run_ids,
-        'random_state' : random.getstate(),
+        'run_ids'     : run_ids,
+        'next_batch'  : {'A': next_A, 'B': next_B, 'C': next_C},
     }
     with open(_resume_path(run_dir), 'wb') as f:
         pickle.dump(state, f)
@@ -180,6 +182,22 @@ def _load_resume(run_dir: str):
         return None
     with open(path, 'rb') as f:
         return pickle.load(f)
+
+
+def _save_worker_checkpoint(run_dir: str, strategy: str, next_batch_id: int) -> None:
+    """Written by each worker process at every checkpoint interval."""
+    path = os.path.join(run_dir, f'_ckpt_{strategy}.pkl')
+    with open(path, 'wb') as f:
+        pickle.dump({'next_batch_id': next_batch_id}, f)
+
+
+def _load_worker_checkpoint(run_dir: str, strategy: str) -> int:
+    """Returns the next batch ID to run, or 0 if no checkpoint exists."""
+    path = os.path.join(run_dir, f'_ckpt_{strategy}.pkl')
+    if not os.path.exists(path):
+        return 0
+    with open(path, 'rb') as f:
+        return pickle.load(f).get('next_batch_id', 0)
 
 
 # ── dataframe helpers ──────────────────────────────────────────────────────────
@@ -421,31 +439,25 @@ def build_shared_assets(
         std_fraction   = _BATCH_STD_FRAC,
     )
 
+    # Build warehouse once in the main process only to extract aisle metadata maps
+    # used by the analysis/plotting phase.  Workers rebuild from the same seed.
     Aisle.next_aisle_id = 1
     random.seed(SEED_WORLD)
-    warehouse_A = Warehouse_Builder().from_config(warehouse_cfg).build()
-    random.seed(SEED_WORLD + 100)
-    manager_A   = Inventory_Manager(warehouse_A)
-    manager_A.enqueue_all(inventory.cartons, quantity=1)
-    log.info(f'  Warehouse A base stock: {len(manager_A.unavailable):,} / {total_bins:,} bins'
-             f'  ({len(manager_A.unavailable)/total_bins:.1%})')
-    _stock_to_target_fill(manager_A, inventory, target=_TARGET_FILL, log=log)
-    placed_A = len(manager_A.unavailable)
-    log.info(f'  Warehouse A final     : {placed_A:,} / {total_bins:,} bins  ({placed_A/total_bins:.1%})')
+    warehouse_meta = Warehouse_Builder().from_config(warehouse_cfg).build()
 
     return dict(
         inventory          = inventory,
+        inv_db             = inventory_db,
+        aff_db             = affinity_db,
         affinity_store     = affinity_store,
-        warehouse_A        = warehouse_A,
-        manager_A          = manager_A,
         batch_cfg          = batch_cfg,
         load_params        = load_params,
         warehouse_cfg      = warehouse_cfg,
         total_aisles       = total_aisles,
         total_bins         = total_bins,
-        aisle_size_map     = {a.aisle_id: a.storage_size  for a in warehouse_A.aisles},
-        aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_A.aisles},
-        aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_A.aisles},
+        aisle_size_map     = {a.aisle_id: a.storage_size  for a in warehouse_meta.aisles},
+        aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
+        aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
     )
 
 
@@ -464,6 +476,135 @@ def _kde_plot(ax, data, color, bins):
 def _save_close(fig, path):
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
+
+
+# ── per-strategy worker (runs in its own process) ─────────────────────────────
+
+def _run_strategy_worker(args: dict) -> dict:
+    """Simulate one assignment strategy end-to-end.
+
+    Runs in a spawned child process.  All arguments are plain Python primitives
+    or picklable dataclasses — no file handles, lambdas, or shared state.
+
+    Batch demand is reproduced identically across A/B/C by seeding with
+    SEED_BATCHES and fast-forwarding through *start_i* dummy Batch objects
+    so the RNG is at the correct point when the real loop begins.
+    """
+    strategy     = args['strategy']
+    inv_db       = args['inv_db']
+    aff_db       = args['aff_db']
+    db_path      = args['db_path']
+    run_dir      = args['run_dir']
+    run_id       = args['run_id']
+    start_i      = args['start_i']
+    n_batches    = args['n_batches']
+    k_pickers    = args['k_pickers']
+    seed_world   = args['seed_world']
+    seed_batches = args['seed_batches']
+    checkpoint   = args['checkpoint']
+    target_fill  = args['target_fill']
+    warehouse_cfg = args['warehouse_cfg']
+    pick_cfg     = args['pick_cfg']
+    wp           = args['wp']
+    load_params  = args['load_params']
+    batch_cfg    = args['batch_cfg']
+
+    log_lines: list[str] = []
+
+    def _log(msg: str) -> None:
+        log_lines.append(f'[{strategy}]  {msg}')
+
+    _log(f'pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}'
+         f'  i={pick_cfg.pick_intercept}  c={pick_cfg.cart_swap_coef}')
+    _log(f'load  λ={load_params.lambda_}  k={load_params.k}  γ={load_params.gamma}')
+
+    # ── load inventory + affinity fresh in this process ───────────────────────
+    t0        = time.perf_counter()
+    inventory = load_inventory_from_db(inv_db)
+    affinity  = AffinityStore(aff_db)
+    _log(f'Loaded {len(inventory.cartons):,} SKUs + affinity  ({time.perf_counter()-t0:.1f}s)')
+
+    # ── build & stock warehouse ───────────────────────────────────────────────
+    t0 = time.perf_counter()
+    Aisle.next_aisle_id = 1
+    random.seed(seed_world)
+    warehouse = Warehouse_Builder().from_config(warehouse_cfg).build()
+    random.seed(seed_world + 100)
+    mgr = Inventory_Manager(warehouse,
+                            affinity=(affinity if strategy != 'A' else None))
+    mgr.enqueue_all(inventory.cartons, quantity=1)
+    _stock_to_target_fill(mgr, inventory, target=target_fill)
+
+    if strategy == 'B':
+        mgr.init_lift_state(affinity)
+        mgr.assignment_fn = build_load_minimizing_assignment_fn(
+            load_params, affinity, wp,
+            mgr._aisle_sku_sets, mgr._aisle_lift_sum, mgr._aisle_idx_sets)
+    elif strategy == 'C':
+        mgr.init_lift_state(affinity)
+        mgr.assignment_fn = build_load_maximizing_assignment_fn(
+            load_params, affinity, wp,
+            mgr._aisle_sku_sets, mgr._aisle_lift_sum, mgr._aisle_idx_sets)
+
+    fill = len(mgr.unavailable) / len(warehouse.bins)
+    _log(f'Warehouse ready  ({time.perf_counter()-t0:.1f}s)  fill={fill:.1%}')
+
+    # ── advance RNG to start_i so all workers share the same batch sequence ───
+    random.seed(seed_batches)
+    if start_i > 0:
+        _log(f'Fast-forwarding RNG to batch {start_i}...')
+        for _ in range(start_i):
+            Batch(batch_cfg, inventory, affinity=affinity)
+
+    # ── simulation loop ───────────────────────────────────────────────────────
+    pb: list = []
+    pt: list = []
+    skipped  = 0
+    last_dur = 0.0
+    t_loop   = time.perf_counter()
+
+    for i in range(start_i, n_batches):
+        mgr.check_reorders()
+        batch = Batch(batch_cfg, inventory, affinity=affinity)
+        tasks = Task.from_batch(batch, warehouse, manager=mgr)
+        if not tasks:
+            skipped += 1
+            continue
+        events  = PickSimulation(tasks, pick_cfg, manager=mgr).run()
+        bs      = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
+        ts      = extract_task_stats(events, tasks, batch_id=i,
+                                     affinity=affinity, wp=wp, run_id=run_id)
+        pb.append(bs)
+        pt.extend(ts)
+        last_dur = bs.duration
+
+        if len(pb) >= checkpoint:
+            save_batch_stats(db_path, run_id, pb)
+            save_task_stats(db_path, run_id, pt)
+            _save_worker_checkpoint(run_dir, strategy, i + 1)
+            wall = time.perf_counter() - t_loop
+            rate = (i + 1 - start_i) / wall
+            _log(f'Batch {i+1:4d}/{n_batches}  dur={bs.duration:.0f}  {rate:.2f}/s')
+            pb.clear()
+            pt.clear()
+
+    if pb:
+        save_batch_stats(db_path, run_id, pb)
+        save_task_stats(db_path, run_id, pt)
+
+    elapsed = time.perf_counter() - t_loop
+    done    = n_batches - start_i - skipped
+    _log(f'Done: {done} batches in {elapsed:.1f}s  ({skipped} skipped)')
+
+    return {
+        'strategy' : strategy,
+        'run_id'   : run_id,
+        'elapsed'  : elapsed,
+        'done'     : done,
+        'skipped'  : skipped,
+        'last_dur' : last_dur,
+        'log_lines': log_lines,
+    }
 
 
 # ── per-config runner ──────────────────────────────────────────────────────────
@@ -488,9 +629,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     os.makedirs(run_dir, exist_ok=True)
 
     inventory          = shared['inventory']
-    affinity_store     = shared['affinity_store']
-    warehouse_A        = shared['warehouse_A']
-    manager_A          = shared['manager_A']
     batch_cfg          = shared['batch_cfg']
     load_params        = shared['load_params']
     warehouse_cfg      = shared['warehouse_cfg']
@@ -507,6 +645,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     log.info(f'{"="*64}')
 
     config_record = {
+        # pick model (regression config)
         'name'            : name,
         'pick_weight_coef': pick_cfg.pick_weight_coef,
         'pick_volume_coef': pick_cfg.pick_volume_coef,
@@ -515,6 +654,11 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         'x_move_time'     : pick_cfg.x_move_time,
         'y_move_time'     : pick_cfg.y_move_time,
         'num_pickers'     : pick_cfg.num_pickers,
+        # load model (λ / k / γ)
+        'load_lambda'     : load_params.lambda_,
+        'load_k'          : load_params.k,
+        'load_gamma'      : load_params.gamma,
+        # warehouse / simulation
         'total_aisles'    : total_aisles,
         'total_bins'      : total_bins,
         'n_skus'          : len(inventory.cartons),
@@ -527,157 +671,77 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
 
-    # ── warehouses B and C — uniform initial stock, strategy-specific reorders ──
-    # All three warehouses start from the same uniform placement (same seed as A)
-    # so the comparison reflects only the reorder strategy, not placement bias.
-    Aisle.next_aisle_id = 1
-    random.seed(SEED_WORLD)
-    warehouse_B = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking B (uniform initial, load-minimizing reorders)...')
-    t0 = time.perf_counter()
-    random.seed(SEED_WORLD + 100)
-    manager_B = Inventory_Manager(warehouse_B, affinity=affinity_store)
-    manager_B.enqueue_all(inventory.cartons, quantity=1)
-    _stock_to_target_fill(manager_B, inventory, target=_TARGET_FILL)
-    manager_B.init_lift_state(affinity_store)
-    manager_B.assignment_fn = build_load_minimizing_assignment_fn(
-        load_params, affinity_store, wp,
-        manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
-        manager_B._aisle_idx_sets,
-    )
-    log.info(f'  B ready  {time.perf_counter()-t0:.1f}s  ({len(manager_B.unavailable):,} bins)')
-
-    Aisle.next_aisle_id = 1
-    random.seed(SEED_WORLD)
-    warehouse_C = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info('  Stocking C (uniform initial, load-maximizing reorders)...')
-    t0 = time.perf_counter()
-    random.seed(SEED_WORLD + 100)
-    manager_C = Inventory_Manager(warehouse_C, affinity=affinity_store)
-    manager_C.enqueue_all(inventory.cartons, quantity=1)
-    _stock_to_target_fill(manager_C, inventory, target=_TARGET_FILL)
-    manager_C.init_lift_state(affinity_store)
-    manager_C.assignment_fn = build_load_maximizing_assignment_fn(
-        load_params, affinity_store, wp,
-        manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
-        manager_C._aisle_idx_sets,
-    )
-    log.info(f'  C ready  {time.perf_counter()-t0:.1f}s  ({len(manager_C.unavailable):,} bins)')
-
     # ── DB init / resume ──────────────────────────────────────────────────────
     resume = _load_resume(run_dir)
     if resume:
-        run_a   = resume['run_ids']['A']
-        run_b   = resume['run_ids']['B']
-        run_c   = resume['run_ids']['C']
-        start_i = resume['next_batch_id']
-        random.setstate(resume['random_state'])
-        log.info(f'  Resuming from batch {start_i}  (run_ids A={run_a} B={run_b} C={run_c})')
+        run_ids = resume['run_ids']
+        run_a, run_b, run_c = run_ids['A'], run_ids['B'], run_ids['C']
+        starts  = resume.get('next_batch', {})
+        start_A = _load_worker_checkpoint(run_dir, 'A') or starts.get('A', 0)
+        start_B = _load_worker_checkpoint(run_dir, 'B') or starts.get('B', 0)
+        start_C = _load_worker_checkpoint(run_dir, 'C') or starts.get('C', 0)
+        log.info(f'  Resuming  A@{start_A}  B@{start_B}  C@{start_C}'
+                 f'  (run_ids {run_a}/{run_b}/{run_c})')
     else:
         init_run_db(db_path)
         run_a   = create_run(db_path, 'uniform_assignment')
         run_b   = create_run(db_path, 'load_minimizing_assignment')
         run_c   = create_run(db_path, 'load_maximizing_assignment')
-        start_i = 0
-        random.seed(SEED_BATCHES)
+        run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
+        start_A = start_B = start_C = 0
         log.info(f'  New run  run_ids A={run_a} B={run_b} C={run_c}')
 
-    run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
+    _save_resume(run_dir, run_ids, start_A, start_B, start_C)
 
-    # ── simulation loop ───────────────────────────────────────────────────────
-    pb_A: list = [];  pb_B: list = [];  pb_C: list = []
-    pt_A: list = [];  pt_B: list = [];  pt_C: list = []
-    skipped = 0
-    t_loop  = time.perf_counter()
+    # ── shared args passed to every worker ────────────────────────────────────
+    _shared = dict(
+        inv_db        = shared['inv_db'],
+        aff_db        = shared['aff_db'],
+        db_path       = db_path,
+        run_dir       = run_dir,
+        n_batches     = N_BATCHES,
+        k_pickers     = K_PICKERS,
+        seed_world    = SEED_WORLD,
+        seed_batches  = SEED_BATCHES,
+        checkpoint    = _CHECKPOINT,
+        target_fill   = _TARGET_FILL,
+        warehouse_cfg = warehouse_cfg,
+        pick_cfg      = pick_cfg,
+        wp            = wp,
+        load_params   = load_params,
+        batch_cfg     = batch_cfg,
+    )
+    strategy_args = [
+        {**_shared, 'strategy': 'A', 'run_id': run_a, 'start_i': start_A},
+        {**_shared, 'strategy': 'B', 'run_id': run_b, 'start_i': start_B},
+        {**_shared, 'strategy': 'C', 'run_id': run_c, 'start_i': start_C},
+    ]
 
-    # Per-phase accumulators for timing breakdown (reset each checkpoint window)
-    _t: dict[str, float] = {
-        'batch': 0.0, 'tasks': 0.0,
-        'sim_A': 0.0, 'sim_B': 0.0, 'sim_C': 0.0,
-        'stats': 0.0, 'save':  0.0,
-    }
+    # ── dispatch workers ──────────────────────────────────────────────────────
+    log.info(f'  Launching 3 parallel workers...')
+    t_wall   = time.perf_counter()
+    results  = {}
 
-    for i in range(start_i, N_BATCHES):
-        # Restock bins depleted by the previous batch's picks — called once
-        # here instead of after every pick event to avoid O(N_bins) hot loop.
-        manager_A.check_reorders()
-        manager_B.check_reorders()
-        manager_C.check_reorders()
+    with concurrent.futures.ProcessPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(_run_strategy_worker, a): a['strategy']
+                   for a in strategy_args}
+        for future in concurrent.futures.as_completed(futures):
+            s   = futures[future]
+            res = future.result()          # re-raises any worker exception
+            results[s] = res
+            for line in res['log_lines']:
+                log.info(f'  {line}')
+            log.info(f'  [{s}] finished  {res["done"]} batches  '
+                     f'{res["elapsed"]:.1f}s  last_dur={res["last_dur"]:.0f}')
 
-        _t0 = time.perf_counter()
-        batch = Batch(batch_cfg, inventory, affinity=affinity_store)
-        _t['batch'] += time.perf_counter() - _t0
+    elapsed = time.perf_counter() - t_wall
+    log.info(f'  All workers done  wall={elapsed:.1f}s')
 
-        _t0 = time.perf_counter()
-        ta = Task.from_batch(batch, warehouse_A, manager=manager_A)
-        tb = Task.from_batch(batch, warehouse_B, manager=manager_B)
-        tc = Task.from_batch(batch, warehouse_C, manager=manager_C)
-        _t['tasks'] += time.perf_counter() - _t0
-
-        if not ta or not tb or not tc:
-            skipped += 1
-            continue
-
-        _t0 = time.perf_counter();  ea = PickSimulation(ta, pick_cfg, manager=manager_A).run();  _t['sim_A'] += time.perf_counter() - _t0
-        _t0 = time.perf_counter();  eb = PickSimulation(tb, pick_cfg, manager=manager_B).run();  _t['sim_B'] += time.perf_counter() - _t0
-        _t0 = time.perf_counter();  ec = PickSimulation(tc, pick_cfg, manager=manager_C).run();  _t['sim_C'] += time.perf_counter() - _t0
-
-        _t0 = time.perf_counter()
-        bsA = extract_batch_stats(ea, batch_id=i, k_pickers=K_PICKERS, run_id=run_a)
-        bsB = extract_batch_stats(eb, batch_id=i, k_pickers=K_PICKERS, run_id=run_b)
-        bsC = extract_batch_stats(ec, batch_id=i, k_pickers=K_PICKERS, run_id=run_c)
-        _lc: dict = {}   # shared across A/B/C — same task SKU sets hit cache for B and C
-        tsA = extract_task_stats(ea, ta, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_a, lift_cache=_lc)
-        tsB = extract_task_stats(eb, tb, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_b, lift_cache=_lc)
-        tsC = extract_task_stats(ec, tc, batch_id=i, affinity=affinity_store, wp=wp, run_id=run_c, lift_cache=_lc)
-        _t['stats'] += time.perf_counter() - _t0
-
-        pb_A.append(bsA);  pb_B.append(bsB);  pb_C.append(bsC)
-        pt_A.extend(tsA);  pt_B.extend(tsB);  pt_C.extend(tsC)
-
-        if len(pb_A) >= _CHECKPOINT:
-            _t0 = time.perf_counter()
-            save_batch_stats(db_path, run_a, pb_A)
-            save_batch_stats(db_path, run_b, pb_B)
-            save_batch_stats(db_path, run_c, pb_C)
-            save_task_stats(db_path, run_a, pt_A)
-            save_task_stats(db_path, run_b, pt_B)
-            save_task_stats(db_path, run_c, pt_C)
-            _save_resume(run_dir, i + 1, run_ids)
-            _t['save'] += time.perf_counter() - _t0
-
-            wall   = time.perf_counter() - t_loop
-            n_done = i + 1 - start_i
-            rate   = n_done / wall
-            total  = sum(_t.values())
-            log.info(
-                f'  Batch {i+1:4d}/{N_BATCHES}  '
-                f'A={bsA.duration:.0f}  B={bsB.duration:.0f}  C={bsC.duration:.0f}  '
-                f'{rate:.2f} batches/s'
-            )
-            log.info(
-                f'    timing/{_CHECKPOINT} batches — '
-                f'batch={_t["batch"]:.1f}s  tasks={_t["tasks"]:.1f}s  '
-                f'simA={_t["sim_A"]:.1f}s  simB={_t["sim_B"]:.1f}s  simC={_t["sim_C"]:.1f}s  '
-                f'stats={_t["stats"]:.1f}s  save={_t["save"]:.1f}s  '
-                f'total={total:.1f}s'
-            )
-            for k in _t:
-                _t[k] = 0.0
-            pb_A.clear();  pb_B.clear();  pb_C.clear()
-            pt_A.clear();  pt_B.clear();  pt_C.clear()
-
-    # flush remainder
-    for run_id, pb, pt in [(run_a, pb_A, pt_A), (run_b, pb_B, pt_B), (run_c, pb_C, pt_C)]:
-        if pb:
-            save_batch_stats(db_path, run_id, pb)
-            save_task_stats(db_path, run_id, pt)
-
-    elapsed = time.perf_counter() - t_loop
-    done    = N_BATCHES - start_i - skipped
-    log.info(f'  Done: {done} triplets in {elapsed:.1f}s  ({skipped} skipped)')
-
-    # remove resume checkpoint — run is complete
+    # clean up per-strategy checkpoint files
+    for s in ('A', 'B', 'C'):
+        p = os.path.join(run_dir, f'_ckpt_{s}.pkl')
+        if os.path.exists(p):
+            os.remove(p)
     rp = _resume_path(run_dir)
     if os.path.exists(rp):
         os.remove(rp)
