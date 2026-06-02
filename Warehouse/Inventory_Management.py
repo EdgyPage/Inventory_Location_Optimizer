@@ -24,24 +24,23 @@ _SIZE_RANKS: dict[str, int] = {
     )
 }
 
+# Sizes ordered from largest to smallest — used by _candidates for O(1) tier lookup.
+_SIZES_DESCENDING: tuple[str, ...] = tuple(
+    sorted(_SIZE_RANKS, key=_SIZE_RANKS.__getitem__, reverse=True)
+)
+
 BinKey = tuple[str, str, str, str]
 
 
 def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
-    """Assign the unit to the largest available bin in the candidate set.
+    """Pick uniformly at random from the candidate bin list.
 
-    candidates is already pre-filtered by _candidates() for handling type,
-    storage category, unit type, and minimum pallet size.  This function
-    selects the largest size tier present among those candidates, then picks
-    uniformly at random within that tier.  Preferring the largest available
-    bin maximises per-location stock capacity and leaves smaller bins free
-    for items that specifically require them.
+    candidates is pre-filtered by _candidates() to the correct handling type,
+    storage category, unit type, and largest available size tier.  Picking
+    randomly within that filtered set uniformly distributes placements across
+    the matching bin locations.
     """
-    if not candidates:
-        return None
-    max_rank = max(_SIZE_RANKS[b.storage_size] for b in candidates)
-    largest  = [b for b in candidates if _SIZE_RANKS[b.storage_size] == max_rank]
-    return random.choice(largest)
+    return random.choice(candidates) if candidates else None
 
 
 
@@ -368,14 +367,27 @@ class Inventory_Manager:
     # ── placement ───────────────────────────────────────────────────────────
 
     def _candidates(self, unit: StorageUnit) -> list[Aisle.Bin]:
+        """Return available bins for *unit*, scoped to the largest non-empty size tier.
+
+        Iterates _SIZES_DESCENDING (largest → smallest) and returns the first
+        tier that has at least one empty bin matching the unit's handling type,
+        storage category, and unit type.  Falls back to smaller tiers automatically,
+        so a unit is never stranded while compatible bins exist.
+
+        Returning a single tier instead of all compatible bins keeps the list
+        small (one index bucket, typically a few thousand bins) regardless of
+        total warehouse size, avoiding the O(N_all_bins) bottleneck that caused
+        multi-minute hangs during initial stocking of large warehouses.
+        """
         handling, category = unit.carton.storage_type
         unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
-        min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
-        result: list[Aisle.Bin] = []
-        for size, rank in _SIZE_RANKS.items():
-            if rank >= min_rank:
-                result.extend(self._index.get((handling, category, size, unit_type), []))
-        return result
+        min_rank  = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+        for size in _SIZES_DESCENDING:
+            if _SIZE_RANKS[size] >= min_rank:
+                bins = self._index.get((handling, category, size, unit_type))
+                if bins:
+                    return bins
+        return []
 
     def _drain(self) -> None:
         """Place queued StorageUnit objects into warehouse bins.
