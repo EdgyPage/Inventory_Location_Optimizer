@@ -168,14 +168,17 @@ def _total_volume(units: list[StorageUnit]) -> int:
 
 
 def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
+    """Return the storage units to queue for a carton placement.
+
+    Pallet units are always preferred — they use the largest available bin
+    sizes and have the highest capacity per location.  Singleton units are
+    only returned when the carton cannot be palletized (no valid pallet
+    orientation exists for the carton's dimensions).
+    """
     pallets: list[StorageUnit] = _build_units(carton, Pallet, quantity)
-    singletons: list[StorageUnit] = _build_units(carton, Singleton, quantity)
-
-    pallet_vol: float = _total_volume(pallets) if pallets else float('inf')
-    singleton_vol: float = _total_volume(singletons) if singletons else float('inf')
-
-    # tie goes to singletons: smaller footprint fits narrower forward-pick aisles
-    return singletons if singleton_vol <= pallet_vol else pallets
+    if pallets:
+        return pallets
+    return _build_units(carton, Singleton, quantity)
 
 
 class StorageCart:

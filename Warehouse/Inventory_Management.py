@@ -28,17 +28,20 @@ BinKey = tuple[str, str, str, str]
 
 
 def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
-    handling, category = unit.carton.storage_type
-    unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
-    min_rank = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
-    compatible = [
-        b for b in candidates
-        if b.handling_type == handling
-        and b.storage_type == category
-        and b.unit_type == unit_type
-        and _SIZE_RANKS[b.storage_size] >= min_rank
-    ]
-    return random.choice(compatible) if compatible else None
+    """Assign the unit to the largest available bin in the candidate set.
+
+    candidates is already pre-filtered by _candidates() for handling type,
+    storage category, unit type, and minimum pallet size.  This function
+    selects the largest size tier present among those candidates, then picks
+    uniformly at random within that tier.  Preferring the largest available
+    bin maximises per-location stock capacity and leaves smaller bins free
+    for items that specifically require them.
+    """
+    if not candidates:
+        return None
+    max_rank = max(_SIZE_RANKS[b.storage_size] for b in candidates)
+    largest  = [b for b in candidates if _SIZE_RANKS[b.storage_size] == max_rank]
+    return random.choice(largest)
 
 
 
