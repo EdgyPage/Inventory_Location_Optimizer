@@ -43,7 +43,6 @@ def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle
 
 
 class Inventory_Manager:
-    REORDER_THRESHOLD: float = 0.10
 
     def __init__(
         self,
@@ -61,7 +60,6 @@ class Inventory_Manager:
 
         # Queue holds pre-palletized StorageUnit objects ready for bin assignment.
         self._queue: deque[StorageUnit] = deque()
-        self._initial_quantities: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
 
         # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
@@ -185,22 +183,24 @@ class Inventory_Manager:
 
     def _notify_pick(self, sku: int, qty: int) -> None:
         """Decrement the incremental quantity counter and flag the SKU if it
-        crosses the reorder threshold.
+        crosses its reorder_point.
 
         Called by PickSimulation after each pick event — must be O(1).
         Adds the SKU to _depleted_skus so check_reorders only iterates SKUs
         that actually need attention rather than all N_skus.
+
+        reorder_point is a pre-computed attribute stored on the Carton at
+        inventory generation time (frequency × quantity_rate × coverage_batches).
+        No calculation is performed here — the value is simply read.
         """
         cur = self._current_quantities.get(sku, 0)
         if cur <= 0:
             return
         new_qty = max(0, cur - qty)
         self._current_quantities[sku] = new_qty
-        initial = self._initial_quantities.get(sku, 0)
-        if initial > 0:
-            threshold = max(1, round(initial * self.REORDER_THRESHOLD))
-            if new_qty <= threshold:
-                self._depleted_skus.add(sku)
+        orig = self._originals.get(sku)
+        if orig is not None and new_qty <= orig.reorder_point:
+            self._depleted_skus.add(sku)
 
     def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
         """Queue an emptied bin for reclaim at the next check_reorders call.
@@ -267,7 +267,11 @@ class Inventory_Manager:
         self._pending_reclaim.clear()
 
     def check_reorders(self) -> list[int]:
-        """Enqueue replenishment for any SKU at or below 10% of initial quantity.
+        """Enqueue replenishment for any SKU whose quantity <= its reorder_point.
+
+        reorder_point is a per-SKU threshold stored on the Carton at inventory
+        generation time (expected_batch_demand × coverage_batches).  No threshold
+        computation happens here — _notify_pick already flagged the SKU.
 
         Queue semantics (FIFO, persistent across batches):
           - Items that cannot be placed remain in the queue in arrival order.
@@ -287,21 +291,11 @@ class Inventory_Manager:
 
         triggered: list[int] = []
         for sku in self._depleted_skus:
-            if sku not in queued_skus:
-                initial_qty = self._initial_quantities.get(sku, 0)
-                if initial_qty > 0:
-                    rc = self._originals[sku].reorder()
-                    # One unit per reorder — same pattern as initial stocking.
-                    # viable_storage_units(rc, quantity) creates ceil(quantity /
-                    # max_per_pallet) physical units.  Passing the full stock_qty
-                    # here previously queued 10-20 units per trigger, overwhelming
-                    # the available-bin pool and causing unbounded queue growth.
-                    # Passing 1 creates exactly one unit; _drain then overrides
-                    # unit.quantity = stock_qty so the restocked bin carries the
-                    # correct on-hand level.
-                    for unit in viable_storage_units(rc, 1):
-                        self._queue.append(unit)
-                    triggered.append(sku)
+            if sku not in queued_skus and sku in self._originals:
+                rc = self._originals[sku].reorder()
+                for unit in viable_storage_units(rc, 1):
+                    self._queue.append(unit)
+                triggered.append(sku)
         self._depleted_skus.clear()
 
         # Always drain — retries pending items from prior batches as well as
@@ -407,8 +401,6 @@ class Inventory_Manager:
                     aid    = bin_.location[0]
                     counts = self._aisle_sku_counts[aid]
                     counts[sku] = counts.get(sku, 0) + 1
-                if sku not in self._initial_quantities and not getattr(carton, '_is_reorder', False):
-                    self._initial_quantities[sku] = unit.quantity
             else:
                 pending.append(unit)
         self._queue = pending

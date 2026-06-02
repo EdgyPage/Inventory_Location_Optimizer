@@ -94,6 +94,11 @@ DEFAULT_WEIGHT_SPEC   = {'dist': 'volume_poisson'}
 DEFAULT_QUANTITY_SPEC = {'dist': 'beta_scaled', 'alpha': 27/13, 'beta': 90/13,
                          'low': 5, 'high': 200}
 
+# Number of batches of expected demand to hold as safety stock before reordering.
+# reorder_point = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
+# where expected_batch_demand = demand.frequency * demand.quantity_rate.
+REORDER_COVERAGE_BATCHES: float = 3.0
+
 
 # ── distribution samplers ──────────────────────────────────────────────────────
 
@@ -220,19 +225,27 @@ def sample_weight(spec: dict, length: int, width: int, height: int,
 # ── inventory builder ──────────────────────────────────────────────────────────
 
 def build_inventory_with_profile(
-    num_skus          : int,
-    handling_splits   : list[float],
-    category_splits   : list[float],
-    singleton_fraction: float,
-    dim_spec          : dict,
-    weight_spec       : dict,
-    seed              : int,
-    quantity_spec     : dict | None = None,
+    num_skus                 : int,
+    handling_splits          : list[float],
+    category_splits          : list[float],
+    singleton_fraction       : float,
+    dim_spec                 : dict,
+    weight_spec              : dict,
+    seed                     : int,
+    quantity_spec            : dict | None = None,
+    reorder_coverage_batches : float       = REORDER_COVERAGE_BATCHES,
 ) -> Inventory:
     """Build an Inventory using custom dim / weight specs.
 
     Bypasses Carton.__init__ so any distribution can be used.
     Carton.next_sku is reset to 1 at the start of this function.
+
+    Each carton receives two demand-derived attributes:
+      expected_batch_demand = demand.frequency * demand.quantity_rate
+      reorder_point         = max(1, round(reorder_coverage_batches * expected_batch_demand))
+
+    These are stored in the DB so the Inventory_Manager can read them
+    directly without computing anything during simulation.
     """
     if quantity_spec is None:
         quantity_spec = DEFAULT_QUANTITY_SPEC
@@ -266,6 +279,10 @@ def build_inventory_with_profile(
         c.weight       = wt
         c.demand       = Demand.from_rates(freq, qty_rate)
         c.stock_qty    = sample_quantity(quantity_spec, rng)
+
+        expected                = freq * qty_rate
+        c.expected_batch_demand = expected
+        c.reorder_point         = max(1, round(reorder_coverage_batches * expected))
         cartons.append(c)
 
     return Inventory(cartons)
@@ -275,17 +292,18 @@ def build_inventory_with_profile(
 
 _SCHEMA = '''
     CREATE TABLE IF NOT EXISTS cartons (
-        sku              INTEGER PRIMARY KEY,
-        handling         TEXT    NOT NULL,
-        category         TEXT    NOT NULL,
-        length           INTEGER NOT NULL,
-        width            INTEGER NOT NULL,
-        height           INTEGER NOT NULL,
-        weight           INTEGER NOT NULL,
-        demand_frequency REAL    NOT NULL,
-        demand_qty_rate  REAL    NOT NULL,
-        is_singleton     INTEGER NOT NULL,
-        stock_qty        INTEGER NOT NULL DEFAULT 1
+        sku                   INTEGER PRIMARY KEY,
+        handling              TEXT    NOT NULL,
+        category              TEXT    NOT NULL,
+        length                INTEGER NOT NULL,
+        width                 INTEGER NOT NULL,
+        height                INTEGER NOT NULL,
+        weight                INTEGER NOT NULL,
+        demand_frequency      REAL    NOT NULL,
+        demand_qty_rate       REAL    NOT NULL,
+        stock_qty             INTEGER NOT NULL DEFAULT 1,
+        expected_batch_demand REAL    NOT NULL DEFAULT 0,
+        reorder_point         INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -309,15 +327,15 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     conn = _init_db(db_path)
     rows = []
     for c in inventory.cartons:
-        is_singleton = int(max(c.length, c.width, c.height) <= _SINGLETON_MAX_DIM)
         rows.append((
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
             c.demand.frequency, c.demand.quantity_rate,
-            is_singleton,
-            getattr(c, 'stock_qty', 1),
+            getattr(c, 'stock_qty',             1),
+            getattr(c, 'expected_batch_demand', 0.0),
+            getattr(c, 'reorder_point',         1),
         ))
-    conn.executemany('INSERT OR REPLACE INTO cartons VALUES (?,?,?,?,?,?,?,?,?,?,?)', rows)
+    conn.executemany('INSERT OR REPLACE INTO cartons VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', rows)
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
                  ('params_json', json.dumps(params, indent=2)))
     conn.commit()
@@ -325,15 +343,26 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
 
 
 def load_inventory_from_db(db_path: str) -> Inventory:
-    """Reconstruct an Inventory object from a previously saved DB."""
+    """Reconstruct an Inventory object from a previously saved DB.
+
+    Column compatibility:
+      - stock_qty, expected_batch_demand, reorder_point: added progressively;
+        missing columns fall back to computed defaults.
+      - is_singleton: was present in older schemas but is never loaded onto
+        Carton objects (it is always derivable from dimensions).  Old DBs that
+        still carry the column load correctly because SELECT uses explicit names.
+    """
     conn = sqlite3.connect(db_path)
-    # stock_qty column added in v2; fall back to 1 for older DBs.
     col_names = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
-    has_stock_qty = 'stock_qty' in col_names
+    has_stock_qty      = 'stock_qty'             in col_names
+    has_expected       = 'expected_batch_demand'  in col_names
+    has_reorder_point  = 'reorder_point'          in col_names
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
         'demand_frequency, demand_qty_rate'
-        + (', stock_qty' if has_stock_qty else '')
+        + (', stock_qty'             if has_stock_qty     else '')
+        + (', expected_batch_demand' if has_expected      else '')
+        + (', reorder_point'         if has_reorder_point else '')
         + ' FROM cartons ORDER BY sku'
     )
     rows = conn.execute(select).fetchall()
@@ -343,17 +372,35 @@ def load_inventory_from_db(db_path: str) -> Inventory:
     max_sku = 0
     for row in rows:
         sku, handling, category, length, width, height, weight, freq, qty_rate = row[:9]
-        stock_qty = int(row[9]) if has_stock_qty else 1
-        c              = object.__new__(Carton)
-        c._sku         = sku
-        c.storage_type = (handling, category)
-        c.lift_group   = (handling, category)
-        c.length       = length
-        c.width        = width
-        c.height       = height
-        c.weight       = weight
-        c.demand       = Demand.from_rates(freq, qty_rate)
-        c.stock_qty    = stock_qty
+        col = 9
+
+        if has_stock_qty:
+            stock_qty = int(row[col]);  col += 1
+        else:
+            stock_qty = 1
+
+        if has_expected:
+            expected_batch_demand = float(row[col]);  col += 1
+        else:
+            expected_batch_demand = freq * qty_rate
+
+        if has_reorder_point:
+            reorder_point = int(row[col])
+        else:
+            reorder_point = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
+
+        c                        = object.__new__(Carton)
+        c._sku                   = sku
+        c.storage_type           = (handling, category)
+        c.lift_group             = (handling, category)
+        c.length                 = length
+        c.width                  = width
+        c.height                 = height
+        c.weight                 = weight
+        c.demand                 = Demand.from_rates(freq, qty_rate)
+        c.stock_qty              = stock_qty
+        c.expected_batch_demand  = expected_batch_demand
+        c.reorder_point          = reorder_point
         cartons.append(c)
         max_sku = max(max_sku, sku)
 
@@ -582,17 +629,18 @@ def plot_dim_kde_overlay(df: pd.DataFrame, out_dir: str, title_suffix: str = '')
 # ── callable API ───────────────────────────────────────────────────────────────
 
 def generate_run(
-    name               : str,
-    num_skus           : int                = 76_500,
-    handling_splits    : list[float] | None = None,
-    category_splits    : list[float] | None = None,
-    singleton_fraction : float              = 0.5,
-    seed               : int                = 42,
-    out_dir            : str                = _DEFAULT_OUT_DIR,
-    dim_spec           : dict | None        = None,
-    weight_spec        : dict | None        = None,
-    quantity_spec      : dict | None        = None,
-    verbose            : bool               = True,
+    name                     : str,
+    num_skus                 : int                = 76_500,
+    handling_splits          : list[float] | None = None,
+    category_splits          : list[float] | None = None,
+    singleton_fraction       : float              = 0.5,
+    seed                     : int                = 42,
+    out_dir                  : str                = _DEFAULT_OUT_DIR,
+    dim_spec                 : dict | None        = None,
+    weight_spec              : dict | None        = None,
+    quantity_spec            : dict | None        = None,
+    reorder_coverage_batches : float              = REORDER_COVERAGE_BATCHES,
+    verbose                  : bool               = True,
 ) -> str:
     """Generate one inventory run and return the path to the created run_dir.
 
@@ -639,8 +687,9 @@ def generate_run(
         'singleton_fraction' : singleton_fraction,
         'dim_spec'           : dim_spec,
         'weight_spec'        : weight_spec,
-        'quantity_spec'      : quantity_spec,
-        'carton_min_dim'     : 3,
+        'quantity_spec'            : quantity_spec,
+        'reorder_coverage_batches' : reorder_coverage_batches,
+        'carton_min_dim'           : 3,
         'carton_max_dim'     : _CARTON_MAX_DIM,
         'singleton_max_dim'  : _SINGLETON_MAX_DIM,
     }
@@ -656,14 +705,15 @@ def generate_run(
 
     t0        = time.perf_counter()
     inventory = build_inventory_with_profile(
-        num_skus           = num_skus,
-        handling_splits    = h_splits,
-        category_splits    = c_splits,
-        singleton_fraction = singleton_fraction,
-        dim_spec           = dim_spec,
-        weight_spec        = weight_spec,
-        seed               = seed,
-        quantity_spec      = quantity_spec,
+        num_skus                 = num_skus,
+        handling_splits          = h_splits,
+        category_splits          = c_splits,
+        singleton_fraction       = singleton_fraction,
+        dim_spec                 = dim_spec,
+        weight_spec              = weight_spec,
+        seed                     = seed,
+        quantity_spec            = quantity_spec,
+        reorder_coverage_batches = reorder_coverage_batches,
     )
     _log(f'[inventory:{name}] Built {len(inventory.cartons):,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
@@ -675,6 +725,11 @@ def generate_run(
     conn = sqlite3.connect(db_path)
     df   = pd.read_sql_query('SELECT * FROM cartons', conn)
     conn.close()
+    # is_singleton is not stored in the DB (derived from dimensions); add it
+    # here so stats and plot functions have a consistent column to work with.
+    df['is_singleton'] = (
+        df[['length', 'width', 'height']].max(axis=1) <= _SINGLETON_MAX_DIM
+    ).astype(int)
 
     stats = compute_stats(df)
     with open(os.path.join(run_dir, 'stats.json'), 'w') as f:

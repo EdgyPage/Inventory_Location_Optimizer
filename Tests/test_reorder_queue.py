@@ -3,43 +3,37 @@
 Reorder queue stability — dense warehouse matching run_comparison.py config.
 
 The warehouse uses the same 24-aisle-type layout as run_comparison:
-  12 pallet types  (conveyable + non-conveyable × 6 categories, all 4 sizes)
+  12 pallet types  (conveyable + non-conveyable x 6 categories, all 4 sizes)
   12 singleton types (same split)
 
 Stocked 1-bin-per-SKU (~87% fill), then N_BATCHES of demand-weighted picks are
 run.  The test asserts that check_reorders() does not grow the queue unboundedly.
 
-Root cause of the original bug
--------------------------------
-check_reorders called viable_storage_units(rc, reorder_qty) where reorder_qty
-≈ stock_qty ≈ 50.  _build_units loops:
+Reorder policy
+--------------
+Each Carton carries two pre-computed attributes set at inventory generation time:
+  expected_batch_demand = demand.frequency * demand.quantity_rate
+  reorder_point         = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
 
-    while remaining > 0:
-        n = min(remaining, max_qty_per_pallet)   # e.g. max_qty = 3
-        units.append(Pallet(carton, n))
-        remaining -= n
-
-For stock_qty=50 and max_qty_per_pallet=3 this creates 17 units per reorder
-trigger.  With the sku-in-queue guard preventing re-queuing while any unit for
-that SKU is pending, a single reorder burst can deposit hundreds of thousands
-of units that have no empty bin to land in.
-
-The fix: viable_storage_units(rc, 1) creates one unit; _drain then overrides
-unit.quantity = stock_qty so the bin is correctly stocked.  Queue ≤ n_skus
-by the sku-in-queue invariant.
+_notify_pick reads carton.reorder_point directly — no calculation in the hot path.
+check_reorders fires a reorder (one unit, placed into a freed bin) when any SKU
+drops to or below its reorder_point.
 
 Checks
 ------
-  PASS 1  queue_depth never exceeds n_skus
-           Tight invariant: ≤ 1 pending unit per SKU after the fix.
+  PASS 1  reorder_point and expected_batch_demand set on all cartons
+           Confirms the inventory was generated with the new attributes.
 
-  PASS 2  queue does not grow in the final STABLE_WINDOW batches
-           Confirms drainage — queue is processed, not just bounded then rising.
+  PASS 2  queue_depth never exceeds n_skus
+           Tight invariant: <= 1 pending unit per SKU (sku-in-queue guard).
 
-  PASS 3  at least N_SKUS * 0.05 reorders were triggered total
+  PASS 3  queue does not grow in the final STABLE_WINDOW batches
+           Confirms drainage -- queue is processed, not just bounded then rising.
+
+  PASS 4  at least N_SKUS * 0.05 reorders triggered total
            Confirms the reorder code path was exercised.
 
-  PASS 4  fill rate stays above MIN_FILL at the end
+  PASS 5  fill rate stays above MIN_FILL at the end
            Confirms bins are actually restocked, not just queued and stranded.
 
 Usage
@@ -167,9 +161,21 @@ def run() -> bool:
         seed               = SEED,
     )
     n_skus     = len(inventory.cartons)
-    stock_qtys = [getattr(c, 'stock_qty', 1) for c in inventory.cartons]
-    print(f'  stock_qty: min={min(stock_qtys)}  max={max(stock_qtys)}  '
+    stock_qtys = [getattr(c, 'stock_qty',             1)   for c in inventory.cartons]
+    rops       = [getattr(c, 'reorder_point',         None) for c in inventory.cartons]
+    ebds       = [getattr(c, 'expected_batch_demand', None) for c in inventory.cartons]
+
+    all_rops_set = all(r is not None for r in rops)
+    all_ebds_set = all(e is not None for e in ebds)
+
+    print(f'  stock_qty:             min={min(stock_qtys)}  max={max(stock_qtys)}  '
           f'mean={sum(stock_qtys)/len(stock_qtys):.1f}')
+    if all_rops_set:
+        print(f'  reorder_point:         min={min(rops)}  max={max(rops)}  '
+              f'mean={sum(rops)/len(rops):.2f}')
+    if all_ebds_set:
+        print(f'  expected_batch_demand: min={min(ebds):.2f}  max={max(ebds):.2f}  '
+              f'mean={sum(ebds)/len(ebds):.2f}')
 
     # ── warehouse ──────────────────────────────────────────────────────────────
     wh_cfg = _build_wh_cfg(n_skus)
@@ -249,6 +255,11 @@ def run() -> bool:
     print(f'  Total reorders  : {total_triggered}  (min expected: {min_expected})')
 
     print(f'\n  Checks:')
+    check(
+        'reorder_point and expected_batch_demand set on all cartons',
+        all_rops_set and all_ebds_set,
+        f'rops_set={all_rops_set}  ebds_set={all_ebds_set}',
+    )
     check(
         f'queue_depth never exceeds n_skus ({n_skus})',
         max_q <= n_skus,
