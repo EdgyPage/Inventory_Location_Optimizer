@@ -51,8 +51,14 @@ from Inventory_Management import (
 )
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
-from Simulation_Analytics import extract_batch_stats, extract_task_stats
-from Picking_Data import save_batch_stats, save_task_stats
+from Simulation_Analytics import (
+    extract_batch_stats, extract_task_stats, extract_picker_events,
+    build_pre_snapshot, snapshot_bin_inventory, snapshot_aisle_metrics,
+)
+from Picking_Data import (
+    save_batch_stats, save_task_stats, save_picker_events,
+    save_bin_inventory, save_aisle_metrics,
+)
 
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
@@ -192,13 +198,12 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── dense fill to target ───────────────────────────────────────────────────
-    log.info(f'Overstocking to {target_fill:.0%} fill...')
-    t0    = time.perf_counter()
-    added = _stock_to_target_fill(mgr, inventory, target=target_fill)
-    post_fill = len(mgr.unavailable) / len(warehouse.bins)
-    log.info(f'  +{added:,} bins  ->  {len(mgr.unavailable):,} filled  '
-             f'({post_fill:.1%})  ({time.perf_counter()-t0:.1f}s)')
+    # Overstock step removed: _stock_to_target_fill caused a burn-in decline because
+    # _initial_quantities is calibrated to the first bin's stock_qty, not the
+    # overstock total.  Bins drained from the overstock level to the 1-bin
+    # reorder equilibrium over ~50-100 batches, masking A/B/C differentiation.
+    # The warehouse sizing already guarantees total_bins >= n_skus / target_fill,
+    # so 1-bin-per-SKU placement achieves a stable fill rate from batch 1.
 
     # ── lift + demand state and assignment function (B / C only) ──────────────
     freq_by_sku: dict[int, float] = {}
@@ -255,6 +260,9 @@ def _run_strategy_worker(args: dict) -> dict:
              f'batches {start_i} -> {n_batches}')
     pb: list = []
     pt: list = []
+    pe: list = []
+    pi: list = []   # bin inventory snapshots
+    pm: list = []   # aisle metrics snapshots
     skipped        = 0
     reorders_ckpt  = 0
     dur_sum_ckpt   = 0.0
@@ -269,8 +277,10 @@ def _run_strategy_worker(args: dict) -> dict:
         triggered      = mgr.check_reorders()
         reorders_ckpt += len(triggered)
 
-        batch = Batch(batch_cfg, inventory, affinity=affinity)
-        tasks = Task.from_batch(batch, warehouse, manager=mgr)
+        batch    = Batch(batch_cfg, inventory, affinity=affinity)
+        tasks    = Task.from_batch(batch, warehouse, manager=mgr)
+        pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks
+        am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
         if not tasks:
             skipped += 1
             continue
@@ -280,10 +290,15 @@ def _run_strategy_worker(args: dict) -> dict:
         p1_sum_ckpt    += sim.phase1_time
         p2_sum_ckpt    += sim.phase2_time
 
-        bs = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
-        ts = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
+        bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
+        ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
+        pev = extract_picker_events(events, batch_id=i, run_id=run_id)
+        inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id)
         pb.append(bs)
         pt.extend(ts)
+        pe.extend(pev)
+        pi.extend(inv)
+        pm.extend(am)
         last_dur        = bs.duration
         dur_sum_ckpt   += bs.duration
         dur_count_ckpt += 1
@@ -292,6 +307,9 @@ def _run_strategy_worker(args: dict) -> dict:
             t_s0 = time.perf_counter()
             save_batch_stats(db_path, run_id, pb)
             save_task_stats(db_path, run_id, pt)
+            save_picker_events(db_path, run_id, pe)
+            save_bin_inventory(db_path, run_id, pi)
+            save_aisle_metrics(db_path, run_id, pm)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -317,7 +335,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  db={t_save:.2f}s'
             )
 
-            pb.clear(); pt.clear()
+            pb.clear(); pt.clear(); pe.clear(); pi.clear(); pm.clear()
             reorders_ckpt  = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
@@ -329,6 +347,9 @@ def _run_strategy_worker(args: dict) -> dict:
         log.info(f'  Flushing final {len(pb)} batches to DB...')
         save_batch_stats(db_path, run_id, pb)
         save_task_stats(db_path, run_id, pt)
+        save_picker_events(db_path, run_id, pe)
+        save_bin_inventory(db_path, run_id, pi)
+        save_aisle_metrics(db_path, run_id, pm)
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped

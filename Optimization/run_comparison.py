@@ -82,9 +82,9 @@ from strategy_runner import run_strategies_parallel, load_worker_checkpoint
 # ── simulation constants ───────────────────────────────────────────────────────
 SEED_WORLD       = 42
 SEED_BATCHES     = 1337
-N_BATCHES        = 1_000
+N_BATCHES        = 100
 K_PICKERS        = 25
-_CHECKPOINT      = 100
+_CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
@@ -107,12 +107,10 @@ _DEFAULT_BATCHES_DIR = os.getenv(
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
 _PALL_PROBS  = [0.25, 0.25, 0.25, 0.25]   # equal share of each size per pallet aisle
-_CONV_SIZES  = ['small', 'medium', 'large']
-_CONV_PROBS  = [0.25, 0.50, 0.25]
-_NCONV_SIZES = ['medium', 'large', 'extra_large']
-_NCONV_PROBS = [0.20, 0.50, 0.30]
-_SIZE_ORDER  = ['small', 'medium', 'large', 'extra_large']
-_SIZE_LABELS = ['Small', 'Medium', 'Large', 'Extra-Large']
+_CONV_SIZES  = ['small', 'medium', 'large', 'extra_large']
+_CONV_PROBS  = [0.25, 0.25, 0.20, 0.30]
+_NCONV_SIZES = ['small', 'medium', 'large', 'extra_large']
+_NCONV_PROBS = [0.25, 0.25, 0.20, 0.30]
 
 _A_COL      = '#5b9bd5'
 _B_COL      = '#f4a030'
@@ -246,11 +244,6 @@ def _tdf(stats, aisle_size_map, aisle_unittype_map, aisle_handling_map):
     } for s in stats])
 
 
-def _pallet_df(df):
-    d = df[(df['unit_type'] == 'pallet') & (df['pallet_size'].notna())].copy()
-    d['pallet_size'] = pd.Categorical(d['pallet_size'], categories=_SIZE_ORDER, ordered=True)
-    return d
-
 
 
 
@@ -370,7 +363,7 @@ def build_shared_assets(
     total_bins   = total_aisles * _BINS_PER_AISLE
     sing_frac    = (_N_SINGLETON_TYPES * sing_replicas) / total_aisles
 
-    # _AISLE_CFGS is ordered: 48 pallet types first, then 12 singleton types
+    # _AISLE_CFGS is ordered: 12 pallet types first, then 12 singleton types
     _pall_w = pall_replicas / total_aisles
     _sing_w = sing_replicas / total_aisles
     aisle_splits = [_pall_w] * _N_PALLET_TYPES + [_sing_w] * _N_SINGLETON_TYPES
@@ -400,7 +393,8 @@ def build_shared_assets(
 
     param_path = os.path.join(_HERE, 'recovered_params.json')
     if os.path.exists(param_path):
-        p           = json.load(open(param_path))
+        with open(param_path) as _pf:
+            p = json.load(_pf)
         load_params = LoadParams(lambda_=p['lambda_'], k=1.0, gamma=p['gamma'])
         log.info(f'  Params  λ={load_params.lambda_:.4f}  γ={load_params.gamma:.4f}')
     else:
@@ -530,8 +524,8 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     else:
         init_run_db(db_path)
         run_a   = create_run(db_path, 'uniform_assignment')
-        run_b   = create_run(db_path, 'load_minimizing_assignment')
-        run_c   = create_run(db_path, 'load_maximizing_assignment')
+        run_b   = create_run(db_path, 'trip_minimizing_assignment')
+        run_c   = create_run(db_path, 'trip_maximizing_assignment')
         run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
         start_A = start_B = start_C = 0
         log.info(f'  New run  run_ids A={run_a} B={run_b} C={run_c}')
@@ -590,12 +584,12 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         [df_bA[bcols].agg(['mean','median','std']).T,
          df_bB[bcols].agg(['mean','median','std']).T,
          df_bC[bcols].agg(['mean','median','std']).T],
-        axis=1, keys=['Uniform (A)', 'Load-Min (B)', 'Load-Max (C)']).round(3)
+        axis=1, keys=['Uniform (A)', 'Trip-Min (B)', 'Trip-Max (C)']).round(3)
     summ_t = pd.concat(
         [df_tA[tcols].agg(['mean','median','std']).T,
          df_tB[tcols].agg(['mean','median','std']).T,
          df_tC[tcols].agg(['mean','median','std']).T],
-        axis=1, keys=['Uniform (A)', 'Load-Min (B)', 'Load-Max (C)']).round(3)
+        axis=1, keys=['Uniform (A)', 'Trip-Min (B)', 'Trip-Max (C)']).round(3)
     summ_b.to_csv(os.path.join(run_dir, 'summary_batch.csv'))
     summ_t.to_csv(os.path.join(run_dir, 'summary_task.csv'))
     log.info(f'\n{summ_b.to_string()}\n')
@@ -606,8 +600,8 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     fig.suptitle(f'Batch Completion Time  [{name}]', fontsize=13, fontweight='bold')
     for ax, data, label, color in [
         (axes[0], df_bA['duration'].values, 'A — Uniform',         _A_COL),
-        (axes[1], df_bB['duration'].values, 'B — Load-Minimizing', _B_COL),
-        (axes[2], df_bC['duration'].values, 'C — Load-Maximizing', _C_COL),
+        (axes[1], df_bB['duration'].values, 'B — Trip-Minimizing', _B_COL),
+        (axes[2], df_bC['duration'].values, 'C — Trip-Maximizing', _C_COL),
     ]:
         _kde_plot(ax, data, color, bins=40)
         ax.set_xlabel('Batch duration  (sim time units)', fontsize=10)
@@ -622,8 +616,8 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     fig.suptitle(f'Task (Aisle) Completion Time  [{name}]', fontsize=13, fontweight='bold')
     for ax, data, label, color in [
         (axes[0], df_tA['duration'].values, 'A — Uniform',         _A_COL),
-        (axes[1], df_tB['duration'].values, 'B — Load-Minimizing', _B_COL),
-        (axes[2], df_tC['duration'].values, 'C — Load-Maximizing', _C_COL),
+        (axes[1], df_tB['duration'].values, 'B — Trip-Minimizing', _B_COL),
+        (axes[2], df_tC['duration'].values, 'C — Trip-Maximizing', _C_COL),
     ]:
         _kde_plot(ax, data, color, bins=50)
         ax.set_xlabel('Task duration  (sim time units)', fontsize=10)
@@ -644,9 +638,9 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         ax.plot(df_bA.sort_values('batch_id')['batch_id'].values, _roll(df_bA, col, _WIN),
                 color=_A_COL, lw=2, label='Uniform (A)')
         ax.plot(df_bB.sort_values('batch_id')['batch_id'].values, _roll(df_bB, col, _WIN),
-                color=_B_COL, lw=2, label='Load-Min (B)')
+                color=_B_COL, lw=2, label='Trip-Min (B)')
         ax.plot(df_bC.sort_values('batch_id')['batch_id'].values, _roll(df_bC, col, _WIN),
-                color=_C_COL, lw=2, label='Load-Max (C)')
+                color=_C_COL, lw=2, label='Trip-Max (C)')
         ax.set_ylabel(ylabel, fontsize=10);  ax.set_title(title, fontsize=10)
         ax.legend(fontsize=9);  ax.grid(alpha=0.3)
     ax2.set_xlabel('Batch ID', fontsize=10)
@@ -658,8 +652,8 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     fig.suptitle(f'Picker Concurrency  [{name}]', fontsize=12, fontweight='bold')
     for ax, data, label, color in [
         (axes[0], df_bA['avg_concurrent_pickers'].values, 'A — Uniform',         _A_COL),
-        (axes[1], df_bB['avg_concurrent_pickers'].values, 'B — Load-Minimizing', _B_COL),
-        (axes[2], df_bC['avg_concurrent_pickers'].values, 'C — Load-Maximizing', _C_COL),
+        (axes[1], df_bB['avg_concurrent_pickers'].values, 'B — Trip-Minimizing', _B_COL),
+        (axes[2], df_bC['avg_concurrent_pickers'].values, 'C — Trip-Maximizing', _C_COL),
     ]:
         _kde_plot(ax, data, color, bins=35)
         ax.axvline(K_PICKERS, color='grey', lw=1.0, linestyle='-.', label=f'Max ({K_PICKERS})')
@@ -683,7 +677,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         patch.set_facecolor(c);  patch.set_alpha(0.7)
     axes[0].yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
     axes[0].set_title('Picking vs Traveling %', fontsize=10);  axes[0].grid(axis='y', alpha=0.3)
-    for dfb, c, lbl in [(df_bA, _A_COL, 'Uniform'), (df_bB, _B_COL, 'Load-Min'), (df_bC, _C_COL, 'Load-Max')]:
+    for dfb, c, lbl in [(df_bA, _A_COL, 'Uniform'), (df_bB, _B_COL, 'Trip-Min'), (df_bC, _C_COL, 'Trip-Max')]:
         axes[1].hist(dfb['picking_pct'].values, bins=30, color=c, alpha=0.55, edgecolor='white',
                      label=f'{lbl}  μ={dfb["picking_pct"].mean():.1f}%')
     axes[1].xaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
@@ -695,81 +689,64 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     tr = [df_bA['traveling_pct'].mean(), df_bB['traveling_pct'].mean(), df_bC['traveling_pct'].mean()]
     axes[2].bar(x, pk, width=0.5, color=[_A_COL, _B_COL, _C_COL], alpha=0.85, label='Picking')
     axes[2].bar(x, tr, width=0.5, bottom=pk, color=_TRAVEL_COL, alpha=0.85, label='Traveling')
-    axes[2].set_xticks(x);  axes[2].set_xticklabels(['Uniform (A)', 'Load-Min (B)', 'Load-Max (C)'])
+    axes[2].set_xticks(x);  axes[2].set_xticklabels(['Uniform (A)', 'Trip-Min (B)', 'Trip-Max (C)'])
     axes[2].yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
     axes[2].set_ylabel('Mean fraction (%)', fontsize=10);  axes[2].set_title('Aggregate mean split', fontsize=10)
     axes[2].legend(fontsize=8);  axes[2].grid(axis='x', alpha=0.3)
     plt.tight_layout()
     _save_close(fig, os.path.join(run_dir, 'plot5_picker_utilisation.png'))
 
-    # ── plot 6a: pallet size ───────────────────────────────────────────────────
-    dp_A = _pallet_df(df_tA);  dp_B = _pallet_df(df_tB);  dp_C = _pallet_df(df_tC)
-    mdA  = [dp_A[dp_A['pallet_size']==s]['duration'].mean() for s in _SIZE_ORDER]
-    mdB  = [dp_B[dp_B['pallet_size']==s]['duration'].mean() for s in _SIZE_ORDER]
-    mdC  = [dp_C[dp_C['pallet_size']==s]['duration'].mean() for s in _SIZE_ORDER]
-    x2   = np.arange(len(_SIZE_ORDER));  w2 = 0.25
+    # ── plot 6: task duration by aisle type (handling × unit-type) ───────────
+    # Replaces former plots 6a/6b (pallet-size breakdown) which became empty
+    # after pallet aisles switched to multi-size distribution
+    # (Aisle.from_size_distribution sets aisle.storage_size = None).
+    # handling_type and unit_type are always non-None strings on every aisle.
+    _AISLE_GROUPS  = [('conveyable', 'pallet'), ('conveyable', 'singleton'),
+                      ('non-conveyable', 'pallet'), ('non-conveyable', 'singleton')]
+    _GROUP_LABELS  = ['Conv\nPallet', 'Conv\nSingleton',
+                      'Non-Conv\nPallet', 'Non-Conv\nSingleton']
 
-    fig, axes = plt.subplots(1, 3, figsize=(17, 5))
-    fig.suptitle(f'Pallet-Aisle Task Analysis by Storage Size  [{name}]', fontsize=13, fontweight='bold')
-    axes[0].bar(x2 - w2, mdA, width=w2, color=_A_COL, alpha=0.85, label='Uniform (A)')
-    axes[0].bar(x2,       mdB, width=w2, color=_B_COL, alpha=0.85, label='Load-Min (B)')
-    axes[0].bar(x2 + w2, mdC, width=w2, color=_C_COL, alpha=0.85, label='Load-Max (C)')
-    axes[0].set_xticks(x2);  axes[0].set_xticklabels(_SIZE_LABELS)
+    def _mean_by_group(df, h, u):
+        v = df[(df['handling'] == h) & (df['unit_type'] == u)]['duration']
+        return float(v.mean()) if len(v) > 0 else 0.0
+
+    x6  = np.arange(len(_AISLE_GROUPS));  w6 = 0.25
+    mA6 = [_mean_by_group(df_tA, h, u) for h, u in _AISLE_GROUPS]
+    mB6 = [_mean_by_group(df_tB, h, u) for h, u in _AISLE_GROUPS]
+    mC6 = [_mean_by_group(df_tC, h, u) for h, u in _AISLE_GROUPS]
+
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+    fig.suptitle(f'Mean Task Duration by Aisle Type  [{name}]', fontsize=13, fontweight='bold')
+
+    axes[0].bar(x6 - w6, mA6, width=w6, color=_A_COL, alpha=0.85, label='Uniform (A)')
+    axes[0].bar(x6,       mB6, width=w6, color=_B_COL, alpha=0.85, label='Trip-Min (B)')
+    axes[0].bar(x6 + w6, mC6, width=w6, color=_C_COL, alpha=0.85, label='Trip-Max (C)')
+    axes[0].set_xticks(x6);  axes[0].set_xticklabels(_GROUP_LABELS, fontsize=9)
     axes[0].set_ylabel('Mean task duration', fontsize=10)
-    axes[0].set_title('Mean task duration per pallet size', fontsize=10)
+    axes[0].set_title('Mean task duration by handling × unit type', fontsize=10)
     axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
 
-    dB2 = [(b-a)/abs(a)*100 if a else 0 for a, b in zip(mdA, mdB)]
-    dC2 = [(c-a)/abs(a)*100 if a else 0 for a, c in zip(mdA, mdC)]
-    axes[1].bar(x2 - w2/2, dB2, width=w2, color=[_B_COL if d < 0 else '#c00000' for d in dB2], alpha=0.85, label='B vs A')
-    axes[1].bar(x2 + w2/2, dC2, width=w2, color=[_C_COL if d > 0 else '#c00000' for d in dC2], alpha=0.85, label='C vs A')
+    dB6 = [(b - a) / abs(a) * 100 if a else 0 for a, b in zip(mA6, mB6)]
+    dC6 = [(c - a) / abs(a) * 100 if a else 0 for a, c in zip(mA6, mC6)]
+    axes[1].bar(x6 - w6/2, dB6, width=w6,
+                color=[_B_COL if d < 0 else '#c00000' for d in dB6], alpha=0.85, label='B vs A')
+    axes[1].bar(x6 + w6/2, dC6, width=w6,
+                color=[_C_COL if d > 0 else '#c00000' for d in dC6], alpha=0.85, label='C vs A')
     axes[1].axhline(0, color='black', lw=1)
-    for j, (dB, dC) in enumerate(zip(dB2, dC2)):
-        axes[1].text(j - w2/2, dB + (0.3 if dB >= 0 else -0.6), f'{dB:.1f}%', ha='center', fontsize=8)
-        axes[1].text(j + w2/2, dC + (0.3 if dC >= 0 else -0.6), f'{dC:.1f}%', ha='center', fontsize=8)
-    axes[1].set_xticks(x2);  axes[1].set_xticklabels(_SIZE_LABELS)
-    axes[1].set_ylabel('Δ (X − A) / A  %', fontsize=10);  axes[1].set_title('Duration delta per size', fontsize=10)
+    for j, (dB, dC) in enumerate(zip(dB6, dC6)):
+        if abs(dB) > 0.1:
+            axes[1].text(j - w6/2, dB + (0.3 if dB >= 0 else -0.8), f'{dB:.1f}%',
+                         ha='center', fontsize=8)
+        if abs(dC) > 0.1:
+            axes[1].text(j + w6/2, dC + (0.3 if dC >= 0 else -0.8), f'{dC:.1f}%',
+                         ha='center', fontsize=8)
+    axes[1].set_xticks(x6);  axes[1].set_xticklabels(_GROUP_LABELS, fontsize=9)
+    axes[1].set_ylabel('Δ (X − A) / A  %', fontsize=10)
+    axes[1].set_title('Duration delta vs Uniform (A)', fontsize=10)
     axes[1].yaxis.set_major_formatter(mticker.PercentFormatter())
     axes[1].legend(fontsize=8);  axes[1].grid(axis='y', alpha=0.3)
-
-    scols = ['#9dc3e6', '#5b9bd5', '#2e75b6', '#1f4e79']
-    for sz, sc, sl in zip(_SIZE_ORDER, scols, _SIZE_LABELS):
-        vA = np.asarray(dp_A[dp_A['pallet_size']==sz]['duration'], dtype=float)
-        vB = np.asarray(dp_B[dp_B['pallet_size']==sz]['duration'], dtype=float)
-        vC = np.asarray(dp_C[dp_C['pallet_size']==sz]['duration'], dtype=float)
-        all_v = [v for v in (vA, vB, vC) if len(v) > 1]
-        if not all_v:
-            continue
-        combined = np.concatenate(all_v)
-        lo, hi = float(combined.min()), float(combined.max())
-        if lo >= hi:
-            continue
-        xs = np.linspace(lo, hi, 300)
-        if len(vA) > 1: axes[2].plot(xs, gaussian_kde(vA, 'silverman')(xs), color=sc, lw=2,   ls='-',  label=f'{sl} A')
-        if len(vB) > 1: axes[2].plot(xs, gaussian_kde(vB, 'silverman')(xs), color=sc, lw=2,   ls='--', label=f'{sl} B')
-        if len(vC) > 1: axes[2].plot(xs, gaussian_kde(vC, 'silverman')(xs), color=sc, lw=1.5, ls=':',  label=f'{sl} C')
-    axes[2].set_xlabel('Task duration', fontsize=10);  axes[2].set_ylabel('Density', fontsize=10)
-    axes[2].set_title('KDE: solid=A, dashed=B, dot=C', fontsize=10)
-    axes[2].legend(fontsize=6, ncol=3);  axes[2].grid(alpha=0.3)
     plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot6a_pallet_size.png'))
-
-    # ── plot 6b: handling breakdown ────────────────────────────────────────────
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(f'Mean Task Duration per Pallet Size × Handling  [{name}]', fontsize=12, fontweight='bold')
-    for ax, h in [(axes[0], 'conveyable'), (axes[1], 'non-conveyable')]:
-        mA = [dp_A[(dp_A['pallet_size']==s)&(dp_A['handling']==h)]['duration'].mean() for s in _SIZE_ORDER]
-        mB = [dp_B[(dp_B['pallet_size']==s)&(dp_B['handling']==h)]['duration'].mean() for s in _SIZE_ORDER]
-        mC = [dp_C[(dp_C['pallet_size']==s)&(dp_C['handling']==h)]['duration'].mean() for s in _SIZE_ORDER]
-        ax.bar(x2 - w2, mA, width=w2, color=_A_COL, alpha=0.85, label='Uniform (A)')
-        ax.bar(x2,       mB, width=w2, color=_B_COL, alpha=0.85, label='Load-Min (B)')
-        ax.bar(x2 + w2, mC, width=w2, color=_C_COL, alpha=0.85, label='Load-Max (C)')
-        ax.set_xticks(x2);  ax.set_xticklabels(_SIZE_LABELS)
-        ax.set_title(f'{h.capitalize()} pallet aisles', fontsize=10)
-        ax.set_ylabel('Mean task duration', fontsize=10)
-        ax.legend(fontsize=9);  ax.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot6b_pallet_size_handling.png'))
+    _save_close(fig, os.path.join(run_dir, 'plot6_aisle_type.png'))
 
     # ── plot 7: per-aisle ──────────────────────────────────────────────────────
     acmp = pd.concat([
@@ -783,16 +760,16 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     fig, axes = plt.subplots(1, 3, figsize=(19, 5))
     fig.suptitle(f'Per-Aisle Mean Task Duration  [{name}]', fontsize=13, fontweight='bold')
     for v, lbl, c in [(acmp['A'], 'Uniform (A)',   _A_COL),
-                      (acmp['B'], 'Load-Min (B)', _B_COL),
-                      (acmp['C'], 'Load-Max (C)', _C_COL)]:
+                      (acmp['B'], 'Trip-Min (B)', _B_COL),
+                      (acmp['C'], 'Trip-Max (C)', _C_COL)]:
         axes[0].hist(v, bins=50, color=c, alpha=0.50, edgecolor='white', label=f'{lbl}  μ={v.mean():.1f}')
     axes[0].set_xlabel('Per-aisle mean task duration', fontsize=10)
     axes[0].set_ylabel('Aisle count', fontsize=10)
     axes[0].set_title('Distribution of aisle mean durations', fontsize=10)
     axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
     for v, lbl, c in [(np.sort(acmp['A'].values), 'Uniform (A)',   _A_COL),
-                      (np.sort(acmp['B'].values), 'Load-Min (B)', _B_COL),
-                      (np.sort(acmp['C'].values), 'Load-Max (C)', _C_COL)]:
+                      (np.sort(acmp['B'].values), 'Trip-Min (B)', _B_COL),
+                      (np.sort(acmp['C'].values), 'Trip-Max (C)', _C_COL)]:
         axes[1].plot(v, np.arange(1, len(v)+1)/len(v), color=c, lw=2, label=lbl)
     axes[1].set_xlabel('Per-aisle mean task duration', fontsize=10)
     axes[1].set_ylabel('Cumulative fraction', fontsize=10)

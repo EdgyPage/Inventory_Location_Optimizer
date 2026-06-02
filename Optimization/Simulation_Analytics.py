@@ -273,6 +273,7 @@ def extract_task_stats(
             aisle_id         = aisle_id,
             picker_id        = aisle_picker.get(aisle_id, -1),
             duration         = end_time - aisle_start[aisle_id],
+            task_start_time  = aisle_start[aisle_id],
             W_a              = W_a,
             lift_sum         = ls,
             num_bins_visited = num_bins,
@@ -322,8 +323,9 @@ def flag_task_outliers(
     return [
         TaskStats(
             run_id=s.run_id, batch_id=s.batch_id, aisle_id=s.aisle_id,
-            picker_id=s.picker_id, duration=s.duration, W_a=s.W_a,
-            lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
+            picker_id=s.picker_id, duration=s.duration,
+            task_start_time=s.task_start_time,
+            W_a=s.W_a, lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
             total_items=s.total_items,
             is_outlier=bool(d < lo or d > hi),
         )
@@ -379,155 +381,197 @@ def build_placed_affinity(
     return affinity
 
 
-# ── recovery pipeline ─────────────────────────────────────────────────────────
+# ── aisle metric snapshot ─────────────────────────────────────────────────────
 
-def task_stats_to_aisle_loads(
-    task_stats: list[TaskStats],
-    run_id: int = 0,
+def snapshot_aisle_metrics(
+    manager  : object,
+    batch_id : int,
+    run_id   : int = 0,
 ) -> list:
-    """Convert TaskStats records into AisleLoadRecords for parameter recovery.
+    """Capture the trip-cost equation state for every aisle in the manager.
 
-    Maps task simulation duration → observed_L_a.  Records with duration <= 0
-    or W_a <= 0 are excluded; they cannot contribute to OLS regression.
+    Call once per batch after check_reorders() and before picks — the same
+    moment as build_pre_snapshot() — so the snapshot reflects the current
+    warehouse layout after any reorder placements.
+
+    Fields captured
+    ---------------
+    n_skus     : len(_aisle_sku_sets[aid])            — unique SKUs in aisle
+    n_bins     : sum(_aisle_sku_counts[aid].values())  — occupied bin count
+    demand_sum : _aisle_demand_sum[aid]               — Σ f_i * q_i secondary score
+    lift_sum   : _aisle_lift_sum[aid]                 — affinity co-location quality
+
+    Strategy A note
+    ---------------
+    For uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /
+    _aisle_demand_sum are never populated.  Only aisles touched by B/C reorders
+    will have non-zero values.  Strategy A produces no rows here by design —
+    it has no structured placement state to track.
     """
-    from Picking_Data import AisleLoadRecord
+    from Picking_Data import AisleMetricRecord
 
-    return [
-        AisleLoadRecord(
+    aisle_sku_sets    = manager._aisle_sku_sets
+    aisle_sku_counts  = manager._aisle_sku_counts
+    aisle_demand_sum  = manager._aisle_demand_sum
+    aisle_lift_sum    = manager._aisle_lift_sum
+
+    # Union of all aisle IDs present in any state dict
+    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum))
+    if not all_aids:
+        return []
+
+    records = []
+    for aid in all_aids:
+        sku_set  = aisle_sku_sets.get(aid, set())
+        sku_cnts = aisle_sku_counts.get(aid, {})
+        records.append(AisleMetricRecord(
+            run_id     = run_id,
+            batch_id   = batch_id,
+            aisle_id   = aid,
+            n_skus     = len(sku_set),
+            n_bins     = sum(sku_cnts.values()),
+            demand_sum = float(aisle_demand_sum.get(aid, 0.0)),
+            lift_sum   = float(aisle_lift_sum.get(aid, 0.0)),
+        ))
+    return records
+
+
+# ── picker event extraction ───────────────────────────────────────────────────
+
+def build_pre_snapshot(manager) -> dict:
+    """Capture bin quantities before a batch simulation runs.
+
+    Call immediately after check_reorders() and before DeferredPickSimulation.
+    Returns a dict keyed by id(bin) holding all data needed to build a
+    BinInventoryRecord once the post-simulation quantities are known.
+
+    Only non-empty bins are captured; empty bins are implicitly quantity=0
+    and are not written to the DB.
+    """
+    from Storage_Primitive import Singleton
+    snap = {}
+    for bin_ in manager._unavailable.values():
+        if bin_.storage is None:
+            continue
+        snap[id(bin_)] = {
+            'bin_ref'     : bin_,
+            'aisle_id'    : bin_.location[0],
+            'bayX'        : bin_.bayX,
+            'bayY'        : bin_.bayY,
+            'sku'         : bin_.storage.carton.sku,
+            'unit_type'   : 'singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
+            'storage_size': bin_.storage_size,
+            'pre_qty'     : bin_.storage.quantity,
+        }
+    return snap
+
+
+def snapshot_bin_inventory(
+    manager  : object,
+    pre_snap : dict,
+    batch_id : int,
+    run_id   : int = 0,
+) -> list:
+    """Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.
+
+    Call immediately after DeferredPickSimulation.run() (Phase 2 complete).
+
+    Covers three cases:
+      - Picked bins     : were in pre_snap; post_qty = remaining quantity (may be 0)
+      - Untouched bins  : were in pre_snap; post_qty = pre_qty (unchanged)
+      - Reorder bins    : NOT in pre_snap (placed into a previously empty slot
+                          by check_reorders() at the very start of this batch);
+                          pre_qty = their placed quantity, post_qty = quantity
+                          remaining after any picks during this batch.
+
+    Bins that were empty throughout (not in pre_snap, not in _unavailable) are
+    not recorded — they are implicitly quantity=0.
+    """
+    from Picking_Data import BinInventoryRecord
+    from Storage_Primitive import Singleton
+
+    records = []
+
+    # ── bins present at pre-snapshot time ─────────────────────────────────────
+    for bin_id, info in pre_snap.items():
+        bin_ = info['bin_ref']
+        if bin_.storage is not None:
+            post_qty = bin_.storage.quantity
+        else:
+            post_qty = 0   # depleted during this batch's picks
+        records.append(BinInventoryRecord(
             run_id       = run_id,
-            batch_id     = s.batch_id,
-            aisle_id     = s.aisle_id,
-            W_a          = s.W_a,
-            lift_sum     = s.lift_sum,
-            observed_L_a = s.duration,
-        )
-        for s in task_stats
-        if s.duration > 0.0 and s.W_a > 0.0
-    ]
+            batch_id     = batch_id,
+            aisle_id     = info['aisle_id'],
+            bayX         = info['bayX'],
+            bayY         = info['bayY'],
+            sku          = info['sku'],
+            unit_type    = info['unit_type'],
+            storage_size = info['storage_size'],
+            pre_qty      = info['pre_qty'],
+            post_qty     = post_qty,
+        ))
+
+    # ── bins that were empty before this batch and received a reorder ──────────
+    # These appear in manager._unavailable but not in pre_snap.
+    for bin_ in manager._unavailable.values():
+        if id(bin_) in pre_snap or bin_.storage is None:
+            continue
+        records.append(BinInventoryRecord(
+            run_id       = run_id,
+            batch_id     = batch_id,
+            aisle_id     = bin_.location[0],
+            bayX         = bin_.bayX,
+            bayY         = bin_.bayY,
+            sku          = bin_.storage.carton.sku,
+            unit_type    = 'singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
+            storage_size = bin_.storage_size,
+            pre_qty      = bin_.storage.quantity,   # placed quantity = pre (no picks before this)
+            post_qty     = bin_.storage.quantity,   # unchanged; reorders land before picks run
+        ))
+
+    return records
 
 
-def recover_params_to_db(
-    db_path: str,
-    run_id: int,
-    records: list,
-    k_per_task: int = 1,
-    json_path: str | None = None,
-    do_plot: bool = False,
-) -> object:
-    """Full IQR-clean recovery pipeline: fit LoadParams and persist to DB.
+def extract_picker_events(
+    events   : list,
+    batch_id : int,
+    run_id   : int = 0,
+) -> list:
+    """Convert a PickSimulation event list into PickerEventRecord rows for DB storage.
 
-    Steps
-    -----
-    1. OLS fit on all records → raw_params.
-    2. Flag outliers via IQR on (observed_L_a - W_a) residual.
-    3. OLS fit on clean subset → clean_params.
-    4. RMSE for raw and clean fits.
-    5. Save flagged AisleLoadRecords to aisle_loads table.
-    6. Save RecoveredParams to recovered_params table.
-    7. Optionally export JSON and plot.
+    Every event is stored verbatim so the full picker timeline can be replayed
+    from SQL.  Location (bayX, bayY) is populated for arrive / cart_swap / pick
+    events; it is NULL for task_start, task_end, and done events.
 
-    Returns the RecoveredParams instance stored in the DB, or None if there
-    are no usable records (lift_sum = 0 for all, or fewer than 2 valid points).
+    Visualization query — state of all pickers at sim-time t in batch b:
 
-    Parameters
-    ----------
-    k_per_task : pickers assigned to a single aisle task — almost always 1
-        in a simulation where each task goes to one picker.  This is NOT the
-        total picker count; passing the fleet size will shrink W_a/k by that
-        factor and produce wrong λ/γ estimates.
-
-    Notes
-    -----
-    Records with lift_sum = 0 are automatically skipped by
-    recover_params_from_records — they contribute to the outlier / RMSE
-    calculation but not to the OLS fit.  Use build_placed_affinity() before
-    the simulation loop to ensure non-zero lift_sums.
+        SELECT picker_id, aisle_id, bayX, bayY, event_type, items_picked
+        FROM   picker_events
+        WHERE  run_id = ? AND batch_id = ? AND time <= ?
+        GROUP  BY picker_id
+        HAVING time = MAX(time)
+        ORDER  BY picker_id;
     """
-    from math import sqrt
-    from datetime import datetime, timezone
+    from Picking_Data import PickerEventRecord
 
-    from Picking_Analytics import (
-        aisle_load_from_sum,
-        flag_outliers,
-        plot_loads,
-        recover_params_from_records,
-    )
-    from Picking_Data import (
-        RecoveredParams,
-        export_params_json,
-        save_aisle_loads,
-        save_recovered_params,
-    )
-
-    if not records:
-        print('  [recovery] No records supplied — skipping.')
-        return None
-
-    k = float(k_per_task)
-
-    # ── raw fit ────────────────────────────────────────────────────────────────
-    raw_params = recover_params_from_records(records, k)
-    raw_rmse   = sqrt(
-        sum(
-            (aisle_load_from_sum(r.W_a, r.lift_sum, raw_params) - r.observed_L_a) ** 2
-            for r in records
-        ) / max(len(records), 1)
-    )
-
-    # ── IQR outlier flagging + clean fit ───────────────────────────────────────
-    flagged = flag_outliers(records, iqr_factor=1.5)
-    clean   = [r for r in flagged if not r.is_outlier]
-
-    if len(clean) >= 3:
-        clean_params = recover_params_from_records(clean, k)
-        clean_rmse   = sqrt(
-            sum(
-                (aisle_load_from_sum(r.W_a, r.lift_sum, clean_params) - r.observed_L_a) ** 2
-                for r in clean
-            ) / len(clean)
-        )
-    else:
-        clean_params = raw_params
-        clean_rmse   = raw_rmse
-
-    # ── persist ────────────────────────────────────────────────────────────────
-    for r in flagged:
-        r.run_id = run_id
-    save_aisle_loads(db_path, run_id, flagged)
-
-    rp = RecoveredParams(
-        run_id     = run_id,
-        lambda_    = clean_params.lambda_,
-        k          = clean_params.k,
-        gamma      = clean_params.gamma,
-        n_samples  = len(records),
-        n_clean    = len(clean),
-        rmse_raw   = raw_rmse,
-        rmse_clean = clean_rmse,
-        timestamp  = datetime.now(timezone.utc).isoformat(),
-    )
-    save_recovered_params(db_path, rp)
-
-    if json_path:
-        export_params_json(rp, json_path)
-
-    n_valid = sum(1 for r in records if r.lift_sum > 0)
-    print(
-        f'  Records : {len(records):,}  |  lift_sum > 0 : {n_valid:,}  |  '
-        f'outliers : {len(records) - len(clean):,}  |  clean : {len(clean):,}\n'
-        f'  Raw    — RMSE={raw_rmse:.4f}  '
-        f'lambda={raw_params.lambda_:.4f}  gamma={raw_params.gamma:.4f}\n'
-        f'  Clean  — RMSE={clean_rmse:.4f}  '
-        f'lambda={clean_params.lambda_:.4f}  gamma={clean_params.gamma:.4f}  '
-        f'k={clean_params.k:.1f}'
-    )
-
-    if do_plot:
-        plot_loads(
-            flagged,
-            raw_params   = raw_params,
-            clean_params = clean_params,
-            title        = f'Run {run_id} — LoadParams Recovery (simulation data)',
-        )
-
-    return rp
+    records = []
+    for e in events:
+        loc = e.location  # (aisle_id, bayX, bayY) or None
+        records.append(PickerEventRecord(
+            run_id         = run_id,
+            batch_id       = batch_id,
+            picker_id      = e.picker_id,
+            time           = e.time,
+            event_type     = e.event_type,
+            aisle_id       = e.aisle_id,
+            bayX           = loc[1] if loc is not None else None,
+            bayY           = loc[2] if loc is not None else None,
+            sku            = e.sku,
+            quantity       = e.quantity,
+            bins_completed = e.bins_completed,
+            total_bins     = e.total_bins,
+            items_picked   = e.items_picked,
+            total_items    = e.total_items,
+        ))
+    return records

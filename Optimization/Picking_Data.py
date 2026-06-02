@@ -1,5 +1,4 @@
 import csv
-import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -16,27 +15,14 @@ class PickRecord:
 
 
 @dataclass
-class AisleLoadRecord:
-    batch_id: int
-    aisle_id: int
-    W_a: float          # base aisle workload from aisle_workload()
-    lift_sum: float     # sum_lift() for batch SKUs in this aisle
-    observed_L_a: float # pick time from simulation or formula + noise
-    is_outlier: bool = False
-    run_id: int = 0     # assigned by create_run() before DB write
-
-
-@dataclass
-class RecoveredParams:
-    run_id: int
-    lambda_: float
-    k: float
-    gamma: float
-    n_samples: int   # total observations used in fit attempt
-    n_clean: int     # observations after outlier removal
-    rmse_raw: float  # RMSE across all samples with raw-fit params
-    rmse_clean: float
-    timestamp: str
+class AisleMetricRecord:
+    run_id:     int
+    batch_id:   int
+    aisle_id:   int
+    n_skus:     int    # unique SKUs placed in this aisle
+    n_bins:     int    # occupied bin count in this aisle
+    demand_sum: float  # Σ f_i * q_i — trip-cost secondary score (demand mass)
+    lift_sum:   float  # affinity pairwise lift sum — co-location quality
 
 
 @dataclass
@@ -58,12 +44,45 @@ class TaskStats:
     batch_id: int
     aisle_id: int
     picker_id: int
-    duration: float       # task_end.time − task_start.time
-    W_a: float            # analytical aisle workload baseline
-    lift_sum: float       # sum_lift for this aisle's SKUs
-    num_bins_visited: int # bins with at least one pick
-    total_items: int      # items picked in this aisle
+    duration: float         # task_end.time − task_start.time
+    task_start_time: float  # sim time when the picker started this task
+    W_a: float              # analytical aisle workload baseline
+    lift_sum: float         # sum_lift for this aisle's SKUs
+    num_bins_visited: int   # bins with at least one pick
+    total_items: int        # items picked in this aisle
     is_outlier: bool = False
+
+
+@dataclass
+class BinInventoryRecord:
+    run_id:       int
+    batch_id:     int
+    aisle_id:     int
+    bayX:         int
+    bayY:         int
+    sku:          int
+    unit_type:    str   # 'pallet' or 'singleton'
+    storage_size: str   # bin's physical storage size slot
+    pre_qty:      int   # quantity after check_reorders(), before picks
+    post_qty:     int   # quantity after all picks applied
+
+
+@dataclass
+class PickerEventRecord:
+    run_id:         int
+    batch_id:       int
+    picker_id:      int
+    time:           float
+    event_type:     str          # task_start|arrive|cart_swap|pick|task_end|done
+    aisle_id:       int | None
+    bayX:           int | None
+    bayY:           int | None
+    sku:            int | None
+    quantity:       int | None
+    bins_completed: int
+    total_bins:     int
+    items_picked:   int
+    total_items:    int
 
 
 # ── PickRecord columns ────────────────────────────────────────────────────────
@@ -94,31 +113,37 @@ _CREATE_RUNS = """
     )
 """
 
-_CREATE_AISLE_LOADS = """
-    CREATE TABLE IF NOT EXISTS aisle_loads (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
-        batch_id     INTEGER NOT NULL,
-        aisle_id     INTEGER NOT NULL,
-        W_a          REAL    NOT NULL,
-        lift_sum     REAL    NOT NULL,
-        observed_L_a REAL    NOT NULL,
-        is_outlier   INTEGER NOT NULL DEFAULT 0
+_CREATE_AISLE_METRICS = """
+    CREATE TABLE IF NOT EXISTS aisle_metrics (
+        run_id     INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id   INTEGER NOT NULL,
+        aisle_id   INTEGER NOT NULL,
+        n_skus     INTEGER NOT NULL DEFAULT 0,
+        n_bins     INTEGER NOT NULL DEFAULT 0,
+        demand_sum REAL    NOT NULL DEFAULT 0.0,
+        lift_sum   REAL    NOT NULL DEFAULT 0.0,
+        PRIMARY KEY (run_id, batch_id, aisle_id)
     )
 """
 
-_CREATE_RECOVERED = """
-    CREATE TABLE IF NOT EXISTS recovered_params (
-        run_id      INTEGER PRIMARY KEY REFERENCES simulation_runs(run_id),
-        lambda_     REAL    NOT NULL,
-        k           REAL    NOT NULL,
-        gamma       REAL    NOT NULL,
-        n_samples   INTEGER NOT NULL,
-        n_clean     INTEGER NOT NULL,
-        rmse_raw    REAL    NOT NULL,
-        rmse_clean  REAL    NOT NULL,
-        timestamp   TEXT    NOT NULL
-    )
+# Trend query — how one aisle evolves over batches across strategies:
+#   SELECT am.batch_id, sr.run_type, am.demand_sum, am.lift_sum, am.n_skus
+#   FROM   aisle_metrics am JOIN simulation_runs sr USING (run_id)
+#   WHERE  am.aisle_id = ? ORDER BY sr.run_type, am.batch_id
+#
+# Snapshot query — all aisles at a given batch (e.g. batch 50):
+#   SELECT aisle_id, demand_sum, lift_sum, n_skus, n_bins
+#   FROM   aisle_metrics WHERE run_id=? AND batch_id=50
+#   ORDER  BY demand_sum DESC
+
+_CREATE_AISLE_METRICS_BATCH_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_am_run_batch
+    ON aisle_metrics (run_id, batch_id)
+"""
+
+_CREATE_AISLE_METRICS_AISLE_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_am_run_aisle
+    ON aisle_metrics (run_id, aisle_id)
 """
 
 _CREATE_BATCH_STATS = """
@@ -144,12 +169,102 @@ _CREATE_TASK_STATS = """
         aisle_id         INTEGER NOT NULL,
         picker_id        INTEGER NOT NULL,
         duration         REAL    NOT NULL,
+        task_start_time  REAL    NOT NULL DEFAULT 0,
         W_a              REAL    NOT NULL,
         lift_sum         REAL    NOT NULL,
         num_bins_visited INTEGER NOT NULL,
         total_items      INTEGER NOT NULL,
         is_outlier       INTEGER NOT NULL DEFAULT 0
     )
+"""
+
+_CREATE_PICKER_EVENTS = """
+    CREATE TABLE IF NOT EXISTS picker_events (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id         INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id       INTEGER NOT NULL,
+        picker_id      INTEGER NOT NULL,
+        time           REAL    NOT NULL,
+        event_type     TEXT    NOT NULL,
+        aisle_id       INTEGER,
+        bayX           INTEGER,
+        bayY           INTEGER,
+        sku            INTEGER,
+        quantity       INTEGER,
+        bins_completed INTEGER NOT NULL DEFAULT 0,
+        total_bins     INTEGER NOT NULL DEFAULT 0,
+        items_picked   INTEGER NOT NULL DEFAULT 0,
+        total_items    INTEGER NOT NULL DEFAULT 0
+    )
+"""
+
+_CREATE_PICKER_EVENTS_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_pe_run_batch
+    ON picker_events (run_id, batch_id)
+"""
+
+_CREATE_PICKER_EVENTS_TIME_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_pe_run_batch_time
+    ON picker_events (run_id, batch_id, time)
+"""
+
+_CREATE_BIN_INVENTORY = """
+    CREATE TABLE IF NOT EXISTS bin_inventory (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id     INTEGER NOT NULL,
+        aisle_id     INTEGER NOT NULL,
+        bayX         INTEGER NOT NULL,
+        bayY         INTEGER NOT NULL,
+        sku          INTEGER NOT NULL,
+        unit_type    TEXT    NOT NULL,
+        storage_size TEXT    NOT NULL,
+        pre_qty      INTEGER NOT NULL,
+        post_qty     INTEGER NOT NULL
+    )
+"""
+
+# Query pattern: load full warehouse snapshot at start of batch B
+#   SELECT * FROM bin_inventory WHERE run_id=? AND batch_id=? ORDER BY aisle_id, bayX, bayY
+#
+# Derive inventory at sim-time T mid-batch (join with picker_events):
+#   WITH pre AS (
+#       SELECT aisle_id, bayX, bayY, sku, pre_qty
+#       FROM   bin_inventory WHERE run_id=? AND batch_id=?
+#   ),
+#   picks AS (
+#       SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked
+#       FROM   picker_events
+#       WHERE  run_id=? AND batch_id=? AND event_type='pick' AND time <= ?
+#       GROUP  BY aisle_id, bayX, bayY
+#   )
+#   SELECT p.aisle_id, p.bayX, p.bayY, p.sku,
+#          MAX(0, p.pre_qty - COALESCE(pk.picked, 0)) AS qty_at_t
+#   FROM   pre p LEFT JOIN picks pk
+#          ON p.aisle_id=pk.aisle_id AND p.bayX=pk.bayX AND p.bayY=pk.bayY
+#
+# Sanity check — total picked per bin must equal pre_qty - post_qty:
+#   SELECT b.aisle_id, b.bayX, b.bayY, b.sku,
+#          b.pre_qty - b.post_qty        AS expected_picked,
+#          COALESCE(SUM(pe.quantity), 0) AS actual_picked,
+#          (b.pre_qty - b.post_qty) - COALESCE(SUM(pe.quantity), 0) AS drift
+#   FROM   bin_inventory b
+#   LEFT JOIN picker_events pe
+#          ON  pe.run_id=b.run_id AND pe.batch_id=b.batch_id
+#          AND pe.aisle_id=b.aisle_id AND pe.bayX=b.bayX AND pe.bayY=b.bayY
+#          AND pe.event_type='pick'
+#   WHERE  b.run_id=? AND b.batch_id=?
+#   GROUP  BY b.aisle_id, b.bayX, b.bayY
+#   HAVING drift != 0
+
+_CREATE_BIN_INVENTORY_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_bi_run_batch
+    ON bin_inventory (run_id, batch_id)
+"""
+
+_CREATE_BIN_INVENTORY_AISLE_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle
+    ON bin_inventory (run_id, batch_id, aisle_id)
 """
 
 
@@ -235,15 +350,22 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
 
 
 def init_run_db(path: str) -> None:
-    """Create all tables if they don't already exist, and enable WAL mode."""
+    """Create all tables and indexes if they don't already exist, and enable WAL mode."""
     con = _open_db(path)
     try:
         con.execute(_CREATE_PICKS)
         con.execute(_CREATE_RUNS)
-        con.execute(_CREATE_AISLE_LOADS)
-        con.execute(_CREATE_RECOVERED)
         con.execute(_CREATE_BATCH_STATS)
         con.execute(_CREATE_TASK_STATS)
+        con.execute(_CREATE_PICKER_EVENTS)
+        con.execute(_CREATE_PICKER_EVENTS_IDX)
+        con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
+        con.execute(_CREATE_BIN_INVENTORY)
+        con.execute(_CREATE_BIN_INVENTORY_IDX)
+        con.execute(_CREATE_BIN_INVENTORY_AISLE_IDX)
+        con.execute(_CREATE_AISLE_METRICS)
+        con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
+        con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
         con.commit()
     finally:
         con.close()
@@ -261,112 +383,6 @@ def create_run(path: str, run_type: str) -> int:
         return cur.lastrowid  # type: ignore[return-value]
     finally:
         con.close()
-
-
-def save_aisle_loads(path: str, run_id: int, records: list[AisleLoadRecord]) -> None:
-    """Insert aisle load records, overwriting run_id on each record."""
-    con = _open_db(path)
-    try:
-        con.executemany(
-            'INSERT INTO aisle_loads '
-            '(run_id,batch_id,aisle_id,W_a,lift_sum,observed_L_a,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.aisle_id,
-                 r.W_a, r.lift_sum, r.observed_L_a, int(r.is_outlier))
-                for r in records
-            ],
-        )
-        con.commit()
-    finally:
-        con.close()
-
-
-def load_aisle_loads(path: str, run_id: int) -> list[AisleLoadRecord]:
-    con = sqlite3.connect(path)
-    con.row_factory = sqlite3.Row
-    try:
-        rows = con.execute(
-            'SELECT * FROM aisle_loads WHERE run_id = ?', (run_id,)
-        ).fetchall()
-        return [
-            AisleLoadRecord(
-                run_id       = row['run_id'],
-                batch_id     = row['batch_id'],
-                aisle_id     = row['aisle_id'],
-                W_a          = row['W_a'],
-                lift_sum     = row['lift_sum'],
-                observed_L_a = row['observed_L_a'],
-                is_outlier   = bool(row['is_outlier']),
-            )
-            for row in rows
-        ]
-    finally:
-        con.close()
-
-
-def save_recovered_params(path: str, rp: RecoveredParams) -> None:
-    con = _open_db(path)
-    try:
-        con.execute(
-            'INSERT OR REPLACE INTO recovered_params '
-            '(run_id,lambda_,k,gamma,n_samples,n_clean,rmse_raw,rmse_clean,timestamp) '
-            'VALUES (?,?,?,?,?,?,?,?,?)',
-            (rp.run_id, rp.lambda_, rp.k, rp.gamma,
-             rp.n_samples, rp.n_clean, rp.rmse_raw, rp.rmse_clean, rp.timestamp),
-        )
-        con.commit()
-    finally:
-        con.close()
-
-
-def load_recovered_params(path: str, run_id: int) -> RecoveredParams | None:
-    con = sqlite3.connect(path)
-    con.row_factory = sqlite3.Row
-    try:
-        row = con.execute(
-            'SELECT * FROM recovered_params WHERE run_id = ?', (run_id,)
-        ).fetchone()
-        if row is None:
-            return None
-        return RecoveredParams(
-            run_id     = row['run_id'],
-            lambda_    = row['lambda_'],
-            k          = row['k'],
-            gamma      = row['gamma'],
-            n_samples  = row['n_samples'],
-            n_clean    = row['n_clean'],
-            rmse_raw   = row['rmse_raw'],
-            rmse_clean = row['rmse_clean'],
-            timestamp  = row['timestamp'],
-        )
-    finally:
-        con.close()
-
-
-def export_params_json(rp: RecoveredParams, path: str) -> None:
-    """Write recovered LoadParams to JSON for import in any folder.
-
-    Callers load it with:
-        import json
-        from Picking_Analytics import LoadParams
-        p = LoadParams(**json.load(open('recovered_params.json')))
-    """
-    with open(path, 'w') as f:
-        json.dump(
-            {
-                'lambda_':   rp.lambda_,
-                'k':         rp.k,
-                'gamma':     rp.gamma,
-                'n_samples': rp.n_samples,
-                'n_clean':   rp.n_clean,
-                'rmse_raw':  rp.rmse_raw,
-                'rmse_clean': rp.rmse_clean,
-                'recovered_at': rp.timestamp,
-            },
-            f,
-            indent=2,
-        )
 
 
 # ── BatchStats DB ─────────────────────────────────────────────────────────────
@@ -423,13 +439,13 @@ def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
     try:
         con.executemany(
             'INSERT INTO task_stats '
-            '(run_id,batch_id,aisle_id,picker_id,duration,W_a,lift_sum,'
-            'num_bins_visited,total_items,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?)',
+            '(run_id,batch_id,aisle_id,picker_id,duration,task_start_time,'
+            'W_a,lift_sum,num_bins_visited,total_items,is_outlier) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.aisle_id, r.picker_id, r.duration,
-                 r.W_a, r.lift_sum, r.num_bins_visited, r.total_items,
-                 int(r.is_outlier))
+                 r.task_start_time, r.W_a, r.lift_sum, r.num_bins_visited,
+                 r.total_items, int(r.is_outlier))
                 for r in records
             ],
         )
@@ -452,11 +468,225 @@ def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
                 aisle_id         = row['aisle_id'],
                 picker_id        = row['picker_id'],
                 duration         = row['duration'],
+                task_start_time  = row['task_start_time'],
                 W_a              = row['W_a'],
                 lift_sum         = row['lift_sum'],
                 num_bins_visited = row['num_bins_visited'],
                 total_items      = row['total_items'],
                 is_outlier       = bool(row['is_outlier']),
+            )
+            for row in rows
+        ]
+    finally:
+        con.close()
+
+
+def save_picker_events(path: str, run_id: int, records: list) -> None:
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT INTO picker_events '
+            '(run_id,batch_id,picker_id,time,event_type,aisle_id,bayX,bayY,'
+            'sku,quantity,bins_completed,total_bins,items_picked,total_items) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [
+                (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
+                 r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
+                 r.bins_completed, r.total_bins, r.items_picked, r.total_items)
+                for r in records
+            ],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> list:
+    """Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.
+
+    Returns records ordered by (batch_id, picker_id, time) for sequential replay.
+    """
+    con = sqlite3.connect(path)
+    con.row_factory = sqlite3.Row
+    try:
+        if batch_id is None:
+            rows = con.execute(
+                'SELECT * FROM picker_events WHERE run_id = ? '
+                'ORDER BY batch_id, picker_id, time',
+                (run_id,),
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM picker_events WHERE run_id = ? AND batch_id = ? '
+                'ORDER BY picker_id, time',
+                (run_id, batch_id),
+            ).fetchall()
+        return [
+            PickerEventRecord(
+                run_id         = row['run_id'],
+                batch_id       = row['batch_id'],
+                picker_id      = row['picker_id'],
+                time           = row['time'],
+                event_type     = row['event_type'],
+                aisle_id       = row['aisle_id'],
+                bayX           = row['bayX'],
+                bayY           = row['bayY'],
+                sku            = row['sku'],
+                quantity       = row['quantity'],
+                bins_completed = row['bins_completed'],
+                total_bins     = row['total_bins'],
+                items_picked   = row['items_picked'],
+                total_items    = row['total_items'],
+            )
+            for row in rows
+        ]
+    finally:
+        con.close()
+
+
+# ── BinInventory DB ───────────────────────────────────────────────────────────
+
+def save_bin_inventory(path: str, run_id: int, records: list) -> None:
+    """Persist pre/post batch bin inventory snapshots.
+
+    Each record covers one non-empty bin for one batch: pre_qty is the
+    quantity after check_reorders() (before picks), post_qty is the
+    quantity after all picks are applied.  Bins empty throughout are omitted.
+    """
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT INTO bin_inventory '
+            '(run_id,batch_id,aisle_id,bayX,bayY,sku,unit_type,storage_size,'
+            'pre_qty,post_qty) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [
+                (run_id, r.batch_id, r.aisle_id, r.bayX, r.bayY,
+                 r.sku, r.unit_type, r.storage_size, r.pre_qty, r.post_qty)
+                for r in records
+            ],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_bin_inventory(
+    path     : str,
+    run_id   : int,
+    batch_id : int | None = None,
+    aisle_id : int | None = None,
+) -> list:
+    """Load BinInventoryRecord rows, optionally filtered to one batch or aisle."""
+    con = sqlite3.connect(path)
+    con.row_factory = sqlite3.Row
+    try:
+        if batch_id is not None and aisle_id is not None:
+            rows = con.execute(
+                'SELECT * FROM bin_inventory '
+                'WHERE run_id=? AND batch_id=? AND aisle_id=? '
+                'ORDER BY bayX, bayY',
+                (run_id, batch_id, aisle_id),
+            ).fetchall()
+        elif batch_id is not None:
+            rows = con.execute(
+                'SELECT * FROM bin_inventory '
+                'WHERE run_id=? AND batch_id=? '
+                'ORDER BY aisle_id, bayX, bayY',
+                (run_id, batch_id),
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM bin_inventory WHERE run_id=? '
+                'ORDER BY batch_id, aisle_id, bayX, bayY',
+                (run_id,),
+            ).fetchall()
+        return [
+            BinInventoryRecord(
+                run_id       = row['run_id'],
+                batch_id     = row['batch_id'],
+                aisle_id     = row['aisle_id'],
+                bayX         = row['bayX'],
+                bayY         = row['bayY'],
+                sku          = row['sku'],
+                unit_type    = row['unit_type'],
+                storage_size = row['storage_size'],
+                pre_qty      = row['pre_qty'],
+                post_qty     = row['post_qty'],
+            )
+            for row in rows
+        ]
+    finally:
+        con.close()
+
+
+# ── AisleMetrics DB ───────────────────────────────────────────────────────────
+
+def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
+    """Persist per-aisle trip-cost equation state snapshots.
+
+    Captured once per batch after check_reorders() — reflects the warehouse
+    layout as it evolves under the assignment function.  Strategy A rows carry
+    zeros because affinity state is not maintained for uniform placement.
+    """
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT OR REPLACE INTO aisle_metrics '
+            '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum) '
+            'VALUES (?,?,?,?,?,?,?)',
+            [
+                (run_id, r.batch_id, r.aisle_id,
+                 r.n_skus, r.n_bins, r.demand_sum, r.lift_sum)
+                for r in records
+            ],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_aisle_metrics(
+    path     : str,
+    run_id   : int,
+    batch_id : int | None = None,
+    aisle_id : int | None = None,
+) -> list:
+    """Load AisleMetricRecord rows, optionally filtered to one batch or aisle."""
+    con = sqlite3.connect(path)
+    con.row_factory = sqlite3.Row
+    try:
+        if batch_id is not None and aisle_id is not None:
+            rows = con.execute(
+                'SELECT * FROM aisle_metrics WHERE run_id=? AND batch_id=? AND aisle_id=?',
+                (run_id, batch_id, aisle_id),
+            ).fetchall()
+        elif batch_id is not None:
+            rows = con.execute(
+                'SELECT * FROM aisle_metrics WHERE run_id=? AND batch_id=? '
+                'ORDER BY aisle_id',
+                (run_id, batch_id),
+            ).fetchall()
+        elif aisle_id is not None:
+            rows = con.execute(
+                'SELECT * FROM aisle_metrics WHERE run_id=? AND aisle_id=? '
+                'ORDER BY batch_id',
+                (run_id, aisle_id),
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM aisle_metrics WHERE run_id=? '
+                'ORDER BY batch_id, aisle_id',
+                (run_id,),
+            ).fetchall()
+        return [
+            AisleMetricRecord(
+                run_id     = row['run_id'],
+                batch_id   = row['batch_id'],
+                aisle_id   = row['aisle_id'],
+                n_skus     = row['n_skus'],
+                n_bins     = row['n_bins'],
+                demand_sum = row['demand_sum'],
+                lift_sum   = row['lift_sum'],
             )
             for row in rows
         ]
