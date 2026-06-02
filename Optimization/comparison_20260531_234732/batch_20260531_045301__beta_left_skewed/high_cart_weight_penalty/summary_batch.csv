@@ -1,7 +1,0 @@
-,Uniform (A),Uniform (A),Uniform (A),Load-Min (B),Load-Min (B),Load-Min (B),Load-Max (C),Load-Max (C),Load-Max (C)
-,mean,median,std,mean,median,std,mean,median,std
-duration,11082.028,9835.233,6960.077,13688.07,11597.499,9374.141,13057.416,12437.849,7453.427
-completion_rate,1.335,1.354,0.303,1.326,1.358,0.349,1.383,1.418,0.301
-avg_concurrent_pickers,15.76,16.426,3.398,14.452,15.06,3.748,15.614,16.272,3.21
-picking_pct,87.981,89.228,5.11,89.962,91.006,4.379,90.067,91.032,3.956
-traveling_pct,12.019,10.772,5.11,10.038,8.994,4.379,9.933,8.968,3.956

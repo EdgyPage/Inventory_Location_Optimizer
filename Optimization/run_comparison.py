@@ -30,18 +30,46 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 # ── path setup ────────────────────────────────────────────────────────────────
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.normpath(os.path.join(_HERE, '..', 'Warehouse')))
+_HERE      = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.normpath(os.path.join(_HERE, '..'))
+sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
 sys.path.insert(0, _HERE)
+
+# ── .env support ──────────────────────────────────────────────────────────────
+# Reads <repo_root>/.env and injects KEY=VALUE pairs into os.environ.
+# No external packages required.  Shell-set variables are never overwritten.
+# Recognised variables:
+#   COMPARISON_OUTPUT_DIR  — parent directory for comparison_<ts>/ output folders
+#   BATCHES_INPUT_DIR      — root directory for inventory+affinity DB pairs
+def _load_env(path: str) -> None:
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding='utf-8') as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith('#') or '=' not in _line:
+                continue
+            _key, _, _val = _line.partition('=')
+            _key = _key.strip()
+            _val = _val.strip()
+            # Strip optional r"..." / r'...' raw-string notation and plain quotes
+            if _val.startswith(('r"', "r'")):
+                _val = _val[2:].rstrip('"').rstrip("'")
+            else:
+                _val = _val.strip('"').strip("'")
+            if _key and _key not in os.environ:
+                os.environ[_key] = _val
+
+_load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db
+from Inventory_Management import LoadParams
 from Pick import PickConfig
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import BatchConfig
 
-from Inventory_Management import LoadParams
 from Picking_Data import (
     create_run, init_run_db,
     load_batch_stats, load_task_stats,
@@ -49,7 +77,7 @@ from Picking_Data import (
 from Simulation_Analytics import flag_batch_outliers, flag_task_outliers
 from Workload import WorkloadParams
 
-from parallel_runner import run_strategies_parallel, load_worker_checkpoint
+from strategy_runner import run_strategies_parallel, load_worker_checkpoint
 
 # ── simulation constants ───────────────────────────────────────────────────────
 SEED_WORLD       = 42
@@ -61,18 +89,24 @@ _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
 _BINS_PER_AISLE      = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
-_N_PALLET_TYPES      = 48         # 4 sizes × 6 categories × 2 handling
-_N_SINGLETON_TYPES   = 12         # 1 type  × 6 categories × 2 handling
+_N_PALLET_TYPES      = 12         # 6 categories × 2 handling; all 4 sizes within each aisle
+_N_SINGLETON_TYPES   = 12         # 6 categories × 2 handling
 _SINGLETON_MAX_DIM   = 16         # Singleton.max_width — used to classify cartons
 _SING_FRACTION_CAP   = 0.35       # singleton bins ≤ 35% of total warehouse bins
 _TARGET_FILL         = 0.90       # target bin fill rate after overstock sampling
 
-_DEFAULT_BATCHES_DIR = os.path.normpath(
-    os.path.join(_HERE, '..', 'Warehouse', 'generated', 'batches')
+_OUTPUT_DIR = os.getenv(
+    'COMPARISON_OUTPUT_DIR',
+    _HERE,
+)
+_DEFAULT_BATCHES_DIR = os.getenv(
+    'BATCHES_INPUT_DIR',
+    os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'batches')),
 )
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
+_PALL_PROBS  = [0.25, 0.25, 0.25, 0.25]   # equal share of each size per pallet aisle
 _CONV_SIZES  = ['small', 'medium', 'large']
 _CONV_PROBS  = [0.25, 0.50, 0.25]
 _NCONV_SIZES = ['medium', 'large', 'extra_large']
@@ -86,11 +120,13 @@ _C_COL      = '#70ad47'
 _TRAVEL_COL = '#a9a9a9'
 
 # ── warehouse configuration ────────────────────────────────────────────────────
+# Each pallet aisle covers all four sizes via _PALL_PROBS so every inventory
+# item can be placed regardless of size without needing a dedicated aisle per
+# size tier.  Singleton aisles retain their existing size distributions.
 _AISLE_CFGS = []
-for _size in _ALL_SIZES:
-    for _cat in _CATEGORIES:
-        _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 20, [_size], None))
-        _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet', 25, 20, [_size], None))
+for _cat in _CATEGORIES:
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 20, _ALL_SIZES, _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet', 25, 20, _ALL_SIZES, _PALL_PROBS))
 for _cat in _CATEGORIES:
     _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 20, _CONV_SIZES,  _CONV_PROBS))
     _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 20, _NCONV_SIZES, _NCONV_PROBS))
@@ -415,11 +451,6 @@ def _save_close(fig, path):
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
-
-# ── per-config runner ──────────────────────────────────────────────────────────
-#
-# NOTE: the worker function and parallel dispatcher live in parallel_runner.py.
-#       run_config only builds the per-strategy argument dicts and delegates.
 
 # ── per-config runner ──────────────────────────────────────────────────────────
 
@@ -804,12 +835,12 @@ def main():
     args = parser.parse_args()
 
     if args.resume:
-        base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_HERE, args.resume)
+        base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
         if not os.path.isdir(base_dir):
             sys.exit(f'Resume directory not found: {base_dir}')
     else:
         ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-        base_dir = os.path.join(_HERE, f'comparison_{ts}')
+        base_dir = os.path.join(_OUTPUT_DIR, f'comparison_{ts}')
         os.makedirs(base_dir, exist_ok=True)
 
     log = _setup_logging(os.path.join(base_dir, 'run.log'))

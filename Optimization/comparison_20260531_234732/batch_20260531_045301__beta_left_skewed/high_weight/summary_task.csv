@@ -1,6 +1,0 @@
-,Uniform (A),Uniform (A),Uniform (A),Load-Min (B),Load-Min (B),Load-Min (B),Load-Max (C),Load-Max (C),Load-Max (C)
-,mean,median,std,mean,median,std,mean,median,std
-duration,885.993,670.527,771.716,952.863,679.101,884.326,991.048,781.869,835.195
-W_a,341.282,180.256,495.7,349.649,159.21,567.49,352.15,181.271,535.223
-lift_sum,2.455,0.0,10.811,1.109,0.0,9.914,2.625,0.0,11.906
-num_bins,6.726,4.0,8.922,6.811,3.0,9.574,6.849,4.0,9.234

@@ -85,6 +85,11 @@ class Inventory_Manager:
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
+        # Demand-based state for trip-cost assignment functions.
+        # Populated by init_demand_state(); unused for strategy A.
+        self._aisle_demand_sum: dict[int, float]   = defaultdict(float)
+        self._sku_demand_product: dict[int, float] = {}   # sku -> f * q
+
         # SKU → bins split by unit type for O(1) Task.from_batch lookups.
         # Singletons are kept separate so forward-pick locations are always
         # iterated first without sorting on every batch.
@@ -158,6 +163,23 @@ class Inventory_Manager:
 
         for aid, sku_set in self._aisle_sku_sets.items():
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
+
+    def init_demand_state(self, inventory: Any) -> None:
+        """Populate demand-product lookup and per-aisle demand sums.
+
+        Must be called after init_lift_state() so _aisle_sku_sets already
+        reflects the actual placement.  Call once per strategy worker before
+        swapping to a trip-cost assignment function.
+        """
+        self._sku_demand_product = {
+            c.sku: c.demand.frequency * c.demand.quantity_rate
+            for c in inventory.cartons
+        }
+        self._aisle_demand_sum.clear()
+        for aid, sku_set in self._aisle_sku_sets.items():
+            self._aisle_demand_sum[aid] = sum(
+                self._sku_demand_product.get(s, 0.0) for s in sku_set
+            )
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
@@ -233,6 +255,11 @@ class Inventory_Manager:
                         )
                         self._aisle_lift_sum[aid] = max(
                             0.0, self._aisle_lift_sum[aid] - delta
+                        )
+                        self._aisle_demand_sum[aid] = max(
+                            0.0,
+                            self._aisle_demand_sum[aid]
+                            - self._sku_demand_product.get(sku, 0.0),
                         )
             self._index_add(bin_)
             self._unavailable.pop(bin_id, None)
@@ -580,6 +607,182 @@ def build_load_maximizing_assignment_fn(
             idx = affinity._sku_to_idx.get(sku)
             if idx is not None:
                 aisle_idx_sets[best_aid].add(idx)
+        return best_bin
+
+    return assign
+
+
+# ── trip-cost assignment functions ────────────────────────────────────────────
+
+
+def _demand_weighted_delta_lift(
+    affinity       : AffinityStore,
+    sku            : int,
+    member_idx_set : set[int],
+    freq_by_idx    : dict[int, float],
+) -> float:
+    """Sum of affinity(s, i) * f_i for all affinity partners i in the aisle.
+
+    Uses the same CSR row-slice pattern as delta_lift_idxs but multiplies
+    each affinity score by the partner's demand frequency.  This weights the
+    co-location benefit by how often the partner actually appears in a batch,
+    so rare-but-high-affinity pairs do not dominate over common low-affinity ones.
+    """
+    if not member_idx_set or affinity._matrix is None or sku not in affinity._sku_to_idx:
+        return 0.0
+    i     = affinity._sku_to_idx[sku]
+    start = int(affinity._matrix.indptr[i])
+    end   = int(affinity._matrix.indptr[i + 1])
+    if start == end:
+        return 0.0
+    col_indices = affinity._matrix.indices[start:end]
+    data        = affinity._matrix.data[start:end]
+    return float(sum(
+        d * freq_by_idx.get(int(ci), 0.0)
+        for ci, d in zip(col_indices, data)
+        if ci in member_idx_set
+    ))
+
+
+def build_trip_minimizing_assignment_fn(
+    affinity         : AffinityStore,
+    wp               : Any,
+    aisle_sku_sets   : dict[int, set[int]],
+    aisle_idx_sets   : dict[int, set[int]],
+    aisle_demand_sum : dict[int, float],
+    freq_by_idx      : dict[int, float],
+    freq_by_sku      : dict[int, float],
+    qty_by_sku       : dict[int, float],
+    beta             : float = 1.0,
+) -> AssignmentFn:
+    """Build an AssignmentFn that minimises expected marginal aisle-trip cost.
+
+    Objective
+    ---------
+    score(s, a) = f_s * W  -  beta * co_occur_a   (minimise)
+
+      f_s        = demand frequency of the SKU being placed
+      W          = x_time*bayX + y_time*bayY for the representative bin
+      co_occur_a = sum_{i in aisle_a} affinity(s,i) * f_i  (demand-weighted lift)
+      beta       = co-location subsidy weight (default 1.0)
+
+    Tie-broken by (aisle_demand_sum + f_s*q_s): prefer less-loaded aisles to
+    reduce makespan variance across pickers.
+
+    Placement behaviour
+    -------------------
+    High-frequency SKUs are pulled toward low-W aisles.  SKUs whose
+    high-frequency affinity partners already live in an aisle receive a
+    co-location subsidy (beta * co_occur_a) that offsets the travel cost,
+    collapsing correlated demand into fewer aisles per batch and reducing
+    the dominant makespan driver: n_tasks (aisles visited per batch).
+    """
+    x_time = wp.x_move_time
+    y_time = wp.y_move_time
+
+    def assign(unit: Any, candidates: list[Any]) -> Any | None:
+        if not candidates:
+            return None
+
+        sku = unit.carton.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+
+        # Minimum-W representative per aisle: monotonicity holds for f_s * W.
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=True)
+
+        best_score : tuple[float, float] = (float('inf'), float('inf'))
+        best_bin   : Any | None = None
+        best_aid   : int        = -1
+
+        for aid, W in best_W.items():
+            co_occur  = (0.0 if sku in aisle_sku_sets[aid]
+                         else _demand_weighted_delta_lift(
+                             affinity, sku, aisle_idx_sets[aid], freq_by_idx))
+            primary   = f_s * W - beta * co_occur
+            secondary = aisle_demand_sum[aid] + f_s * q_s
+            score     = (primary, secondary)
+            if score < best_score:
+                best_score = score
+                best_bin   = best_bin_map[aid]
+                best_aid   = aid
+
+        if best_bin is None:
+            return None
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            idx = affinity._sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
+            aisle_demand_sum[best_aid] += f_s * q_s
+
+        return best_bin
+
+    return assign
+
+
+def build_trip_maximizing_assignment_fn(
+    affinity         : AffinityStore,
+    wp               : Any,
+    aisle_sku_sets   : dict[int, set[int]],
+    aisle_idx_sets   : dict[int, set[int]],
+    aisle_demand_sum : dict[int, float],
+    freq_by_idx      : dict[int, float],
+    freq_by_sku      : dict[int, float],
+    qty_by_sku       : dict[int, float],
+    beta             : float = 1.0,
+) -> AssignmentFn:
+    """Build an AssignmentFn that maximises expected marginal aisle-trip cost.
+
+    Mirror of build_trip_minimizing_assignment_fn.  Places high-frequency SKUs
+    in distant aisles isolated from their affinity partners, maximising the
+    expected number of distinct aisle visits per batch.  Intended as the
+    strategy-C upper bound to contrast against B (minimising) and A (uniform).
+
+    Tie-broken by -(aisle_demand_sum + f_s*q_s): prefer already-loaded aisles
+    to concentrate demand and maximise picker load imbalance.
+    """
+    x_time = wp.x_move_time
+    y_time = wp.y_move_time
+
+    def assign(unit: Any, candidates: list[Any]) -> Any | None:
+        if not candidates:
+            return None
+
+        sku = unit.carton.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+
+        # Maximum-W representative per aisle: farther bins yield higher f_s * W.
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=False)
+
+        best_score : tuple[float, float] = (float('-inf'), float('-inf'))
+        best_bin   : Any | None = None
+        best_aid   : int        = -1
+
+        for aid, W in best_W.items():
+            co_occur  = (0.0 if sku in aisle_sku_sets[aid]
+                         else _demand_weighted_delta_lift(
+                             affinity, sku, aisle_idx_sets[aid], freq_by_idx))
+            primary   = f_s * W - beta * co_occur
+            secondary = -(aisle_demand_sum[aid] + f_s * q_s)
+            score     = (primary, secondary)
+            if score > best_score:
+                best_score = score
+                best_bin   = best_bin_map[aid]
+                best_aid   = aid
+
+        if best_bin is None:
+            return None
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            idx = affinity._sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
+            aisle_demand_sum[best_aid] += f_s * q_s
+
         return best_bin
 
     return assign
