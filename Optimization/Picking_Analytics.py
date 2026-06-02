@@ -7,9 +7,28 @@ from typing import Any, Callable
 
 import numpy as np
 
-from Picking_Data import AisleLoadRecord, PickRecord
+from dataclasses import dataclass as _dataclass
+
+from Picking_Data import PickRecord
 from Workload import WorkloadParams, aisle_workload
 from Inventory_Management import LoadParams
+
+
+@_dataclass
+class AisleLoadRecord:
+    """Aisle observation used for load-model parameter recovery.
+
+    Retained here for the analytics / plotting pipeline; the corresponding DB
+    tables (aisle_loads, recovered_params) have been removed from the
+    simulation DB since the load model is no longer the active objective.
+    """
+    batch_id:     int
+    aisle_id:     int
+    W_a:          float   # base aisle workload from aisle_workload()
+    lift_sum:     float   # sum_lift() for batch SKUs in this aisle
+    observed_L_a: float   # pick time from simulation or formula + noise
+    is_outlier:   bool = False
+    run_id:       int  = 0
 
 
 @dataclass
