@@ -205,8 +205,10 @@ def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
         singletons = _build_units(carton, Singleton, remainder)
         if singletons:
             units.extend(singletons)
-        # If the remainder can't be singletonised (rare edge case), it is
-        # dropped — the full-pallet units already carry the bulk of the stock.
+        else:
+            # Carton cannot be singletonised; carry the remainder on an extra
+            # partial pallet rather than silently discarding those items.
+            units.append(Pallet(carton, remainder))
 
     return units
 

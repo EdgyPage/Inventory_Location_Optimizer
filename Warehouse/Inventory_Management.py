@@ -56,12 +56,17 @@ class Inventory_Manager:
         self.assignment_fn: AssignmentFn = assignment_fn
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
+        # id(bin) → position in its _index tier list — O(1) swap-remove support.
+        self._bin_index_pos: dict[int, int] = {}
 
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
 
         # Queue holds pre-palletized StorageUnit objects ready for bin assignment.
         self._queue: deque[StorageUnit] = deque()
+        # Count of queued units per SKU — O(1) alternative to rebuilding a set
+        # from the full queue on every check_reorders call.
+        self._queued_sku_counts: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
 
         # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
@@ -90,11 +95,11 @@ class Inventory_Manager:
         self._aisle_demand_sum: dict[int, float]   = defaultdict(float)
         self._sku_demand_product: dict[int, float] = {}   # sku -> f * q
 
-        # SKU → bins split by unit type for O(1) Task.from_batch lookups.
-        # Singletons are kept separate so forward-pick locations are always
-        # iterated first without sorting on every batch.
-        self._sku_singleton_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
-        self._sku_pallet_bins: dict[int, list[Aisle.Bin]]    = defaultdict(list)
+        # SKU → bins split by unit type for Task.from_batch lookups.
+        # Sets give O(1) add/discard; Task.from_batch sorts the bins by
+        # (bayX, bayY) anyway so insertion order doesn't matter.
+        self._sku_singleton_bins: dict[int, set[Aisle.Bin]] = defaultdict(set)
+        self._sku_pallet_bins: dict[int, set[Aisle.Bin]]    = defaultdict(set)
 
         for b in warehouse.bins:
             if b.storage is None:
@@ -171,9 +176,9 @@ class Inventory_Manager:
                 if idx is not None:
                     self._aisle_idx_sets[aid].add(idx)
                 if bin_.unit_type == 'singleton':
-                    self._sku_singleton_bins[sku].append(bin_)
+                    self._sku_singleton_bins[sku].add(bin_)
                 else:
-                    self._sku_pallet_bins[sku].append(bin_)
+                    self._sku_pallet_bins[sku].add(bin_)
 
         for aid, sku_set in self._aisle_sku_sets.items():
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
@@ -249,10 +254,7 @@ class Inventory_Manager:
                 else:
                     lst = self._sku_pallet_bins.get(sku)
                 if lst:
-                    try:
-                        lst.remove(bin_)
-                    except ValueError:
-                        pass
+                    lst.discard(bin_)
                 # Update lift state
                 if self._affinity is not None:
                     aid    = bin_.location[0]
@@ -303,15 +305,19 @@ class Inventory_Manager:
         if not self._depleted_skus and not self._queue:
             return []
 
-        queued_skus: set[int] = {unit.carton.sku for unit in self._queue}
-
         triggered: list[int] = []
         for sku in self._depleted_skus:
-            if sku not in queued_skus and sku in self._originals:
-                rc       = self._originals[sku].reorder()
-                qty      = getattr(rc, 'stock_qty', 1)
-                for unit in viable_storage_units(rc, qty):
+            # O(1) check via maintained counter instead of rebuilding a set.
+            if self._queued_sku_counts.get(sku, 0) == 0 and sku in self._originals:
+                rc    = self._originals[sku].reorder()
+                qty   = getattr(rc, 'stock_qty', 1)
+                units = viable_storage_units(rc, qty)
+                for unit in units:
                     self._queue.append(unit)
+                if units:
+                    self._queued_sku_counts[sku] = (
+                        self._queued_sku_counts.get(sku, 0) + len(units)
+                    )
                 triggered.append(sku)
         self._depleted_skus.clear()
 
@@ -359,10 +365,19 @@ class Inventory_Manager:
         return (bin_.handling_type, bin_.storage_type, bin_.storage_size, bin_.unit_type)
 
     def _index_add(self, bin_: Aisle.Bin) -> None:
-        self._index[self._key(bin_)].append(bin_)
+        lst = self._index[self._key(bin_)]
+        self._bin_index_pos[id(bin_)] = len(lst)
+        lst.append(bin_)
 
     def _index_remove(self, bin_: Aisle.Bin) -> None:
-        self._index[self._key(bin_)].remove(bin_)
+        """O(1) removal via swap-remove: move last element into the vacated slot."""
+        lst = self._index[self._key(bin_)]
+        pos  = self._bin_index_pos.pop(id(bin_))
+        last = lst[-1]
+        lst[pos] = last
+        lst.pop()
+        if last is not bin_:
+            self._bin_index_pos[id(last)] = pos
 
     # ── placement ───────────────────────────────────────────────────────────
 
@@ -386,7 +401,7 @@ class Inventory_Manager:
             if _SIZE_RANKS[size] >= min_rank:
                 bins = self._index.get((handling, category, size, unit_type))
                 if bins:
-                    return bins
+                    return list(bins)   # shallow copy — _index_remove mutates the original
         return []
 
     def _drain(self) -> None:
@@ -408,6 +423,12 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
+                # Decrement the queued-unit counter so check_reorders stays accurate.
+                n = self._queued_sku_counts.get(sku, 0)
+                if n <= 1:
+                    self._queued_sku_counts.pop(sku, None)
+                else:
+                    self._queued_sku_counts[sku] = n - 1
 
                 bin_.storage = unit
                 self._index_remove(bin_)
@@ -417,9 +438,9 @@ class Inventory_Manager:
                     self._current_quantities.get(sku, 0) + unit.quantity
                 )
                 if isinstance(unit, Singleton):
-                    self._sku_singleton_bins[sku].append(bin_)
+                    self._sku_singleton_bins[sku].add(bin_)
                 else:
-                    self._sku_pallet_bins[sku].append(bin_)
+                    self._sku_pallet_bins[sku].add(bin_)
                 if self._affinity is not None:
                     aid    = bin_.location[0]
                     counts = self._aisle_sku_counts[aid]

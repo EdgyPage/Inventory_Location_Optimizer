@@ -78,11 +78,16 @@ class PickerProgress:
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int, cart_swapped: bool) -> float:
-    """Log-linear regression model for time to pick `quantity` units of a carton."""
+    """Log-linear regression model for time to pick `quantity` units of a carton.
+
+    weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
+    raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
+    zero-volume carton is physically impossible and indicates bad data.
+    """
     return (
         cfg.pick_intercept
-        + cfg.pick_weight_coef * math.log(weight) * quantity
-        + cfg.pick_volume_coef * math.log(volume) * quantity
+        + cfg.pick_weight_coef * math.log(max(weight, 1)) * quantity
+        + cfg.pick_volume_coef * math.log(max(volume, 1)) * quantity
         + cfg.cart_swap_coef * int(cart_swapped)
     )
 

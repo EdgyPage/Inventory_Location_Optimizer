@@ -139,11 +139,26 @@ class Task:
             y_trav += abs(path[i].bayY - path[i+1].bayY)
         self.x_traversed: int = x_trav
         self.y_traversed: int = y_trav
-        sku_to_vol: dict[int, int] = {
-            b.storage.carton.sku: b.storage.carton.volume()
-            for b in path if b.storage is not None
-        }
-        total_vol: int = sum(sku_to_vol.get(sku, 0) * qty for sku, qty in items.items())
+        # Build volume lookup from path bins.  A SKU in items may have no bin
+        # in this path when all its bins are pending reclaim (emptied last batch).
+        # Fall back to the carton volume from the first bin found anywhere in the
+        # path for that SKU — missing SKUs keep volume=0 which underestimates
+        # carts_required, so use a secondary lookup from any path bin.
+        sku_to_vol: dict[int, int] = {}
+        for b in path:
+            if b.storage is not None:
+                sku = b.storage.carton.sku
+                if sku not in sku_to_vol:
+                    sku_to_vol[sku] = b.storage.carton.volume()
+        # For SKUs in items not covered by path bins, approximate with any
+        # non-None path bin's carton volume (they share the same aisle type,
+        # so dimensions are at least in the same order of magnitude).
+        fallback_vol = next(
+            (b.storage.carton.volume() for b in path if b.storage is not None), 1
+        )
+        total_vol: int = sum(
+            sku_to_vol.get(sku, fallback_vol) * qty for sku, qty in items.items()
+        )
         self.carts_required: int = math.ceil(total_vol / _CART_VOLUME) if total_vol > 0 else 0
 
     @staticmethod
@@ -207,10 +222,12 @@ class Task:
             sku = bin_.storage.carton.sku  # type: ignore[union-attr]
             aisle_items[aisle_id][sku] = aisle_items[aisle_id].get(sku, 0) + take
 
-        return [
-            Task(aisle_id, _plan_aisle_path(bins), aisle_items[aisle_id])
-            for aisle_id, bins in aisle_bins.items()
-        ]
+        tasks = []
+        for aisle_id, bins in aisle_bins.items():
+            path = _plan_aisle_path(bins)
+            if path:   # guard: skip tasks with empty paths (all bins emptied mid-build)
+                tasks.append(Task(aisle_id, path, aisle_items[aisle_id]))
+        return tasks
 
 
 def _plan_aisle_path(bins: list[Aisle.Bin]) -> list[Aisle.Bin]:

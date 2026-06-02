@@ -193,9 +193,13 @@ def test_viable_storage_units_direct() -> None:
     check('A5a  small carton qty=50: palletizing produces multiple units',
           len(units_multi) > 1,
           f'got {len(units_multi)} units')
-    check('A5b  small carton qty=50: all units are Singleton (ties go to singleton)',
-          all(isinstance(u, Singleton) for u in units_multi),
-          f'types={[type(u).__name__ for u in units_multi]}')
+    # New packing: bulk goes to full pallets, remainder to singleton.
+    # At least one pallet unit should exist for qty=50 > max_per_pallet.
+    n_pallets   = sum(1 for u in units_multi if not isinstance(u, Singleton))
+    n_singletons = sum(1 for u in units_multi if isinstance(u, Singleton))
+    check('A5b  small carton qty=50: bulk on pallets + at most 1 singleton remainder',
+          n_pallets >= 1 and n_singletons <= 1,
+          f'pallets={n_pallets} singletons={n_singletons}')
     check('A5c  small carton qty=50: total quantity across all units == 50',
           sum(u.quantity for u in units_multi) == 50,
           f'got {sum(u.quantity for u in units_multi)}')
@@ -214,51 +218,50 @@ def test_enqueue_routes_through_palletizer() -> None:
     small_carton = _carton(10, length=8,  width=8,  height=6,  stock_qty=stock_qty)
     large_carton = _carton(11, length=30, width=25, height=10, stock_qty=stock_qty)
 
-    mgr.enqueue_all([small_carton, large_carton], quantity=1)
+    # Use stock_qty from carton (quantity=None default) so viable_storage_units
+    # creates the full packing: pallets for bulk + singleton for remainder.
+    mgr.enqueue_all([small_carton, large_carton])
 
-    # ── B1: small carton lands in a singleton bin ──────────────────────────────
-    small_bins = (mgr._sku_singleton_bins.get(10, []) +
-                  mgr._sku_pallet_bins.get(10, []))
+    def _all_bins(mgr, sku):
+        return list(mgr._sku_singleton_bins.get(sku, set())) + \
+               list(mgr._sku_pallet_bins.get(sku, set()))
+
+    def _total_qty(bins):
+        return sum(b.storage.quantity for b in bins if b.storage is not None)
+
+    # ── B1: small carton placed across pallet + singleton bins ────────────────
+    small_bins = _all_bins(mgr, 10)
     check('B1a  small carton (8,8,6) placed in at least one bin',
           len(small_bins) > 0)
-    if small_bins:
-        bin_ = small_bins[0]
-        check('B1b  small carton: bin_.storage is Singleton',
-              isinstance(bin_.storage, Singleton),
-              f'got {type(bin_.storage).__name__}')
-        check('B1c  small carton: bin_.unit_type == "singleton"',
-              bin_.unit_type == 'singleton',
-              f'got {bin_.unit_type}')
-        check('B1d  small carton: unit.quantity overridden to stock_qty after drain',
-              bin_.storage.quantity == stock_qty,
-              f'expected {stock_qty}  got {bin_.storage.quantity}')
-        check('B1e  small carton: bin in _sku_singleton_bins (not pallet)',
-              bin_ in mgr._sku_singleton_bins.get(10, []),
-              'expected in _sku_singleton_bins')
+    check('B1b  small carton: total quantity across all bins == stock_qty',
+          _total_qty(small_bins) == stock_qty,
+          f'expected {stock_qty}  got {_total_qty(small_bins)}')
+    pallet_bins_small = [b for b in small_bins if b.unit_type == 'pallet']
+    sing_bins_small   = [b for b in small_bins if b.unit_type == 'singleton']
+    check('B1c  small carton qty=25 > max_per_pallet: at least one pallet bin used',
+          len(pallet_bins_small) >= 1,
+          f'pallet_bins={len(pallet_bins_small)}  singleton_bins={len(sing_bins_small)}')
 
-    # ── B2: large carton lands in a pallet bin ────────────────────────────────
-    large_bins = (mgr._sku_singleton_bins.get(11, []) +
-                  mgr._sku_pallet_bins.get(11, []))
+    # ── B2: large carton lands in pallet bins ─────────────────────────────────
+    large_bins = _all_bins(mgr, 11)
     check('B2a  large carton (30,25,10) placed in at least one bin',
           len(large_bins) > 0)
-    if large_bins:
-        bin_ = large_bins[0]
-        check('B2b  large carton: bin_.storage is Pallet',
+    check('B2b  large carton: total quantity across all bins == stock_qty',
+          _total_qty(large_bins) == stock_qty,
+          f'expected {stock_qty}  got {_total_qty(large_bins)}')
+    pallet_bins_large = [b for b in large_bins if b.unit_type == 'pallet']
+    check('B2c  large carton: at least one pallet bin used',
+          len(pallet_bins_large) >= 1,
+          f'pallet_bins={len(pallet_bins_large)}')
+    if pallet_bins_large:
+        bin_ = pallet_bins_large[0]
+        check('B2d  large carton: pallet bin storage is Pallet',
               isinstance(bin_.storage, Pallet),
               f'got {type(bin_.storage).__name__}')
-        check('B2c  large carton: bin_.unit_type == "pallet"',
-              bin_.unit_type == 'pallet',
-              f'got {bin_.unit_type}')
-        check('B2d  large carton: unit.quantity overridden to stock_qty after drain',
-              bin_.storage.quantity == stock_qty,
-              f'expected {stock_qty}  got {bin_.storage.quantity}')
-        check('B2e  large carton: bin in _sku_pallet_bins (not singleton)',
-              bin_ in mgr._sku_pallet_bins.get(11, []),
-              'expected in _sku_pallet_bins')
-        check('B2f  large carton: Pallet has valid storage_size',
+        check('B2e  large carton: Pallet has valid storage_size',
               bin_.storage.storage_size in _VALID_SIZES,
               f'storage_size={bin_.storage.storage_size}')
-        check('B2g  large carton: bin storage_size accommodates pallet storage_size',
+        check('B2f  large carton: bin storage_size accommodates pallet storage_size',
               _SIZES.get(bin_.storage_size, 0) >= _SIZES.get(bin_.storage.storage_size, 0),
               f'bin_size={bin_.storage_size}  pallet_size={bin_.storage.storage_size}')
 
@@ -278,22 +281,26 @@ def test_stock_qty_override_and_no_reorder_flag() -> None:
         _carton(22, 30, 25, 10, stock_qty=7),
         _carton(23, 30, 25, 10, stock_qty=99),
     ]
-    mgr.enqueue_all(cartons, quantity=1)
+    # quantity=None (default): use stock_qty from each carton so packing is correct.
+    mgr.enqueue_all(cartons)
 
     for c in cartons:
-        bins_for = (mgr._sku_singleton_bins.get(c.sku, []) +
-                    mgr._sku_pallet_bins.get(c.sku, []))
+        bins_for = list(mgr._sku_singleton_bins.get(c.sku, set())) + \
+                   list(mgr._sku_pallet_bins.get(c.sku, set()))
         if not bins_for:
             fail(f'C-{c.sku}  carton sku={c.sku} was not placed (no compatible bin?)')
             continue
+
+        # Each bin carries at most max_per_pallet items; total must equal stock_qty.
+        total_qty = sum(b.storage.quantity for b in bins_for if b.storage is not None)
+        check(f'C-{c.sku}  total quantity across all bins == stock_qty ({c.stock_qty})',
+              total_qty == c.stock_qty,
+              f'expected {c.stock_qty}  got {total_qty}')
 
         for bin_ in bins_for:
             u = bin_.storage
             if u is None:
                 continue
-            check(f'C-{c.sku}  unit.quantity == stock_qty ({c.stock_qty})',
-                  u.quantity == c.stock_qty,
-                  f'expected {c.stock_qty}  got {u.quantity}')
             check(f'C-{c.sku}  _is_reorder absent on initial carton',
                   not getattr(u.carton, '_is_reorder', False),
                   f'_is_reorder={getattr(u.carton, "_is_reorder", False)}')
@@ -313,7 +320,7 @@ def test_originals_stored_correctly() -> None:
 
     c_small = _carton(30, 8, 8, 6,   stock_qty=20)
     c_large = _carton(31, 30, 25, 10, stock_qty=15)
-    mgr.enqueue_all([c_small, c_large], quantity=1)
+    mgr.enqueue_all([c_small, c_large])
 
     for c in [c_small, c_large]:
         check(f'D-{c.sku}  _originals contains sku={c.sku}',
