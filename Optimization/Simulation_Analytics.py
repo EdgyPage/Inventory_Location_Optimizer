@@ -467,25 +467,43 @@ def build_pre_snapshot(manager) -> dict:
 
 
 def snapshot_bin_inventory(
-    manager  : object,
-    pre_snap : dict,
-    batch_id : int,
-    run_id   : int = 0,
+    manager       : object,
+    pre_snap      : dict,
+    batch_id      : int,
+    run_id        : int  = 0,
+    full_snapshot : bool = False,
 ) -> list:
     """Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.
 
     Call immediately after DeferredPickSimulation.run() (Phase 2 complete).
 
     Covers three cases:
-      - Picked bins     : were in pre_snap; post_qty = remaining quantity (may be 0)
-      - Untouched bins  : were in pre_snap; post_qty = pre_qty (unchanged)
-      - Reorder bins    : NOT in pre_snap (placed into a previously empty slot
-                          by check_reorders() at the very start of this batch);
-                          pre_qty = their placed quantity, post_qty = quantity
-                          remaining after any picks during this batch.
+      - Picked bins     : were in pre_snap; post_qty < pre_qty — always recorded.
+      - Untouched bins  : were in pre_snap; post_qty == pre_qty — only recorded
+                          when full_snapshot=True (first batch only).
+      - Reorder bins    : NOT in pre_snap; newly placed by check_reorders() —
+                          always recorded (they represent a state change).
 
-    Bins that were empty throughout (not in pre_snap, not in _unavailable) are
-    not recorded — they are implicitly quantity=0.
+    Writing untouched bins on every batch (~2.4M rows for a large warehouse)
+    dominated checkpoint time (~185–308s per 10-batch checkpoint).  Recording
+    only changed bins drops this to ~100K rows/batch while preserving full
+    reconstruction: set full_snapshot=True for the first batch of each run to
+    establish a complete baseline, then apply diffs batch-by-batch thereafter.
+
+    Visualization query — inventory of one aisle at sim-time T (mid-batch):
+        WITH pre AS (
+            SELECT aisle_id, bayX, bayY, sku, pre_qty
+            FROM   bin_inventory WHERE run_id=? AND batch_id=?
+        ),
+        picks AS (
+            SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked
+            FROM   picker_events
+            WHERE  run_id=? AND batch_id=? AND aisle_id=? AND event_type='pick'
+              AND  time <= ?
+            GROUP  BY aisle_id, bayX, bayY
+        )
+        SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t
+        FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)
     """
     from Picking_Data import BinInventoryRecord
     from Storage_Primitive import Singleton
@@ -495,10 +513,9 @@ def snapshot_bin_inventory(
     # ── bins present at pre-snapshot time ─────────────────────────────────────
     for bin_id, info in pre_snap.items():
         bin_ = info['bin_ref']
-        if bin_.storage is not None:
-            post_qty = bin_.storage.quantity
-        else:
-            post_qty = 0   # depleted during this batch's picks
+        post_qty = bin_.storage.quantity if bin_.storage is not None else 0
+        if not full_snapshot and post_qty == info['pre_qty']:
+            continue   # unchanged bin — skip to minimise write volume
         records.append(BinInventoryRecord(
             run_id       = run_id,
             batch_id     = batch_id,
@@ -513,7 +530,8 @@ def snapshot_bin_inventory(
         ))
 
     # ── bins that were empty before this batch and received a reorder ──────────
-    # These appear in manager._unavailable but not in pre_snap.
+    # These appear in manager._unavailable but not in pre_snap.  Always record
+    # regardless of full_snapshot since a new bin represents a state change.
     for bin_ in manager._unavailable.values():
         if id(bin_) in pre_snap or bin_.storage is None:
             continue
@@ -526,8 +544,8 @@ def snapshot_bin_inventory(
             sku          = bin_.storage.carton.sku,
             unit_type    = 'singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
             storage_size = bin_.storage_size,
-            pre_qty      = bin_.storage.quantity,   # placed quantity = pre (no picks before this)
-            post_qty     = bin_.storage.quantity,   # unchanged; reorders land before picks run
+            pre_qty      = bin_.storage.quantity,
+            post_qty     = bin_.storage.quantity,
         ))
 
     return records

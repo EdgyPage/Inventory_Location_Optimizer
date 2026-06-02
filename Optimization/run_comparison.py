@@ -464,7 +464,10 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     )
     wp      = WorkloadParams.from_pick_config(pick_cfg)
     run_dir = os.path.join(base_dir, name)
-    db_path = os.path.join(run_dir, 'sim.db')
+    # Separate DB per strategy so workers write concurrently without WAL contention.
+    db_path_A = os.path.join(run_dir, 'sim_A.db')
+    db_path_B = os.path.join(run_dir, 'sim_B.db')
+    db_path_C = os.path.join(run_dir, 'sim_C.db')
     os.makedirs(run_dir, exist_ok=True)
 
     inventory          = shared['inventory']
@@ -524,10 +527,11 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         log.info(f'  Resuming  A@{start_A}  B@{start_B}  C@{start_C}'
                  f'  (run_ids {run_a}/{run_b}/{run_c})')
     else:
-        init_run_db(db_path)
-        run_a   = create_run(db_path, 'uniform_assignment')
-        run_b   = create_run(db_path, 'trip_minimizing_assignment')
-        run_c   = create_run(db_path, 'trip_maximizing_assignment')
+        for dp in (db_path_A, db_path_B, db_path_C):
+            init_run_db(dp)
+        run_a   = create_run(db_path_A, 'uniform_assignment')
+        run_b   = create_run(db_path_B, 'trip_minimizing_assignment')
+        run_c   = create_run(db_path_C, 'trip_maximizing_assignment')
         run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
         start_A = start_B = start_C = 0
         log.info(f'  New run  run_ids A={run_a} B={run_b} C={run_c}')
@@ -538,7 +542,6 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     _shared = dict(
         inv_db        = shared['inv_db'],
         aff_db        = shared['aff_db'],
-        db_path       = db_path,
         run_dir       = run_dir,
         n_batches     = N_BATCHES,
         k_pickers     = K_PICKERS,
@@ -553,9 +556,9 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         batch_cfg     = batch_cfg,
     )
     strategy_args = [
-        {**_shared, 'strategy': 'A', 'run_id': run_a, 'start_i': start_A},
-        {**_shared, 'strategy': 'B', 'run_id': run_b, 'start_i': start_B},
-        {**_shared, 'strategy': 'C', 'run_id': run_c, 'start_i': start_C},
+        {**_shared, 'strategy': 'A', 'run_id': run_a, 'start_i': start_A, 'db_path': db_path_A},
+        {**_shared, 'strategy': 'B', 'run_id': run_b, 'start_i': start_B, 'db_path': db_path_B},
+        {**_shared, 'strategy': 'C', 'run_id': run_c, 'start_i': start_C, 'db_path': db_path_C},
     ]
 
     run_strategies_parallel(strategy_args, log)
@@ -565,12 +568,12 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         os.remove(rp)
 
     # ── analysis ──────────────────────────────────────────────────────────────
-    bs_fA = flag_batch_outliers(load_batch_stats(db_path, run_a))
-    bs_fB = flag_batch_outliers(load_batch_stats(db_path, run_b))
-    bs_fC = flag_batch_outliers(load_batch_stats(db_path, run_c))
-    ts_fA = flag_task_outliers(load_task_stats(db_path, run_a))
-    ts_fB = flag_task_outliers(load_task_stats(db_path, run_b))
-    ts_fC = flag_task_outliers(load_task_stats(db_path, run_c))
+    bs_fA = flag_batch_outliers(load_batch_stats(db_path_A, run_a))
+    bs_fB = flag_batch_outliers(load_batch_stats(db_path_B, run_b))
+    bs_fC = flag_batch_outliers(load_batch_stats(db_path_C, run_c))
+    ts_fA = flag_task_outliers(load_task_stats(db_path_A, run_a))
+    ts_fB = flag_task_outliers(load_task_stats(db_path_B, run_b))
+    ts_fC = flag_task_outliers(load_task_stats(db_path_C, run_c))
 
     df_bA = _bdf([s for s in bs_fA if not s.is_outlier])
     df_bB = _bdf([s for s in bs_fB if not s.is_outlier])

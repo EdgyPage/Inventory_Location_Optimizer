@@ -250,9 +250,16 @@ def _run_strategy_worker(args: dict) -> dict:
     freq_by_idx: dict[int, float] = {}
 
     if strategy in ('B', 'C'):
-        log.info('Building lift state...')
+        # _drain() already maintains _aisle_sku_sets, _aisle_idx_sets,
+        # _aisle_sku_counts, _bin_sku, _current_quantities, and the SKU→bin
+        # dicts during enqueue_all and the fill loop, so init_lift_state
+        # (which re-scans all 2.4M occupied bins) is redundant and very slow.
+        # Only _aisle_lift_sum needs to be computed; iterate the 5k-ish aisles
+        # already in _aisle_sku_sets rather than re-scanning every bin.
+        log.info('Computing aisle lift sums (fast path)...')
         t0 = time.perf_counter()
-        mgr.init_lift_state(affinity)
+        for aid, sku_set in mgr._aisle_sku_sets.items():
+            mgr._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
         n_lift = sum(1 for v in mgr._aisle_lift_sum.values() if v > 0)
         log.info(f'  {len(mgr._aisle_lift_sum)} aisles  {n_lift} with lift>0  '
                  f'({time.perf_counter()-t0:.1f}s)')
@@ -332,7 +339,8 @@ def _run_strategy_worker(args: dict) -> dict:
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
-        inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id)
+        inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id,
+                                     full_snapshot=(i == start_i))
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
