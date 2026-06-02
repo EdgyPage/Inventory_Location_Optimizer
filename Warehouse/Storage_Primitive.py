@@ -168,17 +168,47 @@ def _total_volume(units: list[StorageUnit]) -> int:
 
 
 def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
-    """Return the storage units to queue for a carton placement.
+    """Pack *quantity* items using the minimum number of full pallets, with any
+    remainder routed to a singleton unit.
 
-    Pallet units are always preferred — they use the largest available bin
-    sizes and have the highest capacity per location.  Singleton units are
-    only returned when the carton cannot be palletized (no valid pallet
-    orientation exists for the carton's dimensions).
+    Each pallet is filled to its maximum physical capacity so the fewest pallet
+    locations are occupied.  Items that don't fill a complete pallet — or whose
+    total quantity is already smaller than one pallet's capacity — go into a
+    singleton unit instead.  Singletons handle the "less than a pallet" case;
+    they are not used for bulk storage unless the carton cannot be palletized at
+    all.
+
+    Examples  (max_per_pallet = 3)
+    --------------------------------
+      quantity = 9  →  3 pallets × 3 items,  no singleton
+      quantity = 10 →  3 pallets × 3 items,  1 singleton × 1 item
+      quantity = 2  →  0 pallets,             1 singleton × 2 items
     """
-    pallets: list[StorageUnit] = _build_units(carton, Pallet, quantity)
-    if pallets:
-        return pallets
-    return _build_units(carton, Singleton, quantity)
+    max_pallet: int = _max_qty_fits(carton, Pallet)
+
+    if max_pallet == 0:
+        # Carton geometry doesn't allow any pallet orientation; use singletons.
+        return _build_units(carton, Singleton, quantity)
+
+    if quantity < max_pallet:
+        # Quantity is smaller than one full pallet — singleton is the right fit.
+        # Fall back to a partial pallet only if the carton can't be singletonised.
+        singletons = _build_units(carton, Singleton, quantity)
+        return singletons if singletons else [Pallet(carton, quantity)]
+
+    # Pack as many complete pallets as possible.
+    n_full    = quantity // max_pallet
+    remainder = quantity % max_pallet
+    units: list[StorageUnit] = [Pallet(carton, max_pallet) for _ in range(n_full)]
+
+    if remainder > 0:
+        singletons = _build_units(carton, Singleton, remainder)
+        if singletons:
+            units.extend(singletons)
+        # If the remainder can't be singletonised (rare edge case), it is
+        # dropped — the full-pallet units already carry the bulk of the stock.
+
+    return units
 
 
 class StorageCart:
