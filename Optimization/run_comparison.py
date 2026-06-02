@@ -67,6 +67,7 @@ from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db
 from Inventory_Management import LoadParams
 from Pick import PickConfig
+from Storage_Primitive import viable_storage_units as _vsu, Pallet as _PalletUnit
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import BatchConfig
 
@@ -88,12 +89,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_BINS_PER_AISLE      = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
-_N_PALLET_TYPES      = 12         # 6 categories × 2 handling; all 4 sizes within each aisle
-_N_SINGLETON_TYPES   = 12         # 6 categories × 2 handling
-_SINGLETON_MAX_DIM   = 16         # Singleton.max_width — used to classify cartons
-_SING_FRACTION_CAP   = 0.35       # singleton bins ≤ 35% of total warehouse bins
-_TARGET_FILL         = 0.90       # target bin fill rate after overstock sampling
+_BINS_PER_AISLE = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
+_TARGET_FILL    = 0.90       # headroom fraction: size each aisle type to this utilization
 
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
@@ -332,58 +329,49 @@ def build_shared_assets(
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
-    # Count singleton vs pallet cartons by their actual dimensions
-    n_singleton = sum(
-        1 for c in inventory.cartons
-        if max(c.length, c.width, c.height) <= _SINGLETON_MAX_DIM
-    )
-    n_pallet = n_skus - n_singleton
+    # ── Warehouse sizing (data-driven from actual bin requirements) ───────────
+    # Call viable_storage_units(carton, stock_qty) for every carton to count
+    # exactly how many pallet and singleton bins each (handling, category) pair
+    # needs after initial stocking.  Each of the 24 aisle types is then sized
+    # independently so the warehouse reaches _TARGET_FILL utilization per type,
+    # eliminating the large initial queue that arose from undersized aisles.
 
-    # ── Warehouse sizing ───────────────────────────────────────────────────────
-    # Three constraints must all hold simultaneously:
-    #   1. Every SKU gets at least one bin (n_sing ≤ sing_bins, n_pall ≤ pall_bins)
-    #   2. Singleton bins ≤ _SING_FRACTION_CAP (35%) of total bins
-    #   3. Total bins large enough to reach _TARGET_FILL (90%) via overstock
-    #
-    # (1) sets the minimum replicas per type.
-    # (2) may require extra pallet replicas when singletons are abundant.
-    # (3) sets a lower bound on total_bins = n_skus / _TARGET_FILL.
+    t_size = time.perf_counter()
+    _pallet_needs:    dict[tuple, int] = {}
+    _singleton_needs: dict[tuple, int] = {}
 
-    sing_replicas = max(1, math.ceil(n_singleton / (_N_SINGLETON_TYPES * _BINS_PER_AISLE)))
-    pall_replicas = max(1, math.ceil(n_pallet    / (_N_PALLET_TYPES    * _BINS_PER_AISLE)))
+    for c in inventory.cartons:
+        qty    = getattr(c, 'stock_qty', 1)
+        h, cat = c.storage_type
+        for unit in _vsu(c, qty):
+            key = (h, cat)
+            if isinstance(unit, _PalletUnit):
+                _pallet_needs[key] = _pallet_needs.get(key, 0) + 1
+            else:
+                _singleton_needs[key] = _singleton_needs.get(key, 0) + 1
 
-    # Enforce singleton cap: sing_bins/(sing_bins + pall_bins) ≤ _SING_FRACTION_CAP
-    sing_bins_now = _N_SINGLETON_TYPES * sing_replicas * _BINS_PER_AISLE
-    min_pall_bins = math.ceil(
-        sing_bins_now * (1 - _SING_FRACTION_CAP) / _SING_FRACTION_CAP
-    )
-    pall_replicas = max(
-        pall_replicas,
-        math.ceil(min_pall_bins / (_N_PALLET_TYPES * _BINS_PER_AISLE)),
-    )
+    total_pallet_needed    = sum(_pallet_needs.values())
+    total_singleton_needed = sum(_singleton_needs.values())
+    total_units_needed     = total_pallet_needed + total_singleton_needed
 
-    # Enforce 90% fill target: total_bins ≥ n_skus / _TARGET_FILL
-    sing_bins  = _N_SINGLETON_TYPES * sing_replicas * _BINS_PER_AISLE
-    pall_bins  = _N_PALLET_TYPES    * pall_replicas * _BINS_PER_AISLE
-    min_total  = math.ceil(n_skus / _TARGET_FILL)
-    if sing_bins + pall_bins < min_total:
-        extra_pall = math.ceil((min_total - sing_bins - pall_bins) / (_N_PALLET_TYPES * _BINS_PER_AISLE))
-        pall_replicas += extra_pall
+    # One replica count per aisle type; minimum 1 so every type has at least
+    # one aisle even when no cartons map to it.
+    aisle_replicas = []
+    for cfg in _AISLE_CFGS:
+        needs  = (_pallet_needs if cfg.unit_type == 'pallet' else _singleton_needs)
+        needed = needs.get((cfg.handling_type, cfg.storage_type), 0)
+        aisle_replicas.append(max(1, math.ceil(needed / (_BINS_PER_AISLE * _TARGET_FILL))))
 
-    total_aisles = _N_SINGLETON_TYPES * sing_replicas + _N_PALLET_TYPES * pall_replicas
-    total_bins   = total_aisles * _BINS_PER_AISLE
-    sing_frac    = (_N_SINGLETON_TYPES * sing_replicas) / total_aisles
+    total_aisles  = sum(aisle_replicas)
+    total_bins    = total_aisles * _BINS_PER_AISLE
+    aisle_splits  = [r / total_aisles for r in aisle_replicas]
+    expected_fill = total_units_needed / total_bins if total_bins else 0.0
 
-    # _AISLE_CFGS is ordered: 12 pallet types first, then 12 singleton types
-    _pall_w = pall_replicas / total_aisles
-    _sing_w = sing_replicas / total_aisles
-    aisle_splits = [_pall_w] * _N_PALLET_TYPES + [_sing_w] * _N_SINGLETON_TYPES
-
-    log.info(f'  Inventory : {n_pallet:,} pallet  {n_singleton:,} singleton cartons')
-    log.info(f'  Warehouse : {_N_PALLET_TYPES}×{pall_replicas} pallet'
-             f' + {_N_SINGLETON_TYPES}×{sing_replicas} singleton'
-             f' = {total_aisles} aisles / {total_bins:,} bins'
-             f'  sing={sing_frac:.1%}  target_fill={_TARGET_FILL:.0%}')
+    log.info(f'  Bin requirements : {total_pallet_needed:,} pallet'
+             f' + {total_singleton_needed:,} singleton'
+             f' = {total_units_needed:,} total  ({time.perf_counter()-t_size:.1f}s)')
+    log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
+             f'  expected_fill={expected_fill:.1%}  target={_TARGET_FILL:.0%}')
 
     warehouse_cfg = WarehouseConfig(
         total_aisles  = total_aisles,
@@ -434,6 +422,7 @@ def build_shared_assets(
         warehouse_cfg      = warehouse_cfg,
         total_aisles       = total_aisles,
         total_bins         = total_bins,
+        total_units_needed = total_units_needed,
         aisle_size_map     = {a.aisle_id: a.storage_size  for a in warehouse_meta.aisles},
         aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
         aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
@@ -484,6 +473,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     warehouse_cfg      = shared['warehouse_cfg']
     total_aisles       = shared['total_aisles']
     total_bins         = shared['total_bins']
+    total_units_needed = shared['total_units_needed']
     aisle_size_map     = shared['aisle_size_map']
     aisle_unittype_map = shared['aisle_unittype_map']
     aisle_handling_map = shared['aisle_handling_map']
@@ -512,7 +502,8 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
         'total_aisles'    : total_aisles,
         'total_bins'      : total_bins,
         'n_skus'          : len(inventory.cartons),
-        'bin_slack_pct'   : round((total_bins / len(inventory.cartons) - 1) * 100, 2),
+        'total_units'     : total_units_needed,
+        'bin_slack_pct'   : round((total_bins / max(total_units_needed, 1) - 1) * 100, 2),
         'batch_mean_frac' : _BATCH_MEAN_FRAC,
         'n_batches'       : N_BATCHES,
         'seed_world'      : SEED_WORLD,
