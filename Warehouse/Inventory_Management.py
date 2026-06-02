@@ -290,12 +290,16 @@ class Inventory_Manager:
             if sku not in queued_skus:
                 initial_qty = self._initial_quantities.get(sku, 0)
                 if initial_qty > 0:
-                    rc        = self._originals[sku].reorder()
-                    stock_qty = getattr(rc, 'stock_qty', 1)
-                    sigma     = max(1.0, stock_qty * 0.20)
-                    reorder_qty = max(1, min(stock_qty * 2,
-                                            round(random.gauss(stock_qty, sigma))))
-                    for unit in viable_storage_units(rc, reorder_qty):
+                    rc = self._originals[sku].reorder()
+                    # One unit per reorder — same pattern as initial stocking.
+                    # viable_storage_units(rc, quantity) creates ceil(quantity /
+                    # max_per_pallet) physical units.  Passing the full stock_qty
+                    # here previously queued 10-20 units per trigger, overwhelming
+                    # the available-bin pool and causing unbounded queue growth.
+                    # Passing 1 creates exactly one unit; _drain then overrides
+                    # unit.quantity = stock_qty so the restocked bin carries the
+                    # correct on-hand level.
+                    for unit in viable_storage_units(rc, 1):
                         self._queue.append(unit)
                     triggered.append(sku)
         self._depleted_skus.clear()
@@ -380,13 +384,13 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Initial stock override: viable_storage_units was called with
-                # quantity=1 for initial/overstock; override to the full stock_qty
-                # so each bin carries the correct on-hand count.
-                if not getattr(carton, '_is_reorder', False):
-                    sq = getattr(carton, 'stock_qty', None)
-                    if sq is not None:
-                        unit.quantity = sq
+                # Override quantity to stock_qty for all units (initial and
+                # reorder alike).  viable_storage_units is always called with
+                # quantity=1 so the unit is physically sized for one carton;
+                # stock_qty sets the inventory count stored on the bin.
+                sq = getattr(carton, 'stock_qty', None)
+                if sq is not None:
+                    unit.quantity = sq
 
                 bin_.storage = unit
                 self._index_remove(bin_)
