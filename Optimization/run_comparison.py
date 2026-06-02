@@ -638,23 +638,31 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     plt.tight_layout()
     _save_close(fig, os.path.join(run_dir, 'plot2_task_duration.png'))
 
-    # ── plot 3: completion rate ────────────────────────────────────────────────
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 7))
-    fig.suptitle(f'Batch Completion Rate  (rolling {_WIN}-batch window)  [{name}]',
+    # ── plot 3: completion rate + batch duration ──────────────────────────────
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
+    fig.suptitle(f'Batch Completion  (dots = per-batch, line = rolling {_WIN}-batch mean)  [{name}]',
                  fontsize=13, fontweight='bold')
-    for ax, col, ylabel, title in [
-        (ax1, 'completion_rate', 'Items / time unit',    'Throughput rate'),
-        (ax2, 'duration',        'Duration (time units)', 'Batch completion time'),
-    ]:
-        ax.plot(df_bA.sort_values('batch_id')['batch_id'].values, _roll(df_bA, col, _WIN),
-                color=_A_COL, lw=2, label='Uniform (A)')
-        ax.plot(df_bB.sort_values('batch_id')['batch_id'].values, _roll(df_bB, col, _WIN),
-                color=_B_COL, lw=2, label='Trip-Min (B)')
-        ax.plot(df_bC.sort_values('batch_id')['batch_id'].values, _roll(df_bC, col, _WIN),
-                color=_C_COL, lw=2, label='Trip-Max (C)')
-        ax.set_ylabel(ylabel, fontsize=10);  ax.set_title(title, fontsize=10)
-        ax.legend(fontsize=9);  ax.grid(alpha=0.3)
+
+    for df, c, lbl in [(df_bA, _A_COL, 'Uniform (A)'),
+                       (df_bB, _B_COL, 'Trip-Min (B)'),
+                       (df_bC, _C_COL, 'Trip-Max (C)')]:
+        x = df.sort_values('batch_id')['batch_id'].values
+        ax1.plot(x, _roll(df, 'completion_rate', _WIN), color=c, lw=2, label=lbl)
+    ax1.set_ylabel('Items / time unit', fontsize=10)
+    ax1.set_title('Throughput rate', fontsize=10)
+    ax1.legend(fontsize=9);  ax1.grid(alpha=0.3)
+
+    for df, c, lbl in [(df_bA, _A_COL, 'Uniform (A)'),
+                       (df_bB, _B_COL, 'Trip-Min (B)'),
+                       (df_bC, _C_COL, 'Trip-Max (C)')]:
+        x     = df.sort_values('batch_id')['batch_id'].values
+        y_raw = df.sort_values('batch_id')['duration'].values
+        ax2.scatter(x, y_raw, color=c, alpha=0.25, s=10, zorder=2)
+        ax2.plot(x, _roll(df, 'duration', _WIN), color=c, lw=2, label=lbl, zorder=3)
     ax2.set_xlabel('Batch ID', fontsize=10)
+    ax2.set_ylabel('Duration (sim time units)', fontsize=10)
+    ax2.set_title('Batch completion time', fontsize=10)
+    ax2.legend(fontsize=9);  ax2.grid(alpha=0.3)
     plt.tight_layout()
     _save_close(fig, os.path.join(run_dir, 'plot3_completion_rate.png'))
 
@@ -804,6 +812,30 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     imp_B = (acmp['dB'] < 0).sum();  imp_C = (acmp['dC'] > 0).sum()
     log.info(f'  Aisles faster with B: {imp_B}/{len(acmp)}   slower with C: {imp_C}/{len(acmp)}')
     log.info(f'  Mean delta  B: {dBv.mean():.2f}%   C: {dCv.mean():.2f}%')
+
+    # ── plot 8: mean task duration per batch ──────────────────────────────────
+    fig, ax = plt.subplots(figsize=(14, 5))
+    fig.suptitle(
+        f'Mean Aisle Task Duration per Batch  '
+        f'(dots = per-batch mean, line = rolling {_WIN}-batch mean)  [{name}]',
+        fontsize=13, fontweight='bold',
+    )
+    for df_t, c, lbl in [(df_tA, _A_COL, 'Uniform (A)'),
+                         (df_tB, _B_COL, 'Trip-Min (B)'),
+                         (df_tC, _C_COL, 'Trip-Max (C)')]:
+        tpb   = (df_t.groupby('batch_id')['duration']
+                 .mean().reset_index().sort_values('batch_id'))
+        x     = np.asarray(tpb['batch_id'])
+        y_raw = np.asarray(tpb['duration'])
+        y_roll = pd.Series(y_raw).rolling(_WIN, min_periods=1).mean().values
+        ax.scatter(x, y_raw,  color=c, alpha=0.25, s=10, zorder=2)
+        ax.plot(x,    y_roll, color=c, lw=2, label=lbl, zorder=3)
+    ax.set_xlabel('Batch ID', fontsize=10)
+    ax.set_ylabel('Mean task duration (sim time units)', fontsize=10)
+    ax.legend(fontsize=9);  ax.grid(alpha=0.3)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(run_dir, 'plot8_task_duration_per_batch.png'))
+
     log.info(f'  Saved → {run_dir}')
 
 
