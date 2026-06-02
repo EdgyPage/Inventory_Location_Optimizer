@@ -32,6 +32,29 @@ _SIZES_DESCENDING: tuple[str, ...] = tuple(
 BinKey = tuple[str, str, str, str]
 
 
+def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
+    """Return the maximum number of *carton* items that stack onto one pallet
+    whose storage_size is at most *target_size*.
+
+    Pallet stacking height increases monotonically with quantity, so the
+    required storage_size also increases.  We scan from 1 upward until the
+    pallet outgrows the target tier and return the last fitting quantity.
+    Used by _drain to repack a stranded unit into smaller bins.
+    """
+    target_rank = _SIZE_RANKS.get(target_size, 0)
+    result = 0
+    for q in range(1, 10_000):
+        try:
+            p = Pallet(carton, q)
+            if _SIZE_RANKS.get(p.storage_size, 99) <= target_rank:
+                result = q
+            else:
+                break   # size is monotone-increasing — stop early
+        except ValueError:
+            break
+    return result
+
+
 def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:
     """Pick uniformly at random from the candidate bin list.
 
@@ -410,8 +433,14 @@ class Inventory_Manager:
         Units are pre-palletized (created by viable_storage_units) before being
         enqueued, and already carry the correct quantity for their bin slot.
         Each unit is placed independently via assignment_fn — no all-or-nothing
-        grouping.  Units that find no compatible bin remain in the queue and are
-        retried on the next check_reorders call.
+        grouping.
+
+        When a Pallet unit finds no compatible bin (its required size tier is
+        fully occupied), _drain attempts to repack the quantity into one or more
+        smaller pallets that fit in the largest available smaller size tier.
+        The replacement units are prepended to the queue and retried immediately
+        in the same _drain call.  If no smaller tier is available either, the
+        original unit waits in the pending queue for the next check_reorders.
         """
         pending: deque[StorageUnit] = deque()
         while self._queue:
@@ -446,7 +475,43 @@ class Inventory_Manager:
                     counts = self._aisle_sku_counts[aid]
                     counts[sku] = counts.get(sku, 0) + 1
             else:
-                pending.append(unit)
+                # No bin fits this unit.  For Pallet units, try repacking the
+                # quantity into smaller pallets that fit in a smaller size tier.
+                repacked = False
+                if isinstance(unit, Pallet) and unit.storage_size is not None:
+                    handling, category = carton.storage_type
+                    current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
+                    for size in _SIZES_DESCENDING:
+                        if _SIZE_RANKS[size] >= current_rank:
+                            continue   # same or larger tier — already failed
+                        avail = self._index.get(
+                            (handling, category, size, 'pallet'))
+                        if not avail:
+                            continue
+                        max_q = _max_qty_fitting_pallet_size(carton, size)
+                        if max_q <= 0:
+                            continue
+                        # Repack into one or more smaller pallet units.
+                        remaining  = unit.quantity
+                        new_units: list[StorageUnit] = []
+                        while remaining > 0:
+                            q = min(remaining, max_q)
+                            new_units.append(Pallet(carton, q))
+                            remaining -= q
+                        # Keep _queued_sku_counts consistent:
+                        # the original counted as 1; now we have len(new_units).
+                        delta = len(new_units) - 1
+                        if delta:
+                            self._queued_sku_counts[sku] = (
+                                self._queued_sku_counts.get(sku, 1) + delta
+                            )
+                        # Prepend new units so they are tried next in this drain.
+                        for u in reversed(new_units):
+                            self._queue.appendleft(u)
+                        repacked = True
+                        break
+                if not repacked:
+                    pending.append(unit)
         self._queue = pending
 
 
