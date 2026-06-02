@@ -9,10 +9,10 @@ diverse warehouse scenarios without regenerating them at simulation runtime.
 
 Output layout
 -------------
-Warehouse/generated/batches/<batch_name>/
-    batch_manifest.json     written at start with all profile specs
-    batch_summary.json      written at end with timing and stats
-    <profile_name>/
+<PROFILE_INPUT_DIR>/<profile_name>/
+    profile_manifest.json   written at start with all profile specs
+    profile_summary.json    written at end with timing and stats
+    <carton_profile_name>/
         inventory/          → inventory.db, params.json, stats.json, plots/
         affinity/           → affinity.db,  params.json, stats.json, plots/
     cross_profile/
@@ -34,13 +34,13 @@ python generate_profile_suite.py --profiles default bimodal_size heavy_tail_weig
 
 Options
 -------
---name NAME             batch folder name (default: batch_<timestamp>)
+--name NAME             profile run folder name (default: profile_<timestamp>)
 --num-skus N            SKU count for all inventories (default: 76500)
 --seed INT              base seed; profile i uses seed + i (default: 42)
 --max-per-group INT     affinity SKU cap per group (default: no cap)
 --skip-affinity         generate inventories only
 --profiles NAME [...]   subset of profiles to run (default: all)
---out-dir PATH          root output directory (default: Warehouse/generated/batches)
+--out-dir PATH          root output directory (overrides PROFILE_INPUT_DIR env var)
 --affinity-seed INT     base seed for affinity generation (default: 0)
 --affinity-min-lift F   (default: 1.5)
 --affinity-max-lift F   (default: 5.0)
@@ -64,14 +64,40 @@ import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
+_HERE      = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _HERE)
+
+
+def _load_env(path: str) -> None:
+    """Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority)."""
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding='utf-8') as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith('#') or '=' not in _line:
+                continue
+            _key, _, _val = _line.partition('=')
+            _key = _key.strip();  _val = _val.strip()
+            if _val.startswith(('r"', "r'")):
+                _val = _val[2:].rstrip('"').rstrip("'")
+            else:
+                _val = _val.strip('"').strip("'")
+            if _key and _key not in os.environ:
+                os.environ[_key] = _val
+
+
+_load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _INV_DEFAULT
 from generate_affinity  import generate_run as _aff_run, estimate as _aff_estimate, \
                                print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
 
-_DEFAULT_BATCH_DIR = os.path.join(_HERE, 'generated', 'batches')
+_DEFAULT_PROFILES_DIR = os.getenv(
+    'PROFILE_INPUT_DIR',
+    os.path.join(_HERE, 'generated', 'profiles'),
+)
 
 
 # ── carton profiles ────────────────────────────────────────────────────────────
@@ -301,7 +327,7 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--name', default=None,
-                        help='Batch folder name (default: batch_<timestamp>)')
+                        help='Profile run folder name (default: profile_<timestamp>)')
     parser.add_argument('--num-skus', type=int, default=76_500,
                         help='SKU count applied to all profiles')
     parser.add_argument('--seed', type=int, default=42,
@@ -316,8 +342,8 @@ def main() -> None:
                         metavar='NAME',
                         help='Subset of profiles to run (default: all). '
                              f'Available: {", ".join(PROFILE_MAP)}')
-    parser.add_argument('--out-dir', default=_DEFAULT_BATCH_DIR,
-                        help='Root directory for batch output')
+    parser.add_argument('--out-dir', default=_DEFAULT_PROFILES_DIR,
+                        help='Root directory for profile output (overrides PROFILE_INPUT_DIR)')
     parser.add_argument('--affinity-seed', type=int, default=0,
                         help='Base seed for lift value generation')
     parser.add_argument('--affinity-min-lift', type=float, default=1.0)
@@ -356,14 +382,14 @@ def main() -> None:
         return
 
     # ── setup batch dir ────────────────────────────────────────────────────────
-    ts         = datetime.now().strftime('%Y%m%d_%H%M%S')
-    batch_name = args.name or f'batch_{ts}'
-    batch_dir  = os.path.join(args.out_dir, batch_name)
-    cross_dir  = os.path.join(batch_dir, 'cross_profile')
+    ts           = datetime.now().strftime('%Y%m%d_%H%M%S')
+    profile_name = args.name or f'profile_{ts}'
+    profile_dir  = os.path.join(args.out_dir, profile_name)
+    cross_dir    = os.path.join(profile_dir, 'cross_profile')
     os.makedirs(cross_dir, exist_ok=True)
 
     manifest = {
-        'batch_name'    : batch_name,
+        'profile_name'  : profile_name,
         'timestamp'     : ts,
         'num_skus'      : args.num_skus,
         'base_seed'     : args.seed,
@@ -376,25 +402,25 @@ def main() -> None:
             for p in selected
         ],
     }
-    with open(os.path.join(batch_dir, 'batch_manifest.json'), 'w') as f:
+    with open(os.path.join(profile_dir, 'profile_manifest.json'), 'w') as f:
         json.dump(manifest, f, indent=2)
 
     print(f'\n{"="*64}')
-    print(f'  Batch : {batch_name}')
-    print(f'  Dir   : {batch_dir}')
+    print(f'  Profile run : {profile_name}')
+    print(f'  Dir         : {profile_dir}')
     print(f'  {len(selected)} profile(s)  |  '
           f'num_skus={args.num_skus:,}  |  '
           f'affinity top-{args.top_k}')
     print(f'{"="*64}\n')
 
     # ── profile loop ───────────────────────────────────────────────────────────
-    t_batch    = time.perf_counter()
+    t_start    = time.perf_counter()
     summary    = {}
     profile_dbs: dict[str, str] = {}   # profile_name → inventory_db path
 
     for i, profile in enumerate(selected):
         pname    = profile['name']
-        prof_dir = os.path.join(batch_dir, pname)
+        prof_dir = os.path.join(profile_dir, pname)
         inv_dir  = os.path.join(prof_dir, 'inventory')
         inv_seed = args.seed + i
 
@@ -455,30 +481,31 @@ def main() -> None:
 
         summary[pname] = entry
 
-    total_elapsed = time.perf_counter() - t_batch
+    total_elapsed = time.perf_counter() - t_start
     print(f'\n{"="*64}')
     print(f'  All {len(selected)} profile(s) done in {total_elapsed:.0f}s')
     print(f'{"="*64}\n')
 
     # ── cross-profile plots ────────────────────────────────────────────────────
-    print('[batch] Generating cross-profile overlay plots...')
+    print('[profiles] Generating cross-profile overlay plots...')
     profile_dfs   = {}
     profile_stats = {}
     for pname, inv_db in profile_dbs.items():
         conn = sqlite3.connect(inv_db)
         df   = pd.read_sql_query('SELECT * FROM cartons', conn)
         conn.close()
-        df['volume']     = df['length'] * df['width'] * df['height']
+        df['volume']         = df['length'] * df['width'] * df['height']
+        df['is_singleton']   = (df[['length', 'width', 'height']].max(axis=1) <= 16).astype(int)
         profile_dfs[pname]   = df
         profile_stats[pname] = summary[pname]['inv_stats']
 
     plot_cross_profile_overlay(profile_dfs, cross_dir)
     plot_profile_stats_table(profile_stats, cross_dir)
-    print(f'[batch] Cross-profile plots → {cross_dir}')
+    print(f'[profiles] Cross-profile plots → {cross_dir}')
 
-    # ── batch summary ──────────────────────────────────────────────────────────
+    # ── profile summary ────────────────────────────────────────────────────────
     summary_out = {
-        'batch_name'      : batch_name,
+        'profile_name'    : profile_name,
         'total_elapsed_s' : round(total_elapsed, 1),
         'profiles_run'    : len(selected),
         'profiles'        : {
@@ -502,10 +529,10 @@ def main() -> None:
             for name, e in summary.items()
         },
     }
-    with open(os.path.join(batch_dir, 'batch_summary.json'), 'w') as f:
+    with open(os.path.join(profile_dir, 'profile_summary.json'), 'w') as f:
         json.dump(summary_out, f, indent=2)
-    print(f'[batch] Summary → {os.path.join(batch_dir, "batch_summary.json")}')
-    print(f'[batch] Done.')
+    print(f'[profiles] Summary → {os.path.join(profile_dir, "profile_summary.json")}')
+    print(f'[profiles] Done.')
 
 
 if __name__ == '__main__':

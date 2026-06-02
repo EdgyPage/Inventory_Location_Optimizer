@@ -40,7 +40,7 @@ sys.path.insert(0, _HERE)
 # No external packages required.  Shell-set variables are never overwritten.
 # Recognised variables:
 #   COMPARISON_OUTPUT_DIR  — parent directory for comparison_<ts>/ output folders
-#   BATCHES_INPUT_DIR      — root directory for inventory+affinity DB pairs
+#   PROFILE_INPUT_DIR      — root directory for inventory+affinity DB pairs
 def _load_env(path: str) -> None:
     if not os.path.isfile(path):
         return
@@ -110,9 +110,9 @@ _OUTPUT_DIR = _clean_path(os.getenv(
     'COMPARISON_OUTPUT_DIR',
     _HERE,
 ))
-_DEFAULT_BATCHES_DIR = _clean_path(os.getenv(
-    'BATCHES_INPUT_DIR',
-    os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'batches')),
+_DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
+    'PROFILE_INPUT_DIR',
+    os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles')),
 ))
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
@@ -265,50 +265,50 @@ def _roll(df, col, win=50):
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
 
-def discover_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
-    """Scan batches_dir and return (label, inventory_db, affinity_db) for every valid pair."""
+def discover_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
+    """Scan profiles_dir and return (label, inventory_db, affinity_db) for every valid pair."""
     pairs: list[tuple[str, str, str]] = []
-    if not os.path.isdir(batches_dir):
+    if not os.path.isdir(profiles_dir):
         return pairs
-    for batch_name in sorted(os.listdir(batches_dir)):
-        batch_path = os.path.join(batches_dir, batch_name)
-        if not os.path.isdir(batch_path):
+    for run_name in sorted(os.listdir(profiles_dir)):
+        run_path = os.path.join(profiles_dir, run_name)
+        if not os.path.isdir(run_path):
             continue
-        for profile_name in sorted(os.listdir(batch_path)):
-            profile_path = os.path.join(batch_path, profile_name)
+        for profile_name in sorted(os.listdir(run_path)):
+            profile_path = os.path.join(run_path, profile_name)
             if not os.path.isdir(profile_path):
                 continue
             inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
             aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
             if os.path.exists(inv_db) and os.path.exists(aff_db):
-                pairs.append((f'{batch_name}__{profile_name}', inv_db, aff_db))
+                pairs.append((f'{run_name}__{profile_name}', inv_db, aff_db))
     return pairs
 
 
-def find_latest_db_pairs(batches_dir: str) -> list[tuple[str, str, str]]:
-    """Return DB pairs from the most recently generated batch only.
+def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
+    """Return DB pairs from the most recently generated profile run only.
 
-    Batch directories are named batch_YYYYMMDD_HHMMSS, so the last entry
-    when sorted lexicographically is always the newest.  Walks backwards
-    through batches until one with valid inventory+affinity pairs is found.
+    Profile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy
+    batch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is
+    always the newest.  Walks backwards until a run with valid pairs is found.
     """
-    if not os.path.isdir(batches_dir):
+    if not os.path.isdir(profiles_dir):
         return []
-    batch_names = sorted([
-        d for d in os.listdir(batches_dir)
-        if os.path.isdir(os.path.join(batches_dir, d))
+    run_names = sorted([
+        d for d in os.listdir(profiles_dir)
+        if os.path.isdir(os.path.join(profiles_dir, d))
     ])
-    for batch_name in reversed(batch_names):
-        batch_path = os.path.join(batches_dir, batch_name)
+    for run_name in reversed(run_names):
+        run_path = os.path.join(profiles_dir, run_name)
         pairs: list[tuple[str, str, str]] = []
-        for profile_name in sorted(os.listdir(batch_path)):
-            profile_path = os.path.join(batch_path, profile_name)
+        for profile_name in sorted(os.listdir(run_path)):
+            profile_path = os.path.join(run_path, profile_name)
             if not os.path.isdir(profile_path):
                 continue
             inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
             aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
             if os.path.exists(inv_db) and os.path.exists(aff_db):
-                pairs.append((f'{batch_name}__{profile_name}', inv_db, aff_db))
+                pairs.append((f'{run_name}__{profile_name}', inv_db, aff_db))
         if pairs:
             return pairs
     return []
@@ -846,10 +846,10 @@ def main():
         description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('--batches-dir', default=_DEFAULT_BATCHES_DIR,
+    parser.add_argument('--profiles-dir', default=_DEFAULT_PROFILES_DIR,
                         help='Root directory produced by generate_profile_suite.py')
-    parser.add_argument('--all-batches', action='store_true',
-                        help='Run every batch/profile pair instead of only the newest batch')
+    parser.add_argument('--all-profiles', action='store_true',
+                        help='Run every profile pair instead of only the newest')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     args = parser.parse_args()
@@ -865,16 +865,16 @@ def main():
 
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
     log.info(f'Output directory : {base_dir}')
-    log.info(f'Batches dir      : {args.batches_dir}')
-    log.info(f'Mode             : {"all batches" if args.all_batches else "latest batch only"}')
+    log.info(f'Profiles dir     : {args.profiles_dir}')
+    log.info(f'Mode             : {"all profiles" if args.all_profiles else "latest profile only"}')
 
-    if args.all_batches:
-        pairs = discover_db_pairs(args.batches_dir)
+    if args.all_profiles:
+        pairs = discover_db_pairs(args.profiles_dir)
     else:
-        pairs = find_latest_db_pairs(args.batches_dir)
+        pairs = find_latest_db_pairs(args.profiles_dir)
 
     if not pairs:
-        sys.exit(f'No inventory+affinity DB pairs found in: {args.batches_dir}')
+        sys.exit(f'No inventory+affinity DB pairs found in: {args.profiles_dir}')
 
     log.info(f'Discovered {len(pairs)} DB pair(s):')
     for label, inv_db, aff_db in pairs:
