@@ -226,17 +226,23 @@ def _run_strategy_worker(args: dict) -> dict:
     warehouse = Warehouse_Builder().from_config(warehouse_cfg).build()
     log.info(f'  Built  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── initial stock (uniform, same for A/B/C) ───────────────────────────────
-    log.info(f'Initial stock: {n_skus:,} SKUs  (stock_qty units per bin from inventory profile)...')
+    # ── initial stock: uniform placement for ALL strategies ─────────────────────
+    # All three warehouses start from the same uniform placement so that
+    # differences in batch performance reflect only the assignment function
+    # used for reorders, not any bias in the initial stocking phase.
+    # affinity=None here ensures _drain uses _uniform_assignment for every
+    # strategy and that _aisle_sku_counts is NOT populated during stocking
+    # (it will be rebuilt for B/C below, after fill is complete).
+    log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement (same for A/B/C)...')
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
-    mgr = Inventory_Manager(warehouse, affinity=(affinity if strategy != 'A' else None))
+    mgr = Inventory_Manager(warehouse, affinity=None)
     mgr.enqueue_all(inventory.cartons)   # quantity read from carton.stock_qty
     base_filled = len(mgr.unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── fill remaining empty bins to target utilization ────────────────────────
+    # ── fill remaining empty bins to target utilization (all strategies) ──────
     log.info(f'Filling to {target_fill:.0%} target (overstock duplicate cartons)...')
     t0    = time.perf_counter()
     added = _stock_to_target_fill(mgr, inventory, target=target_fill)
@@ -244,19 +250,38 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  +{added:,} bins  ->  {len(mgr.unavailable):,} / {len(warehouse.bins):,} filled'
              f'  ({post_fill:.1%})  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── lift + demand state and assignment function (B / C only) ──────────────
+    # ── enable affinity state and set assignment function (B / C only) ────────
+    # Initial placement is now identical across A/B/C.  B and C now activate
+    # their affinity tracking so reorders use the trip-cost objective.
     freq_by_sku: dict[int, float] = {}
     qty_by_sku:  dict[int, float] = {}
     freq_by_idx: dict[int, float] = {}
 
     if strategy in ('B', 'C'):
-        # _drain() already maintains _aisle_sku_sets, _aisle_idx_sets,
-        # _aisle_sku_counts, _bin_sku, _current_quantities, and the SKU→bin
-        # dicts during enqueue_all and the fill loop, so init_lift_state
-        # (which re-scans all 2.4M occupied bins) is redundant and very slow.
-        # Only _aisle_lift_sum needs to be computed; iterate the 5k-ish aisles
-        # already in _aisle_sku_sets rather than re-scanning every bin.
-        log.info('Computing aisle lift sums (fast path)...')
+        # Activate the affinity reference so _drain and _reclaim_empty_bins
+        # update lift/count state during the simulation loop.
+        mgr._affinity = affinity
+
+        # Rebuild _aisle_sku_counts from the existing _sku_pallet_bins /
+        # _sku_singleton_bins sets (populated by _drain during stocking).
+        # This is needed by _reclaim_empty_bins to correctly maintain
+        # _aisle_sku_sets when the last bin of a SKU leaves an aisle.
+        log.info('Rebuilding aisle SKU counts from placed bins...')
+        t0 = time.perf_counter()
+        for sku, bins in mgr._sku_pallet_bins.items():
+            for bin_ in bins:
+                aid = bin_.location[0]
+                counts = mgr._aisle_sku_counts[aid]
+                counts[sku] = counts.get(sku, 0) + 1
+        for sku, bins in mgr._sku_singleton_bins.items():
+            for bin_ in bins:
+                aid = bin_.location[0]
+                counts = mgr._aisle_sku_counts[aid]
+                counts[sku] = counts.get(sku, 0) + 1
+        log.info(f'  {len(mgr._aisle_sku_counts)} aisles  ({time.perf_counter()-t0:.1f}s)')
+
+        # Compute lift sums for aisle_metrics (fast: iterate aisles, not bins).
+        log.info('Computing aisle lift sums...')
         t0 = time.perf_counter()
         for aid, sku_set in mgr._aisle_sku_sets.items():
             mgr._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
