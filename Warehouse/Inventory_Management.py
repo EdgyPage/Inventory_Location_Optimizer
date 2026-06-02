@@ -6,7 +6,7 @@ from typing import Any, Callable
 from Carton import Carton
 from Warehouse_Builder import Warehouse
 from Aisle_Storage import Aisle
-from Storage_Primitive import StorageUnit, Singleton, Pallet, Storage_Size, viable_storage_units
+from Storage_Primitive import StorageUnit, Singleton, Pallet, Storage_Size, viable_storage_units, _max_qty_fits as _sq_max
 from Affinity_Store import AffinityStore
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
@@ -30,6 +30,10 @@ _SIZES_DESCENDING: tuple[str, ...] = tuple(
 )
 
 BinKey = tuple[str, str, str, str]
+
+# Maximum consecutive failed drain attempts before a stuck unit is abandoned
+# and _queued_sku_counts is decremented so a fresh reorder can fire next batch.
+_MAX_DRAIN_RETRIES: int = 5
 
 
 def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
@@ -97,6 +101,11 @@ class Inventory_Manager:
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
+
+        # Tracks consecutive failed drain attempts per unit (keyed by id(unit)).
+        # When a unit exceeds _MAX_DRAIN_RETRIES it is abandoned so the SKU's
+        # queued count drops to zero and a fresh reorder can fire next batch.
+        self._unit_drain_retries: dict[int, int] = {}
 
         # SKUs whose current quantity has dropped to or below the reorder threshold
         # since the last check_reorders call.  Maintained by _notify_pick so
@@ -452,7 +461,8 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Decrement the queued-unit counter so check_reorders stays accurate.
+                # Unit placed — clean up retry counter and decrement queued count.
+                self._unit_drain_retries.pop(id(unit), None)
                 n = self._queued_sku_counts.get(sku, 0)
                 if n <= 1:
                     self._queued_sku_counts.pop(sku, None)
@@ -475,11 +485,17 @@ class Inventory_Manager:
                     counts = self._aisle_sku_counts[aid]
                     counts[sku] = counts.get(sku, 0) + 1
             else:
-                # No bin fits this unit.  For Pallet units, try repacking the
-                # quantity into smaller pallets that fit in a smaller size tier.
+                # No bin fits this unit.  Attempt rescues in priority order:
+                #   1. Repack into smaller pallet size tier (existing logic).
+                #   2. Fall back to singleton bins of the same carton type.
+                #   3. If all else fails, track consecutive failures; after
+                #      _MAX_DRAIN_RETRIES the unit is abandoned and the queued-
+                #      count is decremented so a fresh reorder can fire next batch.
                 repacked = False
+                handling, category = carton.storage_type
+
+                # ── rescue 1: smaller pallet tier ────────────────────────────
                 if isinstance(unit, Pallet) and unit.storage_size is not None:
-                    handling, category = carton.storage_type
                     current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
                     for size in _SIZES_DESCENDING:
                         if _SIZE_RANKS[size] >= current_rank:
@@ -491,27 +507,61 @@ class Inventory_Manager:
                         max_q = _max_qty_fitting_pallet_size(carton, size)
                         if max_q <= 0:
                             continue
-                        # Repack into one or more smaller pallet units.
                         remaining  = unit.quantity
                         new_units: list[StorageUnit] = []
                         while remaining > 0:
                             q = min(remaining, max_q)
                             new_units.append(Pallet(carton, q))
                             remaining -= q
-                        # Keep _queued_sku_counts consistent:
-                        # the original counted as 1; now we have len(new_units).
                         delta = len(new_units) - 1
                         if delta:
                             self._queued_sku_counts[sku] = (
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
-                        # Prepend new units so they are tried next in this drain.
                         for u in reversed(new_units):
                             self._queue.appendleft(u)
                         repacked = True
                         break
+
+                # ── rescue 2: singleton bins of same carton type ──────────────
                 if not repacked:
-                    pending.append(unit)
+                    max_sing = _sq_max(carton, Singleton)
+                    if max_sing > 0:
+                        for size in _SIZES_DESCENDING:
+                            avail = self._index.get(
+                                (handling, category, size, 'singleton'))
+                            if not avail:
+                                continue
+                            remaining  = unit.quantity
+                            new_units = []
+                            while remaining > 0:
+                                q = min(remaining, max_sing)
+                                new_units.append(Singleton(carton, q))
+                                remaining -= q
+                            delta = len(new_units) - 1
+                            if delta:
+                                self._queued_sku_counts[sku] = (
+                                    self._queued_sku_counts.get(sku, 1) + delta
+                                )
+                            for u in reversed(new_units):
+                                self._queue.appendleft(u)
+                            repacked = True
+                            break
+
+                # ── rescue 3: retry limit — abandon permanently stuck units ──
+                if not repacked:
+                    retries = self._unit_drain_retries.get(id(unit), 0) + 1
+                    if retries >= _MAX_DRAIN_RETRIES:
+                        # Give up on this unit; let check_reorders fire afresh.
+                        self._unit_drain_retries.pop(id(unit), None)
+                        n = self._queued_sku_counts.get(sku, 0)
+                        if n <= 1:
+                            self._queued_sku_counts.pop(sku, None)
+                        else:
+                            self._queued_sku_counts[sku] = n - 1
+                    else:
+                        self._unit_drain_retries[id(unit)] = retries
+                        pending.append(unit)
         self._queue = pending
 
 
