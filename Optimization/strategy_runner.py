@@ -232,7 +232,7 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)')
 
     # ── warehouse ─────────────────────────────────────────────────────────────
-    total_bins = warehouse_cfg.total_aisles * 500
+    total_bins = warehouse_cfg.total_aisles * 750
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles / {total_bins:,} bins...')
     t0 = time.perf_counter()
     Aisle.next_aisle_id = 1

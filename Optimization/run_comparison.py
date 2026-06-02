@@ -90,7 +90,7 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_BINS_PER_AISLE = 50 * 15   # 750 — matches AisleConfig(bayX=25, bayY=20)
+_BINS_PER_AISLE = 25 * 30   # 750 — matches AisleConfig(bayX=25, bayY=30)
 _TARGET_FILL    = 0.80      # headroom fraction: size each aisle type to this utilization
 
 def _clean_path(val: str) -> str:
@@ -132,11 +132,11 @@ _TRAVEL_COL = '#a9a9a9'
 # size tier.  Singleton aisles retain their existing size distributions.
 _AISLE_CFGS = []
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 20, _ALL_SIZES, _PALL_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet', 25, 20, _ALL_SIZES, _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 30, _ALL_SIZES, _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet', 25, 30, _ALL_SIZES, _PALL_PROBS))
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 20, _CONV_SIZES,  _CONV_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 20, _NCONV_SIZES, _NCONV_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 30, _CONV_SIZES,  _CONV_PROBS))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 30, _NCONV_SIZES, _NCONV_PROBS))
 
 
 REGRESSION_CONFIGS = [
