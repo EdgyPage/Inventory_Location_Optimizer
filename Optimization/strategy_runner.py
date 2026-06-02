@@ -41,6 +41,7 @@ for _p in (_WAREHOUSE, _HERE):
         sys.path.insert(0, _p)
 
 from Aisle_Storage import Aisle
+from Storage_Primitive import viable_storage_units as _vsu
 from Affinity_Store import AffinityStore
 from fast_pick import DeferredPickSimulation
 from generate_inventory import load_inventory_from_db
@@ -87,32 +88,69 @@ def _cleanup_checkpoints(run_dir: str) -> None:
 # ── overstock helper ───────────────────────────────────────────────────────────
 
 def _stock_to_target_fill(manager, inventory, target: float) -> int:
-    """Demand-weighted overstock until *manager* reaches *target* fill rate.
+    """Add demand-weighted overstock until *manager* reaches *target* fill rate.
 
-    Loops up to 20 rounds, clearing the queue between each round so that
-    cartons incompatible with remaining bins don't block subsequent draws.
-    Each round samples proportionally to demand.frequency so fast-moving
-    SKUs accumulate extra bin locations first.
+    Every SKU already has at least one bin from the initial enqueue_all call.
+    This function adds extra copies of cartons (using proper stock_qty packing,
+    no quantity=1 shortcuts) to fill the remaining empty bins up to the target.
+
+    Each round:
+      1. Estimates how many cartons to sample based on the average number of
+         bins each enqueue creates (precomputed from a sample of the inventory).
+      2. Queues units for each sampled carton using viable_storage_units with
+         the carton's actual stock_qty.
+      3. Drains the queue once and clears any units that couldn't be placed
+         (incompatible type, no matching empty bin).
+      4. Repeats until target fill is reached or no progress for two rounds.
     """
     total_bins  = len(manager.warehouse.bins)
     target_bins = round(target * total_bins)
+
     weights = [c.demand.frequency for c in inventory.cartons]
     total_w = sum(weights)
-    norm_w  = [w / total_w for w in weights]
-    added   = 0
+    if total_w == 0:
+        return 0
+    norm_w = [w / total_w for w in weights]
 
-    for _ in range(20):
+    # Estimate average bins created per enqueue from a sample of 200 cartons.
+    probe       = inventory.cartons[:min(200, len(inventory.cartons))]
+    avg_per_enq = sum(
+        len(_vsu(c, getattr(c, 'stock_qty', 1))) for c in probe
+    ) / max(len(probe), 1)
+    avg_per_enq = max(1.0, avg_per_enq)
+
+    added       = 0
+    no_progress = 0
+
+    for _ in range(50):
         current = len(manager.unavailable)
         if current >= target_bins:
             break
-        needed = target_bins - current
-        sample = random.choices(inventory.cartons, weights=norm_w, k=needed * 3)
-        before = len(manager.unavailable)
-        manager.enqueue_all(sample, quantity=1)
-        manager._queue.clear()
-        added += len(manager.unavailable) - before
-        if len(manager.unavailable) == before:
-            break
+
+        needed   = target_bins - current
+        n_sample = max(1, round(needed / avg_per_enq))
+        sample   = random.choices(inventory.cartons, weights=norm_w, k=n_sample)
+        before   = len(manager.unavailable)
+
+        for carton in sample:
+            qty = getattr(carton, 'stock_qty', 1)
+            for unit in _vsu(carton, qty):
+                manager._queue.append(unit)
+            if carton.sku not in manager._originals:
+                manager._originals[carton.sku] = carton
+
+        manager._drain()
+        manager._queue.clear()   # discard units with no compatible empty bin
+
+        delta    = len(manager.unavailable) - before
+        added   += delta
+
+        if delta == 0:
+            no_progress += 1
+            if no_progress >= 2:
+                break
+        else:
+            no_progress = 0
 
     return added
 
@@ -198,12 +236,13 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
-    # Overstock step removed: _stock_to_target_fill caused a burn-in decline because
-    # _initial_quantities is calibrated to the first bin's stock_qty, not the
-    # overstock total.  Bins drained from the overstock level to the 1-bin
-    # reorder equilibrium over ~50-100 batches, masking A/B/C differentiation.
-    # The warehouse sizing already guarantees total_bins >= n_skus / target_fill,
-    # so 1-bin-per-SKU placement achieves a stable fill rate from batch 1.
+    # ── fill remaining empty bins to target utilization ────────────────────────
+    log.info(f'Filling to {target_fill:.0%} target (overstock duplicate cartons)...')
+    t0    = time.perf_counter()
+    added = _stock_to_target_fill(mgr, inventory, target=target_fill)
+    post_fill = len(mgr.unavailable) / len(warehouse.bins)
+    log.info(f'  +{added:,} bins  ->  {len(mgr.unavailable):,} / {len(warehouse.bins):,} filled'
+             f'  ({post_fill:.1%})  ({time.perf_counter()-t0:.1f}s)')
 
     # ── lift + demand state and assignment function (B / C only) ──────────────
     freq_by_sku: dict[int, float] = {}
