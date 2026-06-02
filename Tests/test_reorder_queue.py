@@ -6,9 +6,6 @@ The warehouse uses the same 24-aisle-type layout as run_comparison:
   12 pallet types  (conveyable + non-conveyable x 6 categories, all 4 sizes)
   12 singleton types (same split)
 
-Stocked 1-bin-per-SKU (~87% fill), then N_BATCHES of demand-weighted picks are
-run.  The test asserts that check_reorders() does not grow the queue unboundedly.
-
 Reorder policy
 --------------
 Each Carton carries two pre-computed attributes set at inventory generation time:
@@ -16,25 +13,23 @@ Each Carton carries two pre-computed attributes set at inventory generation time
   reorder_point         = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
 
 _notify_pick reads carton.reorder_point directly — no calculation in the hot path.
-check_reorders fires a reorder (one unit, placed into a freed bin) when any SKU
-drops to or below its reorder_point.
+check_reorders fires a reorder via viable_storage_units(rc, stock_qty) when a SKU
+drops to or below its reorder_point, creating:
+  floor(stock_qty / max_per_pallet) full-pallet units  +
+  1 singleton unit for the remainder (if any)
+
+Multiple units per reorder means the queue can grow larger than n_skus when the
+test warehouse doesn't have enough empty bins to absorb all units immediately.
+The important property is that the queue remains bounded and stabilises — it
+should NOT grow without limit.
 
 Checks
 ------
   PASS 1  reorder_point and expected_batch_demand set on all cartons
-           Confirms the inventory was generated with the new attributes.
-
-  PASS 2  queue_depth never exceeds n_skus
-           Tight invariant: <= 1 pending unit per SKU (sku-in-queue guard).
-
-  PASS 3  queue does not grow in the final STABLE_WINDOW batches
-           Confirms drainage -- queue is processed, not just bounded then rising.
-
-  PASS 4  at least N_SKUS * 0.05 reorders triggered total
-           Confirms the reorder code path was exercised.
-
-  PASS 5  fill rate stays above MIN_FILL at the end
-           Confirms bins are actually restocked, not just queued and stranded.
+  PASS 2  queue does not grow in the final STABLE_WINDOW batches
+  PASS 3  at least N_SKUS * 0.05 reorders triggered total
+  PASS 4  fill rate stays above MIN_FILL at the end
+  PASS 5  both pallet and singleton units placed (min-pallets packing active)
 
 Usage
 -----
@@ -254,16 +249,23 @@ def run() -> bool:
     print(f'  Final fill rate : {final_fill:.1%}  (min: {MIN_FILL:.0%})')
     print(f'  Total reorders  : {total_triggered}  (min expected: {min_expected})')
 
+    # Check that both pallet and singleton bins are occupied — confirms the
+    # min-pallets + singleton-remainder packing logic is active.
+    pallet_occupied   = sum(
+        1 for b in mgr._unavailable.values()
+        if b.storage is not None and b.unit_type == 'pallet'
+    )
+    singleton_occupied = sum(
+        1 for b in mgr._unavailable.values()
+        if b.storage is not None and b.unit_type == 'singleton'
+    )
+
+    print(f'\n  Bin type breakdown: pallet={pallet_occupied}  singleton={singleton_occupied}')
     print(f'\n  Checks:')
     check(
         'reorder_point and expected_batch_demand set on all cartons',
         all_rops_set and all_ebds_set,
         f'rops_set={all_rops_set}  ebds_set={all_ebds_set}',
-    )
-    check(
-        f'queue_depth never exceeds n_skus ({n_skus})',
-        max_q <= n_skus,
-        f'max_q={max_q}',
     )
     check(
         f'queue not growing in last {STABLE_WINDOW} batches',
@@ -279,6 +281,11 @@ def run() -> bool:
         f'fill rate >= {MIN_FILL:.0%} at end',
         final_fill >= MIN_FILL,
         f'fill={final_fill:.1%}',
+    )
+    check(
+        'both pallet and singleton bins occupied (min-pallets packing active)',
+        pallet_occupied > 0 and singleton_occupied > 0,
+        f'pallet={pallet_occupied}  singleton={singleton_occupied}',
     )
 
     print(f'\n  Result: {_PASS} passed  {_FAIL} failed')

@@ -295,8 +295,9 @@ class Inventory_Manager:
         triggered: list[int] = []
         for sku in self._depleted_skus:
             if sku not in queued_skus and sku in self._originals:
-                rc = self._originals[sku].reorder()
-                for unit in viable_storage_units(rc, 1):
+                rc       = self._originals[sku].reorder()
+                qty      = getattr(rc, 'stock_qty', 1)
+                for unit in viable_storage_units(rc, qty):
                     self._queue.append(unit)
                 triggered.append(sku)
         self._depleted_skus.clear()
@@ -381,13 +382,16 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Override quantity to stock_qty for all units (initial and
-                # reorder alike).  viable_storage_units is always called with
-                # quantity=1 so the unit is physically sized for one carton;
-                # stock_qty sets the inventory count stored on the bin.
-                sq = getattr(carton, 'stock_qty', None)
-                if sq is not None:
-                    unit.quantity = sq
+                # Initial/overstock units are enqueued with quantity=1 so the
+                # unit is physically sized for one carton.  Override to stock_qty
+                # so the bin carries the correct on-hand count.
+                # Reorder units are already created with the correct per-unit
+                # quantity by viable_storage_units(rc, stock_qty), so no
+                # override is needed for them.
+                if not getattr(carton, '_is_reorder', False):
+                    sq = getattr(carton, 'stock_qty', None)
+                    if sq is not None:
+                        unit.quantity = sq
 
                 bin_.storage = unit
                 self._index_remove(bin_)
