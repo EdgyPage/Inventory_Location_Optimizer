@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use('Agg')  # must come before pyplot import
 
 import argparse
+import concurrent.futures
 import json
 import logging
 import math
@@ -89,8 +90,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_BINS_PER_AISLE = 25 * 20   # 500 — matches AisleConfig(bayX=25, bayY=20)
-_TARGET_FILL    = 0.90       # headroom fraction: size each aisle type to this utilization
+_BINS_PER_AISLE = 50 * 15   # 750 — matches AisleConfig(bayX=25, bayY=20)
+_TARGET_FILL    = 0.80      # headroom fraction: size each aisle type to this utilization
 
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
@@ -448,7 +449,14 @@ def _save_close(fig, path):
 
 # ── per-config runner ──────────────────────────────────────────────────────────
 
-def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> None:
+def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> dict:
+    """Run the A/B/C strategy simulation for one regression config.
+
+    Returns a sim_result dict consumed by _run_config_analysis.
+    Separating simulation from analysis lets multiple configs run their
+    simulations concurrently (thread-safe) while analyses stay sequential
+    (matplotlib pyplot is not thread-safe).
+    """
     name = cfg.get('name') or (
         f"w{cfg.get('pick_weight_coef',1.1)}_v{cfg.get('pick_volume_coef',1e-3)}"
         f"_i{cfg.get('pick_intercept',1.0)}_c{cfg.get('cart_swap_coef',10.0)}"
@@ -477,9 +485,7 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     total_aisles       = shared['total_aisles']
     total_bins         = shared['total_bins']
     total_units_needed = shared['total_units_needed']
-    aisle_size_map     = shared['aisle_size_map']
-    aisle_unittype_map = shared['aisle_unittype_map']
-    aisle_handling_map = shared['aisle_handling_map']
+    # aisle_size/unittype/handling maps are only needed for analysis — not unpacked here
 
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}')
@@ -566,6 +572,37 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     rp = _resume_path(run_dir)
     if os.path.exists(rp):
         os.remove(rp)
+
+    return dict(
+        name      = name,
+        run_dir   = run_dir,
+        db_path_A = db_path_A,
+        db_path_B = db_path_B,
+        db_path_C = db_path_C,
+        run_a     = run_a,
+        run_b     = run_b,
+        run_c     = run_c,
+    )
+
+
+def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) -> None:
+    """Run the analysis + plotting phase for one regression config.
+
+    Must be called sequentially (matplotlib pyplot is not thread-safe).
+    Reads sim_result returned by _run_config_sim.
+    """
+    name               = sim_result['name']
+    run_dir            = sim_result['run_dir']
+    db_path_A          = sim_result['db_path_A']
+    db_path_B          = sim_result['db_path_B']
+    db_path_C          = sim_result['db_path_C']
+    run_a              = sim_result['run_a']
+    run_b              = sim_result['run_b']
+    run_c              = sim_result['run_c']
+    aisle_size_map     = shared['aisle_size_map']
+    aisle_unittype_map = shared['aisle_unittype_map']
+    aisle_handling_map = shared['aisle_handling_map']
+    total_aisles       = shared['total_aisles']
 
     # ── analysis ──────────────────────────────────────────────────────────────
     bs_fA = flag_batch_outliers(load_batch_stats(db_path_A, run_a))
@@ -833,6 +870,12 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     log.info(f'  Saved → {run_dir}')
 
 
+def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> None:
+    """Backward-compatible wrapper: simulate then analyse one regression config."""
+    sim_result = _run_config_sim(cfg, shared, base_dir, log)
+    _run_config_analysis(sim_result, shared, log)
+
+
 # ── entry point ────────────────────────────────────────────────────────────────
 
 def main():
@@ -846,6 +889,9 @@ def main():
                         help='Run every profile pair instead of only the newest')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
+    parser.add_argument('--config-workers', type=int, default=1,
+                        help='Regression configs to simulate in parallel '
+                             '(each uses 3 A/B/C workers; default=1 = sequential)')
     args = parser.parse_args()
 
     if args.resume:
@@ -882,8 +928,40 @@ def main():
         log.info(f'{"="*64}')
         pair_dir = os.path.join(base_dir, label)
         shared   = build_shared_assets(inv_db, aff_db, log)
-        for cfg in REGRESSION_CONFIGS:
-            run_config(cfg, shared, pair_dir, log)
+
+        if args.config_workers > 1:
+            # ── parallel simulations ──────────────────────────────────────
+            # Simulations run in threads; each thread spawns its own
+            # ProcessPoolExecutor(3) for A/B/C workers.  Analyses stay
+            # sequential because matplotlib pyplot is not thread-safe.
+            log.info(f'  Running {len(REGRESSION_CONFIGS)} configs with '
+                     f'{args.config_workers} parallel simulation thread(s)...')
+            sim_results: dict[str, dict] = {}
+            with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=args.config_workers) as pool:
+                futs = {
+                    pool.submit(_run_config_sim, cfg, shared, pair_dir, log): cfg
+                    for cfg in REGRESSION_CONFIGS
+                }
+                for fut in concurrent.futures.as_completed(futs):
+                    cfg      = futs[fut]
+                    cfg_name = cfg.get('name', '?')
+                    try:
+                        sim_results[cfg_name] = fut.result()
+                        log.info(f'  Config [{cfg_name}] simulation complete')
+                    except Exception as exc:
+                        log.error(f'  Config [{cfg_name}] FAILED: {exc}',
+                                  exc_info=True)
+
+            log.info('  All simulations done — running analyses sequentially...')
+            for cfg in REGRESSION_CONFIGS:
+                cfg_name = cfg.get('name', '?')
+                if cfg_name in sim_results:
+                    _run_config_analysis(sim_results[cfg_name], shared, log)
+        else:
+            # ── sequential (default) ──────────────────────────────────────
+            for cfg in REGRESSION_CONFIGS:
+                run_config(cfg, shared, pair_dir, log)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {len(REGRESSION_CONFIGS)} config(s) complete.'
              f'  Root: {base_dir}')
