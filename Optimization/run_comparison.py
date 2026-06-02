@@ -95,14 +95,25 @@ _SINGLETON_MAX_DIM   = 16         # Singleton.max_width — used to classify car
 _SING_FRACTION_CAP   = 0.35       # singleton bins ≤ 35% of total warehouse bins
 _TARGET_FILL         = 0.90       # target bin fill rate after overstock sampling
 
-_OUTPUT_DIR = os.getenv(
+def _clean_path(val: str) -> str:
+    """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
+
+    Applied after os.getenv so that values set directly in the Windows session
+    environment (with literal r\"...\" text) are normalised the same way as
+    values parsed from the .env file.
+    """
+    if val.startswith(('r"', "r'")):
+        return val[2:].rstrip('"').rstrip("'")
+    return val.strip('"').strip("'")
+
+_OUTPUT_DIR = _clean_path(os.getenv(
     'COMPARISON_OUTPUT_DIR',
     _HERE,
-)
-_DEFAULT_BATCHES_DIR = os.getenv(
+))
+_DEFAULT_BATCHES_DIR = _clean_path(os.getenv(
     'BATCHES_INPUT_DIR',
     os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'batches')),
-)
+))
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
