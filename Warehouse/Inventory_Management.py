@@ -105,17 +105,31 @@ class Inventory_Manager:
 
     # ── public API ──────────────────────────────────────────────────────────
 
-    def enqueue(self, carton: Carton, quantity: int = 1) -> 'Inventory_Manager':
-        for unit in viable_storage_units(carton, quantity):
+    def enqueue(self, carton: Carton, quantity: int | None = None) -> 'Inventory_Manager':
+        """Queue one carton for bin placement.
+
+        quantity=None (default) reads stock_qty from the carton — the normal
+        path for inventory intake.  Pass an explicit integer only when you need
+        to override the carton's own stock level (e.g. overstock sampling).
+        """
+        qty = quantity if quantity is not None else getattr(carton, 'stock_qty', 1)
+        for unit in viable_storage_units(carton, qty):
             self._queue.append(unit)
         if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
             self._originals[carton.sku] = carton
         self._drain()
         return self
 
-    def enqueue_all(self, cartons: list[Carton], quantity: int = 1) -> 'Inventory_Manager':
+    def enqueue_all(self, cartons: list[Carton], quantity: int | None = None) -> 'Inventory_Manager':
+        """Queue a list of cartons for bin placement.
+
+        quantity=None (default) reads stock_qty from each carton — the normal
+        path for inventory intake.  Pass an explicit integer only when you need
+        to override every carton's stock level (e.g. overstock sampling).
+        """
         for carton in cartons:
-            for unit in viable_storage_units(carton, quantity):
+            qty = quantity if quantity is not None else getattr(carton, 'stock_qty', 1)
+            for unit in viable_storage_units(carton, qty):
                 self._queue.append(unit)
             if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
                 self._originals[carton.sku] = carton
@@ -367,10 +381,10 @@ class Inventory_Manager:
         """Place queued StorageUnit objects into warehouse bins.
 
         Units are pre-palletized (created by viable_storage_units) before being
-        enqueued.  Each unit is placed independently via assignment_fn — no
-        all-or-nothing grouping.  For initial stock (non-reorder) units, the
-        bin quantity is overridden to stock_qty so bins reflect the correct
-        on-hand level rather than the palletizing quantity of 1.
+        enqueued, and already carry the correct quantity for their bin slot.
+        Each unit is placed independently via assignment_fn — no all-or-nothing
+        grouping.  Units that find no compatible bin remain in the queue and are
+        retried on the next check_reorders call.
         """
         pending: deque[StorageUnit] = deque()
         while self._queue:
@@ -382,16 +396,6 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Initial/overstock units are enqueued with quantity=1 so the
-                # unit is physically sized for one carton.  Override to stock_qty
-                # so the bin carries the correct on-hand count.
-                # Reorder units are already created with the correct per-unit
-                # quantity by viable_storage_units(rc, stock_qty), so no
-                # override is needed for them.
-                if not getattr(carton, '_is_reorder', False):
-                    sq = getattr(carton, 'stock_qty', None)
-                    if sq is not None:
-                        unit.quantity = sq
 
                 bin_.storage = unit
                 self._index_remove(bin_)

@@ -101,7 +101,7 @@ def _build_dense_manager(wh_cfg, wh_seed, affinity, inventory, wp, builder):
     mgr = Inventory_Manager(wh, affinity=(affinity if builder is not None else None))
 
     random.seed(wh_seed + 1)
-    mgr.enqueue_all(inventory.cartons, quantity=1)
+    mgr.enqueue_all(inventory.cartons)
     mgr._queue.clear()
 
     fill = len(mgr.unavailable) / len(wh.bins)

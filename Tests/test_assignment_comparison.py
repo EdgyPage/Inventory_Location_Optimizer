@@ -89,7 +89,7 @@ def _build_manager(wh_cfg, wh_seed, affinity, inventory, wp, builder):
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=(affinity if builder is not None else None))
     random.seed(wh_seed + 1)
-    mgr.enqueue_all(inventory.cartons, quantity=1)
+    mgr.enqueue_all(inventory.cartons)
 
     if builder is not None:
         mgr.init_lift_state(affinity)

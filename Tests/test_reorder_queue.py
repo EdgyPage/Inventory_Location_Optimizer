@@ -182,7 +182,7 @@ def run() -> bool:
     # ── initial stock: 1 bin per SKU ──────────────────────────────────────────
     random.seed(SEED + 100)
     mgr = Inventory_Manager(warehouse)
-    mgr.enqueue_all(inventory.cartons, quantity=1)
+    mgr.enqueue_all(inventory.cartons)
     init_fill  = len(mgr.unavailable) / total_bins
     init_queue = mgr.queue_depth
 

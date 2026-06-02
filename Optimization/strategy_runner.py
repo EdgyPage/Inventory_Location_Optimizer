@@ -189,11 +189,11 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  Built  ({time.perf_counter()-t0:.1f}s)')
 
     # ── initial stock (uniform, same for A/B/C) ───────────────────────────────
-    log.info(f'Initial stock: {n_skus:,} SKUs -> 1 bin each...')
+    log.info(f'Initial stock: {n_skus:,} SKUs  (stock_qty units per bin from inventory profile)...')
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=(affinity if strategy != 'A' else None))
-    mgr.enqueue_all(inventory.cartons, quantity=1)
+    mgr.enqueue_all(inventory.cartons)   # quantity read from carton.stock_qty
     base_filled = len(mgr.unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
