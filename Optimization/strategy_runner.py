@@ -120,6 +120,7 @@ def _run_strategy_worker(args: dict) -> dict:
     seed_batches  = args['seed_batches']
     checkpoint    = args['checkpoint']
     max_skus      = args.get('max_skus')
+    sku_allowlist = args.get('sku_allowlist')
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -139,6 +140,8 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'Loading inventory: {inv_db}')
     t0        = time.perf_counter()
     inventory = load_inventory_from_db(inv_db, limit=max_skus)
+    if sku_allowlist is not None:
+        inventory.cartons = [c for c in inventory.cartons if c.sku in sku_allowlist]
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 

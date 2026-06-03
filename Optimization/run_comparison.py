@@ -91,7 +91,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_TARGET_FILL = 0.80   # headroom fraction: size each aisle type to this utilization
+_TARGET_FILL  = 0.80   # headroom fraction: size each aisle type to this utilization
+_INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
 
 # Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
 # Actual bin counts per aisle depend on unit type and size distribution.
@@ -294,6 +295,60 @@ def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
     return []
 
 
+# ── inventory sampler ──────────────────────────────────────────────────────────
+
+def _sample_inventory_for_capacity(
+    cartons       : list,
+    aisle_replicas: list,
+    aisle_cfgs    : list,
+    target_fill   : float = _INITIAL_FILL,
+    rng           : random.Random | None = None,
+) -> tuple[list, set]:
+    """Randomly sample cartons to fill capped bin capacity at *target_fill*.
+
+    Groups cartons by (handling, category), computes available pallet and
+    singleton bin slots per group from aisle_replicas × _effective_bins_per_aisle,
+    then shuffles each group and greedily selects cartons until target_fill
+    is reached.  The 1 − target_fill headroom accommodates reorder units.
+
+    Returns (sampled_cartons, sampled_sku_id_set).
+    """
+    # Available bins per (handling, category, unit_type) from the capped warehouse
+    capacity: dict[tuple, int] = {}
+    for cfg, rep in zip(aisle_cfgs, aisle_replicas):
+        key = (cfg.handling_type, cfg.storage_type, cfg.unit_type)
+        capacity[key] = capacity.get(key, 0) + rep * _effective_bins_per_aisle(cfg)
+
+    # Group cartons by (handling, category)
+    groups: dict[tuple, list] = {}
+    for c in cartons:
+        key = (c.storage_handle_config.handling, c.storage_handle_config.category)
+        groups.setdefault(key, []).append(c)
+
+    selected: list = []
+    for (handling, category), group in groups.items():
+        shuffled = list(group)
+        if rng is not None:
+            rng.shuffle(shuffled)
+        else:
+            random.shuffle(shuffled)
+
+        pallet_cap  = round(capacity.get((handling, category, 'pallet'),    0) * target_fill)
+        sing_cap    = round(capacity.get((handling, category, 'singleton'), 0) * target_fill)
+        pallet_used = sing_used = 0
+
+        for carton in shuffled:
+            units = _vsu(carton, carton.equilibrium_qty)
+            p = sum(1 for u in units if u.unit_category == 'pallet')
+            s = sum(1 for u in units if u.unit_category == 'singleton')
+            if pallet_used + p <= pallet_cap and sing_used + s <= sing_cap:
+                selected.append(carton)
+                pallet_used += p
+                sing_used   += s
+
+    return selected, {c.sku for c in selected}
+
+
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
@@ -370,6 +425,27 @@ def build_shared_assets(
         log.info(f'  --max-aisles cap : scaled to {total_aisles} aisles / '
                  f'{total_bins:,} bins  expected_fill={expected_fill:.1%}')
 
+    # ── sample inventory to fit capped aisle capacity ─────────────────────────
+    # When max_aisles is set the warehouse footprint is fixed; sample cartons
+    # so the warehouse fills to _INITIAL_FILL, leaving headroom for reorders.
+    sku_allowlist: set | None = None
+    if max_aisles is not None:
+        t_samp = time.perf_counter()
+        sampled, sku_allowlist = _sample_inventory_for_capacity(
+            inventory.cartons, aisle_replicas, _AISLE_CFGS,
+            target_fill=_INITIAL_FILL,
+            rng=random.Random(SEED_WORLD + 1),
+        )
+        inventory.cartons  = sampled          # mutate in place — no new object needed
+        n_skus             = len(sampled)
+        total_units_needed = sum(
+            len(_vsu(c, c.equilibrium_qty)) for c in sampled
+        )
+        expected_fill = total_units_needed / total_bins if total_bins else 0.0
+        log.info(f'  Inventory sample : {n_skus:,} SKUs  '
+                 f'{total_units_needed:,} units / {total_bins:,} bins'
+                 f' = {expected_fill:.1%}  ({time.perf_counter()-t_samp:.1f}s)')
+
     log.info(f'  Bin requirements : {total_pallet_needed:,} pallet'
              f' + {total_singleton_needed:,} singleton'
              f' = {total_units_needed:,} total'
@@ -433,6 +509,7 @@ def build_shared_assets(
         k_pickers          = K_PICKERS,
         max_skus           = max_skus,
         max_aisles         = max_aisles,
+        sku_allowlist      = sku_allowlist,
     )
 
 
@@ -553,6 +630,7 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
         seed_batches  = SEED_BATCHES,
         checkpoint    = _CHECKPOINT,
         max_skus      = shared.get('max_skus'),
+        sku_allowlist = shared.get('sku_allowlist'),
         warehouse_cfg = warehouse_cfg,
         pick_cfg      = pick_cfg,
         wp            = wp,
