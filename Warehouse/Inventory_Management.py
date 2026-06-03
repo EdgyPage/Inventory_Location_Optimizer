@@ -31,11 +31,6 @@ _SIZES_DESCENDING: tuple[str, ...] = tuple(
 
 BinKey = tuple[str, str, str, str]
 
-# Maximum consecutive failed drain attempts before a stuck unit is abandoned
-# and _queued_sku_counts is decremented so a fresh reorder can fire next batch.
-_MAX_DRAIN_RETRIES: int = 5
-
-
 def _equilibrium_qty(carton: Carton) -> int:
     """Return the Order-Up-To target for *carton*.
 
@@ -120,11 +115,6 @@ class Inventory_Manager:
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
-
-        # Tracks consecutive failed drain attempts per unit (keyed by id(unit)).
-        # When a unit exceeds _MAX_DRAIN_RETRIES it is abandoned so the SKU's
-        # queued count drops to zero and a fresh reorder can fire next batch.
-        self._unit_drain_retries: dict[int, int] = {}
 
         # SKUs whose current quantity has dropped to or below the reorder threshold
         # since the last check_reorders call.  Maintained by _notify_pick so
@@ -497,17 +487,18 @@ class Inventory_Manager:
     def _drain(self) -> None:
         """Place queued StorageUnit objects into warehouse bins.
 
-        Units are pre-palletized (created by viable_storage_units) before being
-        enqueued, and already carry the correct quantity for their bin slot.
-        Each unit is placed independently via assignment_fn — no all-or-nothing
-        grouping.
+        Units are pre-palletized (created by viable_storage_units) and carry
+        the correct quantity for their bin slot.  Each unit is placed
+        independently via assignment_fn — no all-or-nothing grouping.
 
-        When a Pallet unit finds no compatible bin (its required size tier is
-        fully occupied), _drain attempts to repack the quantity into one or more
-        smaller pallets that fit in the largest available smaller size tier.
-        The replacement units are prepended to the queue and retried immediately
-        in the same _drain call.  If no smaller tier is available either, the
-        original unit waits in the pending queue for the next check_reorders.
+        Placement failures:
+          1. Repack into a smaller pallet size tier (retried immediately in
+             the same _drain call via appendleft).
+          2. Fall back to singleton bins of the same carton type (same).
+          3. If no bin is available at all, the unit stays in the queue
+             (pending deque, FIFO order) and is retried on the next call.
+             Units NEVER expire or get abandoned — they wait until space
+             opens up.
         """
         pending: deque[StorageUnit] = deque()
         while self._queue:
@@ -519,8 +510,7 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Unit placed — clean up retry counter and decrement queued count.
-                self._unit_drain_retries.pop(id(unit), None)
+                # Unit placed — decrement queued count.
                 n = self._queued_sku_counts.get(sku, 0)
                 if n <= 1:
                     self._queued_sku_counts.pop(sku, None)
@@ -601,20 +591,9 @@ class Inventory_Manager:
                             self._queue.appendleft(u)
                         repacked = True
 
-                # ── rescue 3: retry limit — abandon permanently stuck units ──
+                # ── no bin available — hold in queue, retry next batch ────────
                 if not repacked:
-                    retries = self._unit_drain_retries.get(id(unit), 0) + 1
-                    if retries >= _MAX_DRAIN_RETRIES:
-                        # Give up on this unit; let check_reorders fire afresh.
-                        self._unit_drain_retries.pop(id(unit), None)
-                        n = self._queued_sku_counts.get(sku, 0)
-                        if n <= 1:
-                            self._queued_sku_counts.pop(sku, None)
-                        else:
-                            self._queued_sku_counts[sku] = n - 1
-                    else:
-                        self._unit_drain_retries[id(unit)] = retries
-                        pending.append(unit)
+                    pending.append(unit)
         self._queue = pending
 
 
