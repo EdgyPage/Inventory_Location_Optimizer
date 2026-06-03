@@ -231,13 +231,13 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)')
 
     # ── warehouse ─────────────────────────────────────────────────────────────
-    total_bins = warehouse_cfg.total_aisles * 750
-    log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles / {total_bins:,} bins...')
+    log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')
     t0 = time.perf_counter()
     Aisle.next_aisle_id = 1
     random.seed(seed_world)
-    warehouse = Warehouse_Builder().from_config(warehouse_cfg).build()
-    log.info(f'  Built  ({time.perf_counter()-t0:.1f}s)')
+    warehouse  = Warehouse_Builder().from_config(warehouse_cfg).build()
+    total_bins = len(warehouse.bins)   # density-aware: actual count after physical expansion
+    log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)')
 
     # ── initial stock: uniform placement for ALL strategies ─────────────────────
     # All three warehouses start from the same uniform placement so that

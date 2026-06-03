@@ -132,13 +132,13 @@ class Task:
         self.aisle_id: int          = aisle_id
         self.path: list[Aisle.Bin]  = path         # bins in visit order
         self.items: dict[int, int]  = items         # sku -> quantity for this aisle
-        x_trav = 0
-        y_trav = 0
+        x_trav = 0.0
+        y_trav = 0.0
         for i in range(len(path) - 1):
-            x_trav += abs(path[i].bayX - path[i+1].bayX)
-            y_trav += abs(path[i].bayY - path[i+1].bayY)
-        self.x_traversed: int = x_trav
-        self.y_traversed: int = y_trav
+            x_trav += abs(path[i].x_phys - path[i+1].x_phys)
+            y_trav += abs(path[i].y_phys - path[i+1].y_phys)
+        self.x_traversed: float = x_trav   # physical units
+        self.y_traversed: float = y_trav   # physical units
         # Build volume lookup from path bins.  A SKU in items may have no bin
         # in this path when all its bins are pending reclaim (emptied last batch).
         # Fall back to the carton volume from the first bin found anywhere in the

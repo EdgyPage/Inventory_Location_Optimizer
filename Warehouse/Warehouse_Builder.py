@@ -5,12 +5,12 @@ from Aisle_Storage import Aisle
 
 @dataclass
 class AisleConfig:
-    handling_type: str
-    storage_type: str
-    unit_type: str
-    bayXPerAisle: int
-    bayYPerAisle: int
-    storage_sizes: list[str]
+    handling_type:     str
+    storage_type:      str
+    unit_type:         str
+    aisle_width:       int                    # physical width in storage units
+    aisle_height:      int                    # physical height in storage units
+    storage_sizes:     list[str]
     size_probabilities: Optional[list[float]] = None
 
 
@@ -34,12 +34,37 @@ class Warehouse_Builder:
     def __init__(self) -> None:
         self._aisles: list[Aisle] = []
 
-    def add_aisle(self, storage_size: str, handling_type: str, storage_type: str, unit_type: str, bayXPerAisle: int, bayYPerAisle: int) -> 'Warehouse_Builder':
-        self._aisles.append(Aisle(storage_size, handling_type, storage_type, unit_type, bayXPerAisle, bayYPerAisle))
+    def add_aisle(
+        self,
+        storage_size: str,
+        handling_type: str,
+        storage_type: str,
+        unit_type: str,
+        aisle_width: int,
+        aisle_height: int,
+    ) -> 'Warehouse_Builder':
+        self._aisles.append(
+            Aisle(storage_size, handling_type, storage_type, unit_type, aisle_width, aisle_height)
+        )
         return self
 
-    def add_aisle_from_distribution(self, storage_sizes: list[str], probabilities: list[float], handling_type: str, storage_type: str, unit_type: str, bayXPerAisle: int, bayYPerAisle: int) -> 'Warehouse_Builder':
-        self._aisles.append(Aisle.from_size_distribution(storage_sizes, probabilities, handling_type, storage_type, unit_type, bayXPerAisle, bayYPerAisle))
+    def add_aisle_from_distribution(
+        self,
+        storage_sizes: list[str],
+        probabilities: list[float],
+        handling_type: str,
+        storage_type: str,
+        unit_type: str,
+        aisle_width: int,
+        aisle_height: int,
+    ) -> 'Warehouse_Builder':
+        self._aisles.append(
+            Aisle.from_size_distribution(
+                storage_sizes, probabilities,
+                handling_type, storage_type, unit_type,
+                aisle_width, aisle_height,
+            )
+        )
         return self
 
     def from_config(self, config: WarehouseConfig) -> 'Warehouse_Builder':
@@ -59,8 +84,8 @@ class Warehouse_Builder:
                         aisle_config.handling_type,
                         aisle_config.storage_type,
                         aisle_config.unit_type,
-                        aisle_config.bayXPerAisle,
-                        aisle_config.bayYPerAisle,
+                        aisle_config.aisle_width,
+                        aisle_config.aisle_height,
                     )
                 else:
                     self.add_aisle_from_distribution(
@@ -69,8 +94,8 @@ class Warehouse_Builder:
                         aisle_config.handling_type,
                         aisle_config.storage_type,
                         aisle_config.unit_type,
-                        aisle_config.bayXPerAisle,
-                        aisle_config.bayYPerAisle,
+                        aisle_config.aisle_width,
+                        aisle_config.aisle_height,
                     )
         return self
 

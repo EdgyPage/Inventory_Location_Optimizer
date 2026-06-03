@@ -1,4 +1,4 @@
-"""
+﻿"""
 Warehouse assignment strategy comparison — standalone runner.
 
 Replicates assignment_comparison.ipynb but runs as a plain Python process:
@@ -68,6 +68,11 @@ from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db
 from Inventory_Management import LoadParams
 from Pick import PickConfig
+from Aisle_Dimensions import (
+    aisle_width_for, aisle_height_for, SIZE_HEIGHTS,
+    SINGLETON_BIN_HEIGHT as _SINGLETON_BIN_HEIGHT,
+    unit_bin_width as _unit_bin_width,
+)
 from Storage_Primitive import viable_storage_units as _vsu
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import BatchConfig
@@ -90,8 +95,31 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_BINS_PER_AISLE = 25 * 30   # 750 — matches AisleConfig(bayX=25, bayY=30)
-_TARGET_FILL    = 0.80      # headroom fraction: size each aisle type to this utilization
+_TARGET_FILL = 0.80   # headroom fraction: size each aisle type to this utilization
+
+# Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
+# Actual bin counts per aisle depend on unit type and size distribution.
+_AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
+_AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
+
+
+def _effective_bins_per_aisle(cfg: AisleConfig) -> int:
+    """Actual bin count for one aisle replica of *cfg* after density expansion.
+
+    Pallet aisles: x-density from pallet width (48); y-density from size-tier heights.
+    Singleton aisles: x-density from singleton width (16); y-density from fixed
+    SINGLETON_BIN_HEIGHT (48) — no size tiers.
+    """
+    unit_w = _unit_bin_width(cfg.unit_type)
+    n_cols = cfg.aisle_width // unit_w
+    if cfg.unit_type == 'singleton':
+        return n_cols * (cfg.aisle_height // _SINGLETON_BIN_HEIGHT)
+    probs  = cfg.size_probabilities or [1.0 / len(cfg.storage_sizes)] * len(cfg.storage_sizes)
+    n_rows = sum(
+        round(p * cfg.aisle_height) // SIZE_HEIGHTS[s]
+        for s, p in zip(cfg.storage_sizes, probs)
+    )
+    return n_cols * n_rows
 
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
@@ -114,12 +142,11 @@ _DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
 ))
 
 _CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
-_ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
-_PALL_PROBS  = [0.25, 0.25, 0.25, 0.25]   # equal share of each size per pallet aisle
-_CONV_SIZES  = ['small', 'medium', 'large', 'extra_large']
-_CONV_PROBS  = [0.25, 0.25, 0.20, 0.30]
-_NCONV_SIZES = ['small', 'medium', 'large', 'extra_large']
-_NCONV_PROBS = [0.25, 0.25, 0.20, 0.30]
+
+# ── pallet aisle bin-size distribution ────────────────────────────────────────
+# All four sizes with equal probability so every carton can land somewhere.
+_ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
+_PALL_PROBS = [0.25, 0.25, 0.25, 0.25]
 
 _A_COL      = '#5b9bd5'
 _B_COL      = '#f4a030'
@@ -127,16 +154,17 @@ _C_COL      = '#70ad47'
 _TRAVEL_COL = '#a9a9a9'
 
 # ── warehouse configuration ────────────────────────────────────────────────────
-# Each pallet aisle covers all four sizes via _PALL_PROBS so every inventory
-# item can be placed regardless of size without needing a dedicated aisle per
-# size tier.  Singleton aisles retain their existing size distributions.
+# 12 pallet aisle types (conveyable + non-conveyable × 6 categories), all sizes.
+# 12 singleton aisle types (same split) — singleton bins have no size tiers;
+# storage_sizes=['singleton'] is a placeholder that routes through the no-tier
+# path in Aisle_Storage and Inventory_Management.
 _AISLE_CFGS = []
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet', 25, 30, _ALL_SIZES, _PALL_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet', 25, 30, _ALL_SIZES, _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES, _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES, _PALL_PROBS))
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', 25, 30, _CONV_SIZES,  _CONV_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', 25, 30, _NCONV_SIZES, _NCONV_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
 
 
 REGRESSION_CONFIGS = [
@@ -238,7 +266,7 @@ def _bdf(stats):
     } for s in stats])
 
 
-def _tdf(stats, aisle_size_map, aisle_unittype_map, aisle_handling_map):
+def _tdf(stats, aisle_unittype_map, aisle_handling_map):
     return pd.DataFrame([{
         'batch_id'   : s.batch_id,
         'aisle_id'   : s.aisle_id,
@@ -247,7 +275,6 @@ def _tdf(stats, aisle_size_map, aisle_unittype_map, aisle_handling_map):
         'lift_sum'   : s.lift_sum,
         'num_bins'   : s.num_bins_visited,
         'total_items': s.total_items,
-        'pallet_size': aisle_size_map.get(s.aisle_id),
         'unit_type'  : aisle_unittype_map.get(s.aisle_id),
         'handling'   : aisle_handling_map.get(s.aisle_id),
     } for s in stats])
@@ -358,12 +385,14 @@ def build_shared_assets(
     # one aisle even when no cartons map to it.
     aisle_replicas = []
     for cfg in _AISLE_CFGS:
-        needs  = (_pallet_needs if cfg.unit_type == 'pallet' else _singleton_needs)
-        needed = needs.get((cfg.handling_type, cfg.storage_type), 0)
-        aisle_replicas.append(max(1, math.ceil(needed / (_BINS_PER_AISLE * _TARGET_FILL))))
+        needs    = (_pallet_needs if cfg.unit_type == 'pallet' else _singleton_needs)
+        needed   = needs.get((cfg.handling_type, cfg.storage_type), 0)
+        eff_bins = _effective_bins_per_aisle(cfg)
+        aisle_replicas.append(max(1, math.ceil(needed / (eff_bins * _TARGET_FILL))))
 
     total_aisles  = sum(aisle_replicas)
-    total_bins    = total_aisles * _BINS_PER_AISLE
+    total_bins    = sum(rep * _effective_bins_per_aisle(cfg)
+                        for rep, cfg in zip(aisle_replicas, _AISLE_CFGS))
     aisle_splits  = [r / total_aisles for r in aisle_replicas]
     expected_fill = total_units_needed / total_bins if total_bins else 0.0
 
@@ -423,7 +452,6 @@ def build_shared_assets(
         total_aisles       = total_aisles,
         total_bins         = total_bins,
         total_units_needed = total_units_needed,
-        aisle_size_map     = {a.aisle_id: a.storage_size  for a in warehouse_meta.aisles},
         aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
         aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
     )
@@ -462,8 +490,8 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
     )
     pick_cfg = PickConfig(
         num_pickers      = K_PICKERS,
-        x_move_time      = cfg.get('x_move_time',      1.0),
-        y_move_time      = cfg.get('y_move_time',      0.5),
+        x_speed      = cfg.get('x_speed',      1.0),
+        y_speed      = cfg.get('y_speed',      0.5),
         pick_intercept   = cfg.get('pick_intercept',   1.0),
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
@@ -499,8 +527,8 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
         'pick_volume_coef': pick_cfg.pick_volume_coef,
         'pick_intercept'  : pick_cfg.pick_intercept,
         'cart_swap_coef'  : pick_cfg.cart_swap_coef,
-        'x_move_time'     : pick_cfg.x_move_time,
-        'y_move_time'     : pick_cfg.y_move_time,
+        'x_speed'     : pick_cfg.x_speed,
+        'y_speed'     : pick_cfg.y_speed,
         'num_pickers'     : pick_cfg.num_pickers,
         # load model (λ / k / γ)
         'load_lambda'     : load_params.lambda_,
@@ -598,7 +626,6 @@ def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) ->
     run_a              = sim_result['run_a']
     run_b              = sim_result['run_b']
     run_c              = sim_result['run_c']
-    aisle_size_map     = shared['aisle_size_map']
     aisle_unittype_map = shared['aisle_unittype_map']
     aisle_handling_map = shared['aisle_handling_map']
     total_aisles       = shared['total_aisles']
@@ -614,9 +641,9 @@ def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) ->
     df_bA = _bdf([s for s in bs_fA if not s.is_outlier])
     df_bB = _bdf([s for s in bs_fB if not s.is_outlier])
     df_bC = _bdf([s for s in bs_fC if not s.is_outlier])
-    df_tA = _tdf([s for s in ts_fA if not s.is_outlier], aisle_size_map, aisle_unittype_map, aisle_handling_map)
-    df_tB = _tdf([s for s in ts_fB if not s.is_outlier], aisle_size_map, aisle_unittype_map, aisle_handling_map)
-    df_tC = _tdf([s for s in ts_fC if not s.is_outlier], aisle_size_map, aisle_unittype_map, aisle_handling_map)
+    df_tA = _tdf([s for s in ts_fA if not s.is_outlier], aisle_unittype_map, aisle_handling_map)
+    df_tB = _tdf([s for s in ts_fB if not s.is_outlier], aisle_unittype_map, aisle_handling_map)
+    df_tC = _tdf([s for s in ts_fC if not s.is_outlier], aisle_unittype_map, aisle_handling_map)
 
     # summary CSVs
     bcols  = ['duration', 'completion_rate', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct']
@@ -816,16 +843,16 @@ def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) ->
     axes[0].set_ylabel('Aisle count', fontsize=10)
     axes[0].set_title('Distribution of aisle mean durations', fontsize=10)
     axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
-    for v, lbl, c in [(np.sort(acmp['A'].values), 'Uniform (A)',   _A_COL),
-                      (np.sort(acmp['B'].values), 'Trip-Min (B)', _B_COL),
-                      (np.sort(acmp['C'].values), 'Trip-Max (C)', _C_COL)]:
+    for v, lbl, c in [(np.sort(np.asarray(acmp['A'], dtype=float)), 'Uniform (A)',   _A_COL),
+                      (np.sort(np.asarray(acmp['B'], dtype=float)), 'Trip-Min (B)', _B_COL),
+                      (np.sort(np.asarray(acmp['C'], dtype=float)), 'Trip-Max (C)', _C_COL)]:
         axes[1].plot(v, np.arange(1, len(v)+1)/len(v), color=c, lw=2, label=lbl)
     axes[1].set_xlabel('Per-aisle mean task duration', fontsize=10)
     axes[1].set_ylabel('Cumulative fraction', fontsize=10)
     axes[1].set_title('CDF of per-aisle mean duration', fontsize=10)
     axes[1].yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
     axes[1].legend(fontsize=9);  axes[1].grid(alpha=0.3)
-    dBv = acmp['dB'].values;  dCv = acmp['dC'].values
+    dBv = np.asarray(acmp['dB'], dtype=float);  dCv = np.asarray(acmp['dC'], dtype=float)
     axes[2].hist(dBv, bins=50, color=_B_COL, alpha=0.55, edgecolor='white', label=f'B vs A  mean={dBv.mean():.2f}%')
     axes[2].hist(dCv, bins=50, color=_C_COL, alpha=0.55, edgecolor='white', label=f'C vs A  mean={dCv.mean():.2f}%')
     axes[2].axvline(0,         color='black', lw=1.5, linestyle='--')
@@ -857,7 +884,7 @@ def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) ->
                  .mean().reset_index().sort_values('batch_id'))
         x     = np.asarray(tpb['batch_id'])
         y_raw = np.asarray(tpb['duration'])
-        y_roll = pd.Series(y_raw).rolling(_WIN, min_periods=1).mean().values
+        y_roll = np.asarray(pd.Series(y_raw).rolling(_WIN, min_periods=1).mean())
         ax.scatter(x, y_raw,  color=c, alpha=0.25, s=10, zorder=2)
         ax.plot(x,    y_roll, color=c, lw=2, label=lbl, zorder=3)
     ax.set_xlabel('Batch ID', fontsize=10)

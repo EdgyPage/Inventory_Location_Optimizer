@@ -113,16 +113,38 @@ class Pallet(StorageUnit):
 class Singleton(Pallet):
     """Forward-pick / small-footprint storage.
 
-    Inherits Pallet._fit() and storage_size — Singleton is simply a Pallet
-    with a narrower footprint (16×16 vs 48×48).  The size-tier logic (small /
-    medium / large / extra_large) applies identically; _fit() selects the
-    smallest tier whose height fits the stacked configuration.
+    Singleton bins are a single fixed size (no small/medium/large/extra_large
+    tiers).  Any item whose two smallest dimensions both fit within 16×16 can
+    be placed; items are rotated to minimise the stacking height.  storage_size
+    is always None — singletons are indexed as one bucket per (handling, category).
     """
     max_width:     int = 16
     max_length:    int = 16
     unit_category: str = 'singleton'
-    # No _fit() override needed — Pallet._fit() works correctly with the
-    # narrower max_width / max_length constraints defined above.
+
+    def _fit(self, carton: Carton) -> None:
+        """Validate fit in 16×16 footprint; set dimensions without size-tier logic."""
+        _BIN_H = 48  # SINGLETON_BIN_HEIGHT — avoids circular import from Aisle_Dimensions
+        dims: list[int] = [carton.height, carton.width, carton.length]
+        best: tuple[int, int, int, int, str] | None = None   # (stacked_h, h, w, l, axis)
+        for h, w, l in itertools.permutations(dims):
+            for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
+                if w * stack_w <= self.max_width and l * stack_l <= self.max_length:
+                    stacked_height: int = h * stack_h
+                    if stacked_height <= _BIN_H:
+                        if best is None or stacked_height < best[0]:
+                            axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
+                            best = (stacked_height, h, w, l, axis)
+
+        if best is None:
+            raise ValueError(
+                f"No valid orientation for carton SKU {carton.sku} with dimensions "
+                f"({carton.height}, {carton.width}, {carton.length}) x{self.quantity} "
+                f"within singleton limits {self.max_width}×{self.max_length}×{_BIN_H}"
+            )
+
+        _, self._height, self._width, self._length, self._stack_axis = best
+        self.storage_size = None  # no size tier — all singleton bins are equivalent
 
 
 def _can_fit(carton: Carton, unit_class: type[T], qty: int) -> bool:

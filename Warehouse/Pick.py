@@ -18,8 +18,8 @@ _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCa
 @dataclass
 class PickConfig:
     num_pickers: int        = 1
-    x_move_time: float      = 1.0   # time units per bayX step
-    y_move_time: float      = 0.5   # time units per bayY step (half of x)
+    x_speed: float          = 1.0   # time units per physical X unit (bin.x_phys)
+    y_speed: float          = 0.5   # time units per physical Y unit (bin.y_phys)
     # Log model: pick_time = intercept + weight_coef*ln(weight)*qty + volume_coef*ln(volume)*qty + cart_swap_coef*swapped
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
@@ -148,8 +148,8 @@ class PickSimulation:
         cfg = self._config
         events: list[PickEvent] = []
         time: float = 0.0
-        x: int = 1
-        y: int = 1
+        x: float = 0.0   # physical X position (starts at aisle entrance)
+        y: float = 0.0   # physical Y position
         cart_remaining: int = _CART_CAPACITY
         carts_used: int = 1
         session_items: int = 0   # cumulative items picked across all tasks
@@ -167,11 +167,11 @@ class PickSimulation:
             ))
 
             for bin_ in task.path:
-                # ── travel ──────────────────────────────────────────────────
-                travel = (abs(bin_.bayX - x) * cfg.x_move_time
-                          + abs(bin_.bayY - y) * cfg.y_move_time)
+                # ── travel (physical distances) ──────────────────────────────
+                travel = (abs(bin_.x_phys - x) * cfg.x_speed
+                          + abs(bin_.y_phys - y) * cfg.y_speed)
                 time += travel
-                x, y = bin_.bayX, bin_.bayY
+                x, y = bin_.x_phys, bin_.y_phys
 
                 if bin_.storage is None:
                     continue

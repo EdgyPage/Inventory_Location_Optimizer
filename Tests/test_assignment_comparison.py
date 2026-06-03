@@ -1,4 +1,4 @@
-"""test_assignment_comparison.py
+﻿"""test_assignment_comparison.py
 
 Sparse-demand assignment comparison.  Runs N_BATCHES with 5% of inventory
 demanded per batch (~80% aisle coverage) so that co-location effects on
@@ -138,8 +138,8 @@ def run(
 
     pick_cfg = PickConfig(
         num_pickers      = N_PICKERS,
-        x_move_time      = 1.0,
-        y_move_time      = 0.5,
+        x_speed      = 1.0,
+        y_speed      = 0.5,
         pick_intercept   = 1.0,
         pick_weight_coef = 1.1,
         pick_volume_coef = 1e-3,

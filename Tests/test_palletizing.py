@@ -86,12 +86,14 @@ def _build_warehouse() -> tuple:
     """Small warehouse with both pallet aisles (all sizes) and singleton aisles."""
     Aisle.next_aisle_id = 1
     random.seed(0)
+    # 10 pallet-width columns × 8 extra_large-height levels → 480 × 384 physical units
+    _W, _H = 10 * 48, 8 * 48
     cfgs = [
-        AisleConfig('conveyable', 'food', 'pallet',    10, 8, ['small'],      None),
-        AisleConfig('conveyable', 'food', 'pallet',    10, 8, ['medium'],     None),
-        AisleConfig('conveyable', 'food', 'pallet',    10, 8, ['large'],      None),
-        AisleConfig('conveyable', 'food', 'pallet',    10, 8, ['extra_large'],None),
-        AisleConfig('conveyable', 'food', 'singleton', 10, 8,
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['small'],      None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['medium'],     None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['large'],      None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['extra_large'],None),
+        AisleConfig('conveyable', 'food', 'singleton', _W, _H,
                     ['small', 'medium', 'large'], [0.34, 0.33, 0.33]),
     ]
     wh_cfg = WarehouseConfig(

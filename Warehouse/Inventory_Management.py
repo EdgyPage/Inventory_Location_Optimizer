@@ -95,6 +95,8 @@ class Inventory_Manager:
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
+        # stock_qty at initial intake per SKU (not updated on reorders).
+        self._initial_quantities: dict[int, int] = {}
 
         # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
         self._current_quantities: dict[int, int] = {}
@@ -153,6 +155,7 @@ class Inventory_Manager:
             self._queue.append(unit)
         if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
             self._originals[carton.sku] = carton
+            self._initial_quantities[carton.sku] = qty
         self._drain()
         return self
 
@@ -169,6 +172,7 @@ class Inventory_Manager:
                 self._queue.append(unit)
             if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
                 self._originals[carton.sku] = carton
+                self._initial_quantities[carton.sku] = qty
         self._drain()
         return self
 
@@ -428,6 +432,10 @@ class Inventory_Manager:
         """
         shc       = unit.carton.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' or 'singleton'
+        if unit_type == 'singleton':
+            # Singleton bins are a single size bucket keyed with storage_size=None.
+            bins = self._index.get((shc.handling, shc.category, None, 'singleton'))
+            return list(bins) if bins else []
         min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
         for size in _SIZES_DESCENDING:
             if _SIZE_RANKS[size] >= min_rank:
@@ -526,27 +534,22 @@ class Inventory_Manager:
                 # ── rescue 2: singleton bins of same carton type ──────────────
                 if not repacked:
                     max_sing = _sq_max(carton, Singleton)
-                    if max_sing > 0:
-                        for size in _SIZES_DESCENDING:
-                            avail = self._index.get(
-                                (shc.handling, shc.category, size, 'singleton'))
-                            if not avail:
-                                continue
-                            remaining  = unit.quantity
-                            new_units = []
-                            while remaining > 0:
-                                q = min(remaining, max_sing)
-                                new_units.append(Singleton(carton, q))
-                                remaining -= q
-                            delta = len(new_units) - 1
-                            if delta:
-                                self._queued_sku_counts[sku] = (
-                                    self._queued_sku_counts.get(sku, 1) + delta
-                                )
-                            for u in reversed(new_units):
-                                self._queue.appendleft(u)
-                            repacked = True
-                            break
+                    avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
+                    if max_sing > 0 and avail:
+                        remaining = unit.quantity
+                        new_units: list[StorageUnit] = []
+                        while remaining > 0:
+                            q = min(remaining, max_sing)
+                            new_units.append(Singleton(carton, q))
+                            remaining -= q
+                        delta = len(new_units) - 1
+                        if delta:
+                            self._queued_sku_counts[sku] = (
+                                self._queued_sku_counts.get(sku, 1) + delta
+                            )
+                        for u in reversed(new_units):
+                            self._queue.appendleft(u)
+                        repacked = True
 
                 # ── rescue 3: retry limit — abandon permanently stuck units ──
                 if not repacked:
@@ -569,8 +572,8 @@ class Inventory_Manager:
 
 def _aisle_extremal_bins(
     candidates: list[Any],
-    x_time    : float,
-    y_time    : float,
+    x_speed   : float,
+    y_speed   : float,
     minimize  : bool,
 ) -> tuple[dict[int, float], dict[int, Any]]:
     """Reduce candidates to one bin per aisle — the extremal-W representative.
@@ -578,7 +581,7 @@ def _aisle_extremal_bins(
     Proof of correctness
     --------------------
     For a fixed aisle (fixed ls, dl), the score tuple (delta_l2, old_L) is
-    strictly monotone increasing in W = x_time*bayX + y_time*bayY:
+    strictly monotone increasing in W = x_speed*x_phys + y_speed*y_phys:
       old_L  = W + λ(W/k)^γ ls           — increasing in W
       new_L  = W + λ(W/k)^γ (ls+dl)      — increasing in W
       delta_l2 = new_L² − old_L²          — product of two positive increasing
@@ -593,7 +596,7 @@ def _aisle_extremal_bins(
     best_bin: dict[int, Any]   = {}
     for b in candidates:
         aid = b.location[0]
-        W   = x_time * b.bayX + y_time * b.bayY
+        W   = x_speed * b.x_phys + y_speed * b.y_phys
         if aid not in best_W or (W < best_W[aid] if minimize else W > best_W[aid]):
             best_W[aid]   = W
             best_bin[aid] = b
@@ -627,8 +630,8 @@ def build_load_minimizing_assignment_fn(
     lam    = params.lambda_
     k      = params.k
     gam    = params.gamma
-    x_time = wp.x_move_time
-    y_time = wp.y_move_time
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
 
     def _L(W: float, ls: float) -> float:
         return W + lam * (W / k) ** gam * ls
@@ -640,7 +643,7 @@ def build_load_minimizing_assignment_fn(
         sku = unit.carton.sku
 
         # Step 1: one representative bin per aisle (min-W) — O(N_candidates)
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=True)
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
 
         # Step 2: sort aisles by ascending min-W — O(N_aisles log N_aisles)
         sorted_aids = sorted(best_W, key=best_W.__getitem__)
@@ -713,8 +716,8 @@ def build_load_maximizing_assignment_fn(
     lam    = params.lambda_
     k      = params.k
     gam    = params.gamma
-    x_time = wp.x_move_time
-    y_time = wp.y_move_time
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
 
     def _L(W: float, ls: float) -> float:
         return W + lam * (W / k) ** gam * ls
@@ -727,7 +730,7 @@ def build_load_maximizing_assignment_fn(
 
         # One representative bin per aisle (max-W) — exact by monotonicity.
         # For maximising, larger W → larger delta_l2, so max-W bin is optimal.
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=False)
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
 
         # Sort descending: high-W aisles have the largest potential delta_l2
         sorted_aids = sorted(best_W, key=best_W.__getitem__, reverse=True)
@@ -817,7 +820,7 @@ def build_trip_minimizing_assignment_fn(
     score(s, a) = f_s * W  -  beta * co_occur_a   (minimise)
 
       f_s        = demand frequency of the SKU being placed
-      W          = x_time*bayX + y_time*bayY for the representative bin
+      W          = x_speed*x_phys + y_speed*y_phys for the representative bin
       co_occur_a = sum_{i in aisle_a} affinity(s,i) * f_i  (demand-weighted lift)
       beta       = co-location subsidy weight (default 1.0)
 
@@ -832,8 +835,8 @@ def build_trip_minimizing_assignment_fn(
     collapsing correlated demand into fewer aisles per batch and reducing
     the dominant makespan driver: n_tasks (aisles visited per batch).
     """
-    x_time = wp.x_move_time
-    y_time = wp.y_move_time
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
 
     def assign(unit: Any, candidates: list[Any]) -> Any | None:
         if not candidates:
@@ -844,7 +847,7 @@ def build_trip_minimizing_assignment_fn(
         q_s = qty_by_sku.get(sku, 0.0)
 
         # Minimum-W representative per aisle: monotonicity holds for f_s * W.
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=True)
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
 
         best_score : tuple[float, float] = (float('inf'), float('inf'))
         best_bin   : Any | None = None
@@ -898,8 +901,8 @@ def build_trip_maximizing_assignment_fn(
     Tie-broken by -(aisle_demand_sum + f_s*q_s): prefer already-loaded aisles
     to concentrate demand and maximise picker load imbalance.
     """
-    x_time = wp.x_move_time
-    y_time = wp.y_move_time
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
 
     def assign(unit: Any, candidates: list[Any]) -> Any | None:
         if not candidates:
@@ -910,7 +913,7 @@ def build_trip_maximizing_assignment_fn(
         q_s = qty_by_sku.get(sku, 0.0)
 
         # Maximum-W representative per aisle: farther bins yield higher f_s * W.
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_time, y_time, minimize=False)
+        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
 
         best_score : tuple[float, float] = (float('-inf'), float('-inf'))
         best_bin   : Any | None = None

@@ -1,4 +1,4 @@
-"""
+﻿"""
 test_placement_lifecycle.py — Verify every state dict is updated correctly at
 each stage of the SKU lifecycle: initial stock, pick depletion, reorder trigger,
 and reorder placement.
@@ -82,9 +82,10 @@ def check(name: str, condition: bool, detail: str = '') -> None:
 # ── warehouse factory ─────────────────────────────────────────────────────────
 
 _CATEGORIES = ['food']
+_W, _H = 5 * 48, 4 * 48   # 5 pallet-column widths × 4 extra_large-height levels
 _AISLE_CFGS = [
-    AisleConfig('conveyable', 'food', 'pallet',    5, 4, ['small'], None),
-    AisleConfig('conveyable', 'food', 'singleton', 5, 4, ['small', 'medium'], [0.5, 0.5]),
+    AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['small'], None),
+    AisleConfig('conveyable', 'food', 'singleton', _W, _H, ['small', 'medium'], [0.5, 0.5]),
 ]
 
 def _build_warehouse(seed: int = 0) -> tuple[Any, Inventory_Manager]:
@@ -145,7 +146,7 @@ def test_initial_placement() -> None:
     wh, mgr = _build_warehouse()
 
     cartons = [_make_carton(sku=i, stock_qty=30) for i in range(1, 6)]
-    mgr.enqueue_all(cartons, quantity=1)
+    mgr.enqueue_all(cartons)
 
     total_bins = len(wh.bins)
 
@@ -492,7 +493,7 @@ def test_end_to_end_mini_sim() -> None:
     cartons = [_make_carton(sku=i, stock_qty=15) for i in range(1, 6)]
     mgr.enqueue_all(cartons, quantity=1)
 
-    pick_cfg  = PickConfig(num_pickers=2, x_move_time=1.0, y_move_time=0.5,
+    pick_cfg  = PickConfig(num_pickers=2, x_speed=1.0, y_speed=0.5,
                            pick_intercept=0.5, pick_weight_coef=0.1,
                            pick_volume_coef=0.001, cart_swap_coef=2.0)
     batch_cfg = BatchConfig(inventory_size=5, mean_fraction=0.6, std_fraction=0.1)

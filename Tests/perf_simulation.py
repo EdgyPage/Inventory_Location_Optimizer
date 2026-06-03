@@ -1,4 +1,4 @@
-"""
+﻿"""
 perf_simulation.py — end-to-end simulation performance benchmark.
 
 Builds a small in-memory warehouse and inventory (no DB required), runs N
@@ -101,12 +101,8 @@ def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) 
 
 # ── synthetic inventory builder ──────────────────────────────────────────────
 
-_CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
-_CONV_SIZES  = ['small', 'medium', 'large']
-_NCONV_SIZES = ['medium', 'large', 'extra_large']
-_CONV_PROBS  = [0.25, 0.50, 0.25]
-_NCONV_PROBS = [0.20, 0.50, 0.30]
-_ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
+_CATEGORIES = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
+_ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
 
 
 def _build_inventory(n_skus: int, seed: int = 42) -> Inventory:
@@ -140,18 +136,20 @@ def _build_warehouse_cfg(
     pw = replicas / total_aisles
     sw = replicas / total_aisles
 
+    # Convert old bin-count slots to physical dimensions (1 slot = 48 units)
+    n_cols = max(1, bins_per_aisle // 20)
+    n_rows = 20
+    aisle_w = n_cols * 48   # physical width
+    aisle_h = n_rows * 48   # physical height
+
     aisle_cfgs = []
     for size in _ALL_SIZES:
         for cat in _CATEGORIES:
-            bay_x = max(1, bins_per_aisle // 20)
-            bay_y = 20
-            aisle_cfgs.append(AisleConfig('conveyable',     cat, 'pallet', bay_x, bay_y, [size], None))
-            aisle_cfgs.append(AisleConfig('non-conveyable', cat, 'pallet', bay_x, bay_y, [size], None))
+            aisle_cfgs.append(AisleConfig('conveyable',     cat, 'pallet', aisle_w, aisle_h, [size], None))
+            aisle_cfgs.append(AisleConfig('non-conveyable', cat, 'pallet', aisle_w, aisle_h, [size], None))
     for cat in _CATEGORIES:
-        bay_x = max(1, bins_per_aisle // 20)
-        bay_y = 20
-        aisle_cfgs.append(AisleConfig('conveyable',     cat, 'singleton', bay_x, bay_y, _CONV_SIZES,  _CONV_PROBS))
-        aisle_cfgs.append(AisleConfig('non-conveyable', cat, 'singleton', bay_x, bay_y, _NCONV_SIZES, _NCONV_PROBS))
+        aisle_cfgs.append(AisleConfig('conveyable',     cat, 'singleton', aisle_w, aisle_h, ['singleton'], None))
+        aisle_cfgs.append(AisleConfig('non-conveyable', cat, 'singleton', aisle_w, aisle_h, ['singleton'], None))
 
     return WarehouseConfig(
         total_aisles  = total_aisles,
@@ -193,8 +191,8 @@ def run_benchmark(
     from Workload import WorkloadParams
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
-        x_move_time      = 1.0,
-        y_move_time      = 0.5,
+        x_speed      = 1.0,
+        y_speed      = 0.5,
         pick_intercept   = 1.0,
         pick_weight_coef = 1.1,
         pick_volume_coef = 1e-3,

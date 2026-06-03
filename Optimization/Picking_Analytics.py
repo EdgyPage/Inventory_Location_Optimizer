@@ -393,19 +393,19 @@ def velocity_scores(metrics: dict[int, SkuMetrics]) -> dict[int, float]:
 
 def travel_cost(
     bin_: Any,
-    x_time: float = 1.0,
-    y_time: float = 0.5,
-    origin_x: int = 1,
-    origin_y: int = 1,
+    x_speed: float = 1.0,
+    y_speed: float = 0.5,
+    origin_x: float = 0.0,
+    origin_y: float = 0.0,
 ) -> float:
-    """Estimated travel time from origin to a bin using its actual coordinates.
+    """Estimated travel time from origin to a bin using physical coordinates.
 
-    Uses b.bayX and b.bayY (the bin's physical position within the aisle)
-    weighted by the per-step move times, matching the simulation's cost model.
-    The aisle_id dimension is excluded — cross-aisle routing is handled by the
-    Inventory_Manager's candidate pre-filtering, not by this cost.
+    Uses b.x_phys and b.y_phys (physical centre position of the bin) weighted
+    by x_speed / y_speed (time per physical unit), matching the simulation's
+    cost model.  The aisle_id dimension is excluded — cross-aisle routing is
+    handled by the Inventory_Manager's candidate pre-filtering.
     """
-    return x_time * abs(bin_.bayX - origin_x) + y_time * abs(bin_.bayY - origin_y)
+    return x_speed * abs(bin_.x_phys - origin_x) + y_speed * abs(bin_.y_phys - origin_y)
 
 
 _SINGLETON_SIZES: frozenset[str] = frozenset({'small', 'medium'})
@@ -424,17 +424,17 @@ def build_velocity_assignment_fn(
     so the scoring reflects how long a picker physically takes to reach each bin,
     consistent with the simulation's move-time model.
 
-    wp          : WorkloadParams supplying x_move_time / y_move_time.
+    wp          : WorkloadParams supplying x_speed / y_speed.
                   Defaults to WorkloadParams() (x=1.0, y=0.5) if not provided.
-    origin_x/y  : starting position within an aisle (default: bay (1, 1)).
+    origin_x/y  : physical starting position within an aisle (default: 0.0).
 
     Compatible with Inventory_Manager's AssignmentFn signature:
         (StorageUnit, list[Aisle.Bin]) -> Aisle.Bin | None
     """
     if wp is None:
         wp = WorkloadParams()
-    x_time = wp.x_move_time
-    y_time = wp.y_move_time
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
 
     scores: dict[int, float] = velocity_scores(compute_sku_metrics(records))
 
@@ -456,7 +456,7 @@ def build_velocity_assignment_fn(
 
         v_score: float = scores.get(unit.carton.sku, 0.5)
         sorted_pool: list[Any] = sorted(
-            pool, key=lambda b: travel_cost(b, x_time, y_time, origin_x, origin_y)
+            pool, key=lambda b: travel_cost(b, x_speed, y_speed, origin_x, origin_y)
         )
         idx: int = round((1.0 - v_score) * (len(sorted_pool) - 1))
         return sorted_pool[idx]

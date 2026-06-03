@@ -1,4 +1,4 @@
-"""test_reorder_queue.py
+﻿"""test_reorder_queue.py
 
 Reorder queue stability — dense warehouse matching run_comparison.py config.
 
@@ -70,27 +70,25 @@ BATCH_MEAN_FRAC = 0.25
 STABLE_WINDOW   = 20
 MIN_FILL        = 0.40
 
-# Bay dimensions: 6×4 = 24 bins/aisle.  With 24 aisle types × 1 replica =
-# 576 total bins; 500 SKUs → ~87% fill (matching run_comparison density).
-_BAY_X = 6
-_BAY_Y = 4
+# Physical aisle dimensions: 6 pallet-column widths × 4 extra_large-height levels.
+# With density expansion, singleton aisles have 3× more X bins and
+# small-tier bins create 4× more Y levels than the physical slot count.
+from Aisle_Dimensions import aisle_width_for, aisle_height_for
+_AISLE_W = aisle_width_for(6)    # 6 × 48 = 288 physical units
+_AISLE_H = aisle_height_for(4)   # 4 × 48 = 192 physical units
 
-_CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
-_ALL_SIZES   = ['small', 'medium', 'large', 'extra_large']
-_PALL_PROBS  = [0.25, 0.25, 0.25, 0.25]
-_CONV_SIZES  = ['small', 'medium', 'large', 'extra_large']
-_CONV_PROBS  = [0.25, 0.25, 0.20, 0.30]
-_NCONV_SIZES = ['small', 'medium', 'large', 'extra_large']
-_NCONV_PROBS = [0.25, 0.25, 0.20, 0.30]
+_CATEGORIES = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
+_ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
+_PALL_PROBS = [0.25, 0.25, 0.25, 0.25]
 
-# 24 aisle types — identical structure to run_comparison.py
+# 48 aisle types — 12 pallet + 12 singleton × 2 handling types
 _AISLE_CFGS: list[AisleConfig] = []
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet',    _BAY_X, _BAY_Y, _ALL_SIZES,   _PALL_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet',    _BAY_X, _BAY_Y, _ALL_SIZES,   _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES,    _PALL_PROBS))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES,    _PALL_PROBS))
 for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', _BAY_X, _BAY_Y, _CONV_SIZES,  _CONV_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', _BAY_X, _BAY_Y, _NCONV_SIZES, _NCONV_PROBS))
+    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
+    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
 
 # ── pass/fail helpers ─────────────────────────────────────────────────────────
 
@@ -112,15 +110,18 @@ def check(label: str, ok: bool, detail: str = '') -> None:
 # ── warehouse builder ─────────────────────────────────────────────────────────
 
 def _build_wh_cfg(n_skus: int) -> WarehouseConfig:
-    """Size the warehouse so 1-bin-per-SKU reaches ~87% fill.
-
-    Uses 1 replica per aisle type (24 total) with _BAY_X × _BAY_Y bins each.
-    The singleton-fraction cap from run_comparison is omitted here to keep the
-    test warehouse compact; the reorder behaviour under test is independent of
-    that cap.
-    """
-    n_types      = len(_AISLE_CFGS)   # 24
-    bins_per_aisle = _BAY_X * _BAY_Y  # 24
+    """Size the warehouse so 1-bin-per-SKU reaches ~87% fill."""
+    from Aisle_Dimensions import SIZE_HEIGHTS, unit_bin_width as _ubw
+    n_types = len(_AISLE_CFGS)   # 48
+    from Aisle_Dimensions import SINGLETON_BIN_HEIGHT as _SBH
+    def _bins(cfg: AisleConfig) -> int:
+        n_cols = _AISLE_W // _ubw(cfg.unit_type)
+        if cfg.unit_type == 'singleton':
+            return n_cols * (_AISLE_H // _SBH)
+        probs  = cfg.size_probabilities or [1.0 / len(cfg.storage_sizes)] * len(cfg.storage_sizes)
+        n_rows = sum(round(p * _AISLE_H) // SIZE_HEIGHTS[s] for s, p in zip(cfg.storage_sizes, probs))
+        return n_cols * n_rows
+    bins_per_aisle = _bins(_AISLE_CFGS[0])  # representative pallet aisle
     total_bins   = n_types * bins_per_aisle
     # Extra replicas only if n_skus genuinely exceeds capacity.
     replicas     = max(1, math.ceil(n_skus / total_bins))
@@ -142,7 +143,7 @@ def run() -> bool:
     print(f'\n{"="*66}')
     print(f'  Reorder queue stability — dense warehouse (run_comparison config)')
     print(f'  SKUs={N_SKUS}  batches={N_BATCHES}  pickers={N_PICKERS}')
-    print(f'  bays={_BAY_X}×{_BAY_Y}  aisle_types={len(_AISLE_CFGS)}  seed={SEED}')
+    print(f'  aisle_dims={_AISLE_W}×{_AISLE_H}  aisle_types={len(_AISLE_CFGS)}  seed={SEED}')
     print(f'{"="*66}')
 
     # ── inventory (uses DEFAULT_QUANTITY_SPEC: stock_qty Beta [5, 200], mode=35) ──
@@ -192,8 +193,8 @@ def run() -> bool:
 
     pick_cfg = PickConfig(
         num_pickers      = N_PICKERS,
-        x_move_time      = 1.0,
-        y_move_time      = 0.5,
+        x_speed      = 1.0,
+        y_speed      = 0.5,
         pick_intercept   = 1.0,
         pick_weight_coef = 1.1,
         pick_volume_coef = 1e-3,

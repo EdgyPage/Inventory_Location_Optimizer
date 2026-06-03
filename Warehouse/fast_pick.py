@@ -61,7 +61,7 @@ def _simulate_picker_deferred(
     mutations: list[_PickMutation] = []
 
     t              = 0.0
-    x, y           = 1, 1
+    x, y           = 0.0, 0.0   # physical position (starts at aisle entrance)
     cart_remaining = _CART_CAPACITY
     session_items  = 0
     # Tracks intra-picker depletion so picking twice from the same bin
@@ -81,9 +81,9 @@ def _simulate_picker_deferred(
         ))
 
         for bin_ in task.path:
-            t += (abs(bin_.bayX - x) * cfg.x_move_time
-                  + abs(bin_.bayY - y) * cfg.y_move_time)
-            x, y = bin_.bayX, bin_.bayY
+            t += (abs(bin_.x_phys - x) * cfg.x_speed
+                  + abs(bin_.y_phys - y) * cfg.y_speed)
+            x, y = bin_.x_phys, bin_.y_phys
 
             bid      = id(bin_)
             snap_qty = local_qty.get(bid, bin_snap.get(bid, 0))
