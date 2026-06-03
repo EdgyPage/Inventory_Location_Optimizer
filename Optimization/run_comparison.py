@@ -615,7 +615,7 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
     if os.path.exists(rp):
         os.remove(rp)
 
-    return dict(
+    sim_result = dict(
         name      = name,
         run_dir   = run_dir,
         db_path_A = db_path_A,
@@ -625,6 +625,15 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
         run_b     = run_b,
         run_c     = run_c,
     )
+
+    # Write sim_meta.json so --analyze-only can reconstruct this result later.
+    # Presence of this file signals the simulation completed successfully.
+    with open(os.path.join(run_dir, 'sim_meta.json'), 'w') as _f:
+        json.dump({**sim_result,
+                   'inv_db': shared['inv_db'],
+                   'aff_db': shared['aff_db']}, _f, indent=2)
+
+    return sim_result
 
 
 def _run_config_analysis(sim_result: dict, shared: dict, log: logging.Logger) -> None:
@@ -967,6 +976,54 @@ def _run_pair_sims(
     return label, shared, sim_results
 
 
+# ── standalone analysis ────────────────────────────────────────────────────────
+
+def _run_analysis_only(base_dir: str, log: logging.Logger) -> None:
+    """Re-run analysis (plots only) on all completed sims under *base_dir*.
+
+    Scans the two-level structure base_dir/pair_label/config_name/ for
+    sim_meta.json files written by _run_config_sim.  Calls build_shared_assets
+    once per pair (to get aisle maps) then _run_config_analysis per config.
+    """
+    for pair_name in sorted(os.listdir(base_dir)):
+        pair_dir = os.path.join(base_dir, pair_name)
+        if not os.path.isdir(pair_dir):
+            continue
+
+        config_metas: list[dict] = []
+        inv_db = aff_db = None
+        for cfg_name in sorted(os.listdir(pair_dir)):
+            meta_path = os.path.join(pair_dir, cfg_name, 'sim_meta.json')
+            if not os.path.exists(meta_path):
+                continue
+            with open(meta_path) as f:
+                meta = json.load(f)
+            config_metas.append(meta)
+            if inv_db is None:
+                inv_db = meta.get('inv_db')
+                aff_db = meta.get('aff_db')
+
+        if not config_metas or inv_db is None or aff_db is None:
+            continue
+
+        log.info(f'  Pair: {pair_name}  ({len(config_metas)} config(s))')
+        try:
+            shared = build_shared_assets(inv_db, aff_db, log)
+        except Exception as exc:
+            log.error(f'  build_shared_assets failed for {pair_name}: {exc}', exc_info=True)
+            continue
+
+        for meta in config_metas:
+            cfg_name = meta.get('name', '?')
+            try:
+                sim_result = {k: meta[k] for k in
+                              ('name', 'run_dir', 'db_path_A', 'db_path_B', 'db_path_C',
+                               'run_a', 'run_b', 'run_c')}
+                _run_config_analysis(sim_result, shared, log)
+            except Exception as exc:
+                log.error(f'  Analysis failed for {cfg_name}: {exc}', exc_info=True)
+
+
 # ── entry point ────────────────────────────────────────────────────────────────
 
 def main():
@@ -986,7 +1043,20 @@ def main():
     parser.add_argument('--pair-workers', type=int, default=1,
                         help='DB pairs to simulate in parallel '
                              '(multiplies with --config-workers; be mindful of RAM)')
+    parser.add_argument('--analyze-only', metavar='BASE_DIR', default=None,
+                        help='Skip simulation; re-run analysis plots on an existing '
+                             'comparison directory (uses sim_meta.json written by each run)')
     args = parser.parse_args()
+
+    if args.analyze_only:
+        base_dir = (args.analyze_only if os.path.isabs(args.analyze_only)
+                    else os.path.join(_OUTPUT_DIR, args.analyze_only))
+        if not os.path.isdir(base_dir):
+            sys.exit(f'Analysis directory not found: {base_dir}')
+        log = _setup_logging(os.path.join(base_dir, 'reanalysis.log'))
+        log.info(f'--analyze-only  dir: {base_dir}')
+        _run_analysis_only(base_dir, log)
+        return
 
     if args.resume:
         base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
