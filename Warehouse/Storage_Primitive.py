@@ -116,7 +116,8 @@ class Singleton(Pallet):
     Singleton bins are a single fixed size (no small/medium/large/extra_large
     tiers).  Any item whose two smallest dimensions both fit within 16×16 can
     be placed; items are rotated to minimise the stacking height.  storage_size
-    is always None — singletons are indexed as one bucket per (handling, category).
+    is always 'singleton' — one bucket per (handling, category), distinct from
+    all pallet size tiers and never None so DB NOT NULL constraints are satisfied.
     """
     max_width:     int = 16
     max_length:    int = 16
@@ -144,7 +145,7 @@ class Singleton(Pallet):
             )
 
         _, self._height, self._width, self._length, self._stack_axis = best
-        self.storage_size = None  # no size tier — all singleton bins are equivalent
+        self.storage_size = 'singleton'  # fixed label — no size tier, never None
 
 
 def _can_fit(carton: Carton, unit_class: type[T], qty: int) -> bool:

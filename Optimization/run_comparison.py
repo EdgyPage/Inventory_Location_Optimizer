@@ -189,20 +189,20 @@ REGRESSION_CONFIGS = [
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
     },
-    """{
+    {
         'name'            : 'high_cart_weight_penalty',
         'pick_weight_coef': 2.5,
         'pick_volume_coef': 1e-3,
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
-    }, """
-    """{
+    },
+    {
         'name'            : 'high_cart_weight_volume_penalty',
         'pick_weight_coef': 2.5,
         'pick_volume_coef': 5e-3,
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
-    },"""
+    },
 ]
 
 

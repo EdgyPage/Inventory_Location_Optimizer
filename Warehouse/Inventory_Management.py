@@ -474,7 +474,7 @@ class Inventory_Manager:
         unit_type = unit.unit_category                    # 'pallet' or 'singleton'
         if unit_type == 'singleton':
             # Singleton bins are a single size bucket keyed with storage_size=None.
-            bins = self._index.get((shc.handling, shc.category, None, 'singleton'))
+            bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             return list(bins) if bins else []
         min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
         for size in _SIZES_DESCENDING:

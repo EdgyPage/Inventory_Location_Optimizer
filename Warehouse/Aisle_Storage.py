@@ -82,11 +82,11 @@ class Aisle:
         if unit_type == 'singleton':
             # All singleton bins are the same fixed height — no size tiers.
             y_step = SINGLETON_BIN_HEIGHT
-            bin_size: str | None = None
+            bin_size: str = 'singleton'
         else:
             y_step = SIZE_HEIGHTS[storage_size]
             bin_size = storage_size
-        self.storage_size: str | None = bin_size
+        self.storage_size: str = bin_size
 
         n_cols = aisle_width  // x_step
         n_rows = aisle_height // y_step
