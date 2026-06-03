@@ -441,7 +441,6 @@ def main() -> None:
             name               = 'inventory',
             num_skus           = args.num_skus,
             seed               = inv_seed,
-            quantity_spec      = None,   # uses DEFAULT_QUANTITY_SPEC (mode=35, mean=50)
             out_dir            = prof_dir,
             dim_spec           = profile['dim_spec'],
             weight_spec        = profile['weight_spec'],

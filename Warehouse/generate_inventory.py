@@ -701,18 +701,21 @@ def plot_dim_kde_overlay(df: pd.DataFrame, out_dir: str, title_suffix: str = '')
 # ── callable API ───────────────────────────────────────────────────────────────
 
 def generate_run(
-    name                     : str,
-    num_skus                 : int                = 76_500,
-    handling_splits          : list[float] | None = None,
-    category_splits          : list[float] | None = None,
-    singleton_fraction       : float              = 0.5,
-    seed                     : int                = 42,
-    out_dir                  : str                = _DEFAULT_OUT_DIR,
-    dim_spec                 : dict | None        = None,
-    weight_spec              : dict | None        = None,
-    quantity_spec            : dict | None        = None,
-    reorder_coverage_batches : float              = REORDER_COVERAGE_BATCHES,
-    verbose                  : bool               = True,
+    name                         : str,
+    num_skus                     : int                = 76_500,
+    handling_splits              : list[float] | None = None,
+    category_splits              : list[float] | None = None,
+    singleton_fraction           : float              = 0.5,
+    seed                         : int                = 42,
+    out_dir                      : str                = _DEFAULT_OUT_DIR,
+    dim_spec                     : dict | None        = None,
+    weight_spec                  : dict | None        = None,
+    equilibrium_coverage_batches : float              = EQUILIBRIUM_COVERAGE_BATCHES,
+    trigger_fraction             : float              = REORDER_TRIGGER_FRACTION,
+    lead_time_mean_batches       : float              = LEAD_TIME_MEAN_BATCHES,
+    lead_time_cv                 : float              = LEAD_TIME_CV,
+    supply_cv_mean               : float              = SUPPLY_CV_MEAN,
+    verbose                      : bool               = True,
 ) -> str:
     """Generate one inventory run and return the path to the created run_dir.
 
@@ -737,8 +740,6 @@ def generate_run(
         dim_spec = DEFAULT_DIM_SPEC
     if weight_spec is None:
         weight_spec = DEFAULT_WEIGHT_SPEC
-    if quantity_spec is None:
-        quantity_spec = DEFAULT_QUANTITY_SPEC
 
     h_splits = [w / sum(handling_splits) for w in handling_splits]
     c_splits = [w / sum(category_splits) for w in category_splits]
@@ -757,11 +758,13 @@ def generate_run(
         'handling_labels'    : _HANDLINGS,
         'category_labels'    : _CATEGORIES,
         'singleton_fraction' : singleton_fraction,
-        'dim_spec'           : dim_spec,
-        'weight_spec'        : weight_spec,
-        'quantity_spec'            : quantity_spec,
-        'reorder_coverage_batches' : reorder_coverage_batches,
-        'carton_min_dim'           : 3,
+        'dim_spec'                     : dim_spec,
+        'weight_spec'                  : weight_spec,
+        'equilibrium_coverage_batches' : equilibrium_coverage_batches,
+        'trigger_fraction'             : trigger_fraction,
+        'lead_time_mean_batches'       : lead_time_mean_batches,
+        'supply_cv_mean'               : supply_cv_mean,
+        'carton_min_dim'               : 3,
         'carton_max_dim'     : _CARTON_MAX_DIM,
         'singleton_max_dim'  : _SINGLETON_MAX_DIM,
     }
@@ -777,15 +780,18 @@ def generate_run(
 
     t0        = time.perf_counter()
     inventory = build_inventory_with_profile(
-        num_skus                 = num_skus,
-        handling_splits          = h_splits,
-        category_splits          = c_splits,
-        singleton_fraction       = singleton_fraction,
-        dim_spec                 = dim_spec,
-        weight_spec              = weight_spec,
-        seed                     = seed,
-        quantity_spec            = quantity_spec,
-        reorder_coverage_batches = reorder_coverage_batches,
+        num_skus                     = num_skus,
+        handling_splits              = h_splits,
+        category_splits              = c_splits,
+        singleton_fraction           = singleton_fraction,
+        dim_spec                     = dim_spec,
+        weight_spec                  = weight_spec,
+        seed                         = seed,
+        equilibrium_coverage_batches = equilibrium_coverage_batches,
+        trigger_fraction             = trigger_fraction,
+        lead_time_mean_batches       = lead_time_mean_batches,
+        lead_time_cv                 = lead_time_cv,
+        supply_cv_mean               = supply_cv_mean,
     )
     _log(f'[inventory:{name}] Built {len(inventory.cartons):,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
