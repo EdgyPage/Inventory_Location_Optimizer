@@ -62,6 +62,7 @@ class Carton:
         c.equilibrium_qty       = getattr(self, 'equilibrium_qty',       1)
         c.reorder_point         = getattr(self, 'reorder_point',         1)
         c.lead_time_mean        = getattr(self, 'lead_time_mean',        0.0)
+        c.supply_cv             = getattr(self, 'supply_cv',             0.0)
         c._is_reorder = True
         return c
 

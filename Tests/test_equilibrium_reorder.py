@@ -82,7 +82,8 @@ def _small_warehouse(seed: int = 0) -> tuple[WarehouseConfig, Inventory_Manager]
     return cfg, mgr
 
 
-def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10, lt: float = 0.0) -> Carton:
+def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10,
+                 lt: float = 0.0, supply_cv: float = 0.0) -> Carton:
     c                        = object.__new__(Carton)
     c._sku                   = sku
     c.storage_type           = ('conveyable', 'food')
@@ -96,6 +97,7 @@ def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10, lt: float = 0.0) -> C
     c.equilibrium_qty       = eq_qty
     c.reorder_point         = rp
     c.lead_time_mean        = lt
+    c.supply_cv             = supply_cv
     c.expected_batch_demand = 0.8 * 4.0
     return c
 
@@ -465,6 +467,118 @@ def test_fill_stability() -> None:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Part G: supply_cv — stochastic received quantity
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_supply_cv_zero_is_exact() -> None:
+    """supply_cv=0: the sampling formula always returns exactly the ideal quantity."""
+    print('\n-- Part G: supply_cv=0 exact fulfillment --')
+    # Test the sampling math directly — N(ideal, 0) must equal ideal always.
+    for depletion in [20, 10, 5]:
+        eq_qty = 40
+        ideal  = eq_qty - depletion
+        c      = _make_carton(sku=50 + depletion, eq_qty=eq_qty, rp=15, supply_cv=0.0)
+        rc     = c.reorder()
+        # Replicate the formula from check_reorders
+        cv  = getattr(rc, 'supply_cv', 0.0)
+        qty = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
+        check(f'cv=0 received {qty} == ideal {ideal}',
+              qty == ideal, f'got {qty}')
+
+
+def test_supply_cv_produces_variance() -> None:
+    """supply_cv > 0 should produce varying received quantities across many samples.
+
+    Tests the sampling math directly — build the carton, call reorder() to get
+    the rc copy (with supply_cv), then replicate the sampling formula N times.
+    This avoids needing a warehouse large enough to accept 30 consecutive reorders.
+    """
+    print('\n-- Part G2: supply_cv > 0 introduces variance --')
+    random.seed(12345)
+
+    eq_qty   = 100
+    cur_qty  = 30
+    ideal    = eq_qty - cur_qty   # 70
+    supply_cv = 0.20
+
+    c  = _make_carton(sku=60, eq_qty=eq_qty, rp=40, supply_cv=supply_cv)
+    rc = c.reorder()
+
+    received = [
+        max(1, round(random.gauss(ideal, ideal * rc.supply_cv)))
+        for _ in range(50)
+    ]
+
+    check('supply_cv=0.2 produces at least 5 distinct received quantities',
+          len(set(received)) >= 5,
+          f'received set size={len(set(received))}')
+    check('all received quantities >= 1',
+          all(r >= 1 for r in received),
+          f'min received={min(received)}')
+    avg = sum(received) / len(received)
+    check(f'mean received near ideal ({ideal}) within 20%',
+          abs(avg - ideal) / ideal < 0.20,
+          f'avg={avg:.1f}  ideal={ideal}')
+
+
+def test_supply_cv_floor_prevents_zero() -> None:
+    """Even with extreme cv, received quantity is always >= 1."""
+    print('\n-- Part G3: supply_cv floor >= 1 --')
+    _, mgr = _small_warehouse(seed=12)
+    random.seed(999)
+
+    c = _make_carton(sku=70, eq_qty=5, rp=2, supply_cv=2.0)   # wildly unreliable
+    mgr.enqueue(c)
+
+    for _ in range(50):
+        mgr._current_quantities[70] = 1
+        mgr._depleted_skus.add(70)
+        mgr._queued_sku_counts.pop(70, None)
+        mgr._deferred_sku_counts.pop(70, None)
+        mgr.check_reorders()
+        qty = mgr._current_quantities.get(70, 1) - 1
+        if qty < 1:
+            check('received >= 1 even with cv=2.0', False, f'got {qty}')
+            return
+    check('received always >= 1 over 50 reorders with cv=2.0', True)
+
+
+def test_supply_cv_in_profile_and_db() -> None:
+    """supply_cv is set per-SKU at profile time and survives a DB round-trip."""
+    print('\n-- Part G4: supply_cv profile + DB --')
+    inv = build_inventory_with_profile(
+        num_skus=50, seed=5,
+        handling_splits=[0.5, 0.5],
+        category_splits=[1/6] * 6,
+        singleton_fraction=0.3,
+        dim_spec=DEFAULT_DIM_SPEC,
+        weight_spec=DEFAULT_WEIGHT_SPEC,
+        supply_cv_mean=0.15,
+    )
+    # All cartons should have supply_cv >= 0
+    all_nonneg = all(getattr(c, 'supply_cv', -1) >= 0 for c in inv.cartons)
+    check('all supply_cv >= 0', all_nonneg)
+    # With supply_cv_mean=0.15, expect variation across SKUs
+    cvs = [c.supply_cv for c in inv.cartons]
+    check('supply_cv varies across SKUs (not all identical)',
+          len(set(round(v, 4) for v in cvs)) > 1,
+          f'unique values={len(set(round(v,4) for v in cvs))}')
+
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+    try:
+        save_inventory_to_db(inv, db_path, {})
+        inv2 = load_inventory_from_db(db_path)
+        orig   = {c.sku: c.supply_cv for c in inv.cartons}
+        loaded = {c.sku: c.supply_cv for c in inv2.cartons}
+        mismatches = [(s, orig[s], loaded[s]) for s in orig if abs(orig[s] - loaded.get(s, -1)) > 1e-9]
+        check('supply_cv preserved in DB round-trip', len(mismatches) == 0,
+              f'{mismatches[:3]}')
+    finally:
+        os.unlink(db_path)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Runner
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -484,6 +598,10 @@ if __name__ == '__main__':
     test_deferred_blocks_duplicate_reorder()
     test_equilibrium_qty_helper()
     test_fill_stability()
+    test_supply_cv_zero_is_exact()
+    test_supply_cv_produces_variance()
+    test_supply_cv_floor_prevents_zero()
+    test_supply_cv_in_profile_and_db()
 
     print(f'\n{"="*62}')
     if _FAIL == 0:

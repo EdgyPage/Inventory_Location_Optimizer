@@ -106,6 +106,12 @@ EQUILIBRIUM_COVERAGE_BATCHES: float = 10.0
 REORDER_TRIGGER_FRACTION:     float = 0.50
 LEAD_TIME_MEAN_BATCHES:       float = 0.0    # profile default; override per run
 LEAD_TIME_CV:                 float = 0.50   # coefficient of variation for per-SKU sampling
+# supply_cv: coefficient of variation for received reorder quantity.
+# 0.0 = perfect fulfillment (always receive exactly what was ordered).
+# 0.1 = ±10% typical variance ("ordered 50, got 45").
+# Per-SKU values are drawn from HalfNormal(supply_cv_mean) at profile time,
+# giving heterogeneous supplier reliability across SKUs.
+SUPPLY_CV_MEAN: float = 0.0
 
 # Legacy constant kept for backward-compatible DB loads.
 REORDER_COVERAGE_BATCHES: float = EQUILIBRIUM_COVERAGE_BATCHES
@@ -247,6 +253,7 @@ def build_inventory_with_profile(
     trigger_fraction             : float = REORDER_TRIGGER_FRACTION,
     lead_time_mean_batches       : float = LEAD_TIME_MEAN_BATCHES,
     lead_time_cv                 : float = LEAD_TIME_CV,
+    supply_cv_mean               : float = SUPPLY_CV_MEAN,
 ) -> Inventory:
     """Build an Inventory using the equilibrium inventory model.
 
@@ -263,7 +270,11 @@ def build_inventory_with_profile(
                               0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
                               when lead_time_mean_batches > 0, else fixed at 0.
 
-    At runtime, check_reorders uses Order-Up-To: reorder qty = equilibrium_qty - current_qty.
+      supply_cv             = coefficient of variation for received quantity.
+                              0.0 = perfect fulfillment; 0.1 → "ordered 50, got 45".
+                              Per-SKU value drawn from HalfNormal(supply_cv_mean).
+
+    At runtime: ideal = equilibrium_qty - current_qty; received = max(1, round(N(ideal, ideal*supply_cv))).
     """
     storage = Storage_Type()
     rng     = random.Random(seed)
@@ -308,6 +319,13 @@ def build_inventory_with_profile(
         else:
             c.lead_time_mean = 0.0
 
+        # Per-SKU supply reliability: abs(N(0, supply_cv_mean)) keeps values ≥ 0.
+        # SKUs with higher supply_cv have less predictable fulfillment quantities.
+        if supply_cv_mean > 0.0:
+            c.supply_cv = abs(rng.gauss(0.0, supply_cv_mean))
+        else:
+            c.supply_cv = 0.0
+
         cartons.append(c)
 
     return Inventory(cartons)
@@ -329,7 +347,8 @@ _SCHEMA = '''
         expected_batch_demand REAL    NOT NULL DEFAULT 0,
         equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
         reorder_point         INTEGER NOT NULL DEFAULT 1,
-        lead_time_mean        REAL    NOT NULL DEFAULT 0.0
+        lead_time_mean        REAL    NOT NULL DEFAULT 0.0,
+        supply_cv             REAL    NOT NULL DEFAULT 0.0
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -361,13 +380,14 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             getattr(c, 'equilibrium_qty',       1),
             getattr(c, 'reorder_point',         1),
             getattr(c, 'lead_time_mean',        0.0),
+            getattr(c, 'supply_cv',             0.0),
         ))
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' demand_frequency, demand_qty_rate, expected_batch_demand, '
-        ' equilibrium_qty, reorder_point, lead_time_mean) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
@@ -393,14 +413,16 @@ def load_inventory_from_db(db_path: str) -> Inventory:
     has_reorder_point  = 'reorder_point'          in col_names
     has_equilibrium    = 'equilibrium_qty'         in col_names
     has_lead_time      = 'lead_time_mean'          in col_names
+    has_supply_cv      = 'supply_cv'               in col_names
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
         'demand_frequency, demand_qty_rate'
-        + (', stock_qty'             if has_stock_qty   else '')
-        + (', expected_batch_demand' if has_expected    else '')
+        + (', stock_qty'             if has_stock_qty     else '')
+        + (', expected_batch_demand' if has_expected      else '')
         + (', reorder_point'         if has_reorder_point else '')
-        + (', equilibrium_qty'       if has_equilibrium else '')
-        + (', lead_time_mean'        if has_lead_time   else '')
+        + (', equilibrium_qty'       if has_equilibrium   else '')
+        + (', lead_time_mean'        if has_lead_time     else '')
+        + (', supply_cv'             if has_supply_cv     else '')
         + ' FROM cartons ORDER BY sku'
     )
     rows = conn.execute(select).fetchall()
@@ -433,6 +455,9 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         lead_time_mean = float(row[col]) if has_lead_time else 0.0
         if has_lead_time: col += 1
 
+        supply_cv = float(row[col]) if has_supply_cv else 0.0
+        if has_supply_cv: col += 1
+
         c                        = object.__new__(Carton)
         c._sku                   = sku
         c.storage_type           = (handling, category)
@@ -447,6 +472,7 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         c.equilibrium_qty        = equilibrium_qty
         c.reorder_point          = reorder_point
         c.lead_time_mean         = lead_time_mean
+        c.supply_cv              = supply_cv
         cartons.append(c)
         max_sku = max(max_sku, sku)
 

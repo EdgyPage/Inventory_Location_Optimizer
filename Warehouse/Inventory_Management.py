@@ -381,10 +381,14 @@ class Inventory_Manager:
             in_deferred = self._deferred_sku_counts.get(sku, 0)
             if in_queue == 0 and in_deferred == 0 and sku in self._originals:
                 rc      = self._originals[sku].reorder()
-                eq_qty  = _equilibrium_qty(rc)
-                cur_qty = self._current_quantities.get(sku, 0)
-                qty     = max(1, eq_qty - cur_qty)   # OUP: fill back to target
-                units   = viable_storage_units(rc, qty)
+                eq_qty   = _equilibrium_qty(rc)
+                cur_qty  = self._current_quantities.get(sku, 0)
+                ideal    = max(1, eq_qty - cur_qty)   # OUP: fill back to target
+                cv       = getattr(rc, 'supply_cv', 0.0)
+                # Sample received quantity: N(ideal, ideal × cv), floor at 1.
+                # cv=0 → always receive exactly what was ordered.
+                qty      = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
+                units    = viable_storage_units(rc, qty)
                 if not units:
                     continue
 
