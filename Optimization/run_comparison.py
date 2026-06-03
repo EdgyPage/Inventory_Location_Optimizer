@@ -957,11 +957,33 @@ def main():
     if not pairs:
         sys.exit(f'No inventory+affinity DB pairs found in: {args.profiles_dir}')
 
-    log.info(f'Discovered {len(pairs)} DB pair(s):')
+    # Sanity-check: each inv_db path must be unique.  Duplicate paths indicate
+    # a broken profile directory structure and would cause misleading results.
+    seen_inv: dict[str, str] = {}
+    for label, inv_db, _aff in pairs:
+        if inv_db in seen_inv:
+            log.warning(f'  DUPLICATE inv_db detected!')
+            log.warning(f'    first seen as : {seen_inv[inv_db]}')
+            log.warning(f'    repeated as   : {label}')
+            log.warning(f'    path          : {inv_db}')
+        else:
+            seen_inv[inv_db] = label
+
+    n_unique = len(seen_inv)
+    log.info(f'Discovered {len(pairs)} DB pair(s)  ({n_unique} unique inventories):')
     for label, inv_db, aff_db in pairs:
         log.info(f'  {label}')
         log.info(f'    inv : {inv_db}')
         log.info(f'    aff : {aff_db}')
+
+    n_configs = len(REGRESSION_CONFIGS)
+    workers_per_pair = n_configs * 3          # configs × A/B/C strategies
+    log.info(
+        f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × 3 strategies'
+        f' = {len(pairs) * workers_per_pair} total process-worker runs'
+        f'  |  config_workers={args.config_workers} (regression configs in parallel per pair)'
+        f'  |  pairs processed sequentially'
+    )
 
     for label, inv_db, aff_db in pairs:
         log.info(f'\n{"="*64}')
