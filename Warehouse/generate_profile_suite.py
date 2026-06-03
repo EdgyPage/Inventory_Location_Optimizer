@@ -94,10 +94,17 @@ from generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _IN
 from generate_affinity  import generate_run as _aff_run, estimate as _aff_estimate, \
                                print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
 
-_DEFAULT_PROFILES_DIR = os.getenv(
+def _clean_path(val: str) -> str:
+    """Strip r\"...\" / r'...' notation or plain quotes from an env-var path."""
+    if val.startswith(('r"', "r'")):
+        return val[2:].rstrip('"').rstrip("'")
+    return val.strip('"').strip("'")
+
+
+_DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
     'PROFILE_INPUT_DIR',
     os.path.join(_HERE, 'generated', 'profiles'),
-)
+))
 
 
 # ── carton profiles ────────────────────────────────────────────────────────────
@@ -351,6 +358,7 @@ def main() -> None:
     parser.add_argument('--estimate', action='store_true',
                         help='Print profile specs and estimated affinity sizes, then exit')
     args = parser.parse_args()
+    args.out_dir = _clean_path(args.out_dir)   # normalise r"..." from env or CLI
 
     # resolve which profiles to run
     if args.profiles:
