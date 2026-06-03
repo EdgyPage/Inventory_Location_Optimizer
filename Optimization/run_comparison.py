@@ -189,20 +189,20 @@ REGRESSION_CONFIGS = [
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
     },
-    {
+    """{
         'name'            : 'high_cart_weight_penalty',
         'pick_weight_coef': 2.5,
         'pick_volume_coef': 1e-3,
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
-    },
-    {
+    }, """
+    """{
         'name'            : 'high_cart_weight_volume_penalty',
         'pick_weight_coef': 2.5,
         'pick_volume_coef': 5e-3,
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 25.0,
-    },
+    },"""
 ]
 
 
@@ -917,6 +917,56 @@ def run_config(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> N
     _run_config_analysis(sim_result, shared, log)
 
 
+def _run_pair_sims(
+    label          : str,
+    inv_db         : str,
+    aff_db         : str,
+    pair_dir       : str,
+    config_workers : int,
+    log            : logging.Logger,
+) -> tuple[str, dict, dict]:
+    """Load one inventory+affinity pair and run all regression config simulations.
+
+    Returns (label, shared, sim_results) so the caller can run analyses
+    sequentially (matplotlib is not thread-safe).
+
+    Designed to be submitted to a ThreadPoolExecutor so multiple pairs
+    run their simulations in parallel.  Each pair's A/B/C process workers
+    are also parallel (via run_strategies_parallel inside _run_config_sim).
+    """
+    log.info(f'\n{"="*64}')
+    log.info(f'  Dataset : {label}')
+    log.info(f'{"="*64}')
+    shared = build_shared_assets(inv_db, aff_db, log)
+
+    sim_results: dict[str, dict] = {}
+    if config_workers > 1:
+        log.info(f'  Running {len(REGRESSION_CONFIGS)} configs with '
+                 f'{config_workers} parallel simulation thread(s)...')
+        with concurrent.futures.ThreadPoolExecutor(max_workers=config_workers) as pool:
+            futs = {
+                pool.submit(_run_config_sim, cfg, shared, pair_dir, log): cfg
+                for cfg in REGRESSION_CONFIGS
+            }
+            for fut in concurrent.futures.as_completed(futs):
+                cfg      = futs[fut]
+                cfg_name = cfg.get('name', '?')
+                try:
+                    sim_results[cfg_name] = fut.result()
+                    log.info(f'  Config [{cfg_name}] simulation complete')
+                except Exception as exc:
+                    log.error(f'  Config [{cfg_name}] FAILED: {exc}', exc_info=True)
+    else:
+        for cfg in REGRESSION_CONFIGS:
+            cfg_name = cfg.get('name', '?')
+            try:
+                sim_results[cfg_name] = _run_config_sim(cfg, shared, pair_dir, log)
+            except Exception as exc:
+                log.error(f'  Config [{cfg_name}] FAILED: {exc}', exc_info=True)
+
+    return label, shared, sim_results
+
+
 # ── entry point ────────────────────────────────────────────────────────────────
 
 def main():
@@ -931,8 +981,11 @@ def main():
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     parser.add_argument('--config-workers', type=int, default=1,
-                        help='Regression configs to simulate in parallel '
+                        help='Regression configs to simulate in parallel per pair '
                              '(each uses 3 A/B/C workers; default=1 = sequential)')
+    parser.add_argument('--pair-workers', type=int, default=1,
+                        help='DB pairs to simulate in parallel '
+                             '(multiplies with --config-workers; be mindful of RAM)')
     args = parser.parse_args()
 
     if args.resume:
@@ -978,53 +1031,57 @@ def main():
 
     n_configs = len(REGRESSION_CONFIGS)
     workers_per_pair = n_configs * 3          # configs × A/B/C strategies
+    pair_mode = (f'{args.pair_workers} pairs in parallel'
+                 if args.pair_workers > 1 else 'pairs sequential')
     log.info(
         f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × 3 strategies'
         f' = {len(pairs) * workers_per_pair} total process-worker runs'
-        f'  |  config_workers={args.config_workers} (regression configs in parallel per pair)'
-        f'  |  pairs processed sequentially'
+        f'  |  pair_workers={args.pair_workers}  config_workers={args.config_workers}'
+        f'  |  {pair_mode}'
     )
 
-    for label, inv_db, aff_db in pairs:
-        log.info(f'\n{"="*64}')
-        log.info(f'  Dataset : {label}')
-        log.info(f'{"="*64}')
-        pair_dir = os.path.join(base_dir, label)
-        shared   = build_shared_assets(inv_db, aff_db, log)
-
-        if args.config_workers > 1:
-            # ── parallel simulations ──────────────────────────────────────
-            # Simulations run in threads; each thread spawns its own
-            # ProcessPoolExecutor(3) for A/B/C workers.  Analyses stay
-            # sequential because matplotlib pyplot is not thread-safe.
-            log.info(f'  Running {len(REGRESSION_CONFIGS)} configs with '
-                     f'{args.config_workers} parallel simulation thread(s)...')
-            sim_results: dict[str, dict] = {}
-            with concurrent.futures.ThreadPoolExecutor(
-                    max_workers=args.config_workers) as pool:
-                futs = {
-                    pool.submit(_run_config_sim, cfg, shared, pair_dir, log): cfg
-                    for cfg in REGRESSION_CONFIGS
-                }
-                for fut in concurrent.futures.as_completed(futs):
-                    cfg      = futs[fut]
-                    cfg_name = cfg.get('name', '?')
-                    try:
-                        sim_results[cfg_name] = fut.result()
-                        log.info(f'  Config [{cfg_name}] simulation complete')
-                    except Exception as exc:
-                        log.error(f'  Config [{cfg_name}] FAILED: {exc}',
-                                  exc_info=True)
-
+    # ── pair dispatch ─────────────────────────────────────────────────────────
+    # Simulations (CPU-bound process workers) run in parallel across pairs when
+    # --pair-workers > 1.  Analyses (matplotlib) always run sequentially after
+    # all simulations for a pair are done — pyplot is not thread-safe.
+    if args.pair_workers > 1:
+        # Submit all pairs simultaneously; collect (shared, sim_results) as they
+        # finish and run the analysis phase immediately in the main thread.
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=args.pair_workers) as pair_pool:
+            pair_futs: dict[concurrent.futures.Future, tuple] = {
+                pair_pool.submit(
+                    _run_pair_sims,
+                    label, inv_db, aff_db,
+                    os.path.join(base_dir, label),
+                    args.config_workers,
+                    log,
+                ): (label, inv_db, aff_db)
+                for label, inv_db, aff_db in pairs
+            }
+            for fut in concurrent.futures.as_completed(pair_futs):
+                orig = pair_futs[fut]
+                try:
+                    label, shared, sim_results = fut.result()
+                    log.info(f'  [{label}] all sims done — running analyses...')
+                    for cfg in REGRESSION_CONFIGS:
+                        cfg_name = cfg.get('name', '?')
+                        if cfg_name in sim_results:
+                            _run_config_analysis(sim_results[cfg_name], shared, log)
+                except Exception as exc:
+                    log.error(f'  Pair {orig[0]} FAILED: {exc}', exc_info=True)
+    else:
+        # Sequential: one pair at a time (original behaviour).
+        for label, inv_db, aff_db in pairs:
+            pair_dir = os.path.join(base_dir, label)
+            _, shared, sim_results = _run_pair_sims(
+                label, inv_db, aff_db, pair_dir, args.config_workers, log
+            )
             log.info('  All simulations done — running analyses sequentially...')
             for cfg in REGRESSION_CONFIGS:
                 cfg_name = cfg.get('name', '?')
                 if cfg_name in sim_results:
                     _run_config_analysis(sim_results[cfg_name], shared, log)
-        else:
-            # ── sequential (default) ──────────────────────────────────────
-            for cfg in REGRESSION_CONFIGS:
-                run_config(cfg, shared, pair_dir, log)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {len(REGRESSION_CONFIGS)} config(s) complete.'
              f'  Root: {base_dir}')
