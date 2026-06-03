@@ -68,33 +68,16 @@ class StorageUnit(ABC):
         return self._stack_axis  # type: ignore[return-value]
 
 
-class Singleton(StorageUnit):
-    max_height: int = 48
-    max_width: int = 16
-    max_length: int = 16
-
-    def _fit(self, carton: Carton) -> None:
-        dims: list[int] = [carton.height, carton.width, carton.length]
-        for h, w, l in itertools.permutations(dims):
-            for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
-                if (h * stack_h <= self.max_height and
-                        w * stack_w <= self.max_width and
-                        l * stack_l <= self.max_length):
-                    self._height = h
-                    self._width = w
-                    self._length = l
-                    self._stack_axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
-                    return
-        raise ValueError(
-            f"No valid orientation for carton SKU {carton.sku} with dimensions "
-            f"({carton.height}, {carton.width}, {carton.length}) x{self.quantity} within limits "
-            f"({self.max_height}, {self.max_width}, {self.max_length})"
-        )
-
-
 class Pallet(StorageUnit):
-    max_length: int = 48
-    max_width: int = 48
+    """Standard pallet storage — full 48×48 footprint.
+
+    Subclasses (e.g. Singleton) may override max_width / max_length to model
+    narrower footprints while inheriting the same size-tier logic and gaining
+    a valid storage_size attribute from _fit().
+    """
+    max_length:    int = 48
+    max_width:     int = 48
+    unit_category: str = 'pallet'
 
     def __init__(self, carton: Carton, quantity: int) -> None:
         self.storage_size: str | None = None
@@ -125,6 +108,21 @@ class Pallet(StorageUnit):
             )
 
         _, self.storage_size, self._height, self._width, self._length, self._stack_axis = best
+
+
+class Singleton(Pallet):
+    """Forward-pick / small-footprint storage.
+
+    Inherits Pallet._fit() and storage_size — Singleton is simply a Pallet
+    with a narrower footprint (16×16 vs 48×48).  The size-tier logic (small /
+    medium / large / extra_large) applies identically; _fit() selects the
+    smallest tier whose height fits the stacked configuration.
+    """
+    max_width:     int = 16
+    max_length:    int = 16
+    unit_category: str = 'singleton'
+    # No _fit() override needed — Pallet._fit() works correctly with the
+    # narrower max_width / max_length constraints defined above.
 
 
 def _can_fit(carton: Carton, unit_class: type[T], qty: int) -> bool:
@@ -171,19 +169,29 @@ def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
     """Pack *quantity* items using the minimum number of full pallets, with any
     remainder routed to a singleton unit.
 
-    Each pallet is filled to its maximum physical capacity so the fewest pallet
-    locations are occupied.  Items that don't fill a complete pallet — or whose
-    total quantity is already smaller than one pallet's capacity — go into a
-    singleton unit instead.  Singletons handle the "less than a pallet" case;
-    they are not used for bulk storage unless the carton cannot be palletized at
-    all.
+    Prefers Singleton over Pallet when the total item volume fits within a
+    'small' singleton slot (12 × 16 × 16 physical units), since singletons use
+    a narrower footprint that leaves full-size pallet locations free.
 
-    Examples  (max_per_pallet = 3)
-    --------------------------------
-      quantity = 9  →  3 pallets × 3 items,  no singleton
-      quantity = 10 →  3 pallets × 3 items,  1 singleton × 1 item
-      quantity = 2  →  0 pallets,             1 singleton × 2 items
+    Otherwise, packs complete pallets at maximum capacity then routes the
+    remainder to a singleton.  Falls back to a partial pallet for the remainder
+    if the carton cannot be singletonised.
+
+    Examples  (max_per_pallet = 3, small_slot_vol = 3072)
+    -------------------------------------------------------
+      volume*qty ≤ 3072  →  1 singleton × qty items  (forward-pick preferred)
+      quantity = 9       →  3 pallets × 3 items,  no singleton
+      quantity = 10      →  3 pallets × 3 items,  1 singleton × 1 item
+      quantity = 2       →  0 pallets,             1 singleton × 2 items
     """
+    # Prefer singleton for small total volumes (fits in a 'small' singleton slot).
+    small_slot_vol = (Storage_Size.available_sizes_heights['small']
+                      * Singleton.max_width * Singleton.max_length)  # 12*16*16 = 3072
+    if carton.volume() * quantity <= small_slot_vol:
+        singletons = _build_units(carton, Singleton, quantity)
+        if singletons:
+            return singletons
+
     max_pallet: int = _max_qty_fits(carton, Pallet)
 
     if max_pallet == 0:

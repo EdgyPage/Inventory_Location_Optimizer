@@ -74,7 +74,7 @@ from scipy.stats import gaussian_kde
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 
-from Carton import Carton
+from Carton import Carton, StorageHandleConfig
 from Demand import Demand
 from Inventory_Builder import Inventory
 from Storage_Primitive import Storage_Type
@@ -271,8 +271,9 @@ def build_inventory_with_profile(
         c              = object.__new__(Carton)
         c._sku         = Carton.next_sku
         Carton.next_sku += 1
-        c.storage_type = (handling, category)
-        c.lift_group   = (handling, category)
+        c.storage_type         = (handling, category)
+        c.storage_handle_config = StorageHandleConfig(handling, category)
+        c.lift_group           = (handling, category)
         c.length       = l
         c.width        = w
         c.height       = h
@@ -392,6 +393,7 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         c                        = object.__new__(Carton)
         c._sku                   = sku
         c.storage_type           = (handling, category)
+        c.storage_handle_config  = StorageHandleConfig(handling, category)
         c.lift_group             = (handling, category)
         c.length                 = length
         c.width                  = width

@@ -120,10 +120,12 @@ def _make_carton(sku: int, stock_qty: int = 35,
                  handling: str = 'conveyable',
                  category: str = 'food') -> Carton:
     """Create a Carton directly (no DB) with known dimensions and stock_qty."""
-    c               = object.__new__(Carton)
-    c._sku          = sku
-    c.storage_type  = (handling, category)
-    c.lift_group    = (handling, category)
+    from Carton import StorageHandleConfig
+    c                        = object.__new__(Carton)
+    c._sku                   = sku
+    c.storage_type           = (handling, category)
+    c.storage_handle_config  = StorageHandleConfig(handling, category)
+    c.lift_group             = (handling, category)
     c.length        = 8
     c.width         = 8
     c.height        = 6
@@ -179,10 +181,8 @@ def test_initial_placement() -> None:
 
     # ── 1e: _current_quantities == stock_qty × n_bins for each SKU
     for c in cartons:
-        bins_for_sku = (
-            mgr._sku_singleton_bins.get(c.sku, []) +
-            mgr._sku_pallet_bins.get(c.sku, [])
-        )
+        bins_for_sku = list(mgr._sku_singleton_bins.get(c.sku, set())) + \
+                       list(mgr._sku_pallet_bins.get(c.sku, set()))
         expected_qty = sum(b.storage.quantity for b in bins_for_sku if b.storage)
         actual_qty   = mgr._current_quantities.get(c.sku, 0)
         check(f'_current_quantities[{c.sku}] == sum of bin quantities',
@@ -302,8 +302,8 @@ def test_bin_reclaim() -> None:
     check('_bin_sku entry removed after reclaim',
           id(bin_) not in mgr._bin_sku)
 
-    sku_1_pallet = [b for b in mgr._sku_pallet_bins.get(1, []) if b is bin_]
-    sku_1_single = [b for b in mgr._sku_singleton_bins.get(1, []) if b is bin_]
+    sku_1_pallet = [b for b in mgr._sku_pallet_bins.get(1, set()) if b is bin_]
+    sku_1_single = [b for b in mgr._sku_singleton_bins.get(1, set()) if b is bin_]
     check('_sku_*_bins no longer contains reclaimed bin',
           len(sku_1_pallet) == 0 and len(sku_1_single) == 0)
 

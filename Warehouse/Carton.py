@@ -1,5 +1,11 @@
 import random
+from collections import namedtuple
 from Demand import Demand, poisson_sample
+
+# Named tuple combining a carton's handling type and storage category.
+# Replaces the pattern `handling, category = carton.storage_type` throughout
+# the codebase with the more self-documenting `carton.storage_handle_config`.
+StorageHandleConfig = namedtuple('StorageHandleConfig', ['handling', 'category'])
 
 _MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
@@ -26,6 +32,7 @@ class Carton:
         self.height: int = _sample_dim(max_dim)
         self.weight: int = _sample_weight(self.length, self.width, self.height)
         self.storage_type: tuple[str, str] = storage_type
+        self.storage_handle_config: StorageHandleConfig = StorageHandleConfig(*storage_type)
         self._sku: int = Carton.next_sku
         Carton.next_sku += 1
         self.demand: Demand = Demand()
@@ -47,6 +54,7 @@ class Carton:
         c.height = self.height
         c.weight = self.weight
         c.storage_type = self.storage_type
+        c.storage_handle_config = self.storage_handle_config
         c._sku = self._sku
         c.demand = Demand.from_rates(self.demand.frequency, self.demand.quantity_rate)
         c.lift_group = self.lift_group

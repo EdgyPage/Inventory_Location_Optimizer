@@ -383,8 +383,8 @@ class Inventory_Manager:
     def summary(self) -> None:
         total: int     = len(self.warehouse.bins)
         filled: int    = len(self._unavailable)
-        singles: int   = sum(1 for b in self._unavailable.values() if isinstance(b.storage, Singleton))
-        pallets: int   = sum(1 for b in self._unavailable.values() if isinstance(b.storage, Pallet))
+        singles: int   = sum(1 for b in self._unavailable.values() if b.storage is not None and b.storage.unit_category == 'singleton')
+        pallets: int   = sum(1 for b in self._unavailable.values() if b.storage is not None and b.storage.unit_category == 'pallet')
         available: int = sum(len(v) for v in self._index.values())
         print(f'Total bins  : {total}')
         print(f'Filled      : {filled}  ({singles} singletons, {pallets} pallets)')
@@ -426,12 +426,12 @@ class Inventory_Manager:
         total warehouse size, avoiding the O(N_all_bins) bottleneck that caused
         multi-minute hangs during initial stocking of large warehouses.
         """
-        handling, category = unit.carton.storage_type
-        unit_type = 'pallet' if isinstance(unit, Pallet) else 'singleton'
-        min_rank  = _SIZE_RANKS[unit.storage_size] if isinstance(unit, Pallet) and unit.storage_size else 0
+        shc       = unit.carton.storage_handle_config
+        unit_type = unit.unit_category                    # 'pallet' or 'singleton'
+        min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
         for size in _SIZES_DESCENDING:
             if _SIZE_RANKS[size] >= min_rank:
-                bins = self._index.get((handling, category, size, unit_type))
+                bins = self._index.get((shc.handling, shc.category, size, unit_type))
                 if bins:
                     return list(bins)   # shallow copy — _index_remove mutates the original
         return []
@@ -492,16 +492,16 @@ class Inventory_Manager:
                 #      _MAX_DRAIN_RETRIES the unit is abandoned and the queued-
                 #      count is decremented so a fresh reorder can fire next batch.
                 repacked = False
-                handling, category = carton.storage_type
+                shc = carton.storage_handle_config
 
                 # ── rescue 1: smaller pallet tier ────────────────────────────
-                if isinstance(unit, Pallet) and unit.storage_size is not None:
+                if unit.unit_category == 'pallet' and unit.storage_size is not None:
                     current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
                     for size in _SIZES_DESCENDING:
                         if _SIZE_RANKS[size] >= current_rank:
                             continue   # same or larger tier — already failed
                         avail = self._index.get(
-                            (handling, category, size, 'pallet'))
+                            (shc.handling, shc.category, size, 'pallet'))
                         if not avail:
                             continue
                         max_q = _max_qty_fitting_pallet_size(carton, size)
@@ -529,7 +529,7 @@ class Inventory_Manager:
                     if max_sing > 0:
                         for size in _SIZES_DESCENDING:
                             avail = self._index.get(
-                                (handling, category, size, 'singleton'))
+                                (shc.handling, shc.category, size, 'singleton'))
                             if not avail:
                                 continue
                             remaining  = unit.quantity

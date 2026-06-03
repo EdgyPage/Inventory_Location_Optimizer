@@ -41,7 +41,7 @@ for _p in (_WAREHOUSE, _HERE):
         sys.path.insert(0, _p)
 
 from Aisle_Storage import Aisle
-from Storage_Primitive import viable_storage_units as _vsu, Pallet as _PalletUnit
+from Storage_Primitive import viable_storage_units as _vsu
 
 # Minimum empty bins to preserve per (handling, category, size, unit_type) bucket
 # during overstock fill so reorder units always find a slot during simulation.
@@ -144,9 +144,8 @@ def _stock_to_target_fill(manager, inventory, target: float) -> int:
                 # reorder units placed during simulation always find a slot,
                 # preventing the type-specific saturation that causes queue
                 # buildup and fill-rate collapse over 100 batches.
-                h, cat = carton.storage_type
-                ut  = 'pallet' if isinstance(unit, _PalletUnit) else 'singleton'
-                key = (h, cat, unit.storage_size, ut)
+                shc = carton.storage_handle_config
+                key = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
                 if len(manager._index.get(key, ())) <= _OVERSTOCK_MIN_HEADROOM:
                     continue
                 manager._queue.append(unit)

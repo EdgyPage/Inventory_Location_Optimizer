@@ -68,7 +68,7 @@ from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db
 from Inventory_Management import LoadParams
 from Pick import PickConfig
-from Storage_Primitive import viable_storage_units as _vsu, Pallet as _PalletUnit
+from Storage_Primitive import viable_storage_units as _vsu
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import BatchConfig
 
@@ -342,11 +342,10 @@ def build_shared_assets(
     _singleton_needs: dict[tuple, int] = {}
 
     for c in inventory.cartons:
-        qty    = getattr(c, 'stock_qty', 1)
-        h, cat = c.storage_type
+        qty = getattr(c, 'stock_qty', 1)
+        key = (c.storage_handle_config.handling, c.storage_handle_config.category)
         for unit in _vsu(c, qty):
-            key = (h, cat)
-            if isinstance(unit, _PalletUnit):
+            if unit.unit_category == 'pallet':
                 _pallet_needs[key] = _pallet_needs.get(key, 0) + 1
             else:
                 _singleton_needs[key] = _singleton_needs.get(key, 0) + 1

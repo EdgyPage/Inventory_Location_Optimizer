@@ -63,10 +63,12 @@ def _carton(sku: int, length: int, width: int, height: int,
             stock_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Carton:
-    c              = object.__new__(Carton)
-    c._sku         = sku
-    c.storage_type = (handling, category)
-    c.lift_group   = (handling, category)
+    from Carton import StorageHandleConfig
+    c                        = object.__new__(Carton)
+    c._sku                   = sku
+    c.storage_type           = (handling, category)
+    c.storage_handle_config  = StorageHandleConfig(handling, category)
+    c.lift_group             = (handling, category)
     c.length       = length
     c.width        = width
     c.height       = height
