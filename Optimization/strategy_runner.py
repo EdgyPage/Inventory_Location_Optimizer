@@ -57,11 +57,11 @@ from Inventory_Management import (
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
 from Simulation_Analytics import (
-    extract_batch_stats, extract_task_stats, extract_picker_events,
+    extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
     build_pre_snapshot, snapshot_bin_inventory, snapshot_aisle_metrics,
 )
 from Picking_Data import (
-    save_batch_stats, save_task_stats, save_picker_events,
+    save_batch_stats, save_task_stats, save_picker_events, save_picks,
     save_bin_inventory, save_aisle_metrics,
 )
 
@@ -345,6 +345,7 @@ def _run_strategy_worker(args: dict) -> dict:
     pb: list = []
     pt: list = []
     pe: list = []
+    pk: list = []   # individual pick records
     pi: list = []   # bin inventory snapshots
     pm: list = []   # aisle metrics snapshots
     skipped        = 0
@@ -377,11 +378,13 @@ def _run_strategy_worker(args: dict) -> dict:
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
+        picks_b = extract_picks(events, batch_id=i, run_id=run_id)
         inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id,
                                      full_snapshot=(i == start_i))
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
+        pk.extend(picks_b)
         pi.extend(inv)
         pm.extend(am)
         last_dur        = bs.duration
@@ -393,6 +396,7 @@ def _run_strategy_worker(args: dict) -> dict:
             save_batch_stats(db_path, run_id, pb)
             save_task_stats(db_path, run_id, pt)
             save_picker_events(db_path, run_id, pe)
+            save_picks(db_path, run_id, pk)
             save_bin_inventory(db_path, run_id, pi)
             save_aisle_metrics(db_path, run_id, pm)
             save_worker_checkpoint(run_dir, strategy, i + 1)
@@ -420,7 +424,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  db={t_save:.2f}s'
             )
 
-            pb.clear(); pt.clear(); pe.clear(); pi.clear(); pm.clear()
+            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear()
             reorders_ckpt  = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
@@ -433,6 +437,7 @@ def _run_strategy_worker(args: dict) -> dict:
         save_batch_stats(db_path, run_id, pb)
         save_task_stats(db_path, run_id, pt)
         save_picker_events(db_path, run_id, pe)
+        save_picks(db_path, run_id, pk)
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
 

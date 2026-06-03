@@ -6,12 +6,15 @@ from datetime import datetime, timezone
 
 @dataclass
 class PickRecord:
-    sku: int
-    quantity: int
-    timestamp: datetime
-    location: tuple[int, int, int]   # (aisle_id, bayX, bayY)
-    handling_type: str
-    category_type: str
+    run_id:    int
+    batch_id:  int
+    picker_id: int
+    sim_time:  float
+    aisle_id:  int
+    bayX:      int
+    bayY:      int
+    sku:       int
+    quantity:  int
 
 
 @dataclass
@@ -44,11 +47,12 @@ class TaskStats:
     batch_id: int
     aisle_id: int
     picker_id: int
-    duration: float         # task_end.time − task_start.time
     task_start_time: float  # sim time when the picker started this task
+    task_end_time:   float  # sim time when the picker finished this task
+    duration: float         # task_end_time − task_start_time
     W_a: float              # analytical aisle workload baseline
     lift_sum: float         # sum_lift for this aisle's SKUs
-    num_bins_visited: int   # bins with at least one pick
+    num_bins_visited: int   # bins in the task path (planned visit count)
     total_items: int        # items picked in this aisle
     is_outlier: bool = False
 
@@ -92,15 +96,25 @@ _PICK_COLS = ('sku', 'quantity', 'timestamp', 'aisle_id', 'bayX', 'bayY',
 
 _CREATE_PICKS = """
     CREATE TABLE IF NOT EXISTS picks (
-        sku           INTEGER NOT NULL,
-        quantity      INTEGER NOT NULL,
-        timestamp     TEXT    NOT NULL,
-        aisle_id      INTEGER NOT NULL,
-        bayX          INTEGER NOT NULL,
-        bayY          INTEGER NOT NULL,
-        handling_type TEXT    NOT NULL,
-        category_type TEXT    NOT NULL
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id      INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id    INTEGER NOT NULL,
+        picker_id   INTEGER NOT NULL,
+        sim_time    REAL    NOT NULL,
+        aisle_id    INTEGER NOT NULL,
+        bayX        INTEGER NOT NULL,
+        bayY        INTEGER NOT NULL,
+        sku         INTEGER NOT NULL,
+        quantity    INTEGER NOT NULL
     )
+"""
+
+_CREATE_PICKS_BATCH_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_picks_run_batch ON picks (run_id, batch_id)
+"""
+
+_CREATE_PICKS_SKU_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)
 """
 
 # ── Run DB schema ─────────────────────────────────────────────────────────────
@@ -168,8 +182,9 @@ _CREATE_TASK_STATS = """
         batch_id         INTEGER NOT NULL,
         aisle_id         INTEGER NOT NULL,
         picker_id        INTEGER NOT NULL,
-        duration         REAL    NOT NULL,
         task_start_time  REAL    NOT NULL DEFAULT 0,
+        task_end_time    REAL    NOT NULL DEFAULT 0,
+        duration         REAL    NOT NULL,
         W_a              REAL    NOT NULL,
         lift_sum         REAL    NOT NULL,
         num_bins_visited INTEGER NOT NULL,
@@ -354,6 +369,8 @@ def init_run_db(path: str) -> None:
     con = _open_db(path)
     try:
         con.execute(_CREATE_PICKS)
+        con.execute(_CREATE_PICKS_BATCH_IDX)
+        con.execute(_CREATE_PICKS_SKU_IDX)
         con.execute(_CREATE_RUNS)
         con.execute(_CREATE_BATCH_STATS)
         con.execute(_CREATE_TASK_STATS)
@@ -439,12 +456,13 @@ def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
     try:
         con.executemany(
             'INSERT INTO task_stats '
-            '(run_id,batch_id,aisle_id,picker_id,duration,task_start_time,'
-            'W_a,lift_sum,num_bins_visited,total_items,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
+            'duration,W_a,lift_sum,num_bins_visited,total_items,is_outlier) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             [
-                (run_id, r.batch_id, r.aisle_id, r.picker_id, r.duration,
-                 r.task_start_time, r.W_a, r.lift_sum, r.num_bins_visited,
+                (run_id, r.batch_id, r.aisle_id, r.picker_id,
+                 r.task_start_time, r.task_end_time, r.duration,
+                 r.W_a, r.lift_sum, r.num_bins_visited,
                  r.total_items, int(r.is_outlier))
                 for r in records
             ],
@@ -467,8 +485,9 @@ def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
                 batch_id         = row['batch_id'],
                 aisle_id         = row['aisle_id'],
                 picker_id        = row['picker_id'],
-                duration         = row['duration'],
                 task_start_time  = row['task_start_time'],
+                task_end_time    = row['task_end_time'],
+                duration         = row['duration'],
                 W_a              = row['W_a'],
                 lift_sum         = row['lift_sum'],
                 num_bins_visited = row['num_bins_visited'],
@@ -493,6 +512,25 @@ def save_picker_events(path: str, run_id: int, records: list) -> None:
                 (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
                  r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
                  r.bins_completed, r.total_bins, r.items_picked, r.total_items)
+                for r in records
+            ],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_picks(path: str, run_id: int, records: list) -> None:
+    """Persist individual pick events extracted from the picker event stream."""
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT INTO picks '
+            '(run_id,batch_id,picker_id,sim_time,aisle_id,bayX,bayY,sku,quantity) '
+            'VALUES (?,?,?,?,?,?,?,?,?)',
+            [
+                (run_id, r.batch_id, r.picker_id, r.sim_time,
+                 r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity)
                 for r in records
             ],
         )

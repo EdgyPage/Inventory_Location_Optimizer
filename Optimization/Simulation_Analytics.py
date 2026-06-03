@@ -38,7 +38,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
 
-from Picking_Data import BatchStats, TaskStats
+from Picking_Data import BatchStats, TaskStats, PickRecord
 from Picking_Analytics import sum_lift
 from Workload import WorkloadParams, aisle_workload
 
@@ -263,20 +263,19 @@ def extract_task_stats(
                   else sum_lift(task_skus, affinity))
             if lift_cache is not None:
                 lift_cache[cache_key] = ls
-        num_bins = sum(
-            1 for b in task.path
-            if b.storage is not None and b.storage.carton.sku in task.items
-        )
         result.append(TaskStats(
             run_id           = run_id,
             batch_id         = batch_id,
             aisle_id         = aisle_id,
             picker_id        = aisle_picker.get(aisle_id, -1),
-            duration         = end_time - aisle_start[aisle_id],
             task_start_time  = aisle_start[aisle_id],
+            task_end_time    = end_time,
+            duration         = end_time - aisle_start[aisle_id],
             W_a              = W_a,
             lift_sum         = ls,
-            num_bins_visited = num_bins,
+            # task.path is built at task-creation time from non-empty bins;
+            # its length is the planned visit count, unaffected by post-pick state.
+            num_bins_visited = len(task.path),
             total_items      = sum(task.items.values()),
             is_outlier       = False,
         ))
@@ -592,4 +591,27 @@ def extract_picker_events(
             items_picked   = e.items_picked,
             total_items    = e.total_items,
         ))
+    return records
+
+
+def extract_picks(events: list, batch_id: int, run_id: int = 0) -> list[PickRecord]:
+    """Extract one PickRecord per 'pick' event from the picker event stream.
+
+    Provides a compact, join-friendly picks table (run_id, batch_id, sku, qty,
+    location, sim_time) without the full event stream overhead of picker_events.
+    """
+    records: list[PickRecord] = []
+    for e in events:
+        if e.event_type == 'pick' and e.location is not None and e.sku is not None:
+            records.append(PickRecord(
+                run_id   = run_id,
+                batch_id = batch_id,
+                picker_id= e.picker_id,
+                sim_time = e.time,
+                aisle_id = e.location[0],
+                bayX     = e.location[1],
+                bayY     = e.location[2],
+                sku      = e.sku,
+                quantity = e.quantity or 0,
+            ))
     return records
