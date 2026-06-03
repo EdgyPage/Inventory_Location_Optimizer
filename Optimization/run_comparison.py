@@ -367,11 +367,15 @@ def build_shared_assets(
     _pallet_needs:    dict[tuple, int] = {}
     _singleton_needs: dict[tuple, int] = {}
 
+    avg_eq = sum(c.equilibrium_qty for c in inventory.cartons) / max(n_skus, 1)
+    log.info(f'  Inventory model  : avg equilibrium_qty={avg_eq:.1f}'
+             f'  avg reorder_point={sum(c.reorder_point for c in inventory.cartons)/max(n_skus,1):.1f}'
+             f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.cartons)/max(n_skus,1):.2f}'
+             f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.cartons)/max(n_skus,1):.3f}')
+
     for c in inventory.cartons:
-        # Size for equilibrium_qty (OUP target); fall back to legacy stock_qty.
-        qty = getattr(c, 'equilibrium_qty', getattr(c, 'stock_qty', 1))
         key = (c.storage_handle_config.handling, c.storage_handle_config.category)
-        for unit in _vsu(c, qty):
+        for unit in _vsu(c, c.equilibrium_qty):
             if unit.unit_category == 'pallet':
                 _pallet_needs[key] = _pallet_needs.get(key, 0) + 1
             else:
@@ -398,7 +402,9 @@ def build_shared_assets(
 
     log.info(f'  Bin requirements : {total_pallet_needed:,} pallet'
              f' + {total_singleton_needed:,} singleton'
-             f' = {total_units_needed:,} total  ({time.perf_counter()-t_size:.1f}s)')
+             f' = {total_units_needed:,} total'
+             f'  ({total_units_needed/max(n_skus,1):.1f}/SKU)'
+             f'  ({time.perf_counter()-t_size:.1f}s)')
     log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
              f'  expected_fill={expected_fill:.1%}  target={_TARGET_FILL:.0%}')
 
