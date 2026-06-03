@@ -1,8 +1,8 @@
-"""test_equilibrium_reorder.py
+﻿"""test_equilibrium_reorder.py
 
 Verifies the Order-Up-To (OUP) equilibrium reorder model:
   - equilibrium_qty replaces stock_qty as the steady-state target
-  - reorder_point = trigger_fraction × equilibrium_qty
+  - reorder_point = demand × (lead_time + safety_batches)
   - check_reorders fills back to equilibrium_qty, not a fixed batch size
   - lead_time_mean > 0 defers placement by sampled batches
   - DB round-trips preserve all three new attributes
@@ -34,7 +34,7 @@ from Carton import Carton, StorageHandleConfig
 from Demand import Demand
 from generate_inventory import (
     EQUILIBRIUM_COVERAGE_BATCHES,
-    REORDER_TRIGGER_FRACTION,
+    REORDER_SAFETY_BATCHES,
     build_inventory_with_profile,
     save_inventory_to_db,
     load_inventory_from_db,
@@ -116,7 +116,7 @@ def test_profile_attributes() -> None:
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
         equilibrium_coverage_batches=10.0,
-        trigger_fraction=0.5,
+        reorder_safety_batches=2.0,
     )
     for c in inv.cartons:
         check(f'sku={c.sku} has equilibrium_qty', hasattr(c, 'equilibrium_qty'))
@@ -146,13 +146,15 @@ def test_profile_equilibrium_formula() -> None:
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
         equilibrium_coverage_batches=10.0,
-        trigger_fraction=0.50,
+        reorder_safety_batches=2.0,
     )
     mismatches_eq = []
     mismatches_rp = []
     for c in inv.cartons:
         expected_eq = max(1, round(10.0 * c.expected_batch_demand))
-        expected_rp = max(1, round(0.50 * c.equilibrium_qty))
+        # ROP = demand × (lead_time + safety), capped at eq-1
+        raw_rp      = round(c.expected_batch_demand * (c.lead_time_mean + 2.0))
+        expected_rp = max(1, min(c.equilibrium_qty - 1, raw_rp))
         if c.equilibrium_qty != expected_eq:
             mismatches_eq.append((c.sku, c.equilibrium_qty, expected_eq))
         if c.reorder_point != expected_rp:
@@ -160,8 +162,16 @@ def test_profile_equilibrium_formula() -> None:
 
     check('equilibrium_qty = round(10 × expected_batch_demand) for all SKUs',
           len(mismatches_eq) == 0, f'{mismatches_eq[:3]}')
-    check('reorder_point = round(0.5 × equilibrium_qty) for all SKUs',
+    check('reorder_point = demand × (lead_time + safety), capped at eq-1',
           len(mismatches_rp) == 0, f'{mismatches_rp[:3]}')
+
+    # Popular items should have higher reorder_point than slow movers
+    sorted_by_demand = sorted(inv.cartons, key=lambda c: c.expected_batch_demand)
+    low_rp  = sorted_by_demand[0].reorder_point
+    high_rp = sorted_by_demand[-1].reorder_point
+    check('highest-demand SKU has higher reorder_point than lowest-demand SKU',
+          high_rp > low_rp,
+          f'low_demand rp={low_rp}  high_demand rp={high_rp}')
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -178,7 +188,7 @@ def test_db_roundtrip() -> None:
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
         equilibrium_coverage_batches=8.0,
-        trigger_fraction=0.4,
+        reorder_safety_batches=2.0,
         lead_time_mean_batches=2.0,
     )
     with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
@@ -412,7 +422,7 @@ def test_fill_stability() -> None:
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
         equilibrium_coverage_batches=10.0,
-        trigger_fraction=0.5,
+        reorder_safety_batches=2.0,
     )
 
     Aisle.next_aisle_id = 1

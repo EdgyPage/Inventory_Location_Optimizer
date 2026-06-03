@@ -96,24 +96,27 @@ DEFAULT_QUANTITY_SPEC = {'dist': 'beta_scaled', 'alpha': 27/13, 'beta': 90/13,
 
 # Equilibrium inventory model
 # ─────────────────────────────────────────────────────────────────────────────
-# equilibrium_qty  = coverage_batches × expected_batch_demand
-#   → how many batches of demand to hold at steady state; controls warehouse size.
-# reorder_point    = trigger_fraction × equilibrium_qty
-#   → fires when inventory drops to this fraction; OUP refills back to equilibrium.
-# lead_time_mean   = mean batches before a placed order arrives in the warehouse.
-#   → 0.0 = immediate (no disruption); >0 = delayed orders sampled per-SKU.
+# equilibrium_qty    = coverage_batches × expected_batch_demand
+#   → target steady-state inventory; controls warehouse size.
+#
+# reorder_point      = max(1, min(eq-1, round(expected × (lead_time + safety_batches))))
+#   → classic ROP formula: demand during lead time + safety stock buffer.
+#   → scales with actual demand: popular items reorder sooner (higher absolute
+#     threshold), slow movers reorder later (lower threshold).  No fixed fraction.
+#
+# lead_time_mean     = mean batches before a placed order arrives (per-SKU).
+#   → 0.0 = immediate; >0 = delayed orders sampled per-SKU at run time.
+#
+# supply_cv          = coefficient of variation for received reorder quantity.
+#   → 0.0 = perfect fulfillment; 0.1 = "ordered 50, got 45".
+#   → drawn from HalfNormal(supply_cv_mean) per SKU at profile time.
 EQUILIBRIUM_COVERAGE_BATCHES: float = 10.0
-REORDER_TRIGGER_FRACTION:     float = 0.50
-LEAD_TIME_MEAN_BATCHES:       float = 0.0    # profile default; override per run
-LEAD_TIME_CV:                 float = 0.50   # coefficient of variation for per-SKU sampling
-# supply_cv: coefficient of variation for received reorder quantity.
-# 0.0 = perfect fulfillment (always receive exactly what was ordered).
-# 0.1 = ±10% typical variance ("ordered 50, got 45").
-# Per-SKU values are drawn from HalfNormal(supply_cv_mean) at profile time,
-# giving heterogeneous supplier reliability across SKUs.
-SUPPLY_CV_MEAN: float = 0.0
+REORDER_SAFETY_BATCHES:       float = 2.0   # safety stock: batches of demand to keep as buffer
+LEAD_TIME_MEAN_BATCHES:       float = 0.0
+LEAD_TIME_CV:                 float = 0.50
+SUPPLY_CV_MEAN:               float = 0.0
 
-# Legacy constant kept for backward-compatible DB loads.
+# Legacy alias kept for backward-compatible DB loads.
 REORDER_COVERAGE_BATCHES: float = EQUILIBRIUM_COVERAGE_BATCHES
 
 
@@ -250,7 +253,7 @@ def build_inventory_with_profile(
     weight_spec                  : dict,
     seed                         : int,
     equilibrium_coverage_batches : float = EQUILIBRIUM_COVERAGE_BATCHES,
-    trigger_fraction             : float = REORDER_TRIGGER_FRACTION,
+    reorder_safety_batches       : float = REORDER_SAFETY_BATCHES,
     lead_time_mean_batches       : float = LEAD_TIME_MEAN_BATCHES,
     lead_time_cv                 : float = LEAD_TIME_CV,
     supply_cv_mean               : float = SUPPLY_CV_MEAN,
@@ -262,17 +265,18 @@ def build_inventory_with_profile(
 
     Per-SKU attributes (all stored in DB):
       expected_batch_demand = freq × qty_rate
-      equilibrium_qty       = max(1, round(coverage_batches × expected_batch_demand))
-                              Target steady-state inventory; warehouse sized for this.
-      reorder_point         = max(1, round(trigger_fraction × equilibrium_qty))
-                              Reorder fires when total inventory falls to this level.
-      lead_time_mean        = mean batches before a placed order arrives.
-                              0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
-                              when lead_time_mean_batches > 0, else fixed at 0.
-
-      supply_cv             = coefficient of variation for received quantity.
-                              0.0 = perfect fulfillment; 0.1 → "ordered 50, got 45".
-                              Per-SKU value drawn from HalfNormal(supply_cv_mean).
+      equilibrium_qty   = max(1, round(coverage_batches × expected_batch_demand))
+                          Target steady-state inventory; warehouse sized for this.
+      reorder_point     = max(1, min(eq-1, round(expected × (lead_time_mean + safety_batches))))
+                          Classic ROP = demand during lead time + safety stock.
+                          Scales with actual demand: popular items reorder sooner
+                          (higher absolute threshold), slow movers reorder later.
+      lead_time_mean    = mean batches before a placed order arrives.
+                          0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
+                          when lead_time_mean_batches > 0, else fixed at 0.
+      supply_cv         = coefficient of variation for received quantity.
+                          0.0 = perfect; 0.1 → "ordered 50, got 45".
+                          Per-SKU value drawn from HalfNormal(supply_cv_mean).
 
     At runtime: ideal = equilibrium_qty - current_qty; received = max(1, round(N(ideal, ideal*supply_cv))).
     """
@@ -310,14 +314,20 @@ def build_inventory_with_profile(
 
         c.expected_batch_demand = expected
         c.equilibrium_qty       = max(1, round(equilibrium_coverage_batches * expected))
-        c.reorder_point         = max(1, round(trigger_fraction * c.equilibrium_qty))
 
+        # Sample per-SKU lead time first so ROP can account for it.
         if lead_time_mean_batches > 0.0:
-            # Per-SKU lead time heterogeneity: some SKUs have faster/slower suppliers
             lt = rng.gauss(lead_time_mean_batches, lead_time_mean_batches * lead_time_cv)
             c.lead_time_mean = max(0.0, lt)
         else:
             c.lead_time_mean = 0.0
+
+        # ROP = demand × (lead_time + safety_batches): classic inventory theory.
+        # Popular items produce a higher absolute threshold; slow movers a lower one.
+        # Capped at equilibrium_qty - 1 so the trigger always fires before the
+        # warehouse reaches full target inventory.
+        raw_rp          = round(expected * (c.lead_time_mean + reorder_safety_batches))
+        c.reorder_point = max(1, min(c.equilibrium_qty - 1, raw_rp))
 
         # Per-SKU supply reliability: abs(N(0, supply_cv_mean)) keeps values ≥ 0.
         # SKUs with higher supply_cv have less predictable fulfillment quantities.
@@ -450,7 +460,11 @@ def load_inventory_from_db(db_path: str) -> Inventory:
             equilibrium_qty = stock_qty  # legacy DB: treat stock_qty as equilibrium
 
         if reorder_point is None:
-            reorder_point = max(1, round(REORDER_TRIGGER_FRACTION * equilibrium_qty))
+            # Legacy DB with no reorder_point column: use safety-batches default.
+            # expected_batch_demand fallback: use half of equilibrium as safety stock.
+            _ebd = float(row[col - 1]) if has_expected else 0.0
+            raw  = round(_ebd * REORDER_SAFETY_BATCHES) if _ebd > 0 else equilibrium_qty // 2
+            reorder_point = max(1, min(equilibrium_qty - 1, raw))
 
         lead_time_mean = float(row[col]) if has_lead_time else 0.0
         if has_lead_time: col += 1
@@ -711,7 +725,7 @@ def generate_run(
     dim_spec                     : dict | None        = None,
     weight_spec                  : dict | None        = None,
     equilibrium_coverage_batches : float              = EQUILIBRIUM_COVERAGE_BATCHES,
-    trigger_fraction             : float              = REORDER_TRIGGER_FRACTION,
+    reorder_safety_batches       : float              = REORDER_SAFETY_BATCHES,
     lead_time_mean_batches       : float              = LEAD_TIME_MEAN_BATCHES,
     lead_time_cv                 : float              = LEAD_TIME_CV,
     supply_cv_mean               : float              = SUPPLY_CV_MEAN,
@@ -761,7 +775,7 @@ def generate_run(
         'dim_spec'                     : dim_spec,
         'weight_spec'                  : weight_spec,
         'equilibrium_coverage_batches' : equilibrium_coverage_batches,
-        'trigger_fraction'             : trigger_fraction,
+        'reorder_safety_batches'       : reorder_safety_batches,
         'lead_time_mean_batches'       : lead_time_mean_batches,
         'supply_cv_mean'               : supply_cv_mean,
         'carton_min_dim'               : 3,
@@ -788,7 +802,7 @@ def generate_run(
         weight_spec                  = weight_spec,
         seed                         = seed,
         equilibrium_coverage_batches = equilibrium_coverage_batches,
-        trigger_fraction             = trigger_fraction,
+        reorder_safety_batches       = reorder_safety_batches,
         lead_time_mean_batches       = lead_time_mean_batches,
         lead_time_cv                 = lead_time_cv,
         supply_cv_mean               = supply_cv_mean,
