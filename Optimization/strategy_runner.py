@@ -1,4 +1,4 @@
-"""strategy_runner.py — concurrent strategy worker for run_comparison.py.
+﻿"""strategy_runner.py — concurrent strategy worker for run_comparison.py.
 
 Separates all parallel/CPU machinery from the configuration, analysis, and
 plotting logic in run_comparison.py.
@@ -89,85 +89,6 @@ def _cleanup_checkpoints(run_dir: str) -> None:
             os.remove(p)
 
 
-# ── overstock helper ───────────────────────────────────────────────────────────
-
-def _stock_to_target_fill(manager, inventory, target: float) -> int:
-    """Add demand-weighted overstock until *manager* reaches *target* fill rate.
-
-    Every SKU already has at least one bin from the initial enqueue_all call.
-    This function adds extra copies of cartons (using equilibrium_qty packing)
-    to fill the remaining empty bins up to the target.
-
-    Each round:
-      1. Estimates how many cartons to sample based on the average number of
-         bins each enqueue creates (precomputed from a sample of the inventory).
-      2. Queues units for each sampled carton using viable_storage_units with
-         the carton's actual equilibrium_qty.
-      3. Drains the queue once and clears any units that couldn't be placed
-         (incompatible type, no matching empty bin).
-      4. Repeats until target fill is reached or no progress for two rounds.
-    """
-    total_bins  = len(manager.warehouse.bins)
-    target_bins = round(target * total_bins)
-
-    weights = [c.demand.frequency for c in inventory.cartons]
-    total_w = sum(weights)
-    if total_w == 0:
-        return 0
-    norm_w = [w / total_w for w in weights]
-
-    # Estimate average bins created per enqueue from a sample of 200 cartons.
-    probe       = inventory.cartons[:min(200, len(inventory.cartons))]
-    avg_per_enq = sum(
-        len(_vsu(c, getattr(c, 'equilibrium_qty', getattr(c, 'stock_qty', 1)))) for c in probe
-    ) / max(len(probe), 1)
-    avg_per_enq = max(1.0, avg_per_enq)
-
-    added       = 0
-    no_progress = 0
-
-    for _ in range(50):
-        current = len(manager.unavailable)
-        if current >= target_bins:
-            break
-
-        needed   = target_bins - current
-        n_sample = max(1, round(needed / avg_per_enq))
-        sample   = random.choices(inventory.cartons, weights=norm_w, k=n_sample)
-        before   = len(manager.unavailable)
-
-        for carton in sample:
-            qty = getattr(carton, 'equilibrium_qty', getattr(carton, 'stock_qty', 1))
-            for unit in _vsu(carton, qty):
-                # Skip if this bin-type bucket is nearly full.  Leaving at
-                # least _OVERSTOCK_MIN_HEADROOM empty bins per bucket ensures
-                # reorder units placed during simulation always find a slot,
-                # preventing the type-specific saturation that causes queue
-                # buildup and fill-rate collapse over 100 batches.
-                shc = carton.storage_handle_config
-                key = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
-                if len(manager._index.get(key, ())) <= _OVERSTOCK_MIN_HEADROOM:
-                    continue
-                manager._queue.append(unit)
-            if carton.sku not in manager._originals:
-                manager._originals[carton.sku] = carton
-
-        manager._drain()
-        manager._queue.clear()   # discard units with no compatible empty bin
-
-        delta    = len(manager.unavailable) - before
-        added   += delta
-
-        if delta == 0:
-            no_progress += 1
-            if no_progress >= 2:
-                break
-        else:
-            no_progress = 0
-
-    return added
-
-
 # ── strategy worker ───────────────────────────────────────────────────────────
 
 def _run_strategy_worker(args: dict) -> dict:
@@ -198,7 +119,7 @@ def _run_strategy_worker(args: dict) -> dict:
     seed_world    = args['seed_world']
     seed_batches  = args['seed_batches']
     checkpoint    = args['checkpoint']
-    target_fill   = args['target_fill']
+    max_skus      = args.get('max_skus')
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -211,12 +132,13 @@ def _run_strategy_worker(args: dict) -> dict:
              f'i={pick_cfg.pick_intercept}  cart={pick_cfg.cart_swap_coef}')
     log.info(f'  load  lambda={load_params.lambda_}  k={load_params.k}  gamma={load_params.gamma}')
     log.info(f'  seeds  world={seed_world}  batches={seed_batches}')
-    log.info(f'  target_fill={target_fill:.0%}  checkpoint_every={checkpoint}')
+    log.info(f'  checkpoint_every={checkpoint}'
+             + (f'  max_skus={max_skus:,}' if max_skus else ''))
 
     # ── inventory ─────────────────────────────────────────────────────────────
     log.info(f'Loading inventory: {inv_db}')
     t0        = time.perf_counter()
-    inventory = load_inventory_from_db(inv_db)
+    inventory = load_inventory_from_db(inv_db, limit=max_skus)
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 
@@ -254,14 +176,6 @@ def _run_strategy_worker(args: dict) -> dict:
     base_filled = len(mgr.unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
-
-    # ── fill remaining empty bins to target utilization (all strategies) ──────
-    log.info(f'Filling to {target_fill:.0%} target (overstock duplicate cartons)...')
-    t0    = time.perf_counter()
-    added = _stock_to_target_fill(mgr, inventory, target=target_fill)
-    post_fill = len(mgr.unavailable) / len(warehouse.bins)
-    log.info(f'  +{added:,} bins  ->  {len(mgr.unavailable):,} / {len(warehouse.bins):,} filled'
-             f'  ({post_fill:.1%})  ({time.perf_counter()-t0:.1f}s)')
 
     # ── enable affinity state and set assignment function (B / C only) ────────
     # Initial placement is now identical across A/B/C.  B and C now activate

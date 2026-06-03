@@ -406,7 +406,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     conn.close()
 
 
-def load_inventory_from_db(db_path: str) -> Inventory:
+def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     """Reconstruct an Inventory object from a previously saved DB.
 
     Column compatibility:
@@ -434,6 +434,7 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         + (', lead_time_mean'        if has_lead_time     else '')
         + (', supply_cv'             if has_supply_cv     else '')
         + ' FROM cartons ORDER BY sku'
+        + (f' LIMIT {limit}'         if limit is not None else '')
     )
     rows = conn.execute(select).fetchall()
     conn.close()

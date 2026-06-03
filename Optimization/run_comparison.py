@@ -300,15 +300,18 @@ def build_shared_assets(
     inventory_db: str,
     affinity_db : str,
     log         : logging.Logger,
+    max_skus    : int | None = None,
+    max_aisles  : int | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
 
     Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the
     60-type layout satisfying that constraint).
     """
-    log.info(f'  Loading inventory  : {inventory_db}')
+    log.info(f'  Loading inventory  : {inventory_db}'
+             + (f'  (limit {max_skus:,} SKUs)' if max_skus else ''))
     t0        = time.perf_counter()
-    inventory = load_inventory_from_db(inventory_db)
+    inventory = load_inventory_from_db(inventory_db, limit=max_skus)
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
@@ -354,6 +357,18 @@ def build_shared_assets(
                         for rep, cfg in zip(aisle_replicas, _AISLE_CFGS))
     aisle_splits  = [r / total_aisles for r in aisle_replicas]
     expected_fill = total_units_needed / total_bins if total_bins else 0.0
+
+    # ── apply --max-aisles cap (proportional scale-down) ─────────────────────
+    if max_aisles is not None and total_aisles > max_aisles:
+        scale         = max_aisles / total_aisles
+        aisle_replicas = [max(1, round(r * scale)) for r in aisle_replicas]
+        total_aisles   = sum(aisle_replicas)
+        total_bins     = sum(rep * _effective_bins_per_aisle(cfg)
+                             for rep, cfg in zip(aisle_replicas, _AISLE_CFGS))
+        aisle_splits   = [r / total_aisles for r in aisle_replicas]
+        expected_fill  = total_units_needed / total_bins if total_bins else 0.0
+        log.info(f'  --max-aisles cap : scaled to {total_aisles} aisles / '
+                 f'{total_bins:,} bins  expected_fill={expected_fill:.1%}')
 
     log.info(f'  Bin requirements : {total_pallet_needed:,} pallet'
              f' + {total_singleton_needed:,} singleton'
@@ -416,6 +431,8 @@ def build_shared_assets(
         aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
         aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
         k_pickers          = K_PICKERS,
+        max_skus           = max_skus,
+        max_aisles         = max_aisles,
     )
 
 
@@ -535,7 +552,7 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
         seed_world    = SEED_WORLD,
         seed_batches  = SEED_BATCHES,
         checkpoint    = _CHECKPOINT,
-        target_fill   = _TARGET_FILL,
+        max_skus      = shared.get('max_skus'),
         warehouse_cfg = warehouse_cfg,
         pick_cfg      = pick_cfg,
         wp            = wp,
@@ -588,6 +605,8 @@ def _run_pair_sims(
     pair_dir       : str,
     config_workers : int,
     log            : logging.Logger,
+    max_skus       : int | None = None,
+    max_aisles     : int | None = None,
 ) -> tuple[str, dict, dict]:
     """Load one inventory+affinity pair and run all regression config simulations.
 
@@ -601,7 +620,8 @@ def _run_pair_sims(
     log.info(f'\n{"="*64}')
     log.info(f'  Dataset : {label}')
     log.info(f'{"="*64}')
-    shared = build_shared_assets(inv_db, aff_db, log)
+    shared = build_shared_assets(inv_db, aff_db, log,
+                                 max_skus=max_skus, max_aisles=max_aisles)
 
     sim_results: dict[str, dict] = {}
     if config_workers > 1:
@@ -701,6 +721,10 @@ def main():
     parser.add_argument('--analyze-only', metavar='BASE_DIR', default=None,
                         help='Skip simulation; re-run analysis plots on an existing '
                              'comparison directory (uses sim_meta.json written by each run)')
+    parser.add_argument('--max-skus', type=int, default=None, metavar='N',
+                        help='Cap inventory to the first N SKUs (smaller warehouse for quick runs)')
+    parser.add_argument('--max-aisles', type=int, default=None, metavar='N',
+                        help='Cap total aisle count by proportionally scaling replica counts')
     args = parser.parse_args()
 
     if args.analyze_only:
@@ -781,6 +805,8 @@ def main():
                     os.path.join(base_dir, label),
                     args.config_workers,
                     log,
+                    args.max_skus,
+                    args.max_aisles,
                 ): (label, inv_db, aff_db)
                 for label, inv_db, aff_db in pairs
             }
@@ -800,7 +826,8 @@ def main():
         for label, inv_db, aff_db in pairs:
             pair_dir = os.path.join(base_dir, label)
             _, shared, sim_results = _run_pair_sims(
-                label, inv_db, aff_db, pair_dir, args.config_workers, log
+                label, inv_db, aff_db, pair_dir, args.config_workers, log,
+                args.max_skus, args.max_aisles,
             )
             log.info('  All simulations done — running analyses sequentially...')
             for cfg in REGRESSION_CONFIGS:
