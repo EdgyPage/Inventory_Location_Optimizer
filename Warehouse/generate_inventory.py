@@ -530,7 +530,10 @@ def compute_stats(df: pd.DataFrame) -> dict:
             'frequency'    : _summary(df['demand_frequency']),
             'quantity_rate': _summary(df['demand_qty_rate']),
         },
-        'stock_qty': _summary(df['stock_qty']) if 'stock_qty' in df.columns else {},
+        'equilibrium_qty': _summary(df['equilibrium_qty']) if 'equilibrium_qty' in df.columns else {},
+        'reorder_point'  : _summary(df['reorder_point'])   if 'reorder_point'   in df.columns else {},
+        'lead_time_mean' : _summary(df['lead_time_mean'])  if 'lead_time_mean'  in df.columns else {},
+        'supply_cv'      : _summary(df['supply_cv'])       if 'supply_cv'       in df.columns else {},
     }
 
 
@@ -623,37 +626,43 @@ def plot_demand(df: pd.DataFrame, out_dir: str) -> None:
     _save_close(fig, os.path.join(out_dir, 'demand.png'))
 
 
-def plot_stock_qty(df: pd.DataFrame, out_dir: str) -> None:
-    """Histogram + KDE of the stock_qty distribution."""
-    if 'stock_qty' not in df.columns:
+def plot_equilibrium_qty(df: pd.DataFrame, out_dir: str) -> None:
+    """Histogram + KDE of equilibrium_qty and reorder_point distributions."""
+    col = 'equilibrium_qty' if 'equilibrium_qty' in df.columns else None
+    if col is None:
         return
-    vals = df['stock_qty'].values.astype(float)
-    fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
-    fig.suptitle('Initial Stock Quantity Distribution', fontsize=13, fontweight='bold')
+    eq_vals = np.asarray(df[col], dtype=float)
+    rp_col  = 'reorder_point'
+    rp_vals = np.asarray(df[rp_col], dtype=float) if rp_col in df.columns else None
 
-    axes[0].hist(vals, bins=60, color='#9966cc', alpha=0.75, edgecolor='white')
-    axes[0].axvline(vals.mean(),     color='red',    lw=1.5, linestyle='--',
-                    label=f'Mean   {vals.mean():.1f}')
-    axes[0].axvline(np.median(vals), color='orange', lw=1.5, linestyle=':',
-                    label=f'Median {np.median(vals):.1f}')
-    axes[0].set_xlabel('Stock quantity per bin')
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
+    fig.suptitle('Equilibrium Inventory Quantities', fontsize=13, fontweight='bold')
+
+    axes[0].hist(eq_vals, bins=60, color='#9966cc', alpha=0.75, edgecolor='white',
+                 label='equilibrium_qty')
+    if rp_vals is not None:
+        axes[0].hist(rp_vals, bins=60, color='#cc6699', alpha=0.55, edgecolor='white',
+                     label='reorder_point')
+    axes[0].axvline(eq_vals.mean(), color='red',    lw=1.5, linestyle='--',
+                    label=f'EQ mean {eq_vals.mean():.1f}')
+    axes[0].set_xlabel('Units')
     axes[0].set_ylabel('SKU count')
-    axes[0].set_title('Histogram  (mode≈35, mean≈50, range [5,200])')
+    axes[0].set_title('Histogram')
     axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
 
-    if vals.max() > vals.min():
-        kde = gaussian_kde(vals, bw_method='silverman')
-        xs  = np.linspace(vals.min(), vals.max(), 500)
+    if eq_vals.max() > eq_vals.min():
+        kde = gaussian_kde(eq_vals, bw_method='silverman')
+        xs  = np.linspace(eq_vals.min(), eq_vals.max(), 500)
         axes[1].fill_between(xs, kde(xs), alpha=0.4, color='#9966cc')
-        axes[1].plot(xs, kde(xs), color='#9966cc', lw=2)
-        axes[1].axvline(vals.mean(),     color='red',    lw=1.5, linestyle='--')
-        axes[1].axvline(np.median(vals), color='orange', lw=1.5, linestyle=':')
-    axes[1].set_xlabel('Stock quantity per bin')
+        axes[1].plot(xs, kde(xs), color='#9966cc', lw=2, label='equilibrium_qty')
+        axes[1].axvline(eq_vals.mean(),     color='red',    lw=1.5, linestyle='--')
+        axes[1].axvline(np.median(eq_vals), color='orange', lw=1.5, linestyle=':')
+    axes[1].set_xlabel('Units')
     axes[1].set_ylabel('Density')
     axes[1].set_title('KDE')
     axes[1].grid(alpha=0.3)
     plt.tight_layout()
-    _save_close(fig, os.path.join(out_dir, 'stock_qty.png'))
+    _save_close(fig, os.path.join(out_dir, 'equilibrium_qty.png'))
 
 
 def plot_volume_vs_weight(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> None:
@@ -835,7 +844,7 @@ def generate_run(
     plot_dimensions(df, plot_dir, sfx)
     plot_weight(df, plot_dir, sfx)
     plot_demand(df, plot_dir)
-    plot_stock_qty(df, plot_dir)
+    plot_equilibrium_qty(df, plot_dir)
     plot_volume_vs_weight(df, plot_dir, sfx)
     plot_singleton_split(df, plot_dir)
     plot_dim_kde_overlay(df, plot_dir, sfx)

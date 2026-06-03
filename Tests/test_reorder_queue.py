@@ -6,22 +6,20 @@ The warehouse uses the same 24-aisle-type layout as run_comparison:
   12 pallet types  (conveyable + non-conveyable x 6 categories, all 4 sizes)
   12 singleton types (same split)
 
-Reorder policy
---------------
-Each Carton carries two pre-computed attributes set at inventory generation time:
+Reorder policy (OUP equilibrium model)
+---------------------------------------
+Each Carton carries attributes set at profile generation time:
   expected_batch_demand = demand.frequency * demand.quantity_rate
-  reorder_point         = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
+  equilibrium_qty       = max(1, round(coverage_batches * expected_batch_demand))
+  reorder_point         = max(1, min(eq-1, round(demand * (lead_time + safety_batches))))
 
-_notify_pick reads carton.reorder_point directly — no calculation in the hot path.
-check_reorders fires a reorder via viable_storage_units(rc, stock_qty) when a SKU
-drops to or below its reorder_point, creating:
-  floor(stock_qty / max_per_pallet) full-pallet units  +
-  1 singleton unit for the remainder (if any)
+_notify_pick reads carton.reorder_point directly.  check_reorders fires an
+Order-Up-To reorder: qty = equilibrium_qty - current_qty.  Received quantity
+is sampled from N(ideal, ideal * supply_cv) floored at 1.
 
-Multiple units per reorder means the queue can grow larger than n_skus when the
-test warehouse doesn't have enough empty bins to absorb all units immediately.
-The important property is that the queue remains bounded and stabilises — it
-should NOT grow without limit.
+Units that cannot be placed stay in the queue indefinitely (FIFO) until a bin
+opens up.  The important property is that the queue remains bounded and
+stabilises — it should NOT grow without limit.
 
 Checks
 ------
@@ -146,7 +144,7 @@ def run() -> bool:
     print(f'  aisle_dims={_AISLE_W}×{_AISLE_H}  aisle_types={len(_AISLE_CFGS)}  seed={SEED}')
     print(f'{"="*66}')
 
-    # ── inventory (uses DEFAULT_QUANTITY_SPEC: stock_qty Beta [5, 200], mode=35) ──
+    # ── inventory ─────────────────────────────────────────────────────────────
     inventory = build_inventory_with_profile(
         num_skus           = N_SKUS,
         handling_splits    = [0.5, 0.5],
@@ -156,22 +154,17 @@ def run() -> bool:
         weight_spec        = DEFAULT_WEIGHT_SPEC,
         seed               = SEED,
     )
-    n_skus     = len(inventory.cartons)
-    stock_qtys = [getattr(c, 'stock_qty',             1)   for c in inventory.cartons]
-    rops       = [getattr(c, 'reorder_point',         None) for c in inventory.cartons]
-    ebds       = [getattr(c, 'expected_batch_demand', None) for c in inventory.cartons]
+    n_skus   = len(inventory.cartons)
+    eq_qtys  = [c.equilibrium_qty       for c in inventory.cartons]
+    rops     = [c.reorder_point         for c in inventory.cartons]
+    ebds     = [c.expected_batch_demand for c in inventory.cartons]
 
-    all_rops_set = all(r is not None for r in rops)
-    all_ebds_set = all(e is not None for e in ebds)
-
-    print(f'  stock_qty:             min={min(stock_qtys)}  max={max(stock_qtys)}  '
-          f'mean={sum(stock_qtys)/len(stock_qtys):.1f}')
-    if all_rops_set:
-        print(f'  reorder_point:         min={min(rops)}  max={max(rops)}  '
-              f'mean={sum(rops)/len(rops):.2f}')
-    if all_ebds_set:
-        print(f'  expected_batch_demand: min={min(ebds):.2f}  max={max(ebds):.2f}  '
-              f'mean={sum(ebds)/len(ebds):.2f}')
+    print(f'  equilibrium_qty:       min={min(eq_qtys)}  max={max(eq_qtys)}  '
+          f'mean={sum(eq_qtys)/len(eq_qtys):.1f}')
+    print(f'  reorder_point:         min={min(rops)}  max={max(rops)}  '
+          f'mean={sum(rops)/len(rops):.2f}')
+    print(f'  expected_batch_demand: min={min(ebds):.2f}  max={max(ebds):.2f}  '
+          f'mean={sum(ebds)/len(ebds):.2f}')
 
     # ── warehouse ──────────────────────────────────────────────────────────────
     wh_cfg = _build_wh_cfg(n_skus)
@@ -263,10 +256,13 @@ def run() -> bool:
 
     print(f'\n  Bin type breakdown: pallet={pallet_occupied}  singleton={singleton_occupied}')
     print(f'\n  Checks:')
+    all_eq_set  = all(hasattr(c, 'equilibrium_qty')       for c in inventory.cartons)
+    all_rops_set = all(hasattr(c, 'reorder_point')        for c in inventory.cartons)
+    all_ebds_set = all(hasattr(c, 'expected_batch_demand') for c in inventory.cartons)
     check(
-        'reorder_point and expected_batch_demand set on all cartons',
-        all_rops_set and all_ebds_set,
-        f'rops_set={all_rops_set}  ebds_set={all_ebds_set}',
+        'equilibrium_qty, reorder_point and expected_batch_demand set on all cartons',
+        all_eq_set and all_rops_set and all_ebds_set,
+        f'eq_set={all_eq_set}  rops_set={all_rops_set}  ebds_set={all_ebds_set}',
     )
     check(
         f'queue not growing in last {STABLE_WINDOW} batches',

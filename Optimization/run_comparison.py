@@ -358,11 +358,10 @@ def build_shared_assets(
     log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
     # ── Warehouse sizing (data-driven from actual bin requirements) ───────────
-    # Call viable_storage_units(carton, stock_qty) for every carton to count
-    # exactly how many pallet and singleton bins each (handling, category) pair
-    # needs after initial stocking.  Each of the 24 aisle types is then sized
-    # independently so the warehouse reaches _TARGET_FILL utilization per type,
-    # eliminating the large initial queue that arose from undersized aisles.
+    # Call viable_storage_units(carton, equilibrium_qty) for every carton to
+    # count exactly how many pallet and singleton bins each (handling, category)
+    # pair needs.  Each of the 24 aisle types is sized independently so the
+    # warehouse reaches _TARGET_FILL utilization per type.
 
     t_size = time.perf_counter()
     _pallet_needs:    dict[tuple, int] = {}
@@ -545,6 +544,15 @@ def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger)
         'n_batches'       : N_BATCHES,
         'seed_world'      : SEED_WORLD,
         'seed_batches'    : SEED_BATCHES,
+        # inventory schema (OUP equilibrium model)
+        'avg_equilibrium_qty' : round(sum(getattr(c, 'equilibrium_qty', 1)
+                                          for c in inventory.cartons) / max(len(inventory.cartons), 1), 1),
+        'avg_reorder_point'   : round(sum(getattr(c, 'reorder_point', 1)
+                                          for c in inventory.cartons) / max(len(inventory.cartons), 1), 2),
+        'avg_lead_time_mean'  : round(sum(getattr(c, 'lead_time_mean', 0.0)
+                                          for c in inventory.cartons) / max(len(inventory.cartons), 1), 3),
+        'avg_supply_cv'       : round(sum(getattr(c, 'supply_cv', 0.0)
+                                          for c in inventory.cartons) / max(len(inventory.cartons), 1), 3),
     }
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
