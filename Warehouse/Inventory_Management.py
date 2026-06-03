@@ -36,6 +36,16 @@ BinKey = tuple[str, str, str, str]
 _MAX_DRAIN_RETRIES: int = 5
 
 
+def _equilibrium_qty(carton: Carton) -> int:
+    """Return the Order-Up-To target for *carton*.
+
+    Reads equilibrium_qty if present (new schema); falls back to the legacy
+    stock_qty attribute so old in-memory inventories still work correctly.
+    """
+    return getattr(carton, 'equilibrium_qty',
+                   getattr(carton, 'stock_qty', 1))
+
+
 def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
     """Return the maximum number of *carton* items that stack onto one pallet
     whose storage_size is at most *target_size*.
@@ -95,11 +105,18 @@ class Inventory_Manager:
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
-        # stock_qty at initial intake per SKU (not updated on reorders).
+        # equilibrium_qty at initial intake per SKU (not updated on reorders).
         self._initial_quantities: dict[int, int] = {}
 
         # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
         self._current_quantities: dict[int, int] = {}
+
+        # Deferred reorder support (Order-Up-To with lead times).
+        # _batch_num increments on each check_reorders call; deferred reorders
+        # are keyed by the batch number when they are due to arrive.
+        self._batch_num: int = 0
+        self._deferred_reorders: dict[int, list[tuple[int, list[StorageUnit]]]] = defaultdict(list)
+        self._deferred_sku_counts: dict[int, int] = {}   # in-flight deferred units per SKU
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
@@ -146,11 +163,11 @@ class Inventory_Manager:
     def enqueue(self, carton: Carton, quantity: int | None = None) -> 'Inventory_Manager':
         """Queue one carton for bin placement.
 
-        quantity=None (default) reads stock_qty from the carton — the normal
+        quantity=None (default) reads equilibrium_qty from the carton — the normal
         path for inventory intake.  Pass an explicit integer only when you need
         to override the carton's own stock level (e.g. overstock sampling).
         """
-        qty = quantity if quantity is not None else getattr(carton, 'stock_qty', 1)
+        qty = quantity if quantity is not None else _equilibrium_qty(carton)
         for unit in viable_storage_units(carton, qty):
             self._queue.append(unit)
         if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
@@ -162,12 +179,12 @@ class Inventory_Manager:
     def enqueue_all(self, cartons: list[Carton], quantity: int | None = None) -> 'Inventory_Manager':
         """Queue a list of cartons for bin placement.
 
-        quantity=None (default) reads stock_qty from each carton — the normal
+        quantity=None (default) reads equilibrium_qty from each carton — the normal
         path for inventory intake.  Pass an explicit integer only when you need
         to override every carton's stock level (e.g. overstock sampling).
         """
         for carton in cartons:
-            qty = quantity if quantity is not None else getattr(carton, 'stock_qty', 1)
+            qty = quantity if quantity is not None else _equilibrium_qty(carton)
             for unit in viable_storage_units(carton, qty):
                 self._queue.append(unit)
             if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
@@ -256,7 +273,8 @@ class Inventory_Manager:
         new_qty = max(0, cur - qty)
         self._current_quantities[sku] = new_qty
         orig = self._originals.get(sku)
-        if orig is not None and new_qty <= orig.reorder_point:
+        rp = getattr(orig, 'reorder_point', None) if orig is not None else None
+        if rp is not None and new_qty <= rp:
             self._depleted_skus.add(sku)
 
     def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
@@ -321,45 +339,73 @@ class Inventory_Manager:
         self._pending_reclaim.clear()
 
     def check_reorders(self) -> list[int]:
-        """Enqueue replenishment for any SKU whose quantity <= its reorder_point.
+        """Order-Up-To replenishment with optional per-SKU lead-time deferral.
 
-        reorder_point is a per-SKU threshold stored on the Carton at inventory
-        generation time (expected_batch_demand × coverage_batches).  No threshold
-        computation happens here — _notify_pick already flagged the SKU.
+        Each call:
+          1. Increments the internal batch counter.
+          2. Releases any deferred reorders whose lead time has elapsed.
+          3. For each SKU flagged by _notify_pick as below its reorder_point,
+             computes qty = equilibrium_qty − current_qty (OUP fill-back) and
+             either schedules immediately or defers by lead_time_mean batches.
 
-        Queue semantics (FIFO, persistent across batches):
-          - Items that cannot be placed remain in the queue in arrival order.
-          - A SKU already in the queue is never re-enqueued — the existing
-            entry will be placed as soon as a compatible bin becomes free.
-          - _drain() is called whenever the queue is non-empty (not only when
-            new reorders are triggered) so previously-unplaceable items are
-            retried every batch as reclaimed bins return to the index.
+        Guard: a SKU with units already queued OR in-flight deferred is skipped
+        so only one replenishment wave is ever in-flight per SKU at a time.
+
+        Lead-time sampling: if carton.lead_time_mean > 0, samples
+        max(1, round(N(mean, mean))) batches.  Zero mean = immediate placement.
         """
+        self._batch_num += 1
         self._reclaim_empty_bins()
 
-        # Fast exit only when there is genuinely nothing to do.
+        # ── 1. Release deferred reorders that have arrived ───────────────────
+        due = self._deferred_reorders.pop(self._batch_num, None)
+        if due:
+            for sku, units in due:
+                self._deferred_sku_counts[sku] = max(
+                    0, self._deferred_sku_counts.get(sku, 0) - len(units)
+                )
+                for unit in units:
+                    self._queue.append(unit)
+                self._queued_sku_counts[sku] = (
+                    self._queued_sku_counts.get(sku, 0) + len(units)
+                )
+
+        # Fast exit when there is nothing to do.
         if not self._depleted_skus and not self._queue:
             return []
 
+        # ── 2. Fire OUP reorders for depleted SKUs ───────────────────────────
         triggered: list[int] = []
         for sku in self._depleted_skus:
-            # O(1) check via maintained counter instead of rebuilding a set.
-            if self._queued_sku_counts.get(sku, 0) == 0 and sku in self._originals:
-                rc    = self._originals[sku].reorder()
-                qty   = getattr(rc, 'stock_qty', 1)
-                units = viable_storage_units(rc, qty)
-                for unit in units:
-                    self._queue.append(unit)
-                if units:
+            in_queue    = self._queued_sku_counts.get(sku, 0)
+            in_deferred = self._deferred_sku_counts.get(sku, 0)
+            if in_queue == 0 and in_deferred == 0 and sku in self._originals:
+                rc      = self._originals[sku].reorder()
+                eq_qty  = _equilibrium_qty(rc)
+                cur_qty = self._current_quantities.get(sku, 0)
+                qty     = max(1, eq_qty - cur_qty)   # OUP: fill back to target
+                units   = viable_storage_units(rc, qty)
+                if not units:
+                    continue
+
+                lt_mean = getattr(rc, 'lead_time_mean', 0.0)
+                if lt_mean > 0.0:
+                    # Sample lead time; floor at 1 so deferred ≠ immediate
+                    lead = max(1, round(random.gauss(lt_mean, lt_mean)))
+                    self._deferred_reorders[self._batch_num + lead].append((sku, units))
+                    self._deferred_sku_counts[sku] = (
+                        self._deferred_sku_counts.get(sku, 0) + len(units)
+                    )
+                else:
+                    for unit in units:
+                        self._queue.append(unit)
                     self._queued_sku_counts[sku] = (
                         self._queued_sku_counts.get(sku, 0) + len(units)
                     )
                 triggered.append(sku)
         self._depleted_skus.clear()
 
-        # Always drain — retries pending items from prior batches as well as
-        # newly triggered reorders.  Items that still can't be placed stay in
-        # the queue for the next call.
+        # Always drain — retries prior-batch stragglers too.
         if self._queue:
             self._drain()
         return triggered

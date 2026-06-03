@@ -94,10 +94,21 @@ DEFAULT_WEIGHT_SPEC   = {'dist': 'volume_poisson'}
 DEFAULT_QUANTITY_SPEC = {'dist': 'beta_scaled', 'alpha': 27/13, 'beta': 90/13,
                          'low': 5, 'high': 200}
 
-# Number of batches of expected demand to hold as safety stock before reordering.
-# reorder_point = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
-# where expected_batch_demand = demand.frequency * demand.quantity_rate.
-REORDER_COVERAGE_BATCHES: float = 3.0
+# Equilibrium inventory model
+# ─────────────────────────────────────────────────────────────────────────────
+# equilibrium_qty  = coverage_batches × expected_batch_demand
+#   → how many batches of demand to hold at steady state; controls warehouse size.
+# reorder_point    = trigger_fraction × equilibrium_qty
+#   → fires when inventory drops to this fraction; OUP refills back to equilibrium.
+# lead_time_mean   = mean batches before a placed order arrives in the warehouse.
+#   → 0.0 = immediate (no disruption); >0 = delayed orders sampled per-SKU.
+EQUILIBRIUM_COVERAGE_BATCHES: float = 10.0
+REORDER_TRIGGER_FRACTION:     float = 0.50
+LEAD_TIME_MEAN_BATCHES:       float = 0.0    # profile default; override per run
+LEAD_TIME_CV:                 float = 0.50   # coefficient of variation for per-SKU sampling
+
+# Legacy constant kept for backward-compatible DB loads.
+REORDER_COVERAGE_BATCHES: float = EQUILIBRIUM_COVERAGE_BATCHES
 
 
 # ── distribution samplers ──────────────────────────────────────────────────────
@@ -225,30 +236,35 @@ def sample_weight(spec: dict, length: int, width: int, height: int,
 # ── inventory builder ──────────────────────────────────────────────────────────
 
 def build_inventory_with_profile(
-    num_skus                 : int,
-    handling_splits          : list[float],
-    category_splits          : list[float],
-    singleton_fraction       : float,
-    dim_spec                 : dict,
-    weight_spec              : dict,
-    seed                     : int,
-    quantity_spec            : dict | None = None,
-    reorder_coverage_batches : float       = REORDER_COVERAGE_BATCHES,
+    num_skus                     : int,
+    handling_splits              : list[float],
+    category_splits              : list[float],
+    singleton_fraction           : float,
+    dim_spec                     : dict,
+    weight_spec                  : dict,
+    seed                         : int,
+    equilibrium_coverage_batches : float = EQUILIBRIUM_COVERAGE_BATCHES,
+    trigger_fraction             : float = REORDER_TRIGGER_FRACTION,
+    lead_time_mean_batches       : float = LEAD_TIME_MEAN_BATCHES,
+    lead_time_cv                 : float = LEAD_TIME_CV,
 ) -> Inventory:
-    """Build an Inventory using custom dim / weight specs.
+    """Build an Inventory using the equilibrium inventory model.
 
     Bypasses Carton.__init__ so any distribution can be used.
     Carton.next_sku is reset to 1 at the start of this function.
 
-    Each carton receives two demand-derived attributes:
-      expected_batch_demand = demand.frequency * demand.quantity_rate
-      reorder_point         = max(1, round(reorder_coverage_batches * expected_batch_demand))
+    Per-SKU attributes (all stored in DB):
+      expected_batch_demand = freq × qty_rate
+      equilibrium_qty       = max(1, round(coverage_batches × expected_batch_demand))
+                              Target steady-state inventory; warehouse sized for this.
+      reorder_point         = max(1, round(trigger_fraction × equilibrium_qty))
+                              Reorder fires when total inventory falls to this level.
+      lead_time_mean        = mean batches before a placed order arrives.
+                              0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
+                              when lead_time_mean_batches > 0, else fixed at 0.
 
-    These are stored in the DB so the Inventory_Manager can read them
-    directly without computing anything during simulation.
+    At runtime, check_reorders uses Order-Up-To: reorder qty = equilibrium_qty - current_qty.
     """
-    if quantity_spec is None:
-        quantity_spec = DEFAULT_QUANTITY_SPEC
     storage = Storage_Type()
     rng     = random.Random(seed)
     Carton.next_sku = 1
@@ -267,23 +283,31 @@ def build_inventory_with_profile(
 
         freq     = rng.uniform(0.0, 1.0)
         qty_rate = rng.uniform(0.5, 20.0)
+        expected = freq * qty_rate
 
         c              = object.__new__(Carton)
         c._sku         = Carton.next_sku
         Carton.next_sku += 1
-        c.storage_type         = (handling, category)
+        c.storage_type          = (handling, category)
         c.storage_handle_config = StorageHandleConfig(handling, category)
-        c.lift_group           = (handling, category)
+        c.lift_group            = (handling, category)
         c.length       = l
         c.width        = w
         c.height       = h
         c.weight       = wt
         c.demand       = Demand.from_rates(freq, qty_rate)
-        c.stock_qty    = sample_quantity(quantity_spec, rng)
 
-        expected                = freq * qty_rate
         c.expected_batch_demand = expected
-        c.reorder_point         = max(1, round(reorder_coverage_batches * expected))
+        c.equilibrium_qty       = max(1, round(equilibrium_coverage_batches * expected))
+        c.reorder_point         = max(1, round(trigger_fraction * c.equilibrium_qty))
+
+        if lead_time_mean_batches > 0.0:
+            # Per-SKU lead time heterogeneity: some SKUs have faster/slower suppliers
+            lt = rng.gauss(lead_time_mean_batches, lead_time_mean_batches * lead_time_cv)
+            c.lead_time_mean = max(0.0, lt)
+        else:
+            c.lead_time_mean = 0.0
+
         cartons.append(c)
 
     return Inventory(cartons)
@@ -302,9 +326,10 @@ _SCHEMA = '''
         weight                INTEGER NOT NULL,
         demand_frequency      REAL    NOT NULL,
         demand_qty_rate       REAL    NOT NULL,
-        stock_qty             INTEGER NOT NULL DEFAULT 1,
         expected_batch_demand REAL    NOT NULL DEFAULT 0,
-        reorder_point         INTEGER NOT NULL DEFAULT 1
+        equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
+        reorder_point         INTEGER NOT NULL DEFAULT 1,
+        lead_time_mean        REAL    NOT NULL DEFAULT 0.0
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -332,11 +357,19 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
             c.demand.frequency, c.demand.quantity_rate,
-            getattr(c, 'stock_qty',             1),
             getattr(c, 'expected_batch_demand', 0.0),
+            getattr(c, 'equilibrium_qty',       1),
             getattr(c, 'reorder_point',         1),
+            getattr(c, 'lead_time_mean',        0.0),
         ))
-    conn.executemany('INSERT OR REPLACE INTO cartons VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', rows)
+    conn.executemany(
+        'INSERT OR REPLACE INTO cartons '
+        '(sku, handling, category, length, width, height, weight, '
+        ' demand_frequency, demand_qty_rate, expected_batch_demand, '
+        ' equilibrium_qty, reorder_point, lead_time_mean) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        rows,
+    )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
                  ('params_json', json.dumps(params, indent=2)))
     conn.commit()
@@ -358,12 +391,16 @@ def load_inventory_from_db(db_path: str) -> Inventory:
     has_stock_qty      = 'stock_qty'             in col_names
     has_expected       = 'expected_batch_demand'  in col_names
     has_reorder_point  = 'reorder_point'          in col_names
+    has_equilibrium    = 'equilibrium_qty'         in col_names
+    has_lead_time      = 'lead_time_mean'          in col_names
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
         'demand_frequency, demand_qty_rate'
-        + (', stock_qty'             if has_stock_qty     else '')
-        + (', expected_batch_demand' if has_expected      else '')
+        + (', stock_qty'             if has_stock_qty   else '')
+        + (', expected_batch_demand' if has_expected    else '')
         + (', reorder_point'         if has_reorder_point else '')
+        + (', equilibrium_qty'       if has_equilibrium else '')
+        + (', lead_time_mean'        if has_lead_time   else '')
         + ' FROM cartons ORDER BY sku'
     )
     rows = conn.execute(select).fetchall()
@@ -375,20 +412,26 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         sku, handling, category, length, width, height, weight, freq, qty_rate = row[:9]
         col = 9
 
-        if has_stock_qty:
-            stock_qty = int(row[col]);  col += 1
-        else:
-            stock_qty = 1
+        stock_qty = int(row[col]) if has_stock_qty else 1
+        if has_stock_qty: col += 1
 
-        if has_expected:
-            expected_batch_demand = float(row[col]);  col += 1
-        else:
-            expected_batch_demand = freq * qty_rate
+        expected_batch_demand = float(row[col]) if has_expected else freq * qty_rate
+        if has_expected: col += 1
 
-        if has_reorder_point:
-            reorder_point = int(row[col])
+        reorder_point = int(row[col]) if has_reorder_point else None
+        if has_reorder_point: col += 1
+
+        # equilibrium_qty: prefer the new column; fall back to legacy stock_qty
+        if has_equilibrium:
+            equilibrium_qty = int(row[col]);  col += 1
         else:
-            reorder_point = max(1, round(REORDER_COVERAGE_BATCHES * expected_batch_demand))
+            equilibrium_qty = stock_qty  # legacy DB: treat stock_qty as equilibrium
+
+        if reorder_point is None:
+            reorder_point = max(1, round(REORDER_TRIGGER_FRACTION * equilibrium_qty))
+
+        lead_time_mean = float(row[col]) if has_lead_time else 0.0
+        if has_lead_time: col += 1
 
         c                        = object.__new__(Carton)
         c._sku                   = sku
@@ -400,9 +443,10 @@ def load_inventory_from_db(db_path: str) -> Inventory:
         c.height                 = height
         c.weight                 = weight
         c.demand                 = Demand.from_rates(freq, qty_rate)
-        c.stock_qty              = stock_qty
         c.expected_batch_demand  = expected_batch_demand
+        c.equilibrium_qty        = equilibrium_qty
         c.reorder_point          = reorder_point
+        c.lead_time_mean         = lead_time_mean
         cartons.append(c)
         max_sku = max(max_sku, sku)
 

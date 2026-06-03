@@ -58,9 +58,10 @@ class Carton:
         c._sku = self._sku
         c.demand = Demand.from_rates(self.demand.frequency, self.demand.quantity_rate)
         c.lift_group = self.lift_group
-        c.stock_qty             = getattr(self, 'stock_qty',             1)
         c.expected_batch_demand = getattr(self, 'expected_batch_demand', 0.0)
+        c.equilibrium_qty       = getattr(self, 'equilibrium_qty',       1)
         c.reorder_point         = getattr(self, 'reorder_point',         1)
+        c.lead_time_mean        = getattr(self, 'lead_time_mean',        0.0)
         c._is_reorder = True
         return c
 

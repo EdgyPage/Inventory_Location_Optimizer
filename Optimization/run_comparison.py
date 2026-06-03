@@ -369,7 +369,8 @@ def build_shared_assets(
     _singleton_needs: dict[tuple, int] = {}
 
     for c in inventory.cartons:
-        qty = getattr(c, 'stock_qty', 1)
+        # Size for equilibrium_qty (OUP target); fall back to legacy stock_qty.
+        qty = getattr(c, 'equilibrium_qty', getattr(c, 'stock_qty', 1))
         key = (c.storage_handle_config.handling, c.storage_handle_config.category)
         for unit in _vsu(c, qty):
             if unit.unit_category == 'pallet':

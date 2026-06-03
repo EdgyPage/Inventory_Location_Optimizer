@@ -131,8 +131,11 @@ def _make_carton(sku: int, stock_qty: int = 35,
     c.width         = 8
     c.height        = 6
     c.weight        = 5
-    c.demand        = Demand.from_rates(0.9, 3.0)
-    c.stock_qty     = stock_qty
+    c.demand                = Demand.from_rates(0.9, 3.0)
+    c.equilibrium_qty       = stock_qty          # OUP target (replaces stock_qty)
+    c.reorder_point         = max(1, stock_qty // 2)
+    c.lead_time_mean        = 0.0
+    c.expected_batch_demand = 0.9 * 3.0
     return c
 
 
@@ -168,19 +171,22 @@ def test_initial_placement() -> None:
           bin_sku_count == placed,
           f'_bin_sku={bin_sku_count}  placed={placed}')
 
-    # ── 1d: stock_qty override — unit.quantity == stock_qty (not 1)
-    wrong_qty = []
-    for bin_ in mgr.unavailable:
-        if bin_.storage is not None:
-            sku = bin_.storage.carton.sku
-            sq  = bin_.storage.carton.stock_qty
-            if bin_.storage.quantity != sq:
-                wrong_qty.append((sku, bin_.storage.quantity, sq))
-    check('unit.quantity overridden to stock_qty for all initial bins',
-          len(wrong_qty) == 0,
-          f'mismatches: {wrong_qty[:3]}')
+    # ── 1d: total placed quantity per SKU equals equilibrium_qty
+    # (individual bins hold a fraction — pallet capacity splits the total)
+    wrong_total = []
+    for c in cartons:
+        bins_for_c = [
+            b for b in mgr.unavailable
+            if b.storage and b.storage.carton.sku == c.sku
+        ]
+        total = sum(b.storage.quantity for b in bins_for_c)
+        if total != c.equilibrium_qty:
+            wrong_total.append((c.sku, total, c.equilibrium_qty))
+    check('total placed qty per SKU == equilibrium_qty',
+          len(wrong_total) == 0,
+          f'mismatches: {wrong_total[:3]}')
 
-    # ── 1e: _current_quantities == stock_qty × n_bins for each SKU
+    # ── 1e: _current_quantities == equilibrium_qty × n_bins for each SKU
     for c in cartons:
         bins_for_sku = list(mgr._sku_singleton_bins.get(c.sku, set())) + \
                        list(mgr._sku_pallet_bins.get(c.sku, set()))
@@ -226,7 +232,7 @@ def test_pick_depletion() -> None:
 
     stock_qty = 20
     carton    = _make_carton(sku=10, stock_qty=stock_qty)
-    mgr.enqueue_all([carton], quantity=1)
+    mgr.enqueue_all([carton])   # uses equilibrium_qty=20 as default quantity
 
     placed_bins = [
         b for b in mgr.unavailable
@@ -236,12 +242,13 @@ def test_pick_depletion() -> None:
     if not placed_bins:
         return
 
-    initial = mgr._initial_quantities[10]
-    threshold = max(1, round(initial * 0.10))
+    initial   = mgr._current_quantities[10]  # total placed = equilibrium_qty
+    threshold = carton.reorder_point          # reorder fires at this level
 
     # Deplete to threshold+1 (one unit above threshold — should NOT trigger yet)
     above_thresh_qty = initial - (threshold + 1)
-    mgr._notify_pick(10, above_thresh_qty)
+    if above_thresh_qty > 0:
+        mgr._notify_pick(10, above_thresh_qty)
     check('_depleted_skus empty while current > threshold',
           10 not in mgr._depleted_skus,
           f'current={mgr._current_quantities[10]}  threshold={threshold}')

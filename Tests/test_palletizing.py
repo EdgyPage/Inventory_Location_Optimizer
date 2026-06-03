@@ -1,4 +1,4 @@
-"""
+﻿"""
 test_palletizing.py — Verify that initial orders go through the palletizing
 function (viable_storage_units) and that the correct StorageUnit type and
 storage_size are assigned to each placed bin.
@@ -60,7 +60,7 @@ def section(title: str) -> None:
 # ── carton factory ────────────────────────────────────────────────────────────
 
 def _carton(sku: int, length: int, width: int, height: int,
-            stock_qty: int = 20,
+            equilibrium_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Carton:
     from Carton import StorageHandleConfig
@@ -74,7 +74,7 @@ def _carton(sku: int, length: int, width: int, height: int,
     c.height       = height
     c.weight       = 5
     c.demand       = Demand.from_rates(0.8, 2.0)
-    c.stock_qty    = stock_qty
+    c.equilibrium_qty = equilibrium_qty; c.reorder_point = max(1, equilibrium_qty // 2); c.lead_time_mean = 0.0
     return c
 
 # ── warehouse factory ─────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ def test_viable_storage_units_direct() -> None:
     check('A1c  small carton: returned unit is Singleton (tie goes to singleton)',
           isinstance(units[0], Singleton),
           f'got {type(units[0]).__name__}')
-    check('A1d  small carton: unit.quantity == 1 before stock_qty override',
+    check('A1d  small carton: unit.quantity == 1 before equilibrium_qty override',
           units[0].quantity == 1)
 
     # ── A2: large carton (2 dims > 16) — singleton impossible ->pallet ────────
@@ -219,10 +219,10 @@ def test_enqueue_routes_through_palletizer() -> None:
     wh, mgr = _build_warehouse()
 
     stock_qty = 25
-    small_carton = _carton(10, length=8,  width=8,  height=6,  stock_qty=stock_qty)
-    large_carton = _carton(11, length=30, width=25, height=10, stock_qty=stock_qty)
+    small_carton = _carton(10, length=8,  width=8,  height=6,  equilibrium_qty=stock_qty)
+    large_carton = _carton(11, length=30, width=25, height=10, equilibrium_qty=stock_qty)
 
-    # Use stock_qty from carton (quantity=None default) so viable_storage_units
+    # Use equilibrium_qty from carton (quantity=None default) so viable_storage_units
     # creates the full packing: pallets for bulk + singleton for remainder.
     mgr.enqueue_all([small_carton, large_carton])
 
@@ -237,7 +237,7 @@ def test_enqueue_routes_through_palletizer() -> None:
     small_bins = _all_bins(mgr, 10)
     check('B1a  small carton (8,8,6) placed in at least one bin',
           len(small_bins) > 0)
-    check('B1b  small carton: total quantity across all bins == stock_qty',
+    check('B1b  small carton: total quantity across all bins == equilibrium_qty',
           _total_qty(small_bins) == stock_qty,
           f'expected {stock_qty}  got {_total_qty(small_bins)}')
     pallet_bins_small = [b for b in small_bins if b.unit_type == 'pallet']
@@ -250,7 +250,7 @@ def test_enqueue_routes_through_palletizer() -> None:
     large_bins = _all_bins(mgr, 11)
     check('B2a  large carton (30,25,10) placed in at least one bin',
           len(large_bins) > 0)
-    check('B2b  large carton: total quantity across all bins == stock_qty',
+    check('B2b  large carton: total quantity across all bins == equilibrium_qty',
           _total_qty(large_bins) == stock_qty,
           f'expected {stock_qty}  got {_total_qty(large_bins)}')
     pallet_bins_large = [b for b in large_bins if b.unit_type == 'pallet']
@@ -271,21 +271,21 @@ def test_enqueue_routes_through_palletizer() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Part C: stock_qty override applied correctly, _is_reorder absent
+# Part C: equilibrium_qty override applied correctly, _is_reorder absent
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_stock_qty_override_and_no_reorder_flag() -> None:
-    section('Part C: stock_qty override and absence of _is_reorder on initial stock')
+def test_equilibrium_qty_and_no_reorder_flag() -> None:
+    section('Part C: equilibrium_qty override and absence of _is_reorder on initial stock')
     random.seed(0)
     wh, mgr = _build_warehouse()
 
     cartons = [
-        _carton(20, 8, 8, 6,   stock_qty=10),
-        _carton(21, 8, 8, 6,   stock_qty=50),
-        _carton(22, 30, 25, 10, stock_qty=7),
-        _carton(23, 30, 25, 10, stock_qty=99),
+        _carton(20, 8, 8, 6,   equilibrium_qty=10),
+        _carton(21, 8, 8, 6,   equilibrium_qty=50),
+        _carton(22, 30, 25, 10, equilibrium_qty=7),
+        _carton(23, 30, 25, 10, equilibrium_qty=99),
     ]
-    # quantity=None (default): use stock_qty from each carton so packing is correct.
+    # quantity=None (default): use equilibrium_qty from each carton so packing is correct.
     mgr.enqueue_all(cartons)
 
     for c in cartons:
@@ -295,11 +295,11 @@ def test_stock_qty_override_and_no_reorder_flag() -> None:
             fail(f'C-{c.sku}  carton sku={c.sku} was not placed (no compatible bin?)')
             continue
 
-        # Each bin carries at most max_per_pallet items; total must equal stock_qty.
+        # Each bin carries at most max_per_pallet items; total must equal equilibrium_qty.
         total_qty = sum(b.storage.quantity for b in bins_for if b.storage is not None)
-        check(f'C-{c.sku}  total quantity across all bins == stock_qty ({c.stock_qty})',
-              total_qty == c.stock_qty,
-              f'expected {c.stock_qty}  got {total_qty}')
+        check(f'C-{c.sku}  total quantity across all bins == equilibrium_qty ({c.equilibrium_qty})',
+              total_qty == c.equilibrium_qty,
+              f'expected {c.equilibrium_qty}  got {total_qty}')
 
         for bin_ in bins_for:
             u = bin_.storage
@@ -322,8 +322,8 @@ def test_originals_stored_correctly() -> None:
     random.seed(0)
     wh, mgr = _build_warehouse()
 
-    c_small = _carton(30, 8, 8, 6,   stock_qty=20)
-    c_large = _carton(31, 30, 25, 10, stock_qty=15)
+    c_small = _carton(30, 8, 8, 6,   equilibrium_qty=20)
+    c_large = _carton(31, 30, 25, 10, equilibrium_qty=15)
     mgr.enqueue_all([c_small, c_large])
 
     for c in [c_small, c_large]:
@@ -336,9 +336,9 @@ def test_originals_stored_correctly() -> None:
                   orig.sku == c.sku)
             check(f'D-{c.sku}  _originals[{c.sku}] is NOT flagged _is_reorder',
                   not getattr(orig, '_is_reorder', False))
-            check(f'D-{c.sku}  _originals[{c.sku}].stock_qty == {c.stock_qty}',
-                  orig.stock_qty == c.stock_qty,
-                  f'got {orig.stock_qty}')
+            check(f'D-{c.sku}  _originals[{c.sku}].stock_qty == {c.equilibrium_qty}',
+                  orig.equilibrium_qty == c.equilibrium_qty,
+                  f'got {orig.equilibrium_qty}')
 
             # Verify reorder() works correctly from _originals
             rc = orig.reorder()
@@ -346,8 +346,8 @@ def test_originals_stored_correctly() -> None:
                   rc._is_reorder is True)
             check(f'D-{c.sku}  reorder() preserves sku',
                   rc.sku == c.sku)
-            check(f'D-{c.sku}  reorder() preserves stock_qty',
-                  rc.stock_qty == c.stock_qty)
+            check(f'D-{c.sku}  reorder() preserves equilibrium_qty',
+                  rc.equilibrium_qty == c.equilibrium_qty)
             check(f'D-{c.sku}  reorder() preserves dimensions',
                   (rc.length, rc.width, rc.height) == (c.length, c.width, c.height))
 
@@ -371,7 +371,7 @@ if __name__ == '__main__':
 
     test_viable_storage_units_direct()
     test_enqueue_routes_through_palletizer()
-    test_stock_qty_override_and_no_reorder_flag()
+    test_equilibrium_qty_and_no_reorder_flag()
     test_originals_stored_correctly()
 
     print('\n' + '=' * 60)

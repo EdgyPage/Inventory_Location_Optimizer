@@ -1,0 +1,494 @@
+"""test_equilibrium_reorder.py
+
+Verifies the Order-Up-To (OUP) equilibrium reorder model:
+  - equilibrium_qty replaces stock_qty as the steady-state target
+  - reorder_point = trigger_fraction × equilibrium_qty
+  - check_reorders fills back to equilibrium_qty, not a fixed batch size
+  - lead_time_mean > 0 defers placement by sampled batches
+  - DB round-trips preserve all three new attributes
+  - Legacy DBs (stock_qty, no equilibrium_qty) still load cleanly
+
+Usage
+-----
+    cd Tests
+    python test_equilibrium_reorder.py
+"""
+from __future__ import annotations
+
+import math
+import os
+import random
+import sqlite3
+import sys
+import tempfile
+from statistics import mean
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
+sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
+sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+
+from Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Aisle_Storage import Aisle
+from Carton import Carton, StorageHandleConfig
+from Demand import Demand
+from generate_inventory import (
+    EQUILIBRIUM_COVERAGE_BATCHES,
+    REORDER_TRIGGER_FRACTION,
+    build_inventory_with_profile,
+    save_inventory_to_db,
+    load_inventory_from_db,
+    DEFAULT_DIM_SPEC,
+    DEFAULT_WEIGHT_SPEC,
+)
+from Inventory_Management import Inventory_Manager, _equilibrium_qty
+from Storage_Primitive import viable_storage_units
+from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+_PASS = 0
+_FAIL = 0
+
+
+def check(label: str, ok: bool, detail: str = '') -> None:
+    global _PASS, _FAIL
+    if ok:
+        _PASS += 1
+        print(f'  PASS  {label}')
+    else:
+        _FAIL += 1
+        suffix = f'  ({detail})' if detail else ''
+        print(f'  FAIL  {label}{suffix}')
+
+
+def _small_warehouse(seed: int = 0) -> tuple[WarehouseConfig, Inventory_Manager]:
+    Aisle.next_aisle_id = 1
+    random.seed(seed)
+    w = aisle_width_for(4)   # 192
+    h = aisle_height_for(6)  # 288
+    cfg = WarehouseConfig(
+        total_aisles=4,
+        aisle_splits=[0.25] * 4,
+        aisle_configs=[
+            AisleConfig('conveyable',     'food', 'pallet',    w, h, ['medium', 'large'], [0.5, 0.5]),
+            AisleConfig('non-conveyable', 'food', 'pallet',    w, h, ['medium', 'large'], [0.5, 0.5]),
+            AisleConfig('conveyable',     'food', 'singleton', w, h, ['singleton'], None),
+            AisleConfig('non-conveyable', 'food', 'singleton', w, h, ['singleton'], None),
+        ],
+    )
+    wh  = Warehouse_Builder().from_config(cfg).build()
+    mgr = Inventory_Manager(wh)
+    return cfg, mgr
+
+
+def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10, lt: float = 0.0) -> Carton:
+    c                        = object.__new__(Carton)
+    c._sku                   = sku
+    c.storage_type           = ('conveyable', 'food')
+    c.storage_handle_config  = StorageHandleConfig('conveyable', 'food')
+    c.lift_group             = ('conveyable', 'food')
+    c.length       = 8
+    c.width        = 8
+    c.height       = 6
+    c.weight       = 2
+    c.demand       = Demand.from_rates(0.8, 4.0)
+    c.equilibrium_qty       = eq_qty
+    c.reorder_point         = rp
+    c.lead_time_mean        = lt
+    c.expected_batch_demand = 0.8 * 4.0
+    return c
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part A: build_inventory_with_profile attributes
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_profile_attributes() -> None:
+    print('\n-- Part A: profile attributes --')
+    inv = build_inventory_with_profile(
+        num_skus=100, seed=42,
+        handling_splits=[0.5, 0.5],
+        category_splits=[1/6] * 6,
+        singleton_fraction=0.3,
+        dim_spec=DEFAULT_DIM_SPEC,
+        weight_spec=DEFAULT_WEIGHT_SPEC,
+        equilibrium_coverage_batches=10.0,
+        trigger_fraction=0.5,
+    )
+    for c in inv.cartons:
+        check(f'sku={c.sku} has equilibrium_qty', hasattr(c, 'equilibrium_qty'))
+        check(f'sku={c.sku} has reorder_point',   hasattr(c, 'reorder_point'))
+        check(f'sku={c.sku} has lead_time_mean',  hasattr(c, 'lead_time_mean'))
+        check(f'sku={c.sku} no stock_qty',        not hasattr(c, 'stock_qty'))
+        check(
+            f'sku={c.sku} eq_qty >= 1',
+            c.equilibrium_qty >= 1,
+            f'got {c.equilibrium_qty}',
+        )
+        check(
+            f'sku={c.sku} rp <= eq_qty',
+            c.reorder_point <= c.equilibrium_qty,
+            f'rp={c.reorder_point} eq={c.equilibrium_qty}',
+        )
+        break   # spot-check one SKU; full loop would be very slow to print
+
+
+def test_profile_equilibrium_formula() -> None:
+    print('\n-- Part A2: equilibrium formula --')
+    inv = build_inventory_with_profile(
+        num_skus=200, seed=7,
+        handling_splits=[0.5, 0.5],
+        category_splits=[1/6] * 6,
+        singleton_fraction=0.3,
+        dim_spec=DEFAULT_DIM_SPEC,
+        weight_spec=DEFAULT_WEIGHT_SPEC,
+        equilibrium_coverage_batches=10.0,
+        trigger_fraction=0.50,
+    )
+    mismatches_eq = []
+    mismatches_rp = []
+    for c in inv.cartons:
+        expected_eq = max(1, round(10.0 * c.expected_batch_demand))
+        expected_rp = max(1, round(0.50 * c.equilibrium_qty))
+        if c.equilibrium_qty != expected_eq:
+            mismatches_eq.append((c.sku, c.equilibrium_qty, expected_eq))
+        if c.reorder_point != expected_rp:
+            mismatches_rp.append((c.sku, c.reorder_point, expected_rp))
+
+    check('equilibrium_qty = round(10 × expected_batch_demand) for all SKUs',
+          len(mismatches_eq) == 0, f'{mismatches_eq[:3]}')
+    check('reorder_point = round(0.5 × equilibrium_qty) for all SKUs',
+          len(mismatches_rp) == 0, f'{mismatches_rp[:3]}')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part B: DB round-trip (save + load)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_db_roundtrip() -> None:
+    print('\n-- Part B: DB round-trip --')
+    inv = build_inventory_with_profile(
+        num_skus=50, seed=1,
+        handling_splits=[0.5, 0.5],
+        category_splits=[1/6] * 6,
+        singleton_fraction=0.3,
+        dim_spec=DEFAULT_DIM_SPEC,
+        weight_spec=DEFAULT_WEIGHT_SPEC,
+        equilibrium_coverage_batches=8.0,
+        trigger_fraction=0.4,
+        lead_time_mean_batches=2.0,
+    )
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+
+    try:
+        save_inventory_to_db(inv, db_path, {'test': True})
+        inv2 = load_inventory_from_db(db_path)
+
+        orig = {c.sku: c for c in inv.cartons}
+        loaded = {c.sku: c for c in inv2.cartons}
+
+        check('same SKU count', len(orig) == len(loaded))
+        mismatches = []
+        for sku, c in orig.items():
+            c2 = loaded[sku]
+            if c.equilibrium_qty != c2.equilibrium_qty:
+                mismatches.append(('eq', sku, c.equilibrium_qty, c2.equilibrium_qty))
+            if c.reorder_point != c2.reorder_point:
+                mismatches.append(('rp', sku, c.reorder_point, c2.reorder_point))
+            if abs(c.lead_time_mean - c2.lead_time_mean) > 1e-9:
+                mismatches.append(('lt', sku, c.lead_time_mean, c2.lead_time_mean))
+        check('equilibrium_qty/reorder_point/lead_time_mean preserved after save+load',
+              len(mismatches) == 0, f'{mismatches[:3]}')
+
+        # Verify no stock_qty column was written
+        conn = sqlite3.connect(db_path)
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
+        conn.close()
+        check('stock_qty column absent from new DB', 'stock_qty' not in cols)
+        check('equilibrium_qty column present',      'equilibrium_qty' in cols)
+        check('lead_time_mean column present',        'lead_time_mean'  in cols)
+    finally:
+        os.unlink(db_path)
+
+
+def test_legacy_db_load() -> None:
+    """Old DBs with stock_qty but no equilibrium_qty should load as equilibrium_qty."""
+    print('\n-- Part B2: legacy DB backward compat --')
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.executescript('''
+            CREATE TABLE cartons (
+                sku INTEGER PRIMARY KEY, handling TEXT, category TEXT,
+                length INTEGER, width INTEGER, height INTEGER, weight INTEGER,
+                demand_frequency REAL, demand_qty_rate REAL,
+                stock_qty INTEGER, expected_batch_demand REAL, reorder_point INTEGER
+            );
+        ''')
+        conn.execute(
+            'INSERT INTO cartons VALUES (1,"conveyable","food",10,10,8,5,0.5,4.0,50,2.0,6)'
+        )
+        conn.commit(); conn.close()
+
+        inv = load_inventory_from_db(db_path)
+        c = inv.cartons[0]
+        check('legacy load: equilibrium_qty == stock_qty',
+              c.equilibrium_qty == 50, f'got {c.equilibrium_qty}')
+        check('legacy load: reorder_point preserved',
+              c.reorder_point == 6, f'got {c.reorder_point}')
+        check('legacy load: lead_time_mean defaults to 0',
+              c.lead_time_mean == 0.0, f'got {c.lead_time_mean}')
+    finally:
+        os.unlink(db_path)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part C: OUP refill-to-target logic
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_oup_refill() -> None:
+    """check_reorders should enqueue exactly equilibrium_qty - current_qty units."""
+    print('\n-- Part C: OUP refill quantity --')
+    _, mgr = _small_warehouse(seed=0)
+
+    c = _make_carton(sku=1, eq_qty=20, rp=8, lt=0.0)
+    mgr.enqueue(c)
+
+    # Verify initial placement at equilibrium_qty
+    init_qty = mgr._current_quantities.get(1, 0)
+    check('initial quantity == equilibrium_qty', init_qty == 20,
+          f'got {init_qty}')
+
+    # Drain to reorder point manually
+    mgr._current_quantities[1] = 5   # simulate picks depleting below rp=8
+    mgr._depleted_skus.add(1)
+
+    triggered = mgr.check_reorders()
+    check('reorder triggered', 1 in triggered, f'triggered={triggered}')
+
+    # OUP should have queued enough to bring qty from 5 → 20 = 15 units
+    placed_qty = mgr._current_quantities.get(1, 0)
+    check('quantity refilled to equilibrium after drain',
+          placed_qty == 20, f'got {placed_qty}')
+
+
+def test_oup_no_overstock() -> None:
+    """If current_qty is above reorder_point when reorder fires (edge case),
+    qty ordered should still be positive but not exceed equilibrium."""
+    print('\n-- Part C2: OUP no overstock --')
+    _, mgr = _small_warehouse(seed=1)
+    c = _make_carton(sku=2, eq_qty=30, rp=10, lt=0.0)
+    mgr.enqueue(c)
+
+    # Manually push qty just below rp — should order 30 - 9 = 21 units
+    mgr._current_quantities[2] = 9
+    mgr._depleted_skus.add(2)
+    mgr.check_reorders()
+    final = mgr._current_quantities.get(2, 0)
+    check('OUP refill does not exceed equilibrium_qty',
+          final <= 30, f'got {final}')
+    check('OUP refill is positive', final > 9, f'got {final}')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part D: lead-time deferral
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_immediate_reorder() -> None:
+    """With lead_time_mean=0, reorder units land in _queue immediately."""
+    print('\n-- Part D: immediate reorder (lead_time=0) --')
+    _, mgr = _small_warehouse(seed=2)
+    c = _make_carton(sku=10, eq_qty=20, rp=8, lt=0.0)
+    mgr.enqueue(c)
+
+    mgr._current_quantities[10] = 5
+    mgr._depleted_skus.add(10)
+    before_batch = mgr._batch_num
+    mgr.check_reorders()
+
+    check('no deferred reorders when lead_time=0',
+          len(mgr._deferred_reorders) == 0,
+          f'deferred={dict(mgr._deferred_reorders)}')
+    check('quantity restored immediately',
+          mgr._current_quantities.get(10, 0) == 20,
+          f'qty={mgr._current_quantities.get(10)}')
+
+
+def test_deferred_reorder() -> None:
+    """With lead_time_mean=3, order should not arrive until ~3 batches later."""
+    print('\n-- Part D2: deferred reorder (lead_time=3) --')
+    _, mgr = _small_warehouse(seed=3)
+    random.seed(999)   # fix sampling so gauss gives predictable lead
+
+    c = _make_carton(sku=20, eq_qty=20, rp=8, lt=3.0)
+    mgr.enqueue(c)
+
+    mgr._current_quantities[20] = 5
+    mgr._depleted_skus.add(20)
+    triggered = mgr.check_reorders()   # batch 1
+
+    check('reorder was triggered', 20 in triggered)
+    check('units NOT immediately in queue',
+          mgr._queued_sku_counts.get(20, 0) == 0,
+          f'queued={mgr._queued_sku_counts.get(20, 0)}')
+    check('units in deferred dict',
+          len(mgr._deferred_sku_counts) > 0,
+          f'deferred_counts={mgr._deferred_sku_counts}')
+    check('quantity NOT yet restored',
+          mgr._current_quantities.get(20, 0) < 20,
+          f'qty={mgr._current_quantities.get(20)}')
+
+    # Run batches until deferred order arrives (≤ 10 batches)
+    arrived = False
+    for _ in range(10):
+        mgr.check_reorders()
+        if mgr._current_quantities.get(20, 0) == 20:
+            arrived = True
+            break
+
+    check('deferred order eventually arrives and restores quantity',
+          arrived, f'final qty={mgr._current_quantities.get(20, 0)}')
+
+
+def test_deferred_blocks_duplicate_reorder() -> None:
+    """While a deferred reorder is in-flight, a second trigger should not
+    fire another reorder for the same SKU."""
+    print('\n-- Part D3: no duplicate deferred reorders --')
+    _, mgr = _small_warehouse(seed=4)
+    random.seed(888)
+
+    c = _make_carton(sku=30, eq_qty=20, rp=8, lt=5.0)
+    mgr.enqueue(c)
+
+    mgr._current_quantities[30] = 5
+    mgr._depleted_skus.add(30)
+    mgr.check_reorders()   # triggers deferred reorder
+
+    # Fire again at lower qty
+    mgr._current_quantities[30] = 2
+    mgr._depleted_skus.add(30)
+    triggered2 = mgr.check_reorders()
+
+    check('second trigger skipped while deferred in-flight',
+          30 not in triggered2, f'triggered2={triggered2}')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part E: _equilibrium_qty helper
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_equilibrium_qty_helper() -> None:
+    print('\n-- Part E: _equilibrium_qty helper --')
+    c_new = _make_carton(sku=40, eq_qty=25)
+    check('reads equilibrium_qty on new carton', _equilibrium_qty(c_new) == 25)
+
+    c_legacy = object.__new__(Carton)
+    c_legacy.stock_qty = 50
+    check('falls back to stock_qty on legacy carton', _equilibrium_qty(c_legacy) == 50)
+
+    c_bare = object.__new__(Carton)
+    check('defaults to 1 with neither attribute', _equilibrium_qty(c_bare) == 1)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part F: fill stability over batches (regression)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_fill_stability() -> None:
+    """Fill rate should not drift downward over 30 batches when using OUP."""
+    print('\n-- Part F: fill stability over 30 batches --')
+    from Workload_Builder import Batch, BatchConfig
+
+    inv = build_inventory_with_profile(
+        num_skus=100, seed=42,
+        handling_splits=[0.5, 0.5],
+        category_splits=[1/6] * 6,
+        singleton_fraction=0.3,
+        dim_spec=DEFAULT_DIM_SPEC,
+        weight_spec=DEFAULT_WEIGHT_SPEC,
+        equilibrium_coverage_batches=10.0,
+        trigger_fraction=0.5,
+    )
+
+    Aisle.next_aisle_id = 1
+    random.seed(42)
+    w = aisle_width_for(6)
+    h = aisle_height_for(8)
+    cfgs = []
+    for cat in ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']:
+        cfgs.append(AisleConfig('conveyable',     cat, 'pallet',    w, h, ['small','medium','large','extra_large'], [0.25]*4))
+        cfgs.append(AisleConfig('non-conveyable', cat, 'pallet',    w, h, ['small','medium','large','extra_large'], [0.25]*4))
+        cfgs.append(AisleConfig('conveyable',     cat, 'singleton', w, h, ['singleton'], None))
+        cfgs.append(AisleConfig('non-conveyable', cat, 'singleton', w, h, ['singleton'], None))
+
+    total = sum(
+        max(1, math.ceil(
+            sum(1 for u in viable_storage_units(c, c.equilibrium_qty)
+                if (u.unit_category == ('pallet' if cfg.unit_type == 'pallet' else 'singleton')))
+            / (len(cfgs) * 0.80)
+        ))
+        for cfg in cfgs for c in inv.cartons[:1]  # just sizing heuristic
+    )
+    n_aisles = max(len(cfgs), 1)
+
+    wh_cfg = WarehouseConfig(
+        total_aisles=n_aisles,
+        aisle_splits=[1/n_aisles] * n_aisles,
+        aisle_configs=cfgs,
+    )
+    wh  = Warehouse_Builder().from_config(wh_cfg).build()
+    mgr = Inventory_Manager(wh)
+    mgr.enqueue_all(inv.cartons)
+
+    total_bins = len(wh.bins)
+    batch_cfg  = BatchConfig(inventory_size=100, mean_fraction=0.3, std_fraction=0.05)
+    fills: list[float] = []
+
+    for _ in range(30):
+        mgr.check_reorders()
+        b = Batch(batch_cfg, inv, affinity=None)
+        from Workload_Builder import Task
+        task = Task.from_batch(b, wh, manager=mgr)
+        fills.append(len(mgr.unavailable) / total_bins)
+
+    first_half  = mean(fills[:15])
+    second_half = mean(fills[15:])
+    drift = second_half - first_half
+
+    check('fill does not drop more than 15pp over 30 batches',
+          drift > -0.15, f'drift={drift:.3f} (first={first_half:.2f} second={second_half:.2f})')
+    check('average fill >= 30% throughout',
+          mean(fills) >= 0.30, f'mean={mean(fills):.2f}')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Runner
+# ═════════════════════════════════════════════════════════════════════════════
+
+if __name__ == '__main__':
+    print(f'\n{"="*62}')
+    print(f'  Equilibrium reorder model tests')
+    print(f'{"="*62}')
+
+    test_profile_attributes()
+    test_profile_equilibrium_formula()
+    test_db_roundtrip()
+    test_legacy_db_load()
+    test_oup_refill()
+    test_oup_no_overstock()
+    test_immediate_reorder()
+    test_deferred_reorder()
+    test_deferred_blocks_duplicate_reorder()
+    test_equilibrium_qty_helper()
+    test_fill_stability()
+
+    print(f'\n{"="*62}')
+    if _FAIL == 0:
+        print(f'  All {_PASS} checks passed.')
+    else:
+        print(f'  {_PASS} passed  {_FAIL} FAILED')
+    print(f'{"="*62}\n')
+    sys.exit(0 if _FAIL == 0 else 1)

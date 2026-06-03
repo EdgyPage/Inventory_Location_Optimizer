@@ -95,14 +95,14 @@ def _stock_to_target_fill(manager, inventory, target: float) -> int:
     """Add demand-weighted overstock until *manager* reaches *target* fill rate.
 
     Every SKU already has at least one bin from the initial enqueue_all call.
-    This function adds extra copies of cartons (using proper stock_qty packing,
-    no quantity=1 shortcuts) to fill the remaining empty bins up to the target.
+    This function adds extra copies of cartons (using equilibrium_qty packing)
+    to fill the remaining empty bins up to the target.
 
     Each round:
       1. Estimates how many cartons to sample based on the average number of
          bins each enqueue creates (precomputed from a sample of the inventory).
       2. Queues units for each sampled carton using viable_storage_units with
-         the carton's actual stock_qty.
+         the carton's actual equilibrium_qty.
       3. Drains the queue once and clears any units that couldn't be placed
          (incompatible type, no matching empty bin).
       4. Repeats until target fill is reached or no progress for two rounds.
@@ -119,7 +119,7 @@ def _stock_to_target_fill(manager, inventory, target: float) -> int:
     # Estimate average bins created per enqueue from a sample of 200 cartons.
     probe       = inventory.cartons[:min(200, len(inventory.cartons))]
     avg_per_enq = sum(
-        len(_vsu(c, getattr(c, 'stock_qty', 1))) for c in probe
+        len(_vsu(c, getattr(c, 'equilibrium_qty', getattr(c, 'stock_qty', 1)))) for c in probe
     ) / max(len(probe), 1)
     avg_per_enq = max(1.0, avg_per_enq)
 
@@ -137,7 +137,7 @@ def _stock_to_target_fill(manager, inventory, target: float) -> int:
         before   = len(manager.unavailable)
 
         for carton in sample:
-            qty = getattr(carton, 'stock_qty', 1)
+            qty = getattr(carton, 'equilibrium_qty', getattr(carton, 'stock_qty', 1))
             for unit in _vsu(carton, qty):
                 # Skip if this bin-type bucket is nearly full.  Leaving at
                 # least _OVERSTOCK_MIN_HEADROOM empty bins per bucket ensures
@@ -250,7 +250,7 @@ def _run_strategy_worker(args: dict) -> dict:
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
-    mgr.enqueue_all(inventory.cartons)   # quantity read from carton.stock_qty
+    mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
     base_filled = len(mgr.unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
