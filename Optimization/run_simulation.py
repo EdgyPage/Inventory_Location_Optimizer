@@ -368,8 +368,9 @@ def build_shared_assets(
     # explodes (tiers the warehouse was sized for never get filled). ───────────
     planned_inv_db: str | None = None
     if warehouse_db_path is not None:
-        planned_inv_db = os.path.join(os.path.dirname(warehouse_db_path),
-                                      'planned_inventory.db')
+        _pair_dir = os.path.dirname(os.path.abspath(warehouse_db_path))
+        os.makedirs(_pair_dir, exist_ok=True)   # dir may not exist yet
+        planned_inv_db = os.path.join(_pair_dir, 'planned_inventory.db')
         if os.path.exists(planned_inv_db):
             os.remove(planned_inv_db)   # rewrite fresh each plan
         save_inventory_to_db(inventory, planned_inv_db,

@@ -369,6 +369,9 @@ _SCHEMA = '''
 
 
 def _init_db(db_path: str) -> sqlite3.Connection:
+    parent = os.path.dirname(os.path.abspath(db_path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)   # sqlite can't create missing dirs
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')
