@@ -106,8 +106,16 @@ def _run_strategy_worker(args: dict) -> dict:
     root.handlers = []
     root.addHandler(logging.handlers.QueueHandler(log_queue))
     root.setLevel(logging.INFO)
-    strategy = args['strategy']
-    log      = logging.getLogger(f'worker-{strategy}')
+    strategy  = args['strategy']
+    job_index = args.get('job_index')
+    job_total = args.get('job_total')
+    job_tag   = args.get('job_tag')
+    # Flat pool: tag every line with the job index so interleaved output is
+    # distinguishable.  Nested path has no job_index → keep the old name.
+    if job_index is not None:
+        log = logging.getLogger(f'j{job_index}/{job_total} {strategy}')
+    else:
+        log = logging.getLogger(f'worker-{strategy}')
 
     # ── unpack ────────────────────────────────────────────────────────────────
     inv_db        = args['inv_db']
@@ -130,6 +138,8 @@ def _run_strategy_worker(args: dict) -> dict:
     batch_cfg     = args['batch_cfg']
 
     log.info('=' * 60)
+    if job_tag is not None:
+        log.info(f'Job {job_index}/{job_total}  {job_tag}')
     log.info(f'Strategy {strategy}  run_id={run_id}  batches {start_i}->{n_batches}')
     log.info(f'  pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  cart={pick_cfg.cart_swap_coef}')

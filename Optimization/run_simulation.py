@@ -835,7 +835,16 @@ def _run_workers_flat(
                     log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
                               exc_info=True)
 
-        log.info(f'  Flat pool: {len(work_units)} work units'
+        # Assign a 1-based job index + identity tag to each work unit so every
+        # worker log line can show which job of the flat list is progressing.
+        total_jobs = len(work_units)
+        for idx, (key, sa) in enumerate(work_units, start=1):
+            _label, _cfg_name = key
+            sa['job_index'] = idx
+            sa['job_total'] = total_jobs
+            sa['job_tag']   = f'{_label}/{_cfg_name}/{sa["strategy"]}'
+
+        log.info(f'  Flat pool: {total_jobs} jobs'
                  f' → ProcessPoolExecutor({max_workers})')
 
         # ── execute ───────────────────────────────────────────────────────────
