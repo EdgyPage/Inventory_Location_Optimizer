@@ -88,7 +88,7 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.25
 _BATCH_STD_FRAC  = 0.03
-_TARGET_FILL  = 0.80   # headroom fraction: size each aisle type to this utilization
+_TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
 _INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
 
 # Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
@@ -305,8 +305,12 @@ def _sample_inventory_for_capacity(
 
     Groups cartons by (handling, category), computes available pallet and
     singleton bin slots per group from aisle_replicas × _effective_bins_per_aisle,
-    then shuffles each group and greedily selects cartons until target_fill
-    is reached.  The 1 − target_fill headroom accommodates reorder units.
+    then shuffles and runs multiple passes so that remaining bin space after
+    the first pass is filled by re-selecting items.
+
+    When an item is selected N times its equilibrium_qty and reorder_point are
+    scaled by N so that OUP targets the actual initial stocking level (N×
+    original) rather than drifting down to 1× over the first reorder cycles.
 
     Returns (sampled_cartons, sampled_sku_id_set).
     """
@@ -333,15 +337,31 @@ def _sample_inventory_for_capacity(
         pallet_cap  = round(capacity.get((handling, category, 'pallet'),    0) * target_fill)
         sing_cap    = round(capacity.get((handling, category, 'singleton'), 0) * target_fill)
         pallet_used = sing_used = 0
+        sample_count: dict[int, int] = {}   # sku → selection count across passes
 
-        for carton in shuffled:
-            units = _vsu(carton, carton.equilibrium_qty)
-            p = sum(1 for u in units if u.unit_category == 'pallet')
-            s = sum(1 for u in units if u.unit_category == 'singleton')
-            if pallet_used + p <= pallet_cap and sing_used + s <= sing_cap:
-                selected.append(carton)
-                pallet_used += p
-                sing_used   += s
+        # Multi-pass: keep filling until no item fits in the remaining space.
+        progress = True
+        while progress:
+            progress = False
+            for carton in shuffled:
+                units = _vsu(carton, carton.equilibrium_qty)
+                p = sum(1 for u in units if u.unit_category == 'pallet')
+                s = sum(1 for u in units if u.unit_category == 'singleton')
+                if pallet_used + p <= pallet_cap and sing_used + s <= sing_cap:
+                    if carton.sku not in sample_count:
+                        selected.append(carton)   # add to output list on first selection
+                    sample_count[carton.sku] = sample_count.get(carton.sku, 0) + 1
+                    pallet_used += p
+                    sing_used   += s
+                    progress = True
+
+        # Scale equilibrium_qty and reorder_point by N so OUP targets the
+        # actual initial stocking level (N× original) instead of drifting down.
+        for carton in selected:
+            n = sample_count.get(carton.sku, 1)
+            if n > 1:
+                carton.equilibrium_qty = carton.equilibrium_qty * n
+                carton.reorder_point   = carton.reorder_point   * n
 
     return selected, {c.sku for c in selected}
 
