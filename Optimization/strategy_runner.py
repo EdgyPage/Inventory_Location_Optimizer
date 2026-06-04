@@ -53,6 +53,8 @@ from Inventory_Management import (
     Inventory_Manager,
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
+    build_batch_minimizing_assignment_fn,
+    build_batch_maximizing_assignment_fn,
 )
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
@@ -233,19 +235,31 @@ def _run_strategy_worker(args: dict) -> dict:
         }
 
     if strategy == 'B':
+        # Per-unit fallback (direct enqueue calls): trip-minimizing
         mgr.assignment_fn = build_trip_minimizing_assignment_fn(
             affinity, wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        log.info('  assignment_fn = trip_minimizing')
+        # Reorder waves: batch-optimal — high pick-effort items claim easiest bins
+        mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
+            affinity, wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
+        log.info('  assignment_fn = trip_minimizing  |  batch_assignment_fn = batch_minimizing')
     elif strategy == 'C':
+        # Per-unit fallback: trip-maximizing
         mgr.assignment_fn = build_trip_maximizing_assignment_fn(
             affinity, wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        log.info('  assignment_fn = trip_maximizing')
+        # Reorder waves: batch-optimal — high pick-effort items claim hardest bins
+        mgr.batch_assignment_fn = build_batch_maximizing_assignment_fn(
+            affinity, wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
+        log.info('  assignment_fn = trip_maximizing  |  batch_assignment_fn = batch_maximizing')
     else:
-        log.info('  assignment_fn = uniform_random')
+        log.info('  assignment_fn = uniform_random  (no batch_assignment_fn)')
 
     # ── RNG fast-forward (resume only) ────────────────────────────────────────
     random.seed(seed_batches)

@@ -1,3 +1,4 @@
+import math
 import random
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -10,6 +11,13 @@ from Storage_Primitive import StorageUnit, Singleton, Pallet, Storage_Size, viab
 from Affinity_Store import AffinityStore
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
+
+# Takes a list of units and a candidate-bin callback; returns (unit, bin|None)
+# pairs in priority order.  All units share the same BinKey group.
+BatchAssignmentFn = Callable[
+    [list[StorageUnit], Callable[[StorageUnit], list[Aisle.Bin]]],
+    list[tuple[StorageUnit, 'Aisle.Bin | None']],
+]
 
 @dataclass
 class LoadParams:
@@ -86,6 +94,10 @@ class Inventory_Manager:
     ) -> None:
         self.warehouse: Warehouse = warehouse
         self.assignment_fn: AssignmentFn = assignment_fn
+        # When set, check_reorders uses _drain_batch() instead of _drain().
+        # Batch assignment sorts units by pick-effort priority so high-effort
+        # items claim the best bins before lower-priority items are placed.
+        self.batch_assignment_fn: BatchAssignmentFn | None = None
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -401,7 +413,10 @@ class Inventory_Manager:
 
         # Always drain — retries prior-batch stragglers too.
         if self._queue:
-            self._drain()
+            if self.batch_assignment_fn is not None:
+                self._drain_batch()
+            else:
+                self._drain()
         return triggered
 
     @property
@@ -484,21 +499,40 @@ class Inventory_Manager:
                     return list(bins)   # shallow copy — _index_remove mutates the original
         return []
 
-    def _drain(self) -> None:
-        """Place queued StorageUnit objects into warehouse bins.
+    def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
+        """Commit one unit→bin placement and update all manager state dicts."""
+        sku = unit.carton.sku
+        n = self._queued_sku_counts.get(sku, 0)
+        if n <= 1:
+            self._queued_sku_counts.pop(sku, None)
+        else:
+            self._queued_sku_counts[sku] = n - 1
+        bin_.storage = unit
+        self._index_remove(bin_)
+        self._unavailable[id(bin_)] = bin_
+        self._bin_sku[id(bin_)] = sku
+        self._current_quantities[sku] = (
+            self._current_quantities.get(sku, 0) + unit.quantity
+        )
+        if isinstance(unit, Singleton):
+            self._sku_singleton_bins[sku].add(bin_)
+        else:
+            self._sku_pallet_bins[sku].add(bin_)
+        if self._affinity is not None:
+            aid    = bin_.location[0]
+            counts = self._aisle_sku_counts[aid]
+            counts[sku] = counts.get(sku, 0) + 1
 
-        Units are pre-palletized (created by viable_storage_units) and carry
-        the correct quantity for their bin slot.  Each unit is placed
-        independently via assignment_fn — no all-or-nothing grouping.
+    def _drain(self) -> None:
+        """Place queued StorageUnit objects into warehouse bins (per-unit path).
+
+        Units are processed one at a time via assignment_fn.  Used for
+        immediate enqueue calls and as fallback when batch_assignment_fn is None.
 
         Placement failures:
-          1. Repack into a smaller pallet size tier (retried immediately in
-             the same _drain call via appendleft).
+          1. Repack into a smaller pallet size tier (retried immediately via appendleft).
           2. Fall back to singleton bins of the same carton type (same).
-          3. If no bin is available at all, the unit stays in the queue
-             (pending deque, FIFO order) and is retried on the next call.
-             Units NEVER expire or get abandoned — they wait until space
-             opens up.
+          3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
         pending: deque[StorageUnit] = deque()
         while self._queue:
@@ -510,28 +544,7 @@ class Inventory_Manager:
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
-                # Unit placed — decrement queued count.
-                n = self._queued_sku_counts.get(sku, 0)
-                if n <= 1:
-                    self._queued_sku_counts.pop(sku, None)
-                else:
-                    self._queued_sku_counts[sku] = n - 1
-
-                bin_.storage = unit
-                self._index_remove(bin_)
-                self._unavailable[id(bin_)] = bin_
-                self._bin_sku[id(bin_)] = sku
-                self._current_quantities[sku] = (
-                    self._current_quantities.get(sku, 0) + unit.quantity
-                )
-                if isinstance(unit, Singleton):
-                    self._sku_singleton_bins[sku].add(bin_)
-                else:
-                    self._sku_pallet_bins[sku].add(bin_)
-                if self._affinity is not None:
-                    aid    = bin_.location[0]
-                    counts = self._aisle_sku_counts[aid]
-                    counts[sku] = counts.get(sku, 0) + 1
+                self._execute_placement(unit, bin_)
             else:
                 # No bin fits this unit.  Attempt rescues in priority order:
                 #   1. Repack into smaller pallet size tier (existing logic).
@@ -595,6 +608,113 @@ class Inventory_Manager:
                 if not repacked:
                     pending.append(unit)
         self._queue = pending
+
+
+    def _drain_batch(self) -> None:
+        """Batch-optimal placement: sort units by pick-effort priority, then drain.
+
+        Groups the queue by BinKey (handling, category, storage_size, unit_type)
+        — the same key used by _candidates() — so units only compete with others
+        in the same bin pool.  Within each group, batch_assignment_fn returns
+        (unit, bin|None) pairs sorted by pick-effort priority so high-effort
+        items claim the best (lowest-W) bins before lower-priority items.
+
+        Units that cannot be placed go through the same rescue logic as _drain()
+        and then to the pending queue for retry next batch.
+        """
+        from collections import defaultdict as _dd
+
+        if not self._queue:
+            return
+
+        # Snapshot queue and group by BinKey
+        groups: dict[tuple, list[StorageUnit]] = _dd(list)
+        while self._queue:
+            unit = self._queue.popleft()
+            shc  = unit.carton.storage_handle_config
+            key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
+            groups[key].append(unit)
+
+        pending: deque[StorageUnit] = deque()
+
+        for _key, units in groups.items():
+            # Get batch assignments — high pick-effort units first
+            assignments = self.batch_assignment_fn(units, self._candidates)   # type: ignore[misc]
+
+            assigned_ids = set()
+            for unit, bin_ in assignments:
+                if bin_ is not None:
+                    self._execute_placement(unit, bin_)
+                    assigned_ids.add(id(unit))
+
+            # Unassigned units: run through rescue logic then pending
+            for unit, bin_ in assignments:
+                if bin_ is not None:
+                    continue
+                carton = unit.carton
+                sku    = carton.sku
+                shc    = carton.storage_handle_config
+                repacked = False
+
+                # rescue 1: smaller pallet tier
+                if unit.unit_category == 'pallet' and unit.storage_size is not None:
+                    current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
+                    for size in _SIZES_DESCENDING:
+                        if _SIZE_RANKS[size] >= current_rank:
+                            continue
+                        avail = self._index.get(
+                            (shc.handling, shc.category, size, 'pallet'))
+                        if not avail:
+                            continue
+                        max_q = _max_qty_fitting_pallet_size(carton, size)
+                        if max_q <= 0:
+                            continue
+                        remaining = unit.quantity
+                        new_units: list[StorageUnit] = []
+                        while remaining > 0:
+                            q = min(remaining, max_q)
+                            new_units.append(Pallet(carton, q))
+                            remaining -= q
+                        delta = len(new_units) - 1
+                        if delta:
+                            self._queued_sku_counts[sku] = (
+                                self._queued_sku_counts.get(sku, 1) + delta
+                            )
+                        for u in reversed(new_units):
+                            self._queue.appendleft(u)
+                        repacked = True
+                        break
+
+                # rescue 2: singleton bins
+                if not repacked:
+                    max_sing = _sq_max(carton, Singleton)
+                    avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
+                    if max_sing > 0 and avail:
+                        remaining = unit.quantity
+                        new_units = []
+                        while remaining > 0:
+                            q = min(remaining, max_sing)
+                            new_units.append(Singleton(carton, q))
+                            remaining -= q
+                        delta = len(new_units) - 1
+                        if delta:
+                            self._queued_sku_counts[sku] = (
+                                self._queued_sku_counts.get(sku, 1) + delta
+                            )
+                        for u in reversed(new_units):
+                            self._queue.appendleft(u)
+                        repacked = True
+
+                if not repacked:
+                    pending.append(unit)
+
+        # Drain any repacked units immediately
+        if self._queue:
+            self._drain()
+
+        # Merge pending back
+        for u in pending:
+            self._queue.append(u)
 
 
 # ── load-aware assignment functions ───────────────────────────────────────────
@@ -973,3 +1093,137 @@ def build_trip_maximizing_assignment_fn(
         return best_bin
 
     return assign
+
+
+# ── batch assignment functions ────────────────────────────────────────────────
+
+def _batch_assign_impl(
+    units        : list,
+    candidates_fn,
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta         : float,
+    minimize     : bool,
+) -> list:
+    """Shared core for batch-minimizing and batch-maximizing assignment.
+
+    Priority formula (pick-effort x frequency + co-occurrence):
+      priority = f_i x (pick_intercept + pick_weight_coef x log(weight)
+                                        + pick_volume_coef x log(volume))
+                 + beta x co_occur
+
+    Sorted descending by priority; highest-priority unit claims the extremal-W
+    bin first within each same-BinKey group.  minimize=True -> lowest-W bin
+    (easiest access); minimize=False -> highest-W bin (hardest access).
+
+    W_a (task workload) remains a measurement metric only; this formula
+    drives bin placement at reorder time.
+    """
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
+    pi      = wp.pick_intercept
+    pw      = wp.pick_weight_coef
+    pv      = wp.pick_volume_coef
+
+    def pick_effort_priority(unit) -> float:
+        c    = unit.carton
+        f_i  = c.demand.frequency
+        w    = max(1, c.weight)
+        v    = max(1, c.volume())
+        effort = pi + pw * math.log(w) + pv * math.log(v)
+        sku  = c.sku
+        co_occur = beta * _demand_weighted_delta_lift(
+            affinity, sku,
+            set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set(),
+            freq_by_idx,
+        )
+        return f_i * effort + co_occur
+
+    sorted_units = sorted(units, key=pick_effort_priority, reverse=True)
+    placed: set = set()
+    result: list = []
+
+    for unit in sorted_units:
+        raw  = candidates_fn(unit)
+        free = [b for b in raw if id(b) not in placed]
+        if not free:
+            result.append((unit, None))
+            continue
+
+        best_W, best_bin_map = _aisle_extremal_bins(free, x_speed, y_speed, minimize=minimize)
+        if not best_W:
+            result.append((unit, None))
+            continue
+
+        best_aid = (min if minimize else max)(best_W, key=best_W.__getitem__)
+        chosen   = best_bin_map[best_aid]
+
+        sku = unit.carton.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            idx = affinity._sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
+            aisle_demand_sum[best_aid] += f_s * q_s
+
+        placed.add(id(chosen))
+        result.append((unit, chosen))
+
+    return result
+
+
+def build_batch_minimizing_assignment_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+):
+    """Batch assignment: high pick-effort items get lowest-W (easiest) bins.
+
+    Same parameter signature as build_trip_minimizing_assignment_fn.
+    Assign manager.batch_assignment_fn = build_batch_minimizing_assignment_fn(...)
+    """
+    def batch_assign(units: list, candidates_fn) -> list:
+        return _batch_assign_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+        )
+    return batch_assign
+
+
+def build_batch_maximizing_assignment_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+):
+    """Batch assignment: high pick-effort items get highest-W (hardest) bins.
+
+    Mirror of build_batch_minimizing_assignment_fn — strategy-C upper bound.
+    """
+    def batch_assign(units: list, candidates_fn) -> list:
+        return _batch_assign_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=False,
+        )
+    return batch_assign
