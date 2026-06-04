@@ -130,8 +130,10 @@ class Inventory_Manager:
         aisle_width  : int,
         aisle_height : int,
         target_fill  : float = 0.85,
+        min_bins     : int | None = None,
         max_bins     : int | None = None,
         max_aisles   : int | None = None,
+        composition  : dict | None = None,
         rng          : random.Random | None = None,
         log          : Any = None,
     ) -> 'WarehousePlan':
@@ -140,13 +142,25 @@ class Inventory_Manager:
         1. Enumerate the full bucket set (every handling×category gets 4 pallet
            size tiers + 1 singleton) — the structural floor that guarantees
            every SKU has a place.
-        2. Replica per bucket = max(1, ceil(demand / (eff_bins * target_fill))).
-        3. Apply max_bins/max_aisles caps (never below 1 replica/bucket).
+        2. Replica per bucket either from demand (default,
+           max(1, ceil(demand/(eff·target_fill)))) or from an explicit
+           *composition* basis vector (bins ∝ weight).
+        3. Scale up to >= min_bins, then down to <= max_bins/max_aisles (never
+           below 1 replica/bucket; min_bins wins if it conflicts with max).
         4. Sample SKUs to fill the resulting capacity to target_fill.
+
+        composition: optional factored basis vector of *bin* ratios — a dict with
+        any of the keys 'handling', 'category', 'size', 'unit', each mapping a
+        value to a relative weight (missing values default to 1.0).  The per-bucket
+        weight is the product of the matching dimension weights; bins are allocated
+        proportionally.  Total scale comes from min_bins (or demand if min_bins is
+        unset).  Example:
+            {'unit': {'pallet': 0.7, 'singleton': 0.3},
+             'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
         """
         req = cls.bucket_requirements(cartons)
 
-        # 1+2: enumerate every bucket with a ≥1 floor, add demand replicas.
+        # 1: enumerate every bucket with a ≥1 floor.
         bucket_list: list[tuple] = []     # (handling, category, size, unit_type)
         for h in handlings:
             for cat in categories:
@@ -158,36 +172,74 @@ class Inventory_Manager:
             _h, _c, size, unit_type = bucket
             return uniform_aisle_bins(unit_type, size, aisle_width, aisle_height)
 
+        def _comp_weight(bucket: tuple) -> float:
+            """Factored basis-vector weight for a bucket (product of dimension
+            weights; each dimension defaults to 1.0 when unspecified)."""
+            h, cat, size, unit_type = bucket
+            w  = composition.get('handling', {}).get(h, 1.0)
+            w *= composition.get('category', {}).get(cat, 1.0)
+            w *= composition.get('unit', {}).get(unit_type, 1.0)
+            if unit_type == 'pallet':
+                w *= composition.get('size', {}).get(size, 1.0)
+            return w
+
+        # 2: base replicas — demand-driven, or proportional to a composition vector.
         replicas: dict[tuple, int] = {}
-        for b in bucket_list:
-            eff = _eff(b)
-            need = req.get(b, 0)
-            replicas[b] = max(1, math.ceil(need / (eff * target_fill))) if eff else 1
+        if composition is not None:
+            weights = {b: _comp_weight(b) for b in bucket_list}
+            tw      = sum(weights.values()) or 1.0
+            demand_bins = sum(
+                (max(1, math.ceil(req.get(b, 0) / (_eff(b) * target_fill))) if _eff(b) else 1) * _eff(b)
+                for b in bucket_list)
+            target_total = float(min_bins) if min_bins else float(demand_bins)
+            for b in bucket_list:
+                eff = _eff(b)
+                desired = target_total * weights[b] / tw     # desired bins for b
+                replicas[b] = max(1, round(desired / eff)) if eff else 1
+        else:
+            for b in bucket_list:
+                eff = _eff(b)
+                need = req.get(b, 0)
+                replicas[b] = max(1, math.ceil(need / (eff * target_fill))) if eff else 1
 
         total_aisles = sum(replicas.values())
         total_bins   = sum(r * _eff(b) for b, r in replicas.items())
 
-        # 3: enforce caps, never trimming a bucket below its floor of 1.
+        # 3a: scale UP to satisfy a minimum bin count.
+        if min_bins is not None and total_bins < min_bins:
+            factor = min_bins / total_bins
+            for b in replicas:
+                replicas[b] = max(1, math.ceil(replicas[b] * factor))
+            total_aisles = sum(replicas.values())
+            total_bins   = sum(r * _eff(b) for b, r in replicas.items())
+
+        # 3b: enforce caps, never trimming a bucket below its floor of 1, and
+        #     never below min_bins (a min_bins > max_bins request keeps the min).
+        _bins_floor = min_bins if min_bins is not None else 0
         if ((max_aisles is not None and total_aisles > max_aisles) or
-            (max_bins   is not None and total_bins   > max_bins)):
+            (max_bins   is not None and total_bins   > max_bins and total_bins > _bins_floor)):
             ratios = []
             if max_aisles is not None and total_aisles > max_aisles:
                 ratios.append(max_aisles / total_aisles)
             if max_bins is not None and total_bins > max_bins:
-                ratios.append(max_bins / total_bins)
+                ratios.append(max(max_bins, _bins_floor) / total_bins)
             scale = min(ratios)
             for b in replicas:
                 replicas[b] = max(1, round(replicas[b] * scale))
             total_aisles = sum(replicas.values())
             total_bins   = sum(r * _eff(b) for b, r in replicas.items())
 
-            # greedy trim largest-bin trimmable bucket (replicas>1) to hit caps
-            while ((max_bins   is not None and total_bins   > max_bins) or
-                   (max_aisles is not None and total_aisles > max_aisles)):
+            # greedy trim largest-bin trimmable bucket (replicas>1) to hit caps,
+            # but never drop total_bins below the min_bins floor.
+            while (((max_bins   is not None and total_bins   > max_bins) or
+                    (max_aisles is not None and total_aisles > max_aisles))
+                   and total_bins > _bins_floor):
                 trimmable = [b for b in bucket_list if replicas[b] > 1]
                 if not trimmable:
                     break   # every bucket at floor — cannot shrink further
                 b = max(trimmable, key=_eff)
+                if total_bins - _eff(b) < _bins_floor:
+                    break   # one more trim would breach the min_bins floor
                 replicas[b] -= 1
                 total_aisles -= 1
                 total_bins   -= _eff(b)

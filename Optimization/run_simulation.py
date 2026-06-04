@@ -266,6 +266,8 @@ def build_shared_assets(
     max_skus          : int | None = None,
     max_aisles        : int | None = None,
     max_bins          : int | None = None,
+    min_bins          : int | None = None,
+    composition       : dict | None = None,
     warehouse_db_path : str | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
@@ -299,8 +301,10 @@ def build_shared_assets(
         aisle_width  = _AISLE_W,
         aisle_height = _AISLE_H,
         target_fill  = _INITIAL_FILL,
+        min_bins     = min_bins,
         max_bins     = max_bins,
         max_aisles   = max_aisles,
+        composition  = composition,
         rng          = random.Random(SEED_WORLD + 1),
         log          = log,
     )
@@ -467,6 +471,8 @@ def _run_pair_sims(
     max_skus       : int | None = None,
     max_aisles     : int | None = None,
     max_bins       : int | None = None,
+    min_bins       : int | None = None,
+    composition    : dict | None = None,
 ) -> tuple[str, dict, dict]:
     """Load one inventory+affinity pair and run all regression config simulations.
 
@@ -482,7 +488,8 @@ def _run_pair_sims(
     log.info(f'{"="*64}')
     shared = build_shared_assets(inv_db, aff_db, log,
                                  max_skus=max_skus, max_aisles=max_aisles,
-                                 max_bins=max_bins,
+                                 max_bins=max_bins, min_bins=min_bins,
+                                 composition=composition,
                                  warehouse_db_path=os.path.join(pair_dir, 'warehouse.db'))
 
     sim_results: dict[str, dict] = {}
@@ -802,7 +809,23 @@ def main():
     parser.add_argument('--max-bins', type=int, default=None, metavar='N',
                         help='Cap total bins by trimming aisle replicas (floor: '
                              '1 replica/type ~= 30k bins). Combine with --max-aisles.')
+    parser.add_argument('--min-bins', type=int, default=None, metavar='N',
+                        help='Require AT LEAST N total bins; replicas scale up to '
+                             'meet it (min wins over --max-bins if they conflict).')
+    parser.add_argument('--composition', type=str, default=None, metavar='JSON',
+                        help='Path to a JSON file (or inline JSON) giving a factored '
+                             'basis vector of bin ratios. Keys: handling, category, '
+                             'size, unit — each a {value: weight} map. Bins are '
+                             'allocated proportionally; scale comes from --min-bins.')
     args = parser.parse_args()
+
+    composition = None
+    if args.composition:
+        if os.path.exists(args.composition):
+            with open(args.composition) as _cf:
+                composition = json.load(_cf)
+        else:
+            composition = json.loads(args.composition)
 
     if args.resume:
         base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
@@ -859,7 +882,8 @@ def main():
             shared_by_pair[label] = build_shared_assets(
                 inv_db, aff_db, log,
                 max_skus=args.max_skus, max_aisles=args.max_aisles,
-                max_bins=args.max_bins,
+                max_bins=args.max_bins, min_bins=args.min_bins,
+                composition=composition,
                 warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
             )
         _run_workers_flat(pairs, base_dir, shared_by_pair, args.workers, log)
@@ -874,6 +898,7 @@ def main():
                     os.path.join(base_dir, label),
                     args.config_workers, log,
                     args.max_skus, args.max_aisles, args.max_bins,
+                    args.min_bins, composition,
                 ): (label, inv_db, aff_db)
                 for label, inv_db, aff_db in pairs
             }
@@ -891,6 +916,7 @@ def main():
             _run_pair_sims(
                 label, inv_db, aff_db, pair_dir, args.config_workers, log,
                 args.max_skus, args.max_aisles, args.max_bins,
+                args.min_bins, composition,
             )
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'

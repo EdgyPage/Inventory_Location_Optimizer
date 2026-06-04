@@ -210,6 +210,54 @@ def test_below_floor_clamps():
           all(v > 0 for v in plan.capacity.values()))
 
 
+def _plan_kw(inv, **kw):
+    return Inventory_Manager.plan_warehouse(
+        inv.cartons, categories=_CATEGORIES, handlings=_HANDLINGS,
+        aisle_width=_AISLE_W, aisle_height=_AISLE_H, target_fill=_TARGET,
+        rng=random.Random(1), **kw)
+
+
+def test_min_bins_floor():
+    print('\n-- min_bins: warehouse scaled up to a hard minimum --')
+    inv  = _inventory(60, seed=5)
+    base = _plan_kw(inv)                       # natural size
+    target = base.total_bins * 3 + 20000       # well above natural
+    plan = _plan_kw(inv, min_bins=target)
+    check('total_bins >= min_bins', plan.total_bins >= target,
+          f'{plan.total_bins} < {target}')
+    check('every bucket still has >=1 aisle under min_bins',
+          all(v > 0 for v in plan.capacity.values()))
+
+
+def test_min_bins_overrides_max_bins():
+    print('\n-- min_bins wins when it conflicts with max_bins --')
+    inv  = _inventory(60, seed=5)
+    plan = _plan_kw(inv, min_bins=30000, max_bins=5000)
+    check('min_bins floor honored over a smaller max_bins',
+          plan.total_bins >= 30000, f'{plan.total_bins}')
+
+
+def test_composition_basis_vector():
+    print('\n-- composition basis vector sets the bin-tier ratios --')
+    from collections import defaultdict
+    comp = {'unit': {'pallet': 0.7, 'singleton': 0.3},
+            'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
+    inv  = _inventory(60, seed=5)
+    plan = _plan_kw(inv, min_bins=20000, composition=comp)
+    bins = defaultdict(int)
+    for (h, c, s, u), n in plan.capacity.items():
+        bins['singleton' if u == 'singleton' else s] += n
+    tot = sum(bins.values())
+    check('min_bins respected with composition', tot >= 20000, f'{tot}')
+    check('singleton ~30% of bins', abs(bins['singleton'] / tot - 0.30) < 0.05,
+          f'{bins["singleton"]/tot:.1%}')
+    pallet_tot = tot - bins['singleton']
+    for size, exp in [('small', 0.1), ('medium', 0.2), ('large', 0.3), ('extra_large', 0.4)]:
+        frac = bins[size] / pallet_tot
+        check(f'{size} tier ~{exp:.0%} of pallet bins (basis vector)',
+              abs(frac - exp) < 0.05, f'{frac:.1%}')
+
+
 def test_sampling_respects_bucket_capacity():
     print('\n-- sampling never exceeds per-bucket capacity --')
     inv = _inventory(150, seed=13)
@@ -515,6 +563,9 @@ if __name__ == '__main__':
     test_uncapped_holds_full_demand()
     test_capped_under_capacity()
     test_below_floor_clamps()
+    test_min_bins_floor()
+    test_min_bins_overrides_max_bins()
+    test_composition_basis_vector()
     test_sampling_respects_bucket_capacity()
     test_cross_tier_fill()
     test_resample_scales_eq_reorder()
