@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
+import tempfile
 import types
 
 from Aisle_Storage import Aisle
@@ -33,6 +34,7 @@ from Carton import Carton, StorageHandleConfig
 from Demand import Demand
 from generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
+    save_inventory_to_db, load_inventory_from_db, Inventory,
 )
 from Inventory_Management import (
     Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
@@ -450,6 +452,48 @@ def _run_batch_drain(build_fn, label: str):
           not violations, f'{violations[:3]}')
 
 
+def test_planned_inventory_roundtrip_no_queue():
+    print('\n-- planned inventory survives DB round-trip; workers reproduce it (no queue) --')
+    # Mirrors the real multi-process flow: the main process plans (grown eq +
+    # cross-tier stock plans), persists to a DB, and worker processes RELOAD from
+    # that DB.  If the plan didn't survive, workers would palletize with the
+    # default scheme and the queue would explode.
+    inv  = _inventory(120, seed=5)
+    plan = _plan(inv)
+    planned = Inventory.__new__(Inventory)
+    planned.cartons = plan.sampled
+    db = os.path.join(tempfile.gettempdir(), 'planned_sizing_test.db')
+    if os.path.exists(db):
+        os.remove(db)
+    try:
+        save_inventory_to_db(planned, db, {'planned': True})
+        reloaded = load_inventory_from_db(db)
+    finally:
+        if os.path.exists(db):
+            os.remove(db)
+
+    check('every planned SKU round-trips carrying a stock_plan',
+          reloaded.cartons and all(getattr(c, 'stock_plan', None) for c in reloaded.cartons),
+          f'{sum(1 for c in reloaded.cartons if getattr(c, "stock_plan", None))}'
+          f'/{len(reloaded.cartons)}')
+    eq_by_sku = {c.sku: c.equilibrium_qty for c in plan.sampled}
+    check('grown equilibrium_qty preserved through the DB',
+          all(c.equilibrium_qty == eq_by_sku[c.sku] for c in reloaded.cartons))
+
+    # Worker flow: build the planned warehouse, enqueue the RELOADED cartons.
+    Aisle.next_aisle_id = 1
+    random.seed(5)
+    wh  = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
+    mgr = Inventory_Manager(wh)
+    mgr.enqueue_all(reloaded.cartons)
+    check('reloaded cartons place with NO queue (cross-tier plan reproduced)',
+          mgr.queue_depth == 0, f'queue={mgr.queue_depth}')
+    placed = {b.storage.carton.sku for b in mgr.unavailable if b.storage is not None}
+    check('every reloaded SKU placed',
+          all(c.sku in placed for c in reloaded.cartons),
+          f'{len(placed)}/{len(reloaded.cartons)}')
+
+
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
     _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
@@ -477,6 +521,7 @@ if __name__ == '__main__':
     test_restock_no_queue_growth()
     test_partial_placement_drains_incrementally()
     test_unit_split_rescue()
+    test_planned_inventory_roundtrip_no_queue()
     test_batch_min_incremental_drain()
     test_batch_max_incremental_drain()
 

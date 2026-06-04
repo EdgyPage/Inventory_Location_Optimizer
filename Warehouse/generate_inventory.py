@@ -358,7 +358,8 @@ _SCHEMA = '''
         equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
         reorder_point         INTEGER NOT NULL DEFAULT 1,
         lead_time_mean        REAL    NOT NULL DEFAULT 0.0,
-        supply_cv             REAL    NOT NULL DEFAULT 0.0
+        supply_cv             REAL    NOT NULL DEFAULT 0.0,
+        stock_plan            TEXT
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -382,6 +383,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     conn = _init_db(db_path)
     rows = []
     for c in inventory.cartons:
+        sp = getattr(c, 'stock_plan', None)
         rows.append((
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
@@ -391,13 +393,14 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             getattr(c, 'reorder_point',         1),
             getattr(c, 'lead_time_mean',        0.0),
             getattr(c, 'supply_cv',             0.0),
+            json.dumps(sp) if sp else None,
         ))
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' demand_frequency, demand_qty_rate, expected_batch_demand, '
-        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
@@ -424,6 +427,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     has_equilibrium    = 'equilibrium_qty'         in col_names
     has_lead_time      = 'lead_time_mean'          in col_names
     has_supply_cv      = 'supply_cv'               in col_names
+    has_stock_plan     = 'stock_plan'              in col_names
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
         'demand_frequency, demand_qty_rate'
@@ -433,6 +437,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         + (', equilibrium_qty'       if has_equilibrium   else '')
         + (', lead_time_mean'        if has_lead_time     else '')
         + (', supply_cv'             if has_supply_cv     else '')
+        + (', stock_plan'            if has_stock_plan    else '')
         + ' FROM cartons ORDER BY sku'
         + (f' LIMIT {limit}'         if limit is not None else '')
     )
@@ -473,6 +478,13 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         supply_cv = float(row[col]) if has_supply_cv else 0.0
         if has_supply_cv: col += 1
 
+        stock_plan = None
+        if has_stock_plan:
+            raw_sp = row[col]; col += 1
+            if raw_sp:
+                # JSON stores tuples as lists; restore (is_singleton, qty, count) tuples.
+                stock_plan = [(bool(s), int(q), int(n)) for s, q, n in json.loads(raw_sp)]
+
         c                        = object.__new__(Carton)
         c._sku                   = sku
         c.storage_type           = (handling, category)
@@ -488,6 +500,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         c.reorder_point          = reorder_point
         c.lead_time_mean         = lead_time_mean
         c.supply_cv              = supply_cv
+        c.stock_plan             = stock_plan
         cartons.append(c)
         max_sku = max(max_sku, sku)
 

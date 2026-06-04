@@ -59,7 +59,7 @@ _load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
-from generate_inventory import load_inventory_from_db
+from generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
 from Pick import PickConfig
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
@@ -357,6 +357,23 @@ def build_shared_assets(
     random.seed(SEED_WORLD)
     warehouse_meta = Warehouse_Builder().from_config(warehouse_cfg).build()
 
+    # ── persist the PLANNED inventory (grown equilibrium_qty + multi-tier
+    # stock_plan) so worker processes reproduce the exact cross-tier placement
+    # the warehouse was sized for.  Workers reload from this DB instead of the
+    # original, otherwise they palletize with the default scheme and the queue
+    # explodes (tiers the warehouse was sized for never get filled). ───────────
+    planned_inv_db: str | None = None
+    if warehouse_db_path is not None:
+        planned_inv_db = os.path.join(os.path.dirname(warehouse_db_path),
+                                      'planned_inventory.db')
+        if os.path.exists(planned_inv_db):
+            os.remove(planned_inv_db)   # rewrite fresh each plan
+        save_inventory_to_db(inventory, planned_inv_db,
+                             {'source_inventory_db': inventory_db,
+                              'planned': True})
+        log.info(f'  Planned inventory → {planned_inv_db}  ({n_skus:,} SKUs, '
+                 f'cross-tier stock plans)')
+
     # ── persist warehouse stats and aisle distributions ───────────────────────
     if warehouse_db_path is not None:
         from Warehouse_Data import init_warehouse_db, save_warehouse_stats
@@ -421,6 +438,7 @@ def build_shared_assets(
         max_aisles         = max_aisles,
         max_bins           = max_bins,
         sku_allowlist      = sku_allowlist,
+        planned_inv_db     = planned_inv_db,
     )
 
 
@@ -601,8 +619,16 @@ def _prepare_config_run(
 
     _save_resume(run_dir, run_ids, start_A, start_B, start_C)
 
+    # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier
+    # stock plans) when available so they reproduce the placement the warehouse
+    # was sized for.  That DB already holds only the sampled SKUs at the planned
+    # stock levels, so neither the SKU allowlist nor max_skus apply to it.
+    _planned_db   = shared.get('planned_inv_db')
+    _worker_invdb = _planned_db or shared['inv_db']
+    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
+    _worker_maxsk = None if _planned_db else shared.get('max_skus')
     _shared = dict(
-        inv_db        = shared['inv_db'],
+        inv_db        = _worker_invdb,
         aff_db        = shared['aff_db'],
         run_dir       = run_dir,
         n_batches     = N_BATCHES,
@@ -610,8 +636,8 @@ def _prepare_config_run(
         seed_world    = SEED_WORLD,
         seed_batches  = SEED_BATCHES,
         checkpoint    = _CHECKPOINT,
-        max_skus      = shared.get('max_skus'),
-        sku_allowlist = shared.get('sku_allowlist'),
+        max_skus      = _worker_maxsk,
+        sku_allowlist = _worker_allow,
         warehouse_cfg = warehouse_cfg,
         pick_cfg      = pick_cfg,
         wp            = wp,
