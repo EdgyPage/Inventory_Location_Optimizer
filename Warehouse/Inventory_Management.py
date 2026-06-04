@@ -258,10 +258,19 @@ class Inventory_Manager:
         genuinely require.  Each plan slot is a (is_singleton, qty_per_unit)
         pair; the slots sum to the carton's (possibly grown) equilibrium_qty.
 
-        Allocation is round-robin so every SKU gets at least one unit first
-        (placeability), then capacity is filled to capacity*target_fill.  The
-        plan is stored on the carton so viable_storage_units — and therefore
-        every reorder — reproduces the exact tier mix.
+        Allocation: phase 1 is round-robin so every SKU gets at least one unit
+        first (placeability) and reaches its base equilibrium; phase 2 fills the
+        leftover capacity per (handling, category) group in BULK — distributing
+        each bin tier's free space across the cartons that can reach it in one
+        step rather than one bin at a time.  The plan is stored on the carton as
+        run-length slots (is_singleton, qty_per_unit, count) so
+        viable_storage_units — and therefore every reorder — reproduces the exact
+        tier mix.
+
+        Performance: each carton's reachable tiers (and the qty that lands a full
+        pallet in each) are computed once via Pallet._fit (O(N) fits).  Full
+        pallets reuse that cached tier, so no _fit runs in the fill loops; only a
+        capped final slot (phase 1, ≤1 per carton) needs a fit.
 
         Returns (sampled_cartons, sampled_sku_ids).
         """
@@ -269,7 +278,9 @@ class Inventory_Manager:
         free   = {b: int(cap * target_fill) for b, cap in capacity.items()}
 
         def _reachable(c: Carton) -> list[tuple[BinKey, int, bool]]:
-            """(bucket, qty_per_unit, is_singleton) options this carton can fill."""
+            """(bucket, qty_per_unit, is_singleton) options this carton can fill.
+            qty_per_unit is the quantity whose pallet lands exactly in that tier,
+            so a full pallet of it never needs a _fit recheck at fill time."""
             shc  = c.storage_handle_config
             opts: list[tuple[BinKey, int, bool]] = []
             for size in _SIZES_DESCENDING:
@@ -284,41 +295,51 @@ class Inventory_Manager:
         order: list[Carton] = list(cartons)
         _rng.shuffle(order)
         reach   = {id(c): _reachable(c) for c in order}
-        plans   : dict[int, list[tuple[bool, int]]] = {id(c): [] for c in order}
+        plans   : dict[int, list[tuple[bool, int, int]]] = {id(c): [] for c in order}
         qty_sum : dict[int, int] = {id(c): 0 for c in order}
         eq0     = {id(c): _equilibrium_qty(c) for c in order}
+        shc_of  = {id(c): c.storage_handle_config for c in order}
 
-        shc_of = {id(c): c.storage_handle_config for c in order}
+        def _add_run(c: Carton, is_single: bool, per: int, count: int, bucket: BinKey) -> None:
+            """Append `count` units of `per` items to c's plan, charging `bucket`.
+            Merges with the previous run if it is the same (is_single, per)."""
+            plan = plans[id(c)]
+            if plan and plan[-1][0] == is_single and plan[-1][1] == per:
+                last = plan[-1]
+                plan[-1] = (is_single, per, last[2] + count)
+            else:
+                plan.append((is_single, per, count))
+            qty_sum[id(c)] += per * count
+            free[bucket]    = free.get(bucket, 0) - count
 
         def _add_one(c: Carton, cap_qty: int | None) -> bool:
-            """Add one pallet/singleton to *c*'s plan in its emptiest reachable
-            bucket with budget.  If cap_qty is set, the slot quantity is capped
-            (used to land the final slot exactly on equilibrium).  Returns False
-            when no reachable bucket has free space."""
+            """Add ONE pallet/singleton in c's emptiest reachable bucket with
+            budget.  cap_qty caps the slot quantity to land the final slot exactly
+            on equilibrium.  Returns False when no reachable bucket has space."""
             opts = [(b, per, isng) for (b, per, isng) in reach[id(c)] if free.get(b, 0) > 0]
             if not opts:
                 return False
             b, per, isng = max(opts, key=lambda o: free[o[0]])
-            if cap_qty is not None:
-                per = min(per, cap_qty)
+            if cap_qty is None or cap_qty >= per:
+                # Full pallet — tier is the cached bucket, no _fit needed.
+                _add_run(c, isng, per, 1, b)
+                return True
+            # Capped final slot: a smaller quantity can drop a pallet into a
+            # SMALLER tier, so charge the bucket it ACTUALLY lands in.
+            per = cap_qty
             if per <= 0:
                 return False
-            # Capping the quantity can drop a pallet into a SMALLER tier than the
-            # bucket we picked.  Decrement the bucket the unit ACTUALLY lands in
-            # (what viable_storage_units will reproduce), so capacity is honored.
             if isng:
                 actual_b = b
             else:
                 shc = shc_of[id(c)]
                 actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')
             if free.get(actual_b, 0) <= 0:
-                return False   # capped unit falls in a full tier — skip this carton
-            plans[id(c)].append((isng, per))
-            qty_sum[id(c)] += per
-            free[actual_b] -= 1
+                return False
+            _add_run(c, isng, per, 1, actual_b)
             return True
 
-        # Phase 1 (round-robin): bring every carton up to its base equilibrium.
+        # Phase 1 (round-robin): every carton up to its base equilibrium.
         progress = True
         while progress:
             progress = False
@@ -329,22 +350,39 @@ class Inventory_Manager:
                 if _add_one(c, cap_qty=gap):
                     progress = True
 
-        # Phase 2 (round-robin): fill leftover space to capacity*target_fill.
-        progress = True
-        while progress:
-            progress = False
-            for c in order:
-                if _add_one(c, cap_qty=None):
-                    progress = True
+        # Phase 2 (bulk): fill leftover space per (handling, category) group.
+        # For each bin tier with free budget, distribute it across the cartons in
+        # the group that can reach it (full pallets only → exact tier, no _fit).
+        groups: dict[tuple, list[Carton]] = defaultdict(list)
+        for c in order:
+            shc = shc_of[id(c)]
+            groups[(shc.handling, shc.category)].append(c)
+
+        for gcartons in groups.values():
+            bucket_reachers: dict[BinKey, list[tuple[Carton, int, bool]]] = defaultdict(list)
+            for c in gcartons:
+                for (b, per, isng) in reach[id(c)]:
+                    bucket_reachers[b].append((c, per, isng))
+            for b, lst in bucket_reachers.items():
+                avail = free.get(b, 0)
+                if avail <= 0 or not lst:
+                    continue
+                n          = len(lst)
+                base_share = avail // n
+                remainder  = avail - base_share * n
+                for i, (c, per, isng) in enumerate(lst):
+                    share = base_share + (1 if i < remainder else 0)
+                    if share > 0:
+                        _add_run(c, isng, per, share, b)
 
         selected = [c for c in order if plans[id(c)]]
         for c in selected:
             base = eq0[id(c)]
             f    = (c.reorder_point / base) if base else 0.5
+            total = qty_sum[id(c)]
             c.stock_plan      = plans[id(c)]
-            c.equilibrium_qty = qty_sum[id(c)]
-            c.reorder_point   = max(1, min(qty_sum[id(c)] - 1,
-                                           round(f * qty_sum[id(c)])))
+            c.equilibrium_qty = total
+            c.reorder_point   = max(1, min(total - 1, round(f * total)))
         return selected, {c.sku for c in selected}
 
     def __init__(

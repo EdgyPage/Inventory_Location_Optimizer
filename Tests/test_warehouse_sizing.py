@@ -264,9 +264,9 @@ def test_resample_scales_eq_reorder():
     check('reorder_point preserves original ratio',
           sc.reorder_point == expected_rp,
           f'rp={sc.reorder_point} expected {expected_rp}')
-    check('stock_plan assigned (slots sum to equilibrium_qty)',
+    check('stock_plan assigned (RLE slots sum to equilibrium_qty)',
           getattr(sc, 'stock_plan', None) and
-          sum(q for _, q in sc.stock_plan) == sc.equilibrium_qty,
+          sum(per * count for _, per, count in sc.stock_plan) == sc.equilibrium_qty,
           f'plan={getattr(sc, "stock_plan", None)}')
 
 

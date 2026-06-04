@@ -209,20 +209,23 @@ def viable_storage_units(carton: Carton, quantity: int) -> list[StorageUnit]:
     """
     # If the carton carries an explicit stock_plan (assigned at warehouse-planning
     # time to fill diverse bin tiers), reproduce it so every reorder rebuilds the
-    # same tier mix.  The plan is a list of (is_singleton, qty_per_unit) slots
-    # summing to equilibrium_qty.  For a partial reorder (qty < plan total) the
-    # leading slots are filled until qty is exhausted; any excess beyond the plan
-    # falls through to default packing.
+    # same tier mix.  The plan is a list of run-length slots
+    # (is_singleton, qty_per_unit, count) summing to equilibrium_qty.  For a
+    # partial reorder (qty < plan total) the leading slots/runs are filled until
+    # qty is exhausted; any excess beyond the plan falls through to default packing.
     plan = getattr(carton, 'stock_plan', None)
     if plan:
         units: list[StorageUnit] = []
         remaining = quantity
-        for is_single, per in plan:
+        for is_single, per, count in plan:
+            for _ in range(count):
+                if remaining <= 0:
+                    break
+                take = min(per, remaining)
+                units.append(Singleton(carton, take) if is_single else Pallet(carton, take))
+                remaining -= take
             if remaining <= 0:
                 break
-            take = min(per, remaining)
-            units.append(Singleton(carton, take) if is_single else Pallet(carton, take))
-            remaining -= take
         if remaining > 0:
             # qty exceeds the plan's total — pack the surplus with default logic.
             units.extend(_build_units(carton, Pallet, remaining)
