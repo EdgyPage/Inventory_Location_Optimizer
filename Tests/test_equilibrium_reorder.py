@@ -388,6 +388,65 @@ def test_deferred_blocks_duplicate_reorder() -> None:
           30 not in triggered2, f'triggered2={triggered2}')
 
 
+def test_position_counts_queued_units() -> None:
+    """Reorder thresholds use inventory POSITION = on-hand + on-order.
+
+    A SKU that has already been reordered (units on-order, awaiting a bin) must
+    not be flagged depleted or reordered again — on-order counts toward the
+    reorder-point threshold.
+    """
+    print('\n-- Part D4: inventory position counts queued (unbinned) units --')
+    _, mgr = _small_warehouse(seed=21)
+    random.seed(21)
+
+    c = _make_carton(sku=30, eq_qty=20, rp=8)
+    mgr._originals[30] = c
+
+    # _notify_pick must NOT flag depleted while on-order lifts position above rp.
+    mgr._current_quantities[30] = 5      # on-hand 5
+    mgr._queued_qty[30]         = 20      # 20 already queued on-order
+    mgr._depleted_skus.clear()
+    mgr._notify_pick(30, 3)              # on-hand 5→2; position 2+20=22 > rp 8
+    check('_notify_pick does not flag while position above reorder_point',
+          30 not in mgr._depleted_skus, f'depleted={30 in mgr._depleted_skus}')
+
+    # Even forced into the depleted set, check_reorders must not fire a duplicate
+    # wave while on-order already covers the threshold (no _queue units to place).
+    triggers = []
+    for _ in range(10):
+        mgr._depleted_skus.add(30)
+        triggers.append(30 in mgr.check_reorders())
+    check('no duplicate reorder while a wave is on-order',
+          not any(triggers), f'{triggers}')
+    check('on-order qty does not balloon across batches',
+          mgr._queued_qty.get(30, 0) == 20,
+          f'queued_qty={mgr._queued_qty.get(30, 0)}')
+
+
+def test_oup_qty_uses_position() -> None:
+    """The OUP order size fills up to equilibrium from inventory POSITION
+    (on-hand + on-order), not from on-hand alone."""
+    print('\n-- Part D5: OUP order size = eq - position, not eq - on_hand --')
+    _, mgr = _small_warehouse(seed=22)
+    random.seed(22)
+
+    # Lead time > 0 → the new wave is deferred (in-transit), so it is recorded in
+    # _deferred_qty without any placement muddying the accounting.
+    c = _make_carton(sku=31, eq_qty=30, rp=12, lt=5.0, supply_cv=0.0)
+    mgr._originals[31] = c
+    mgr._current_quantities[31] = 6      # on-hand
+    mgr._queued_qty[31]          = 6      # already on-order (queued)
+    # position = 6 + 6 = 12 == rp=12 → genuinely depleted, fire eq - position = 18
+
+    before = mgr._deferred_qty.get(31, 0)
+    mgr._depleted_skus.add(31)
+    mgr.check_reorders()
+    ordered = mgr._deferred_qty.get(31, 0) - before
+
+    check('order size = eq - position (18), not eq - on_hand (24)',
+          ordered == 18, f'ordered={ordered}')
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Part E: _equilibrium_qty helper
 # ═════════════════════════════════════════════════════════════════════════════
@@ -606,6 +665,8 @@ if __name__ == '__main__':
     test_immediate_reorder()
     test_deferred_reorder()
     test_deferred_blocks_duplicate_reorder()
+    test_position_counts_queued_units()
+    test_oup_qty_uses_position()
     test_equilibrium_qty_helper()
     test_fill_stability()
     test_supply_cv_zero_is_exact()

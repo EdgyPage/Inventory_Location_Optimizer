@@ -368,6 +368,13 @@ class Inventory_Manager:
         # Count of queued units per SKU — O(1) alternative to rebuilding a set
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
+        # Product-quantity on-order trackers (parallel to the unit-count dicts):
+        # _queued_qty   = items reordered and queued but not yet placed in a bin,
+        # _deferred_qty = items reordered and in-transit (lead-time deferral).
+        # Reorder thresholds use inventory position = on_hand + queued + deferred
+        # so a SKU already reordered (but unbinned) is not reordered again.
+        self._queued_qty: dict[int, int]   = {}
+        self._deferred_qty: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
         # equilibrium_qty at initial intake per SKU (not updated on reorders).
         self._initial_quantities: dict[int, int] = {}
@@ -429,6 +436,9 @@ class Inventory_Manager:
         qty = quantity if quantity is not None else _equilibrium_qty(carton)
         for unit in viable_storage_units(carton, qty):
             self._queue.append(unit)
+        # Count intake units as on-order so a reorder fired before they all reach
+        # a bin does not over-order (they decrement back as they place).
+        self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
         if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
             self._originals[carton.sku] = carton
             self._initial_quantities[carton.sku] = qty
@@ -446,6 +456,9 @@ class Inventory_Manager:
             qty = quantity if quantity is not None else _equilibrium_qty(carton)
             for unit in viable_storage_units(carton, qty):
                 self._queue.append(unit)
+            # Count intake units as on-order so a reorder fired before they all
+            # reach a bin does not over-order (decremented back as they place).
+            self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
             if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
                 self._originals[carton.sku] = carton
                 self._initial_quantities[carton.sku] = qty
@@ -522,9 +535,11 @@ class Inventory_Manager:
         Adds the SKU to _depleted_skus so check_reorders only iterates SKUs
         that actually need attention rather than all N_skus.
 
-        reorder_point is a pre-computed attribute stored on the Carton at
-        inventory generation time (frequency × quantity_rate × coverage_batches).
-        No calculation is performed here — the value is simply read.
+        The depletion flag compares reorder_point against the SKU's INVENTORY
+        POSITION (on-hand in bins + on-order queued + on-order deferred), not
+        on-hand alone.  A SKU that has already been reordered but whose units are
+        still waiting for a bin is therefore not flagged again — preventing
+        duplicate reorders every batch for unbinned items.
         """
         cur = self._current_quantities.get(sku, 0)
         if cur <= 0:
@@ -533,8 +548,10 @@ class Inventory_Manager:
         self._current_quantities[sku] = new_qty
         orig = self._originals.get(sku)
         rp = getattr(orig, 'reorder_point', None) if orig is not None else None
-        if rp is not None and new_qty <= rp:
-            self._depleted_skus.add(sku)
+        if rp is not None:
+            on_order = self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
+            if new_qty + on_order <= rp:
+                self._depleted_skus.add(sku)
 
     def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
         """Queue an emptied bin for reclaim at the next check_reorders call.
@@ -623,6 +640,9 @@ class Inventory_Manager:
                 self._deferred_sku_counts[sku] = max(
                     0, self._deferred_sku_counts.get(sku, 0) - len(units)
                 )
+                moved_qty = sum(u.quantity for u in units)
+                self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - moved_qty)
+                self._queued_qty[sku]   = self._queued_qty.get(sku, 0) + moved_qty
                 for unit in units:
                     self._queue.append(unit)
                 self._queued_sku_counts[sku] = (
@@ -634,38 +654,53 @@ class Inventory_Manager:
             return []
 
         # ── 2. Fire OUP reorders for depleted SKUs ───────────────────────────
+        # Reorder decisions use INVENTORY POSITION = on-hand + on-order (queued +
+        # deferred), not on-hand alone.  A SKU is only genuinely depleted when its
+        # position is at/below reorder_point; if an in-flight wave already lifts
+        # position above the threshold, it is skipped — no duplicate reorder while
+        # earlier units still await a bin.  Order up to equilibrium: eq − position.
         triggered: list[int] = []
         for sku in self._depleted_skus:
-            in_queue    = self._queued_sku_counts.get(sku, 0)
-            in_deferred = self._deferred_sku_counts.get(sku, 0)
-            if in_queue == 0 and in_deferred == 0 and sku in self._originals:
-                rc      = self._originals[sku].reorder()
-                eq_qty   = _equilibrium_qty(rc)
-                cur_qty  = self._current_quantities.get(sku, 0)
-                ideal    = max(1, eq_qty - cur_qty)   # OUP: fill back to target
-                cv       = getattr(rc, 'supply_cv', 0.0)
-                # Sample received quantity: N(ideal, ideal × cv), floor at 1.
-                # cv=0 → always receive exactly what was ordered.
-                qty      = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
-                units    = viable_storage_units(rc, qty)
-                if not units:
-                    continue
+            if sku not in self._originals:
+                continue
+            orig      = self._originals[sku]
+            rp        = getattr(orig, 'reorder_point', 0)
+            cur_qty   = self._current_quantities.get(sku, 0)
+            on_order  = self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
+            position  = cur_qty + on_order
+            if position > rp:
+                continue            # on-hand + on-order already covers the threshold
+            rc        = orig.reorder()
+            eq_qty    = _equilibrium_qty(rc)
+            ideal     = eq_qty - position               # OUP fill-back vs position
+            if ideal <= 0:
+                continue
+            cv        = getattr(rc, 'supply_cv', 0.0)
+            # Sample received quantity: N(ideal, ideal × cv), floor at 1.
+            # cv=0 → always receive exactly what was ordered.
+            qty       = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
+            units     = viable_storage_units(rc, qty)
+            if not units:
+                continue
+            ordered_qty = sum(u.quantity for u in units)
 
-                lt_mean = getattr(rc, 'lead_time_mean', 0.0)
-                if lt_mean > 0.0:
-                    # Sample lead time; floor at 1 so deferred ≠ immediate
-                    lead = max(1, round(random.gauss(lt_mean, lt_mean)))
-                    self._deferred_reorders[self._batch_num + lead].append((sku, units))
-                    self._deferred_sku_counts[sku] = (
-                        self._deferred_sku_counts.get(sku, 0) + len(units)
-                    )
-                else:
-                    for unit in units:
-                        self._queue.append(unit)
-                    self._queued_sku_counts[sku] = (
-                        self._queued_sku_counts.get(sku, 0) + len(units)
-                    )
-                triggered.append(sku)
+            lt_mean = getattr(rc, 'lead_time_mean', 0.0)
+            if lt_mean > 0.0:
+                # Sample lead time; floor at 1 so deferred ≠ immediate
+                lead = max(1, round(random.gauss(lt_mean, lt_mean)))
+                self._deferred_reorders[self._batch_num + lead].append((sku, units))
+                self._deferred_sku_counts[sku] = (
+                    self._deferred_sku_counts.get(sku, 0) + len(units)
+                )
+                self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + ordered_qty
+            else:
+                for unit in units:
+                    self._queue.append(unit)
+                self._queued_sku_counts[sku] = (
+                    self._queued_sku_counts.get(sku, 0) + len(units)
+                )
+                self._queued_qty[sku] = self._queued_qty.get(sku, 0) + ordered_qty
+            triggered.append(sku)
         self._depleted_skus.clear()
 
         # Always drain — retries prior-batch stragglers too.
@@ -764,6 +799,14 @@ class Inventory_Manager:
             self._queued_sku_counts.pop(sku, None)
         else:
             self._queued_sku_counts[sku] = n - 1
+        # Unit moves from on-order (queued) to on-hand (binned).  max-0 keeps
+        # initial-intake placements (never queued-counted) harmless.
+        if sku in self._queued_qty:
+            rem = self._queued_qty[sku] - unit.quantity
+            if rem > 0:
+                self._queued_qty[sku] = rem
+            else:
+                self._queued_qty.pop(sku, None)
         bin_.storage = unit
         self._index_remove(bin_)
         self._unavailable[id(bin_)] = bin_
