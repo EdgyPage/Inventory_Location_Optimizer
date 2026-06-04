@@ -369,12 +369,13 @@ def _sample_inventory_for_capacity(
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
-    inventory_db: str,
-    affinity_db : str,
-    log         : logging.Logger,
-    max_skus    : int | None = None,
-    max_aisles  : int | None = None,
-    max_bins    : int | None = None,
+    inventory_db      : str,
+    affinity_db       : str,
+    log               : logging.Logger,
+    max_skus          : int | None = None,
+    max_aisles        : int | None = None,
+    max_bins          : int | None = None,
+    warehouse_db_path : str | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
 
@@ -537,6 +538,50 @@ def build_shared_assets(
     random.seed(SEED_WORLD)
     warehouse_meta = Warehouse_Builder().from_config(warehouse_cfg).build()
 
+    # ── persist warehouse stats and aisle distributions ───────────────────────
+    if warehouse_db_path is not None:
+        from Warehouse_Data import init_warehouse_db, save_warehouse_stats
+        aisle_rows = []
+        for cfg, rep in zip(_AISLE_CFGS, aisle_replicas):
+            bpa   = _effective_bins_per_aisle(cfg)
+            probs = cfg.size_probabilities or [0.25, 0.25, 0.25, 0.25]
+            if cfg.unit_type == 'singleton':
+                pcts = (0.0, 0.0, 0.0, 0.0)
+            else:
+                pcts = tuple(probs[:4])   # (small, medium, large, xlarge)
+            aisle_rows.append(dict(
+                handling_type      = cfg.handling_type,
+                category           = cfg.storage_type,
+                unit_type          = cfg.unit_type,
+                replica_count      = rep,
+                eff_bins_per_aisle = bpa,
+                total_bins         = rep * bpa,
+                size_small_pct     = pcts[0],
+                size_medium_pct    = pcts[1],
+                size_large_pct     = pcts[2],
+                size_xlarge_pct    = pcts[3],
+            ))
+        avg_eq = sum(c.equilibrium_qty for c in inventory.cartons) / max(n_skus, 1)
+        avg_rp = sum(c.reorder_point   for c in inventory.cartons) / max(n_skus, 1)
+        init_warehouse_db(warehouse_db_path)
+        save_warehouse_stats(
+            warehouse_db_path,
+            inventory_db  = inventory_db,
+            n_skus        = n_skus,
+            n_pallet      = total_pallet_needed,
+            n_singleton   = total_singleton_needed,
+            total_aisles  = total_aisles,
+            total_bins    = total_bins,
+            expected_fill = expected_fill,
+            target_fill   = _TARGET_FILL,
+            max_aisles    = max_aisles,
+            max_bins      = max_bins,
+            avg_eq_qty    = avg_eq,
+            avg_rp        = avg_rp,
+            aisle_rows    = aisle_rows,
+        )
+        log.info(f'  Warehouse stats  → {warehouse_db_path}')
+
     return dict(
         inventory          = inventory,
         inv_db             = inventory_db,
@@ -598,7 +643,8 @@ def _run_pair_sims(
     log.info(f'{"="*64}')
     shared = build_shared_assets(inv_db, aff_db, log,
                                  max_skus=max_skus, max_aisles=max_aisles,
-                                 max_bins=max_bins)
+                                 max_bins=max_bins,
+                                 warehouse_db_path=os.path.join(pair_dir, 'warehouse.db'))
 
     sim_results: dict[str, dict] = {}
     if config_workers > 1:
@@ -967,6 +1013,7 @@ def main():
                 inv_db, aff_db, log,
                 max_skus=args.max_skus, max_aisles=args.max_aisles,
                 max_bins=args.max_bins,
+                warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
             )
         _run_workers_flat(pairs, base_dir, shared_by_pair, args.workers, log)
     elif args.pair_workers > 1:
