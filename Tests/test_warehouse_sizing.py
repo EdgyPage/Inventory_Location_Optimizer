@@ -26,15 +26,20 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
+import types
+
 from Aisle_Storage import Aisle
 from Carton import Carton, StorageHandleConfig
 from Demand import Demand
 from generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
 )
-from Inventory_Management import Inventory_Manager
-from Storage_Primitive import viable_storage_units
-from Warehouse_Builder import Warehouse_Builder
+from Inventory_Management import (
+    Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
+    build_batch_minimizing_assignment_fn, build_batch_maximizing_assignment_fn,
+)
+from Storage_Primitive import viable_storage_units, Pallet
+from Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
 
 # ── harness ─────────────────────────────────────────────────────────────────
 
@@ -309,6 +314,152 @@ def test_restock_no_queue_growth():
           f'peak={max(depths)}  bins={total_bins}')
 
 
+def test_partial_placement_drains_incrementally():
+    print('\n-- partial placement: queue drains as space frees, even if not all fit --')
+    # Tiny singleton-only warehouse: exactly 6 singleton bins.
+    Aisle.next_aisle_id = 1
+    random.seed(0)
+    w = aisle_width_for(2)   # 96 → 96//16 = 6 singleton columns
+    cfg = WarehouseConfig(total_aisles=1, aisle_splits=[1.0],
+        aisle_configs=[AisleConfig('conveyable', 'food', 'singleton', w, 48, ['singleton'], None)])
+    wh  = Warehouse_Builder().from_config(cfg).build()
+    mgr = Inventory_Manager(wh)
+    n_bins = len(wh.bins)
+
+    # A carton whose 10 units are singletons (more than the 6 bins).
+    c = _make_carton(1, eq_qty=10)
+    c.stock_plan = [(True, 1, 10)]       # 10 singleton units of 1 item each
+    mgr.enqueue(c, quantity=10)
+
+    placed = len(mgr.unavailable)
+    check('partial: some units placed, not all (0 < placed < 10)',
+          0 < placed < 10 and placed == n_bins,
+          f'placed={placed} bins={n_bins} queue={mgr.queue_depth}')
+    check('remaining units stay queued (10 - placed)',
+          mgr.queue_depth == 10 - placed, f'queue={mgr.queue_depth}')
+
+    # Free one bin; the next drain must place one more queued unit.
+    before = mgr.queue_depth
+    b = next(b for b in mgr.unavailable if b.storage is not None)
+    b.storage = None
+    mgr._notify_bin_emptied(b)
+    mgr.check_reorders()
+    check('freeing a bin lets one more queued unit place',
+          mgr.queue_depth == before - 1, f'before={before} after={mgr.queue_depth}')
+
+
+def test_unit_split_rescue():
+    print('\n-- rescue: an oversized-tier unit splits into a free smaller tier --')
+    # small-tier-only pallet warehouse (plentiful small bins; no medium/large/xl).
+    Aisle.next_aisle_id = 1
+    random.seed(0)
+    w, h = aisle_width_for(2), aisle_height_for(4)
+    cfg = WarehouseConfig(total_aisles=1, aisle_splits=[1.0],
+        aisle_configs=[AisleConfig('conveyable', 'food', 'pallet', w, h, ['small'], None)])
+    wh  = Warehouse_Builder().from_config(cfg).build()
+    mgr = Inventory_Manager(wh)
+
+    # A 48x48x12 carton makes a small pallet at 1 item, medium at 2, xl at 4 —
+    # and fits a small pallet (small_per=1).  Force a >= medium pallet for which
+    # the small-only warehouse has no bin.
+    c = _make_carton(1, eq_qty=1, length=48, width=48, height=12)
+    big_q, tier = None, None
+    for q in range(1, 50):
+        try:
+            t = Pallet(c, q).storage_size
+        except ValueError:
+            break
+        if _SIZE_RANKS[t] >= _SIZE_RANKS['medium']:
+            big_q, tier = q, t
+            break
+    check('precondition: a higher-tier (>= medium) pallet exists, no matching bin',
+          big_q is not None and _SIZE_RANKS[tier] >= _SIZE_RANKS['medium'],
+          f'big_q={big_q} tier={tier}')
+    c.stock_plan = [(False, big_q, 1)]
+    mgr.enqueue(c, quantity=big_q)
+
+    check('oversized-tier unit placed by splitting into the smaller tier',
+          mgr.queue_depth == 0 and len(mgr.unavailable) >= 1,
+          f'queue={mgr.queue_depth} placed={len(mgr.unavailable)}')
+    # everything that landed is a small bin (the only tier that exists)
+    tiers = {b.storage_size for b in mgr.unavailable if b.storage is not None}
+    check('split units landed in the small tier', tiers <= {'small'}, f'tiers={tiers}')
+
+
+def _run_batch_drain(build_fn, label: str):
+    """Run a 30-batch pick+reorder loop with a batch_assignment_fn set, asserting
+    incremental drain (bounded queue) and BinKey-group integrity."""
+    inv  = _inventory(80, seed=31)
+    plan = _plan(inv)
+    Aisle.next_aisle_id = 1
+    random.seed(31)
+    wh  = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
+    mgr = Inventory_Manager(wh)
+    mgr.enqueue_all(plan.sampled)
+    check(f'[{label}] initial queue empty after stock', mgr.queue_depth == 0,
+          f'queue={mgr.queue_depth}')
+
+    # Wire a batch_assignment_fn exactly like strategy_runner (null affinity).
+    aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={},
+                                sum_lift=lambda skus: 0.0,
+                                delta_lift_idxs=lambda s, idxs: 0.0)
+    wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0,
+                                pick_weight_coef=0.5, pick_volume_coef=0.5)
+    mgr.batch_assignment_fn = build_fn(
+        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        freq_by_idx={}, freq_by_sku={}, qty_by_sku={}, beta=1.0)
+
+    rng = random.Random(7)
+    skus = [c.sku for c in plan.sampled]
+    depths: list[int] = []
+    for _ in range(30):
+        for sku in rng.sample(skus, max(1, len(skus) // 4)):
+            bins = (list(mgr._sku_pallet_bins.get(sku, set())) +
+                    list(mgr._sku_singleton_bins.get(sku, set())))
+            for b in bins:
+                if b.storage is not None:
+                    qty = b.storage.quantity
+                    b.storage = None
+                    mgr._notify_bin_emptied(b)
+                    mgr._notify_pick(sku, qty)
+        mgr.check_reorders()             # uses _drain_batch (batch_assignment_fn set)
+        depths.append(mgr.queue_depth)
+
+    total_bins = plan.total_bins
+    check(f'[{label}] queue drains incrementally (2nd-half <= 1st-half + slack)',
+          mean(depths[15:]) <= mean(depths[:15]) + 0.05 * total_bins,
+          f'first={mean(depths[:15]):.0f} second={mean(depths[15:]):.0f}')
+    check(f'[{label}] peak queue bounded (< 20% of bins)',
+          max(depths) < 0.20 * total_bins, f'peak={max(depths)} bins={total_bins}')
+
+    # BinKey-group integrity: every placed unit sits in a bin of its own
+    # (handling, category, unit_type) and a tier >= its own size (smallest-fit).
+    violations = []
+    for b in mgr.unavailable:
+        u = b.storage
+        if u is None:
+            continue
+        shc = u.carton.storage_handle_config
+        if (b.handling_type != shc.handling or b.storage_type != shc.category
+                or b.unit_type != u.unit_category):
+            violations.append(('group', b.handling_type, b.storage_type, b.unit_type))
+        elif u.unit_category == 'pallet' and u.storage_size is not None:
+            if _SIZE_RANKS[b.storage_size] < _SIZE_RANKS[u.storage_size]:
+                violations.append(('tier', b.storage_size, u.storage_size))
+    check(f'[{label}] every placed unit stays within its BinKey group/tier',
+          not violations, f'{violations[:3]}')
+
+
+def test_batch_min_incremental_drain():
+    print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
+    _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
+
+
+def test_batch_max_incremental_drain():
+    print('\n-- batch-maximizing: subsectioned drain stays bounded & in-group --')
+    _run_batch_drain(build_batch_maximizing_assignment_fn, 'max')
+
+
 if __name__ == '__main__':
     print(f'\n{"="*64}')
     print(f'  Warehouse sizing + queue behavior tests')
@@ -324,6 +475,10 @@ if __name__ == '__main__':
     test_cross_tier_fill()
     test_resample_scales_eq_reorder()
     test_restock_no_queue_growth()
+    test_partial_placement_drains_incrementally()
+    test_unit_split_rescue()
+    test_batch_min_incremental_drain()
+    test_batch_max_incremental_drain()
 
     print(f'\n{"="*64}')
     if _FAIL == 0:
