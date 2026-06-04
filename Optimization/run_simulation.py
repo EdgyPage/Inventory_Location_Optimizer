@@ -16,7 +16,6 @@ import concurrent.futures
 import json
 import logging
 import logging.handlers
-import math
 import multiprocessing
 import os
 import pickle
@@ -61,15 +60,11 @@ _load_env(os.path.join(_REPO_ROOT, '.env'))
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db
-from Inventory_Management import LoadParams
+from Inventory_Management import LoadParams, Inventory_Manager
 from Pick import PickConfig
-from Aisle_Dimensions import (
-    aisle_width_for, aisle_height_for, SIZE_HEIGHTS,
-    SINGLETON_BIN_HEIGHT as _SINGLETON_BIN_HEIGHT,
-    unit_bin_width as _unit_bin_width,
-)
+from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import BatchConfig
 
 from Picking_Data import create_run, init_run_db
@@ -97,24 +92,6 @@ _AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
 _AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
 
 
-def _effective_bins_per_aisle(cfg: AisleConfig) -> int:
-    """Actual bin count for one aisle replica of *cfg* after density expansion.
-
-    Pallet aisles: x-density from pallet width (48); y-density from size-tier heights.
-    Singleton aisles: x-density from singleton width (16); y-density from fixed
-    SINGLETON_BIN_HEIGHT (48) — no size tiers.
-    """
-    unit_w = _unit_bin_width(cfg.unit_type)
-    n_cols = cfg.aisle_width // unit_w
-    if cfg.unit_type == 'singleton':
-        return n_cols * (cfg.aisle_height // _SINGLETON_BIN_HEIGHT)
-    probs  = cfg.size_probabilities or [1.0 / len(cfg.storage_sizes)] * len(cfg.storage_sizes)
-    n_rows = sum(
-        round(p * cfg.aisle_height) // SIZE_HEIGHTS[s]
-        for s, p in zip(cfg.storage_sizes, probs)
-    )
-    return n_cols * n_rows
-
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
 
@@ -135,25 +112,13 @@ _DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
     os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles')),
 ))
 
-_CATEGORIES  = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
+_CATEGORIES = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
+_HANDLINGS  = ['conveyable', 'non-conveyable']
 
-# ── pallet aisle bin-size distribution ────────────────────────────────────────
-# All four sizes with equal probability so every carton can land somewhere.
-_ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
-_PALL_PROBS = [0.25, 0.25, 0.25, 0.25]
-
-# ── warehouse configuration ────────────────────────────────────────────────────
-# 12 pallet aisle types (conveyable + non-conveyable × 6 categories), all sizes.
-# 12 singleton aisle types (same split) — singleton bins have no size tiers;
-# storage_sizes=['singleton'] is a placeholder that routes through the no-tier
-# path in Aisle_Storage and Inventory_Management.
-_AISLE_CFGS = []
-for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES, _PALL_PROBS))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'pallet',    _AISLE_W, _AISLE_H, _ALL_SIZES, _PALL_PROBS))
-for _cat in _CATEGORIES:
-    _AISLE_CFGS.append(AisleConfig('conveyable',     _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
-    _AISLE_CFGS.append(AisleConfig('non-conveyable', _cat, 'singleton', _AISLE_W, _AISLE_H, ['singleton'], None))
+# Warehouse layout is no longer a static table — Inventory_Manager.plan_warehouse
+# builds per-(handling, category, size_tier, unit_type) uniform aisles sized to
+# the actual inventory, guaranteeing every bucket exists (≥1 aisle) so every
+# SKU is placeable.  See Warehouse/Inventory_Management.py.
 
 
 REGRESSION_CONFIGS = [
@@ -292,80 +257,6 @@ def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
     return []
 
 
-# ── inventory sampler ──────────────────────────────────────────────────────────
-
-def _sample_inventory_for_capacity(
-    cartons       : list,
-    aisle_replicas: list,
-    aisle_cfgs    : list,
-    target_fill   : float = _INITIAL_FILL,
-    rng           : random.Random | None = None,
-) -> tuple[list, set]:
-    """Randomly sample cartons to fill capped bin capacity at *target_fill*.
-
-    Groups cartons by (handling, category), computes available pallet and
-    singleton bin slots per group from aisle_replicas × _effective_bins_per_aisle,
-    then shuffles and runs multiple passes so that remaining bin space after
-    the first pass is filled by re-selecting items.
-
-    When an item is selected N times its equilibrium_qty and reorder_point are
-    scaled by N so that OUP targets the actual initial stocking level (N×
-    original) rather than drifting down to 1× over the first reorder cycles.
-
-    Returns (sampled_cartons, sampled_sku_id_set).
-    """
-    # Available bins per (handling, category, unit_type) from the capped warehouse
-    capacity: dict[tuple, int] = {}
-    for cfg, rep in zip(aisle_cfgs, aisle_replicas):
-        key = (cfg.handling_type, cfg.storage_type, cfg.unit_type)
-        capacity[key] = capacity.get(key, 0) + rep * _effective_bins_per_aisle(cfg)
-
-    # Group cartons by (handling, category)
-    groups: dict[tuple, list] = {}
-    for c in cartons:
-        key = (c.storage_handle_config.handling, c.storage_handle_config.category)
-        groups.setdefault(key, []).append(c)
-
-    selected: list = []
-    for (handling, category), group in groups.items():
-        shuffled = list(group)
-        if rng is not None:
-            rng.shuffle(shuffled)
-        else:
-            random.shuffle(shuffled)
-
-        pallet_cap  = round(capacity.get((handling, category, 'pallet'),    0) * target_fill)
-        sing_cap    = round(capacity.get((handling, category, 'singleton'), 0) * target_fill)
-        pallet_used = sing_used = 0
-        sample_count: dict[int, int] = {}   # sku → selection count across passes
-
-        # Multi-pass: keep filling until no item fits in the remaining space.
-        progress = True
-        while progress:
-            progress = False
-            for carton in shuffled:
-                units = _vsu(carton, carton.equilibrium_qty)
-                p = sum(1 for u in units if u.unit_category == 'pallet')
-                s = sum(1 for u in units if u.unit_category == 'singleton')
-                if pallet_used + p <= pallet_cap and sing_used + s <= sing_cap:
-                    if carton.sku not in sample_count:
-                        selected.append(carton)   # add to output list on first selection
-                    sample_count[carton.sku] = sample_count.get(carton.sku, 0) + 1
-                    pallet_used += p
-                    sing_used   += s
-                    progress = True
-
-        # Scale equilibrium_qty and reorder_point by N so OUP targets the
-        # actual initial stocking level (N× original) instead of drifting down.
-        for carton in selected:
-            n = sample_count.get(carton.sku, 1)
-            if n > 1:
-                carton.equilibrium_qty = carton.equilibrium_qty * n
-                carton.reorder_point   = carton.reorder_point   * n
-
-    return selected, {c.sku for c in selected}
-
-
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
@@ -389,121 +280,49 @@ def build_shared_assets(
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
 
-    # ── Warehouse sizing (data-driven from actual bin requirements) ───────────
-    # Call viable_storage_units(carton, equilibrium_qty) for every carton to
-    # count exactly how many pallet and singleton bins each (handling, category)
-    # pair needs.  Each of the 24 aisle types is sized independently so the
-    # warehouse reaches _TARGET_FILL utilization per type.
-
+    # ── Warehouse sizing — delegated to Inventory_Manager.plan_warehouse ──────
+    # Sizes per-(handling, category, size_tier, unit_type) uniform aisles from
+    # the actual inventory (every bucket gets ≥1 aisle so every SKU is placeable),
+    # then samples SKUs to fill to _INITIAL_FILL.  All sizing/sampling lives in
+    # the Warehouse layer — run_simulation just supplies the shape + constraints.
     t_size = time.perf_counter()
-    _pallet_needs:    dict[tuple, int] = {}
-    _singleton_needs: dict[tuple, int] = {}
-
     avg_eq = sum(c.equilibrium_qty for c in inventory.cartons) / max(n_skus, 1)
     log.info(f'  Inventory model  : avg equilibrium_qty={avg_eq:.1f}'
              f'  avg reorder_point={sum(c.reorder_point for c in inventory.cartons)/max(n_skus,1):.1f}'
              f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.cartons)/max(n_skus,1):.2f}'
              f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.cartons)/max(n_skus,1):.3f}')
 
-    for c in inventory.cartons:
-        key = (c.storage_handle_config.handling, c.storage_handle_config.category)
-        for unit in _vsu(c, c.equilibrium_qty):
-            if unit.unit_category == 'pallet':
-                _pallet_needs[key] = _pallet_needs.get(key, 0) + 1
-            else:
-                _singleton_needs[key] = _singleton_needs.get(key, 0) + 1
-
-    total_pallet_needed    = sum(_pallet_needs.values())
-    total_singleton_needed = sum(_singleton_needs.values())
-    total_units_needed     = total_pallet_needed + total_singleton_needed
-
-    # One replica count per aisle type; minimum 1 so every type has at least
-    # one aisle even when no cartons map to it.
-    aisle_replicas = []
-    for cfg in _AISLE_CFGS:
-        needs    = (_pallet_needs if cfg.unit_type == 'pallet' else _singleton_needs)
-        needed   = needs.get((cfg.handling_type, cfg.storage_type), 0)
-        eff_bins = _effective_bins_per_aisle(cfg)
-        aisle_replicas.append(max(1, math.ceil(needed / (eff_bins * _TARGET_FILL))))
-
-    total_aisles  = sum(aisle_replicas)
-    total_bins    = sum(rep * _effective_bins_per_aisle(cfg)
-                        for rep, cfg in zip(aisle_replicas, _AISLE_CFGS))
-    aisle_splits  = [r / total_aisles for r in aisle_replicas]
-    expected_fill = total_units_needed / total_bins if total_bins else 0.0
-
-    # ── apply --max-aisles / --max-bins caps (hard upper bounds) ─────────────
-    if ((max_aisles is not None and total_aisles > max_aisles) or
-        (max_bins   is not None and total_bins   > max_bins)):
-        bins_per = [_effective_bins_per_aisle(cfg) for cfg in _AISLE_CFGS]
-
-        # Coarse proportional pre-scale on whichever cap binds hardest.
-        ratios = []
-        if max_aisles is not None and total_aisles > max_aisles:
-            ratios.append(max_aisles / total_aisles)
-        if max_bins is not None and total_bins > max_bins:
-            ratios.append(max_bins / total_bins)
-        scale = min(ratios)
-        aisle_replicas = [max(1, round(r * scale)) for r in aisle_replicas]
-        total_aisles   = sum(aisle_replicas)
-        total_bins     = sum(r * b for r, b in zip(aisle_replicas, bins_per))
-
-        # Greedy trim to enforce hard caps after rounding (1-replica/type floor).
-        # Remove a replica from the largest-bin trimmable aisle each step — this
-        # reduces both bin count and aisle count toward the caps efficiently.
-        while ((max_bins   is not None and total_bins   > max_bins) or
-               (max_aisles is not None and total_aisles > max_aisles)):
-            idx = max((i for i in range(len(aisle_replicas)) if aisle_replicas[i] > 1),
-                      key=lambda i: bins_per[i], default=-1)
-            if idx < 0:
-                break   # every type at 1 replica — floor reached
-            aisle_replicas[idx] -= 1
-            total_aisles        -= 1
-            total_bins          -= bins_per[idx]
-
-        aisle_splits  = [r / total_aisles for r in aisle_replicas]
-        expected_fill = total_units_needed / total_bins if total_bins else 0.0
-        log.info(f'  Size cap applied : {total_aisles} aisles / {total_bins:,} bins '
-                 f'(max_aisles={max_aisles}  max_bins={max_bins})')
-        if ((max_bins   is not None and total_bins   > max_bins) or
-            (max_aisles is not None and total_aisles > max_aisles)):
-            log.warning(f'  Cap floor reached: 1 replica/type = {total_aisles} aisles / '
-                        f'{total_bins:,} bins still exceeds requested cap')
-
-    # ── sample inventory to fit capped capacity ──────────────────────────────
-    # When either cap is set the warehouse footprint is fixed; sample cartons
-    # so the warehouse fills to _INITIAL_FILL, leaving headroom for reorders.
-    sku_allowlist: set | None = None
-    if max_aisles is not None or max_bins is not None:
-        t_samp = time.perf_counter()
-        sampled, sku_allowlist = _sample_inventory_for_capacity(
-            inventory.cartons, aisle_replicas, _AISLE_CFGS,
-            target_fill=_INITIAL_FILL,
-            rng=random.Random(SEED_WORLD + 1),
-        )
-        inventory.cartons  = sampled          # mutate in place — no new object needed
-        n_skus             = len(sampled)
-        total_units_needed = sum(
-            len(_vsu(c, c.equilibrium_qty)) for c in sampled
-        )
-        expected_fill = total_units_needed / total_bins if total_bins else 0.0
-        log.info(f'  Inventory sample : {n_skus:,} SKUs  '
-                 f'{total_units_needed:,} units / {total_bins:,} bins'
-                 f' = {expected_fill:.1%}  ({time.perf_counter()-t_samp:.1f}s)')
-
-    log.info(f'  Bin requirements : {total_pallet_needed:,} pallet'
-             f' + {total_singleton_needed:,} singleton'
-             f' = {total_units_needed:,} total'
-             f'  ({total_units_needed/max(n_skus,1):.1f}/SKU)'
-             f'  ({time.perf_counter()-t_size:.1f}s)')
-    log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
-             f'  expected_fill={expected_fill:.1%}  target={_TARGET_FILL:.0%}')
-
-    warehouse_cfg = WarehouseConfig(
-        total_aisles  = total_aisles,
-        aisle_splits  = aisle_splits,
-        aisle_configs = _AISLE_CFGS,
+    plan = Inventory_Manager.plan_warehouse(
+        inventory.cartons,
+        categories   = _CATEGORIES,
+        handlings    = _HANDLINGS,
+        aisle_width  = _AISLE_W,
+        aisle_height = _AISLE_H,
+        target_fill  = _INITIAL_FILL,
+        max_bins     = max_bins,
+        max_aisles   = max_aisles,
+        rng          = random.Random(SEED_WORLD + 1),
+        log          = log,
     )
+    inventory.cartons  = plan.sampled
+    n_skus             = len(plan.sampled)
+    sku_allowlist      = plan.sku_allowlist
+    warehouse_cfg      = plan.warehouse_cfg
+    total_aisles       = plan.total_aisles
+    total_bins         = plan.total_bins
+    expected_fill      = plan.expected_fill
+
+    # Per-bucket pallet/singleton totals (for the warehouse_stats DB row).
+    total_pallet_needed    = sum(n for (h, c, s, u), n
+                                 in plan.capacity.items() if u == 'pallet')
+    total_singleton_needed = sum(n for (h, c, s, u), n
+                                 in plan.capacity.items() if u == 'singleton')
+    total_units_needed     = sum(
+        len(_vsu(c, c.equilibrium_qty)) for c in plan.sampled)
+
+    log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
+             f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
+             f'  ({time.perf_counter()-t_size:.1f}s)')
 
     log.info(f'  Loading affinity DB : {affinity_db}')
     t0             = time.perf_counter()
@@ -541,21 +360,23 @@ def build_shared_assets(
     # ── persist warehouse stats and aisle distributions ───────────────────────
     if warehouse_db_path is not None:
         from Warehouse_Data import init_warehouse_db, save_warehouse_stats
+        # One aisle_type_stats row per bucket (handling, category, size, unit_type).
+        # Uniform aisles → the bucket's tier is 100%, others 0%.
+        _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
         aisle_rows = []
-        for cfg, rep in zip(_AISLE_CFGS, aisle_replicas):
-            bpa   = _effective_bins_per_aisle(cfg)
-            probs = cfg.size_probabilities or [0.25, 0.25, 0.25, 0.25]
-            if cfg.unit_type == 'singleton':
-                pcts = (0.0, 0.0, 0.0, 0.0)
-            else:
-                pcts = tuple(probs[:4])   # (small, medium, large, xlarge)
+        for (h, cat, size, unit_type), cap_bins in plan.capacity.items():
+            eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
+            rep = cap_bins // eff if eff else 0
+            pcts = [0.0, 0.0, 0.0, 0.0]
+            if unit_type == 'pallet' and size in _PCT_COL:
+                pcts[_PCT_COL[size]] = 1.0
             aisle_rows.append(dict(
-                handling_type      = cfg.handling_type,
-                category           = cfg.storage_type,
-                unit_type          = cfg.unit_type,
+                handling_type      = h,
+                category           = cat,
+                unit_type          = unit_type,
                 replica_count      = rep,
-                eff_bins_per_aisle = bpa,
-                total_bins         = rep * bpa,
+                eff_bins_per_aisle = eff,
+                total_bins         = cap_bins,
                 size_small_pct     = pcts[0],
                 size_medium_pct    = pcts[1],
                 size_large_pct     = pcts[2],

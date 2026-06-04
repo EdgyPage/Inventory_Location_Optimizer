@@ -50,3 +50,16 @@ def bins_along_x(aisle_width: int, unit_type: str) -> int:
 def bins_along_y(aisle_height: int, size: str) -> int:
     """Number of bin rows given *aisle_height* and pallet *size* tier."""
     return aisle_height // SIZE_HEIGHTS[size]
+
+
+def uniform_aisle_bins(unit_type: str, storage_size: str,
+                       aisle_width: int, aisle_height: int) -> int:
+    """Bin count for a single-size-tier aisle (every bin one storage_size).
+
+    Pallet aisles: n_cols (48-wide) × n_rows (aisle_height // tier height).
+    Singleton aisles: n_cols (16-wide) × n_rows (aisle_height // 48).
+    """
+    n_cols = aisle_width // unit_bin_width(unit_type)
+    if unit_type == 'singleton':
+        return n_cols * (aisle_height // SINGLETON_BIN_HEIGHT)
+    return n_cols * (aisle_height // SIZE_HEIGHTS[storage_size])

@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from Carton import Carton
-from Warehouse_Builder import Warehouse
+from Warehouse_Builder import Warehouse, Warehouse_Builder, AisleConfig, WarehouseConfig
 from Aisle_Storage import Aisle
+from Aisle_Dimensions import uniform_aisle_bins
 from Storage_Primitive import StorageUnit, Singleton, Pallet, Storage_Size, viable_storage_units, _max_qty_fits as _sq_max
 from Affinity_Store import AffinityStore
 
@@ -24,6 +25,20 @@ class LoadParams:
     lambda_: float = 1.0   # startup-cost multiplier
     k: float       = 1.0   # pickers per task (normally 1 for single-aisle tasks)
     gamma: float   = 1.5   # congestion exponent
+
+
+@dataclass
+class WarehousePlan:
+    """Result of Inventory_Manager.plan_warehouse: a sized warehouse + the
+    SKU sample chosen to fill it to target utilization."""
+    warehouse_cfg : 'WarehouseConfig'
+    sampled       : list                  # cartons to actually stock
+    sku_allowlist : set                   # sku ids in `sampled`
+    capacity      : dict                  # BinKey -> bins available in warehouse
+    aisle_configs : list                  # the per-replica AisleConfig list
+    total_aisles  : int
+    total_bins    : int
+    expected_fill : float
 
 _SIZE_RANKS: dict[str, int] = {
     size: rank
@@ -85,6 +100,221 @@ def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle
 
 
 class Inventory_Manager:
+
+    # ── warehouse planning (pre-instantiation) ────────────────────────────────
+    # These size a warehouse FROM an inventory, before any manager instance or
+    # warehouse exists, so they are static/class methods.  They guarantee every
+    # (handling, category, size, unit_type) bucket has at least one aisle, so
+    # every SKU is structurally placeable, then add demand-driven replicas and
+    # sample SKUs to fill to a target utilization.
+
+    @staticmethod
+    def bucket_requirements(cartons: list[Carton]) -> dict[BinKey, int]:
+        """Exact bin count per (handling, category, storage_size, unit_type)
+        bucket, computed by running each carton through viable_storage_units at
+        its equilibrium_qty.  This is the authoritative per-tier demand."""
+        req: dict[BinKey, int] = defaultdict(int)
+        for c in cartons:
+            shc = c.storage_handle_config
+            for u in viable_storage_units(c, _equilibrium_qty(c)):
+                req[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
+        return dict(req)
+
+    @classmethod
+    def plan_warehouse(
+        cls,
+        cartons      : list[Carton],
+        *,
+        categories   : list[str],
+        handlings    : list[str],
+        aisle_width  : int,
+        aisle_height : int,
+        target_fill  : float = 0.85,
+        max_bins     : int | None = None,
+        max_aisles   : int | None = None,
+        rng          : random.Random | None = None,
+        log          : Any = None,
+    ) -> 'WarehousePlan':
+        """Size a warehouse to fit *cartons* under the given constraints.
+
+        1. Enumerate the full bucket set (every handling×category gets 4 pallet
+           size tiers + 1 singleton) — the structural floor that guarantees
+           every SKU has a place.
+        2. Replica per bucket = max(1, ceil(demand / (eff_bins * target_fill))).
+        3. Apply max_bins/max_aisles caps (never below 1 replica/bucket).
+        4. Sample SKUs to fill the resulting capacity to target_fill.
+        """
+        req = cls.bucket_requirements(cartons)
+
+        # 1+2: enumerate every bucket with a ≥1 floor, add demand replicas.
+        bucket_list: list[tuple] = []     # (handling, category, size, unit_type)
+        for h in handlings:
+            for cat in categories:
+                for size in _SIZES_DESCENDING:          # 4 pallet tiers
+                    bucket_list.append((h, cat, size, 'pallet'))
+                bucket_list.append((h, cat, 'singleton', 'singleton'))
+
+        def _eff(bucket: tuple) -> int:
+            _h, _c, size, unit_type = bucket
+            return uniform_aisle_bins(unit_type, size, aisle_width, aisle_height)
+
+        replicas: dict[tuple, int] = {}
+        for b in bucket_list:
+            eff = _eff(b)
+            need = req.get(b, 0)
+            replicas[b] = max(1, math.ceil(need / (eff * target_fill))) if eff else 1
+
+        total_aisles = sum(replicas.values())
+        total_bins   = sum(r * _eff(b) for b, r in replicas.items())
+
+        # 3: enforce caps, never trimming a bucket below its floor of 1.
+        if ((max_aisles is not None and total_aisles > max_aisles) or
+            (max_bins   is not None and total_bins   > max_bins)):
+            ratios = []
+            if max_aisles is not None and total_aisles > max_aisles:
+                ratios.append(max_aisles / total_aisles)
+            if max_bins is not None and total_bins > max_bins:
+                ratios.append(max_bins / total_bins)
+            scale = min(ratios)
+            for b in replicas:
+                replicas[b] = max(1, round(replicas[b] * scale))
+            total_aisles = sum(replicas.values())
+            total_bins   = sum(r * _eff(b) for b, r in replicas.items())
+
+            # greedy trim largest-bin trimmable bucket (replicas>1) to hit caps
+            while ((max_bins   is not None and total_bins   > max_bins) or
+                   (max_aisles is not None and total_aisles > max_aisles)):
+                trimmable = [b for b in bucket_list if replicas[b] > 1]
+                if not trimmable:
+                    break   # every bucket at floor — cannot shrink further
+                b = max(trimmable, key=_eff)
+                replicas[b] -= 1
+                total_aisles -= 1
+                total_bins   -= _eff(b)
+
+            if log is not None and (
+                (max_bins   is not None and total_bins   > max_bins) or
+                (max_aisles is not None and total_aisles > max_aisles)):
+                log.warning(f'  Cap floor reached: {total_aisles} aisles / '
+                            f'{total_bins:,} bins (every bucket at 1 replica)')
+
+        # Build per-replica AisleConfig list + capacity map.
+        aisle_configs: list = []
+        capacity: dict[BinKey, int] = {}
+        for b in bucket_list:
+            h, cat, size, unit_type = b
+            eff = _eff(b)
+            rep = replicas[b]
+            capacity[b] = rep * eff
+            sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
+            for _ in range(rep):
+                aisle_configs.append(
+                    AisleConfig(h, cat, unit_type, aisle_width, aisle_height,
+                                sizes_arg, None))
+
+        # 4: sample SKUs to fill capacity to target_fill.
+        sampled, allowlist = cls.sample_to_capacity(
+            cartons, capacity, target_fill=target_fill, rng=rng)
+
+        total_units = sum(
+            len(viable_storage_units(c, _equilibrium_qty(c))) for c in sampled)
+        expected_fill = total_units / total_bins if total_bins else 0.0
+
+        n = len(aisle_configs)
+        splits = [1.0 / n] * n if n else []
+        warehouse_cfg = WarehouseConfig(
+            total_aisles  = n,
+            aisle_splits  = splits,
+            aisle_configs = aisle_configs,
+        )
+        return WarehousePlan(
+            warehouse_cfg = warehouse_cfg,
+            sampled       = sampled,
+            sku_allowlist = allowlist,
+            capacity      = capacity,
+            aisle_configs = aisle_configs,
+            total_aisles  = n,
+            total_bins    = total_bins,
+            expected_fill = expected_fill,
+        )
+
+    @staticmethod
+    def sample_to_capacity(
+        cartons     : list[Carton],
+        capacity    : dict[BinKey, int],
+        *,
+        target_fill : float = 0.85,
+        rng         : random.Random | None = None,
+    ) -> tuple[list[Carton], set]:
+        """Select cartons (multi-pass) so every bucket they consume stays within
+        capacity*target_fill.  A carton is added only if EVERY bucket in its
+        equilibrium footprint has room — so the built warehouse can always hold
+        it.  SKUs selected N times have equilibrium_qty and reorder_point scaled
+        by N so OUP targets the actual stocked level.
+
+        Returns (sampled_cartons, sampled_sku_ids).
+
+        Footprint accounting uses the EXACT post-scale footprint
+        viable_storage_units(c, N*eq) — not N × the single-copy footprint —
+        because re-palletization at higher quantities shifts size tiers.  This
+        keeps `used` identical to what bucket_requirements(sampled) reports, so
+        the built warehouse can always hold the sample.
+        """
+        _rng = rng or random
+        budget = {b: int(cap * target_fill) for b, cap in capacity.items()}
+        used: dict[BinKey, int] = defaultdict(int)
+
+        def _footprint(c: Carton, qty: int) -> dict[BinKey, int]:
+            fp: dict[BinKey, int] = defaultdict(int)
+            if qty <= 0:
+                return fp
+            shc = c.storage_handle_config
+            for u in viable_storage_units(c, qty):
+                fp[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
+            return fp
+
+        order: list[Carton] = list(cartons)
+        _rng.shuffle(order)
+        eq0    : dict[int, int] = {id(c): _equilibrium_qty(c) for c in order}
+        cur_n  : dict[int, int] = {id(c): 0 for c in order}      # equilibrium multiples
+        cur_fp : dict[int, dict[BinKey, int]] = {id(c): {} for c in order}
+
+        selected: list[Carton] = []
+
+        progress = True
+        while progress:
+            progress = False
+            for c in order:
+                base = eq0[id(c)]
+                if base <= 0:
+                    continue
+                new_fp = _footprint(c, (cur_n[id(c)] + 1) * base)
+                old_fp = cur_fp[id(c)]
+                # Check the marginal (new − old) footprint fits the budget.
+                fits = True
+                for b, n in new_fp.items():
+                    delta = n - old_fp.get(b, 0)
+                    if delta > 0 and used[b] + delta > budget.get(b, 0):
+                        fits = False
+                        break
+                if not fits:
+                    continue
+                # Commit: swap old footprint for new (deltas may free or fill).
+                for b in set(new_fp) | set(old_fp):
+                    used[b] += new_fp.get(b, 0) - old_fp.get(b, 0)
+                if cur_n[id(c)] == 0:
+                    selected.append(c)
+                cur_n[id(c)]  += 1
+                cur_fp[id(c)]  = new_fp
+                progress = True
+
+        for c in selected:
+            k = cur_n[id(c)]
+            if k > 1:
+                c.equilibrium_qty = eq0[id(c)] * k
+                c.reorder_point   = c.reorder_point * k
+
+        return selected, {c.sku for c in selected}
 
     def __init__(
         self,
@@ -473,26 +703,26 @@ class Inventory_Manager:
     # ── placement ───────────────────────────────────────────────────────────
 
     def _candidates(self, unit: StorageUnit) -> list[Aisle.Bin]:
-        """Return available bins for *unit*, scoped to the largest non-empty size tier.
+        """Return available bins for *unit*, scoped to the SMALLEST fitting tier.
 
-        Iterates _SIZES_DESCENDING (largest → smallest) and returns the first
-        tier that has at least one empty bin matching the unit's handling type,
-        storage category, and unit type.  Falls back to smaller tiers automatically,
-        so a unit is never stranded while compatible bins exist.
+        A pallet of size S fits in a bin of size S or larger.  We return the
+        smallest non-empty tier ≥ S (the unit's own tier first), spilling UP to
+        larger tiers only when the exact tier is full.  This is both physically
+        sensible (don't waste an extra_large bin on a small pallet) and keeps
+        per-tier demand mapped to per-tier capacity, which is how the warehouse
+        is sized — preventing small units from starving large-tier bins.
 
-        Returning a single tier instead of all compatible bins keeps the list
-        small (one index bucket, typically a few thousand bins) regardless of
-        total warehouse size, avoiding the O(N_all_bins) bottleneck that caused
-        multi-minute hangs during initial stocking of large warehouses.
+        Returning a single tier keeps the candidate list small (one index
+        bucket) regardless of warehouse size.
         """
         shc       = unit.carton.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' or 'singleton'
         if unit_type == 'singleton':
-            # Singleton bins are a single size bucket keyed with storage_size=None.
             bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             return list(bins) if bins else []
         min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
-        for size in _SIZES_DESCENDING:
+        # Ascending tier order (small → extra_large): smallest fitting tier first.
+        for size in reversed(_SIZES_DESCENDING):
             if _SIZE_RANKS[size] >= min_rank:
                 bins = self._index.get((shc.handling, shc.category, size, unit_type))
                 if bins:
