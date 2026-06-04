@@ -214,41 +214,60 @@ def test_sampling_respects_bucket_capacity():
           f'{over[:3]}')
 
 
-def test_resample_fills_empty_space():
-    print('\n-- resampling fills empty space (natural tiers) --')
-    # Small inventory vs the 60-bucket floor → must resample to fill.
-    inv = _inventory(20, seed=17)
+def test_cross_tier_fill():
+    print('\n-- cross-tier fill: flexible items fill ALL tiers --')
+    from collections import defaultdict
+    inv = _inventory(80, seed=5)
     eq_before = {c.sku: c.equilibrium_qty for c in inv.cartons}
     plan = _plan(inv)
     check('expected_fill never exceeds target',
-          plan.expected_fill <= _TARGET + 0.02,
-          f'{plan.expected_fill:.2%}')
+          plan.expected_fill <= _TARGET + 0.02, f'{plan.expected_fill:.2%}')
+    check('expected_fill reaches a high level (>=70%)',
+          plan.expected_fill >= 0.70, f'{plan.expected_fill:.2%}')
+
+    # Aggregate per-tier utilization from the assigned stock plans.
+    dem = Inventory_Manager.bucket_requirements(plan.sampled)
+    used = defaultdict(int); cap = defaultdict(int)
+    for (h, c, s, u), n in dem.items():            used[s] += n
+    for (h, c, s, u), n in plan.capacity.items():  cap[s]  += n
+    # Every pallet tier should be meaningfully used (cross-tier fill working),
+    # not just extra_large as with the old natural-only palletization.
+    for tier in ['small', 'medium', 'large', 'extra_large']:
+        frac = used[tier] / cap[tier] if cap[tier] else 0.0
+        check(f'{tier} tier meaningfully filled (>=50%)', frac >= 0.50,
+              f'{used[tier]}/{cap[tier]} = {frac:.0%}')
+
     resampled = sum(1 for c in plan.sampled
                     if c.equilibrium_qty > eq_before.get(c.sku, c.equilibrium_qty))
-    check('resampling occurred (>=1 SKU scaled up to fill space)',
-          resampled >= 1, f'{resampled} scaled')
+    check('resampling occurred (>=1 SKU grown to fill space)', resampled >= 1,
+          f'{resampled} scaled')
 
 
 def test_resample_scales_eq_reorder():
-    print('\n-- resample scales equilibrium_qty / reorder_point by N --')
-    # One carton, capacity for many copies → it gets selected N>1 times.
-    c = _make_carton(1, eq_qty=4)   # small so many fit
+    print('\n-- resample grows equilibrium; reorder_point keeps its ratio; plan set --')
+    # One carton, lots of capacity across all tiers it can reach → it grows.
+    c = _make_carton(1, eq_qty=4)   # small footprint → reaches many tiers
     eq0, rp0 = c.equilibrium_qty, c.reorder_point
-    # capacity: 100 pallet bins of the tier this carton uses
-    fp = {}
-    for u in viable_storage_units(c, eq0):
-        fp[(c.storage_handle_config.handling, c.storage_handle_config.category,
-            u.storage_size, u.unit_category)] = fp.get((c.storage_handle_config.handling,
-            c.storage_handle_config.category, u.storage_size, u.unit_category), 0) + 1
-    capacity = {b: 100 for b in fp}     # lots of room
+    f = rp0 / eq0
+    # Give generous capacity for every tier this carton can reach.
+    shc = c.storage_handle_config
+    capacity = {}
+    for size in ['small', 'medium', 'large', 'extra_large']:
+        capacity[(shc.handling, shc.category, size, 'pallet')] = 100
+    capacity[(shc.handling, shc.category, 'singleton', 'singleton')] = 100
     sampled, allow = Inventory_Manager.sample_to_capacity(
         [c], capacity, target_fill=1.0, rng=random.Random(1))
-    check('carton selected and scaled', sampled and sampled[0].equilibrium_qty > eq0,
-          f'eq {eq0} -> {sampled[0].equilibrium_qty}')
-    n = sampled[0].equilibrium_qty // eq0
-    check('reorder_point scaled by same N',
-          sampled[0].reorder_point == rp0 * n,
-          f'rp {rp0} -> {sampled[0].reorder_point} (N={n})')
+    sc = sampled[0]
+    check('carton selected and grown to fill space', sampled and sc.equilibrium_qty > eq0,
+          f'eq {eq0} -> {sc.equilibrium_qty}')
+    expected_rp = max(1, min(sc.equilibrium_qty - 1, round(f * sc.equilibrium_qty)))
+    check('reorder_point preserves original ratio',
+          sc.reorder_point == expected_rp,
+          f'rp={sc.reorder_point} expected {expected_rp}')
+    check('stock_plan assigned (slots sum to equilibrium_qty)',
+          getattr(sc, 'stock_plan', None) and
+          sum(q for _, q in sc.stock_plan) == sc.equilibrium_qty,
+          f'plan={getattr(sc, "stock_plan", None)}')
 
 
 def test_restock_no_queue_growth():
@@ -302,7 +321,7 @@ if __name__ == '__main__':
     test_capped_under_capacity()
     test_below_floor_clamps()
     test_sampling_respects_bucket_capacity()
-    test_resample_fills_empty_space()
+    test_cross_tier_fill()
     test_resample_scales_eq_reorder()
     test_restock_no_queue_growth()
 

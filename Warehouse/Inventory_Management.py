@@ -246,74 +246,101 @@ class Inventory_Manager:
         target_fill : float = 0.85,
         rng         : random.Random | None = None,
     ) -> tuple[list[Carton], set]:
-        """Select cartons (multi-pass) so every bucket they consume stays within
-        capacity*target_fill.  A carton is added only if EVERY bucket in its
-        equilibrium footprint has room — so the built warehouse can always hold
-        it.  SKUs selected N times have equilibrium_qty and reorder_point scaled
-        by N so OUP targets the actual stocked level.
+        """Assign each carton a multi-tier stock_plan that fills bin capacity.
+
+        A carton's units are spread across the EMPTIEST bin tiers it can reach:
+        flexible (small-footprint) items can be palletized into any tier their
+        geometry permits; rigid (large) items only reach the large tiers they
+        genuinely require.  Each plan slot is a (is_singleton, qty_per_unit)
+        pair; the slots sum to the carton's (possibly grown) equilibrium_qty.
+
+        Allocation is round-robin so every SKU gets at least one unit first
+        (placeability), then capacity is filled to capacity*target_fill.  The
+        plan is stored on the carton so viable_storage_units — and therefore
+        every reorder — reproduces the exact tier mix.
 
         Returns (sampled_cartons, sampled_sku_ids).
-
-        Footprint accounting uses the EXACT post-scale footprint
-        viable_storage_units(c, N*eq) — not N × the single-copy footprint —
-        because re-palletization at higher quantities shifts size tiers.  This
-        keeps `used` identical to what bucket_requirements(sampled) reports, so
-        the built warehouse can always hold the sample.
         """
-        _rng = rng or random
-        budget = {b: int(cap * target_fill) for b, cap in capacity.items()}
-        used: dict[BinKey, int] = defaultdict(int)
+        _rng   = rng or random
+        free   = {b: int(cap * target_fill) for b, cap in capacity.items()}
 
-        def _footprint(c: Carton, qty: int) -> dict[BinKey, int]:
-            fp: dict[BinKey, int] = defaultdict(int)
-            if qty <= 0:
-                return fp
-            shc = c.storage_handle_config
-            for u in viable_storage_units(c, qty):
-                fp[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
-            return fp
+        def _reachable(c: Carton) -> list[tuple[BinKey, int, bool]]:
+            """(bucket, qty_per_unit, is_singleton) options this carton can fill."""
+            shc  = c.storage_handle_config
+            opts: list[tuple[BinKey, int, bool]] = []
+            for size in _SIZES_DESCENDING:
+                q = _max_qty_fitting_pallet_size(c, size)
+                if q > 0 and Pallet(c, q).storage_size == size:
+                    opts.append(((shc.handling, shc.category, size, 'pallet'), q, False))
+            sq = _sq_max(c, Singleton)
+            if sq > 0:
+                opts.append(((shc.handling, shc.category, 'singleton', 'singleton'), sq, True))
+            return opts
 
         order: list[Carton] = list(cartons)
         _rng.shuffle(order)
-        eq0    : dict[int, int] = {id(c): _equilibrium_qty(c) for c in order}
-        cur_n  : dict[int, int] = {id(c): 0 for c in order}      # equilibrium multiples
-        cur_fp : dict[int, dict[BinKey, int]] = {id(c): {} for c in order}
+        reach   = {id(c): _reachable(c) for c in order}
+        plans   : dict[int, list[tuple[bool, int]]] = {id(c): [] for c in order}
+        qty_sum : dict[int, int] = {id(c): 0 for c in order}
+        eq0     = {id(c): _equilibrium_qty(c) for c in order}
 
-        selected: list[Carton] = []
+        shc_of = {id(c): c.storage_handle_config for c in order}
 
+        def _add_one(c: Carton, cap_qty: int | None) -> bool:
+            """Add one pallet/singleton to *c*'s plan in its emptiest reachable
+            bucket with budget.  If cap_qty is set, the slot quantity is capped
+            (used to land the final slot exactly on equilibrium).  Returns False
+            when no reachable bucket has free space."""
+            opts = [(b, per, isng) for (b, per, isng) in reach[id(c)] if free.get(b, 0) > 0]
+            if not opts:
+                return False
+            b, per, isng = max(opts, key=lambda o: free[o[0]])
+            if cap_qty is not None:
+                per = min(per, cap_qty)
+            if per <= 0:
+                return False
+            # Capping the quantity can drop a pallet into a SMALLER tier than the
+            # bucket we picked.  Decrement the bucket the unit ACTUALLY lands in
+            # (what viable_storage_units will reproduce), so capacity is honored.
+            if isng:
+                actual_b = b
+            else:
+                shc = shc_of[id(c)]
+                actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')
+            if free.get(actual_b, 0) <= 0:
+                return False   # capped unit falls in a full tier — skip this carton
+            plans[id(c)].append((isng, per))
+            qty_sum[id(c)] += per
+            free[actual_b] -= 1
+            return True
+
+        # Phase 1 (round-robin): bring every carton up to its base equilibrium.
         progress = True
         while progress:
             progress = False
             for c in order:
-                base = eq0[id(c)]
-                if base <= 0:
+                if qty_sum[id(c)] >= eq0[id(c)]:
                     continue
-                new_fp = _footprint(c, (cur_n[id(c)] + 1) * base)
-                old_fp = cur_fp[id(c)]
-                # Check the marginal (new − old) footprint fits the budget.
-                fits = True
-                for b, n in new_fp.items():
-                    delta = n - old_fp.get(b, 0)
-                    if delta > 0 and used[b] + delta > budget.get(b, 0):
-                        fits = False
-                        break
-                if not fits:
-                    continue
-                # Commit: swap old footprint for new (deltas may free or fill).
-                for b in set(new_fp) | set(old_fp):
-                    used[b] += new_fp.get(b, 0) - old_fp.get(b, 0)
-                if cur_n[id(c)] == 0:
-                    selected.append(c)
-                cur_n[id(c)]  += 1
-                cur_fp[id(c)]  = new_fp
-                progress = True
+                gap = eq0[id(c)] - qty_sum[id(c)]
+                if _add_one(c, cap_qty=gap):
+                    progress = True
 
+        # Phase 2 (round-robin): fill leftover space to capacity*target_fill.
+        progress = True
+        while progress:
+            progress = False
+            for c in order:
+                if _add_one(c, cap_qty=None):
+                    progress = True
+
+        selected = [c for c in order if plans[id(c)]]
         for c in selected:
-            k = cur_n[id(c)]
-            if k > 1:
-                c.equilibrium_qty = eq0[id(c)] * k
-                c.reorder_point   = c.reorder_point * k
-
+            base = eq0[id(c)]
+            f    = (c.reorder_point / base) if base else 0.5
+            c.stock_plan      = plans[id(c)]
+            c.equilibrium_qty = qty_sum[id(c)]
+            c.reorder_point   = max(1, min(qty_sum[id(c)] - 1,
+                                           round(f * qty_sum[id(c)])))
         return selected, {c.sku for c in selected}
 
     def __init__(
