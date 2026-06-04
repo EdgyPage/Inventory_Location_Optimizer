@@ -195,8 +195,12 @@ class Inventory_Manager:
             if log is not None and (
                 (max_bins   is not None and total_bins   > max_bins) or
                 (max_aisles is not None and total_aisles > max_aisles)):
-                log.warning(f'  Cap floor reached: {total_aisles} aisles / '
-                            f'{total_bins:,} bins (every bucket at 1 replica)')
+                log.warning(
+                    f'  max-bins/max-aisles below structural minimum — cap not '
+                    f'honored (requested max_bins={max_bins} max_aisles={max_aisles}). '
+                    f'Floor is {total_aisles} aisles / {total_bins:,} bins: one aisle '
+                    f'per {len(bucket_list)} (handling,category,size,unit_type) buckets '
+                    f'so every SKU is placeable. Proceeding with the floor.')
 
         # Build per-replica AisleConfig list + capacity map.
         aisle_configs: list = []
