@@ -5,6 +5,7 @@ Written once per inventory pair (shared across A/B/C strategies) to
 pair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.
 """
 
+import os
 import sqlite3
 from datetime import datetime, timezone
 
@@ -66,6 +67,7 @@ def _open_db(path: str) -> sqlite3.Connection:
 
 def init_warehouse_db(path: str) -> None:
     """Create warehouse_stats and aisle_type_stats tables if they don't exist."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     con = _open_db(path)
     try:
         con.execute(_CREATE_WAREHOUSE_STATS)
