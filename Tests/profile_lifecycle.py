@@ -45,6 +45,7 @@ import numpy as np
 
 from Affinity_Store import AffinityStore
 from Aisle_Storage import Aisle
+from Inventory_Builder import Inventory
 from Inventory_Management import (
     Inventory_Manager,
     LoadParams,
@@ -60,9 +61,11 @@ from Simulation_Analytics import extract_batch_stats, extract_task_stats
 # Reuse setup helpers from the existing benchmark — no duplication, no source changes
 from perf_simulation import (
     _build_inventory,
-    _build_warehouse_cfg,
     _build_affinity_store,
+    _CATEGORIES,
 )
+
+_HANDLINGS = ['conveyable', 'non-conveyable']
 
 
 # ── monkey-patch infrastructure ───────────────────────────────────────────────
@@ -123,6 +126,30 @@ def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> No
 
 # ── shared asset builder ──────────────────────────────────────────────────────
 
+def _set_equilibrium(cartons: list, batches_stock: int = 5, reorder_batches: int = 1,
+                     lead_time: float = 2.0, supply_cv: float = 0.2) -> None:
+    """Set OUP equilibrium fields on carton objects directly.
+
+    Called only from the test script — no source files are modified.
+    Mirrors what plan_warehouse / sample_to_capacity set internally so that
+    check_reorders uses realistic thresholds rather than the default qty=1.
+
+    batches_stock  : target stock depth (number of batches of demand to hold)
+    reorder_batches: reorder when stock < this many batches of demand remain
+    lead_time      : mean replenishment lag in batches (0 = immediate)
+    supply_cv      : coefficient of variation for received quantity (0 = exact)
+    """
+    for c in cartons:
+        expected = c.demand.frequency * c.demand.quantity_rate   # E[picks/batch]
+        eq_qty   = max(2, round(expected * batches_stock))
+        rp       = max(1, round(expected * reorder_batches))
+        c.expected_batch_demand = expected
+        c.equilibrium_qty       = eq_qty
+        c.reorder_point         = rp
+        c.lead_time_mean        = lead_time
+        c.supply_cv             = supply_cv
+
+
 def _build_assets(
     n_skus: int,
     bins_per_aisle: int,
@@ -132,30 +159,45 @@ def _build_assets(
 ) -> tuple:
     """Build inventory, three warehouses (A / B / C), pick config, affinity store.
 
-    fill sets the target initial shelf utilisation.  Because the warehouse has a
-    minimum size (60 aisle types × at least 1 replica each), the bin count after
-    construction may exceed n_skus / fill.  We probe the actual bin count first,
-    then back-calculate n_skus_effective = round(bins * fill) so the utilisation
-    target is always respected regardless of warehouse minimum size.
+    Uses Inventory_Manager.plan_warehouse() so warehouse sizing accounts for
+    actual carton-type compatibility and the target fill is honoured.
+    Equilibrium OUP fields are set on cartons in the test script so
+    check_reorders uses realistic reorder thresholds throughout the run.
+    enqueue_all is called with quantity=None so each carton stocks its own
+    equilibrium_qty rather than a fixed override.
     """
     random.seed(seed)
     np.random.seed(seed)
 
-    # ── probe actual warehouse size ───────────────────────────────────────────
-    wh_cfg = _build_warehouse_cfg(n_skus, bins_per_aisle)  # default extra_pct
-    Aisle.next_aisle_id = 1
-    random.seed(seed)
-    _wh_probe = Warehouse_Builder().from_config(wh_cfg).build()
-    actual_bins = len(_wh_probe.bins)
-    del _wh_probe
+    # Build a carton pool (2x headroom so plan_warehouse can sample to target fill)
+    pool_inv = _build_inventory(n_skus * 2, seed)
+    _set_equilibrium(pool_inv.cartons)
 
-    n_skus_effective = max(1, min(actual_bins, round(actual_bins * fill)))
-    if n_skus_effective != n_skus:
-        print(f'  Note: --fill {fill:.0%} -> placing {n_skus_effective:,} SKUs '
-              f'(not {n_skus:,}) to hit target utilisation '
-              f'({n_skus_effective:,} / {actual_bins:,} = {n_skus_effective/actual_bins:.1%})')
+    # Physical aisle dimensions derived from bins_per_aisle
+    n_cols   = max(1, bins_per_aisle // 20)
+    aisle_w  = n_cols * 48
+    aisle_h  = 20 * 48
 
-    inventory = _build_inventory(n_skus_effective, seed)
+    print(f'  plan_warehouse (pool={len(pool_inv.cartons):,} cartons, '
+          f'target_fill={fill:.0%})...', end='', flush=True)
+    t0 = time.perf_counter()
+    plan = Inventory_Manager.plan_warehouse(
+        pool_inv.cartons,
+        categories   = _CATEGORIES,
+        handlings    = _HANDLINGS,
+        aisle_width  = aisle_w,
+        aisle_height = aisle_h,
+        target_fill  = fill,
+        rng          = random.Random(seed + 1),
+    )
+    print(f' {time.perf_counter() - t0:.2f}s')
+    print(f'  Plan: {plan.total_bins:,} bins  '
+          f'{len(plan.sampled):,} sampled SKUs  '
+          f'expected fill={plan.expected_fill:.1%}')
+
+    sampled  = plan.sampled
+    wh_cfg   = plan.warehouse_cfg
+    inventory = Inventory(sampled)   # wrap for Batch / affinity store
 
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
@@ -174,33 +216,25 @@ def _build_assets(
     aff_store = _build_affinity_store(inventory, top_k=20, seed=seed)
     print(f' {time.perf_counter() - t0:.2f}s')
 
-    # setup_counters: time assignment_fn calls during enqueue_all (setup phase),
-    # not just during the batch loop — this captures the bulk of placement work.
-    setup_counters: dict[str, list] = {
-        'setup_assign_B': [0.0, 0],
-        'setup_assign_C': [0.0, 0],
-    }
-
-    def _make_wh(label: str, aff=None, fn_builder=None, assign_key: str | None = None):
+    def _make_wh(label: str, aff=None, fn_builder=None):
         Aisle.next_aisle_id = 1
         random.seed(seed)
         wh  = Warehouse_Builder().from_config(wh_cfg).build()
         mgr = Inventory_Manager(wh, affinity=aff) if aff else Inventory_Manager(wh)
+        # Correct OUP sequence: stock first with uniform assignment, then arm
+        # the load-aware fn so reorders during the batch loop use it.
+        random.seed(seed + 1)
+        t_enq = time.perf_counter()
+        mgr.enqueue_all(sampled, quantity=None)   # reads carton.equilibrium_qty
+        enq_s = time.perf_counter() - t_enq
         if aff and fn_builder:
-            mgr.init_lift_state(aff)
+            mgr.init_lift_state(aff)              # scan placed bins for aisle state
             mgr.assignment_fn = fn_builder(
                 load_params, aff, wp,
                 mgr._aisle_sku_sets,
                 mgr._aisle_lift_sum,
                 mgr._aisle_idx_sets,
             )
-            # Wrap BEFORE enqueue_all so setup-phase placement is captured
-            if assign_key:
-                _wrap_assignment(mgr, assign_key, setup_counters)
-        random.seed(seed + 1)
-        t_enq = time.perf_counter()
-        mgr.enqueue_all(inventory.cartons, quantity=1)
-        enq_s = time.perf_counter() - t_enq
         filled = len(mgr.unavailable)
         total  = len(wh.bins)
         print(f'    Warehouse {label}: {filled:,} / {total:,} bins '
@@ -210,17 +244,12 @@ def _build_assets(
     print('  Warehouse A (no affinity)...')
     wh_A, mgr_A = _make_wh('A')
     print('  Warehouse B (load-minimising + affinity)...')
-    wh_B, mgr_B = _make_wh('B', aff_store, build_load_minimizing_assignment_fn, 'setup_assign_B')
+    wh_B, mgr_B = _make_wh('B', aff_store, build_load_minimizing_assignment_fn)
     print('  Warehouse C (load-maximising + affinity)...')
-    wh_C, mgr_C = _make_wh('C', aff_store, build_load_maximizing_assignment_fn, 'setup_assign_C')
-
-    if any(v[1] > 0 for v in setup_counters.values()):
-        print(f'  Setup assignment calls:')
-        for k, (t, n) in setup_counters.items():
-            print(f'    {k}: {n:,} calls  {t:.3f}s  ({t/n*1e6:.1f}us/call)')
+    wh_C, mgr_C = _make_wh('C', aff_store, build_load_maximizing_assignment_fn)
 
     batch_cfg = BatchConfig(
-        inventory_size = n_skus_effective,
+        inventory_size = len(sampled),
         mean_fraction  = 0.25,
         std_fraction   = 0.03,
     )
@@ -229,7 +258,7 @@ def _build_assets(
             wh_A, mgr_A,
             wh_B, mgr_B,
             wh_C, mgr_C,
-            pick_cfg, wp, batch_cfg, aff_store, setup_counters)
+            pick_cfg, wp, batch_cfg, aff_store)
 
 
 # ── wall-clock profiler ───────────────────────────────────────────────────────
@@ -250,11 +279,9 @@ def run_wall_profile(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _, setup_counters) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     counters, originals = _install_timers()
-    # Merge setup-phase assignment timings so the sub-timings table shows them
-    counters.update(setup_counters)
     _wrap_assignment(mgr_B, 'assign_B', counters)
     _wrap_assignment(mgr_C, 'assign_C', counters)
 
@@ -354,7 +381,7 @@ def run_wall_profile(
     print(f'\n  Affinity sub-timings  (B+C assignment_fn + patched AffinityStore):')
     print(f'  {"Function":<22}  {"Total":>8}  {"Calls":>9}  {"Per-call":>10}')
     print(f'  {"-" * 22}  {"--------":>8}  {"---------":>9}  {"----------":>10}')
-    for key in ('assign_B', 'assign_C', 'setup_assign_B', 'setup_assign_C') + _AFF_METHODS:
+    for key in ('assign_B', 'assign_C') + _AFF_METHODS:
         elapsed, calls = counters[key]
         per_call = f'{elapsed / calls * 1e6:.1f}us' if calls > 0 else '—'
         calls_str = f'{calls:,}' if calls > 0 else '—'
@@ -424,8 +451,7 @@ def run_cprofile(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _, _sc) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
-    del _sc  # setup_counters not needed for cprofile mode
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
@@ -525,8 +551,7 @@ def run_cprofile_raw(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _, _sc) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
-    del _sc  # setup_counters not needed for cprofile mode
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
