@@ -126,26 +126,24 @@ def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> No
 
 # ── shared asset builder ──────────────────────────────────────────────────────
 
-def _set_equilibrium(cartons: list, batches_stock: int = 5, reorder_batches: int = 1,
-                     lead_time: float = 2.0, supply_cv: float = 0.2) -> None:
+def _set_equilibrium(cartons: list, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
     """Set OUP equilibrium fields on carton objects directly.
 
     Called only from the test script — no source files are modified.
-    Mirrors what plan_warehouse / sample_to_capacity set internally so that
-    check_reorders uses realistic thresholds rather than the default qty=1.
+    Keeps equilibrium_qty small (capped at 3) so warehouse size stays
+    proportionate to n_skus rather than inflating with demand rates.
 
-    batches_stock  : target stock depth (number of batches of demand to hold)
-    reorder_batches: reorder when stock < this many batches of demand remain
-    lead_time      : mean replenishment lag in batches (0 = immediate)
-    supply_cv      : coefficient of variation for received quantity (0 = exact)
+    lead_time : mean replenishment lag in batches (sampled by check_reorders)
+    supply_cv : coefficient of variation of received quantity (0 = exact fill)
     """
     for c in cartons:
-        expected = c.demand.frequency * c.demand.quantity_rate   # E[picks/batch]
-        eq_qty   = max(2, round(expected * batches_stock))
-        rp       = max(1, round(expected * reorder_batches))
+        expected = c.demand.frequency * c.demand.quantity_rate  # E[picks/batch]
+        # Cap at 3 so each carton needs at most 3 bin slots; prevents warehouse
+        # from ballooning when demand.quantity_rate is high.
+        eq_qty = max(1, min(3, round(expected * 2)))
         c.expected_batch_demand = expected
         c.equilibrium_qty       = eq_qty
-        c.reorder_point         = rp
+        c.reorder_point         = 1        # reorder as soon as stock hits 1 unit
         c.lead_time_mean        = lead_time
         c.supply_cv             = supply_cv
 
@@ -169,8 +167,9 @@ def _build_assets(
     random.seed(seed)
     np.random.seed(seed)
 
-    # Build a carton pool (2x headroom so plan_warehouse can sample to target fill)
-    pool_inv = _build_inventory(n_skus * 2, seed)
+    # Build exactly n_skus cartons; plan_warehouse sizes the warehouse around them
+    # and samples down to target_fill, so no 2x pool is needed.
+    pool_inv = _build_inventory(n_skus, seed)
     _set_equilibrium(pool_inv.cartons)
 
     # Physical aisle dimensions derived from bins_per_aisle
