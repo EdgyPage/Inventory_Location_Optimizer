@@ -83,6 +83,9 @@ target/
 *.db-shm
 *.db-wal
 
+# Profiler log files
+Tests/logs/*.log
+
 # Claude Code memory
 .claude/
 

@@ -37,6 +37,7 @@ from collections import defaultdict
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_HERE)
+_LOGS_DIR  = os.path.join(_HERE, 'logs')
 sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_REPO_ROOT, 'Optimization'))
 
@@ -561,6 +562,51 @@ def run_cprofile_raw(
     print(f'{"=" * W}')
 
 
+# ── tee writer ───────────────────────────────────────────────────────────────
+
+class _Tee:
+    """Write to both a file and the original stdout simultaneously."""
+
+    def __init__(self, path: str) -> None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self._file   = open(path, 'w', encoding='utf-8')
+        self._stdout = sys.stdout
+        sys.stdout   = self
+
+    def write(self, data: str) -> int:
+        self._stdout.write(data)
+        self._file.write(data)
+        return len(data)
+
+    def flush(self) -> None:
+        self._stdout.flush()
+        self._file.flush()
+
+    def close(self) -> None:
+        sys.stdout = self._stdout
+        self._file.flush()
+        self._file.close()
+
+    def __enter__(self) -> '_Tee':
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+
+def _log_path(args: argparse.Namespace) -> str:
+    import datetime
+    ts   = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    slug = (f'{ts}'
+            f'_mode-{args.mode}'
+            f'_skus-{args.skus}'
+            f'_bins-{args.bins_per_aisle}'
+            f'_batches-{args.batches}'
+            f'_fill-{int(args.fill * 100):02d}'
+            f'_seed-{args.seed}')
+    return os.path.join(_LOGS_DIR, f'{slug}.log')
+
+
 # ── entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -572,10 +618,10 @@ def main() -> None:
                         default='both',
                         help='wall=per-function timers; cprofile=Python profiler; '
                              'both=wall then cprofile; raw=unfiltered cprofile')
-    parser.add_argument('--skus',           type=int, default=2_000)
-    parser.add_argument('--bins-per-aisle', type=int, default=100)
-    parser.add_argument('--batches',        type=int, default=100)
-    parser.add_argument('--pickers',        type=int, default=10)
+    parser.add_argument('--skus',           type=int,   default=2_000)
+    parser.add_argument('--bins-per-aisle', type=int,   default=100)
+    parser.add_argument('--batches',        type=int,   default=100)
+    parser.add_argument('--pickers',        type=int,   default=10)
     parser.add_argument('--top-n',          type=int,   default=40,
                         help='Number of functions shown in cprofile output')
     parser.add_argument('--seed',           type=int,   default=42)
@@ -589,6 +635,7 @@ def main() -> None:
     if not (0.01 <= args.fill <= 0.99):
         parser.error('--fill must be between 0.01 and 0.99')
 
+    log = _log_path(args)
     kw = dict(
         n_skus         = args.skus,
         bins_per_aisle = args.bins_per_aisle,
@@ -598,14 +645,20 @@ def main() -> None:
         fill           = args.fill,
     )
 
-    if args.mode in ('wall', 'both'):
-        run_wall_profile(**kw)
+    with _Tee(log):
+        print(f'# log: {log}')
 
-    if args.mode in ('cprofile', 'both'):
-        run_cprofile(**kw, top_n=args.top_n)
+        if args.mode in ('wall', 'both'):
+            run_wall_profile(**kw)
 
-    if args.mode == 'raw':
-        run_cprofile_raw(**kw, top_n=args.top_n)
+        if args.mode in ('cprofile', 'both'):
+            run_cprofile(**kw, top_n=args.top_n)
+
+        if args.mode == 'raw':
+            run_cprofile_raw(**kw, top_n=args.top_n)
+
+    # Print path to stderr so it's visible even if stdout was redirected
+    print(f'\nLog saved → {log}', file=sys.stderr)
 
 
 if __name__ == '__main__':
