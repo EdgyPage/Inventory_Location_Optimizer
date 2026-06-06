@@ -20,6 +20,8 @@ Usage
     python profile_lifecycle.py --mode wall --batches 50
     python profile_lifecycle.py --mode cprofile --top-n 40
     python profile_lifecycle.py --skus 3000 --bins-per-aisle 150 --batches 100
+    python profile_lifecycle.py --fill 0.95               # 95% full warehouse
+    python profile_lifecycle.py --fill 0.99 --batches 30  # near-capacity stress test
 """
 from __future__ import annotations
 
@@ -125,13 +127,20 @@ def _build_assets(
     bins_per_aisle: int,
     n_pickers: int,
     seed: int,
+    fill: float = 0.87,
 ) -> tuple:
-    """Build inventory, three warehouses (A / B / C), pick config, affinity store."""
+    """Build inventory, three warehouses (A / B / C), pick config, affinity store.
+
+    fill controls initial shelf utilisation (bins_needed = n_skus / fill).
+    Default 0.87 matches the existing perf_simulation extra_pct=0.15 baseline.
+    """
     random.seed(seed)
     np.random.seed(seed)
 
     inventory = _build_inventory(n_skus, seed)
-    wh_cfg    = _build_warehouse_cfg(n_skus, bins_per_aisle)
+    # extra_pct = headroom fraction; fill=0.95 → extra_pct≈0.053
+    extra_pct = (1.0 - fill) / fill
+    wh_cfg    = _build_warehouse_cfg(n_skus, bins_per_aisle, extra_pct=extra_pct)
 
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
@@ -198,16 +207,17 @@ def run_wall_profile(
     n_batches: int,
     n_pickers: int,
     seed: int,
+    fill: float = 0.87,
 ) -> None:
     W = 74
     print(f'\n{"=" * W}')
     print(f'  Wall-Clock Profile')
     print(f'  SKUs={n_skus:,}  bins/aisle={bins_per_aisle}  '
-          f'batches={n_batches}  pickers={n_pickers}  seed={seed}')
+          f'batches={n_batches}  pickers={n_pickers}  fill={fill:.0%}  seed={seed}')
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed)
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     counters, originals = _install_timers()
     _wrap_assignment(mgr_B, 'assign_B', counters)
@@ -369,16 +379,17 @@ def run_cprofile(
     n_pickers: int,
     seed: int,
     top_n: int,
+    fill: float = 0.87,
 ) -> None:
     W = 74
     print(f'\n{"=" * W}')
     print(f'  cProfile Run')
     print(f'  SKUs={n_skus:,}  bins/aisle={bins_per_aisle}  '
-          f'batches={n_batches}  pickers={n_pickers}  top_n={top_n}')
+          f'batches={n_batches}  pickers={n_pickers}  fill={fill:.0%}  top_n={top_n}')
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed)
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
@@ -467,17 +478,18 @@ def run_cprofile_raw(
     n_pickers: int,
     seed: int,
     top_n: int,
+    fill: float = 0.87,
 ) -> None:
     """Like run_cprofile but prints the unfiltered pstats top-N."""
     W = 74
     print(f'\n{"=" * W}')
     print(f'  cProfile Run (unfiltered)')
     print(f'  SKUs={n_skus:,}  bins/aisle={bins_per_aisle}  '
-          f'batches={n_batches}  pickers={n_pickers}  top_n={top_n}')
+          f'batches={n_batches}  pickers={n_pickers}  fill={fill:.0%}  top_n={top_n}')
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed)
+     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
@@ -528,10 +540,18 @@ def main() -> None:
     parser.add_argument('--bins-per-aisle', type=int, default=100)
     parser.add_argument('--batches',        type=int, default=100)
     parser.add_argument('--pickers',        type=int, default=10)
-    parser.add_argument('--top-n',          type=int, default=40,
+    parser.add_argument('--top-n',          type=int,   default=40,
                         help='Number of functions shown in cprofile output')
-    parser.add_argument('--seed',           type=int, default=42)
+    parser.add_argument('--seed',           type=int,   default=42)
+    parser.add_argument('--fill',           type=float, default=0.87,
+                        help='Target initial shelf utilisation (0.01–0.99). '
+                             '0.87 = default (15%% headroom), 0.95 = near-full, '
+                             '0.99 = stress test. Fewer empty bins means placement '
+                             'assignment_fn searches harder for compatible slots.')
     args = parser.parse_args()
+
+    if not (0.01 <= args.fill <= 0.99):
+        parser.error('--fill must be between 0.01 and 0.99')
 
     kw = dict(
         n_skus         = args.skus,
@@ -539,6 +559,7 @@ def main() -> None:
         n_batches      = args.batches,
         n_pickers      = args.pickers,
         seed           = args.seed,
+        fill           = args.fill,
     )
 
     if args.mode in ('wall', 'both'):
