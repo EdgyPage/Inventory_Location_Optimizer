@@ -151,7 +151,7 @@ def _build_assets(
 
     n_skus_effective = max(1, min(actual_bins, round(actual_bins * fill)))
     if n_skus_effective != n_skus:
-        print(f'  Note: --fill {fill:.0%} → placing {n_skus_effective:,} SKUs '
+        print(f'  Note: --fill {fill:.0%} -> placing {n_skus_effective:,} SKUs '
               f'(not {n_skus:,}) to hit target utilisation '
               f'({n_skus_effective:,} / {actual_bins:,} = {n_skus_effective/actual_bins:.1%})')
 
@@ -217,7 +217,7 @@ def _build_assets(
     if any(v[1] > 0 for v in setup_counters.values()):
         print(f'  Setup assignment calls:')
         for k, (t, n) in setup_counters.items():
-            print(f'    {k}: {n:,} calls  {t:.3f}s  ({t/n*1e6:.1f}µs/call)')
+            print(f'    {k}: {n:,} calls  {t:.3f}s  ({t/n*1e6:.1f}us/call)')
 
     batch_cfg = BatchConfig(
         inventory_size = n_skus_effective,
@@ -356,7 +356,7 @@ def run_wall_profile(
     print(f'  {"-" * 22}  {"--------":>8}  {"---------":>9}  {"----------":>10}')
     for key in ('assign_B', 'assign_C', 'setup_assign_B', 'setup_assign_C') + _AFF_METHODS:
         elapsed, calls = counters[key]
-        per_call = f'{elapsed / calls * 1e6:.1f}µs' if calls > 0 else '—'
+        per_call = f'{elapsed / calls * 1e6:.1f}us' if calls > 0 else '—'
         calls_str = f'{calls:,}' if calls > 0 else '—'
         print(f'  {key:<22}  {_tot(elapsed):>8}  {calls_str:>9}  {per_call:>10}')
 
@@ -369,7 +369,7 @@ def run_wall_profile(
             x_v = _t[f'{phase}_{lbl}']
             if a_v > 0 and x_v > a_v * 1.1:
                 pct = (x_v - a_v) / a_v * 100
-                severity = 'significant ← investigate' if pct > 50 else 'minor'
+                severity = 'significant <-- investigate' if pct > 50 else 'minor'
                 print(f'    {phase}_{lbl} is {pct:.0f}% slower than A  [{severity}]')
                 any_finding = True
 
@@ -378,7 +378,7 @@ def run_wall_profile(
         reorder_t = _t[f'reorder_{lbl}']
         if reorder_t > 0 and assign_t > 0:
             share = assign_t / reorder_t * 100
-            note = '← assignment_fn dominates reorder' if share > 60 else ''
+            note = '<-- assignment_fn dominates reorder' if share > 60 else ''
             print(f'    assign_{lbl} = {share:.0f}% of reorder_{lbl}  {note}')
             any_finding = True
 
@@ -386,7 +386,7 @@ def run_wall_profile(
     assign_bc  = counters['assign_B'][0] + counters['assign_C'][0]
     if assign_bc > 0 and delta_t > 0:
         share = delta_t / assign_bc * 100
-        note = '← affinity CSR queries are the bottleneck' if share > 50 else ''
+        note = '<-- affinity CSR queries are the bottleneck' if share > 50 else ''
         print(f'    delta_lift_idxs = {share:.0f}% of assign_B+C combined  {note}')
         any_finding = True
 
@@ -574,7 +574,10 @@ class _Tee:
         sys.stdout   = self
 
     def write(self, data: str) -> int:
-        self._stdout.write(data)
+        try:
+            self._stdout.write(data)
+        except UnicodeEncodeError:
+            self._stdout.write(data.encode('ascii', errors='replace').decode('ascii'))
         self._file.write(data)
         return len(data)
 
@@ -658,7 +661,7 @@ def main() -> None:
             run_cprofile_raw(**kw, top_n=args.top_n)
 
     # Print path to stderr so it's visible even if stdout was redirected
-    print(f'\nLog saved → {log}', file=sys.stderr)
+    print(f'\nLog saved -> {log}', file=sys.stderr)
 
 
 if __name__ == '__main__':
