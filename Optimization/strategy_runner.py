@@ -65,6 +65,7 @@ from Simulation_Analytics import (
 from Picking_Data import (
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
     save_bin_inventory, save_aisle_metrics,
+    keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
 
 
@@ -131,6 +132,7 @@ def _run_strategy_worker(args: dict) -> dict:
     checkpoint    = args['checkpoint']
     max_skus      = args.get('max_skus')
     sku_allowlist = args.get('sku_allowlist')
+    keyframe_interval = args.get('keyframe_interval') or 0
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -280,6 +282,13 @@ def _run_strategy_worker(args: dict) -> dict:
             Batch(batch_cfg, inventory, affinity=affinity)
         log.info(f'  RNG at batch {start_i}  ({time.perf_counter()-t0:.1f}s)')
 
+    # ── keyframe DB (full bin snapshot every keyframe_interval batches) ───────
+    kf_db = None
+    if keyframe_interval > 0:
+        kf_db = keyframe_db_path(db_path)
+        init_keyframe_db(kf_db)
+        log.info(f'  Keyframes every {keyframe_interval} batches → {kf_db}')
+
     # ── simulation loop ───────────────────────────────────────────────────────
     log.info(f'Simulation loop [DeferredPickSimulation + ThreadPoolExecutor]: '
              f'batches {start_i} -> {n_batches}')
@@ -307,6 +316,18 @@ def _run_strategy_worker(args: dict) -> dict:
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
         pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks
         am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
+
+        # Keyframe: full occupied-bin state at this batch's start (after reorders),
+        # written every keyframe_interval batches so the player can jump here
+        # without replaying deltas from batch 0.  Reuses the pre_snap already built.
+        if kf_db is not None and i % keyframe_interval == 0:
+            save_bin_keyframe(kf_db, run_id, i, [
+                {'aisle_id': v['aisle_id'], 'bayX': v['bayX'], 'bayY': v['bayY'],
+                 'sku': v['sku'], 'unit_type': v['unit_type'],
+                 'storage_size': v['storage_size'], 'qty': v['pre_qty']}
+                for v in pre_snap.values()
+            ])
+
         if not tasks:
             skipped += 1
             continue

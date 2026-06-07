@@ -183,14 +183,22 @@ def extract_batch_stats(
     duration = 0.0
     num_tasks_set: set = set()
     total_items = 0
+    t_min = float('inf')
+    t_max = 0.0
 
     for e in events:
+        if e.time < t_min:
+            t_min = e.time
+        if e.time > t_max:
+            t_max = e.time
         if e.event_type == 'done':
             if e.time > duration:
                 duration = e.time
         elif e.event_type == 'task_start' and e.aisle_id is not None:
             num_tasks_set.add(e.aisle_id)
     num_tasks = len(num_tasks_set)
+    batch_start_time = 0.0 if t_min == float('inf') else t_min
+    batch_end_time   = t_max
 
     for picker_evs in grouped:
         if picker_evs and picker_evs[-1].event_type == 'done':
@@ -208,6 +216,8 @@ def extract_batch_stats(
         avg_concurrent_pickers = conc,
         picking_pct            = breakdown['picking_pct'],
         traveling_pct          = breakdown['traveling_pct'],
+        batch_start_time       = batch_start_time,
+        batch_end_time         = batch_end_time,
         is_outlier             = False,
     )
 
@@ -303,6 +313,7 @@ def flag_batch_outliers(
             num_tasks=s.num_tasks, total_items=s.total_items,
             avg_concurrent_pickers=s.avg_concurrent_pickers,
             picking_pct=s.picking_pct, traveling_pct=s.traveling_pct,
+            batch_start_time=s.batch_start_time, batch_end_time=s.batch_end_time,
             is_outlier=bool(d < lo or d > hi),
         )
         for s, d in zip(stats, durations)

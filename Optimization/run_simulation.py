@@ -268,6 +268,7 @@ def build_shared_assets(
     max_bins          : int | None = None,
     min_bins          : int | None = None,
     composition       : dict | None = None,
+    keyframe_interval : int = 5,
     warehouse_db_path : str | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
@@ -386,7 +387,7 @@ def build_shared_assets(
 
     # ── persist warehouse stats and aisle distributions ───────────────────────
     if warehouse_db_path is not None:
-        from Warehouse_Data import init_warehouse_db, save_warehouse_stats
+        from Warehouse_Data import init_warehouse_db, save_warehouse_stats, save_aisle_layout
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
@@ -428,7 +429,21 @@ def build_shared_assets(
             avg_rp        = avg_rp,
             aisle_rows    = aisle_rows,
         )
-        log.info(f'  Warehouse stats  → {warehouse_db_path}')
+        # Per-aisle physical layout for reconstruction/visualization (and DB-only
+        # analysis maps).  warehouse_meta is built from the same seed the workers
+        # use, so aisle_ids match the task_stats / picker_events they record.
+        save_aisle_layout(warehouse_db_path, [
+            dict(aisle_id      = a.aisle_id,
+                 handling_type = a.handling_type,
+                 category      = a.storage_type,
+                 unit_type     = a.unit_type,
+                 storage_size  = a.storage_size,
+                 bay_x         = a.bayXPerAisle,
+                 bay_y         = a.bayYPerAisle)
+            for a in warehouse_meta.aisles
+        ])
+        log.info(f'  Warehouse stats  → {warehouse_db_path}'
+                 f'  ({len(warehouse_meta.aisles)} aisles in aisle_layout)')
 
     return dict(
         inventory          = inventory,
@@ -449,6 +464,7 @@ def build_shared_assets(
         max_bins           = max_bins,
         sku_allowlist      = sku_allowlist,
         planned_inv_db     = planned_inv_db,
+        keyframe_interval  = keyframe_interval,
     )
 
 
@@ -479,6 +495,7 @@ def _run_pair_sims(
     max_bins       : int | None = None,
     min_bins       : int | None = None,
     composition    : dict | None = None,
+    keyframe_interval : int = 5,
 ) -> tuple[str, dict, dict]:
     """Load one inventory+affinity pair and run all regression config simulations.
 
@@ -496,6 +513,7 @@ def _run_pair_sims(
                                  max_skus=max_skus, max_aisles=max_aisles,
                                  max_bins=max_bins, min_bins=min_bins,
                                  composition=composition,
+                                 keyframe_interval=keyframe_interval,
                                  warehouse_db_path=os.path.join(pair_dir, 'warehouse.db'))
 
     sim_results: dict[str, dict] = {}
@@ -611,6 +629,22 @@ def _prepare_config_run(
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
 
+    keyframe_interval = int(shared.get('keyframe_interval', 5) or 0)
+    # Run configuration recorded per run for reconstruction/replay.
+    run_params = dict(
+        num_pickers       = pick_cfg.num_pickers,
+        x_speed           = pick_cfg.x_speed,
+        y_speed           = pick_cfg.y_speed,
+        pick_intercept    = pick_cfg.pick_intercept,
+        pick_weight_coef  = pick_cfg.pick_weight_coef,
+        pick_volume_coef  = pick_cfg.pick_volume_coef,
+        cart_swap_coef    = pick_cfg.cart_swap_coef,
+        k_pickers         = K_PICKERS,
+        n_batches         = N_BATCHES,
+        seed_world        = SEED_WORLD,
+        keyframe_interval = keyframe_interval,
+    )
+
     resume = _load_resume(run_dir)
     if resume:
         run_ids = resume['run_ids']
@@ -623,9 +657,9 @@ def _prepare_config_run(
     else:
         for dp in (db_path_A, db_path_B, db_path_C):
             init_run_db(dp)
-        run_a   = create_run(db_path_A, 'uniform_assignment')
-        run_b   = create_run(db_path_B, 'trip_minimizing_assignment')
-        run_c   = create_run(db_path_C, 'trip_maximizing_assignment')
+        run_a   = create_run(db_path_A, 'uniform_assignment',         run_params)
+        run_b   = create_run(db_path_B, 'trip_minimizing_assignment', run_params)
+        run_c   = create_run(db_path_C, 'trip_maximizing_assignment', run_params)
         run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
         start_A = start_B = start_C = 0
         log.info(f'  New run  run_ids A={run_a} B={run_b} C={run_c}')
@@ -651,6 +685,7 @@ def _prepare_config_run(
         checkpoint    = _CHECKPOINT,
         max_skus      = _worker_maxsk,
         sku_allowlist = _worker_allow,
+        keyframe_interval = keyframe_interval,
         warehouse_cfg = warehouse_cfg,
         pick_cfg      = pick_cfg,
         wp            = wp,
@@ -823,6 +858,11 @@ def main():
                              'basis vector of bin ratios. Keys: handling, category, '
                              'size, unit — each a {value: weight} map. Bins are '
                              'allocated proportionally; scale comes from --min-bins.')
+    parser.add_argument('--keyframe-interval', type=int, default=5, metavar='K',
+                        help='Write a full bin snapshot to <run>.keyframes.db every K '
+                             'batches so the visualizer can jump between batches '
+                             '(0 disables). A keyframe = all occupied bins; raise K for '
+                             'very large warehouses. Default 5.')
     args = parser.parse_args()
 
     composition = None
@@ -889,7 +929,7 @@ def main():
                 inv_db, aff_db, log,
                 max_skus=args.max_skus, max_aisles=args.max_aisles,
                 max_bins=args.max_bins, min_bins=args.min_bins,
-                composition=composition,
+                composition=composition, keyframe_interval=args.keyframe_interval,
                 warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
             )
         _run_workers_flat(pairs, base_dir, shared_by_pair, args.workers, log)
@@ -904,7 +944,7 @@ def main():
                     os.path.join(base_dir, label),
                     args.config_workers, log,
                     args.max_skus, args.max_aisles, args.max_bins,
-                    args.min_bins, composition,
+                    args.min_bins, composition, args.keyframe_interval,
                 ): (label, inv_db, aff_db)
                 for label, inv_db, aff_db in pairs
             }
@@ -922,7 +962,7 @@ def main():
             _run_pair_sims(
                 label, inv_db, aff_db, pair_dir, args.config_workers, log,
                 args.max_skus, args.max_aisles, args.max_bins,
-                args.min_bins, composition,
+                args.min_bins, composition, args.keyframe_interval,
             )
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'

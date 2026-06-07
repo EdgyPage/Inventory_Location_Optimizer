@@ -53,6 +53,22 @@ _CREATE_AISLE_IDX = """
     ON aisle_type_stats (warehouse_id)
 """
 
+# Per-aisle physical layout — one row per aisle in the built warehouse.  Gives a
+# visualizer the full geometry (incl. empty bins, generated from bay_x × bay_y)
+# without a row per bin, and is the source of aisle_id → unit_type/handling for
+# DB-only analysis.
+_CREATE_AISLE_LAYOUT = """
+    CREATE TABLE IF NOT EXISTS aisle_layout (
+        aisle_id      INTEGER PRIMARY KEY,
+        handling_type TEXT    NOT NULL,
+        category      TEXT    NOT NULL,
+        unit_type     TEXT    NOT NULL,
+        storage_size  TEXT    NOT NULL,
+        bay_x         INTEGER NOT NULL,
+        bay_y         INTEGER NOT NULL
+    )
+"""
+
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -66,13 +82,37 @@ def _open_db(path: str) -> sqlite3.Connection:
 # ── public API ─────────────────────────────────────────────────────────────────
 
 def init_warehouse_db(path: str) -> None:
-    """Create warehouse_stats and aisle_type_stats tables if they don't exist."""
+    """Create warehouse_stats, aisle_type_stats, and aisle_layout tables."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     con = _open_db(path)
     try:
         con.execute(_CREATE_WAREHOUSE_STATS)
         con.execute(_CREATE_AISLE_TYPE_STATS)
         con.execute(_CREATE_AISLE_IDX)
+        con.execute(_CREATE_AISLE_LAYOUT)
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_aisle_layout(path: str, rows: list[dict]) -> None:
+    """Replace aisle_layout with one row per aisle of the built warehouse.
+
+    rows: dicts with keys aisle_id, handling_type, category, unit_type,
+    storage_size, bay_x, bay_y.  Rewrite-fresh so it always reflects the latest
+    plan/warehouse for this pair.
+    """
+    con = _open_db(path)
+    try:
+        con.execute(_CREATE_AISLE_LAYOUT)
+        con.execute('DELETE FROM aisle_layout')
+        con.executemany(
+            'INSERT OR REPLACE INTO aisle_layout '
+            '(aisle_id, handling_type, category, unit_type, storage_size, bay_x, bay_y) '
+            'VALUES (?,?,?,?,?,?,?)',
+            [(r['aisle_id'], r['handling_type'], r['category'], r['unit_type'],
+              r['storage_size'], r['bay_x'], r['bay_y']) for r in rows],
+        )
         con.commit()
     finally:
         con.close()

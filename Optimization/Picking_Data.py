@@ -1,4 +1,5 @@
 import csv
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -38,6 +39,8 @@ class BatchStats:
     avg_concurrent_pickers: float # time-weighted mean pickers in "picking" state
     picking_pct: float            # fraction of aggregate picker-time spent picking
     traveling_pct: float          # fraction of aggregate picker-time spent traveling
+    batch_start_time: float = 0.0 # min picker-event time (batch-relative clock)
+    batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
     is_outlier: bool = False
 
 
@@ -121,11 +124,27 @@ _CREATE_PICKS_SKU_IDX = """
 
 _CREATE_RUNS = """
     CREATE TABLE IF NOT EXISTS simulation_runs (
-        run_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_type TEXT    NOT NULL,
-        created  TEXT    NOT NULL
+        run_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_type          TEXT    NOT NULL,
+        created           TEXT    NOT NULL,
+        num_pickers       INTEGER,
+        x_speed           REAL,
+        y_speed           REAL,
+        pick_intercept    REAL,
+        pick_weight_coef  REAL,
+        pick_volume_coef  REAL,
+        cart_swap_coef    REAL,
+        k_pickers         INTEGER,
+        n_batches         INTEGER,
+        seed_world        INTEGER,
+        keyframe_interval INTEGER
     )
 """
+
+# Run-param columns set by create_run(params=...); order matches the INSERT.
+_RUN_PARAM_COLS = ('num_pickers', 'x_speed', 'y_speed', 'pick_intercept',
+                   'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef',
+                   'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval')
 
 _CREATE_AISLE_METRICS = """
     CREATE TABLE IF NOT EXISTS aisle_metrics (
@@ -171,6 +190,8 @@ _CREATE_BATCH_STATS = """
         avg_concurrent_pickers REAL    NOT NULL,
         picking_pct            REAL    NOT NULL,
         traveling_pct          REAL    NOT NULL,
+        batch_start_time       REAL    NOT NULL DEFAULT 0,
+        batch_end_time         REAL    NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -388,16 +409,88 @@ def init_run_db(path: str) -> None:
         con.close()
 
 
-def create_run(path: str, run_type: str) -> int:
-    """Insert a new simulation run row; return the assigned run_id."""
+def create_run(path: str, run_type: str, params: dict | None = None) -> int:
+    """Insert a new simulation run row; return the assigned run_id.
+
+    params (optional): run configuration recorded for reconstruction —
+    keys from _RUN_PARAM_COLS (num_pickers, x_speed, …, keyframe_interval).
+    Missing keys are stored NULL.
+    """
+    params = params or {}
+    cols = ('run_type', 'created') + _RUN_PARAM_COLS
+    vals = ([run_type, datetime.now(timezone.utc).isoformat()]
+            + [params.get(k) for k in _RUN_PARAM_COLS])
     con = _open_db(path)
     try:
         cur = con.execute(
-            'INSERT INTO simulation_runs (run_type, created) VALUES (?, ?)',
-            (run_type, datetime.now(timezone.utc).isoformat()),
+            f'INSERT INTO simulation_runs ({",".join(cols)}) '
+            f'VALUES ({",".join("?" * len(cols))})',
+            vals,
         )
         con.commit()
         return cur.lastrowid  # type: ignore[return-value]
+    finally:
+        con.close()
+
+
+# ── Keyframe DB (separate file per strategy) ──────────────────────────────────
+# Full occupied-bin snapshot every K batches, so the visualizer can jump to a
+# batch's start state without replaying all deltas from batch 0.  Kept in its own
+# file (one per strategy run) so the parallel A/B/C workers never contend.
+
+_CREATE_BIN_KEYFRAME = """
+    CREATE TABLE IF NOT EXISTS bin_keyframe (
+        run_id       INTEGER NOT NULL,
+        batch_id     INTEGER NOT NULL,
+        aisle_id     INTEGER NOT NULL,
+        bayX         INTEGER NOT NULL,
+        bayY         INTEGER NOT NULL,
+        sku          INTEGER NOT NULL,
+        unit_type    TEXT    NOT NULL,
+        storage_size TEXT    NOT NULL,
+        qty          INTEGER NOT NULL,
+        PRIMARY KEY (run_id, batch_id, aisle_id, bayX, bayY)
+    )
+"""
+_CREATE_BIN_KEYFRAME_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_kf_run_batch ON bin_keyframe (run_id, batch_id)
+"""
+
+
+def keyframe_db_path(run_db_path: str) -> str:
+    """Sibling keyframe-DB path for a strategy's run DB (run.db → run.keyframes.db)."""
+    base, _ext = os.path.splitext(run_db_path)
+    return base + '.keyframes.db'
+
+
+def init_keyframe_db(path: str) -> None:
+    """Create the bin_keyframe table + index if absent."""
+    con = _open_db(path)
+    try:
+        con.execute(_CREATE_BIN_KEYFRAME)
+        con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_bin_keyframe(path: str, run_id: int, batch_id: int, records: list) -> None:
+    """Write one full occupied-bin snapshot (keyframe) for (run_id, batch_id).
+
+    records: iterable of dicts with keys aisle_id, bayX, bayY, sku, unit_type,
+    storage_size, qty.  INSERT OR REPLACE so re-running a batch overwrites cleanly.
+    """
+    con = _open_db(path)
+    try:
+        con.execute(_CREATE_BIN_KEYFRAME)
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_keyframe '
+            '(run_id,batch_id,aisle_id,bayX,bayY,sku,unit_type,storage_size,qty) '
+            'VALUES (?,?,?,?,?,?,?,?,?)',
+            [(run_id, batch_id, r['aisle_id'], r['bayX'], r['bayY'], r['sku'],
+              r['unit_type'], r['storage_size'], r['qty']) for r in records],
+        )
+        con.commit()
     finally:
         con.close()
 
@@ -410,12 +503,13 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
         con.executemany(
             'INSERT INTO batch_stats '
             '(run_id,batch_id,duration,num_tasks,total_items,'
-            'avg_concurrent_pickers,picking_pct,traveling_pct,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?)',
+            'avg_concurrent_pickers,picking_pct,traveling_pct,'
+            'batch_start_time,batch_end_time,is_outlier) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
-                 int(r.is_outlier))
+                 r.batch_start_time, r.batch_end_time, int(r.is_outlier))
                 for r in records
             ],
         )
@@ -441,6 +535,10 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                 avg_concurrent_pickers = row['avg_concurrent_pickers'],
                 picking_pct            = row['picking_pct'],
                 traveling_pct          = row['traveling_pct'],
+                batch_start_time       = (row['batch_start_time']
+                                          if 'batch_start_time' in row.keys() else 0.0),
+                batch_end_time         = (row['batch_end_time']
+                                          if 'batch_end_time' in row.keys() else 0.0),
                 is_outlier             = bool(row['is_outlier']),
             )
             for row in rows
