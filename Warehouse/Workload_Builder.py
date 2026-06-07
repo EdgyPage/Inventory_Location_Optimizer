@@ -173,7 +173,7 @@ class Task:
         would otherwise rebuild the index on every batch.
         """
         # Distribute each batch quantity: drain singleton bins before pallet bins
-        bin_pick: dict[Aisle.Bin, int] = {}
+        bin_pick: defaultdict[Aisle.Bin, int] = defaultdict(int)
 
         if manager is not None:
             # O(N_batch_skus) — uses maintained index, no full warehouse scan
@@ -185,7 +185,7 @@ class Task:
                     available: int = bin_.storage.quantity if bin_.storage is not None else 0
                     take: int = min(remaining, available)
                     if take > 0:
-                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        bin_pick[bin_] += take
                         remaining -= take
                 for bin_ in manager._sku_pallet_bins.get(sku, []):
                     if remaining <= 0:
@@ -193,7 +193,7 @@ class Task:
                     available = bin_.storage.quantity if bin_.storage is not None else 0
                     take = min(remaining, available)
                     if take > 0:
-                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        bin_pick[bin_] += take
                         remaining -= take
         else:
             # Fallback: O(N_all_bins) scan — used when no manager is available
@@ -211,7 +211,7 @@ class Task:
                     available = bin_.storage.quantity if bin_.storage is not None else 0
                     take = min(remaining, available)
                     if take > 0:
-                        bin_pick[bin_] = bin_pick.get(bin_, 0) + take
+                        bin_pick[bin_] += take
                         remaining -= take
 
         aisle_bins:  dict[int, list[Aisle.Bin]] = defaultdict(list)

@@ -118,10 +118,16 @@ class PickSimulation:
     def run(self) -> list[PickEvent]:
         """Simulate all pickers and return all events sorted by time."""
         all_events: list[PickEvent] = []
+        all_picks: list[tuple[int, int]] = []
+        all_empties: list = []
         for picker_id, tasks in enumerate(self._picker_tasks):
-            all_events.extend(self._simulate_picker(picker_id, tasks))
+            all_events.extend(
+                self._simulate_picker(picker_id, tasks, all_picks, all_empties)
+            )
         all_events.sort()
         self._events = all_events
+        if self._manager is not None:
+            self._manager._apply_picks_batch(all_picks, all_empties)
         return all_events
 
     def progress_at(self, t: float) -> list[PickerProgress]:
@@ -144,7 +150,10 @@ class PickSimulation:
 
     # ── picker simulation ────────────────────────────────────────────────────
 
-    def _simulate_picker(self, picker_id: int, tasks: list[Task]) -> list[PickEvent]:
+    def _simulate_picker(
+        self, picker_id: int, tasks: list[Task],
+        picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
+    ) -> list[PickEvent]:
         cfg = self._config
         events: list[PickEvent] = []
         time: float = 0.0
@@ -153,6 +162,7 @@ class PickSimulation:
         cart_remaining: int = _CART_CAPACITY
         carts_used: int = 1
         session_items: int = 0   # cumulative items picked across all tasks
+        has_manager: bool = self._manager is not None
 
         for task in tasks:
             total_bins  = len(task.path)
@@ -215,16 +225,15 @@ class PickSimulation:
                     items_picked=session_items, total_items=total_items,
                 ))
 
-                # Deplete the bin; notify the manager incrementally so
-                # check_reorders() can be called once per batch instead of
-                # once per pick (avoids O(N_bins) scan on every pick event).
+                # Deplete the bin; accumulate notifications for batch
+                # application after the simulation ends (before check_reorders).
                 bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
-                if self._manager is not None:
-                    self._manager._notify_pick(carton.sku, qty)
+                if has_manager:
+                    picks.append((carton.sku, qty))
                 if bin_.storage.quantity == 0:
                     bin_.storage = None
-                    if self._manager is not None:
-                        self._manager._notify_bin_emptied(bin_)
+                    if has_manager:
+                        empties.append(bin_)
 
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_end',
@@ -240,6 +249,7 @@ class PickSimulation:
         return events
 
     # ── progress derivation ──────────────────────────────────────────────────
+
 
     def _state_at(self, picker_id: int, t: float) -> PickerProgress:
         picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]

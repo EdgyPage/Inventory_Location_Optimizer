@@ -207,6 +207,29 @@ class AffinityStore:
         data        = self._matrix.data[start:end]
         return float(sum(d for ci, d in zip(col_indices, data) if ci in member_idx_set))
 
+    def delta_lift_sorted(self, sku: int, sorted_member_arr: 'np.ndarray') -> float:
+        """Sum of lift between sku and members described by a sorted numpy array.
+
+        Faster than delta_lift_idxs for large member sets: uses np.searchsorted
+        on two pre-sorted arrays (CSR indices are sorted within each row by the
+        scipy CSR format; sorted_member_arr is maintained by the caller).
+        Zero per-call allocation when sorted_member_arr is cached.
+        """
+        if len(sorted_member_arr) == 0 or self._matrix is None or sku not in self._sku_to_idx:
+            return 0.0
+        i     = self._sku_to_idx[sku]
+        start = int(self._matrix.indptr[i])
+        end   = int(self._matrix.indptr[i + 1])
+        if start == end:
+            return 0.0
+        col_indices = self._matrix.indices[start:end]  # sorted (CSR property)
+        data        = self._matrix.data[start:end]
+        n        = len(sorted_member_arr)
+        pos      = np.searchsorted(sorted_member_arr, col_indices)
+        pos_clip = np.minimum(pos, n - 1)
+        in_aisle = (pos < n) & (sorted_member_arr[pos_clip] == col_indices)
+        return float(data[in_aisle].sum())
+
     def sum_lift(self, skus: list[int]) -> float:
         """Total pairwise lift for all ordered pairs within skus.
 

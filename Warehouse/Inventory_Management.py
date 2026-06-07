@@ -1,3 +1,4 @@
+import bisect
 import math
 import random
 from collections import defaultdict, deque
@@ -453,6 +454,10 @@ class Inventory_Manager:
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
         self._bin_index_pos: dict[int, int] = {}
+        # Per-aisle sorted secondary index: BinKey -> {aisle_id -> list[Bin] sorted by _W}.
+        # Populated by init_travel_costs(); maintained by _index_add/_index_remove thereafter.
+        self._aisle_index: dict[BinKey, dict[int, list[Aisle.Bin]]] = defaultdict(lambda: defaultdict(list))
+        self._travel_costs_ready: bool = False
 
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
@@ -602,6 +607,25 @@ class Inventory_Manager:
         for aid, sku_set in self._aisle_sku_sets.items():
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
 
+    def init_travel_costs(self, wp: Any) -> None:
+        """Precompute _W on every bin and build the per-aisle sorted secondary index.
+
+        Must be called after init_lift_state() and before swapping to a
+        load-aware assignment_fn built with build_load_*_assignment_fn(...,
+        aisle_index=self._aisle_index).  After this call, _index_add and
+        _index_remove maintain _aisle_index incrementally.
+        """
+        x_speed = wp.x_speed
+        y_speed = wp.y_speed
+        for b in self.warehouse.bins:
+            b._W = x_speed * b.x_phys + y_speed * b.y_phys
+        self._aisle_index.clear()
+        for key, bins in self._index.items():
+            by_aisle = self._aisle_index[key]
+            for b in bins:
+                bisect.insort(by_aisle[b.location[0]], b, key=lambda x: x._W)
+        self._travel_costs_ready = True
+
     def init_demand_state(self, inventory: Any) -> None:
         """Populate demand-product lookup and per-aisle demand sums.
 
@@ -656,6 +680,24 @@ class Inventory_Manager:
         """
         self._pending_reclaim.append(bin_)
 
+    def _apply_picks_batch(
+        self,
+        picks: list[tuple[int, int]],
+        empties: list[Aisle.Bin],
+    ) -> None:
+        """Apply all pick notifications accumulated during one simulation run.
+
+        Aggregates quantity by SKU before calling _notify_pick so the body
+        executes once per unique SKU rather than once per pick event,
+        cutting ~430k individual function calls down to ~5k.
+        """
+        agg: dict[int, int] = {}
+        for sku, qty in picks:
+            agg[sku] = agg.get(sku, 0) + qty
+        for sku, qty in agg.items():
+            self._notify_pick(sku, qty)
+        self._pending_reclaim.extend(empties)
+
     # ── reorder logic ────────────────────────────────────────────────────────
 
     def _reclaim_empty_bins(self) -> None:
@@ -663,48 +705,53 @@ class Inventory_Manager:
 
         With _unavailable as a dict and _pending_reclaim as a targeted list,
         this is O(pending_bins) — typically a handful per batch — instead of
-        the previous O(total_bins) full scan.
+        the previous O(total_bins) full scan.  Attribute refs are hoisted
+        outside the loop to avoid repeated self. lookups across ~7k iterations.
         """
         if not self._pending_reclaim:
             return
 
+        has_affinity = self._affinity is not None
+        bin_sku          = self._bin_sku
+        sku_singleton    = self._sku_singleton_bins
+        sku_pallet       = self._sku_pallet_bins
+        unavailable      = self._unavailable
+        aisle_sku_counts = self._aisle_sku_counts
+        aisle_sku_sets   = self._aisle_sku_sets
+        aisle_idx_sets   = self._aisle_idx_sets
+        aisle_lift_sum   = self._aisle_lift_sum
+        aisle_demand_sum = self._aisle_demand_sum
+        sku_demand_prod  = self._sku_demand_product
+        if has_affinity:
+            sku_to_idx      = self._affinity._sku_to_idx
+            delta_lift_idxs = self._affinity.delta_lift_idxs
+
         for bin_ in self._pending_reclaim:
             bin_id = id(bin_)
-            sku    = self._bin_sku.pop(bin_id, None)
+            sku    = bin_sku.pop(bin_id, None)
             if sku is not None:
-                # Remove from SKU→bins index
-                if bin_.unit_type == 'singleton':
-                    lst = self._sku_singleton_bins.get(sku)
-                else:
-                    lst = self._sku_pallet_bins.get(sku)
+                lst = (sku_singleton if bin_.unit_type == 'singleton' else sku_pallet).get(sku)
                 if lst:
                     lst.discard(bin_)
-                # Update lift state
-                if self._affinity is not None:
+                if has_affinity:
                     aid    = bin_.location[0]
-                    counts = self._aisle_sku_counts[aid]
+                    counts = aisle_sku_counts[aid]
                     n      = counts.get(sku, 0)
                     if n > 1:
                         counts[sku] = n - 1
                     else:
                         counts.pop(sku, None)
-                        self._aisle_sku_sets[aid].discard(sku)
-                        idx = self._affinity._sku_to_idx.get(sku)
+                        aisle_sku_sets[aid].discard(sku)
+                        idx = sku_to_idx.get(sku)
                         if idx is not None:
-                            self._aisle_idx_sets[aid].discard(idx)
-                        delta = 2.0 * self._affinity.delta_lift_idxs(
-                            sku, self._aisle_idx_sets[aid]
-                        )
-                        self._aisle_lift_sum[aid] = max(
-                            0.0, self._aisle_lift_sum[aid] - delta
-                        )
-                        self._aisle_demand_sum[aid] = max(
-                            0.0,
-                            self._aisle_demand_sum[aid]
-                            - self._sku_demand_product.get(sku, 0.0),
-                        )
+                            aisle_idx_sets[aid].discard(idx)
+                        delta = 2.0 * delta_lift_idxs(sku, aisle_idx_sets[aid])
+                        aisle_lift_sum[aid] = max(0.0, aisle_lift_sum[aid] - delta)
+                        d = sku_demand_prod.get(sku, 0.0)
+                        if d:
+                            aisle_demand_sum[aid] = max(0.0, aisle_demand_sum[aid] - d)
             self._index_add(bin_)
-            self._unavailable.pop(bin_id, None)
+            unavailable.pop(bin_id, None)
 
         self._pending_reclaim.clear()
 
@@ -842,19 +889,31 @@ class Inventory_Manager:
         return (bin_.handling_type, bin_.storage_type, bin_.storage_size, bin_.unit_type)
 
     def _index_add(self, bin_: Aisle.Bin) -> None:
-        lst = self._index[self._key(bin_)]
+        key = self._key(bin_)
+        lst = self._index[key]
         self._bin_index_pos[id(bin_)] = len(lst)
         lst.append(bin_)
+        if self._travel_costs_ready:
+            aisle_lst = self._aisle_index[key][bin_.location[0]]
+            bisect.insort(aisle_lst, bin_, key=lambda b: b._W)
 
     def _index_remove(self, bin_: Aisle.Bin) -> None:
         """O(1) removal via swap-remove: move last element into the vacated slot."""
-        lst = self._index[self._key(bin_)]
+        key  = self._key(bin_)
+        lst  = self._index[key]
         pos  = self._bin_index_pos.pop(id(bin_))
         last = lst[-1]
         lst[pos] = last
         lst.pop()
         if last is not bin_:
             self._bin_index_pos[id(last)] = pos
+        if self._travel_costs_ready:
+            aisle_lst = self._aisle_index[key][bin_.location[0]]
+            i = bisect.bisect_left(aisle_lst, bin_._W, key=lambda b: b._W)
+            while i < len(aisle_lst) and aisle_lst[i] is not bin_:
+                i += 1
+            if i < len(aisle_lst):
+                del aisle_lst[i]
 
     # ── placement ───────────────────────────────────────────────────────────
 
@@ -875,14 +934,14 @@ class Inventory_Manager:
         unit_type = unit.unit_category                    # 'pallet' or 'singleton'
         if unit_type == 'singleton':
             bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            return list(bins) if bins else []
+            return bins or []
         min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
         # Ascending tier order (small → extra_large): smallest fitting tier first.
         for size in reversed(_SIZES_DESCENDING):
             if _SIZE_RANKS[size] >= min_rank:
                 bins = self._index.get((shc.handling, shc.category, size, unit_type))
                 if bins:
-                    return list(bins)   # shallow copy — _index_remove mutates the original
+                    return bins
         return []
 
     def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
@@ -934,7 +993,10 @@ class Inventory_Manager:
             carton = unit.carton
             sku    = carton.sku
 
-            candidates = self._candidates(unit)
+            # B/C: aisle_index is active — assign derives BinKey from unit directly.
+            # A: uniform assignment needs a real candidates list.
+            candidates = (None if self._travel_costs_ready
+                          else self._candidates(unit))
             bin_       = self.assignment_fn(unit, candidates)
 
             if bin_ is not None:
@@ -1153,6 +1215,7 @@ def build_load_minimizing_assignment_fn(
     aisle_sku_sets : dict[int, set[int]],
     aisle_lift_sum : dict[int, float],
     aisle_idx_sets : dict[int, set[int]],
+    aisle_index    : dict | None = None,
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily minimises the L2 norm of predicted
     aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
@@ -1179,14 +1242,40 @@ def build_load_minimizing_assignment_fn(
     def _L(W: float, ls: float) -> float:
         return W + lam * (W / k) ** gam * ls
 
-    def assign(unit: Any, candidates: list[Any]) -> Any | None:
-        if not candidates:
-            return None
-
+    def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.carton.sku
 
-        # Step 1: one representative bin per aisle (min-W) — O(N_candidates)
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+        # Step 1: one representative bin per aisle (min-W).
+        # Fast path: derive BinKey from unit, read directly from pre-sorted index.
+        # Fallback: scan candidates list (used only when aisle_index is None).
+        if aisle_index is not None:
+            shc       = unit.carton.storage_handle_config
+            unit_type = unit.unit_category
+            if unit_type == 'singleton':
+                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+            else:
+                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                by_aisle = None
+                for size in reversed(_SIZES_DESCENDING):
+                    if _SIZE_RANKS[size] >= min_rank:
+                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
+                        if by and any(by.values()):
+                            by_aisle = by
+                            break
+            best_W: dict[int, float] = {}
+            best_bin_map: dict[int, Any] = {}
+            if by_aisle:
+                for aid, lst in by_aisle.items():
+                    if lst:
+                        b = lst[0]  # sorted ascending — first is min-W
+                        best_W[aid]       = b._W
+                        best_bin_map[aid] = b
+            if not best_W:
+                return None
+        else:
+            if not candidates:
+                return None
+            best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
 
         # Step 2: sort aisles by ascending min-W — O(N_aisles log N_aisles)
         sorted_aids = sorted(best_W, key=best_W.__getitem__)
@@ -1244,6 +1333,7 @@ def build_load_maximizing_assignment_fn(
     aisle_sku_sets : dict[int, set[int]],
     aisle_lift_sum : dict[int, float],
     aisle_idx_sets : dict[int, set[int]],
+    aisle_index    : dict | None = None,
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily maximises the L2 norm of predicted
     aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
@@ -1265,15 +1355,40 @@ def build_load_maximizing_assignment_fn(
     def _L(W: float, ls: float) -> float:
         return W + lam * (W / k) ** gam * ls
 
-    def assign(unit: Any, candidates: list[Any]) -> Any | None:
-        if not candidates:
-            return None
-
+    def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.carton.sku
 
         # One representative bin per aisle (max-W) — exact by monotonicity.
-        # For maximising, larger W → larger delta_l2, so max-W bin is optimal.
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
+        # Fast path: derive BinKey from unit, read from pre-sorted index.
+        # Fallback: scan candidates list (used only when aisle_index is None).
+        if aisle_index is not None:
+            shc       = unit.carton.storage_handle_config
+            unit_type = unit.unit_category
+            if unit_type == 'singleton':
+                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+            else:
+                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                by_aisle = None
+                for size in reversed(_SIZES_DESCENDING):
+                    if _SIZE_RANKS[size] >= min_rank:
+                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
+                        if by and any(by.values()):
+                            by_aisle = by
+                            break
+            best_W: dict[int, float] = {}
+            best_bin_map: dict[int, Any] = {}
+            if by_aisle:
+                for aid, lst in by_aisle.items():
+                    if lst:
+                        b = lst[-1]  # sorted ascending — last is max-W
+                        best_W[aid]       = b._W
+                        best_bin_map[aid] = b
+            if not best_W:
+                return None
+        else:
+            if not candidates:
+                return None
+            best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
 
         # Sort descending: high-W aisles have the largest potential delta_l2
         sorted_aids = sorted(best_W, key=best_W.__getitem__, reverse=True)

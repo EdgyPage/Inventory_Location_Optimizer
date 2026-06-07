@@ -228,11 +228,13 @@ def _build_assets(
         enq_s = time.perf_counter() - t_enq
         if aff and fn_builder:
             mgr.init_lift_state(aff)              # scan placed bins for aisle state
+            mgr.init_travel_costs(wp)             # precompute _W + per-aisle sorted index
             mgr.assignment_fn = fn_builder(
                 load_params, aff, wp,
                 mgr._aisle_sku_sets,
                 mgr._aisle_lift_sum,
                 mgr._aisle_idx_sets,
+                mgr._aisle_index,
             )
         filled = len(mgr.unavailable)
         total  = len(wh.bins)
@@ -278,7 +280,7 @@ def run_wall_profile(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
+     pick_cfg, wp, batch_cfg, aff_store) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     counters, originals = _install_timers()
     _wrap_assignment(mgr_B, 'assign_B', counters)
@@ -320,9 +322,9 @@ def run_wall_profile(
         extract_batch_stats(ea, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(eb, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(ec, batch_id=i, k_pickers=n_pickers)
-        extract_task_stats(ea, ta, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(eb, tb, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(ec, tc, batch_id=i, affinity={}, wp=wp)
+        extract_task_stats(ea, ta, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(eb, tb, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(ec, tc, batch_id=i, affinity=aff_store, wp=wp)
         _t['stats'] += time.perf_counter() - t0
 
     _remove_timers(originals)
@@ -450,7 +452,7 @@ def run_cprofile(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
+     pick_cfg, wp, batch_cfg, aff_store) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
@@ -480,9 +482,9 @@ def run_cprofile(
         extract_batch_stats(ea, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(eb, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(ec, batch_id=i, k_pickers=n_pickers)
-        extract_task_stats(ea, ta, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(eb, tb, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(ec, tc, batch_id=i, affinity={}, wp=wp)
+        extract_task_stats(ea, ta, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(eb, tb, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(ec, tc, batch_id=i, affinity=aff_store, wp=wp)
 
     pr.disable()
 
@@ -550,7 +552,7 @@ def run_cprofile_raw(
     print(f'{"=" * W}')
 
     (inventory, wh_A, mgr_A, wh_B, mgr_B, wh_C, mgr_C,
-     pick_cfg, wp, batch_cfg, _) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
+     pick_cfg, wp, batch_cfg, aff_store) = _build_assets(n_skus, bins_per_aisle, n_pickers, seed, fill=fill)
 
     skipped = 0
     random.seed(seed + 100)
@@ -573,9 +575,9 @@ def run_cprofile_raw(
         extract_batch_stats(ea, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(eb, batch_id=i, k_pickers=n_pickers)
         extract_batch_stats(ec, batch_id=i, k_pickers=n_pickers)
-        extract_task_stats(ea, ta, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(eb, tb, batch_id=i, affinity={}, wp=wp)
-        extract_task_stats(ec, tc, batch_id=i, affinity={}, wp=wp)
+        extract_task_stats(ea, ta, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(eb, tb, batch_id=i, affinity=aff_store, wp=wp)
+        extract_task_stats(ec, tc, batch_id=i, affinity=aff_store, wp=wp)
 
     pr.disable()
 

@@ -58,19 +58,22 @@ def avg_concurrent_pickers(events: list) -> float:
     concurrent-count curve.  Divide by total simulation span.
     """
     changes: list[tuple[float, int]] = []
+    t_end = 0.0
     for e in events:
         if e.event_type == 'arrive':
             changes.append((e.time, +1))
         elif e.event_type == 'pick':
             changes.append((e.time, -1))
+        elif e.event_type == 'done':
+            if e.time > t_end:
+                t_end = e.time
 
     if not changes:
         return 0.0
 
     changes.sort()
-
-    done_times = [e.time for e in events if e.event_type == 'done']
-    t_end = max(done_times) if done_times else changes[-1][0]
+    if t_end <= 0.0:
+        t_end = changes[-1][0]
     if t_end <= 0.0:
         return 0.0
 
@@ -126,7 +129,7 @@ def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
     picking_time = 0.0
 
     for picker_evs in grouped:
-        done_t = next((e.time for e in reversed(picker_evs) if e.event_type == 'done'), None)
+        done_t = picker_evs[-1].time if picker_evs and picker_evs[-1].event_type == 'done' else None
         if done_t is None or done_t <= 0.0:
             continue
         total_time += done_t
@@ -190,10 +193,8 @@ def extract_batch_stats(
     num_tasks = len(num_tasks_set)
 
     for picker_evs in grouped:
-        for e in reversed(picker_evs):
-            if e.event_type == 'done':
-                total_items += e.items_picked
-                break
+        if picker_evs and picker_evs[-1].event_type == 'done':
+            total_items += picker_evs[-1].items_picked
 
     conc      = avg_concurrent_pickers(events)
     breakdown = _picker_time_breakdown_grouped(grouped)
