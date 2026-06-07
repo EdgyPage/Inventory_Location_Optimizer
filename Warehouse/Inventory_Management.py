@@ -1610,6 +1610,31 @@ def build_trip_maximizing_assignment_fn(
     return assign
 
 
+def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = None) -> AssignmentFn:
+    """Pick an aisle UNIFORMLY at random among the candidate aisles, then place in
+    that aisle's minimum-travel-cost bin.
+
+    Ablation control with no affinity, no demand, no priority — the candidate set
+    from _candidates is already scoped to the unit's (handling, category, size,
+    unit_type), so the random aisle is always a legal one.  Per-unit; pair with
+    batch_assignment_fn = None for a FIFO drain.
+    """
+    x_speed = wp.x_speed
+    y_speed = wp.y_speed
+    _rng    = rng or random
+
+    def assign(unit: Any, candidates: list[Any]) -> Any | None:
+        if not candidates:
+            return None
+        # min-W bin per aisle; pick a random aisle, return its min-W bin.
+        _best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+        if not best_bin_map:
+            return None
+        return best_bin_map[_rng.choice(list(best_bin_map.keys()))]
+
+    return assign
+
+
 # ── batch assignment functions ────────────────────────────────────────────────
 
 def _batch_assign_impl(
@@ -1625,6 +1650,7 @@ def _batch_assign_impl(
     qty_by_sku       : dict,
     beta         : float,
     minimize     : bool,
+    aisle_selector = None,
 ) -> list:
     """Shared core for batch-minimizing and batch-maximizing assignment.
 
@@ -1676,7 +1702,13 @@ def _batch_assign_impl(
             result.append((unit, None))
             continue
 
-        best_aid = (min if minimize else max)(best_W, key=best_W.__getitem__)
+        # aisle_selector overrides which aisle is chosen (e.g. uniform-random for
+        # the ranked-uniform ablation); the per-aisle bin is still the extremal-W
+        # one from _aisle_extremal_bins.  Default = extremal-W aisle (min/max).
+        if aisle_selector is not None:
+            best_aid = aisle_selector(best_W, best_bin_map)
+        else:
+            best_aid = (min if minimize else max)(best_W, key=best_W.__getitem__)
         chosen   = best_bin_map[best_aid]
 
         sku = unit.carton.sku
@@ -1740,5 +1772,37 @@ def build_batch_maximizing_assignment_fn(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=False,
+        )
+    return batch_assign
+
+
+def build_batch_uniform_ranked_assignment_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+    rng              : random.Random | None = None,
+):
+    """Batch assignment: rank units by pick-effort priority (same as
+    batch-minimizing), but place each into a UNIFORM-RANDOM aisle's
+    minimum-travel-cost bin instead of the globally min-W aisle.
+
+    Ablation control: keeps the ranking (incl. demand-weighted lift) so the only
+    difference from batch-minimizing is random vs W-optimal aisle selection —
+    isolating whether the trip-min aisle choice is necessary.
+    """
+    _rng = rng or random
+
+    def batch_assign(units: list, candidates_fn) -> list:
+        return _batch_assign_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+            aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())),
         )
     return batch_assign

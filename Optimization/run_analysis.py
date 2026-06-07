@@ -72,9 +72,7 @@ def run_analysis(base_dir: str, log: logging.Logger) -> None:
         for meta in config_metas:
             cfg_name = meta.get('name', '?')
             try:
-                sim_result = {k: meta[k] for k in
-                              ('name', 'run_dir', 'db_path_A', 'db_path_B', 'db_path_C',
-                               'run_a', 'run_b', 'run_c')}
+                sim_result = {k: meta[k] for k in ('name', 'run_dir', 'strategies')}
                 _run_config_analysis(sim_result, shared, log)
             except Exception as exc:
                 log.error(f'  Analysis failed for {cfg_name}: {exc}', exc_info=True)

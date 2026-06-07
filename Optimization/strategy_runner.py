@@ -49,13 +49,8 @@ _OVERSTOCK_MIN_HEADROOM: int = 10
 from Affinity_Store import AffinityStore
 from fast_pick import DeferredPickSimulation
 from generate_inventory import load_inventory_from_db
-from Inventory_Management import (
-    Inventory_Manager,
-    build_trip_minimizing_assignment_fn,
-    build_trip_maximizing_assignment_fn,
-    build_batch_minimizing_assignment_fn,
-    build_batch_maximizing_assignment_fn,
-)
+from Inventory_Management import Inventory_Manager
+from strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
 from Simulation_Analytics import (
@@ -179,13 +174,12 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)')
 
     # ── initial stock: uniform placement for ALL strategies ─────────────────────
-    # All three warehouses start from the same uniform placement so that
-    # differences in batch performance reflect only the assignment function
-    # used for reorders, not any bias in the initial stocking phase.
-    # affinity=None here ensures _drain uses _uniform_assignment for every
-    # strategy and that _aisle_sku_counts is NOT populated during stocking
-    # (it will be rebuilt for B/C below, after fill is complete).
-    log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement (same for A/B/C)...')
+    # Every strategy starts from the same uniform placement so that differences
+    # in batch performance reflect only the reorder assignment function, not any
+    # bias in the initial stocking phase.  affinity=None here ensures _drain uses
+    # _uniform_assignment for every strategy and that _aisle_sku_counts is NOT
+    # populated during stocking (rebuilt below for affinity-needing strategies).
+    log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement (same for all strategies)...')
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
@@ -194,22 +188,23 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── enable affinity state and set assignment function (B / C only) ────────
-    # Initial placement is now identical across A/B/C.  B and C now activate
-    # their affinity tracking so reorders use the trip-cost objective.
+    # ── enable affinity/demand state and set assignment fns (per registry) ────
+    # Initial placement is identical across all strategies (uniform).  Strategies
+    # that need it now activate affinity/demand tracking so reorders can use the
+    # trip-cost / co-occurrence objective; the strategy's build() then wires the
+    # per-unit assignment_fn and (optional) batch_assignment_fn.
+    strat = STRATEGY_BY_KEY[strategy]
     freq_by_sku: dict[int, float] = {}
     qty_by_sku:  dict[int, float] = {}
     freq_by_idx: dict[int, float] = {}
 
-    if strategy in ('B', 'C'):
+    if strat.needs_affinity:
         # Activate the affinity reference so _drain and _reclaim_empty_bins
         # update lift/count state during the simulation loop.
         mgr._affinity = affinity
 
         # Rebuild _aisle_sku_counts from the existing _sku_pallet_bins /
         # _sku_singleton_bins sets (populated by _drain during stocking).
-        # This is needed by _reclaim_empty_bins to correctly maintain
-        # _aisle_sku_sets when the last bin of a SKU leaves an aisle.
         log.info('Rebuilding aisle SKU counts from placed bins...')
         t0 = time.perf_counter()
         for sku, bins in mgr._sku_pallet_bins.items():
@@ -233,6 +228,7 @@ def _run_strategy_worker(args: dict) -> dict:
         log.info(f'  {len(mgr._aisle_lift_sum)} aisles  {n_lift} with lift>0  '
                  f'({time.perf_counter()-t0:.1f}s)')
 
+    if strat.needs_demand:
         log.info('Building demand state...')
         t0 = time.perf_counter()
         mgr.init_demand_state(inventory)
@@ -246,32 +242,13 @@ def _run_strategy_worker(args: dict) -> dict:
             for c in inventory.cartons if c.sku in affinity._sku_to_idx
         }
 
-    if strategy == 'B':
-        # Per-unit fallback (direct enqueue calls): trip-minimizing
-        mgr.assignment_fn = build_trip_minimizing_assignment_fn(
-            affinity, wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        # Reorder waves: batch-optimal — high pick-effort items claim easiest bins
-        mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
-            affinity, wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        log.info('  assignment_fn = trip_minimizing  |  batch_assignment_fn = batch_minimizing')
-    elif strategy == 'C':
-        # Per-unit fallback: trip-maximizing
-        mgr.assignment_fn = build_trip_maximizing_assignment_fn(
-            affinity, wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        # Reorder waves: batch-optimal — high pick-effort items claim hardest bins
-        mgr.batch_assignment_fn = build_batch_maximizing_assignment_fn(
-            affinity, wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)
-        log.info('  assignment_fn = trip_maximizing  |  batch_assignment_fn = batch_maximizing')
-    else:
-        log.info('  assignment_fn = uniform_random  (no batch_assignment_fn)')
+    ctx = StrategyContext(
+        affinity=affinity, wp=wp,
+        freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
+        beta=1.0)
+    strat.build(mgr, ctx)
+    log.info(f'  strategy={strat.key} ({strat.label})  '
+             f'batch_assignment_fn={"set" if mgr.batch_assignment_fn else "None (FIFO)"}')
 
     # ── RNG fast-forward (resume only) ────────────────────────────────────────
     random.seed(seed_batches)

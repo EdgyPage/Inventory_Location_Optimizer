@@ -39,6 +39,7 @@ from generate_inventory import (
 from Inventory_Management import (
     Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
     build_batch_minimizing_assignment_fn, build_batch_maximizing_assignment_fn,
+    build_uniform_aisle_trip_min_assignment_fn,
 )
 from Storage_Primitive import viable_storage_units, Pallet
 from Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
@@ -542,6 +543,45 @@ def test_planned_inventory_roundtrip_no_queue():
           f'{len(placed)}/{len(reloaded.cartons)}')
 
 
+def test_uniform_aisle_trip_min_assignment():
+    print('\n-- uniform-aisle + trip-min-bin assignment fn --')
+    inv  = _inventory(80, seed=5)
+    plan = _plan(inv)
+    Aisle.next_aisle_id = 1
+    random.seed(5)
+    wh  = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
+    mgr = Inventory_Manager(wh)
+    wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0)
+    assign = build_uniform_aisle_trip_min_assignment_fn(wp, rng=random.Random(1))
+
+    def W(b):
+        return wp.x_speed * b.x_phys + wp.y_speed * b.y_phys
+
+    # Find a unit whose candidate bins span >= 2 aisles.
+    cand = None
+    for c in plan.sampled:
+        u = viable_storage_units(c, c.equilibrium_qty)[0]
+        cu = mgr._candidates(u)
+        if len({b.location[0] for b in cu}) >= 2:
+            cand, unit = cu, u
+            break
+    check('found a unit whose candidates span >=2 aisles', cand is not None)
+    if cand is None:
+        return
+
+    chosen_aisles, all_min = set(), True
+    for _ in range(40):
+        b = assign(unit, cand)
+        aid = b.location[0]
+        chosen_aisles.add(aid)
+        in_aisle = [x for x in cand if x.location[0] == aid]
+        if W(b) > min(W(x) for x in in_aisle) + 1e-9:
+            all_min = False
+    check('returns the MIN-travel-cost bin within the chosen aisle', all_min)
+    check('aisle choice is non-degenerate (>=2 distinct aisles over 40 draws)',
+          len(chosen_aisles) >= 2, f'{len(chosen_aisles)}')
+
+
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
     _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
@@ -573,6 +613,7 @@ if __name__ == '__main__':
     test_partial_placement_drains_incrementally()
     test_unit_split_rescue()
     test_planned_inventory_roundtrip_no_queue()
+    test_uniform_aisle_trip_min_assignment()
     test_batch_min_incremental_drain()
     test_batch_max_incremental_drain()
 

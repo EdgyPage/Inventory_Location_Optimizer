@@ -61,6 +61,7 @@ from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
+from strategies import STRATEGIES
 from Pick import PickConfig
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
@@ -186,13 +187,12 @@ def _resume_path(run_dir: str) -> str:
     return os.path.join(run_dir, 'resume.pkl')
 
 
-def _save_resume(run_dir: str, run_ids: dict,
-                 next_A: int, next_B: int, next_C: int) -> None:
-    """Persist per-strategy batch counters and run IDs for crash recovery."""
-    state = {
-        'run_ids'     : run_ids,
-        'next_batch'  : {'A': next_A, 'B': next_B, 'C': next_C},
-    }
+def _save_resume(run_dir: str, run_ids: dict, starts: dict) -> None:
+    """Persist per-strategy batch counters and run IDs for crash recovery.
+
+    run_ids and starts are keyed by strategy key (e.g. 'uniform', 'trip_min').
+    """
+    state = {'run_ids': run_ids, 'next_batch': dict(starts)}
     with open(_resume_path(run_dir), 'wb') as f:
         pickle.dump(state, f)
 
@@ -382,7 +382,7 @@ def build_shared_assets(
         save_inventory_to_db(inventory, planned_inv_db,
                              {'source_inventory_db': inventory_db,
                               'planned': True})
-        log.info(f'  Planned inventory → {planned_inv_db}  ({n_skus:,} SKUs, '
+        log.info(f'  Planned inventory -> {planned_inv_db}  ({n_skus:,} SKUs, '
                  f'cross-tier stock plans)')
 
     # ── persist warehouse stats and aisle distributions ───────────────────────
@@ -442,7 +442,7 @@ def build_shared_assets(
                  bay_y         = a.bayYPerAisle)
             for a in warehouse_meta.aisles
         ])
-        log.info(f'  Warehouse stats  → {warehouse_db_path}'
+        log.info(f'  Warehouse stats  -> {warehouse_db_path}'
                  f'  ({len(warehouse_meta.aisles)} aisles in aisle_layout)')
 
     return dict(
@@ -577,9 +577,7 @@ def _prepare_config_run(
     )
     wp      = WorkloadParams.from_pick_config(pick_cfg)
     run_dir = os.path.join(pair_dir, name)
-    db_path_A = os.path.join(run_dir, 'sim_A.db')
-    db_path_B = os.path.join(run_dir, 'sim_B.db')
-    db_path_C = os.path.join(run_dir, 'sim_C.db')
+    db_path = {s.key: os.path.join(run_dir, f'sim_{s.key}.db') for s in STRATEGIES}
     os.makedirs(run_dir, exist_ok=True)
 
     inventory          = shared['inventory']
@@ -648,23 +646,19 @@ def _prepare_config_run(
     resume = _load_resume(run_dir)
     if resume:
         run_ids = resume['run_ids']
-        run_a, run_b, run_c = run_ids['A'], run_ids['B'], run_ids['C']
-        starts  = resume.get('next_batch', {})
-        start_A = load_worker_checkpoint(run_dir, 'A') or starts.get('A', 0)
-        start_B = load_worker_checkpoint(run_dir, 'B') or starts.get('B', 0)
-        start_C = load_worker_checkpoint(run_dir, 'C') or starts.get('C', 0)
-        log.info(f'  Resuming  A@{start_A}  B@{start_B}  C@{start_C}')
+        prev    = resume.get('next_batch', {})
+        starts  = {s.key: (load_worker_checkpoint(run_dir, s.key) or prev.get(s.key, 0))
+                   for s in STRATEGIES}
+        log.info('  Resuming  ' + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
     else:
-        for dp in (db_path_A, db_path_B, db_path_C):
-            init_run_db(dp)
-        run_a   = create_run(db_path_A, 'uniform_assignment',         run_params)
-        run_b   = create_run(db_path_B, 'trip_minimizing_assignment', run_params)
-        run_c   = create_run(db_path_C, 'trip_maximizing_assignment', run_params)
-        run_ids = {'A': run_a, 'B': run_b, 'C': run_c}
-        start_A = start_B = start_C = 0
-        log.info(f'  New run  run_ids A={run_a} B={run_b} C={run_c}')
+        run_ids = {}
+        for s in STRATEGIES:
+            init_run_db(db_path[s.key])
+            run_ids[s.key] = create_run(db_path[s.key], s.run_type, run_params)
+        starts = {s.key: 0 for s in STRATEGIES}
+        log.info('  New run  ' + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
 
-    _save_resume(run_dir, run_ids, start_A, start_B, start_C)
+    _save_resume(run_dir, run_ids, starts)
 
     # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier
     # stock plans) when available so they reproduce the placement the warehouse
@@ -694,21 +688,18 @@ def _prepare_config_run(
         # log_queue is NOT set here — injected by flat pool or run_strategies_parallel
     )
     strategy_args = [
-        {**_shared, 'strategy': 'A', 'run_id': run_a, 'start_i': start_A, 'db_path': db_path_A},
-        {**_shared, 'strategy': 'B', 'run_id': run_b, 'start_i': start_B, 'db_path': db_path_B},
-        {**_shared, 'strategy': 'C', 'run_id': run_c, 'start_i': start_C, 'db_path': db_path_C},
+        {**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
+         'start_i': starts[s.key], 'db_path': db_path[s.key]}
+        for s in STRATEGIES
     ]
     sim_skeleton = dict(
-        name      = name,
-        run_dir   = run_dir,
-        db_path_A = db_path_A,
-        db_path_B = db_path_B,
-        db_path_C = db_path_C,
-        run_a     = run_a,
-        run_b     = run_b,
-        run_c     = run_c,
-        inv_db    = shared['inv_db'],
-        aff_db    = shared['aff_db'],
+        name       = name,
+        run_dir    = run_dir,
+        strategies = [dict(key=s.key, label=s.label, color=s.color,
+                           db_path=db_path[s.key], run_id=run_ids[s.key])
+                      for s in STRATEGIES],
+        inv_db     = shared['inv_db'],
+        aff_db     = shared['aff_db'],
     )
     return strategy_args, sim_skeleton
 
@@ -724,9 +715,7 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
         os.remove(rp)
     with open(os.path.join(run_dir, 'sim_meta.json'), 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
-    return {k: sim_skeleton[k] for k in
-            ('name', 'run_dir', 'db_path_A', 'db_path_B', 'db_path_C',
-             'run_a', 'run_b', 'run_c')}
+    return {k: sim_skeleton[k] for k in ('name', 'run_dir', 'strategies')}
 
 
 def _run_workers_flat(
@@ -771,7 +760,7 @@ def _run_workers_flat(
                     for sa in strategy_args:
                         sa['log_queue'] = log_queue   # inject shared queue
                         work_units.append((key, sa))
-                    meta[key] = {'sim_skeleton': sim_skeleton, 'remaining': 3}
+                    meta[key] = {'sim_skeleton': sim_skeleton, 'remaining': len(STRATEGIES)}
                 except Exception as exc:
                     log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
                               exc_info=True)
@@ -786,7 +775,7 @@ def _run_workers_flat(
             sa['job_tag']   = f'{_label}/{_cfg_name}/{sa["strategy"]}'
 
         log.info(f'  Flat pool: {total_jobs} jobs'
-                 f' → ProcessPoolExecutor({max_workers})')
+                 f' -> ProcessPoolExecutor({max_workers})')
 
         # ── execute ───────────────────────────────────────────────────────────
         with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
@@ -915,10 +904,11 @@ def main():
         log.info(f'    aff : {aff_db}')
 
     n_configs = len(REGRESSION_CONFIGS)
-    total_workers = len(pairs) * n_configs * 3
+    n_strats  = len(STRATEGIES)
+    total_workers = len(pairs) * n_configs * n_strats
     if args.workers:
         log.info(
-            f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × 3 strategies'
+            f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
             f' = {total_workers} work units  |  flat pool workers={args.workers}'
         )
         # ── flat pool path (no idle between A/B/C barriers) ───────────────────
