@@ -582,6 +582,42 @@ def test_uniform_aisle_trip_min_assignment():
           len(chosen_aisles) >= 2, f'{len(chosen_aisles)}')
 
 
+def test_batch_assign_extremal_order():
+    print('\n-- batch assign: highest priority -> lowest-W bin, no double-assign --')
+    from collections import defaultdict
+
+    class _B:
+        __slots__ = ('location', 'x_phys', 'y_phys')
+        def __init__(self, i):
+            self.location = (1, i, 0)   # one aisle
+            self.x_phys = i             # W = x_speed*x_phys (y_speed 0) = i
+            self.y_phys = 0
+
+    cands = [_B(i) for i in range(6)]
+    freqs = [0.1, 0.9, 0.5, 0.7]        # sku i -> frequency
+    units = [types.SimpleNamespace(carton=types.SimpleNamespace(
+                sku=i, weight=1, volume=lambda: 1,
+                demand=types.SimpleNamespace(frequency=f)))
+             for i, f in enumerate(freqs)]
+    aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
+    wp  = types.SimpleNamespace(x_speed=1.0, y_speed=0.0,        # W == x_phys
+                                pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
+    fn = build_batch_minimizing_assignment_fn(
+        aff, wp, defaultdict(set), defaultdict(set), defaultdict(float),
+        {}, {}, {}, beta=1.0)
+    res = fn(units, lambda u: cands)
+
+    by_sku = {u.carton.sku: b for u, b in res}
+    # priority is pure frequency (effort constant) → highest freq gets W=0, etc.
+    order = sorted(range(4), key=lambda i: freqs[i], reverse=True)   # [1,3,2,0]
+    expected = {sku: rank for rank, sku in enumerate(order)}
+    check('highest-priority unit gets lowest-W bin',
+          all(by_sku[s].x_phys == expected[s] for s in range(4)),
+          f'{[(s, by_sku[s].x_phys) for s in range(4)]}')
+    ids = [id(b) for _, b in res]
+    check('no bin assigned twice', len(ids) == len(set(ids)))
+
+
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
     _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
@@ -614,6 +650,7 @@ if __name__ == '__main__':
     test_unit_split_rescue()
     test_planned_inventory_roundtrip_no_queue()
     test_uniform_aisle_trip_min_assignment()
+    test_batch_assign_extremal_order()
     test_batch_min_incremental_drain()
     test_batch_max_incremental_drain()
 

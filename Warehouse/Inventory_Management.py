@@ -1672,44 +1672,52 @@ def _batch_assign_impl(
     pw      = wp.pick_weight_coef
     pv      = wp.pick_volume_coef
 
+    # Fix 1: the co-occurrence term ranks each SKU against ALL currently-placed
+    # SKU indices.  That union is identical for every unit in the wave (placement
+    # is deferred to the caller, so aisle_idx_sets is static here), so build it
+    # ONCE — not once per unit inside the sort key (which was O(U·Σ) per wave).
+    all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+
     def pick_effort_priority(unit) -> float:
         c    = unit.carton
         f_i  = c.demand.frequency
         w    = max(1, c.weight)
         v    = max(1, c.volume())
         effort = pi + pw * math.log(w) + pv * math.log(v)
-        sku  = c.sku
-        co_occur = beta * _demand_weighted_delta_lift(
-            affinity, sku,
-            set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set(),
-            freq_by_idx,
-        )
+        co_occur = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
         return f_i * effort + co_occur
 
     sorted_units = sorted(units, key=pick_effort_priority, reverse=True)
-    placed: set = set()
     result: list = []
+    if not sorted_units:
+        return result
+
+    # Fix 2: the candidate pool is constant for this whole call (placement is
+    # deferred) and every unit shares one BinKey, so compute it ONCE instead of
+    # re-copying / re-scanning it per unit (was O(U·bucket_bins) per wave).
+    # Pre-sort each aisle's bins by travel cost W (extremal-W first) and hand them
+    # out by popping the head — equivalent to picking the extremal-W available bin
+    # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
+    cands = candidates_fn(sorted_units[0])
+    W_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    by_aisle: dict[int, deque] = {}
+    for b in cands:
+        by_aisle.setdefault(b.location[0], []).append(b)
+    for aid, lst in by_aisle.items():
+        lst.sort(key=lambda bb: W_of[id(bb)], reverse=not minimize)   # head = extremal-W
+        by_aisle[aid] = deque(lst)
+    head_bin = {aid: dq[0]          for aid, dq in by_aisle.items() if dq}
+    head_W   = {aid: W_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
 
     for unit in sorted_units:
-        raw  = candidates_fn(unit)
-        free = [b for b in raw if id(b) not in placed]
-        if not free:
+        if not head_W:
             result.append((unit, None))
             continue
-
-        best_W, best_bin_map = _aisle_extremal_bins(free, x_speed, y_speed, minimize=minimize)
-        if not best_W:
-            result.append((unit, None))
-            continue
-
-        # aisle_selector overrides which aisle is chosen (e.g. uniform-random for
-        # the ranked-uniform ablation); the per-aisle bin is still the extremal-W
-        # one from _aisle_extremal_bins.  Default = extremal-W aisle (min/max).
         if aisle_selector is not None:
-            best_aid = aisle_selector(best_W, best_bin_map)
+            best_aid = aisle_selector(head_W, head_bin)
         else:
-            best_aid = (min if minimize else max)(best_W, key=best_W.__getitem__)
-        chosen   = best_bin_map[best_aid]
+            best_aid = (min if minimize else max)(head_W, key=head_W.__getitem__)
+        chosen = head_bin[best_aid]
 
         sku = unit.carton.sku
         f_s = freq_by_sku.get(sku, 0.0)
@@ -1721,7 +1729,16 @@ def _batch_assign_impl(
                 aisle_idx_sets[best_aid].add(idx)
             aisle_demand_sum[best_aid] += f_s * q_s
 
-        placed.add(id(chosen))
+        # Advance the chosen aisle's head; drop it when exhausted.
+        dq = by_aisle[best_aid]
+        dq.popleft()
+        if dq:
+            head_bin[best_aid] = dq[0]
+            head_W[best_aid]   = W_of[id(dq[0])]
+        else:
+            del head_bin[best_aid]
+            del head_W[best_aid]
+
         result.append((unit, chosen))
 
     return result
