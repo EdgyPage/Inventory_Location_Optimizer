@@ -325,6 +325,7 @@ def flag_task_outliers(
             run_id=s.run_id, batch_id=s.batch_id, aisle_id=s.aisle_id,
             picker_id=s.picker_id, duration=s.duration,
             task_start_time=s.task_start_time,
+            task_end_time=s.task_end_time,
             W_a=s.W_a, lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
             total_items=s.total_items,
             is_outlier=bool(d < lo or d > hi),
