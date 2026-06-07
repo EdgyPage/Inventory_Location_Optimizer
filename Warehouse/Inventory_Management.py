@@ -135,6 +135,7 @@ class Inventory_Manager:
         max_bins     : int | None = None,
         max_aisles   : int | None = None,
         composition  : dict | None = None,
+        sample       : bool = True,
         rng          : random.Random | None = None,
         log          : Any = None,
     ) -> 'WarehousePlan':
@@ -269,13 +270,18 @@ class Inventory_Manager:
                     AisleConfig(h, cat, unit_type, aisle_width, aisle_height,
                                 sizes_arg, None))
 
-        # 4: sample SKUs to fill capacity to target_fill.
-        sampled, allowlist = cls.sample_to_capacity(
-            cartons, capacity, target_fill=target_fill, rng=rng)
-
-        total_units = sum(
-            len(viable_storage_units(c, _equilibrium_qty(c))) for c in sampled)
-        expected_fill = total_units / total_bins if total_bins else 0.0
+        # 4: sample SKUs to fill capacity to target_fill.  Skipped when sample=
+        # False (e.g. analysis only needs the warehouse shape + aisle maps, not
+        # a restocked inventory) — this avoids re-stocking the whole inventory.
+        if sample:
+            sampled, allowlist = cls.sample_to_capacity(
+                cartons, capacity, target_fill=target_fill, rng=rng)
+            total_units = sum(
+                len(viable_storage_units(c, _equilibrium_qty(c))) for c in sampled)
+            expected_fill = total_units / total_bins if total_bins else 0.0
+        else:
+            sampled, allowlist = [], set()
+            expected_fill = 0.0
 
         n = len(aisle_configs)
         splits = [1.0 / n] * n if n else []

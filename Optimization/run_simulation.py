@@ -305,11 +305,15 @@ def build_shared_assets(
         max_bins     = max_bins,
         max_aisles   = max_aisles,
         composition  = composition,
+        # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
+        # maps, so skip the expensive inventory re-stock in that path.
+        sample       = warehouse_db_path is not None,
         rng          = random.Random(SEED_WORLD + 1),
         log          = log,
     )
-    inventory.cartons  = plan.sampled
-    n_skus             = len(plan.sampled)
+    if plan.sampled:                 # empty when sample=False (analysis path)
+        inventory.cartons = plan.sampled
+    n_skus             = len(inventory.cartons)
     sku_allowlist      = plan.sku_allowlist
     warehouse_cfg      = plan.warehouse_cfg
     total_aisles       = plan.total_aisles
@@ -325,8 +329,9 @@ def build_shared_assets(
         len(_vsu(c, c.equilibrium_qty)) for c in plan.sampled)
 
     log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
-             f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
-             f'  ({time.perf_counter()-t_size:.1f}s)')
+             + (f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
+                if plan.sampled else '  (shape only — analysis, no re-stock)')
+             + f'  ({time.perf_counter()-t_size:.1f}s)')
 
     log.info(f'  Loading affinity DB : {affinity_db}')
     t0             = time.perf_counter()
