@@ -99,9 +99,9 @@ STRATEGIES: list[Strategy] = [
              'uniform_aisle_trip_min',     False, False, _build_uniform_trip_min),
     Strategy('uniform_trip_min_ranked', 'Uniform+Min+Rank', '#f4a030',
              'uniform_aisle_ranked',       True,  True,  _build_uniform_trip_min_ranked),
-    Strategy('trip_min',                'Trip-Min',         '#70ad47',
+    Strategy('lift_trip_min_ranked',                'Trip-Min',         '#70ad47',
              'trip_minimizing_assignment', True,  True,  _build_trip_min),
-    Strategy('trip_max',                'Trip-Max',         '#c0504d',
+    Strategy('lift_trip_max_ranked',                'Trip-Max',         '#c0504d',
              'trip_maximizing_assignment', True,  True,  _build_trip_max),
 ]
 
