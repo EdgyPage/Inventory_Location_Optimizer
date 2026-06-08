@@ -73,7 +73,7 @@ def run_analysis(base_dir: str, log: logging.Logger) -> None:
             cfg_name = meta.get('name', '?')
             try:
                 sim_result = {k: meta[k] for k in ('name', 'run_dir', 'strategies')}
-                sim_result['optimal_sigma_fw'] = meta.get('optimal_sigma_fw', 0.0)
+                sim_result['optimal_sigma_fd'] = meta.get('optimal_sigma_fd', 0.0)
                 _run_config_analysis(sim_result, shared, log)
             except Exception as exc:
                 log.error(f'  Analysis failed for {cfg_name}: {exc}', exc_info=True)

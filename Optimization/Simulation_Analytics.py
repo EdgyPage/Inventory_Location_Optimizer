@@ -234,7 +234,7 @@ def extract_task_stats(
     """Extract per-aisle TaskStats from one PickSimulation.run() result.
 
     duration         : task_end.time - task_start.time for this aisle
-    W_a              : analytical workload via aisle_workload()
+    W              : analytical workload via aisle_workload()
     lift_sum         : sum_lift for SKUs present in this task
     num_bins_visited : bins with at least one pick (task.items membership)
     total_items      : sum of quantities across this aisle's SKUs
@@ -260,7 +260,7 @@ def extract_task_stats(
         if task is None:
             continue
         lines = _pick_lines(task)
-        W_a = aisle_workload(
+        W = aisle_workload(
             task.x_traversed, task.y_traversed,
             task.carts_required, lines, wp,
         ) if lines else 0.0
@@ -282,7 +282,7 @@ def extract_task_stats(
             task_start_time  = aisle_start[aisle_id],
             task_end_time    = end_time,
             duration         = end_time - aisle_start[aisle_id],
-            W_a              = W_a,
+            W              = W,
             lift_sum         = ls,
             # task.path is built at task-creation time from non-empty bins;
             # its length is the planned visit count, unaffected by post-pick state.
@@ -314,7 +314,7 @@ def flag_batch_outliers(
             avg_concurrent_pickers=s.avg_concurrent_pickers,
             picking_pct=s.picking_pct, traveling_pct=s.traveling_pct,
             batch_start_time=s.batch_start_time, batch_end_time=s.batch_end_time,
-            sigma_fw=s.sigma_fw, reload_moves=s.reload_moves,
+            sigma_fd=s.sigma_fd, reload_moves=s.reload_moves,
             reorder_placements=s.reorder_placements,
             is_outlier=bool(d < lo or d > hi),
         )
@@ -339,7 +339,7 @@ def flag_task_outliers(
             picker_id=s.picker_id, duration=s.duration,
             task_start_time=s.task_start_time,
             task_end_time=s.task_end_time,
-            W_a=s.W_a, lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
+            W=s.W, lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
             total_items=s.total_items,
             is_outlier=bool(d < lo or d > hi),
         )

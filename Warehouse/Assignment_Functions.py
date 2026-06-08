@@ -28,31 +28,31 @@ def _aisle_extremal_bins(
     y_speed   : float,
     minimize  : bool,
 ) -> tuple[dict[int, float], dict[int, Any]]:
-    """Reduce candidates to one bin per aisle — the extremal-W representative.
+    """Reduce candidates to one bin per aisle — the extremal-D representative.
 
     Proof of correctness
     --------------------
     For a fixed aisle (fixed ls, dl), the score tuple (delta_l2, old_L) is
-    strictly monotone increasing in W = x_speed*x_phys + y_speed*y_phys:
-      old_L  = W + λ(W/k)^γ ls           — increasing in W
-      new_L  = W + λ(W/k)^γ (ls+dl)      — increasing in W
+    strictly monotone increasing in D = x_speed*x_phys + y_speed*y_phys:
+      old_L  = D + λ(D/k)^γ ls           — increasing in D
+      new_L  = D + λ(D/k)^γ (ls+dl)      — increasing in D
       delta_l2 = new_L² − old_L²          — product of two positive increasing
-                                             functions, so also increasing in W
+                                             functions, so also increasing in D
 
-    Consequence: within a fixed aisle, the minimum-W bin always yields the
-    minimum score (best for minimising) and the maximum-W bin always yields the
+    Consequence: within a fixed aisle, the minimum-D bin always yields the
+    minimum score (best for minimising) and the maximum-D bin always yields the
     maximum score (best for maximising).  Reducing O(N_bins) candidates to one
     representative per aisle is exact — no approximation.
     """
-    best_W  : dict[int, float] = {}
+    best_D  : dict[int, float] = {}
     best_bin: dict[int, Any]   = {}
     for b in candidates:
         aid = b.location[0]
-        W   = x_speed * b.x_phys + y_speed * b.y_phys
-        if aid not in best_W or (W < best_W[aid] if minimize else W > best_W[aid]):
-            best_W[aid]   = W
+        D   = x_speed * b.x_phys + y_speed * b.y_phys
+        if aid not in best_D or (D < best_D[aid] if minimize else D > best_D[aid]):
+            best_D[aid]   = D
             best_bin[aid] = b
-    return best_W, best_bin
+    return best_D, best_bin
 
 
 def build_load_minimizing_assignment_fn(
@@ -65,18 +65,18 @@ def build_load_minimizing_assignment_fn(
     aisle_index    : dict | None = None,
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily minimises the L2 norm of predicted
-    aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
+    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
 
     Dual-optimisation algorithm
     ---------------------------
-    1. Reduce candidates to one bin per aisle (minimum-W bin) — exact by
-       monotonicity of delta_l2 in W within a fixed aisle.
-    2. Sort the O(N_aisles) representatives by W ascending.
-    3. Evaluate aisles in W order with LAZY CSR queries (delta_lift computed
+    1. Reduce candidates to one bin per aisle (minimum-D bin) — exact by
+       monotonicity of delta_l2 in D within a fixed aisle.
+    2. Sort the O(N_aisles) representatives by D ascending.
+    3. Evaluate aisles in D order with LAZY CSR queries (delta_lift computed
        only when the aisle is actually reached, not upfront for all aisles).
     4. Early termination: once the best score has delta_l2 = 0 (no affinity
-       partners in the winning aisle), any remaining aisle with W ≥ best_old_L
-       cannot improve — old_L ≥ W ≥ best_old_L and delta_l2 ≥ 0 = best_delta_l2.
+       partners in the winning aisle), any remaining aisle with D ≥ best_old_L
+       cannot improve — old_L ≥ D ≥ best_old_L and delta_l2 ≥ 0 = best_delta_l2.
        With sparse top-20 affinity most aisles have delta_lift = 0, so the
        termination typically fires after the first few aisles.
     """
@@ -86,13 +86,13 @@ def build_load_minimizing_assignment_fn(
     x_speed = wp.x_speed
     y_speed = wp.y_speed
 
-    def _L(W: float, ls: float) -> float:
-        return W + lam * (W / k) ** gam * ls
+    def _L(D: float, ls: float) -> float:
+        return D + lam * (D / k) ** gam * ls
 
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.carton.sku
 
-        # Step 1: one representative bin per aisle (min-W).
+        # Step 1: one representative bin per aisle (min-D).
         # Fast path: derive BinKey from unit, read directly from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
@@ -109,23 +109,23 @@ def build_load_minimizing_assignment_fn(
                         if by and any(by.values()):
                             by_aisle = by
                             break
-            best_W: dict[int, float] = {}
+            best_D: dict[int, float] = {}
             best_bin_map: dict[int, Any] = {}
             if by_aisle:
                 for aid, lst in by_aisle.items():
                     if lst:
-                        b = lst[0]  # sorted ascending — first is min-W
-                        best_W[aid]       = b._W
+                        b = lst[0]  # sorted ascending — first is min-D
+                        best_D[aid]       = b._D
                         best_bin_map[aid] = b
-            if not best_W:
+            if not best_D:
                 return None
         else:
             if not candidates:
                 return None
-            best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
 
-        # Step 2: sort aisles by ascending min-W — O(N_aisles log N_aisles)
-        sorted_aids = sorted(best_W, key=best_W.__getitem__)
+        # Step 2: sort aisles by ascending min-D — O(N_aisles log N_aisles)
+        sorted_aids = sorted(best_D, key=best_D.__getitem__)
 
         best_bin        : Any | None          = None
         best_aid        : int                 = -1
@@ -134,11 +134,11 @@ def build_load_minimizing_assignment_fn(
 
         # Step 3+4: lazy CSR queries + early termination
         for aid in sorted_aids:
-            W = best_W[aid]
+            D = best_D[aid]
 
-            # Early termination: best has delta_l2=0; remaining W ≥ best old_L
-            # means score ≥ (0, W) ≥ (0, best_old_L) = best — prune the rest.
-            if best_score[0] == 0.0 and W >= best_score[1]:
+            # Early termination: best has delta_l2=0; remaining D ≥ best old_L
+            # means score ≥ (0, D) ≥ (0, best_old_L) = best — prune the rest.
+            if best_score[0] == 0.0 and D >= best_score[1]:
                 break
 
             ls = aisle_lift_sum[aid]
@@ -147,8 +147,8 @@ def build_load_minimizing_assignment_fn(
             # does not create a new unique SKU pair.
             dl = (0.0 if sku in aisle_sku_sets[aid]
                   else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
-            old_L    = _L(W, ls)
-            new_L    = _L(W, ls + dl)
+            old_L    = _L(D, ls)
+            new_L    = _L(D, ls + dl)
             delta_l2 = new_L * new_L - old_L * old_L
             score    = (delta_l2, old_L)
 
@@ -183,12 +183,12 @@ def build_load_maximizing_assignment_fn(
     aisle_index    : dict | None = None,
 ) -> AssignmentFn:
     """Build an AssignmentFn that greedily maximises the L2 norm of predicted
-    aisle loads  L_a = W_a + λ*(W_a/k)^γ * lift_sum.
+    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
 
     Same dual-optimisation structure as the minimising variant:
-    one bin per aisle (min-W) + aisles sorted by W descending (largest
+    one bin per aisle (min-D) + aisles sorted by D descending (largest
     travel cost first — highest potential delta_l2) + lazy CSR queries.
-    No early termination for maximising: a low-W aisle can still win if it
+    No early termination for maximising: a low-D aisle can still win if it
     has very high affinity lift, so the sorted order does not guarantee
     pruning.  The one-bin-per-aisle reduction still eliminates O(N_bins)
     evaluations, leaving O(N_aisles) CSR queries.
@@ -199,13 +199,13 @@ def build_load_maximizing_assignment_fn(
     x_speed = wp.x_speed
     y_speed = wp.y_speed
 
-    def _L(W: float, ls: float) -> float:
-        return W + lam * (W / k) ** gam * ls
+    def _L(D: float, ls: float) -> float:
+        return D + lam * (D / k) ** gam * ls
 
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.carton.sku
 
-        # One representative bin per aisle (max-W) — exact by monotonicity.
+        # One representative bin per aisle (max-D) — exact by monotonicity.
         # Fast path: derive BinKey from unit, read from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
@@ -222,23 +222,23 @@ def build_load_maximizing_assignment_fn(
                         if by and any(by.values()):
                             by_aisle = by
                             break
-            best_W: dict[int, float] = {}
+            best_D: dict[int, float] = {}
             best_bin_map: dict[int, Any] = {}
             if by_aisle:
                 for aid, lst in by_aisle.items():
                     if lst:
-                        b = lst[-1]  # sorted ascending — last is max-W
-                        best_W[aid]       = b._W
+                        b = lst[-1]  # sorted ascending — last is max-D
+                        best_D[aid]       = b._D
                         best_bin_map[aid] = b
-            if not best_W:
+            if not best_D:
                 return None
         else:
             if not candidates:
                 return None
-            best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
+            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
 
-        # Sort descending: high-W aisles have the largest potential delta_l2
-        sorted_aids = sorted(best_W, key=best_W.__getitem__, reverse=True)
+        # Sort descending: high-D aisles have the largest potential delta_l2
+        sorted_aids = sorted(best_D, key=best_D.__getitem__, reverse=True)
 
         best_bin        : Any | None          = None
         best_aid        : int                 = -1
@@ -246,12 +246,12 @@ def build_load_maximizing_assignment_fn(
         best_delta_lift : float               = 0.0
 
         for aid in sorted_aids:
-            W  = best_W[aid]
+            D  = best_D[aid]
             ls = aisle_lift_sum[aid]
             dl = (0.0 if sku in aisle_sku_sets[aid]
                   else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
-            old_L    = _L(W, ls)
-            new_L    = _L(W, ls + dl)
+            old_L    = _L(D, ls)
+            new_L    = _L(D, ls + dl)
             delta_l2 = new_L * new_L - old_L * old_L
             score    = (delta_l2, old_L)
 
@@ -309,11 +309,11 @@ def _demand_weighted_delta_lift(
 
 # ── shared aisle-scoring core (decoupled; reused by travel + cohesion) ────────
 
-def _pick_extremal_aisle(best_W, score_of, maximize):
+def _pick_extremal_aisle(best_D, score_of, maximize):
     """Return the aisle id whose score_of(aid) is extremal (max if maximize else min)."""
     best_aid = -1
     best = None
-    for aid in best_W:
+    for aid in best_D:
         sc = score_of(aid)
         if best is None or (sc > best if maximize else sc < best):
             best, best_aid = sc, aid
@@ -335,15 +335,15 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
                           freq_by_idx, freq_by_sku, qty_by_sku, beta):
     """Compose a per-unit AssignmentFn from a named aisle SCORER + direction.
 
-    Shared by the travel (f_s*W - beta*co_occur) and cohesion (demand-weighted lift)
-    policies; they differ only in the score tuple and which W-rank bin represents
+    Shared by the travel (f_s*D - beta*co_occur) and cohesion (demand-weighted lift)
+    policies; they differ only in the score tuple and which D-rank bin represents
     each aisle.  The returned closure carries a programmatic ``.name`` (e.g.
     'travel_min') so downstream processing can build/identify functions by name.
     """
     x_speed = wp.x_speed
     y_speed = wp.y_speed
-    # cohesion always uses the front (min-W) bay; travel uses min-W when minimising
-    # and max-W when maximising (f_s*W is monotone in W within an aisle).
+    # cohesion always uses the front (min-D) bay; travel uses min-D when minimising
+    # and max-D when maximising (f_s*D is monotone in D within an aisle).
     bin_minimize = True if score_kind == 'cohesion' else (not maximize)
 
     def assign(unit, candidates):
@@ -352,19 +352,19 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
         sku = unit.carton.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
-        best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
+        best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
 
         def score_of(aid):
-            W = best_W[aid]
+            D = best_D[aid]
             co = (0.0 if sku in aisle_sku_sets[aid]
                   else _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx))
             if score_kind == 'travel':
-                primary = f_s * W - beta * co
+                primary = f_s * D - beta * co
                 secondary = aisle_demand_sum[aid] + f_s * q_s
                 return (primary, -secondary) if maximize else (primary, secondary)
-            return (co, -W) if maximize else (co, W)   # cohesion; tie-break front bay
+            return (co, -D) if maximize else (co, D)   # cohesion; tie-break front bay
 
-        best_aid = _pick_extremal_aisle(best_W, score_of, maximize)
+        best_aid = _pick_extremal_aisle(best_D, score_of, maximize)
         if best_aid < 0:
             return None
         _commit_aisle(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, best_aid, sku, f_s, q_s)
@@ -412,8 +412,8 @@ def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = N
     def assign(unit: Any, candidates: list[Any]) -> Any | None:
         if not candidates:
             return None
-        # min-W bin per aisle; pick a random aisle, return its min-W bin.
-        _best_W, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+        # min-D bin per aisle; pick a random aisle, return its min-D bin.
+        _best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
         if not best_bin_map:
             return None
         return best_bin_map[_rng.choice(list(best_bin_map.keys()))]
@@ -445,11 +445,11 @@ def _batch_assign_impl(
                                         + pick_volume_coef x log(volume))
                  + beta x co_occur
 
-    Sorted descending by priority; highest-priority unit claims the extremal-W
-    bin first within each same-BinKey group.  minimize=True -> lowest-W bin
-    (easiest access); minimize=False -> highest-W bin (hardest access).
+    Sorted descending by priority; highest-priority unit claims the extremal-D
+    bin first within each same-BinKey group.  minimize=True -> lowest-D bin
+    (easiest access); minimize=False -> highest-D bin (hardest access).
 
-    W_a (task workload) remains a measurement metric only; this formula
+    W (task workload) remains a measurement metric only; this formula
     drives bin placement at reorder time.
     """
     x_speed = wp.x_speed
@@ -481,28 +481,28 @@ def _batch_assign_impl(
     # Fix 2: the candidate pool is constant for this whole call (placement is
     # deferred) and every unit shares one BinKey, so compute it ONCE instead of
     # re-copying / re-scanning it per unit (was O(U·bucket_bins) per wave).
-    # Pre-sort each aisle's bins by travel cost W (extremal-W first) and hand them
-    # out by popping the head — equivalent to picking the extremal-W available bin
+    # Pre-sort each aisle's bins by travel cost D (extremal-D first) and hand them
+    # out by popping the head — equivalent to picking the extremal-D available bin
     # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
     cands = candidates_fn(sorted_units[0])
-    W_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    D_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
     by_aisle: dict[int, deque] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
     for aid, lst in by_aisle.items():
-        lst.sort(key=lambda bb: W_of[id(bb)], reverse=not minimize)   # head = extremal-W
+        lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
         by_aisle[aid] = deque(lst)
     head_bin = {aid: dq[0]          for aid, dq in by_aisle.items() if dq}
-    head_W   = {aid: W_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
+    head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
 
     for unit in sorted_units:
-        if not head_W:
+        if not head_D:
             result.append((unit, None))
             continue
         if aisle_selector is not None:
-            best_aid = aisle_selector(head_W, head_bin)
+            best_aid = aisle_selector(head_D, head_bin)
         else:
-            best_aid = (min if minimize else max)(head_W, key=head_W.__getitem__)
+            best_aid = (min if minimize else max)(head_D, key=head_D.__getitem__)
         chosen = head_bin[best_aid]
 
         sku = unit.carton.sku
@@ -520,10 +520,10 @@ def _batch_assign_impl(
         dq.popleft()
         if dq:
             head_bin[best_aid] = dq[0]
-            head_W[best_aid]   = W_of[id(dq[0])]
+            head_D[best_aid]   = D_of[id(dq[0])]
         else:
             del head_bin[best_aid]
-            del head_W[best_aid]
+            del head_D[best_aid]
 
         result.append((unit, chosen))
 
@@ -541,7 +541,7 @@ def build_batch_minimizing_assignment_fn(
     qty_by_sku       : dict,
     beta             : float = 1.0,
 ):
-    """Batch assignment: high pick-effort items get lowest-W (easiest) bins.
+    """Batch assignment: high pick-effort items get lowest-D (easiest) bins.
 
     Same parameter signature as build_trip_minimizing_assignment_fn.
     Assign manager.batch_assignment_fn = build_batch_minimizing_assignment_fn(...)
@@ -566,7 +566,7 @@ def build_batch_maximizing_assignment_fn(
     qty_by_sku       : dict,
     beta             : float = 1.0,
 ):
-    """Batch assignment: high pick-effort items get highest-W (hardest) bins.
+    """Batch assignment: high pick-effort items get highest-D (hardest) bins.
 
     Mirror of build_batch_minimizing_assignment_fn — strategy-C upper bound.
     """
@@ -593,10 +593,10 @@ def build_batch_uniform_ranked_assignment_fn(
 ):
     """Batch assignment: rank units by pick-effort priority (same as
     batch-minimizing), but place each into a UNIFORM-RANDOM aisle's
-    minimum-travel-cost bin instead of the globally min-W aisle.
+    minimum-travel-cost bin instead of the globally min-D aisle.
 
     Ablation control: keeps the ranking (incl. demand-weighted lift) so the only
-    difference from batch-minimizing is random vs W-optimal aisle selection —
+    difference from batch-minimizing is random vs D-optimal aisle selection —
     isolating whether the trip-min aisle choice is necessary.
     """
     _rng = rng or random

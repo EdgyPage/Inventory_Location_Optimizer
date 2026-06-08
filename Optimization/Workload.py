@@ -9,13 +9,13 @@ class WorkloadParams:
     """Coefficients that define how physical effort is estimated for one aisle.
 
     Mirrors the relevant fields of PickConfig (Warehouse/Pick.py) so the
-    Optimization layer can compute W_a without importing simulation internals.
+    Optimization layer can compute W without importing simulation internals.
 
     Fields
     ------
     x_speed      : time units per bayX step
     y_speed      : time units per bayY step
-    pick_intercept   : fixed overhead per pick stop
+    pick_intercept   : fixed overhead per P stop
     pick_weight_coef : time added per (weight × quantity) unit
     pick_volume_coef : time added per (volume × quantity) unit
     cart_swap_coef   : penalty per additional cart needed beyond the first
@@ -47,16 +47,13 @@ def aisle_workload(
     pick_lines: list[tuple[int, int, int]],
     params: WorkloadParams,
 ) -> float:
-    """Estimate W_a: the total time to complete all picks in one aisle.
+    """Estimate W: the total time (workload) to complete all picks in one aisle.
 
-    Formula
-    -------
-    W_a = travel_time + pick_time + cart_penalty
-
-    travel_time  = x_traversed * x_speed + y_traversed * y_speed
-    pick_time    = Σ_stops (intercept + weight_coef*ln(weight)*qty
+    W = D + P + C
+      D (travel) = x_traversed * x_speed + y_traversed * y_speed
+      P (pick)   = Σ_stops (intercept + weight_coef*ln(weight)*qty
                                       + volume_coef*ln(volume)*qty)
-    cart_penalty = cart_swap_coef * max(0, carts_required - 1)
+      C (cart)   = cart_swap_coef * max(0, carts_required - 1)
 
     Parameters
     ----------
@@ -66,15 +63,15 @@ def aisle_workload(
     pick_lines     : one (weight, volume, qty) tuple per pick stop
     params         : WorkloadParams coefficients
     """
-    travel: float = (
+    D: float = (
         x_traversed * params.x_speed
         + y_traversed * params.y_speed
     )
-    pick: float = sum(
+    P: float = sum(
         params.pick_intercept
         + params.pick_weight_coef * math.log(weight) * qty
         + params.pick_volume_coef * math.log(volume) * qty
         for weight, volume, qty in pick_lines
     )
-    cart_penalty: float = params.cart_swap_coef * max(0, carts_required - 1)
-    return travel + pick + cart_penalty
+    C: float = params.cart_swap_coef * max(0, carts_required - 1)
+    return D + P + C

@@ -460,7 +460,7 @@ class Inventory_Manager:
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
         self._bin_index_pos: dict[int, int] = {}
-        # Per-aisle sorted secondary index: BinKey -> {aisle_id -> list[Bin] sorted by _W}.
+        # Per-aisle sorted secondary index: BinKey -> {aisle_id -> list[Bin] sorted by _D}.
         # Populated by init_travel_costs(); maintained by _index_add/_index_remove thereafter.
         self._aisle_index: dict[BinKey, dict[int, list[Aisle.Bin]]] = defaultdict(lambda: defaultdict(list))
         self._travel_costs_ready: bool = False
@@ -620,7 +620,7 @@ class Inventory_Manager:
             self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
 
     def init_travel_costs(self, wp: Any) -> None:
-        """Precompute _W on every bin and build the per-aisle sorted secondary index.
+        """Precompute _D on every bin and build the per-aisle sorted secondary index.
 
         Must be called after init_lift_state() and before swapping to a
         load-aware assignment_fn built with build_load_*_assignment_fn(...,
@@ -630,12 +630,12 @@ class Inventory_Manager:
         x_speed = wp.x_speed
         y_speed = wp.y_speed
         for b in self.warehouse.bins:
-            b._W = x_speed * b.x_phys + y_speed * b.y_phys
+            b._D = x_speed * b.x_phys + y_speed * b.y_phys
         self._aisle_index.clear()
         for key, bins in self._index.items():
             by_aisle = self._aisle_index[key]
             for b in bins:
-                bisect.insort(by_aisle[b.location[0]], b, key=lambda x: x._W)
+                bisect.insort(by_aisle[b.location[0]], b, key=lambda x: x._D)
         self._travel_costs_ready = True
 
     def init_demand_state(self, inventory: Any) -> None:
@@ -655,13 +655,13 @@ class Inventory_Manager:
                 self._sku_demand_product.get(s, 0.0) for s in sku_set
             )
 
-    # ── optimal layout (pure global-W) + Sigma f*W objective ─────────────────
+    # ── optimal layout (pure global-D) + Sigma f*D objective ─────────────────
 
     def _take_optimal_bin(self, bins_by_key: dict, handling: str, category: str,
                           unit_type: str, unit: StorageUnit) -> 'Aisle.Bin | None':
-        """Pop the lowest-W available bin for *unit*, smallest fitting tier first
+        """Pop the lowest-D available bin for *unit*, smallest fitting tier first
         (same tier logic as _candidates, spilling UP only when a tier is empty).
-        bins_by_key maps BinKey -> deque of bins pre-sorted by W ascending."""
+        bins_by_key maps BinKey -> deque of bins pre-sorted by D ascending."""
         if unit_type == 'singleton':
             dq = bins_by_key.get((handling, category, 'singleton', 'singleton'))
             return dq.popleft() if dq else None
@@ -675,13 +675,13 @@ class Inventory_Manager:
 
     def _optimal_assign(self, cartons: list[Carton], freq_of: dict,
                         x_speed: float, y_speed: float, place: bool) -> float:
-        """Pure-global-W optimal layout: per BinKey class, assign the highest
-        pick-frequency units to the lowest-W bins (rearrangement-inequality optimum
-        for within-aisle travel).  Returns the minimal Sigma f*W.  When place=True,
+        """Pure-global-D optimal layout: per BinKey class, assign the highest
+        pick-frequency units to the lowest-D bins (rearrangement-inequality optimum
+        for within-aisle travel).  Returns the minimal Sigma f*D.  When place=True,
         commits each unit to its bin and registers originals so reorders work."""
-        W = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
+        D = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
         bins_by_key: dict = defaultdict(deque)
-        for b in sorted(self.warehouse.bins, key=W):       # W ascending => low-W heads
+        for b in sorted(self.warehouse.bins, key=D):       # D ascending => low-D heads
             bins_by_key[self._key(b)].append(b)
 
         if place:
@@ -691,7 +691,7 @@ class Inventory_Manager:
                     self._initial_quantities[c.sku] = _equilibrium_qty(c)
 
         # Group units by (handling, category, unit_type); place hottest first so
-        # that within each size tier the hottest unit claims the lowest-W bin.
+        # that within each size tier the hottest unit claims the lowest-D bin.
         groups: dict = defaultdict(list)
         for c in cartons:
             for unit in viable_storage_units(c, _equilibrium_qty(c)):
@@ -705,27 +705,27 @@ class Inventory_Manager:
                 b = self._take_optimal_bin(bins_by_key, handling, category, utype, unit)
                 if b is None:
                     continue                               # warehouse full for this tier
-                sigma += freq_of.get(unit.carton.sku, 0.0) * W(b)
+                sigma += freq_of.get(unit.carton.sku, 0.0) * D(b)
                 if place:
                     self._execute_placement(unit, b)
         return sigma
 
     def place_optimal(self, cartons: list[Carton], freq_of: dict,
                       x_speed: float, y_speed: float) -> float:
-        """Stock the warehouse at the pure-global-W optimal layout.  Returns the
-        optimal Sigma f*W.  Bumps _reorder_placements per unit (the worker discards
+        """Stock the warehouse at the pure-global-D optimal layout.  Returns the
+        optimal Sigma f*D.  Bumps _reorder_placements per unit (the worker discards
         the initial-stock churn with a pop_churn() before the batch loop)."""
         return self._optimal_assign(cartons, freq_of, x_speed, y_speed, place=True)
 
-    def optimal_sigma_fw(self, cartons: list[Carton], freq_of: dict,
+    def optimal_sigma_fd(self, cartons: list[Carton], freq_of: dict,
                          x_speed: float, y_speed: float) -> float:
-        """The minimal achievable Sigma f*W for this warehouse + inventory (the
+        """The minimal achievable Sigma f*D for this warehouse + inventory (the
         yardstick).  Pure computation — does not mutate manager state."""
         return self._optimal_assign(cartons, freq_of, x_speed, y_speed, place=False)
 
-    def current_sigma_fw(self, freq_of: dict, x_speed: float, y_speed: float) -> float:
+    def current_sigma_fd(self, freq_of: dict, x_speed: float, y_speed: float) -> float:
         """Realised demand-weighted within-aisle travel = sum over occupied bins of
-        freq[sku] * W(bin).  The primary convergence metric."""
+        freq[sku] * D(bin).  The primary convergence metric."""
         s = 0.0
         for b in self._unavailable.values():
             st = b.storage
@@ -1043,7 +1043,7 @@ class Inventory_Manager:
         lst.append(bin_)
         if self._travel_costs_ready:
             aisle_lst = self._aisle_index[key][bin_.location[0]]
-            bisect.insort(aisle_lst, bin_, key=lambda b: b._W)
+            bisect.insort(aisle_lst, bin_, key=lambda b: b._D)
 
     def _index_remove(self, bin_: Aisle.Bin) -> None:
         """O(1) removal via swap-remove: move last element into the vacated slot."""
@@ -1057,7 +1057,7 @@ class Inventory_Manager:
             self._bin_index_pos[id(last)] = pos
         if self._travel_costs_ready:
             aisle_lst = self._aisle_index[key][bin_.location[0]]
-            i = bisect.bisect_left(aisle_lst, bin_._W, key=lambda b: b._W)
+            i = bisect.bisect_left(aisle_lst, bin_._D, key=lambda b: b._D)
             while i < len(aisle_lst) and aisle_lst[i] is not bin_:
                 i += 1
             if i < len(aisle_lst):
@@ -1222,7 +1222,7 @@ class Inventory_Manager:
         — the same key used by _candidates() — so units only compete with others
         in the same bin pool.  Within each group, batch_assignment_fn returns
         (unit, bin|None) pairs sorted by pick-effort priority so high-effort
-        items claim the best (lowest-W) bins before lower-priority items.
+        items claim the best (lowest-D) bins before lower-priority items.
 
         Units that cannot be placed go through the same rescue logic as _drain()
         and then to the pending queue for retry next batch.

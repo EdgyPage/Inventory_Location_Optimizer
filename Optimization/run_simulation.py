@@ -590,17 +590,17 @@ def _prepare_config_run(
     total_units_needed = shared['total_units_needed']
     warehouse_meta     = shared.get('warehouse_meta')
 
-    # Yardstick: minimal achievable Sigma f*W for THIS config's speeds (pure
+    # Yardstick: minimal achievable Sigma f*D for THIS config's speeds (pure
     # global-W optimum).  Computed once over the shared warehouse; identical across
-    # strategies, so the plots can report each strategy's realised Sigma f*W as a
+    # strategies, so the plots can report each strategy's realised Sigma f*D as a
     # fraction of this optimum.  Cheap (sort, no placement, no mutation).
-    optimal_sigma_fw = 0.0
+    optimal_sigma_fd = 0.0
     if warehouse_meta is not None and inventory.cartons:
         _freq = {c.sku: c.demand.frequency for c in inventory.cartons}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
-        optimal_sigma_fw = _mgr.optimal_sigma_fw(
+        optimal_sigma_fd = _mgr.optimal_sigma_fd(
             inventory.cartons, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
-        log.info(f'  Optimal Sigma f*W (yardstick) = {optimal_sigma_fw:,.1f}')
+        log.info(f'  Optimal Sigma f*D (yardstick) = {optimal_sigma_fd:,.1f}')
 
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}')
@@ -655,7 +655,7 @@ def _prepare_config_run(
         n_batches         = N_BATCHES,
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
-        optimal_sigma_fw  = optimal_sigma_fw,
+        optimal_sigma_fd  = optimal_sigma_fd,
     )
 
     resume = _load_resume(run_dir)
@@ -713,7 +713,7 @@ def _prepare_config_run(
         strategies = [dict(key=s.key, label=s.label, color=s.color,
                            db_path=db_path[s.key], run_id=run_ids[s.key])
                       for s in STRATEGIES],
-        optimal_sigma_fw = optimal_sigma_fw,
+        optimal_sigma_fd = optimal_sigma_fd,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
     )
@@ -747,7 +747,7 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
     with open(meta_path, 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
     return {k: sim_skeleton[k]
-            for k in ('name', 'run_dir', 'strategies', 'optimal_sigma_fw')
+            for k in ('name', 'run_dir', 'strategies', 'optimal_sigma_fd')
             if k in sim_skeleton}
 
 

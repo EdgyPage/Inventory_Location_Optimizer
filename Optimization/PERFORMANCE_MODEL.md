@@ -15,16 +15,16 @@ The cost model rewards putting high pick‑frequency SKUs in low within‑aisle
 travel‑cost bins. Summarise the whole layout by **demand‑weighted within‑aisle
 travel**
 
-$$\Sigma fW(t) \;=\; \sum_{\text{occupied bins } b} f_{\,\mathrm{sku}(b)}\cdot W(b),
-\qquad W(b)=x_{\text{speed}}\,x_{\text{phys}}(b)+y_{\text{speed}}\,y_{\text{phys}}(b),$$
+$$\Sigma fD(t) \;=\; \sum_{\text{occupied bins } b} f_{\,\mathrm{sku}(b)}\cdot D(b),
+\qquad D(b)=x_{\text{speed}}\,x_{\text{phys}}(b)+y_{\text{speed}}\,y_{\text{phys}}(b),$$
 
 where $f$ is pick frequency. Define the normalized **efficiency**
 
-$$E_t \;=\; \frac{\Sigma fW_{\text{opt}}}{\Sigma fW(t)} \in (0,1], \qquad E=1 \text{ is optimal,}$$
+$$E_t \;=\; \frac{\Sigma fD_{\text{opt}}}{\Sigma fD(t)} \in (0,1], \qquad E=1 \text{ is optimal,}$$
 
-with $\Sigma fW_{\text{opt}}$ the pure‑global‑W optimum (hottest SKUs → lowest‑W bins
+with $\Sigma fD_{\text{opt}}$ the pure‑global‑D optimum (hottest SKUs → lowest‑D bins
 per BinKey class; rearrangement‑inequality optimum). $E_t$ is the curve in
-`plot10_sigma_fw`.
+`plot10_sigma_fd`.
 
 ---
 
@@ -71,24 +71,24 @@ rule — which is exactly each strategy's observed plateau:
 | reorder rule | predicted $E^\* \approx e_r$ | observed final $E$ |
 |---|---|---|
 | uniform (random bin) | ~0.62 | **60–62 %** |
-| min‑W + rank (Uniform+Rank / Trip‑Min) | ~0.82 | **82–83 %** |
-| trip‑max (highest‑W) | ~0.48 | **47.9 %** |
+| min‑D + rank (Uniform+Rank / Trip‑Min) | ~0.82 | **82–83 %** |
+| trip‑max (highest‑D) | ~0.48 | **47.9 %** |
 
 The model reproduces all three plateaus from a single per‑rule constant.
 
 ### 3.1 Deriving $e_r$ a priori
 
 For **uniform** reorder (random available bin), $e_r$ is a rearrangement ratio of
-the demand and bin‑W distributions:
+the demand and bin‑D distributions:
 
-$$e_r^{\text{unif}} = \frac{\big(\sum_i f_i\big)\,\overline{W}}{\sum_i f_{(i)}W_{(i)}},$$
+$$e_r^{\text{unif}} = \frac{\big(\sum_i f_i\big)\,\overline{D}}{\sum_i f_{(i)}D_{(i)}},$$
 
-where $f_{(i)}, W_{(i)}$ are frequencies/bin‑costs sorted into the optimal pairing
-(hot↔low‑W) and $\overline{W}$ is the mean bin cost. Computable from distributions
+where $f_{(i)}, D_{(i)}$ are frequencies/bin‑costs sorted into the optimal pairing
+(hot↔low‑D) and $\overline{D}$ is the mean bin cost. Computable from distributions
 alone (≈ 0.62 here).
 
-For **min‑W** reorder the same ratio applies but over the *free*-bin W‑distribution
-at the current fill $\psi$ (a hot SKU lands at the low‑W quantile of whatever is
+For **min‑D** reorder the same ratio applies but over the *free*-bin D‑distribution
+at the current fill $\psi$ (a hot SKU lands at the low‑D quantile of whatever is
 currently open). Harder to write in closed form, trivial to measure from one batch.
 
 ---
@@ -135,14 +135,14 @@ versus the run horizon.
 ## 6. Mapping layout quality → performance
 
 Within this cost model, batch makespan is dominated by total travel
-$\Sigma fW(t) = \Sigma fW_{\text{opt}} / E_t$, plus task overhead and a concurrency
-term. Empirically duration is near‑affine in $\Sigma fW$:
+$\Sigma fD(t) = \Sigma fD_{\text{opt}} / E_t$, plus task overhead and a concurrency
+term. Empirically duration is near‑affine in $\Sigma fD$:
 
-$$\text{duration}(t) \approx a + b\,\frac{\Sigma fW_{\text{opt}}}{E_t},
+$$\text{duration}(t) \approx a + b\,\frac{\Sigma fD_{\text{opt}}}{E_t},
 \qquad
 \text{throughput}(t) \approx \frac{\text{items per batch}}{\text{duration}(t)}.$$
 
-Fit $a,b$ by regressing duration on $\Sigma fW$ across batches (or use a saturating
+Fit $a,b$ by regressing duration on $\Sigma fD$ across batches (or use a saturating
 M/G/k queueing form for the concurrency curvature). The full performance
 trajectory then follows from $E_t$.
 
@@ -153,7 +153,7 @@ trajectory then follows from $E_t$.
 - **Cheap extrapolation.** Fit $\alpha$, $e_r$, $\varphi$ from a short (~15‑batch)
   run and project the closed form to $t = 100, 500, \infty$ — no need to simulate
   the whole horizon.
-- **A priori.** Compute $e_r$ and $\alpha$ from the demand distribution + bin‑W
+- **A priori.** Compute $e_r$ and $\alpha$ from the demand distribution + bin‑D
   distribution + fill, and predict a rule's steady state *before* running it.
 
 ---
@@ -163,7 +163,7 @@ trajectory then follows from $E_t$.
 | quantity | model | observed |
 |---|---|---|
 | uniform‑reorder plateau | $e_r \approx 0.62$ | 60–62 % |
-| min‑W‑reorder plateau | $e_r \approx 0.82$ | 82–83 % |
+| min‑D‑reorder plateau | $e_r \approx 0.82$ | 82–83 % |
 | trip‑max plateau | $e_r \approx 0.48$ | 47.9 % |
 | convergence time | $\tau = 1/\alpha \approx 9$ batches | uniform/optimal converge well within 100 |
 | re‑slot lift on $E^\*$ | +0.1 pp | negligible |
@@ -173,15 +173,15 @@ trajectory then follows from $E_t$.
 
 ## 9. Caveats (where the math is approximate)
 
-- **No cross‑aisle distance.** $\Sigma fW$ is the right objective only under the
+- **No cross‑aisle distance.** $\Sigma fD$ is the right objective only under the
   per‑aisle, entrance‑anchored travel model. Adding a routing term introduces a
   task‑count component into §6.
 - **Concurrency nonlinearity.** The affine duration map ($a,b$) is the weakest
   link at high picker load; a saturating M/G/k term is more faithful.
-- **Fill drift.** $e_r$ for min‑W shifts slightly with fill $\psi$ (the free‑bin
+- **Fill drift.** $e_r$ for min‑D shifts slightly with fill $\psi$ (the free‑bin
   distribution changes), so $E^\*$ is mildly time‑varying near the start.
 
 ---
 
-*Companion: `plot10_sigma_fw.png` (efficiency $E_t$) and `plot11_churn.png`
+*Companion: `plot10_sigma_fd.png` (efficiency $E_t$) and `plot11_churn.png`
 (turnover $\alpha_r,\alpha_s$) per config under each run directory.*

@@ -257,7 +257,7 @@ def _run_strategy_worker(args: dict) -> dict:
 
     # Discard initial-stock placement churn so batch-0 churn reflects only the loop.
     mgr.pop_churn()
-    opt_x, opt_y = wp.x_speed, wp.y_speed   # speeds for sigma_fw / reload targeting
+    opt_x, opt_y = wp.x_speed, wp.y_speed   # speeds for sigma_fd / reload targeting
 
     # ── RNG fast-forward (resume only) ────────────────────────────────────────
     random.seed(seed_batches)
@@ -303,7 +303,7 @@ def _run_strategy_worker(args: dict) -> dict:
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
-        batch_sigma        = mgr.current_sigma_fw(freq_by_sku, opt_x, opt_y)
+        batch_sigma        = mgr.current_sigma_fd(freq_by_sku, opt_x, opt_y)
 
         batch    = Batch(batch_cfg, inventory, affinity=affinity)
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
@@ -331,7 +331,7 @@ def _run_strategy_worker(args: dict) -> dict:
         p2_sum_ckpt    += sim.phase2_time
 
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
-        bs.sigma_fw           = batch_sigma
+        bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
         bs.reorder_placements = batch_rp
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)

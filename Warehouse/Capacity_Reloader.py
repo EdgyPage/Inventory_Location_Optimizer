@@ -10,9 +10,9 @@ The number of evictions per pallet aisle is capped at a percent of a reference
 aisle's bin capacity (the operational pallet-move labor ceiling).
 
 Three named variants (target selectors):
-  - ``promote_popular``  : evict high-frequency pallets sitting in high-W (bad) bins,
+  - ``promote_popular``  : evict high-frequency pallets sitting in high-D (bad) bins,
                            so the ranked re-drain lifts them into better bins.
-  - ``demote_unpopular`` : evict low-frequency pallets sitting in low-W (prime) bins,
+  - ``demote_unpopular`` : evict low-frequency pallets sitting in low-D (prime) bins,
                            freeing prime bins for higher-ranked items.
   - ``rebalance``        : both (split the per-aisle budget) — the swap result
                            without a swapper.
@@ -28,31 +28,31 @@ from collections import defaultdict
 
 # ── named target selectors: which occupied pallets to evict, per aisle ───────
 
-def demote_unpopular(occupied, freq_of, bin_sku, W, k):
-    """Lowest-frequency pallets in the lowest-W (prime) bins — evicting frees prime
+def demote_unpopular(occupied, freq_of, bin_sku, D, k):
+    """Lowest-frequency pallets in the lowest-D (prime) bins — evicting frees prime
     bins for higher-ranked items."""
-    prime_first = sorted(occupied, key=W)               # prime (low-W) bins first
+    prime_first = sorted(occupied, key=D)               # prime (low-D) bins first
     window = prime_first[:max(k * 4, k)]                 # a prime window to choose from
     window.sort(key=lambda b: freq_of.get(bin_sku.get(id(b)), 0.0))   # least popular first
     return window[:k]
 
 
-def promote_popular(occupied, freq_of, bin_sku, W, k):
-    """Highest-frequency pallets in the highest-W (worst) bins — evicting lets the
+def promote_popular(occupied, freq_of, bin_sku, D, k):
+    """Highest-frequency pallets in the highest-D (worst) bins — evicting lets the
     ranked re-drain lift them into better available bins."""
-    worst_first = sorted(occupied, key=W, reverse=True)  # worst (high-W) bins first
+    worst_first = sorted(occupied, key=D, reverse=True)  # worst (high-D) bins first
     window = worst_first[:max(k * 4, k)]
     window.sort(key=lambda b: freq_of.get(bin_sku.get(id(b)), 0.0), reverse=True)  # most popular first
     return window[:k]
 
 
-def rebalance(occupied, freq_of, bin_sku, W, k):
+def rebalance(occupied, freq_of, bin_sku, D, k):
     """Both: spend half the budget demoting unpopular-in-prime, half promoting
     popular-in-bad (de-duplicated)."""
     kd = max(1, k // 2)
-    out = list(demote_unpopular(occupied, freq_of, bin_sku, W, kd))
+    out = list(demote_unpopular(occupied, freq_of, bin_sku, D, kd))
     chosen = {id(b) for b in out}
-    for b in promote_popular(occupied, freq_of, bin_sku, W, k):
+    for b in promote_popular(occupied, freq_of, bin_sku, D, k):
         if len(out) >= k:
             break
         if id(b) not in chosen:
@@ -101,14 +101,14 @@ class Capacity_Reloader:
         cap = self.per_aisle_cap(manager.warehouse)
         if cap <= 0:
             return 0
-        W = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
+        D = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
         by_aisle: dict[int, list] = defaultdict(list)
         for b in manager.unavailable:                     # occupied bins
             if b.unit_type == 'pallet' and b.storage is not None:
                 by_aisle[b.location[0]].append(b)
         evicted = 0
         for occ in by_aisle.values():
-            for b in self._select(occ, freq_of, manager._bin_sku, W, cap):
+            for b in self._select(occ, freq_of, manager._bin_sku, D, cap):
                 manager.requeue_bin(b)
                 evicted += 1
         return evicted

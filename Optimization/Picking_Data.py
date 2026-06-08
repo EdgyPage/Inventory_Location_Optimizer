@@ -41,7 +41,7 @@ class BatchStats:
     traveling_pct: float          # fraction of aggregate picker-time spent traveling
     batch_start_time: float = 0.0 # min picker-event time (batch-relative clock)
     batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
-    sigma_fw: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*W)
+    sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
     reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
     reorder_placements: int = 0   # reorder unit placements this batch (restock churn)
     is_outlier: bool = False
@@ -56,7 +56,7 @@ class TaskStats:
     task_start_time: float  # sim time when the picker started this task
     task_end_time:   float  # sim time when the picker finished this task
     duration: float         # task_end_time − task_start_time
-    W_a: float              # analytical aisle workload baseline
+    W: float              # analytical aisle workload baseline
     lift_sum: float         # sum_lift for this aisle's SKUs
     num_bins_visited: int   # bins in the task path (planned visit count)
     total_items: int        # items picked in this aisle
@@ -195,7 +195,7 @@ _CREATE_BATCH_STATS = """
         traveling_pct          REAL    NOT NULL,
         batch_start_time       REAL    NOT NULL DEFAULT 0,
         batch_end_time         REAL    NOT NULL DEFAULT 0,
-        sigma_fw               REAL    NOT NULL DEFAULT 0,
+        sigma_fd               REAL    NOT NULL DEFAULT 0,
         reload_moves           INTEGER NOT NULL DEFAULT 0,
         reorder_placements     INTEGER NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
@@ -212,7 +212,7 @@ _CREATE_TASK_STATS = """
         task_start_time  REAL    NOT NULL DEFAULT 0,
         task_end_time    REAL    NOT NULL DEFAULT 0,
         duration         REAL    NOT NULL,
-        W_a              REAL    NOT NULL,
+        W              REAL    NOT NULL,
         lift_sum         REAL    NOT NULL,
         num_bins_visited INTEGER NOT NULL,
         total_items      INTEGER NOT NULL,
@@ -511,13 +511,13 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
             '(run_id,batch_id,duration,num_tasks,total_items,'
             'avg_concurrent_pickers,picking_pct,traveling_pct,'
             'batch_start_time,batch_end_time,'
-            'sigma_fw,reload_moves,reorder_placements,is_outlier) '
+            'sigma_fd,reload_moves,reorder_placements,is_outlier) '
             'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
                  r.batch_start_time, r.batch_end_time,
-                 r.sigma_fw, r.reload_moves, r.reorder_placements, int(r.is_outlier))
+                 r.sigma_fd, r.reload_moves, r.reorder_placements, int(r.is_outlier))
                 for r in records
             ],
         )
@@ -547,8 +547,8 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                                           if 'batch_start_time' in row.keys() else 0.0),
                 batch_end_time         = (row['batch_end_time']
                                           if 'batch_end_time' in row.keys() else 0.0),
-                sigma_fw               = (row['sigma_fw']
-                                          if 'sigma_fw' in row.keys() else 0.0),
+                sigma_fd               = (row['sigma_fd'] if 'sigma_fd' in row.keys()
+                                          else (row['sigma_fw'] if 'sigma_fw' in row.keys() else 0.0)),
                 reload_moves           = (row['reload_moves']
                                           if 'reload_moves' in row.keys() else 0),
                 reorder_placements     = (row['reorder_placements']
@@ -569,12 +569,12 @@ def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
         con.executemany(
             'INSERT INTO task_stats '
             '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
-            'duration,W_a,lift_sum,num_bins_visited,total_items,is_outlier) '
+            'duration,W,lift_sum,num_bins_visited,total_items,is_outlier) '
             'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.aisle_id, r.picker_id,
                  r.task_start_time, r.task_end_time, r.duration,
-                 r.W_a, r.lift_sum, r.num_bins_visited,
+                 r.W, r.lift_sum, r.num_bins_visited,
                  r.total_items, int(r.is_outlier))
                 for r in records
             ],
@@ -600,7 +600,8 @@ def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
                 task_start_time  = row['task_start_time'],
                 task_end_time    = row['task_end_time'],
                 duration         = row['duration'],
-                W_a              = row['W_a'],
+                W              = (row['W'] if 'W' in row.keys()
+                                  else (row['W_a'] if 'W_a' in row.keys() else 0.0)),
                 lift_sum         = row['lift_sum'],
                 num_bins_visited = row['num_bins_visited'],
                 total_items      = row['total_items'],

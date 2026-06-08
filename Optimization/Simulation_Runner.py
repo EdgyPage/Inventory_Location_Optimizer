@@ -5,7 +5,7 @@ Workflow
 1. _build_world()        — construct 24-aisle warehouse + 120-SKU inventory,
                            stock bins, compute affinity (fixed for the run).
 2. generate_formula_records()
-                         — for each synthetic batch: derive tasks, compute W_a
+                         — for each synthetic batch: derive tasks, compute W
                            and lift_sum analytically, evaluate the true L_a
                            formula, then add Gaussian noise and random outliers.
 3. generate_simulation_records()
@@ -156,12 +156,12 @@ def generate_formula_records(
     affinity: AffMatrix,
     wp: WorkloadParams,
 ) -> list[AisleLoadRecord]:
-    """Generate (W_a, lift_sum, observed_L_a) records from the true formula.
+    """Generate (W, lift_sum, observed_L_a) records from the true formula.
 
     For each batch × aisle:
-      1. Compute W_a via aisle_workload().
+      1. Compute W via aisle_workload().
       2. Compute lift_sum via sum_lift().
-      3. True L_a = aisle_load_from_sum(W_a, lift_sum, true_params).
+      3. True L_a = aisle_load_from_sum(W, lift_sum, true_params).
       4. observed_L_a = true_L_a + N(0, noise_std).
       5. With probability outlier_fraction: replace with a scaled outlier.
     """
@@ -186,17 +186,17 @@ def generate_formula_records(
             lines = _pick_lines(task)
             if not lines:
                 continue
-            W_a = aisle_workload(
+            W = aisle_workload(
                 task.x_traversed, task.y_traversed,
                 task.carts_required, lines, wp,
             )
-            if W_a <= 0:
+            if W <= 0:
                 continue
             ls = sum_lift(list(task.items.keys()), affinity)
             if ls <= 0:
                 continue
 
-            L_true   = aisle_load_from_sum(W_a, ls, true_params)
+            L_true   = aisle_load_from_sum(W, ls, true_params)
             observed = L_true + rng.gauss(0.0, config.noise_std)
             if rng.random() < config.outlier_fraction:
                 observed = L_true * config.outlier_scale * rng.uniform(0.5, 1.5)
@@ -204,7 +204,7 @@ def generate_formula_records(
             records.append(AisleLoadRecord(
                 batch_id     = batch_id,
                 aisle_id     = task.aisle_id,
-                W_a          = W_a,
+                W          = W,
                 lift_sum     = ls,
                 observed_L_a = max(0.01, observed),
             ))
@@ -227,7 +227,7 @@ def generate_simulation_records(
     For each batch:
       1. Create Tasks, run PickSimulation.
       2. observed_L_a = task_end.time − task_start.time per aisle.
-      3. Compute W_a (analytical baseline) and lift_sum.
+      3. Compute W (analytical baseline) and lift_sum.
       4. Optionally add small measurement noise and inject outliers.
     """
     rng = random.Random(config.seed + 2)
@@ -276,11 +276,11 @@ def generate_simulation_records(
             lines = _pick_lines(task)
             if not lines:
                 continue
-            W_a = aisle_workload(
+            W = aisle_workload(
                 task.x_traversed, task.y_traversed,
                 task.carts_required, lines, wp,
             )
-            if W_a <= 0:
+            if W <= 0:
                 continue
             ls = sum_lift(list(task.items.keys()), affinity)
 
@@ -291,7 +291,7 @@ def generate_simulation_records(
             records.append(AisleLoadRecord(
                 batch_id     = batch_id,
                 aisle_id     = aisle_id,
-                W_a          = W_a,
+                W          = W,
                 lift_sum     = ls,
                 observed_L_a = max(0.01, observed),
             ))
@@ -326,7 +326,7 @@ def recover_and_export(
     # Raw fit
     raw_params = recover_params_from_records(records, k)
     raw_rmse = sqrt(
-        sum((aisle_load_from_sum(r.W_a, r.lift_sum, raw_params) - r.observed_L_a) ** 2
+        sum((aisle_load_from_sum(r.W, r.lift_sum, raw_params) - r.observed_L_a) ** 2
             for r in records) / max(len(records), 1)
     )
 
@@ -337,7 +337,7 @@ def recover_and_export(
     if len(clean) >= 3:
         clean_params = recover_params_from_records(clean, k)
         clean_rmse = sqrt(
-            sum((aisle_load_from_sum(r.W_a, r.lift_sum, clean_params) - r.observed_L_a) ** 2
+            sum((aisle_load_from_sum(r.W, r.lift_sum, clean_params) - r.observed_L_a) ** 2
                 for r in clean) / len(clean)
         )
     else:

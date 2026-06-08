@@ -227,7 +227,7 @@ def _build_assets(
         enq_s = time.perf_counter() - t_enq
         if aff and fn_builder:
             mgr.init_lift_state(aff)              # scan placed bins for aisle state
-            mgr.init_travel_costs(wp)             # precompute _W + per-aisle sorted index
+            mgr.init_travel_costs(wp)             # precompute _D + per-aisle sorted index
             mgr.assignment_fn = fn_builder(
                 load_params, aff, wp,
                 mgr._aisle_sku_sets,

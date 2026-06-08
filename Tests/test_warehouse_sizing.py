@@ -626,8 +626,8 @@ def _build_wh(plan, seed):
     return Warehouse_Builder().from_config(plan.warehouse_cfg).build()
 
 
-def test_optimal_layout_minimizes_sigma_fw():
-    print('\n-- optimal layout: minimal Sigma f*W, monotone, fully placed --')
+def test_optimal_layout_minimizes_sigma_fd():
+    print('\n-- optimal layout: minimal Sigma f*D, monotone, fully placed --')
     from collections import defaultdict
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=11)
@@ -637,27 +637,27 @@ def test_optimal_layout_minimizes_sigma_fw():
     wh_u  = _build_wh(plan, 11)
     mgr_u = Inventory_Manager(wh_u)
     mgr_u.enqueue_all(plan.sampled)
-    sig_u = mgr_u.current_sigma_fw(freq, x, y)
+    sig_u = mgr_u.current_sigma_fd(freq, x, y)
 
     wh_o  = _build_wh(plan, 11)
     mgr_o = Inventory_Manager(wh_o)
     opt   = mgr_o.place_optimal(plan.sampled, freq, x, y)
-    sig_o = mgr_o.current_sigma_fw(freq, x, y)
+    sig_o = mgr_o.current_sigma_fd(freq, x, y)
 
-    check('optimal Sigma f*W <= uniform', sig_o <= sig_u + 1e-6, f'opt={sig_o:.1f} uni={sig_u:.1f}')
-    check('place_optimal return == realised current_sigma_fw', abs(opt - sig_o) < 1e-6,
+    check('optimal Sigma f*D <= uniform', sig_o <= sig_u + 1e-6, f'opt={sig_o:.1f} uni={sig_u:.1f}')
+    check('place_optimal return == realised current_sigma_fd', abs(opt - sig_o) < 1e-6,
           f'{opt:.3f} vs {sig_o:.3f}')
 
-    # independent recompute validates current_sigma_fw
+    # independent recompute validates current_sigma_fd
     indep = sum(freq.get(b.storage.carton.sku, 0.0) * (x * b.x_phys + y * b.y_phys)
                 for b in wh_o.bins if b.storage is not None)
-    check('current_sigma_fw matches independent sum', abs(indep - sig_o) < 1e-6,
+    check('current_sigma_fd matches independent sum', abs(indep - sig_o) < 1e-6,
           f'{indep:.3f} vs {sig_o:.3f}')
 
-    # optimal_sigma_fw (no placement) == place_optimal value
+    # optimal_sigma_fd (no placement) == place_optimal value
     mgr_q = Inventory_Manager(_build_wh(plan, 11))
-    q     = mgr_q.optimal_sigma_fw(plan.sampled, freq, x, y)
-    check('optimal_sigma_fw (no mutation) == place_optimal', abs(q - opt) < 1e-6,
+    q     = mgr_q.optimal_sigma_fd(plan.sampled, freq, x, y)
+    check('optimal_sigma_fd (no mutation) == place_optimal', abs(q - opt) < 1e-6,
           f'{q:.3f} vs {opt:.3f}')
 
     # within each BinKey class, freq is non-increasing as W increases
@@ -712,7 +712,7 @@ def test_requeue_bin():
 
 
 def test_capacity_reloader_variants():
-    print('\n-- Capacity_Reloader: 3 named variants, per-aisle budget, pallet-only, lowers Sigma f*W --')
+    print('\n-- Capacity_Reloader: 3 named variants, per-aisle budget, pallet-only, lowers Sigma f*D --')
     from Capacity_Reloader import (promote_popular_reloader, demote_unpopular_reloader,
                                    rebalance_reloader, RELOADERS)
     from Assignment_Functions import build_batch_minimizing_assignment_fn
@@ -744,7 +744,7 @@ def test_capacity_reloader_variants():
               f'{moves} <= {cap}*{n_pallet_aisles}')
         check(f'{nm}: singleton bins untouched (pallet-only)', singles_before == singles_after)
 
-    # rebalance + ranked re-drain lowers Sigma f*W from an anti-optimal layout
+    # rebalance + ranked re-drain lowers Sigma f*D from an anti-optimal layout
     wh  = _build_wh(plan, 23);  mgr = Inventory_Manager(wh, affinity=None)
     mgr.place_optimal(plan.sampled, neg, x, y)
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])      # empty-lift store (co_occur=0)
@@ -756,13 +756,13 @@ def test_capacity_reloader_variants():
                           'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
     mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
         aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, {}, fbs, qbs)
-    sig0 = mgr.current_sigma_fw(freq, x, y)
+    sig0 = mgr.current_sigma_fd(freq, x, y)
     rl   = rebalance_reloader(move_limit_pct=0.5)
     for _ in range(40):
         rl.reload(mgr, freq, x, y)
         mgr.check_reorders()                                    # ranked drain re-places evicted
-    sig1 = mgr.current_sigma_fw(freq, x, y)
-    check('rebalance + ranked re-drain lowers Sigma f*W', sig1 < sig0, f'{sig1:.0f} < {sig0:.0f}')
+    sig1 = mgr.current_sigma_fd(freq, x, y)
+    check('rebalance + ranked re-drain lowers Sigma f*D', sig1 < sig0, f'{sig1:.0f} < {sig0:.0f}')
 
 
 def _aff_store(skus, pairs):
@@ -916,7 +916,7 @@ if __name__ == '__main__':
     test_planned_inventory_roundtrip_no_queue()
     test_uniform_aisle_trip_min_assignment()
     test_batch_assign_extremal_order()
-    test_optimal_layout_minimizes_sigma_fw()
+    test_optimal_layout_minimizes_sigma_fd()
     test_requeue_bin()
     test_capacity_reloader_variants()
     test_cluster_assignment_max_min()

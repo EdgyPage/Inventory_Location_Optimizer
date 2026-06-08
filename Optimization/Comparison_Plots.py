@@ -40,7 +40,7 @@ def _bdf(stats):
         'avg_concurrent_pickers': s.avg_concurrent_pickers,
         'picking_pct'           : s.picking_pct   * 100,
         'traveling_pct'         : s.traveling_pct * 100,
-        'sigma_fw'              : s.sigma_fw,
+        'sigma_fd'              : s.sigma_fd,
         'reload_moves'          : s.reload_moves,
         'reorder_placements'    : s.reorder_placements,
     } for s in stats])
@@ -51,7 +51,7 @@ def _tdf(stats, aisle_unittype_map, aisle_handling_map):
         'batch_id'   : s.batch_id,
         'aisle_id'   : s.aisle_id,
         'duration'   : s.duration,
-        'W_a'        : s.W_a,
+        'W'        : s.W,
         'lift_sum'   : s.lift_sum,
         'num_bins'   : s.num_bins_visited,
         'total_items': s.total_items,
@@ -127,7 +127,7 @@ def run_config_analysis(
 
     # ── summary CSVs ──────────────────────────────────────────────────────────
     bcols = ['duration', 'completion_rate', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct']
-    tcols = ['duration', 'W_a', 'lift_sum', 'num_bins']
+    tcols = ['duration', 'W', 'lift_sum', 'num_bins']
     summ_b = pd.concat([df_b[s['key']][bcols].agg(['mean', 'median', 'std']).T for s in strategies],
                        axis=1, keys=labels).round(3)
     summ_t = pd.concat([df_t[s['key']][tcols].agg(['mean', 'median', 'std']).T for s in strategies],
@@ -367,7 +367,7 @@ def run_config_analysis(
     # start sits high, optimal_reslot starts at the floor, and the question is
     # whether uniform_reslot descends toward it.  Σf·W is fill-dependent (depletion
     # lowers it for every strategy alike), so compare the curves' relative gap.
-    optimal = float(sim_result.get('optimal_sigma_fw') or 0.0)
+    optimal = float(sim_result.get('optimal_sigma_fd') or 0.0)
     fig, ax = plt.subplots(figsize=(14, 5))
     fig.suptitle(f'Layout quality: demand-weighted within-aisle travel Σf·W  '
                  f'(rolling {_WIN}-batch mean)  [{name}]', fontsize=13, fontweight='bold')
@@ -376,7 +376,7 @@ def run_config_analysis(
         if df.empty:
             continue
         d = df.sort_values('batch_id')
-        ax.plot(d['batch_id'].values, _roll(df, 'sigma_fw', _WIN),
+        ax.plot(d['batch_id'].values, _roll(df, 'sigma_fd', _WIN),
                 color=s['color'], lw=2, label=s['label'])
     if optimal > 0:
         ax.axhline(optimal, color='grey', lw=1.2, linestyle='--',
@@ -385,7 +385,7 @@ def run_config_analysis(
     ax.set_ylabel('Σf·W  (lower = better)', fontsize=10)
     ax.legend(fontsize=9);  ax.grid(alpha=0.3)
     plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot10_sigma_fw.png'))
+    _save_close(fig, os.path.join(run_dir, 'plot10_sigma_fd.png'))
 
     # ── plot 11: inventory churn (how much moved per batch) ────────────────────
     total_bins = float(shared.get('total_bins') or 0)
