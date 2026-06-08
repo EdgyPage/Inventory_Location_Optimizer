@@ -50,6 +50,7 @@ from Affinity_Store import AffinityStore
 from fast_pick import DeferredPickSimulation
 from generate_inventory import load_inventory_from_db
 from Inventory_Management import Inventory_Manager
+from Capacity_Reloader import RELOADERS
 from strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
@@ -164,6 +165,19 @@ def _run_strategy_worker(args: dict) -> dict:
         affinity._matrix.indptr.nbytes) / 1_048_576
     log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)')
 
+    # ── strategy + frequency maps (needed BEFORE stocking for custom layouts) ──
+    # freq_by_sku ranks SKUs for the optimal stock layout and for re-slotting; built
+    # for every strategy (cheap) since these don't depend on placement.
+    strat = STRATEGY_BY_KEY[strategy]
+    freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.cartons}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.cartons}
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
+                   for c in inventory.cartons if c.sku in affinity._sku_to_idx}
+    ctx = StrategyContext(
+        affinity=affinity, wp=wp,
+        freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
+        beta=1.0)
+
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')
     t0 = time.perf_counter()
@@ -173,59 +187,47 @@ def _run_strategy_worker(args: dict) -> dict:
     total_bins = len(warehouse.bins)   # density-aware: actual count after physical expansion
     log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── initial stock: uniform placement for ALL strategies ─────────────────────
-    # Every strategy starts from the same uniform placement so that differences
-    # in batch performance reflect only the reorder assignment function, not any
-    # bias in the initial stocking phase.  affinity=None here ensures _drain uses
-    # _uniform_assignment for every strategy and that _aisle_sku_counts is NOT
-    # populated during stocking (rebuilt below for affinity-needing strategies).
-    log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement (same for all strategies)...')
+    # ── initial stock: uniform by default, or the strategy's custom layout ──────
+    # Most strategies start from the same uniform placement so batch differences
+    # reflect only the reorder/re-slot behaviour.  A strategy may override stocking
+    # with strat.stock (e.g. optimal_reslot stocks at the pure-global-W optimum).
+    # affinity=None here keeps stocking placement affinity-agnostic; _aisle_sku_counts
+    # is rebuilt below for affinity-needing strategies regardless of how we stocked.
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
-    mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
+    if strat.stock is not None:
+        log.info(f'Initial stock: {n_skus:,} SKUs  custom layout ({strat.key})...')
+        strat.stock(mgr, ctx, inventory)
+    else:
+        log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement...')
+        mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
     base_filled = len(mgr.unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
     # ── enable affinity/demand state and set assignment fns (per registry) ────
-    # Initial placement is identical across all strategies (uniform).  Strategies
-    # that need it now activate affinity/demand tracking so reorders can use the
-    # trip-cost / co-occurrence objective; the strategy's build() then wires the
-    # per-unit assignment_fn and (optional) batch_assignment_fn.
-    strat = STRATEGY_BY_KEY[strategy]
-    freq_by_sku: dict[int, float] = {}
-    qty_by_sku:  dict[int, float] = {}
-    freq_by_idx: dict[int, float] = {}
-
+    # Strategies that need it now activate affinity/demand tracking so reorders can
+    # use the trip-cost / co-occurrence objective; the strategy's build() then wires
+    # the per-unit assignment_fn and (optional) batch_assignment_fn.  The aisle state
+    # is rebuilt over whatever initial placement we just made (uniform or optimal).
     if strat.needs_affinity:
         # Activate the affinity reference so _drain and _reclaim_empty_bins
         # update lift/count state during the simulation loop.
         mgr._affinity = affinity
 
-        # Rebuild _aisle_sku_counts from the existing _sku_pallet_bins /
-        # _sku_singleton_bins sets (populated by _drain during stocking).
-        log.info('Rebuilding aisle SKU counts from placed bins...')
+        # Rebuild the FULL per-aisle affinity state from the placed bins via
+        # init_lift_state — this populates _aisle_sku_sets AND _aisle_idx_sets
+        # (plus counts, bin_sku, current_quantities, lift sums).  Those sets are
+        # what the trip/cluster assignment fns read to score co-occurrence, so the
+        # placement is aware of the INITIAL stock (uniform or optimal), not only of
+        # SKUs that later reorders happen to place.  (A prior partial rebuild filled
+        # only _aisle_sku_counts, leaving the sets empty → affinity blind to stock.)
+        log.info('Rebuilding aisle affinity state from placed bins (init_lift_state)...')
         t0 = time.perf_counter()
-        for sku, bins in mgr._sku_pallet_bins.items():
-            for bin_ in bins:
-                aid = bin_.location[0]
-                counts = mgr._aisle_sku_counts[aid]
-                counts[sku] = counts.get(sku, 0) + 1
-        for sku, bins in mgr._sku_singleton_bins.items():
-            for bin_ in bins:
-                aid = bin_.location[0]
-                counts = mgr._aisle_sku_counts[aid]
-                counts[sku] = counts.get(sku, 0) + 1
-        log.info(f'  {len(mgr._aisle_sku_counts)} aisles  ({time.perf_counter()-t0:.1f}s)')
-
-        # Compute lift sums for aisle_metrics (fast: iterate aisles, not bins).
-        log.info('Computing aisle lift sums...')
-        t0 = time.perf_counter()
-        for aid, sku_set in mgr._aisle_sku_sets.items():
-            mgr._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
+        mgr.init_lift_state(affinity)
         n_lift = sum(1 for v in mgr._aisle_lift_sum.values() if v > 0)
-        log.info(f'  {len(mgr._aisle_lift_sum)} aisles  {n_lift} with lift>0  '
+        log.info(f'  {len(mgr._aisle_sku_sets)} aisles  {n_lift} with lift>0  '
                  f'({time.perf_counter()-t0:.1f}s)')
 
     if strat.needs_demand:
@@ -235,20 +237,27 @@ def _run_strategy_worker(args: dict) -> dict:
         log.info(f'  {len(mgr._aisle_demand_sum)} aisles populated  '
                  f'({time.perf_counter()-t0:.2f}s)')
 
-        freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.cartons}
-        qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.cartons}
-        freq_by_idx = {
-            affinity._sku_to_idx[c.sku]: c.demand.frequency
-            for c in inventory.cartons if c.sku in affinity._sku_to_idx
-        }
-
-    ctx = StrategyContext(
-        affinity=affinity, wp=wp,
-        freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0)
     strat.build(mgr, ctx)
     log.info(f'  strategy={strat.key} ({strat.label})  '
              f'batch_assignment_fn={"set" if mgr.batch_assignment_fn else "None (FIFO)"}')
+
+    # ── capacity reloader: evict-and-requeue re-slot, budget = % of an XL pallet
+    # aisle's bin capacity.  The named variant comes from the strategy (default
+    # 'rebalance'); its re-placement fns are the manager's reorder fns, since the
+    # post-eviction ranked drain (in check_reorders) uses those.
+    reloader = None
+    if strat.reslot_frac > 0:
+        reloader = RELOADERS[getattr(strat, 'reloader', 'rebalance') or 'rebalance'](
+            assignment_fn=mgr.assignment_fn,
+            batch_assignment_fn=mgr.batch_assignment_fn,
+            move_limit_pct=strat.reslot_frac)
+        cap = reloader.per_aisle_cap(warehouse)
+        log.info(f'  reloader={reloader.name}  cap={cap} evictions/pallet-aisle/batch '
+                 f'(={strat.reslot_frac:.3%} of XL-aisle bins)')
+
+    # Discard initial-stock placement churn so batch-0 churn reflects only the loop.
+    mgr.pop_churn()
+    opt_x, opt_y = wp.x_speed, wp.y_speed   # speeds for sigma_fw / reload targeting
 
     # ── RNG fast-forward (resume only) ────────────────────────────────────────
     random.seed(seed_batches)
@@ -286,8 +295,15 @@ def _run_strategy_worker(args: dict) -> dict:
     t_ckpt         = time.perf_counter()
 
     for i in range(start_i, n_batches):
+        if reloader is not None:
+            # Evict targeted pallets into the queue; check_reorders' ranked drain
+            # (below) re-places them + reorders in priority order.
+            reloader.reload(mgr, freq_by_sku, opt_x, opt_y)
         triggered      = mgr.check_reorders()
         reorders_ckpt += len(triggered)
+        # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
+        batch_rm, batch_rp = mgr.pop_churn()
+        batch_sigma        = mgr.current_sigma_fw(freq_by_sku, opt_x, opt_y)
 
         batch    = Batch(batch_cfg, inventory, affinity=affinity)
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
@@ -315,6 +331,9 @@ def _run_strategy_worker(args: dict) -> dict:
         p2_sum_ckpt    += sim.phase2_time
 
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
+        bs.sigma_fw           = batch_sigma
+        bs.reload_moves       = batch_rm
+        bs.reorder_placements = batch_rp
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)

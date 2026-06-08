@@ -20,16 +20,36 @@ _CART_VOLUME: int = StorageCart.max_length * StorageCart.max_width * StorageCart
 _partner_map_cache: dict[int, dict[int, list[tuple[int, float]]]] = {}
 
 
-def _get_partner_map(affinity: AffMatrix) -> dict[int, list[tuple[int, float]]]:
+def _get_partner_map(affinity) -> dict[int, list[tuple[int, float]]]:
+    """Build sku -> [(partner_sku, lift), ...] from either a dict AffMatrix
+    {(i, j): lift} or an AffinityStore (CSR matrix).  Cached per affinity-object id
+    so the O(|affinity|) build is paid once per run."""
     key = id(affinity)
-    if key not in _partner_map_cache:
-        pm: dict[int, list[tuple[int, float]]] = defaultdict(list)
+    cached = _partner_map_cache.get(key)
+    if cached is not None:
+        return cached
+    pm: dict[int, list[tuple[int, float]]] = defaultdict(list)
+    if isinstance(affinity, dict):
         for (si, sj), v in affinity.items():
             if si < sj:
                 pm[si].append((sj, v))
                 pm[sj].append((si, v))
-        _partner_map_cache[key] = dict(pm)
-    return _partner_map_cache[key]
+    else:
+        # AffinityStore: the CSR matrix is symmetric, so each row i already lists
+        # all of sku_i's partners — no si<sj dedup needed.
+        m = getattr(affinity, '_matrix', None)
+        if m is not None:
+            sku_to_idx = affinity._sku_to_idx
+            idx_to_sku = {i: s for s, i in sku_to_idx.items()}
+            indptr, indices, data = m.indptr, m.indices, m.data
+            for s, i in sku_to_idx.items():
+                start, end = int(indptr[i]), int(indptr[i + 1])
+                if end > start:
+                    pm[s] = [(idx_to_sku[int(indices[j])], float(data[j]))
+                             for j in range(start, end)]
+    result = dict(pm)
+    _partner_map_cache[key] = result
+    return result
 
 
 @dataclass
@@ -42,7 +62,7 @@ class BatchConfig:
 def _lift_weighted_sample(
     candidates: list,
     k: int,
-    affinity: AffMatrix,
+    affinity: 'AffMatrix | AffinityStore',
 ) -> list:
     """Sample k items from candidates, weighting each by demand.frequency plus
     cumulative lift to already-selected SKUs.  High-lift partners of chosen SKUs
@@ -104,12 +124,21 @@ class Batch:
         candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]
         k = min(self.num_skus, len(candidates))
 
-        if isinstance(affinity, dict) and k > 0:
-            # Pre-computed AffMatrix: use lift-weighted selection across candidates
+        # Affinity must NEVER be silently dropped: whenever it is present (dict or
+        # AffinityStore) we use lift-weighted selection so strong-lift partners
+        # co-occur.  Only an explicit affinity=None samples uniformly; any other
+        # (unhandled) affinity object raises rather than degrading to uniform.
+        if k <= 0:
+            selected = []
+        elif affinity is None:
+            selected = random.sample(candidates, k)          # explicit opt-out only
+        elif isinstance(affinity, (dict, AffinityStore)):
             selected = _lift_weighted_sample(candidates, k, affinity)
         else:
-            # AffinityStore or None: random selection; pairs are loaded post-selection
-            selected = random.sample(candidates, k) if k > 0 else []
+            raise TypeError(
+                f'Batch affinity must be dict, AffinityStore, or None; got '
+                f'{type(affinity).__name__}. Refusing to silently fall back to '
+                f'uniform sampling.')
 
         self.items: dict[int, int] = {c.sku: max(1, c.demand.sample()) for c in selected}
 

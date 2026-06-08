@@ -40,6 +40,9 @@ def _bdf(stats):
         'avg_concurrent_pickers': s.avg_concurrent_pickers,
         'picking_pct'           : s.picking_pct   * 100,
         'traveling_pct'         : s.traveling_pct * 100,
+        'sigma_fw'              : s.sigma_fw,
+        'reload_moves'          : s.reload_moves,
+        'reorder_placements'    : s.reorder_placements,
     } for s in stats])
 
 
@@ -357,5 +360,60 @@ def run_config_analysis(
     _bars(axR, mean_thr, 'Mean throughput (higher better)', 'Items / time', lower_is_better=False)
     plt.tight_layout()
     _save_close(fig, os.path.join(run_dir, 'plot9_strategy_summary.png'))
+
+    # ── plot 10: Σf·W layout quality (the re-slot catch-up headline) ───────────
+    # Realised demand-weighted within-aisle travel per batch (lower = better).
+    # The dashed line is the full-stock pure-global-W optimum (a floor); a uniform
+    # start sits high, optimal_reslot starts at the floor, and the question is
+    # whether uniform_reslot descends toward it.  Σf·W is fill-dependent (depletion
+    # lowers it for every strategy alike), so compare the curves' relative gap.
+    optimal = float(sim_result.get('optimal_sigma_fw') or 0.0)
+    fig, ax = plt.subplots(figsize=(14, 5))
+    fig.suptitle(f'Layout quality: demand-weighted within-aisle travel Σf·W  '
+                 f'(rolling {_WIN}-batch mean)  [{name}]', fontsize=13, fontweight='bold')
+    for s in strategies:
+        df = df_b[s['key']]
+        if df.empty:
+            continue
+        d = df.sort_values('batch_id')
+        ax.plot(d['batch_id'].values, _roll(df, 'sigma_fw', _WIN),
+                color=s['color'], lw=2, label=s['label'])
+    if optimal > 0:
+        ax.axhline(optimal, color='grey', lw=1.2, linestyle='--',
+                   label='Optimal (full-stock floor)')
+    ax.set_xlabel('Batch ID', fontsize=10)
+    ax.set_ylabel('Σf·W  (lower = better)', fontsize=10)
+    ax.legend(fontsize=9);  ax.grid(alpha=0.3)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(run_dir, 'plot10_sigma_fw.png'))
+
+    # ── plot 11: inventory churn (how much moved per batch) ────────────────────
+    total_bins = float(shared.get('total_bins') or 0)
+    fig, (axT, axB) = plt.subplots(2, 1, figsize=(14, 8))
+    fig.suptitle(f'Inventory Churn  (re-slot moves + reorder placements)  [{name}]',
+                 fontsize=13, fontweight='bold')
+    for s in strategies:
+        df = df_b[s['key']]
+        if df.empty:
+            continue
+        d     = df.sort_values('batch_id')
+        x     = d['batch_id'].values
+        moved = (d['reload_moves'] + d['reorder_placements']).astype(float)
+        if total_bins > 0:
+            frac = moved / total_bins * 100.0
+            axT.plot(x, frac.rolling(_WIN, min_periods=1).mean(), color=s['color'], lw=2, label=s['label'])
+            axB.plot(x, frac.cumsum().values, color=s['color'], lw=2, label=s['label'])
+        else:
+            axT.plot(x, moved.rolling(_WIN, min_periods=1).mean(), color=s['color'], lw=2, label=s['label'])
+            axB.plot(x, moved.cumsum().values, color=s['color'], lw=2, label=s['label'])
+    axT.set_ylabel('% of bins moved / batch' if total_bins > 0 else 'moves / batch', fontsize=10)
+    axT.set_title('Per-batch churn (rolling mean)', fontsize=10)
+    axT.legend(fontsize=9);  axT.grid(alpha=0.3)
+    axB.set_xlabel('Batch ID', fontsize=10)
+    axB.set_ylabel('cumulative % of bins moved' if total_bins > 0 else 'cumulative moves', fontsize=10)
+    axB.set_title('Cumulative churn', fontsize=10)
+    axB.legend(fontsize=9);  axB.grid(alpha=0.3)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(run_dir, 'plot11_churn.png'))
 
     log.info(f'  Saved → {run_dir}')

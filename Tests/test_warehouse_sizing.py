@@ -38,6 +38,8 @@ from generate_inventory import (
 )
 from Inventory_Management import (
     Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
+)
+from Assignment_Functions import (
     build_batch_minimizing_assignment_fn, build_batch_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
 )
@@ -618,6 +620,269 @@ def test_batch_assign_extremal_order():
     check('no bin assigned twice', len(ids) == len(set(ids)))
 
 
+def _build_wh(plan, seed):
+    Aisle.next_aisle_id = 1
+    random.seed(seed)
+    return Warehouse_Builder().from_config(plan.warehouse_cfg).build()
+
+
+def test_optimal_layout_minimizes_sigma_fw():
+    print('\n-- optimal layout: minimal Sigma f*W, monotone, fully placed --')
+    from collections import defaultdict
+    x, y = 1.0, 0.5
+    inv  = _inventory(120, seed=11)
+    plan = _plan(inv)
+    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+
+    wh_u  = _build_wh(plan, 11)
+    mgr_u = Inventory_Manager(wh_u)
+    mgr_u.enqueue_all(plan.sampled)
+    sig_u = mgr_u.current_sigma_fw(freq, x, y)
+
+    wh_o  = _build_wh(plan, 11)
+    mgr_o = Inventory_Manager(wh_o)
+    opt   = mgr_o.place_optimal(plan.sampled, freq, x, y)
+    sig_o = mgr_o.current_sigma_fw(freq, x, y)
+
+    check('optimal Sigma f*W <= uniform', sig_o <= sig_u + 1e-6, f'opt={sig_o:.1f} uni={sig_u:.1f}')
+    check('place_optimal return == realised current_sigma_fw', abs(opt - sig_o) < 1e-6,
+          f'{opt:.3f} vs {sig_o:.3f}')
+
+    # independent recompute validates current_sigma_fw
+    indep = sum(freq.get(b.storage.carton.sku, 0.0) * (x * b.x_phys + y * b.y_phys)
+                for b in wh_o.bins if b.storage is not None)
+    check('current_sigma_fw matches independent sum', abs(indep - sig_o) < 1e-6,
+          f'{indep:.3f} vs {sig_o:.3f}')
+
+    # optimal_sigma_fw (no placement) == place_optimal value
+    mgr_q = Inventory_Manager(_build_wh(plan, 11))
+    q     = mgr_q.optimal_sigma_fw(plan.sampled, freq, x, y)
+    check('optimal_sigma_fw (no mutation) == place_optimal', abs(q - opt) < 1e-6,
+          f'{q:.3f} vs {opt:.3f}')
+
+    # within each BinKey class, freq is non-increasing as W increases
+    W = lambda b: x * b.x_phys + y * b.y_phys
+    by_key = defaultdict(list)
+    for b in wh_o.bins:
+        if b.storage is not None:
+            by_key[mgr_o._key(b)].append(b)
+    mono = True
+    for bins in by_key.values():
+        bins.sort(key=W)
+        fs = [freq.get(mgr_o._bin_sku[id(b)], 0.0) for b in bins]
+        if any(fs[i] + 1e-9 < fs[i + 1] for i in range(len(fs) - 1)):
+            mono = False
+            break
+    check('optimal: freq non-increasing as W rises (per BinKey)', mono)
+
+    # everything placed (queue empty, all units occupy a bin)
+    total_units = sum(len(viable_storage_units(c, c.equilibrium_qty)) for c in plan.sampled)
+    occupied    = sum(1 for b in wh_o.bins if b.storage is not None)
+    check('optimal places every unit', occupied == total_units,
+          f'occupied={occupied} units={total_units}')
+
+
+def test_requeue_bin():
+    print('\n-- requeue_bin: frees bin, re-enqueues unit, preserves inventory position --')
+    x, y = 1.0, 0.5
+    plan = _plan(_inventory(120, seed=17))
+    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    wh   = _build_wh(plan, 17)
+    mgr  = Inventory_Manager(wh)
+    mgr.place_optimal(plan.sampled, freq, x, y)
+
+    victim = next(b for b in wh.bins if b.unit_type == 'pallet' and b.storage is not None)
+    sku    = mgr._bin_sku[id(victim)]
+    qty    = victim.storage.quantity
+    pos0   = (mgr._current_quantities.get(sku, 0) + mgr._queued_qty.get(sku, 0)
+              + mgr._deferred_qty.get(sku, 0))
+    onhand0, qlen0 = mgr._current_quantities.get(sku, 0), len(mgr._queue)
+    mgr.pop_churn()
+    mgr.requeue_bin(victim)
+    rm, _ = mgr.pop_churn()
+
+    check('requeue frees the bin', victim.storage is None and id(victim) not in mgr._unavailable)
+    check('freed bin back in available index', id(victim) in mgr._bin_index_pos)
+    check('unit re-enqueued', len(mgr._queue) == qlen0 + 1)
+    check('on-hand decreased by qty', mgr._current_quantities.get(sku, 0) == onhand0 - qty)
+    pos1 = (mgr._current_quantities.get(sku, 0) + mgr._queued_qty.get(sku, 0)
+            + mgr._deferred_qty.get(sku, 0))
+    check('inventory position unchanged (on-hand -> queued)', pos1 == pos0)
+    check('requeue counts 1 reload move', rm == 1)
+
+
+def test_capacity_reloader_variants():
+    print('\n-- Capacity_Reloader: 3 named variants, per-aisle budget, pallet-only, lowers Sigma f*W --')
+    from Capacity_Reloader import (promote_popular_reloader, demote_unpopular_reloader,
+                                   rebalance_reloader, RELOADERS)
+    from Assignment_Functions import build_batch_minimizing_assignment_fn
+    x, y = 1.0, 0.5
+    inv  = _inventory(120, seed=23)
+    plan = _plan(inv)
+    freq = {c.sku:  c.demand.frequency for c in plan.sampled}
+    neg  = {c.sku: -c.demand.frequency for c in plan.sampled}
+
+    check('RELOADERS registry = 3 named variants',
+          set(RELOADERS) == {'promote_popular', 'demote_unpopular', 'rebalance'})
+
+    # per-variant: name, per-aisle budget respected, singletons untouched
+    for make, nm in [(demote_unpopular_reloader, 'demote_unpopular'),
+                     (promote_popular_reloader, 'promote_popular'),
+                     (rebalance_reloader, 'rebalance')]:
+        wh = _build_wh(plan, 23);  mgr = Inventory_Manager(wh)
+        mgr.place_optimal(plan.sampled, neg, x, y)
+        rl  = make(move_limit_pct=0.5)
+        cap = rl.per_aisle_cap(wh)
+        n_pallet_aisles = sum(1 for a in wh.aisles if a.unit_type == 'pallet')
+        singles_before = {id(b) for b in wh.bins if b.unit_type == 'singleton' and b.storage is not None}
+        mgr.pop_churn()
+        rl.reload(mgr, freq, x, y)
+        moves, _ = mgr.pop_churn()
+        singles_after = {id(b) for b in wh.bins if b.unit_type == 'singleton' and b.storage is not None}
+        check(f'{nm}: name attribute set', rl.name == nm)
+        check(f'{nm}: evicts within per-aisle budget', 0 < moves <= cap * n_pallet_aisles,
+              f'{moves} <= {cap}*{n_pallet_aisles}')
+        check(f'{nm}: singleton bins untouched (pallet-only)', singles_before == singles_after)
+
+    # rebalance + ranked re-drain lowers Sigma f*W from an anti-optimal layout
+    wh  = _build_wh(plan, 23);  mgr = Inventory_Manager(wh, affinity=None)
+    mgr.place_optimal(plan.sampled, neg, x, y)
+    aff, _ = _aff_store([c.sku for c in plan.sampled], [])      # empty-lift store (co_occur=0)
+    mgr._affinity = aff
+    mgr.init_lift_state(aff);  mgr.init_demand_state(inv)
+    fbs = {c.sku: c.demand.frequency    for c in plan.sampled}
+    qbs = {c.sku: c.demand.quantity_rate for c in plan.sampled}
+    wp  = type('wp', (), {'x_speed': x, 'y_speed': y, 'pick_intercept': 1.0,
+                          'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
+    mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
+        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, {}, fbs, qbs)
+    sig0 = mgr.current_sigma_fw(freq, x, y)
+    rl   = rebalance_reloader(move_limit_pct=0.5)
+    for _ in range(40):
+        rl.reload(mgr, freq, x, y)
+        mgr.check_reorders()                                    # ranked drain re-places evicted
+    sig1 = mgr.current_sigma_fw(freq, x, y)
+    check('rebalance + ranked re-drain lowers Sigma f*W', sig1 < sig0, f'{sig1:.0f} < {sig0:.0f}')
+
+
+def _aff_store(skus, pairs):
+    """Build an in-memory AffinityStore with a hand-set symmetric CSR matrix.
+    skus: ordered list; pairs: list of (sku_i, sku_j, lift)."""
+    import numpy as np
+    from scipy.sparse import csr_matrix
+    from Affinity_Store import AffinityStore
+    aff = AffinityStore(':memory:')
+    idx = {s: i for i, s in enumerate(skus)}
+    rows, cols, data = [], [], []
+    for i, j, l in pairs:
+        rows += [idx[i], idx[j]];  cols += [idx[j], idx[i]];  data += [l, l]
+    aff._sku_to_idx = idx
+    aff._matrix = csr_matrix((data, (rows, cols)), shape=(len(skus), len(skus)),
+                             dtype=np.float32)
+    return aff, idx
+
+
+def test_cluster_assignment_max_min():
+    print('\n-- cluster assignment: max co-locates, min scatters, W tie-break --')
+    from collections import defaultdict
+    from Assignment_Functions import (build_cluster_maximizing_assignment_fn,
+                                      build_cluster_minimizing_assignment_fn)
+
+    class _B:
+        __slots__ = ('location', 'x_phys', 'y_phys')
+        def __init__(self, aid, x):
+            self.location = (aid, 0, 0);  self.x_phys = x;  self.y_phys = 0
+
+    aff, idx = _aff_store([1, 2], [(1, 2, 5.0)])           # sku1 <-> sku2 lift 5
+    wp = types.SimpleNamespace(x_speed=1.0, y_speed=0.0)
+    fbi = {idx[2]: 1.0, idx[1]: 0.5}
+    fbs = {1: 0.5, 2: 1.0};  qbs = {1: 1.0, 2: 1.0}
+    cands = [_B(10, 9.0), _B(20, 1.0)]                     # aisle10 W=9 (has partner), aisle20 W=1
+    unit = types.SimpleNamespace(carton=types.SimpleNamespace(sku=1))
+
+    def state_with_partner():
+        ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)
+        ss[10] = {2};  ii[10] = {idx[2]}                   # sku2 placed in aisle 10
+        return ss, ii, dd
+
+    ss, ii, dd = state_with_partner()
+    b = build_cluster_maximizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    check('max_cluster co-locates with partner (aisle 10) despite higher W', b.location[0] == 10)
+
+    ss, ii, dd = state_with_partner()
+    b = build_cluster_minimizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    check('min_cluster scatters away from partner (aisle 20)', b.location[0] == 20)
+
+    ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)   # no partner placed
+    b = build_cluster_maximizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    check('max_cluster with no partners -> lowest-W bay (popularity tie-break)', b.location[0] == 20)
+
+
+def test_affinity_sampler_correlates_and_guards():
+    print('\n-- batch sampler: AffinityStore correlates co-picks, never silent uniform --')
+    import random as _r
+    from Workload_Builder import Batch, BatchConfig
+
+    cartons = [_make_carton(i, 30) for i in range(1, 7)]   # conveyable/food
+    for c in cartons:
+        c.demand = Demand.from_rates(0.9, 4.0)             # freq 0.9 -> usually a candidate
+    inv = types.SimpleNamespace(cartons=cartons)
+    aff, _ = _aff_store([1, 2, 3, 4, 5, 6], [(1, 2, 8.0)]) # strong lift between sku1 & sku2
+    cfg = BatchConfig(inventory_size=6, mean_fraction=0.5, std_fraction=0.0)
+
+    def cooccur(affinity, n=400, seed=1):
+        _r.seed(seed)
+        both = sum(1 for _ in range(n)
+                   if (lambda b: 1 in b.items and 2 in b.items)(Batch(cfg, inv, affinity=affinity)))
+        return both / n
+
+    p_aff, p_uni = cooccur(aff), cooccur(None)
+    check('AffinityStore batches co-correlate sku1&2 above uniform',
+          p_aff > p_uni + 0.05, f'aff={p_aff:.3f} uni={p_uni:.3f}')
+
+    raised = False
+    try:
+        Batch(cfg, inv, affinity='not-an-affinity')
+    except TypeError:
+        raised = True
+    check('Batch raises on unusable affinity (never silent uniform)', raised)
+
+
+def test_cluster_skus_groups_high_lift():
+    print('\n-- cluster_skus: high-lift pairs share a cluster, class-pure --')
+    from affinity_cluster import cluster_skus
+    cartons = [_make_carton(1, 10, category='food'),
+               _make_carton(2, 10, category='food'),
+               _make_carton(3, 10, category='food'),
+               _make_carton(4, 10, category='clothing')]
+    aff, _ = _aff_store([1, 2, 3, 4], [(1, 2, 6.0)])
+    labels = cluster_skus(aff, cartons)
+    check('high-lift pair shares a cluster', labels[1] == labels[2])
+    check('isolated SKU is its own cluster', labels[3] != labels[1])
+    check('cross-category SKU never co-clustered', labels[4] != labels[1])
+
+
+def test_init_lift_state_populates_aisle_sets():
+    print('\n-- init_lift_state fills aisle sku/idx sets from stock (placement sees stock) --')
+    inv  = _inventory(80, seed=5)
+    plan = _plan(inv)
+    wh   = _build_wh(plan, 5)
+    mgr  = Inventory_Manager(wh)                         # affinity=None during stock
+    mgr.enqueue_all(plan.sampled)
+    before = sum(1 for v in mgr._aisle_sku_sets.values() if v)
+    check('aisle_sku_sets empty after affinity-free stock (the bug surface)', before == 0)
+
+    aff, _ = _aff_store([c.sku for c in plan.sampled], [])   # sku_to_idx coverage, no pairs
+    mgr._affinity = aff
+    mgr.init_lift_state(aff)
+    placed = {b.storage.carton.sku for b in wh.bins if b.storage is not None}
+    in_sets = set().union(*mgr._aisle_sku_sets.values()) if mgr._aisle_sku_sets else set()
+    check('init_lift_state fills aisle_sku_sets with every placed SKU', in_sets == placed,
+          f'{len(in_sets)} vs {len(placed)}')
+    check('init_lift_state fills aisle_idx_sets (cohesion sees stock)',
+          sum(len(v) for v in mgr._aisle_idx_sets.values()) > 0)
+
+
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
     _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
@@ -651,6 +916,13 @@ if __name__ == '__main__':
     test_planned_inventory_roundtrip_no_queue()
     test_uniform_aisle_trip_min_assignment()
     test_batch_assign_extremal_order()
+    test_optimal_layout_minimizes_sigma_fw()
+    test_requeue_bin()
+    test_capacity_reloader_variants()
+    test_cluster_assignment_max_min()
+    test_affinity_sampler_correlates_and_guards()
+    test_cluster_skus_groups_high_lift()
+    test_init_lift_state_populates_aisle_sets()
     test_batch_min_incremental_drain()
     test_batch_max_incremental_drain()
 

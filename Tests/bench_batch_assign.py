@@ -23,7 +23,7 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Inventory_Management import build_batch_minimizing_assignment_fn
+from Assignment_Functions import build_batch_minimizing_assignment_fn
 
 
 class _Bin:

@@ -41,6 +41,9 @@ class BatchStats:
     traveling_pct: float          # fraction of aggregate picker-time spent traveling
     batch_start_time: float = 0.0 # min picker-event time (batch-relative clock)
     batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
+    sigma_fw: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*W)
+    reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
+    reorder_placements: int = 0   # reorder unit placements this batch (restock churn)
     is_outlier: bool = False
 
 
@@ -192,6 +195,9 @@ _CREATE_BATCH_STATS = """
         traveling_pct          REAL    NOT NULL,
         batch_start_time       REAL    NOT NULL DEFAULT 0,
         batch_end_time         REAL    NOT NULL DEFAULT 0,
+        sigma_fw               REAL    NOT NULL DEFAULT 0,
+        reload_moves           INTEGER NOT NULL DEFAULT 0,
+        reorder_placements     INTEGER NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -504,12 +510,14 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
             'INSERT INTO batch_stats '
             '(run_id,batch_id,duration,num_tasks,total_items,'
             'avg_concurrent_pickers,picking_pct,traveling_pct,'
-            'batch_start_time,batch_end_time,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            'batch_start_time,batch_end_time,'
+            'sigma_fw,reload_moves,reorder_placements,is_outlier) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
-                 r.batch_start_time, r.batch_end_time, int(r.is_outlier))
+                 r.batch_start_time, r.batch_end_time,
+                 r.sigma_fw, r.reload_moves, r.reorder_placements, int(r.is_outlier))
                 for r in records
             ],
         )
@@ -539,6 +547,12 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                                           if 'batch_start_time' in row.keys() else 0.0),
                 batch_end_time         = (row['batch_end_time']
                                           if 'batch_end_time' in row.keys() else 0.0),
+                sigma_fw               = (row['sigma_fw']
+                                          if 'sigma_fw' in row.keys() else 0.0),
+                reload_moves           = (row['reload_moves']
+                                          if 'reload_moves' in row.keys() else 0),
+                reorder_placements     = (row['reorder_placements']
+                                          if 'reorder_placements' in row.keys() else 0),
                 is_outlier             = bool(row['is_outlier']),
             )
             for row in rows

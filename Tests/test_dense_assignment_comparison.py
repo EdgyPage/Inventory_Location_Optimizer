@@ -39,8 +39,8 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Aisle_Storage import Aisle
-from Inventory_Management import (
-    Inventory_Manager,
+from Inventory_Management import Inventory_Manager
+from Assignment_Functions import (
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
 )

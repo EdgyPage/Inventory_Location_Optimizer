@@ -30,8 +30,8 @@ from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from Carton import Carton
 from Demand import Demand
-from Inventory_Management import (
-    Inventory_Manager, LoadParams,
+from Inventory_Management import Inventory_Manager, LoadParams
+from Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
 )

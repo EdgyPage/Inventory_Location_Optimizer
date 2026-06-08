@@ -314,6 +314,8 @@ def flag_batch_outliers(
             avg_concurrent_pickers=s.avg_concurrent_pickers,
             picking_pct=s.picking_pct, traveling_pct=s.traveling_pct,
             batch_start_time=s.batch_start_time, batch_end_time=s.batch_end_time,
+            sigma_fw=s.sigma_fw, reload_moves=s.reload_moves,
+            reorder_placements=s.reorder_placements,
             is_outlier=bool(d < lo or d > hi),
         )
         for s, d in zip(stats, durations)

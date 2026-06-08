@@ -82,8 +82,8 @@ N_BATCHES        = 100
 K_PICKERS        = 25
 _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
-_BATCH_MEAN_FRAC = 0.25
-_BATCH_STD_FRAC  = 0.03
+_BATCH_MEAN_FRAC = 0.18
+_BATCH_STD_FRAC  = 0.05
 _TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
 _INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
 
@@ -465,6 +465,7 @@ def build_shared_assets(
         sku_allowlist      = sku_allowlist,
         planned_inv_db     = planned_inv_db,
         keyframe_interval  = keyframe_interval,
+        warehouse_meta     = warehouse_meta,
     )
 
 
@@ -587,6 +588,19 @@ def _prepare_config_run(
     total_aisles       = shared['total_aisles']
     total_bins         = shared['total_bins']
     total_units_needed = shared['total_units_needed']
+    warehouse_meta     = shared.get('warehouse_meta')
+
+    # Yardstick: minimal achievable Sigma f*W for THIS config's speeds (pure
+    # global-W optimum).  Computed once over the shared warehouse; identical across
+    # strategies, so the plots can report each strategy's realised Sigma f*W as a
+    # fraction of this optimum.  Cheap (sort, no placement, no mutation).
+    optimal_sigma_fw = 0.0
+    if warehouse_meta is not None and inventory.cartons:
+        _freq = {c.sku: c.demand.frequency for c in inventory.cartons}
+        _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
+        optimal_sigma_fw = _mgr.optimal_sigma_fw(
+            inventory.cartons, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
+        log.info(f'  Optimal Sigma f*W (yardstick) = {optimal_sigma_fw:,.1f}')
 
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}')
@@ -641,6 +655,7 @@ def _prepare_config_run(
         n_batches         = N_BATCHES,
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
+        optimal_sigma_fw  = optimal_sigma_fw,
     )
 
     resume = _load_resume(run_dir)
@@ -698,6 +713,7 @@ def _prepare_config_run(
         strategies = [dict(key=s.key, label=s.label, color=s.color,
                            db_path=db_path[s.key], run_id=run_ids[s.key])
                       for s in STRATEGIES],
+        optimal_sigma_fw = optimal_sigma_fw,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
     )
@@ -713,9 +729,26 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
     rp = _resume_path(run_dir)
     if os.path.exists(rp):
         os.remove(rp)
-    with open(os.path.join(run_dir, 'sim_meta.json'), 'w') as _f:
+    # Additive runs: if a sim_meta.json already exists (e.g. a --resume run adding
+    # a NEW strategy into a prior comparison dir), MERGE the strategy lists instead
+    # of overwriting, so run_analysis sees the previously-run strategies plus the
+    # new one.  Strategies are de-duplicated by key (the new run wins on collision).
+    meta_path = os.path.join(run_dir, 'sim_meta.json')
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path) as _f:
+                prev = json.load(_f)
+        except (OSError, ValueError):
+            prev = {}
+        new_keys = {s['key'] for s in sim_skeleton.get('strategies', [])}
+        kept     = [s for s in prev.get('strategies', []) if s.get('key') not in new_keys]
+        sim_skeleton = {**prev, **sim_skeleton,
+                        'strategies': kept + sim_skeleton.get('strategies', [])}
+    with open(meta_path, 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
-    return {k: sim_skeleton[k] for k in ('name', 'run_dir', 'strategies')}
+    return {k: sim_skeleton[k]
+            for k in ('name', 'run_dir', 'strategies', 'optimal_sigma_fw')
+            if k in sim_skeleton}
 
 
 def _run_workers_flat(
