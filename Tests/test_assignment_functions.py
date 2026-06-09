@@ -62,8 +62,8 @@ def test_registries_and_names():
           set(A.ASSIGNMENT_BUILDERS) == {'travel_min', 'travel_max', 'cohesion_max',
                                          'cohesion_min', 'uniform_min', 'load_min', 'load_max'},
           str(sorted(A.ASSIGNMENT_BUILDERS)))
-    check('BATCH_BUILDERS names',
-          set(A.BATCH_BUILDERS) == {'travel_min', 'travel_max', 'uniform_ranked'})
+    check('RANKED_BUILDERS names',
+          set(A.RANKED_BUILDERS) == {'travel_min', 'travel_max', 'uniform_ranked'})
     check('SCORER_NEEDS travel = (affinity, demand)', A.SCORER_NEEDS['travel_min'] == (True, True))
     check('SCORER_NEEDS uniform = (neither)', A.SCORER_NEEDS['uniform_min'] == (False, False))
 

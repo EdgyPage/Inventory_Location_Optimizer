@@ -17,7 +17,7 @@ Three named variants (target selectors):
   - ``rebalance``        : both (split the per-aisle budget) — the swap result
                            without a swapper.
 
-The reloader carries its own ``assignment_fn`` / ``batch_assignment_fn`` (the
+The reloader carries its own ``assignment_fn`` / ``ranked_assignment_fn`` (the
 re-placement policy — usually identical to the manager's reorder fns, which is what
 the post-eviction ranked drain actually uses).
 """
@@ -71,13 +71,13 @@ class Capacity_Reloader:
     """Evict-and-requeue re-slot policy with a per-aisle move budget."""
 
     def __init__(self, name: str, target_selector, *,
-                 assignment_fn=None, batch_assignment_fn=None,
+                 assignment_fn=None, ranked_assignment_fn=None,
                  move_limit_pct: float = 0.005,
                  ref_unit_type: str = 'pallet', ref_size: str = 'extra_large'):
         self.name                = name
         self._select             = target_selector
         self.assignment_fn       = assignment_fn          # re-placement policy (≈ manager's)
-        self.batch_assignment_fn = batch_assignment_fn
+        self.ranked_assignment_fn = ranked_assignment_fn
         self.move_limit_pct      = move_limit_pct
         self.ref_unit_type       = ref_unit_type
         self.ref_size            = ref_size

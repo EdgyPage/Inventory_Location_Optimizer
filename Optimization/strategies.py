@@ -20,10 +20,10 @@ from typing import Any, Callable
 from Assignment_Functions import (
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
-    build_batch_minimizing_assignment_fn,
-    build_batch_maximizing_assignment_fn,
+    build_ranked_minimizing_assignment_fn,
+    build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
-    build_batch_uniform_ranked_assignment_fn,
+    build_ranked_uniform_assignment_fn,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
 )
@@ -54,23 +54,23 @@ class Strategy:
     reloader       : str = 'rebalance'       # named reloader variant: promote_popular | demote_unpopular | rebalance
 
 
-# ── build helpers: set mgr.assignment_fn / mgr.batch_assignment_fn ──────────────
+# ── build helpers: set mgr.assignment_fn / mgr.ranked_assignment_fn ──────────────
 
 def _build_uniform(mgr, ctx: StrategyContext) -> None:
-    # Keep the manager's default _uniform_assignment; no batch (FIFO drain).
-    mgr.batch_assignment_fn = None
+    # Keep the manager's default _uniform_assignment; no ranked drain (FIFO).
+    mgr.ranked_assignment_fn = None
 
 
 def _build_uniform_trip_min(mgr, ctx: StrategyContext) -> None:
     mgr.assignment_fn = build_uniform_aisle_trip_min_assignment_fn(ctx.wp)
-    mgr.batch_assignment_fn = None          # FIFO — no ranking
+    mgr.ranked_assignment_fn = None          # FIFO — no ranking
 
 
 def _build_uniform_trip_min_ranked(mgr, ctx: StrategyContext) -> None:
     # Per-unit fallback: uniform-aisle + min-bin.  Reorder waves: ranked (same
     # pick-effort priority as trip-min) but placed in a uniform-random aisle.
     mgr.assignment_fn = build_uniform_aisle_trip_min_assignment_fn(ctx.wp)
-    mgr.batch_assignment_fn = build_batch_uniform_ranked_assignment_fn(
+    mgr.ranked_assignment_fn = build_ranked_uniform_assignment_fn(
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
@@ -81,7 +81,7 @@ def _build_trip_min(mgr, ctx: StrategyContext) -> None:
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
-    mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
+    mgr.ranked_assignment_fn = build_ranked_minimizing_assignment_fn(
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
@@ -92,7 +92,7 @@ def _build_trip_max(mgr, ctx: StrategyContext) -> None:
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
-    mgr.batch_assignment_fn = build_batch_maximizing_assignment_fn(
+    mgr.ranked_assignment_fn = build_ranked_maximizing_assignment_fn(
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
@@ -105,7 +105,7 @@ def _build_max_cluster(mgr, ctx: StrategyContext) -> None:
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
-    mgr.batch_assignment_fn = None      # FIFO; cohesion accumulates as units place
+    mgr.ranked_assignment_fn = None      # FIFO; cohesion accumulates as units place
 
 
 def _build_min_cluster(mgr, ctx: StrategyContext) -> None:
@@ -114,7 +114,7 @@ def _build_min_cluster(mgr, ctx: StrategyContext) -> None:
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
-    mgr.batch_assignment_fn = None
+    mgr.ranked_assignment_fn = None
 
 
 # ── stock hooks ─────────────────────────────────────────────────────────────

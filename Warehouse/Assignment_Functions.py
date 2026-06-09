@@ -2,7 +2,7 @@
 
 Separated from Inventory_Management so the placement POLICIES the simulation
 compares live in one module.  Inventory_Manager merely *receives* a per-unit
-assignment fn (and optional batch_assignment_fn for ranked drains); these builders
+assignment fn (and optional ranked_assignment_fn for ranked drains); these builders
 produce them.  The shared constants/types they need (BinKey, _SIZE_RANKS, ...) stay
 in Inventory_Management and are imported here (one-way -- no import cycle).
 """
@@ -16,7 +16,7 @@ from typing import Any
 from Affinity_Store import AffinityStore
 from Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
-    AssignmentFn, BatchAssignmentFn, LoadParams,
+    AssignmentFn, RankedAssignmentFn, LoadParams,
 )
 
 
@@ -403,7 +403,7 @@ def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = N
     Ablation control with no affinity, no demand, no priority — the candidate set
     from _candidates is already scoped to the unit's (handling, category, size,
     unit_type), so the random aisle is always a legal one.  Per-unit; pair with
-    batch_assignment_fn = None for a FIFO drain.
+    ranked_assignment_fn = None for a FIFO drain.
     """
     x_speed = wp.x_speed
     y_speed = wp.y_speed
@@ -421,9 +421,9 @@ def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = N
     return assign
 
 
-# ── batch assignment functions ────────────────────────────────────────────────
+# ── ranked assignment functions ────────────────────────────────────────────────
 
-def _batch_assign_impl(
+def _ranked_assign_impl(
     units        : list,
     candidates_fn,
     affinity,
@@ -438,7 +438,7 @@ def _batch_assign_impl(
     minimize     : bool,
     aisle_selector = None,
 ) -> list:
-    """Shared core for batch-minimizing and batch-maximizing assignment.
+    """Shared core for ranked-minimizing and ranked-maximizing assignment.
 
     Priority formula (pick-effort x frequency + co-occurrence):
       priority = f_i x (pick_intercept + pick_weight_coef x log(weight)
@@ -530,7 +530,7 @@ def _batch_assign_impl(
     return result
 
 
-def build_batch_minimizing_assignment_fn(
+def build_ranked_minimizing_assignment_fn(
     affinity,
     wp,
     aisle_sku_sets   : dict,
@@ -541,21 +541,21 @@ def build_batch_minimizing_assignment_fn(
     qty_by_sku       : dict,
     beta             : float = 1.0,
 ):
-    """Batch assignment: high pick-effort items get lowest-D (easiest) bins.
+    """Ranked assignment: high pick-effort items get lowest-D (easiest) bins.
 
     Same parameter signature as build_trip_minimizing_assignment_fn.
-    Assign manager.batch_assignment_fn = build_batch_minimizing_assignment_fn(...)
+    Assign manager.ranked_assignment_fn = build_ranked_minimizing_assignment_fn(...)
     """
-    def batch_assign(units: list, candidates_fn) -> list:
-        return _batch_assign_impl(
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_assign_impl(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
         )
-    return batch_assign
+    return ranked_assign
 
 
-def build_batch_maximizing_assignment_fn(
+def build_ranked_maximizing_assignment_fn(
     affinity,
     wp,
     aisle_sku_sets   : dict,
@@ -566,20 +566,20 @@ def build_batch_maximizing_assignment_fn(
     qty_by_sku       : dict,
     beta             : float = 1.0,
 ):
-    """Batch assignment: high pick-effort items get highest-D (hardest) bins.
+    """Ranked assignment: high pick-effort items get highest-D (hardest) bins.
 
-    Mirror of build_batch_minimizing_assignment_fn — strategy-C upper bound.
+    Mirror of build_ranked_minimizing_assignment_fn — strategy-C upper bound.
     """
-    def batch_assign(units: list, candidates_fn) -> list:
-        return _batch_assign_impl(
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_assign_impl(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=False,
         )
-    return batch_assign
+    return ranked_assign
 
 
-def build_batch_uniform_ranked_assignment_fn(
+def build_ranked_uniform_assignment_fn(
     affinity,
     wp,
     aisle_sku_sets   : dict,
@@ -591,24 +591,24 @@ def build_batch_uniform_ranked_assignment_fn(
     beta             : float = 1.0,
     rng              : random.Random | None = None,
 ):
-    """Batch assignment: rank units by pick-effort priority (same as
-    batch-minimizing), but place each into a UNIFORM-RANDOM aisle's
+    """Ranked assignment: rank units by pick-effort priority (same as
+    ranked-minimizing), but place each into a UNIFORM-RANDOM aisle's
     minimum-travel-cost bin instead of the globally min-D aisle.
 
     Ablation control: keeps the ranking (incl. demand-weighted lift) so the only
-    difference from batch-minimizing is random vs D-optimal aisle selection —
+    difference from ranked-minimizing is random vs D-optimal aisle selection —
     isolating whether the trip-min aisle choice is necessary.
     """
     _rng = rng or random
 
-    def batch_assign(units: list, candidates_fn) -> list:
-        return _batch_assign_impl(
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_assign_impl(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
             aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())),
         )
-    return batch_assign
+    return ranked_assign
 
 
 # ── programmatic name → builder registries (robust downstream lookup) ──────
@@ -621,10 +621,10 @@ ASSIGNMENT_BUILDERS = {
     'load_min':     build_load_minimizing_assignment_fn,
     'load_max':     build_load_maximizing_assignment_fn,
 }
-BATCH_BUILDERS = {
-    'travel_min':     build_batch_minimizing_assignment_fn,
-    'travel_max':     build_batch_maximizing_assignment_fn,
-    'uniform_ranked': build_batch_uniform_ranked_assignment_fn,
+RANKED_BUILDERS = {
+    'travel_min':     build_ranked_minimizing_assignment_fn,
+    'travel_max':     build_ranked_maximizing_assignment_fn,
+    'uniform_ranked': build_ranked_uniform_assignment_fn,
 }
 # (needs_affinity, needs_demand) state required before each scorer can be used.
 SCORER_NEEDS = {

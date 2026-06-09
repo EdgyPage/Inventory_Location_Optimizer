@@ -213,7 +213,7 @@ def _run_strategy_worker(args: dict) -> dict:
     # ── enable affinity/demand state and set assignment fns (per registry) ────
     # Strategies that need it now activate affinity/demand tracking so reorders can
     # use the trip-cost / co-occurrence objective; the strategy's build() then wires
-    # the per-unit assignment_fn and (optional) batch_assignment_fn.  The aisle state
+    # the per-unit assignment_fn and (optional) ranked_assignment_fn.  The aisle state
     # is rebuilt over whatever initial placement we just made (uniform or optimal).
     if strat.needs_affinity:
         # Activate the affinity reference so _drain and _reclaim_empty_bins
@@ -243,7 +243,7 @@ def _run_strategy_worker(args: dict) -> dict:
 
     strat.build(mgr, ctx)
     log.info(f'  strategy={strat.key} ({strat.label})  '
-             f'batch_assignment_fn={"set" if mgr.batch_assignment_fn else "None (FIFO)"}')
+             f'ranked_assignment_fn={"set" if mgr.ranked_assignment_fn else "None (FIFO)"}')
 
     # ── capacity reloader: evict-and-requeue re-slot, budget = % of an XL pallet
     # aisle's bin capacity.  The named variant comes from the strategy (default
@@ -253,7 +253,7 @@ def _run_strategy_worker(args: dict) -> dict:
     if strat.reslot_frac > 0:
         reloader = RELOADERS[getattr(strat, 'reloader', 'rebalance') or 'rebalance'](
             assignment_fn=mgr.assignment_fn,
-            batch_assignment_fn=mgr.batch_assignment_fn,
+            ranked_assignment_fn=mgr.ranked_assignment_fn,
             move_limit_pct=strat.reslot_frac)
         cap = reloader.per_aisle_cap(warehouse)
         log.info(f'  reloader={reloader.name}  cap={cap} evictions/pallet-aisle/batch '

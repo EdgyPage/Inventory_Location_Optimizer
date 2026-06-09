@@ -40,7 +40,7 @@ from Inventory_Management import (
     Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
 )
 from Assignment_Functions import (
-    build_batch_minimizing_assignment_fn, build_batch_maximizing_assignment_fn,
+    build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
 )
 from Storage_Primitive import viable_storage_units, Pallet
@@ -440,7 +440,7 @@ def test_unit_split_rescue():
 
 
 def _run_batch_drain(build_fn, label: str):
-    """Run a 30-batch pick+reorder loop with a batch_assignment_fn set, asserting
+    """Run a 30-batch pick+reorder loop with a ranked_assignment_fn set, asserting
     incremental drain (bounded queue) and BinKey-group integrity."""
     inv  = _inventory(80, seed=31)
     plan = _plan(inv)
@@ -452,13 +452,13 @@ def _run_batch_drain(build_fn, label: str):
     check(f'[{label}] initial queue empty after stock', mgr.queue_depth == 0,
           f'queue={mgr.queue_depth}')
 
-    # Wire a batch_assignment_fn exactly like strategy_runner (null affinity).
+    # Wire a ranked_assignment_fn exactly like strategy_runner (null affinity).
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={},
                                 sum_lift=lambda skus: 0.0,
                                 delta_lift_idxs=lambda s, idxs: 0.0)
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0,
                                 pick_weight_coef=0.5, pick_volume_coef=0.5)
-    mgr.batch_assignment_fn = build_fn(
+    mgr.ranked_assignment_fn = build_fn(
         aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         freq_by_idx={}, freq_by_sku={}, qty_by_sku={}, beta=1.0)
 
@@ -475,7 +475,7 @@ def _run_batch_drain(build_fn, label: str):
                     b.storage = None
                     mgr._notify_bin_emptied(b)
                     mgr._notify_pick(sku, qty)
-        mgr.check_reorders()             # uses _drain_batch (batch_assignment_fn set)
+        mgr.check_reorders()             # uses _drain_ranked (ranked_assignment_fn set)
         depths.append(mgr.queue_depth)
 
     total_bins = plan.total_bins
@@ -604,7 +604,7 @@ def test_batch_assign_extremal_order():
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=0.0,        # W == x_phys
                                 pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
-    fn = build_batch_minimizing_assignment_fn(
+    fn = build_ranked_minimizing_assignment_fn(
         aff, wp, defaultdict(set), defaultdict(set), defaultdict(float),
         {}, {}, {}, beta=1.0)
     res = fn(units, lambda u: cands)
@@ -715,7 +715,7 @@ def test_capacity_reloader_variants():
     print('\n-- Capacity_Reloader: 3 named variants, per-aisle budget, pallet-only, lowers Sigma f*D --')
     from Capacity_Reloader import (promote_popular_reloader, demote_unpopular_reloader,
                                    rebalance_reloader, RELOADERS)
-    from Assignment_Functions import build_batch_minimizing_assignment_fn
+    from Assignment_Functions import build_ranked_minimizing_assignment_fn
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=23)
     plan = _plan(inv)
@@ -754,7 +754,7 @@ def test_capacity_reloader_variants():
     qbs = {c.sku: c.demand.quantity_rate for c in plan.sampled}
     wp  = type('wp', (), {'x_speed': x, 'y_speed': y, 'pick_intercept': 1.0,
                           'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
-    mgr.batch_assignment_fn = build_batch_minimizing_assignment_fn(
+    mgr.ranked_assignment_fn = build_ranked_minimizing_assignment_fn(
         aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, {}, fbs, qbs)
     sig0 = mgr.current_sigma_fd(freq, x, y)
     rl   = rebalance_reloader(move_limit_pct=0.5)
@@ -914,12 +914,12 @@ def test_incremental_sigma_fd_matches_full():
 
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
-    _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
+    _run_batch_drain(build_ranked_minimizing_assignment_fn, 'min')
 
 
 def test_batch_max_incremental_drain():
     print('\n-- batch-maximizing: subsectioned drain stays bounded & in-group --')
-    _run_batch_drain(build_batch_maximizing_assignment_fn, 'max')
+    _run_batch_drain(build_ranked_maximizing_assignment_fn, 'max')
 
 
 if __name__ == '__main__':

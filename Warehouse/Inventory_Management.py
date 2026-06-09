@@ -16,7 +16,7 @@ AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
 
 # Takes a list of units and a candidate-bin callback; returns (unit, bin|None)
 # pairs in priority order.  All units share the same BinKey group.
-BatchAssignmentFn = Callable[
+RankedAssignmentFn = Callable[
     [list[StorageUnit], Callable[[StorageUnit], list[Aisle.Bin]]],
     list[tuple[StorageUnit, 'Aisle.Bin | None']],
 ]
@@ -453,10 +453,10 @@ class Inventory_Manager:
         self.warehouse: Warehouse = warehouse
         self.name: str = ''        # e.g. inventory_initial_assignment_reslot; for graph titles
         self.assignment_fn: AssignmentFn = assignment_fn
-        # When set, check_reorders uses _drain_batch() instead of _drain().
-        # Batch assignment sorts units by pick-effort priority so high-effort
+        # When set, check_reorders uses _drain_ranked() instead of _drain().
+        # Ranked assignment sorts units by pick-effort priority so high-effort
         # items claim the best bins before lower-priority items are placed.
-        self.batch_assignment_fn: BatchAssignmentFn | None = None
+        self.ranked_assignment_fn: RankedAssignmentFn | None = None
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -1025,8 +1025,8 @@ class Inventory_Manager:
 
         # Always drain — retries prior-batch stragglers too.
         if self._queue:
-            if self.batch_assignment_fn is not None:
-                self._drain_batch()
+            if self.ranked_assignment_fn is not None:
+                self._drain_ranked()
             else:
                 self._drain()
         return triggered
@@ -1163,7 +1163,7 @@ class Inventory_Manager:
         """Place queued StorageUnit objects into warehouse bins (per-unit path).
 
         Units are processed one at a time via assignment_fn.  Used for
-        immediate enqueue calls and as fallback when batch_assignment_fn is None.
+        immediate enqueue calls and as fallback when ranked_assignment_fn is None.
 
         Placement failures:
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
@@ -1249,12 +1249,12 @@ class Inventory_Manager:
         self._queue = pending
 
 
-    def _drain_batch(self) -> None:
-        """Batch-optimal placement: sort units by pick-effort priority, then drain.
+    def _drain_ranked(self) -> None:
+        """Ranked placement: sort units by pick-effort priority, then drain.
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
         — the same key used by _candidates() — so units only compete with others
-        in the same bin pool.  Within each group, batch_assignment_fn returns
+        in the same bin pool.  Within each group, ranked_assignment_fn returns
         (unit, bin|None) pairs sorted by pick-effort priority so high-effort
         items claim the best (lowest-D) bins before lower-priority items.
 
@@ -1275,8 +1275,8 @@ class Inventory_Manager:
         pending: deque[StorageUnit] = deque()
 
         for _key, units in groups.items():
-            # Get batch assignments — high pick-effort units first
-            assignments = self.batch_assignment_fn(units, self._candidates)   # type: ignore[misc]
+            # Get ranked assignments — high pick-effort units first
+            assignments = self.ranked_assignment_fn(units, self._candidates)   # type: ignore[misc]
 
             for unit, bin_ in assignments:
                 if bin_ is not None:

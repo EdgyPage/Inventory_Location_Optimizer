@@ -1,13 +1,13 @@
-"""bench_batch_assign.py — perf benchmark for _batch_assign_impl (lift waves).
+"""bench_ranked_assign.py — perf benchmark for _ranked_assign_impl (lift waves).
 
-Times one batch-minimizing reorder wave on a synthetic candidate pool at growing
+Times one ranked-minimizing reorder wave on a synthetic candidate pool at growing
 bin counts, and reports the cost of the OLD per-unit idx-union rebuild vs the new
 build-once approach.  Demonstrates:
   - Fix 1: union built once per wave, not once per unit (O(U·Σ) -> O(Σ)).
   - Fix 2: candidate pool bucketed once, not re-scanned per unit
            (O(U·bucket_bins) -> O(bucket log bucket + U·n_aisles)).
 
-Not part of the pass/fail suite.  Run:  cd Tests && python bench_batch_assign.py
+Not part of the pass/fail suite.  Run:  cd Tests && python bench_ranked_assign.py
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Assignment_Functions import build_batch_minimizing_assignment_fn
+from Assignment_Functions import build_ranked_minimizing_assignment_fn
 
 
 class _Bin:
@@ -67,7 +67,7 @@ def _bench(n_bins, n_aisles, n_units, placed_idx_total, rng):
     freq_by_idx = {i: rng.random() for i in range(k)}
 
     units = _make_units(n_units, rng)
-    fn = build_batch_minimizing_assignment_fn(
+    fn = build_ranked_minimizing_assignment_fn(
         aff, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
         freq_by_idx, freq_by_sku={}, qty_by_sku={}, beta=1.0)
 
@@ -88,7 +88,7 @@ def _bench(n_bins, n_aisles, n_units, placed_idx_total, rng):
 
 
 if __name__ == '__main__':
-    print('\n_batch_assign_impl benchmark (one batch-minimizing wave)\n')
+    print('\n_ranked_assign_impl benchmark (one ranked-minimizing wave)\n')
     rng = random.Random(1)
     for n_bins, n_aisles in [(30_000, 60), (100_000, 200), (300_000, 600)]:
         _bench(n_bins, n_aisles, n_units=500, placed_idx_total=n_bins // 2, rng=rng)
