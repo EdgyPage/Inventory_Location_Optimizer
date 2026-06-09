@@ -707,11 +707,22 @@ def _prepare_config_run(
          'start_i': starts[s.key], 'db_path': db_path[s.key]}
         for s in STRATEGIES
     ]
+    # Profile (inventory) label + per-strategy decomposition (initial | assignment |
+    # reslot, split from the strategy label) so the graphs can title plots as
+    # inventory_initial_assignment_reslot without re-parsing the registry.
+    _profile = os.path.basename(pair_dir.rstrip('/\\')) or 'profile'
+
+    def _decomp(lbl: str) -> dict:
+        parts = (lbl.split('|') + ['', '', ''])[:3]
+        return dict(initial=parts[0], assignment=parts[1], reslot=parts[2])
+
     sim_skeleton = dict(
         name       = name,
+        inventory  = _profile,
         run_dir    = run_dir,
         strategies = [dict(key=s.key, label=s.label, color=s.color,
-                           db_path=db_path[s.key], run_id=run_ids[s.key])
+                           db_path=db_path[s.key], run_id=run_ids[s.key],
+                           **_decomp(s.label))
                       for s in STRATEGIES],
         optimal_sigma_fd = optimal_sigma_fd,
         inv_db     = shared['inv_db'],
@@ -747,7 +758,7 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
     with open(meta_path, 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
     return {k: sim_skeleton[k]
-            for k in ('name', 'run_dir', 'strategies', 'optimal_sigma_fd')
+            for k in ('name', 'inventory', 'run_dir', 'strategies', 'optimal_sigma_fd')
             if k in sim_skeleton}
 
 

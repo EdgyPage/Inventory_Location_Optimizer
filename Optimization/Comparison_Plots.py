@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('Agg')  # must come before pyplot import
 
 import logging
+import math
 import os
 
 import matplotlib.pyplot as plt
@@ -91,6 +92,17 @@ def _pct_delta(val, base):
     return (val - base) / abs(base) * 100 if base else 0.0
 
 
+def _grid(n, panel_w=3.0, panel_h=2.3, max_cols=8):
+    """A roughly-square subplot grid for n strategies; returns (fig, n flat axes)."""
+    cols = min(max_cols, max(1, math.ceil(math.sqrt(n))))
+    rows = math.ceil(n / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(panel_w * cols, panel_h * rows), squeeze=False)
+    flat = [ax for row in axes for ax in row]
+    for ax in flat[n:]:
+        ax.axis('off')
+    return fig, flat[:n]
+
+
 # ── main analysis entry point ──────────────────────────────────────────────────
 
 def run_config_analysis(
@@ -138,282 +150,120 @@ def run_config_analysis(
     log.info(f'\n{summ_t.to_string()}\n')
 
     n = len(strategies)
-
-    # ── plot 1: batch duration distributions ──────────────────────────────────
-    fig, axes = _row(n)
-    fig.suptitle(f'Batch Completion Time  [{name}]', fontsize=13, fontweight='bold')
-    for ax, s in zip(axes, strategies):
-        data = df_b[s['key']]['duration'].values
-        if len(data):
-            _kde_plot(ax, data, s['color'], bins=40)
-        ax.set_xlabel('Batch duration (sim time)', fontsize=10)
-        ax.set_ylabel('Count', fontsize=10)
-        ax.set_title(f"{s['label']}  (n={len(data):,})", fontsize=10)
-        ax.legend(fontsize=8);  ax.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot1_batch_duration.png'))
-
-    # ── plot 2: task duration distributions ────────────────────────────────────
-    fig, axes = _row(n)
-    fig.suptitle(f'Task (Aisle) Completion Time  [{name}]', fontsize=13, fontweight='bold')
-    for ax, s in zip(axes, strategies):
-        data = df_t[s['key']]['duration'].values
-        if len(data):
-            _kde_plot(ax, data, s['color'], bins=50)
-        ax.set_xlabel('Task duration (sim time)', fontsize=10)
-        ax.set_ylabel('Count', fontsize=10)
-        ax.set_title(f"{s['label']}  (n={len(data):,})", fontsize=10)
-        ax.legend(fontsize=8);  ax.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot2_task_duration.png'))
-
-    # ── plot 3: throughput rate + batch duration over batches ──────────────────
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
-    fig.suptitle(f'Batch Completion  (rolling {_WIN}-batch mean)  [{name}]',
-                 fontsize=13, fontweight='bold')
-    for s in strategies:
-        df = df_b[s['key']]
-        if df.empty:
-            continue
-        x = df.sort_values('batch_id')['batch_id'].values
-        ax1.plot(x, _roll(df, 'completion_rate', _WIN), color=s['color'], lw=2, label=s['label'])
-    ax1.set_ylabel('Items / time unit', fontsize=10);  ax1.set_title('Throughput rate', fontsize=10)
-    ax1.legend(fontsize=9);  ax1.grid(alpha=0.3)
-    for s in strategies:
-        df = df_b[s['key']]
-        if df.empty:
-            continue
-        x = df.sort_values('batch_id')['batch_id'].values
-        ax2.scatter(x, df.sort_values('batch_id')['duration'].values,
-                    color=s['color'], alpha=0.20, s=8, zorder=2)
-        ax2.plot(x, _roll(df, 'duration', _WIN), color=s['color'], lw=2, label=s['label'], zorder=3)
-    ax2.set_xlabel('Batch ID', fontsize=10);  ax2.set_ylabel('Duration (sim time)', fontsize=10)
-    ax2.set_title('Batch completion time', fontsize=10)
-    ax2.legend(fontsize=9);  ax2.grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot3_completion_rate.png'))
-
-    # ── plot 4: picker concurrency ─────────────────────────────────────────────
-    fig, axes = _row(n)
-    fig.suptitle(f'Picker Concurrency  [{name}]', fontsize=12, fontweight='bold')
-    for ax, s in zip(axes, strategies):
-        data = df_b[s['key']]['avg_concurrent_pickers'].values
-        if len(data):
-            _kde_plot(ax, data, s['color'], bins=35)
-        ax.axvline(k_pickers, color='grey', lw=1.0, linestyle='-.', label=f'Max ({k_pickers})')
-        ax.set_xlabel('Avg concurrent pickers', fontsize=10)
-        ax.set_ylabel('Count', fontsize=10)
-        ax.set_title(f"{s['label']}  (n={len(data):,})", fontsize=10)
-        ax.legend(fontsize=8);  ax.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot4_picker_concurrency.png'))
-
-    # ── plot 5: picker utilisation (picking vs traveling) ──────────────────────
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(15, 5))
-    fig.suptitle(f'Picker Utilisation Breakdown  [{name}]', fontsize=13, fontweight='bold')
-    for s in strategies:
-        df = df_b[s['key']]
-        if df.empty:
-            continue
-        axL.hist(df['picking_pct'].values, bins=30, color=s['color'], alpha=0.55,
-                 edgecolor='white', label=f"{s['label']}  μ={df['picking_pct'].mean():.1f}%")
-    axL.xaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
-    axL.set_xlabel('Picking %', fontsize=10);  axL.set_ylabel('Count', fontsize=10)
-    axL.set_title('Picking % — overlaid', fontsize=10)
-    axL.legend(fontsize=8);  axL.grid(axis='y', alpha=0.3)
-    x  = np.arange(n)
-    pk = [df_b[s['key']]['picking_pct'].mean()   for s in strategies]
-    tr = [df_b[s['key']]['traveling_pct'].mean() for s in strategies]
-    axR.bar(x, pk, width=0.6, color=[s['color'] for s in strategies], alpha=0.85, label='Picking')
-    axR.bar(x, tr, width=0.6, bottom=pk, color=_TRAVEL_COL, alpha=0.85, label='Traveling')
-    axR.set_xticks(x);  axR.set_xticklabels(labels, rotation=20, ha='right', fontsize=8)
-    axR.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
-    axR.set_ylabel('Mean fraction (%)', fontsize=10);  axR.set_title('Aggregate mean split', fontsize=10)
-    axR.legend(fontsize=8);  axR.grid(axis='x', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot5_picker_utilisation.png'))
-
-    # ── plot 6: task duration by aisle type (handling × unit) ──────────────────
-    groups = [('conveyable', 'pallet'), ('conveyable', 'singleton'),
-              ('non-conveyable', 'pallet'), ('non-conveyable', 'singleton')]
-    glabels = ['Conv\nPallet', 'Conv\nSingleton', 'Non-Conv\nPallet', 'Non-Conv\nSingleton']
-
-    def _mean_by_group(df, h, u):
-        v = df[(df['handling'] == h) & (df['unit_type'] == u)]['duration']
-        return float(v.mean()) if len(v) > 0 else 0.0
-
-    means = {s['key']: [_mean_by_group(df_t[s['key']], h, u) for h, u in groups] for s in strategies}
-    xg = np.arange(len(groups));  w = 0.8 / n
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(16, 5))
-    fig.suptitle(f'Mean Task Duration by Aisle Type  [{name}]', fontsize=13, fontweight='bold')
-    for i, s in enumerate(strategies):
-        axL.bar(xg + (i - (n - 1) / 2) * w, means[s['key']], width=w,
-                color=s['color'], alpha=0.85, label=s['label'])
-    axL.set_xticks(xg);  axL.set_xticklabels(glabels, fontsize=9)
-    axL.set_ylabel('Mean task duration', fontsize=10)
-    axL.set_title('Mean task duration by handling × unit type', fontsize=10)
-    axL.legend(fontsize=8);  axL.grid(axis='y', alpha=0.3)
-    others = strategies[1:]
-    wd = 0.8 / max(len(others), 1)
-    for i, s in enumerate(others):
-        deltas = [_pct_delta(means[s['key']][j], means[base_key][j]) for j in range(len(groups))]
-        axR.bar(xg + (i - (len(others) - 1) / 2) * wd, deltas, width=wd,
-                color=s['color'], alpha=0.85, label=f"{s['label']} vs {base_label}")
-    axR.axhline(0, color='black', lw=1)
-    axR.set_xticks(xg);  axR.set_xticklabels(glabels, fontsize=9)
-    axR.set_ylabel(f'Δ vs {base_label}  %', fontsize=10)
-    axR.yaxis.set_major_formatter(mticker.PercentFormatter())
-    axR.set_title(f'Duration delta vs {base_label}', fontsize=10)
-    axR.legend(fontsize=8);  axR.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot6_aisle_type.png'))
-
-    # ── plot 7: per-aisle mean task duration ───────────────────────────────────
-    per_aisle = pd.concat(
-        [df_t[s['key']].groupby('aisle_id')['duration'].mean().rename(s['key']) for s in strategies],
-        axis=1).dropna()
-    fig, axes = plt.subplots(1, 3, figsize=(19, 5))
-    fig.suptitle(f'Per-Aisle Mean Task Duration  [{name}]', fontsize=13, fontweight='bold')
-    for s in strategies:
-        if s['key'] not in per_aisle:
-            continue
-        v = per_aisle[s['key']]
-        axes[0].hist(v, bins=50, color=s['color'], alpha=0.45, edgecolor='white',
-                     label=f"{s['label']}  μ={v.mean():.1f}")
-    axes[0].set_xlabel('Per-aisle mean task duration', fontsize=10)
-    axes[0].set_ylabel('Aisle count', fontsize=10)
-    axes[0].set_title('Distribution of aisle mean durations', fontsize=10)
-    axes[0].legend(fontsize=8);  axes[0].grid(axis='y', alpha=0.3)
-    for s in strategies:
-        if s['key'] not in per_aisle:
-            continue
-        v = np.sort(np.asarray(per_aisle[s['key']], dtype=float))
-        axes[1].plot(v, np.arange(1, len(v) + 1) / len(v), color=s['color'], lw=2, label=s['label'])
-    axes[1].set_xlabel('Per-aisle mean task duration', fontsize=10)
-    axes[1].set_ylabel('Cumulative fraction', fontsize=10)
-    axes[1].set_title('CDF of per-aisle mean duration', fontsize=10)
-    axes[1].yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
-    axes[1].legend(fontsize=8);  axes[1].grid(alpha=0.3)
-    if base_key in per_aisle:
-        for s in strategies[1:]:
-            if s['key'] not in per_aisle:
-                continue
-            d = (per_aisle[s['key']] - per_aisle[base_key]) / per_aisle[base_key].abs() * 100
-            dv = np.asarray(d, dtype=float)
-            axes[2].hist(dv, bins=50, color=s['color'], alpha=0.5, edgecolor='white',
-                         label=f"{s['label']}  mean={dv.mean():.2f}%")
-        axes[2].axvline(0, color='black', lw=1.5, linestyle='--')
-    axes[2].set_xlabel(f'Δ (X − {base_label}) / {base_label}  %', fontsize=10)
-    axes[2].set_ylabel('Aisle count', fontsize=10)
-    axes[2].set_title(f'Per-aisle % duration change (vs {base_label})', fontsize=10)
-    axes[2].xaxis.set_major_formatter(mticker.PercentFormatter())
-    axes[2].legend(fontsize=8);  axes[2].grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot7_per_aisle.png'))
-
-    # ── plot 8: mean task duration per batch ───────────────────────────────────
-    fig, ax = plt.subplots(figsize=(14, 5))
-    fig.suptitle(f'Mean Aisle Task Duration per Batch  (rolling {_WIN}-batch mean)  [{name}]',
-                 fontsize=13, fontweight='bold')
-    for s in strategies:
-        df = df_t[s['key']]
-        if df.empty:
-            continue
-        tpb = (df.groupby('batch_id')['duration'].mean().reset_index().sort_values('batch_id'))
-        x   = np.asarray(tpb['batch_id'])
-        y   = np.asarray(tpb['duration'])
-        ax.scatter(x, y, color=s['color'], alpha=0.20, s=8, zorder=2)
-        ax.plot(x, np.asarray(pd.Series(y).rolling(_WIN, min_periods=1).mean()),
-                color=s['color'], lw=2, label=s['label'], zorder=3)
-    ax.set_xlabel('Batch ID', fontsize=10);  ax.set_ylabel('Mean task duration (sim time)', fontsize=10)
-    ax.legend(fontsize=9);  ax.grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot8_task_duration_per_batch.png'))
-
-    # ── plot 9: strategy headline summary (the one-glance ablation chart) ──────
-    mean_dur = [df_b[s['key']]['duration'].mean()        if not df_b[s['key']].empty else 0.0
-                for s in strategies]
-    mean_thr = [df_b[s['key']]['completion_rate'].mean() if not df_b[s['key']].empty else 0.0
-                for s in strategies]
-    cols = [s['color'] for s in strategies]
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(7 + 1.4 * n, 5))
-    fig.suptitle(f'Strategy Summary  (Δ vs {base_label})  [{name}]', fontsize=13, fontweight='bold')
-
-    def _bars(ax, vals, title, ylab, lower_is_better):
-        bars  = ax.bar(np.arange(n), vals, color=cols, alpha=0.85)
-        base_v = vals[0]
-        for i, (b, v) in enumerate(zip(bars, vals)):
-            xc = b.get_x() + b.get_width() / 2
-            if i == 0:
-                ax.annotate('baseline', (xc, v), ha='center', va='bottom',
-                            fontsize=8, color='grey')
-            else:
-                d    = _pct_delta(v, base_v)
-                good = (d < 0) if lower_is_better else (d > 0)
-                ax.annotate(f'{d:+.1f}%', (xc, v), ha='center', va='bottom',
-                            fontsize=8, color='#1a7a1a' if good else '#c00000')
-        ax.set_xticks(np.arange(n));  ax.set_xticklabels(labels, rotation=20, ha='right', fontsize=8)
-        ax.set_ylabel(ylab, fontsize=10);  ax.set_title(title, fontsize=11)
-        ax.grid(axis='y', alpha=0.3)
-
-    _bars(axL, mean_dur, 'Mean batch duration (lower better)', 'Sim time', lower_is_better=True)
-    _bars(axR, mean_thr, 'Mean throughput (higher better)', 'Items / time', lower_is_better=False)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot9_strategy_summary.png'))
-
-    # ── plot 10: Σf·W layout quality (the re-slot catch-up headline) ───────────
-    # Realised demand-weighted within-aisle travel per batch (lower = better).
-    # The dashed line is the full-stock pure-global-W optimum (a floor); a uniform
-    # start sits high, optimal_reslot starts at the floor, and the question is
-    # whether uniform_reslot descends toward it.  Σf·W is fill-dependent (depletion
-    # lowers it for every strategy alike), so compare the curves' relative gap.
+    inv = sim_result.get('inventory', '') or name
     optimal = float(sim_result.get('optimal_sigma_fd') or 0.0)
-    fig, ax = plt.subplots(figsize=(14, 5))
-    fig.suptitle(f'Layout quality: demand-weighted within-aisle travel Σf·W  '
-                 f'(rolling {_WIN}-batch mean)  [{name}]', fontsize=13, fontweight='bold')
-    for s in strategies:
-        df = df_b[s['key']]
-        if df.empty:
-            continue
-        d = df.sort_values('batch_id')
-        ax.plot(d['batch_id'].values, _roll(df, 'sigma_fd', _WIN),
-                color=s['color'], lw=2, label=s['label'])
-    if optimal > 0:
-        ax.axhline(optimal, color='grey', lw=1.2, linestyle='--',
-                   label='Optimal (full-stock floor)')
-    ax.set_xlabel('Batch ID', fontsize=10)
-    ax.set_ylabel('Σf·W  (lower = better)', fontsize=10)
-    ax.legend(fontsize=9);  ax.grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot10_sigma_fd.png'))
-
-    # ── plot 11: inventory churn (how much moved per batch) ────────────────────
     total_bins = float(shared.get('total_bins') or 0)
-    fig, (axT, axB) = plt.subplots(2, 1, figsize=(14, 8))
-    fig.suptitle(f'Inventory Churn  (re-slot moves + reorder placements)  [{name}]',
-                 fontsize=13, fontweight='bold')
-    for s in strategies:
-        df = df_b[s['key']]
+
+    def _stitle(s):
+        parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),
+                             s.get('reslot', '')) if p]
+        return '|'.join(parts) if parts else s.get('label', s['key'])
+
+    def _full_title(s):
+        bits = [inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
+        return '_'.join(b for b in bits if b)
+
+    def _eff_series(df):
         if df.empty:
-            continue
-        d     = df.sort_values('batch_id')
-        x     = d['batch_id'].values
+            return None
+        d = df.sort_values('batch_id')
+        if optimal > 0:
+            y = (optimal / d['sigma_fd'].clip(lower=1e-9) * 100.0).rolling(_WIN, min_periods=1).mean()
+        else:
+            y = d['sigma_fd'].rolling(_WIN, min_periods=1).mean()
+        return d['batch_id'].values, y.values
+
+    def _churn_series(df):
+        if df.empty:
+            return None
+        d = df.sort_values('batch_id')
         moved = (d['reload_moves'] + d['reorder_placements']).astype(float)
         if total_bins > 0:
-            frac = moved / total_bins * 100.0
-            axT.plot(x, frac.rolling(_WIN, min_periods=1).mean(), color=s['color'], lw=2, label=s['label'])
-            axB.plot(x, frac.cumsum().values, color=s['color'], lw=2, label=s['label'])
-        else:
-            axT.plot(x, moved.rolling(_WIN, min_periods=1).mean(), color=s['color'], lw=2, label=s['label'])
-            axB.plot(x, moved.cumsum().values, color=s['color'], lw=2, label=s['label'])
-    axT.set_ylabel('% of bins moved / batch' if total_bins > 0 else 'moves / batch', fontsize=10)
-    axT.set_title('Per-batch churn (rolling mean)', fontsize=10)
-    axT.legend(fontsize=9);  axT.grid(alpha=0.3)
-    axB.set_xlabel('Batch ID', fontsize=10)
-    axB.set_ylabel('cumulative % of bins moved' if total_bins > 0 else 'cumulative moves', fontsize=10)
-    axB.set_title('Cumulative churn', fontsize=10)
-    axB.legend(fontsize=9);  axB.grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(run_dir, 'plot11_churn.png'))
+            moved = moved / total_bins * 100.0
+        return d['batch_id'].values, moved.rolling(_WIN, min_periods=1).mean().values
 
-    log.info(f'  Saved → {run_dir}')
+    def _panel_duration(ax, s):
+        df = df_b[s['key']]
+        if not df.empty:
+            d = df.sort_values('batch_id')
+            ax.plot(d['batch_id'].values, _roll(df, 'duration', _WIN), color=s['color'], lw=1.2)
+
+    def _panel_eff(ax, s):
+        ser = _eff_series(df_b[s['key']])
+        if ser is not None:
+            ax.plot(ser[0], ser[1], color=s['color'], lw=1.2)
+            if optimal > 0:
+                ax.axhline(100.0, color='grey', lw=0.7, ls='--')
+
+    def _panel_churn(ax, s):
+        ser = _churn_series(df_b[s['key']])
+        if ser is not None:
+            ax.plot(ser[0], ser[1], color=s['color'], lw=1.2)
+
+    def _panel_taskdur(ax, s):
+        data = df_t[s['key']]['duration'].values
+        if len(data):
+            ax.hist(data, bins=30, color=s['color'], alpha=0.7, edgecolor='white')
+
+    # ── per-metric GRID images: one rectangular grid, one panel per strategy ───
+    def _metric_grid(fname, title, panel, ylabel):
+        fig, axes = _grid(n)
+        fig.suptitle(f'{title}  [{inv} / {name}]', fontsize=13, fontweight='bold')
+        for ax, s in zip(axes, strategies):
+            panel(ax, s)
+            ax.set_title(_stitle(s), fontsize=7)
+            ax.tick_params(labelsize=6)
+            ax.grid(alpha=0.3)
+        if axes:
+            axes[0].set_ylabel(ylabel, fontsize=8)
+        plt.tight_layout(rect=(0, 0, 1, 0.98))
+        _save_close(fig, os.path.join(run_dir, fname))
+
+    _metric_grid('grid_batch_duration.png', 'Batch duration (rolling mean)', _panel_duration, 'sim time')
+    _metric_grid('grid_sigma_fd.png',
+                 'Layout efficiency: optimal / realised Sigma f*D (%)' if optimal > 0 else 'Sigma f*D (lower better)',
+                 _panel_eff, '% of optimal' if optimal > 0 else 'Sigma f*D')
+    _metric_grid('grid_churn.png', 'Inventory churn (% of bins moved / batch)', _panel_churn, '% / batch')
+    _metric_grid('grid_task_duration.png', 'Task (aisle) duration distribution', _panel_taskdur, 'count')
+
+    # ── per-strategy SCORECARDS: one image per strategy ────────────────────────
+    for s in strategies:
+        fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(13, 3.4))
+        fig.suptitle(_full_title(s), fontsize=12, fontweight='bold')
+        _panel_duration(a1, s); a1.set_title('Batch duration', fontsize=10)
+        a1.set_xlabel('batch'); a1.grid(alpha=0.3)
+        _panel_eff(a2, s)
+        a2.set_title('Sigma f*D ' + ('% of optimal' if optimal > 0 else '(raw)'), fontsize=10)
+        a2.set_xlabel('batch'); a2.grid(alpha=0.3)
+        _panel_churn(a3, s); a3.set_title('Churn (% bins/batch)', fontsize=10)
+        a3.set_xlabel('batch'); a3.grid(alpha=0.3)
+        plt.tight_layout(rect=(0, 0, 1, 0.92))
+        _save_close(fig, os.path.join(run_dir, f"strat_{s['key']}.png"))
+
+    # ── rectangular SUMMARY: headline metrics across strategies, side by side ──
+    ylabels = [_stitle(s) for s in strategies]
+    yc      = [s['color'] for s in strategies]
+    ypos    = np.arange(n)
+    mean_dur = [df_b[s['key']]['duration'].mean()        if not df_b[s['key']].empty else 0.0 for s in strategies]
+    mean_thr = [df_b[s['key']]['completion_rate'].mean() if not df_b[s['key']].empty else 0.0 for s in strategies]
+
+    def _mean_eff(s):
+        df = df_b[s['key']]
+        if df.empty or optimal <= 0:
+            return 0.0
+        return float((optimal / df['sigma_fd'].clip(lower=1e-9) * 100.0).mean())
+    mean_eff = [_mean_eff(s) for s in strategies]
+
+    fig, (b1, b2, b3) = plt.subplots(1, 3, figsize=(16, max(6.0, n * 0.24)), sharey=True)
+    fig.suptitle(f'Strategy summary  [{inv} / {name}]  (n={n}, baseline {_stitle(strategies[0])})',
+                 fontsize=13, fontweight='bold')
+    b1.barh(ypos, mean_dur, color=yc); b1.set_title('Mean batch duration (lower better)', fontsize=10)
+    b1.set_yticks(ypos); b1.set_yticklabels(ylabels, fontsize=6); b1.invert_yaxis(); b1.grid(axis='x', alpha=0.3)
+    b2.barh(ypos, mean_thr, color=yc); b2.set_title('Mean throughput (higher better)', fontsize=10)
+    b2.grid(axis='x', alpha=0.3)
+    b3.barh(ypos, mean_eff, color=yc); b3.set_title('Mean Sigma f*D efficiency % (higher better)', fontsize=10)
+    b3.grid(axis='x', alpha=0.3)
+    plt.tight_layout(rect=(0, 0, 1, 0.98))
+    _save_close(fig, os.path.join(run_dir, 'summary.png'))
+
+    log.info(f'  Saved {n} strategies (grids + scorecards + summary) -> {run_dir}')

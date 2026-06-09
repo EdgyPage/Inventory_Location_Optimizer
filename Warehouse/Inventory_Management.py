@@ -451,6 +451,7 @@ class Inventory_Manager:
         affinity: AffinityStore | None = None,
     ) -> None:
         self.warehouse: Warehouse = warehouse
+        self.name: str = ''        # e.g. inventory_initial_assignment_reslot; for graph titles
         self.assignment_fn: AssignmentFn = assignment_fn
         # When set, check_reorders uses _drain_batch() instead of _drain().
         # Batch assignment sorts units by pick-effort priority so high-effort

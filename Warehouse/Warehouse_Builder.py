@@ -22,8 +22,9 @@ class WarehouseConfig:
 
 
 class Warehouse:
-    def __init__(self, aisles: list[Aisle]) -> None:
+    def __init__(self, aisles: list[Aisle], name: str = '') -> None:
         self.aisles: list[Aisle] = aisles
+        self.name: str = name      # e.g. inventory/profile id; for logging + graph titles
 
     @property
     def bins(self) -> list[Aisle.Bin]:

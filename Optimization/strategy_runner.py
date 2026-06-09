@@ -82,10 +82,14 @@ def load_worker_checkpoint(run_dir: str, strategy: str) -> int:
 
 
 def _cleanup_checkpoints(run_dir: str) -> None:
-    for s in ('A', 'B', 'C'):
-        p = os.path.join(run_dir, f'_ckpt_{s}.pkl')
-        if os.path.exists(p):
+    # checkpoints are per-strategy (_ckpt_<key>.pkl), so remove them all rather than
+    # assuming the legacy A/B/C set.
+    import glob
+    for p in glob.glob(os.path.join(run_dir, '_ckpt_*.pkl')):
+        try:
             os.remove(p)
+        except OSError:
+            pass
 
 
 # ── strategy worker ───────────────────────────────────────────────────────────

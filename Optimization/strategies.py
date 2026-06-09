@@ -12,6 +12,7 @@ pure-global-W optimum) and may enable bounded per-batch re-slotting via `reslot_
 """
 from __future__ import annotations
 
+import colorsys
 import random
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -125,47 +126,56 @@ def _stock_optimal(mgr, ctx: StrategyContext, inventory) -> None:
                       ctx.wp.x_speed, ctx.wp.y_speed)
 
 
-# ── the registry (STRATEGIES[0] is the plot baseline) ───────────────────────────
-# Re-slot "catch-up" experiment: all warehouses share the same dynamics (uniform
-# reorder + same re-slot budget) except the initial layout — optimal_reslot starts
-# perfect and uses Uniform+Min+Rank reorders to hold it; uniform_reslot tries to
-# catch up from a uniform start; uniform is the no-re-slot baseline.
+# ── colour helper: spread N distinct hues ──────────────────────────────────────
 
-STRATEGIES: list[Strategy] = [
-    # ── already run in the last comparison set (commented out so an additive
-    # --resume run only simulates the new control below; _finalize_config_run
-    # merges this new strategy into the existing sim_meta.json). ──────────────
-    # Strategy('uniform',        'Uniform',        '#5b9bd5',
-    #          'uniform_assignment',         False, False, _build_uniform),
-    # Strategy('uniform_reslot', 'Uniform+Reslot', '#f4a030',
-    #          'uniform_reslot',             False, False, _build_uniform,
-    #          reslot_frac=0.005),
-    # Strategy('optimal_reslot', 'Optimal+Reslot', '#70ad47',
-    #          'optimal_reslot',             True,  True,  _build_uniform_trip_min_ranked,
-    #          stock=_stock_optimal, reslot_frac=0.005),
-    # Strategy('trip_min_reslot', 'Trip-Min+Reslot', '#9966cc',
-    #          'trip_minimizing_reslot',     True,  True,  _build_trip_min,
-    #          reslot_frac=0.005),
-    # Strategy('trip_max_reslot', 'Trip-Max+Reslot', '#c0504d',
-    #          'trip_maximizing_reslot',     True,  True,  _build_trip_max,
-    #          reslot_frac=0.005),
+def _hsv_hex(i: int, n: int) -> str:
+    """A distinct-ish hex colour for index i of n (HSV hue sweep)."""
+    r, g, b = colorsys.hsv_to_rgb((i / max(1, n)) % 1.0, 0.58, 0.85)
+    return '#%02x%02x%02x' % (round(r * 255), round(g * 255), round(b * 255))
 
-    # ── NEW control: uniform initial stock + Uniform+Min+Rank reorder (uniform-
-    # random aisle + min-W bin, ranked queue) + re-slot.  A no-lift baseline to
-    # compare the Trip-Min/Max (affinity-aware aisle selection) against. ───────
-    Strategy('uniform_rank_reslot', 'Uniform+Rank+Reslot', '#4bacc6',
-             'uniform_aisle_ranked_reslot', True, True, _build_uniform_trip_min_ranked,
-             reslot_frac=0.005),
 
-    # ── affinity-scoring assignment set: place by co-occurrence cohesion.
-    # max_cluster co-locates strong-lift SKUs (fewer aisle visits on correlated
-    # batches); min_cluster scatters them (anti-affinity control).  Affinity picks
-    # the aisle, popularity (low-W) the bay.  Reorder rule only (no re-slot — the
-    # popularity re-slot would fight clustering; a cohesion re-slot is a follow-up).
-    Strategy('max_cluster', 'Max-Cluster', '#e377c2',
-             'cluster_maximizing', True, True, _build_max_cluster),
-    Strategy('min_cluster', 'Min-Cluster', '#8c564b',
-             'cluster_minimizing', True, True, _build_min_cluster),
+# ── combinatorial strategy grid ─────────────────────────────────────────────────
+# The pipeline runs this grid against each regression config:
+#     initial assignment × restock (reorder) rule × re-slot (capacity reloader)
+#     = 2 × 6 × 4 = 48 strategies.  STRATEGIES[0] (uni|FIFO|noRSL) is the plot
+# baseline.  needs_affinity/needs_demand come from the restock rule (the optimal
+# stock hook only needs freq_by_sku, which the worker builds unconditionally).
+
+# initial assignment: (key, label, stock hook)   — None ⇒ uniform enqueue_all
+_INITIALS = [
+    ('uni', 'Uni', None),
+    ('opt', 'Opt', _stock_optimal),        # optimal pure-global-D initial layout
 ]
+
+# restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand)
+_RESTOCKS = [
+    ('fifo', 'FIFO',    _build_uniform,                 False, False),  # uniform random, FIFO drain
+    ('rank', 'Rank',    _build_uniform_trip_min_ranked, True,  True),   # uniform aisle + min-D bin, ranked
+    ('tmin', 'TripMin', _build_trip_min,                True,  True),
+    ('tmax', 'TripMax', _build_trip_max,                True,  True),
+    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True),
+    ('cmin', 'MinClu',  _build_min_cluster,             True,  True),
+]
+
+# re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)
+_RESLOT_FRAC = 0.005
+_RESLOTS = [
+    ('norsl', 'noRSL',   0.0,          'rebalance'),         # no re-slot
+    ('rmin',  'RSLmin',  _RESLOT_FRAC, 'demote_unpopular'),  # re-slot least-popular (min performers)
+    ('rmax',  'RSLmax',  _RESLOT_FRAC, 'promote_popular'),   # re-slot most-popular (max performers)
+    ('rboth', 'RSLboth', _RESLOT_FRAC, 'rebalance'),         # both ends
+]
+
+STRATEGIES: list[Strategy] = []
+for _ik, _il, _stock in _INITIALS:
+    for _rk, _rl, _bld, _na, _nd in _RESTOCKS:
+        for _sk, _sl, _frac, _rld in _RESLOTS:
+            _key = f'{_ik}_{_rk}_{_sk}'
+            STRATEGIES.append(Strategy(
+                key=_key, label=f'{_il}|{_rl}|{_sl}',
+                color=_hsv_hex(len(STRATEGIES), 48), run_type=_key,
+                needs_affinity=_na, needs_demand=_nd, build=_bld,
+                stock=_stock, reslot_frac=_frac, reloader=_rld,
+            ))
 
 STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}
