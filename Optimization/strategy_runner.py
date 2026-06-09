@@ -202,7 +202,7 @@ def _run_strategy_worker(args: dict) -> dict:
     else:
         log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement...')
         mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
-    base_filled = len(mgr.unavailable)
+    base_filled = len(mgr._unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
 
@@ -258,6 +258,9 @@ def _run_strategy_worker(args: dict) -> dict:
     # Discard initial-stock placement churn so batch-0 churn reflects only the loop.
     mgr.pop_churn()
     opt_x, opt_y = wp.x_speed, wp.y_speed   # speeds for sigma_fd / reload targeting
+    # Seed the incremental Sigma f*D tracker once; per-batch reads are then O(1)
+    # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
+    mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
 
     # ── RNG fast-forward (resume only) ────────────────────────────────────────
     random.seed(seed_batches)
@@ -284,6 +287,7 @@ def _run_strategy_worker(args: dict) -> dict:
     pk: list = []   # individual pick records
     pi: list = []   # bin inventory snapshots
     pm: list = []   # aisle metrics snapshots
+    lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     reorders_ckpt  = 0
     dur_sum_ckpt   = 0.0
@@ -303,7 +307,7 @@ def _run_strategy_worker(args: dict) -> dict:
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
-        batch_sigma        = mgr.current_sigma_fd(freq_by_sku, opt_x, opt_y)
+        batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
 
         batch    = Batch(batch_cfg, inventory, affinity=affinity)
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
@@ -334,7 +338,8 @@ def _run_strategy_worker(args: dict) -> dict:
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
         bs.reorder_placements = batch_rp
-        ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp, run_id=run_id)
+        ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp,
+                                 run_id=run_id, lift_cache=lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)
         inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id,
@@ -365,7 +370,7 @@ def _run_strategy_worker(args: dict) -> dict:
             cum_rate  = (i + 1 - start_i) / wall
             ckpt_rate = dur_count_ckpt / ckpt_wall
             avg_dur   = dur_sum_ckpt / dur_count_ckpt if dur_count_ckpt else 0.0
-            cur_fill  = len(mgr.unavailable) / len(warehouse.bins)
+            cur_fill  = len(mgr._unavailable) / len(warehouse.bins)
             p1_frac   = p1_sum_ckpt / (p1_sum_ckpt + p2_sum_ckpt + 1e-9) * 100
 
             log.info(

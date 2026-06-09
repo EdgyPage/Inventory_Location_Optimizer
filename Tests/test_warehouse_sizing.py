@@ -883,6 +883,35 @@ def test_init_lift_state_populates_aisle_sets():
           sum(len(v) for v in mgr._aisle_idx_sets.values()) > 0)
 
 
+def test_incremental_sigma_fd_matches_full():
+    print('\n-- incremental Sigma f*D tracks full recompute through place/empty/evict --')
+    x, y = 1.0, 0.5
+    plan = _plan(_inventory(120, seed=29))
+    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    wh   = _build_wh(plan, 29)
+    mgr  = Inventory_Manager(wh)
+    mgr.enqueue_all(plan.sampled)
+    mgr.enable_sigma_fd(freq, x, y)
+    check('tracked == full after enable',
+          abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
+
+    # pick-empty path (mirrors fast_pick phase 2: clear storage, then notify)
+    victim = next(b for b in wh.bins if b.storage is not None)
+    victim.storage = None
+    mgr._notify_bin_emptied(victim)
+    check('tracked == full after a bin-empty',
+          abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
+
+    # eviction path: requeue a pallet (-), then re-drain re-places it (+)
+    v2 = next(b for b in wh.bins if b.storage is not None and b.unit_type == 'pallet')
+    mgr.requeue_bin(v2)
+    check('tracked == full after eviction',
+          abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
+    mgr._drain()
+    check('tracked == full after re-drain',
+          abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
+
+
 def test_batch_min_incremental_drain():
     print('\n-- batch-minimizing: subsectioned drain stays bounded & in-group --')
     _run_batch_drain(build_batch_minimizing_assignment_fn, 'min')
@@ -923,6 +952,7 @@ if __name__ == '__main__':
     test_affinity_sampler_correlates_and_guards()
     test_cluster_skus_groups_high_lift()
     test_init_lift_state_populates_aisle_sets()
+    test_incremental_sigma_fd_matches_full()
     test_batch_min_incremental_drain()
     test_batch_max_incremental_drain()
 

@@ -103,7 +103,9 @@ class Capacity_Reloader:
             return 0
         D = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
         by_aisle: dict[int, list] = defaultdict(list)
-        for b in manager.unavailable:                     # occupied bins
+        # iterate the occupied-bin dict directly (the .unavailable property copies
+        # the whole ~N-bin dict into a list on every call — wasteful per batch)
+        for b in manager._unavailable.values():           # occupied bins
             if b.unit_type == 'pallet' and b.storage is not None:
                 by_aisle[b.location[0]].append(b)
         evicted = 0

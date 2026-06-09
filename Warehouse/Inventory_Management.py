@@ -508,6 +508,14 @@ class Inventory_Manager:
         self._reload_moves: int       = 0
         self._reorder_placements: int = 0
 
+        # Incremental Sigma f*D tracker — avoids a full occupied-bin scan per batch.
+        # None until enable_sigma_fd() binds the freq map + speeds; then maintained
+        # on every placement (+), pick-empty / eviction (−).
+        self._sigma_freq: dict | None = None
+        self._sigma_x: float = 0.0
+        self._sigma_y: float = 0.0
+        self._sigma_fd: float = 0.0
+
         # Persistent lift state shared with load-aware assignment functions.
         self._aisle_sku_sets: dict[int, set[int]]         = defaultdict(set)
         self._aisle_lift_sum: dict[int, float]             = defaultdict(float)
@@ -734,6 +742,19 @@ class Inventory_Manager:
                       * (x_speed * b.x_phys + y_speed * b.y_phys))
         return s
 
+    def enable_sigma_fd(self, freq_of: dict, x_speed: float, y_speed: float) -> None:
+        """Bind the freq map + speeds and seed the incremental Sigma f*D from a
+        single full scan.  Afterwards tracked_sigma_fd() is O(1): the running sum is
+        maintained on every placement / pick-empty / eviction."""
+        self._sigma_freq = freq_of
+        self._sigma_x = x_speed
+        self._sigma_y = y_speed
+        self._sigma_fd = self.current_sigma_fd(freq_of, x_speed, y_speed)
+
+    def tracked_sigma_fd(self) -> float:
+        """The incrementally-maintained Sigma f*D (see enable_sigma_fd).  O(1)."""
+        return self._sigma_fd
+
     def pop_churn(self) -> tuple[int, int]:
         """Return (reload_moves, reorder_placements) since the last call and reset."""
         r, p = self._reload_moves, self._reorder_placements
@@ -756,6 +777,10 @@ class Inventory_Manager:
         if unit is None:
             return
         sku = unit.carton.sku
+
+        if self._sigma_freq is not None:           # incremental Sigma f*D: eviction (−)
+            self._sigma_fd -= (self._sigma_freq.get(sku, 0.0)
+                               * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
         # Free the bin and return it to the available index.
         bin_.storage = None
@@ -826,6 +851,11 @@ class Inventory_Manager:
         None — must be O(1).  The bin stays in _unavailable until
         _reclaim_empty_bins processes _pending_reclaim.
         """
+        if self._sigma_freq is not None:
+            sku = self._bin_sku.get(id(bin_))      # still set until reclaim pops it
+            if sku is not None:
+                self._sigma_fd -= (self._sigma_freq.get(sku, 0.0)
+                                   * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
         self._pending_reclaim.append(bin_)
 
     def _apply_picks_batch(
@@ -1124,6 +1154,9 @@ class Inventory_Manager:
             counts = self._aisle_sku_counts[aid]
             counts[sku] = counts.get(sku, 0) + 1
         self._reorder_placements += 1
+        if self._sigma_freq is not None:
+            self._sigma_fd += (self._sigma_freq.get(sku, 0.0)
+                               * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
     def _drain(self) -> None:
         """Place queued StorageUnit objects into warehouse bins (per-unit path).
@@ -1227,13 +1260,11 @@ class Inventory_Manager:
         Units that cannot be placed go through the same rescue logic as _drain()
         and then to the pending queue for retry next batch.
         """
-        from collections import defaultdict as _dd
-
         if not self._queue:
             return
 
         # Snapshot queue and group by BinKey
-        groups: dict[tuple, list[StorageUnit]] = _dd(list)
+        groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
         while self._queue:
             unit = self._queue.popleft()
             shc  = unit.carton.storage_handle_config
@@ -1246,11 +1277,9 @@ class Inventory_Manager:
             # Get batch assignments — high pick-effort units first
             assignments = self.batch_assignment_fn(units, self._candidates)   # type: ignore[misc]
 
-            assigned_ids = set()
             for unit, bin_ in assignments:
                 if bin_ is not None:
                     self._execute_placement(unit, bin_)
-                    assigned_ids.add(id(unit))
 
             # Unassigned units: run through rescue logic then pending
             for unit, bin_ in assignments:
