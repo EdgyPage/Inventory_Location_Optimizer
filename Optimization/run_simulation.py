@@ -82,7 +82,7 @@ N_BATCHES        = 100
 K_PICKERS        = 25
 _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
-_BATCH_MEAN_FRAC = 0.18
+_BATCH_MEAN_FRAC = 0.15
 _BATCH_STD_FRAC  = 0.05
 _TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
 _INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
@@ -130,20 +130,20 @@ REGRESSION_CONFIGS = [
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 10.0,
     },
-    {
-        'name'            : 'high_weight',
-        'pick_weight_coef': 2.5,
-        'pick_volume_coef': 1e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 10.0,
-    },
-    {
-        'name'            : 'high_cart_penalty',
-        'pick_weight_coef': 1.1,
-        'pick_volume_coef': 1e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 25.0,
-    },
+    #{
+    #    'name'            : 'high_weight',
+    #    'pick_weight_coef': 2.5,
+    #    'pick_volume_coef': 1e-3,
+    #    'pick_intercept'  : 1.0,
+    #    'cart_swap_coef'  : 10.0,
+    #},
+    #{
+    #    'name'            : 'high_cart_penalty',
+    #    'pick_weight_coef': 1.1,
+    #    'pick_volume_coef': 1e-3,
+    #    'pick_intercept'  : 1.0,
+    #    'cart_swap_coef'  : 25.0,
+    #},
     #{
     #    'name'            : 'high_cart_weight_penalty',
     #    'pick_weight_coef': 2.5,
