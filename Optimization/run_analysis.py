@@ -31,7 +31,10 @@ from run_simulation import (
     _clean_path,
     _OUTPUT_DIR,
 )
-from Comparison_Plots import run_config_analysis as _run_config_analysis
+from Comparison_Plots import (
+    run_config_analysis as _run_config_analysis,
+    run_aggregate_analysis as _run_aggregate_analysis,
+)
 
 
 # Keys run_config_analysis actually reads from `shared` — a small, picklable slice
@@ -69,14 +72,42 @@ def _sim_result_from_meta(meta: dict) -> dict:
     return sim_result
 
 
-def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1) -> None:
+def _run_aggregate(base_dir: str, top_n: int, log: logging.Logger) -> None:
+    """Cross-profile roll-up: group every config's series.json by pick-config name
+    (the leaf dir) across all profiles, then emit one aggregate suite per group under
+    base_dir/_aggregate/<pickcfg>/."""
+    groups: dict[str, list] = {}
+    for prof in sorted(os.listdir(base_dir)):
+        prof_dir = os.path.join(base_dir, prof)
+        if not os.path.isdir(prof_dir) or prof.startswith('_'):
+            continue
+        for cfg in sorted(os.listdir(prof_dir)):
+            sp = os.path.join(prof_dir, cfg, 'series.json')
+            if not os.path.exists(sp):
+                continue
+            try:
+                with open(sp) as f:
+                    groups.setdefault(cfg, []).append(json.load(f))
+            except (OSError, ValueError) as exc:
+                log.error(f'  bad series.json {sp}: {exc}')
+    for cfg, plist in groups.items():
+        out_dir = os.path.join(base_dir, '_aggregate', cfg)
+        try:
+            _run_aggregate_analysis(plist, out_dir, top_n, cfg, log)
+        except Exception as exc:
+            log.error(f'  aggregate FAILED for {cfg}: {exc}', exc_info=True)
+
+
+def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
+                 top_n: int = 1) -> None:
     """Re-run analysis (plots + CSV summaries) on all completed sims under *base_dir*.
 
     Scans base_dir/pair_label/config_name/sim_meta.json.  build_shared_assets runs
     once per pair (main process, sequential).  The per-config plotting — the heavy
     part, especially with many strategies — is fanned out across `workers` processes
     when workers > 1, overlapping with the next pair's shared build.  workers=1 keeps
-    the original sequential behaviour.
+    the original sequential behaviour.  After every config is plotted, a cross-profile
+    aggregate suite is emitted per pick-config.
     """
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
@@ -111,6 +142,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1) -> None:
                           exc_info=True)
                 continue
             slim = {k: shared.get(k) for k in _SLIM_KEYS}  # picklable subset per pair
+            slim['top_n'] = top_n
 
             for meta in config_metas:
                 sim_result = _sim_result_from_meta(meta)
@@ -133,6 +165,10 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1) -> None:
         if pool is not None:
             pool.shutdown()
 
+    # ── cross-profile aggregate (main process; needs all series.json on disk) ──
+    log.info('  Building cross-profile aggregate suites...')
+    _run_aggregate(base_dir, top_n, log)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -151,6 +187,11 @@ def main() -> None:
         help='Parallel processes for graph generation (1 = sequential). '
              'Each config is plotted in its own process.',
     )
+    parser.add_argument(
+        '--top-n', type=int, default=1, dest='top_n',
+        help='Number of best strategies (by steady-state throughput) to overlay in '
+             'the compare/top/ plots.',
+    )
     args = parser.parse_args()
 
     if args.base_dir is None:
@@ -168,8 +209,8 @@ def main() -> None:
         sys.exit(f'Directory not found: {base_dir}')
 
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
-    log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers})')
-    run_analysis(base_dir, log, workers=args.workers)
+    log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers}, top_n={args.top_n})')
+    run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n)
     log.info('Done.')
 
 

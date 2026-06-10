@@ -10,14 +10,17 @@ no hardcoded A/B/C.  strategies[0] is the baseline for delta comparisons.
 import matplotlib
 matplotlib.use('Agg')  # must come before pyplot import
 
+import json
 import logging
 import math
 import os
+from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 from scipy.stats import gaussian_kde
 
 from Picking_Data        import load_batch_stats, load_task_stats
@@ -103,6 +106,321 @@ def _grid(n, panel_w=3.0, panel_h=2.3, max_cols=8):
     return fig, flat[:n]
 
 
+# ── comparison suite: strategy decomposition + per-strategy series ─────────────
+
+_LINESTYLES = ['-', '--', '-.', ':']
+
+
+def _stitle(s):
+    """Compact strategy label: initial|assignment|reslot (falls back to label/key)."""
+    parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),
+                         s.get('reslot', '')) if p]
+    return '|'.join(parts) if parts else s.get('label', s.get('key', ''))
+
+
+def _assign_color_map(strategies):
+    asn = sorted({s['assignment'] for s in strategies})
+    cmap = plt.cm.tab10
+    return {a: cmap(i % 10) for i, a in enumerate(asn)}
+
+
+def _ir_style_map(strategies):
+    irs = sorted({(s['initial'], s['reslot']) for s in strategies})
+    return {ir: _LINESTYLES[i % len(_LINESTYLES)] for i, ir in enumerate(irs)}
+
+
+def _build_series(strategies, df_b, df_t):
+    """Per-strategy time series + steady-state scalars for the comparison suite.
+
+    Returns {key: dict | None}.  Task metrics carry their own x ('task_batch')
+    because some batches may have no surviving (non-outlier) tasks.
+    """
+    S = {}
+    for s in strategies:
+        b = df_b[s['key']]
+        t = df_t[s['key']]
+        if b.empty:
+            S[s['key']] = None
+            continue
+        bd    = b.sort_values('batch_id')
+        batch = bd['batch_id'].values
+        thr   = bd['completion_rate'].rolling(_WIN, min_periods=1).mean().values
+
+        if not t.empty:
+            g   = t.groupby('batch_id')['duration']
+            agg = g.agg(['mean', 'median']).sort_index()
+            q25 = g.quantile(0.25).reindex(agg.index)
+            q75 = g.quantile(0.75).reindex(agg.index)
+            tb   = agg.index.values
+            roll = lambda ser: ser.rolling(_WIN, min_periods=1).mean().values
+            tmean, tmed = roll(agg['mean']), roll(agg['median'])
+            tp25,  tp75 = roll(q25),         roll(q75)
+        else:
+            tb = batch
+            tmean = tmed = tp25 = tp75 = np.full(len(batch), np.nan)
+
+        maxb = int(batch.max())
+        lo   = maxb - _WIN + 1
+        ssb  = bd[bd['batch_id'] >= lo]
+        sst  = t[t['batch_id'] >= lo] if not t.empty else t
+        S[s['key']] = dict(
+            batch=batch, thr=thr,
+            task_batch=tb, task_mean=tmean, task_median=tmed,
+            task_p25=tp25, task_p75=tp75,
+            ss_thr=float(ssb['completion_rate'].mean()),
+            ss_dur=float(ssb['duration'].mean()),
+            ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
+            picking_pct=float(ssb['picking_pct'].mean()),
+            traveling_pct=float(ssb['traveling_pct'].mean()),
+            initial=s.get('initial', ''), assignment=s.get('assignment', ''),
+            reslot=s.get('reslot', ''), color=s['color'],
+            label=s.get('label', s['key']), key=s['key'],
+        )
+    return S
+
+
+def _dump_series(strategies, S, path):
+    out = []
+    for s in strategies:
+        d = S.get(s['key'])
+        if d is None:
+            continue
+        out.append({k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                    for k, v in d.items()})
+    with open(path, 'w') as f:
+        json.dump({'strategies': out}, f)
+
+
+# ── individual plot builders (shared by per-config and aggregate) ──────────────
+
+def _facet_metric(strategies, S, m, title, path):
+    inits = sorted({s['initial'] for s in strategies})
+    resl  = sorted({s['reslot'] for s in strategies})
+    acmap = _assign_color_map(strategies)
+    nrow, ncol = max(1, len(inits)), max(1, len(resl))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(5.0 * ncol, 3.4 * nrow),
+                             squeeze=False, sharex=True)
+    for s in strategies:
+        d = S.get(s['key'])
+        if d is None:
+            continue
+        ax = axes[inits.index(s['initial'])][resl.index(s['reslot'])]
+        ax.plot(d[m['x']], d[m['y']], color=acmap[s['assignment']], lw=1.3)
+        if m['blo'] and d.get(m['blo']) is not None:
+            ax.fill_between(d[m['x']], d[m['blo']], d[m['bhi']],
+                            color=acmap[s['assignment']], alpha=0.12)
+    for r, ini in enumerate(inits):
+        for c, rs in enumerate(resl):
+            ax = axes[r][c]
+            ax.set_title(f'{ini} | {rs}', fontsize=9)
+            ax.grid(alpha=0.3)
+            if r == nrow - 1:
+                ax.set_xlabel('batch')
+            if c == 0:
+                ax.set_ylabel(m['yl'], fontsize=8)
+    handles = [Line2D([], [], color=acmap[a], lw=2, label=a) for a in sorted(acmap)]
+    axes[0][ncol - 1].legend(handles=handles, fontsize=7, title='assignment')
+    fig.suptitle(title, fontsize=13, fontweight='bold')
+    plt.tight_layout(rect=(0, 0, 1, 0.97))
+    _save_close(fig, path)
+
+
+def _overlay_metric(strategies, S, m, title, path):
+    acmap = _assign_color_map(strategies)
+    smap  = _ir_style_map(strategies)
+    fig, ax = plt.subplots(figsize=(11, 6))
+    for s in strategies:
+        d = S.get(s['key'])
+        if d is None:
+            continue
+        ax.plot(d[m['x']], d[m['y']], color=acmap[s['assignment']],
+                ls=smap[(s['initial'], s['reslot'])], lw=1.1, alpha=0.9)
+    ax.set_xlabel('batch')
+    ax.set_ylabel(m['yl'])
+    ax.grid(alpha=0.3)
+    ax.set_title(title, fontsize=13, fontweight='bold')
+    ch = [Line2D([], [], color=acmap[a], lw=2, label=a) for a in sorted(acmap)]
+    sh = [Line2D([], [], color='k', ls=smap[ir], lw=1.5, label=f'{ir[0]}|{ir[1]}')
+          for ir in sorted(smap)]
+    leg1 = ax.legend(handles=ch, fontsize=8, title='assignment', loc='upper right')
+    ax.add_artist(leg1)
+    ax.legend(handles=sh, fontsize=8, title='initial|reslot', loc='lower right')
+    plt.tight_layout()
+    _save_close(fig, path)
+
+
+def _top_metric(strategies, S, ranking, top_n, m, title, baseline, path):
+    fig, ax = plt.subplots(figsize=(11, 6))
+    db = S.get(baseline['key'])
+    if db is not None:
+        ax.plot(db[m['x']], db[m['y']], color='grey', lw=1.3, ls='--',
+                label=f"baseline · {_stitle(baseline)}")
+    for s in ranking[:top_n]:
+        d = S.get(s['key'])
+        if d is None:
+            continue
+        ax.plot(d[m['x']], d[m['y']], color=s['color'], lw=1.8, label=_stitle(s))
+        if m['blo'] and top_n <= 3 and d.get(m['blo']) is not None:
+            ax.fill_between(d[m['x']], d[m['blo']], d[m['bhi']], color=s['color'], alpha=0.12)
+    ax.set_xlabel('batch')
+    ax.set_ylabel(m['yl'])
+    ax.grid(alpha=0.3)
+    ax.set_title(title, fontsize=13, fontweight='bold')
+    ax.legend(fontsize=8)
+    plt.tight_layout()
+    _save_close(fig, path)
+
+
+def _pick_travel_bars(strategies, S, title, path):
+    avail = [s for s in strategies if S.get(s['key'])]
+    ypos  = np.arange(len(avail))
+    pk = [S[s['key']]['picking_pct']   for s in avail]
+    tv = [S[s['key']]['traveling_pct'] for s in avail]
+    fig, ax = plt.subplots(figsize=(10, max(6.0, len(avail) * 0.3)))
+    ax.barh(ypos, pk, color='#4c72b0', label='picking %')
+    ax.barh(ypos, tv, left=pk, color='#dd8452', label='traveling %')
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([_stitle(s) for s in avail], fontsize=6)
+    ax.invert_yaxis()
+    ax.set_xlabel('% of aggregate picker-time')
+    ax.grid(axis='x', alpha=0.3)
+    ax.legend(loc='lower right')
+    ax.set_title(title, fontsize=12, fontweight='bold')
+    plt.tight_layout()
+    _save_close(fig, path)
+
+
+def _delta_bars(strategies, S, baseline, title, path):
+    avail = [s for s in strategies if S.get(s['key'])]
+    base  = S.get(baseline['key'])
+    if base is None:
+        return
+    bt, bd = base['ss_thr'], base['ss_dur']
+    ypos = np.arange(len(avail))
+    dthr = [_pct_delta(S[s['key']]['ss_thr'], bt) for s in avail]            # ↑ better
+    ddur = [_pct_delta(bd, S[s['key']]['ss_dur']) for s in avail]            # ↑ better (improvement)
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, max(6.0, len(avail) * 0.3)), sharey=True)
+    a1.barh(ypos, dthr, color=['#55a868' if v >= 0 else '#c44e52' for v in dthr])
+    a1.set_title('Throughput Δ% vs baseline (↑ better)', fontsize=10)
+    a1.set_yticks(ypos)
+    a1.set_yticklabels([_stitle(s) for s in avail], fontsize=6)
+    a1.invert_yaxis()
+    a1.axvline(0, color='k', lw=0.8)
+    a1.grid(axis='x', alpha=0.3)
+    a2.barh(ypos, ddur, color=['#55a868' if v >= 0 else '#c44e52' for v in ddur])
+    a2.set_title('Duration improvement % vs baseline (↑ better)', fontsize=10)
+    a2.axvline(0, color='k', lw=0.8)
+    a2.grid(axis='x', alpha=0.3)
+    fig.suptitle(title, fontsize=12, fontweight='bold')
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
+    _save_close(fig, path)
+
+
+def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=False):
+    """Write faceted/, overlay/, top/, breakdown/ for the 3 core metrics."""
+    fac = os.path.join(out_dir, 'faceted')
+    ovl = os.path.join(out_dir, 'overlay')
+    top = os.path.join(out_dir, 'top')
+    brk = os.path.join(out_dir, 'breakdown')
+    for d in (fac, ovl, top, brk):
+        os.makedirs(d, exist_ok=True)
+    unit = ' (× baseline)' if agg else ''
+    metrics = [
+        dict(x='task_batch', y='task_median', blo='task_p25', bhi='task_p75',
+             f='task_duration_over_time', t='Task duration over time (median + IQR)',
+             yl='task duration' + unit),
+        dict(x='task_batch', y='task_mean', blo=None, bhi=None,
+             f='avg_task_duration_over_time', t='Average task duration over time',
+             yl='mean task duration' + unit),
+        dict(x='batch', y='thr', blo=None, bhi=None,
+             f='throughput_over_time', t='Throughput over time (items / sim-time)',
+             yl='throughput' + unit),
+    ]
+    ranking = sorted([s for s in strategies if S.get(s['key'])],
+                     key=lambda s: S[s['key']]['ss_thr'], reverse=True)
+    base = strategies[0]
+    for m in metrics:
+        ttl = f"{m['t']}  [{title_prefix}]"
+        _facet_metric(strategies, S, m, ttl, os.path.join(fac, m['f'] + '.png'))
+        _overlay_metric(strategies, S, m, ttl, os.path.join(ovl, m['f'] + '.png'))
+        _top_metric(strategies, S, ranking, top_n, m, ttl, base,
+                    os.path.join(top, f"top{top_n}_{m['f']}.png"))
+    _pick_travel_bars(strategies, S, f'Pick vs travel  [{title_prefix}]',
+                      os.path.join(brk, 'pick_vs_travel.png'))
+    _delta_bars(strategies, S, base, f'Δ vs baseline  [{title_prefix}]',
+                os.path.join(brk, 'delta_vs_baseline.png'))
+
+
+# ── cross-profile aggregate ────────────────────────────────────────────────────
+
+def _aggregate_series(profile_series_list):
+    """Average per-strategy curves across profiles, normalized per-profile to that
+    profile's baseline-strategy steady-state mean (scale-free).  Returns
+    (agg_strategies, agg_S) ready for the same builders."""
+    per_key = defaultdict(list)               # key -> [(strat_dict, baseline_dict)]
+    order   = {}
+    for ps in profile_series_list:
+        strs = ps.get('strategies', [])
+        if not strs:
+            continue
+        base = strs[0]
+        for i, d in enumerate(strs):
+            per_key[d['key']].append((d, base))
+            order.setdefault(d['key'], i)
+
+    def _avg_norm(items, field, norm_field):
+        arrs = []
+        for d, base in items:
+            a  = np.asarray(d.get(field, []), dtype=float)
+            nb = base.get(norm_field)
+            if a.size and nb and not math.isnan(nb):
+                arrs.append(a / nb)
+        if not arrs:
+            return np.array([])
+        mlen = min(len(a) for a in arrs)
+        return np.mean([a[:mlen] for a in arrs], axis=0)
+
+    agg_S, agg_strats = {}, []
+    for key, items in per_key.items():
+        rep   = items[0][0]
+        thr   = _avg_norm(items, 'thr',         'ss_thr')
+        tmean = _avg_norm(items, 'task_mean',   'ss_task_mean')
+        tmed  = _avg_norm(items, 'task_median', 'ss_task_mean')
+        tp25  = _avg_norm(items, 'task_p25',    'ss_task_mean')
+        tp75  = _avg_norm(items, 'task_p75',    'ss_task_mean')
+        thr_ratio = [d['ss_thr'] / b['ss_thr'] for d, b in items if b.get('ss_thr')]
+        dur_ratio = [d['ss_dur'] / b['ss_dur'] for d, b in items if b.get('ss_dur')]
+        agg_S[key] = dict(
+            batch=np.arange(len(thr)), thr=thr,
+            task_batch=np.arange(len(tmed)), task_mean=tmean, task_median=tmed,
+            task_p25=tp25, task_p75=tp75,
+            ss_thr=float(np.mean(thr_ratio)) if thr_ratio else float('nan'),
+            ss_dur=float(np.mean(dur_ratio)) if dur_ratio else float('nan'),
+            picking_pct=float(np.mean([d['picking_pct']   for d, _ in items])),
+            traveling_pct=float(np.mean([d['traveling_pct'] for d, _ in items])),
+            initial=rep.get('initial', ''), assignment=rep.get('assignment', ''),
+            reslot=rep.get('reslot', ''), color=rep['color'],
+            label=rep.get('label', key), key=key,
+        )
+        agg_strats.append({k: rep.get(k, '') for k in ('key', 'initial', 'assignment',
+                                                       'reslot', 'label')} | {'color': rep['color']})
+    agg_strats.sort(key=lambda s: order.get(s['key'], 1 << 30))
+    return agg_strats, agg_S
+
+
+def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log):
+    """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
+    os.makedirs(out_dir, exist_ok=True)
+    strategies, S = _aggregate_series(profile_series_list)
+    if not strategies:
+        log.warning(f'  aggregate {pickcfg}: no usable series')
+        return
+    _emit_comparison_suite(
+        strategies, S, out_dir, top_n,
+        f'AGG {pickcfg} · {len(profile_series_list)} profiles', agg=True)
+    log.info(f'  aggregate suite -> {out_dir} ({len(profile_series_list)} profiles)')
+
+
 # ── main analysis entry point ──────────────────────────────────────────────────
 
 def run_config_analysis(
@@ -120,6 +438,9 @@ def run_config_analysis(
     aisle_unittype_map = shared['aisle_unittype_map']
     aisle_handling_map = shared['aisle_handling_map']
     k_pickers          = shared.get('k_pickers', 25)
+    top_n              = int(shared.get('top_n', 1) or 1)
+    ps_dir             = os.path.join(run_dir, 'per_strategy')   # de-clutter
+    os.makedirs(ps_dir, exist_ok=True)
 
     base       = strategies[0]                            # delta baseline
     base_key   = base['key']
@@ -144,8 +465,8 @@ def run_config_analysis(
                        axis=1, keys=labels).round(3)
     summ_t = pd.concat([df_t[s['key']][tcols].agg(['mean', 'median', 'std']).T for s in strategies],
                        axis=1, keys=labels).round(3)
-    summ_b.to_csv(os.path.join(run_dir, 'summary_batch.csv'))
-    summ_t.to_csv(os.path.join(run_dir, 'summary_task.csv'))
+    summ_b.to_csv(os.path.join(ps_dir, 'summary_batch.csv'))
+    summ_t.to_csv(os.path.join(ps_dir, 'summary_task.csv'))
     log.info(f'\n{summ_b.to_string()}\n')
     log.info(f'\n{summ_t.to_string()}\n')
 
@@ -153,11 +474,6 @@ def run_config_analysis(
     inv = sim_result.get('inventory', '') or name
     optimal = float(sim_result.get('optimal_sigma_fd') or 0.0)
     total_bins = float(shared.get('total_bins') or 0)
-
-    def _stitle(s):
-        parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),
-                             s.get('reslot', '')) if p]
-        return '|'.join(parts) if parts else s.get('label', s['key'])
 
     def _full_title(s):
         bits = [inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
@@ -217,7 +533,7 @@ def run_config_analysis(
         if axes:
             axes[0].set_ylabel(ylabel, fontsize=8)
         plt.tight_layout(rect=(0, 0, 1, 0.98))
-        _save_close(fig, os.path.join(run_dir, fname))
+        _save_close(fig, os.path.join(ps_dir, fname))
 
     _metric_grid('grid_batch_duration.png', 'Batch duration (rolling mean)', _panel_duration, 'sim time')
     _metric_grid('grid_sigma_fd.png',
@@ -238,7 +554,7 @@ def run_config_analysis(
         _panel_churn(a3, s); a3.set_title('Churn (% bins/batch)', fontsize=10)
         a3.set_xlabel('batch'); a3.grid(alpha=0.3)
         plt.tight_layout(rect=(0, 0, 1, 0.92))
-        _save_close(fig, os.path.join(run_dir, f"strat_{s['key']}.png"))
+        _save_close(fig, os.path.join(ps_dir, f"strat_{s['key']}.png"))
 
     # ── rectangular SUMMARY: headline metrics across strategies, side by side ──
     ylabels = [_stitle(s) for s in strategies]
@@ -264,6 +580,12 @@ def run_config_analysis(
     b3.barh(ypos, mean_eff, color=yc); b3.set_title('Mean Sigma f*D efficiency % (higher better)', fontsize=10)
     b3.grid(axis='x', alpha=0.3)
     plt.tight_layout(rect=(0, 0, 1, 0.98))
-    _save_close(fig, os.path.join(run_dir, 'summary.png'))
+    _save_close(fig, os.path.join(ps_dir, 'summary.png'))
 
-    log.info(f'  Saved {n} strategies (grids + scorecards + summary) -> {run_dir}')
+    # ── comparison suite: faceted / overlay / top + breakdown, plus series.json ─
+    S = _build_series(strategies, df_b, df_t)
+    _emit_comparison_suite(strategies, S, os.path.join(run_dir, 'compare'),
+                           top_n, f'{inv} / {name}')
+    _dump_series(strategies, S, os.path.join(run_dir, 'series.json'))
+
+    log.info(f'  Saved {n} strategies: per_strategy/ + compare/ + series.json -> {run_dir}')
