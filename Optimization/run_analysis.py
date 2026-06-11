@@ -72,7 +72,7 @@ def _sim_result_from_meta(meta: dict) -> dict:
     return sim_result
 
 
-def _run_aggregate(base_dir: str, top_n: int, log: logging.Logger) -> None:
+def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger) -> None:
     """Cross-profile roll-up: group every config's series.json by pick-config name
     (the leaf dir) across all profiles, then emit one aggregate suite per group under
     base_dir/_aggregate/<pickcfg>/."""
@@ -93,13 +93,13 @@ def _run_aggregate(base_dir: str, top_n: int, log: logging.Logger) -> None:
     for cfg, plist in groups.items():
         out_dir = os.path.join(base_dir, '_aggregate', cfg)
         try:
-            _run_aggregate_analysis(plist, out_dir, top_n, cfg, log)
+            _run_aggregate_analysis(plist, out_dir, top_n, cfg, log, top_by=top_by)
         except Exception as exc:
             log.error(f'  aggregate FAILED for {cfg}: {exc}', exc_info=True)
 
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 top_n: int = 1) -> None:
+                 top_n: int = 1, top_by: str = 'global') -> None:
     """Re-run analysis (plots + CSV summaries) on all completed sims under *base_dir*.
 
     Scans base_dir/pair_label/config_name/sim_meta.json.  build_shared_assets runs
@@ -143,6 +143,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
                 continue
             slim = {k: shared.get(k) for k in _SLIM_KEYS}  # picklable subset per pair
             slim['top_n'] = top_n
+            slim['top_by'] = top_by
 
             for meta in config_metas:
                 sim_result = _sim_result_from_meta(meta)
@@ -167,7 +168,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
 
     # ── cross-profile aggregate (main process; needs all series.json on disk) ──
     log.info('  Building cross-profile aggregate suites...')
-    _run_aggregate(base_dir, top_n, log)
+    _run_aggregate(base_dir, top_n, top_by, log)
 
 
 def main() -> None:
@@ -192,6 +193,13 @@ def main() -> None:
         help='Number of best strategies (by steady-state throughput) to overlay in '
              'the compare/top/ plots.',
     )
+    parser.add_argument(
+        '--top-by', default='global', dest='top_by',
+        choices=('global', 'initial', 'assignment', 'reslot'),
+        help="How the compare/top/ plot picks its strategies: 'global' = top-N overall "
+             "(tends to be dominated by optimal-start); a dimension = top-N WITHIN each "
+             "value of it (e.g. 'initial' overlays the best Uniform vs best Optimal).",
+    )
     args = parser.parse_args()
 
     if args.base_dir is None:
@@ -209,8 +217,9 @@ def main() -> None:
         sys.exit(f'Directory not found: {base_dir}')
 
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
-    log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers}, top_n={args.top_n})')
-    run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n)
+    log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers}, '
+             f'top_n={args.top_n}, top_by={args.top_by})')
+    run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n, top_by=args.top_by)
     log.info('Done.')
 
 

@@ -249,24 +249,91 @@ def _overlay_metric(strategies, S, m, title, path):
     _save_close(fig, path)
 
 
-def _top_metric(strategies, S, ranking, top_n, m, title, baseline, path):
+_TOP_DIMS = ('initial', 'assignment', 'reslot')
+
+
+def _select_top(strategies, S, top_n, top_by):
+    """Choose which strategies the top/ plot shows.
+
+    'global'  → the top_n strategies overall (by steady-state throughput).
+    a dim     → the top_n WITHIN each value of that dim (initial/assignment/reslot),
+                so the comparison isn't dominated by one family (e.g. optimal-start).
+    Returns (selected_strategies, group_of_key) where group_of_key maps key→group
+    label ('' for global)."""
+    avail = [s for s in strategies if S.get(s['key'])]
+    rank  = lambda s: S[s['key']]['ss_thr']
+    if top_by in _TOP_DIMS:
+        groups = defaultdict(list)
+        for s in avail:
+            groups[s[top_by]].append(s)
+        out, gof = [], {}
+        for g in sorted(groups):
+            for s in sorted(groups[g], key=rank, reverse=True)[:top_n]:
+                out.append(s)
+                gof[s['key']] = g
+        return out, gof
+    return sorted(avail, key=rank, reverse=True)[:top_n], {}
+
+
+def _top_metric(strategies, S, top_n, m, title, baseline, path, top_by='global'):
+    selected, gof = _select_top(strategies, S, top_n, top_by)
+    # in grouped mode, linestyle encodes the group so the families are distinguishable
+    gstyle = {g: _LINESTYLES[i % len(_LINESTYLES)] for i, g in enumerate(sorted(set(gof.values())))}
     fig, ax = plt.subplots(figsize=(11, 6))
     db = S.get(baseline['key'])
     if db is not None:
         ax.plot(db[m['x']], db[m['y']], color='grey', lw=1.3, ls='--',
                 label=f"baseline · {_stitle(baseline)}")
-    for s in ranking[:top_n]:
+    solo = len(selected) <= 3
+    for s in selected:
         d = S.get(s['key'])
         if d is None:
             continue
-        ax.plot(d[m['x']], d[m['y']], color=s['color'], lw=1.8, label=_stitle(s))
-        if m['blo'] and top_n <= 3 and d.get(m['blo']) is not None:
+        ls = gstyle.get(gof.get(s['key']), '-')
+        ax.plot(d[m['x']], d[m['y']], color=s['color'], lw=1.8, ls=ls, label=_stitle(s))
+        if m['blo'] and solo and d.get(m['blo']) is not None:
             ax.fill_between(d[m['x']], d[m['blo']], d[m['bhi']], color=s['color'], alpha=0.12)
     ax.set_xlabel('batch')
     ax.set_ylabel(m['yl'])
     ax.grid(alpha=0.3)
-    ax.set_title(title, fontsize=13, fontweight='bold')
+    sub = f'  (top {top_n} per {top_by})' if top_by in _TOP_DIMS else f'  (top {top_n})'
+    ax.set_title(title + sub, fontsize=12, fontweight='bold')
     ax.legend(fontsize=8)
+    plt.tight_layout()
+    _save_close(fig, path)
+
+
+def _task_box(strategies, df_t, title, path, win=_WIN):
+    """Box plot of steady-state task durations, one box per strategy (color =
+    assignment), with mean markers — task time per strategy at a glance."""
+    avail, data = [], []
+    for s in strategies:
+        df = df_t[s['key']]
+        if df.empty:
+            continue
+        d = df[df['batch_id'] >= df['batch_id'].max() - win]['duration'].values
+        if len(d):
+            avail.append(s)
+            data.append(d)
+    if not avail:
+        return
+    acmap = _assign_color_map(avail)
+    xs = np.arange(1, len(avail) + 1)
+    fig, ax = plt.subplots(figsize=(max(10.0, len(avail) * 0.55), 6))
+    bp = ax.boxplot(data, showfliers=False, patch_artist=True, widths=0.6,
+                    medianprops=dict(color='black'))
+    for patch, s in zip(bp['boxes'], avail):
+        patch.set_facecolor(acmap[s['assignment']])
+        patch.set_alpha(0.8)
+    ax.plot(xs, [float(np.mean(d)) for d in data], 'D', color='black', ms=4, label='mean')
+    ax.set_xticks(xs)
+    ax.set_xticklabels([_stitle(s) for s in avail], rotation=90, fontsize=6)
+    ax.set_ylabel('task duration (steady state)')
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_title(title, fontsize=12, fontweight='bold')
+    handles = [Line2D([], [], color=acmap[a], lw=6, label=a) for a in sorted(acmap)]
+    handles.append(Line2D([], [], marker='D', color='black', ls='', label='mean'))
+    ax.legend(handles=handles, fontsize=7, ncol=2)
     plt.tight_layout()
     _save_close(fig, path)
 
@@ -316,7 +383,8 @@ def _delta_bars(strategies, S, baseline, title, path):
     _save_close(fig, path)
 
 
-def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=False):
+def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=False,
+                           top_by='global'):
     """Write faceted/, overlay/, top/, breakdown/ for the 3 core metrics."""
     fac = os.path.join(out_dir, 'faceted')
     ovl = os.path.join(out_dir, 'overlay')
@@ -336,15 +404,14 @@ def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=Fals
              f='throughput_over_time', t='Throughput over time (items / sim-time)',
              yl='throughput' + unit),
     ]
-    ranking = sorted([s for s in strategies if S.get(s['key'])],
-                     key=lambda s: S[s['key']]['ss_thr'], reverse=True)
     base = strategies[0]
+    top_tag = f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
     for m in metrics:
         ttl = f"{m['t']}  [{title_prefix}]"
         _facet_metric(strategies, S, m, ttl, os.path.join(fac, m['f'] + '.png'))
         _overlay_metric(strategies, S, m, ttl, os.path.join(ovl, m['f'] + '.png'))
-        _top_metric(strategies, S, ranking, top_n, m, ttl, base,
-                    os.path.join(top, f"top{top_n}_{m['f']}.png"))
+        _top_metric(strategies, S, top_n, m, ttl, base,
+                    os.path.join(top, f"{top_tag}_{m['f']}.png"), top_by=top_by)
     _pick_travel_bars(strategies, S, f'Pick vs travel  [{title_prefix}]',
                       os.path.join(brk, 'pick_vs_travel.png'))
     _delta_bars(strategies, S, base, f'Δ vs baseline  [{title_prefix}]',
@@ -408,7 +475,8 @@ def _aggregate_series(profile_series_list):
     return agg_strats, agg_S
 
 
-def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log):
+def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
+                           top_by='global'):
     """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
     os.makedirs(out_dir, exist_ok=True)
     strategies, S = _aggregate_series(profile_series_list)
@@ -417,7 +485,7 @@ def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log):
         return
     _emit_comparison_suite(
         strategies, S, out_dir, top_n,
-        f'AGG {pickcfg} · {len(profile_series_list)} profiles', agg=True)
+        f'AGG {pickcfg} · {len(profile_series_list)} profiles', agg=True, top_by=top_by)
     log.info(f'  aggregate suite -> {out_dir} ({len(profile_series_list)} profiles)')
 
 
@@ -474,6 +542,10 @@ def run_config_analysis(
     inv = sim_result.get('inventory', '') or name
     optimal = float(sim_result.get('optimal_sigma_fd') or 0.0)
     total_bins = float(shared.get('total_bins') or 0)
+    top_by = shared.get('top_by', 'global') or 'global'
+
+    # per-strategy time series + steady-state scalars (also feeds the compare/ suite)
+    S = _build_series(strategies, df_b, df_t)
 
     def _full_title(s):
         bits = [inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
@@ -518,11 +590,25 @@ def run_config_analysis(
 
     def _panel_taskdur(ax, s):
         data = df_t[s['key']]['duration'].values
-        if len(data):
-            ax.hist(data, bins=30, color=s['color'], alpha=0.7, edgecolor='white')
+        if not len(data):
+            return
+        ax.hist(data, bins=30, color=s['color'], alpha=0.7, edgecolor='white')
+        mean, med = float(np.mean(data)), float(np.median(data))
+        ax.axvline(mean, color='red',   lw=1.4, ls='--', label=f'mean {mean:.0f}')
+        ax.axvline(med,  color='black', lw=1.2, ls=':',  label=f'med {med:.0f}')
+        ax.legend(fontsize=5, loc='upper right')
+
+    def _panel_task_overtime(ax, s):
+        d = S.get(s['key'])
+        if d is None:
+            return
+        x = d['task_batch']
+        ax.fill_between(x, d['task_p25'], d['task_p75'], color=s['color'], alpha=0.18, label='IQR')
+        ax.plot(x, d['task_median'], color=s['color'], lw=1.3, label='median')
+        ax.plot(x, d['task_mean'],   color='black',    lw=1.0, ls='--', label='mean')
 
     # ── per-metric GRID images: one rectangular grid, one panel per strategy ───
-    def _metric_grid(fname, title, panel, ylabel):
+    def _metric_grid(fname, title, panel, ylabel, legend=False):
         fig, axes = _grid(n)
         fig.suptitle(f'{title}  [{inv} / {name}]', fontsize=13, fontweight='bold')
         for ax, s in zip(axes, strategies):
@@ -532,6 +618,8 @@ def run_config_analysis(
             ax.grid(alpha=0.3)
         if axes:
             axes[0].set_ylabel(ylabel, fontsize=8)
+            if legend:
+                axes[0].legend(fontsize=6, loc='upper right')
         plt.tight_layout(rect=(0, 0, 1, 0.98))
         _save_close(fig, os.path.join(ps_dir, fname))
 
@@ -540,7 +628,10 @@ def run_config_analysis(
                  'Layout efficiency: optimal / realised Sigma f*D (%)' if optimal > 0 else 'Sigma f*D (lower better)',
                  _panel_eff, '% of optimal' if optimal > 0 else 'Sigma f*D')
     _metric_grid('grid_churn.png', 'Inventory churn (% of bins moved / batch)', _panel_churn, '% / batch')
-    _metric_grid('grid_task_duration.png', 'Task (aisle) duration distribution', _panel_taskdur, 'count')
+    _metric_grid('grid_task_duration.png', 'Task (aisle) duration distribution (mean + median)',
+                 _panel_taskdur, 'count')
+    _metric_grid('grid_task_over_time.png', 'Task duration over time (median, mean, IQR)',
+                 _panel_task_overtime, 'task duration', legend=True)
 
     # ── per-strategy SCORECARDS: one image per strategy ────────────────────────
     for s in strategies:
@@ -583,9 +674,12 @@ def run_config_analysis(
     _save_close(fig, os.path.join(ps_dir, 'summary.png'))
 
     # ── comparison suite: faceted / overlay / top + breakdown, plus series.json ─
-    S = _build_series(strategies, df_b, df_t)
-    _emit_comparison_suite(strategies, S, os.path.join(run_dir, 'compare'),
-                           top_n, f'{inv} / {name}')
+    compare_dir = os.path.join(run_dir, 'compare')
+    _emit_comparison_suite(strategies, S, compare_dir, top_n, f'{inv} / {name}',
+                           top_by=top_by)
+    # task-time-per-strategy comparison (raw steady-state distributions; per-config only)
+    _task_box(strategies, df_t, f'Steady-state task duration by strategy  [{inv} / {name}]',
+              os.path.join(compare_dir, 'breakdown', 'task_duration_by_strategy.png'))
     _dump_series(strategies, S, os.path.join(run_dir, 'series.json'))
 
     log.info(f'  Saved {n} strategies: per_strategy/ + compare/ + series.json -> {run_dir}')
