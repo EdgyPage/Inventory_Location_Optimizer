@@ -14,6 +14,7 @@ import json
 import logging
 import math
 import os
+import shutil
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -83,6 +84,13 @@ def _kde_plot(ax, data, color, bins):
 def _save_close(fig, path):
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
+
+
+def _fresh_dir(path):
+    """Remove a stale output directory and recreate it empty, so a re-run can never
+    leave mismatched plots (e.g. an old top5_* beside a new top3_by_initial_*) behind."""
+    shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(path, exist_ok=True)
 
 
 def _row(n, figw=4.8, h=4.5):
@@ -478,7 +486,7 @@ def _aggregate_series(profile_series_list):
 def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
                            top_by='global'):
     """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
-    os.makedirs(out_dir, exist_ok=True)
+    _fresh_dir(out_dir)   # never mix this run's aggregate with a prior one
     strategies, S = _aggregate_series(profile_series_list)
     if not strategies:
         log.warning(f'  aggregate {pickcfg}: no usable series')
@@ -507,8 +515,11 @@ def run_config_analysis(
     aisle_handling_map = shared['aisle_handling_map']
     k_pickers          = shared.get('k_pickers', 25)
     top_n              = int(shared.get('top_n', 1) or 1)
+    # wipe prior analysis outputs so a re-run can't leave stale/mismatched plots behind
+    # (the sim DBs, sim_meta.json, checkpoints at run_dir root are untouched).
     ps_dir             = os.path.join(run_dir, 'per_strategy')   # de-clutter
-    os.makedirs(ps_dir, exist_ok=True)
+    _fresh_dir(ps_dir)
+    _fresh_dir(os.path.join(run_dir, 'compare'))
 
     base       = strategies[0]                            # delta baseline
     base_key   = base['key']
