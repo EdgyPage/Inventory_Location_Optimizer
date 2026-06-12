@@ -348,6 +348,16 @@ def _require_affinity(affinity, policy: str) -> None:
             "Refusing to place without the co-occurrence data it is supposed to use.")
 
 
+def _require_demand(freq_map, policy: str, what: str) -> None:
+    """Fail loudly if a demand-WEIGHTED policy is built with an empty frequency map,
+    rather than silently weighting every SKU by 0 and degrading to uniform.  Ranked
+    drains are exempt: their priority reads carton.demand.frequency directly."""
+    if not freq_map:
+        raise ValueError(
+            f"{policy} placement requires {what} but it is empty. "
+            "Refusing to place without the demand frequencies it weights by.")
+
+
 def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           freq_by_idx, freq_by_sku, qty_by_sku, beta,
@@ -368,6 +378,9 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     """
     if score_kind == 'cohesion':
         _require_affinity(affinity, name)      # cohesion is meaningless without lift data
+        _require_demand(freq_by_idx, name, 'freq_by_idx (the demand-weighted lift)')
+    elif score_kind == 'travel':
+        _require_demand(freq_by_sku, name, 'freq_by_sku (the f_s*D objective)')
     x_speed = wp.x_speed
     y_speed = wp.y_speed
     # cohesion always uses the front (min-D) bay; travel uses min-D when minimising
@@ -747,6 +760,7 @@ def build_co_demand_placement(compact, affinity, wp,
     or expansion (compact=False).  Wired by strategies._build_compaction/_build_expansion."""
     name = 'compaction' if compact else 'expansion'
     _require_affinity(affinity, name)          # co-demand is meaningless without lift data
+    _require_demand(freq_by_idx, name, 'freq_by_idx (the partner-centroid weight)')
     place_one = _build_co_demand_place_one(
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
         freq_by_idx, freq_by_sku, qty_by_sku, compact, name)

@@ -68,12 +68,13 @@ def test_registries_and_names():
     check('SCORER_NEEDS uniform = (neither)', A.SCORER_NEEDS['uniform_min'] == (False, False))
 
     wp = types.SimpleNamespace(x_speed=1.0, y_speed=0.5)
-    aff, _ = _aff([1, 2], [])
+    aff, idx = _aff([1, 2], [])
+    fbi = {idx[1]: 0.5, idx[2]: 1.0}     # non-empty demand maps (the policies weight by them)
     fn = A.ASSIGNMENT_BUILDERS['travel_min'](aff, wp, defaultdict(set), defaultdict(set),
-                                             defaultdict(float), {}, {1: 0.5}, {1: 1.0})
+                                             defaultdict(float), fbi, {1: 0.5}, {1: 1.0})
     check("built 'travel_min' carries .name", getattr(fn, 'name', None) == 'travel_min')
     fn2 = A.ASSIGNMENT_BUILDERS['cohesion_max'](aff, wp, defaultdict(set), defaultdict(set),
-                                                defaultdict(float), {}, {1: 0.5}, {1: 1.0})
+                                                defaultdict(float), fbi, {1: 0.5}, {1: 1.0})
     check("built 'cohesion_max' carries .name", getattr(fn2, 'name', None) == 'cohesion_max')
 
 
@@ -137,6 +138,20 @@ def test_co_demand_compaction_expansion():
         raised_cohesion = True
     check('co-demand refuses a null affinity matrix (never silent-degrades)', raised_codemand)
     check('cohesion refuses a null affinity matrix (never silent-degrades)', raised_cohesion)
+
+    # ...and likewise refuses empty demand maps it weights by (valid affinity, empty freq)
+    raised_dmd_codemand = raised_dmd_travel = False
+    nss, nii, ndd, nmp = _state(0.0)
+    try:
+        A.build_co_demand_placement(True, aff, wp, nss, nii, ndd, nmp, {}, fbs, qbs)
+    except ValueError:
+        raised_dmd_codemand = True
+    try:
+        A.build_trip_minimizing_assignment_fn(aff, wp, nss, nii, ndd, fbi, {}, qbs)  # empty freq_by_sku
+    except ValueError:
+        raised_dmd_travel = True
+    check('co-demand refuses empty freq_by_idx (never silent-degrades)', raised_dmd_codemand)
+    check('travel refuses empty freq_by_sku (never silent-degrades)', raised_dmd_travel)
 
 
 if __name__ == '__main__':
