@@ -41,7 +41,7 @@ from Affinity_Store import AffinityStore
 from Carton import Carton
 from Demand import Demand
 from Inventory_Builder import Inventory
-from Inventory_Management import Inventory_Manager, LoadParams
+from Inventory_Management import Inventory_Manager, LoadParams, Placement
 from Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
@@ -210,11 +210,11 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_B.enqueue_all(inventory.cartons, quantity=1)
     manager_B.init_lift_state(affinity_store)
-    manager_B.assignment_fn = build_load_minimizing_assignment_fn(
+    manager_B.placement = Placement('load_min', build_load_minimizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
         manager_B._aisle_idx_sets,
-    )
+    ))
 
     Aisle.next_aisle_id = 1
     random.seed(seed)
@@ -223,11 +223,11 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_C.enqueue_all(inventory.cartons, quantity=1)
     manager_C.init_lift_state(affinity_store)
-    manager_C.assignment_fn = build_load_maximizing_assignment_fn(
+    manager_C.placement = Placement('load_max', build_load_maximizing_assignment_fn(
         load_params, affinity_store, wp,
         manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
         manager_C._aisle_idx_sets,
-    )
+    ))
 
     placed_A = len(manager_A.unavailable)
     total_bins = len(warehouse_A.bins)

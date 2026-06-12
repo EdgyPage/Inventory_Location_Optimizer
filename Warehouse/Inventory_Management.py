@@ -1187,7 +1187,21 @@ class Inventory_Manager:
     def _drain(self) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
         policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
-        used by enqueue/enqueue_all (initial stock) and check_reorders (reorders)."""
+        used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
+
+        Runs the coupling guard first — even on an empty queue — so an armed/fn
+        mismatch fails loudly before any placement: when travel costs are armed,
+        candidates is passed as None and place_one MUST read mgr._aisle_index instead;
+        a mismatch (index armed but fn scans, or vice-versa) silently returns None for
+        every placement.
+        """
+        fast = self._travel_costs_ready
+        if fast != self.placement.uses_aisle_index:
+            raise RuntimeError(
+                f'Assignment divergence: _travel_costs_ready={fast} but '
+                f'placement.uses_aisle_index={self.placement.uses_aisle_index} '
+                f'(policy {self.placement.name!r}).  init_travel_costs() and an '
+                'index-consuming placement must be armed together or not at all.')
         if not self._queue:
             return
         if self.placement.is_ranked:
@@ -1199,26 +1213,13 @@ class Inventory_Manager:
         """Place queued StorageUnit objects one at a time via placement.place_one.
 
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
-        wave leaves behind.
+        wave leaves behind.  The coupling guard runs in _drain() (the single entry).
 
         Placement failures:
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
           2. Fall back to singleton bins of the same carton type (same).
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
-        # Coupling guard: when travel costs are armed, candidates is passed as
-        # None and place_one MUST read mgr._aisle_index instead.  If the two halves
-        # disagree (index armed but fn scans candidates, or vice-versa) every
-        # placement silently returns None.  Fail loudly on the first wave, before
-        # any results, rather than producing an empty-placement run.
-        fast = self._travel_costs_ready
-        if fast != self.placement.uses_aisle_index:
-            raise RuntimeError(
-                f'Assignment divergence: _travel_costs_ready={fast} but '
-                f'placement.uses_aisle_index={self.placement.uses_aisle_index} '
-                f'(policy {self.placement.name!r}).  init_travel_costs() and an '
-                'index-consuming placement must be armed together or not at all.')
-
         pending: deque[StorageUnit] = deque()
         while self._queue:
             unit   = self._queue.popleft()

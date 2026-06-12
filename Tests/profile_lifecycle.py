@@ -46,7 +46,7 @@ import numpy as np
 from Affinity_Store import AffinityStore
 from Aisle_Storage import Aisle
 from Inventory_Builder import Inventory
-from Inventory_Management import Inventory_Manager, LoadParams
+from Inventory_Management import Inventory_Manager, LoadParams, Placement
 from Assignment_Functions import (
     build_cluster_minimizing_assignment_fn,
     build_cluster_maximizing_assignment_fn,
@@ -110,8 +110,8 @@ def _remove_timers(originals: dict) -> None:
 
 
 def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> None:
-    """Wrap manager.assignment_fn in-place with a wall-clock counter."""
-    orig = manager.assignment_fn
+    """Wrap manager.placement.place_one in-place with a wall-clock counter."""
+    orig = manager.placement.place_one
 
     def _timed(unit, candidates):
         t = time.perf_counter()
@@ -120,10 +120,9 @@ def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> No
         counters[key][1] += 1
         return r
 
-    # Preserve the coupling tag the manager's _drain guard reads, otherwise the
-    # wrapper looks like a scan-path fn and trips the divergence guard.
+    # Preserve the coupling tag (placement.uses_aisle_index was cached at build time).
     _timed.uses_aisle_index = getattr(orig, 'uses_aisle_index', False)
-    manager.assignment_fn = _timed
+    manager.placement.place_one = _timed
 
 
 # ── shared asset builder ──────────────────────────────────────────────────────
@@ -241,12 +240,12 @@ def _build_assets(
             qty_by_sku  = {c.sku: c.demand.quantity_rate for c in sampled}
             freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.frequency
                            for c in sampled if c.sku in aff._sku_to_idx}
-            mgr.assignment_fn = fn_builder(
+            mgr.placement = Placement('profiled', fn_builder(
                 aff, wp,
                 mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
                 freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
                 aisle_index=mgr._aisle_index,
-            )
+            ))
         filled = len(mgr.unavailable)
         total  = len(wh.bins)
         print(f'    Warehouse {label}: {filled:,} / {total:,} bins '

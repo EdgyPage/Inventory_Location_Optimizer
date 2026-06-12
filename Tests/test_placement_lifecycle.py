@@ -30,7 +30,7 @@ from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from Carton import Carton
 from Demand import Demand
-from Inventory_Management import Inventory_Manager, LoadParams
+from Inventory_Management import Inventory_Manager, LoadParams, Placement
 from Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
@@ -410,10 +410,10 @@ def test_load_aware_reorder() -> None:
     # Set load-minimizing assignment
     wp = WorkloadParams()
     lp = LoadParams(lambda_=1.1, k=1.0, gamma=1.5)
-    mgr.assignment_fn = build_load_minimizing_assignment_fn(
+    mgr.placement = Placement('load_min', build_load_minimizing_assignment_fn(
         lp, affinity, wp,
         mgr._aisle_sku_sets, mgr._aisle_lift_sum, mgr._aisle_idx_sets,
-    )
+    ))
 
     # Deplete SKU 30
     initial   = mgr._initial_quantities[30]
@@ -440,10 +440,10 @@ def test_load_aware_reorder() -> None:
     cartons2 = [_make_carton(sku=i, stock_qty=20) for i in range(40, 45)]
     mgr2.enqueue_all(cartons2, quantity=1)
     mgr2.init_lift_state(aff2)
-    mgr2.assignment_fn = build_load_maximizing_assignment_fn(
+    mgr2.placement = Placement('load_max', build_load_maximizing_assignment_fn(
         lp, aff2, wp,
         mgr2._aisle_sku_sets, mgr2._aisle_lift_sum, mgr2._aisle_idx_sets,
-    )
+    ))
     init2     = mgr2._initial_quantities[40]
     thresh2   = max(1, round(init2 * 0.10))
     mgr2._notify_pick(40, init2 - thresh2)

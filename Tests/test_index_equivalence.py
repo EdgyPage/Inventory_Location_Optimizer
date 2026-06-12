@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Optimization')
 sys.path.insert(0, os.path.dirname(__file__))
 
 from Aisle_Storage import Aisle
-from Inventory_Management import Inventory_Manager
+from Inventory_Management import Inventory_Manager, Placement
 from Assignment_Functions import build_cluster_minimizing_assignment_fn
 from Pick import PickConfig, PickSimulation
 from Workload import WorkloadParams
@@ -52,10 +52,10 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.cartons}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
                    for c in inventory.cartons if c.sku in affinity._sku_to_idx}
-    mgr.assignment_fn = build_cluster_minimizing_assignment_fn(
+    mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
         affinity, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
-        aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None))
+        aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
     return wh, mgr
 
 
@@ -93,8 +93,8 @@ def test_cluster_index_matches_scan(assets):
     wh1, mgr1 = _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm=False)
     wh2, mgr2 = _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm=True)
 
-    assert getattr(mgr1.assignment_fn, 'uses_aisle_index', None) is False
-    assert getattr(mgr2.assignment_fn, 'uses_aisle_index', None) is True
+    assert mgr1.placement.uses_aisle_index is False
+    assert mgr2.placement.uses_aisle_index is True
 
     state_scan  = _run(wh1, mgr1, pick_cfg, batch_cfg, inventory)
     state_index = _run(wh2, mgr2, pick_cfg, batch_cfg, inventory)
@@ -127,7 +127,7 @@ def test_guard_raises_when_index_fn_without_arming(assets):
     def fn(unit, candidates):
         return None
     fn.uses_aisle_index = True             # fn half armed; mgr half not
-    mgr.assignment_fn = fn
+    mgr.placement = Placement('test', fn)
     with pytest.raises(RuntimeError, match='Assignment divergence'):
         mgr._drain()
 

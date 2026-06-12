@@ -23,11 +23,9 @@ flag_task_outliers(stats, iqr_factor)
 build_placed_affinity(warehouse, inventory, max_per_group)
     Sparse lift matrix for only the SKUs that have a physical bin.
 
-task_stats_to_aisle_loads(task_stats, run_id)
-    Convert TaskStats records into AisleLoadRecords for parameter recovery.
-
-recover_params_to_db(db_path, run_id, records, k_per_task, ...)
-    Full IQR-clean recovery pipeline — fits LoadParams and persists to DB.
+sum_lift(skus, affinity)
+    Demand-weighted co-occurrence helper for a dict-based lift matrix (AffinityStore
+    objects carry their own faster .sum_lift; this is the dict fallback).
 """
 from __future__ import annotations
 
@@ -39,8 +37,14 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
 
 from Picking_Data import BatchStats, TaskStats, PickRecord
-from Picking_Analytics import sum_lift
 from Workload import WorkloadParams, aisle_workload
+
+
+# (sku_i, sku_j) -> lift; symmetric dict.  Only the fallback for non-AffinityStore
+# affinity (the live pipeline passes an AffinityStore with its own .sum_lift method).
+def sum_lift(skus: list[int], affinity: dict) -> float:
+    """Sum of pairwise lift over ordered pairs (i, j), i != j, in `skus`."""
+    return sum(affinity.get((i, j), 0.0) for i in skus for j in skus if i != j)
 
 
 # ── concurrency ───────────────────────────────────────────────────────────────
