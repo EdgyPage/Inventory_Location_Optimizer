@@ -59,7 +59,7 @@ _load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
-from generate_inventory import load_inventory_from_db, save_inventory_to_db
+from generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
 from strategies import STRATEGIES
 from Pick import PickConfig

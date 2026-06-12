@@ -32,7 +32,7 @@ import types
 from Aisle_Storage import Aisle
 from Carton import Carton, StorageHandleConfig
 from Demand import Demand
-from generate_inventory import (
+from generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
     save_inventory_to_db, load_inventory_from_db, Inventory,
 )

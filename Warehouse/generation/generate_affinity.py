@@ -73,9 +73,10 @@ import numpy as np
 import pandas as pd
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
+_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports + output dirs
+sys.path.insert(0, _WH)
 
-_DEFAULT_OUT_DIR     = os.path.join(_HERE, 'generated', 'affinities')
+_DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
 _TOP_K_DEFAULT       = 20
 _CANDIDATE_K_DEFAULT = 60    # must be > _TOP_K_DEFAULT; provides buffer for noise reranking
 _NOISE_STD_DEFAULT   = 0.15  # Gaussian noise std added to each lift score

@@ -46,7 +46,7 @@ from Storage_Primitive import viable_storage_units as _vsu
 _OVERSTOCK_MIN_HEADROOM: int = 10
 from Affinity_Store import AffinityStore
 from fast_pick import DeferredPickSimulation
-from generate_inventory import load_inventory_from_db
+from generation.generate_inventory import load_inventory_from_db
 from Inventory_Management import Inventory_Manager
 from Capacity_Reloader import RELOADERS
 from strategies import STRATEGY_BY_KEY, StrategyContext

@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 import Storage_Primitive
 from Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Inventory_Management import Inventory_Manager
-from generate_inventory import (
+from generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
 )
 

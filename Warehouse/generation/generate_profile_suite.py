@@ -65,8 +65,9 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, _HERE)
+_WH        = os.path.dirname(_HERE)          # Warehouse/ (parent of generation/)
+_REPO_ROOT = os.path.dirname(_WH)            # repo root
+sys.path.insert(0, _WH)
 
 
 def _load_env(path: str) -> None:
@@ -90,9 +91,9 @@ def _load_env(path: str) -> None:
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
-from generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _INV_DEFAULT
-from generate_affinity  import generate_run as _aff_run, estimate as _aff_estimate, \
-                               print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
+from generation.generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _INV_DEFAULT
+from generation.generate_affinity  import generate_run as _aff_run, estimate as _aff_estimate, \
+                                          print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
 
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path."""
@@ -103,7 +104,7 @@ def _clean_path(val: str) -> str:
 
 _DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
     'PROFILE_INPUT_DIR',
-    os.path.join(_HERE, 'generated', 'profiles'),
+    os.path.join(_WH, 'generated', 'profiles'),
 ))
 
 

@@ -72,14 +72,15 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
+_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports + output dirs
+sys.path.insert(0, _WH)
 
 from Carton import Carton, StorageHandleConfig
 from Demand import Demand
 from Inventory_Builder import Inventory
 from Storage_Primitive import Storage_Type
 
-_DEFAULT_OUT_DIR  = os.path.join(_HERE, 'generated', 'inventories')
+_DEFAULT_OUT_DIR  = os.path.join(_WH, 'generated', 'inventories')
 _HANDLINGS        = ['conveyable', 'non-conveyable']
 _CATEGORIES       = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _CARTON_MAX_DIM   = 48

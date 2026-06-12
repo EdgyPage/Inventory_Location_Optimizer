@@ -53,7 +53,7 @@ from Inventory_Management import Inventory_Manager
 from Pick import PickConfig, PickSimulation
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Workload_Builder import Batch, BatchConfig, Task
-from generate_inventory import (
+from generation.generate_inventory import (
     DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
     build_inventory_with_profile,
 )

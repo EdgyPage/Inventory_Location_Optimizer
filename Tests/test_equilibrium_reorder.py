@@ -32,7 +32,7 @@ from Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Aisle_Storage import Aisle
 from Carton import Carton, StorageHandleConfig
 from Demand import Demand
-from generate_inventory import (
+from generation.generate_inventory import (
     EQUILIBRIUM_COVERAGE_BATCHES,
     REORDER_SAFETY_BATCHES,
     build_inventory_with_profile,
