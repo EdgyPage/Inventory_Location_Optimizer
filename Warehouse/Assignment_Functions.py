@@ -335,6 +335,19 @@ def _commit_aisle(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, ai
         aisle_demand_sum[aid] += f_s * q_s
 
 
+def _require_affinity(affinity, policy: str) -> None:
+    """Fail loudly if an affinity-DRIVEN policy (cohesion / co-demand) is built without a
+    usable affinity matrix, rather than silently scoring 0 lift and degrading to uniform.
+    Mirrors the batch sampler's refusal to silently fall back (Workload_Builder.Batch).
+    Travel/ranked policies are exempt: they only use lift as a minor tie-break and rank
+    fine on frequency alone."""
+    if affinity is None or getattr(affinity, '_matrix', None) is None:
+        raise ValueError(
+            f"{policy} placement requires a usable affinity matrix but got "
+            f"{'None' if affinity is None else 'an AffinityStore with _matrix=None'}. "
+            "Refusing to place without the co-occurrence data it is supposed to use.")
+
+
 def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           freq_by_idx, freq_by_sku, qty_by_sku, beta,
@@ -353,6 +366,8 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     or tail (max-D) of each aisle's ascending-by-D list, identical to
     _aisle_extremal_bins, so placements are unchanged.
     """
+    if score_kind == 'cohesion':
+        _require_affinity(affinity, name)      # cohesion is meaningless without lift data
     x_speed = wp.x_speed
     y_speed = wp.y_speed
     # cohesion always uses the front (min-D) bay; travel uses min-D when minimising
@@ -731,6 +746,7 @@ def build_co_demand_placement(compact, affinity, wp,
     """One Placement (place_one + ranked place_wave) for co-demand compaction (compact=True)
     or expansion (compact=False).  Wired by strategies._build_compaction/_build_expansion."""
     name = 'compaction' if compact else 'expansion'
+    _require_affinity(affinity, name)          # co-demand is meaningless without lift data
     place_one = _build_co_demand_place_one(
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
         freq_by_idx, freq_by_sku, qty_by_sku, compact, name)

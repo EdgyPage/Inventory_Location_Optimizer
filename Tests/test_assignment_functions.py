@@ -122,6 +122,22 @@ def test_co_demand_compaction_expansion():
     check('expansion places in the column FARTHEST from the partner (x=0)', be.x_phys == 0.0, f'x={be.x_phys}')
     check('expansion.name', pe.name == 'expansion')
 
+    # never silently degrade: an affinity-driven policy built with no lift matrix must RAISE
+    nss, nii, ndd, nmp = _state(0.0)
+    raised_codemand = raised_cohesion = False
+    try:
+        A.build_co_demand_placement(True, types.SimpleNamespace(_matrix=None, _sku_to_idx={}),
+                                    wp, nss, nii, ndd, nmp, fbi, fbs, qbs)
+    except ValueError:
+        raised_codemand = True
+    try:
+        A.build_cluster_maximizing_assignment_fn(types.SimpleNamespace(_matrix=None, _sku_to_idx={}),
+                                                 wp, nss, nii, ndd, fbi, fbs, qbs)
+    except ValueError:
+        raised_cohesion = True
+    check('co-demand refuses a null affinity matrix (never silent-degrades)', raised_codemand)
+    check('cohesion refuses a null affinity matrix (never silent-degrades)', raised_cohesion)
+
 
 if __name__ == '__main__':
     print('=' * 64);  print('  Assignment_Functions tests');  print('=' * 64)
