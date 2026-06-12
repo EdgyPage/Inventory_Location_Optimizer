@@ -253,18 +253,16 @@ def _run_strategy_worker(args: dict) -> dict:
                  f'bin-key buckets  ({time.perf_counter()-t0:.2f}s)')
 
     strat.build(mgr, ctx)
-    log.info(f'  strategy={strat.key} ({strat.label})  '
-             f'ranked_assignment_fn={"set" if mgr.ranked_assignment_fn else "None (FIFO)"}')
+    log.info(f'  strategy={strat.key} ({strat.label})  placement={mgr.placement.name}'
+             f'{" (ranked)" if mgr.placement.is_ranked else ""}')
 
     # ── capacity reloader: evict-and-requeue re-slot, budget = % of an XL pallet
     # aisle's bin capacity.  The named variant comes from the strategy (default
-    # 'rebalance'); its re-placement fns are the manager's reorder fns, since the
-    # post-eviction ranked drain (in check_reorders) uses those.
+    # 'rebalance'); re-placement is the manager's own placement policy — the
+    # post-eviction drain (in check_reorders) uses mgr.placement.
     reloader = None
     if strat.reslot_frac > 0:
         reloader = RELOADERS[getattr(strat, 'reloader', 'rebalance') or 'rebalance'](
-            assignment_fn=mgr.assignment_fn,
-            ranked_assignment_fn=mgr.ranked_assignment_fn,
             move_limit_pct=strat.reslot_frac)
         cap = reloader.per_aisle_cap(warehouse)
         log.info(f'  reloader={reloader.name}  cap={cap} evictions/pallet-aisle/batch '

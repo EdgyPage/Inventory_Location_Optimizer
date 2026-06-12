@@ -37,7 +37,7 @@ from generate_inventory import (
     save_inventory_to_db, load_inventory_from_db, Inventory,
 )
 from Inventory_Management import (
-    Inventory_Manager, _SIZE_RANKS, _max_qty_fitting_pallet_size,
+    Inventory_Manager, Placement, _SIZE_RANKS, _max_qty_fitting_pallet_size,
 )
 from Assignment_Functions import (
     build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,
@@ -458,9 +458,9 @@ def _run_batch_drain(build_fn, label: str):
                                 delta_lift_idxs=lambda s, idxs: 0.0)
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0,
                                 pick_weight_coef=0.5, pick_volume_coef=0.5)
-    mgr.ranked_assignment_fn = build_fn(
+    mgr.placement = Placement('test_ranked', mgr.placement.place_one, build_fn(
         aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-        freq_by_idx={}, freq_by_sku={}, qty_by_sku={}, beta=1.0)
+        freq_by_idx={}, freq_by_sku={}, qty_by_sku={}, beta=1.0))
 
     rng = random.Random(7)
     skus = [c.sku for c in plan.sampled]
@@ -754,8 +754,9 @@ def test_capacity_reloader_variants():
     qbs = {c.sku: c.demand.quantity_rate for c in plan.sampled}
     wp  = type('wp', (), {'x_speed': x, 'y_speed': y, 'pick_intercept': 1.0,
                           'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
-    mgr.ranked_assignment_fn = build_ranked_minimizing_assignment_fn(
-        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, {}, fbs, qbs)
+    mgr.placement = Placement('test_ranked', mgr.placement.place_one,
+        build_ranked_minimizing_assignment_fn(
+            aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, {}, fbs, qbs))
     sig0 = mgr.current_sigma_fd(freq, x, y)
     rl   = rebalance_reloader(move_limit_pct=0.5)
     for _ in range(40):

@@ -1,10 +1,10 @@
 """Assignment_Functions.py -- placement (assignment) functions.
 
 Separated from Inventory_Management so the placement POLICIES the simulation
-compares live in one module.  Inventory_Manager merely *receives* a per-unit
-assignment fn (and optional ranked_assignment_fn for ranked drains); these builders
-produce them.  The shared constants/types they need (BinKey, _SIZE_RANKS, ...) stay
-in Inventory_Management and are imported here (one-way -- no import cycle).
+compares live in one module.  A strategy bundles these builders into one
+``Placement`` (per-unit ``place_one`` + optional ranked ``place_wave``) and hands it
+to the manager.  The shared constants/types they need (BinKey, Placement, _SIZE_RANKS,
+...) stay in Inventory_Management and are imported here (one-way -- no import cycle).
 """
 from __future__ import annotations
 
@@ -444,8 +444,8 @@ def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = N
 
     Ablation control with no affinity, no demand, no priority — the candidate set
     from _candidates is already scoped to the unit's (handling, category, size,
-    unit_type), so the random aisle is always a legal one.  Per-unit; pair with
-    ranked_assignment_fn = None for a FIFO drain.
+    unit_type), so the random aisle is always a legal one.  Per-unit; the FIFO
+    Placement uses this as its place_one (no place_wave).
     """
     x_speed = wp.x_speed
     y_speed = wp.y_speed
@@ -585,8 +585,8 @@ def build_ranked_minimizing_assignment_fn(
 ):
     """Ranked assignment: high pick-effort items get lowest-D (easiest) bins.
 
-    Same parameter signature as build_trip_minimizing_assignment_fn.
-    Assign manager.ranked_assignment_fn = build_ranked_minimizing_assignment_fn(...)
+    Same parameter signature as build_trip_minimizing_assignment_fn.  Used as the
+    place_wave of a ranked Placement (place_one = build_trip_minimizing for stragglers).
     """
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_assign_impl(

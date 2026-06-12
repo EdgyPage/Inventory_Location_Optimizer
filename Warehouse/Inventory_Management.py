@@ -21,6 +21,34 @@ RankedAssignmentFn = Callable[
     list[tuple[StorageUnit, 'Aisle.Bin | None']],
 ]
 
+
+class Placement:
+    """One named placement policy — the single object a strategy hands the manager.
+
+    ``place_one`` (per-unit: ``(unit, candidates) -> bin|None``) is ALWAYS present; it
+    drives the per-unit drain (initial stock, FIFO/cohesion reorders) and places the
+    stragglers a ranked wave leaves behind.  ``place_wave``
+    (``(units, candidates_fn) -> [(unit, bin|None)]``), when present, makes this a
+    RANKED policy: a whole BinKey group is placed at once in pick-effort order.
+
+    Because every strategy sets exactly one ``mgr.placement`` (never None), the ranked
+    drain is just a policy that also carries a ``place_wave`` — no special-casing, and
+    a future ranked-cohesion policy is expressible the same way.
+    """
+    __slots__ = ('name', 'place_one', 'place_wave', 'uses_aisle_index')
+
+    def __init__(self, name: str, place_one: AssignmentFn,
+                 place_wave: 'RankedAssignmentFn | None' = None) -> None:
+        self.name             = name
+        self.place_one        = place_one
+        self.place_wave       = place_wave
+        # the per-unit fn declares whether it reads mgr._aisle_index (coupling guard)
+        self.uses_aisle_index = bool(getattr(place_one, 'uses_aisle_index', False))
+
+    @property
+    def is_ranked(self) -> bool:
+        return self.place_wave is not None
+
 @dataclass
 class LoadParams:
     lambda_: float = 1.0   # startup-cost multiplier
@@ -452,11 +480,10 @@ class Inventory_Manager:
     ) -> None:
         self.warehouse: Warehouse = warehouse
         self.name: str = ''        # e.g. inventory_initial_assignment_reslot; for graph titles
-        self.assignment_fn: AssignmentFn = assignment_fn
-        # When set, check_reorders uses _drain_ranked() instead of _drain().
-        # Ranked assignment sorts units by pick-effort priority so high-effort
-        # items claim the best bins before lower-priority items are placed.
-        self.ranked_assignment_fn: RankedAssignmentFn | None = None
+        # The single placement policy.  Defaults to per-unit uniform; a strategy's
+        # build() swaps in its own (FIFO/cohesion = per-unit; trip/rank = ranked wave
+        # + per-unit straggler fallback).  _drain() dispatches on placement.is_ranked.
+        self.placement: Placement = Placement('uniform_fifo', assignment_fn)
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -1023,12 +1050,10 @@ class Inventory_Manager:
             triggered.append(sku)
         self._depleted_skus.clear()
 
-        # Always drain — retries prior-batch stragglers too.
+        # Always drain — retries prior-batch stragglers too.  _drain() dispatches
+        # to the ranked wave or the per-unit path based on the placement policy.
         if self._queue:
-            if self.ranked_assignment_fn is not None:
-                self._drain_ranked()
-            else:
-                self._drain()
+            self._drain()
         return triggered
 
     @property
@@ -1160,10 +1185,21 @@ class Inventory_Manager:
                                * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
     def _drain(self) -> None:
-        """Place queued StorageUnit objects into warehouse bins (per-unit path).
+        """Dispatch the queued wave to the placement policy: a ranked wave if the
+        policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
+        used by enqueue/enqueue_all (initial stock) and check_reorders (reorders)."""
+        if not self._queue:
+            return
+        if self.placement.is_ranked:
+            self._drain_ranked()
+        else:
+            self._drain_per_unit()
 
-        Units are processed one at a time via assignment_fn.  Used for
-        immediate enqueue calls and as fallback when ranked_assignment_fn is None.
+    def _drain_per_unit(self) -> None:
+        """Place queued StorageUnit objects one at a time via placement.place_one.
+
+        Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
+        wave leaves behind.
 
         Placement failures:
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
@@ -1171,18 +1207,17 @@ class Inventory_Manager:
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
         # Coupling guard: when travel costs are armed, candidates is passed as
-        # None and the assignment_fn MUST read mgr._aisle_index instead.  If the
-        # two halves disagree (index armed but fn scans candidates, or vice-versa)
-        # every placement silently returns None.  Fail loudly on the first wave,
-        # before any results, rather than producing an empty-placement run.
+        # None and place_one MUST read mgr._aisle_index instead.  If the two halves
+        # disagree (index armed but fn scans candidates, or vice-versa) every
+        # placement silently returns None.  Fail loudly on the first wave, before
+        # any results, rather than producing an empty-placement run.
         fast = self._travel_costs_ready
-        if fast != getattr(self.assignment_fn, 'uses_aisle_index', False):
+        if fast != self.placement.uses_aisle_index:
             raise RuntimeError(
                 f'Assignment divergence: _travel_costs_ready={fast} but '
-                f'assignment_fn.uses_aisle_index='
-                f'{getattr(self.assignment_fn, "uses_aisle_index", False)}. '
-                'init_travel_costs() and an index-consuming assignment_fn must be '
-                'armed together or not at all.')
+                f'placement.uses_aisle_index={self.placement.uses_aisle_index} '
+                f'(policy {self.placement.name!r}).  init_travel_costs() and an '
+                'index-consuming placement must be armed together or not at all.')
 
         pending: deque[StorageUnit] = deque()
         while self._queue:
@@ -1194,7 +1229,7 @@ class Inventory_Manager:
             # A: uniform assignment needs a real candidates list.
             candidates = (None if self._travel_costs_ready
                           else self._candidates(unit))
-            bin_       = self.assignment_fn(unit, candidates)
+            bin_       = self.placement.place_one(unit, candidates)
 
             if bin_ is not None:
                 self._execute_placement(unit, bin_)
@@ -1268,12 +1303,12 @@ class Inventory_Manager:
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
         — the same key used by _candidates() — so units only compete with others
-        in the same bin pool.  Within each group, ranked_assignment_fn returns
+        in the same bin pool.  Within each group, placement.place_wave returns
         (unit, bin|None) pairs sorted by pick-effort priority so high-effort
         items claim the best (lowest-D) bins before lower-priority items.
 
-        Units that cannot be placed go through the same rescue logic as _drain()
-        and then to the pending queue for retry next batch.
+        Units that cannot be placed go through the same rescue logic as
+        _drain_per_unit() and then to the pending queue for retry next batch.
         """
         if not self._queue:
             return
@@ -1290,7 +1325,7 @@ class Inventory_Manager:
 
         for _key, units in groups.items():
             # Get ranked assignments — high pick-effort units first
-            assignments = self.ranked_assignment_fn(units, self._candidates)   # type: ignore[misc]
+            assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
 
             for unit, bin_ in assignments:
                 if bin_ is not None:
@@ -1357,9 +1392,10 @@ class Inventory_Manager:
                 if not repacked:
                     pending.append(unit)
 
-        # Drain any repacked units immediately
+        # Drain any repacked stragglers immediately via the per-unit path
+        # (NOT self._drain(), which would re-dispatch back into this ranked wave).
         if self._queue:
-            self._drain()
+            self._drain_per_unit()
 
         # Merge pending back
         for u in pending:
