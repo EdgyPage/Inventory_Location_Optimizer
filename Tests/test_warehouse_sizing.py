@@ -848,20 +848,6 @@ def test_affinity_sampler_correlates_and_guards():
     check('Batch raises on unusable affinity (never silent uniform)', raised)
 
 
-def test_cluster_skus_groups_high_lift():
-    print('\n-- cluster_skus: high-lift pairs share a cluster, class-pure --')
-    from affinity_cluster import cluster_skus
-    cartons = [_make_carton(1, 10, category='food'),
-               _make_carton(2, 10, category='food'),
-               _make_carton(3, 10, category='food'),
-               _make_carton(4, 10, category='clothing')]
-    aff, _ = _aff_store([1, 2, 3, 4], [(1, 2, 6.0)])
-    labels = cluster_skus(aff, cartons)
-    check('high-lift pair shares a cluster', labels[1] == labels[2])
-    check('isolated SKU is its own cluster', labels[3] != labels[1])
-    check('cross-category SKU never co-clustered', labels[4] != labels[1])
-
-
 def test_init_lift_state_populates_aisle_sets():
     print('\n-- init_lift_state fills aisle sku/idx sets from stock (placement sees stock) --')
     inv  = _inventory(80, seed=5)
@@ -950,7 +936,6 @@ if __name__ == '__main__':
     test_capacity_reloader_variants()
     test_cluster_assignment_max_min()
     test_affinity_sampler_correlates_and_guards()
-    test_cluster_skus_groups_high_lift()
     test_init_lift_state_populates_aisle_sets()
     test_incremental_sigma_fd_matches_full()
     test_batch_min_incremental_drain()

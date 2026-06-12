@@ -1,7 +1,7 @@
-﻿"""strategy_runner.py — concurrent strategy worker for run_comparison.py.
+﻿"""strategy_runner.py — concurrent strategy worker for run_simulation.py.
 
 Separates all parallel/CPU machinery from the configuration, analysis, and
-plotting logic in run_comparison.py.
+plotting logic in run_simulation.py.
 
 Public API
 ----------

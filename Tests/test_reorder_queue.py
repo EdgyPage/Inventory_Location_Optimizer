@@ -1,8 +1,8 @@
 ﻿"""test_reorder_queue.py
 
-Reorder queue stability — dense warehouse matching run_comparison.py config.
+Reorder queue stability — dense warehouse matching run_simulation config.
 
-The warehouse uses the same 24-aisle-type layout as run_comparison:
+The warehouse uses the same 24-aisle-type layout as run_simulation:
   12 pallet types  (conveyable + non-conveyable x 6 categories, all 4 sizes)
   12 singleton types (same split)
 
@@ -139,7 +139,7 @@ def run() -> bool:
     _PASS = _FAIL = 0
 
     print(f'\n{"="*66}')
-    print(f'  Reorder queue stability — dense warehouse (run_comparison config)')
+    print(f'  Reorder queue stability — dense warehouse (run_simulation config)')
     print(f'  SKUs={N_SKUS}  batches={N_BATCHES}  pickers={N_PICKERS}')
     print(f'  aisle_dims={_AISLE_W}×{_AISLE_H}  aisle_types={len(_AISLE_CFGS)}  seed={SEED}')
     print(f'{"="*66}')
