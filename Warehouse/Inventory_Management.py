@@ -1170,6 +1170,20 @@ class Inventory_Manager:
           2. Fall back to singleton bins of the same carton type (same).
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
+        # Coupling guard: when travel costs are armed, candidates is passed as
+        # None and the assignment_fn MUST read mgr._aisle_index instead.  If the
+        # two halves disagree (index armed but fn scans candidates, or vice-versa)
+        # every placement silently returns None.  Fail loudly on the first wave,
+        # before any results, rather than producing an empty-placement run.
+        fast = self._travel_costs_ready
+        if fast != getattr(self.assignment_fn, 'uses_aisle_index', False):
+            raise RuntimeError(
+                f'Assignment divergence: _travel_costs_ready={fast} but '
+                f'assignment_fn.uses_aisle_index='
+                f'{getattr(self.assignment_fn, "uses_aisle_index", False)}. '
+                'init_travel_costs() and an index-consuming assignment_fn must be '
+                'armed together or not at all.')
+
         pending: deque[StorageUnit] = deque()
         while self._queue:
             unit   = self._queue.popleft()

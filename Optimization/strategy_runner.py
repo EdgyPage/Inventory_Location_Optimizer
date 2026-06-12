@@ -241,6 +241,19 @@ def _run_strategy_worker(args: dict) -> dict:
         log.info(f'  {len(mgr._aisle_demand_sum)} aisles populated  '
                  f'({time.perf_counter()-t0:.2f}s)')
 
+    # Per-unit cluster strategies consume the pre-sorted per-aisle index (the Fix-1
+    # fast path): arm it BEFORE build() so the cluster fn captures a populated
+    # mgr._aisle_index and _drain passes candidates=None.  The _drain coupling guard
+    # asserts _travel_costs_ready matches assignment_fn.uses_aisle_index, so this
+    # arming can never silently diverge from how the fn was built.  Ranked (tmin/tmax/
+    # rank) and FIFO strategies leave uses_aisle_index=False and stay on the scan path.
+    if strat.uses_aisle_index:
+        log.info('Arming per-aisle travel-cost index (init_travel_costs)...')
+        t0 = time.perf_counter()
+        mgr.init_travel_costs(wp)
+        log.info(f'  _aisle_index built for {sum(len(v) for v in mgr._aisle_index.values())} '
+                 f'bin-key buckets  ({time.perf_counter()-t0:.2f}s)')
+
     strat.build(mgr, ctx)
     log.info(f'  strategy={strat.key} ({strat.label})  '
              f'ranked_assignment_fn={"set" if mgr.ranked_assignment_fn else "None (FIFO)"}')

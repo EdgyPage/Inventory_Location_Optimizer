@@ -48,8 +48,8 @@ from Aisle_Storage import Aisle
 from Inventory_Builder import Inventory
 from Inventory_Management import Inventory_Manager, LoadParams
 from Assignment_Functions import (
-    build_load_minimizing_assignment_fn,
-    build_load_maximizing_assignment_fn,
+    build_cluster_minimizing_assignment_fn,
+    build_cluster_maximizing_assignment_fn,
 )
 from Pick import PickConfig, PickSimulation
 from Warehouse_Builder import Warehouse_Builder
@@ -120,6 +120,9 @@ def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> No
         counters[key][1] += 1
         return r
 
+    # Preserve the coupling tag the manager's _drain guard reads, otherwise the
+    # wrapper looks like a scan-path fn and trips the divergence guard.
+    _timed.uses_aisle_index = getattr(orig, 'uses_aisle_index', False)
     manager.assignment_fn = _timed
 
 
@@ -226,14 +229,23 @@ def _build_assets(
         mgr.enqueue_all(sampled, quantity=None)   # reads carton.equilibrium_qty
         enq_s = time.perf_counter() - t_enq
         if aff and fn_builder:
+            # Mirror the production worker (strategy_runner) for a cluster strategy:
+            # lift + demand state, then arm the per-aisle travel-cost index, then build
+            # the cluster fn bound to mgr._aisle_index.  This profiles the ACTUAL
+            # production placement path (cmin/cmax) instead of the load_* fns that the
+            # comparison pipeline never runs.
             mgr.init_lift_state(aff)              # scan placed bins for aisle state
-            mgr.init_travel_costs(wp)             # precompute _D + per-aisle sorted index
+            mgr.init_demand_state(inventory)     # per-aisle demand sums (cluster reads/commits)
+            mgr.init_travel_costs(wp)            # precompute _D + per-aisle sorted index
+            freq_by_sku = {c.sku: c.demand.frequency    for c in sampled}
+            qty_by_sku  = {c.sku: c.demand.quantity_rate for c in sampled}
+            freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.frequency
+                           for c in sampled if c.sku in aff._sku_to_idx}
             mgr.assignment_fn = fn_builder(
-                load_params, aff, wp,
-                mgr._aisle_sku_sets,
-                mgr._aisle_lift_sum,
-                mgr._aisle_idx_sets,
-                mgr._aisle_index,
+                aff, wp,
+                mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+                freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
+                aisle_index=mgr._aisle_index,
             )
         filled = len(mgr.unavailable)
         total  = len(wh.bins)
@@ -243,10 +255,10 @@ def _build_assets(
 
     print('  Warehouse A (no affinity)...')
     wh_A, mgr_A = _make_wh('A')
-    print('  Warehouse B (load-minimising + affinity)...')
-    wh_B, mgr_B = _make_wh('B', aff_store, build_load_minimizing_assignment_fn)
-    print('  Warehouse C (load-maximising + affinity)...')
-    wh_C, mgr_C = _make_wh('C', aff_store, build_load_maximizing_assignment_fn)
+    print('  Warehouse B (cluster-minimising + affinity, production path)...')
+    wh_B, mgr_B = _make_wh('B', aff_store, build_cluster_minimizing_assignment_fn)
+    print('  Warehouse C (cluster-maximising + affinity, production path)...')
+    wh_C, mgr_C = _make_wh('C', aff_store, build_cluster_maximizing_assignment_fn)
 
     batch_cfg = BatchConfig(
         inventory_size = len(sampled),

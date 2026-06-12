@@ -52,6 +52,9 @@ class Strategy:
     stock          : Callable | None = None  # (mgr, ctx, inventory) -> None; None = uniform enqueue_all
     reslot_frac    : float = 0.0             # >0 enables the capacity reloader (budget = % of XL aisle)
     reloader       : str = 'rebalance'       # named reloader variant: promote_popular | demote_unpopular | rebalance
+    uses_aisle_index : bool = False          # per-unit _drain strategy that consumes mgr._aisle_index;
+                                             # worker arms init_travel_costs() before build() (cluster only —
+                                             # ranked/FIFO drains do not use the per-aisle index fast path)
 
 
 # ── build helpers: set mgr.assignment_fn / mgr.ranked_assignment_fn ──────────────
@@ -101,10 +104,13 @@ def _build_trip_max(mgr, ctx: StrategyContext) -> None:
 def _build_max_cluster(mgr, ctx: StrategyContext) -> None:
     # Affinity-cohesion placement: each SKU goes to the aisle where its
     # demand-weighted lift to existing members is HIGHEST (co-locate partners).
+    # Per-unit _drain path: pass the pre-sorted index when the worker armed it
+    # (init_travel_costs ran) so assign reads it in O(N_aisles); None otherwise.
     mgr.assignment_fn = build_cluster_maximizing_assignment_fn(
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta,
+        aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None))
     mgr.ranked_assignment_fn = None      # FIFO; cohesion accumulates as units place
 
 
@@ -113,7 +119,8 @@ def _build_min_cluster(mgr, ctx: StrategyContext) -> None:
     mgr.assignment_fn = build_cluster_minimizing_assignment_fn(
         ctx.affinity, ctx.wp,
         mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta,
+        aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None))
     mgr.ranked_assignment_fn = None
 
 
@@ -147,14 +154,18 @@ _INITIALS = [
     ('opt', 'Opt', _stock_optimal),        # optimal pure-global-D initial layout
 ]
 
-# restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand)
+# restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand, uses_aisle_index)
+# uses_aisle_index=True only for the per-unit _drain cluster policies: the worker
+# arms init_travel_costs() before build() and the cluster fn reads mgr._aisle_index.
+# FIFO (random, RNG-order sensitive) and the ranked drains (tmin/tmax/rank, which use
+# the already-optimised _drain_ranked path) stay on the candidates scan → False.
 _RESTOCKS = [
-    ('fifo', 'FIFO',    _build_uniform,                 False, False),  # uniform random, FIFO drain
-    ('rank', 'Rank',    _build_uniform_trip_min_ranked, True,  True),   # uniform aisle + min-D bin, ranked
-    ('tmin', 'TripMin', _build_trip_min,                True,  True),
-    ('tmax', 'TripMax', _build_trip_max,                True,  True),
-    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True),
-    ('cmin', 'MinClu',  _build_min_cluster,             True,  True),
+    ('fifo', 'FIFO',    _build_uniform,                 False, False, False),  # uniform random, FIFO drain
+    ('rank', 'Rank',    _build_uniform_trip_min_ranked, True,  True,  False),  # uniform aisle + min-D bin, ranked
+    ('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
+    ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
+    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
+    ('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
 ]
 
 # re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)
@@ -168,7 +179,7 @@ _RESLOTS = [
 
 STRATEGIES: list[Strategy] = []
 for _ik, _il, _stock in _INITIALS:
-    for _rk, _rl, _bld, _na, _nd in _RESTOCKS:
+    for _rk, _rl, _bld, _na, _nd, _uix in _RESTOCKS:
         for _sk, _sl, _frac, _rld in _RESLOTS:
             _key = f'{_ik}_{_rk}_{_sk}'
             STRATEGIES.append(Strategy(
@@ -176,6 +187,7 @@ for _ik, _il, _stock in _INITIALS:
                 color=_hsv_hex(len(STRATEGIES), 48), run_type=_key,
                 needs_affinity=_na, needs_demand=_nd, build=_bld,
                 stock=_stock, reslot_frac=_frac, reloader=_rld,
+                uses_aisle_index=_uix,
             ))
 
 STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}

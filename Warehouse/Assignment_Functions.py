@@ -170,6 +170,10 @@ def build_load_minimizing_assignment_fn(
                 aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
+    # Coupling tag: True only when this closure reads mgr._aisle_index (the fast
+    # path).  The manager's _drain guard asserts this equals _travel_costs_ready
+    # so the two halves can never be armed independently.
+    assign.uses_aisle_index = aisle_index is not None
     return assign
 
 
@@ -272,6 +276,7 @@ def build_load_maximizing_assignment_fn(
                 aisle_idx_sets[best_aid].add(idx)
         return best_bin
 
+    assign.uses_aisle_index = aisle_index is not None
     return assign
 
 
@@ -332,13 +337,21 @@ def _commit_aisle(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, ai
 
 def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                          freq_by_idx, freq_by_sku, qty_by_sku, beta):
+                          freq_by_idx, freq_by_sku, qty_by_sku, beta,
+                          aisle_index=None):
     """Compose a per-unit AssignmentFn from a named aisle SCORER + direction.
 
     Shared by the travel (f_s*D - beta*co_occur) and cohesion (demand-weighted lift)
     policies; they differ only in the score tuple and which D-rank bin represents
     each aisle.  The returned closure carries a programmatic ``.name`` (e.g.
     'travel_min') so downstream processing can build/identify functions by name.
+
+    When ``aisle_index`` (mgr._aisle_index) is supplied, Step 1 reads the
+    pre-sorted per-aisle index directly (O(N_aisles)) instead of scanning a flat
+    candidates list — the same fast path as build_load_*.  The candidates argument
+    is then ignored (the manager passes None).  bin_minimize picks the head (min-D)
+    or tail (max-D) of each aisle's ascending-by-D list, identical to
+    _aisle_extremal_bins, so placements are unchanged.
     """
     x_speed = wp.x_speed
     y_speed = wp.y_speed
@@ -347,12 +360,39 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     bin_minimize = True if score_kind == 'cohesion' else (not maximize)
 
     def assign(unit, candidates):
-        if not candidates:
-            return None
         sku = unit.carton.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
-        best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
+
+        # Step 1: one representative bin per aisle (extremal-D).
+        if aisle_index is not None:
+            shc       = unit.carton.storage_handle_config
+            unit_type = unit.unit_category
+            if unit_type == 'singleton':
+                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+            else:
+                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                by_aisle = None
+                for size in reversed(_SIZES_DESCENDING):
+                    if _SIZE_RANKS[size] >= min_rank:
+                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
+                        if by and any(by.values()):
+                            by_aisle = by
+                            break
+            best_D: dict[int, float] = {}
+            best_bin_map: dict[int, Any] = {}
+            if by_aisle:
+                for aid, lst in by_aisle.items():
+                    if lst:
+                        b = lst[0] if bin_minimize else lst[-1]
+                        best_D[aid]       = b._D
+                        best_bin_map[aid] = b
+            if not best_D:
+                return None
+        else:
+            if not candidates:
+                return None
+            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
 
         def score_of(aid):
             D = best_D[aid]
@@ -371,6 +411,7 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
         return best_bin_map[best_aid]
 
     assign.name = name
+    assign.uses_aisle_index = aisle_index is not None
     return assign
 
 
@@ -378,12 +419,13 @@ def _travel_or_cohesion(name, score_kind, maximize):
     """Make a builder with the legacy (affinity, wp, ...state..., beta) signature that
     routes through the shared core."""
     def builder(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0):
+                freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=None):
         return _build_aisle_score_fn(
             name, score_kind=score_kind, maximize=maximize, affinity=affinity, wp=wp,
             aisle_sku_sets=aisle_sku_sets, aisle_idx_sets=aisle_idx_sets,
             aisle_demand_sum=aisle_demand_sum, freq_by_idx=freq_by_idx,
-            freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku, beta=beta)
+            freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku, beta=beta,
+            aisle_index=aisle_index)
     builder.__name__ = f'build_{name}_assignment_fn'
     builder.assignment_name = name
     return builder
