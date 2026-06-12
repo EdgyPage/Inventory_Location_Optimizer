@@ -551,6 +551,10 @@ class Inventory_Manager:
         # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
         # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
         self._aisle_idx_sets: dict[int, set[int]]         = defaultdict(set)
+        # Per-aisle placed-member COLUMN positions: aisle → list of (x_phys, sku_idx).
+        # Lets co-demand compaction/expansion score a candidate bin by its column
+        # distance to an entering SKU's already-placed affinity partners.
+        self._aisle_member_pos: dict[int, list[tuple[float, int]]] = defaultdict(list)
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
@@ -625,6 +629,7 @@ class Inventory_Manager:
         self._aisle_lift_sum.clear()
         self._aisle_sku_counts.clear()
         self._aisle_idx_sets.clear()
+        self._aisle_member_pos.clear()
         self._bin_sku.clear()
         self._current_quantities.clear()
         self._sku_singleton_bins.clear()
@@ -647,6 +652,7 @@ class Inventory_Manager:
                 idx = sku_to_idx.get(sku)
                 if idx is not None:
                     self._aisle_idx_sets[aid].add(idx)
+                    self._aisle_member_pos[aid].append((bin_.x_phys, idx))
                 if bin_.unit_type == 'singleton':
                     self._sku_singleton_bins[sku].add(bin_)
                 else:

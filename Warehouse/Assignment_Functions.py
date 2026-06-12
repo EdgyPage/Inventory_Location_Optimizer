@@ -16,7 +16,7 @@ from typing import Any
 from Affinity_Store import AffinityStore
 from Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
-    AssignmentFn, RankedAssignmentFn, LoadParams,
+    AssignmentFn, RankedAssignmentFn, LoadParams, Placement,
 )
 
 
@@ -570,6 +570,178 @@ def _ranked_assign_impl(
         result.append((unit, chosen))
 
     return result
+
+
+# ── co-demand compaction / expansion (within-aisle path-span min/max) ──────────
+#
+# The diagnostic showed makespan is driven by within-aisle work W, and W's travel
+# term is the length of the column-sweep path through a batch's demanded bins.  So
+# clustering co-demanded SKUs into nearby COLUMNS shortens that path (compaction);
+# scattering them lengthens it (expansion).  These ride the ranked drain and commit
+# member positions INCREMENTALLY so clusters accumulate within a wave.
+
+def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
+    """Lift-weighted COLUMN centroid of an aisle's already-placed affinity partners of
+    `sku`.  ``member_pos`` is the aisle's list of (x_phys, sku_idx).  Returns
+    (mass, centroid_x); (0.0, None) when `sku` has no placed partners there.
+
+    Mirrors _demand_weighted_delta_lift's CSR row-slice but accumulates a position
+    centroid weighted by lift(s, partner) * f_partner.
+    """
+    if not member_pos or affinity._matrix is None or sku not in affinity._sku_to_idx:
+        return 0.0, None
+    i     = affinity._sku_to_idx[sku]
+    start = int(affinity._matrix.indptr[i])
+    end   = int(affinity._matrix.indptr[i + 1])
+    if start == end:
+        return 0.0, None
+    row = {int(ci): float(d) for ci, d in
+           zip(affinity._matrix.indices[start:end], affinity._matrix.data[start:end])}
+    mass = wx = 0.0
+    for x, idx in member_pos:
+        lift = row.get(idx)
+        if lift:
+            w = lift * freq_by_idx.get(idx, 0.0)
+            mass += w
+            wx   += w * x
+    return (mass, wx / mass) if mass > 0 else (0.0, None)
+
+
+def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
+                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+                           freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool):
+    """Ranked co-demand placement.  Units are placed in the same pick-effort order as
+    _ranked_assign_impl and membership is committed incrementally, but the BIN choice is
+    position-aware: the aisle is scored by demand-weighted lift to its members (MAX for
+    compact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)
+    the partners' column centroid is taken — vs the extremal-D head.  Each placement also
+    appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.
+    """
+    x_speed, y_speed = wp.x_speed, wp.y_speed
+    pi, pwt, pv = wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef
+    all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+
+    def priority(unit):
+        c = unit.carton
+        effort = pi + pwt * math.log(max(1, c.weight)) + pv * math.log(max(1, c.volume()))
+        co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+        return c.demand.frequency * effort + co
+
+    sorted_units = sorted(units, key=priority, reverse=True)
+    result: list = []
+    if not sorted_units:
+        return result
+
+    cands = candidates_fn(sorted_units[0])
+    D_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    by_aisle: dict[int, list] = {}
+    for b in cands:
+        by_aisle.setdefault(b.location[0], []).append(b)
+    for lst in by_aisle.values():
+        lst.sort(key=lambda b: b.x_phys)          # ascending column
+    sku_to_idx = affinity._sku_to_idx
+
+    for unit in sorted_units:
+        live = [aid for aid, lst in by_aisle.items() if lst]
+        if not live:
+            result.append((unit, None))
+            continue
+        sku = unit.carton.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+
+        # aisle: most (compact) / least (expand) lift to members; tie-break toward the
+        # front (compact) / back (expand) bay by the aisle's lowest-D representative.
+        def aisle_key(aid):
+            mass = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
+            d0   = D_of[id(by_aisle[aid][0])]
+            return (mass, -d0) if compact else (mass, d0)
+        best_aid = (max if compact else min)(live, key=aisle_key)
+
+        lst = by_aisle[best_aid]
+        _mass, cx = _demand_weighted_partner_centroid(
+            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
+        if cx is not None:                        # bin nearest / farthest the partner column
+            j = (min if compact else max)(range(len(lst)), key=lambda k: abs(lst[k].x_phys - cx))
+        else:                                     # no partners yet: front (compact) / back (expand)
+            j = 0 if compact else len(lst) - 1
+        chosen = lst.pop(j)
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            aisle_demand_sum[best_aid] += f_s * q_s
+        idx = sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
+            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+        result.append((unit, chosen))
+
+    return result
+
+
+def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                               aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+                               compact, name):
+    """Per-unit co-demand fn (place_one) — same scoring as the wave, one unit at a time.
+    Used for the ranked policy's stragglers; accumulates positions like the wave."""
+    x_speed, y_speed = wp.x_speed, wp.y_speed
+    sku_to_idx = affinity._sku_to_idx
+
+    def assign(unit, candidates):
+        if not candidates:
+            return None
+        by_aisle: dict[int, list] = {}
+        for b in candidates:
+            by_aisle.setdefault(b.location[0], []).append(b)
+        sku = unit.carton.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+
+        def aisle_key(aid):
+            mass = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
+            d0   = min(x_speed * b.x_phys + y_speed * b.y_phys for b in by_aisle[aid])
+            return (mass, -d0) if compact else (mass, d0)
+        best_aid = (max if compact else min)(by_aisle, key=aisle_key)
+
+        lst = by_aisle[best_aid]
+        _mass, cx = _demand_weighted_partner_centroid(
+            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
+        if cx is not None:
+            chosen = (min if compact else max)(lst, key=lambda b: abs(b.x_phys - cx))
+        else:
+            chosen = (min if compact else max)(lst, key=lambda b: x_speed * b.x_phys + y_speed * b.y_phys)
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            aisle_demand_sum[best_aid] += f_s * q_s
+        idx = sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
+            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+        return chosen
+
+    assign.name = name
+    assign.uses_aisle_index = False
+    return assign
+
+
+def build_co_demand_placement(compact, affinity, wp,
+                              aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+                              freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement:
+    """One Placement (place_one + ranked place_wave) for co-demand compaction (compact=True)
+    or expansion (compact=False).  Wired by strategies._build_compaction/_build_expansion."""
+    name = 'compaction' if compact else 'expansion'
+    place_one = _build_co_demand_place_one(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        freq_by_idx, freq_by_sku, qty_by_sku, compact, name)
+
+    def place_wave(units, candidates_fn):
+        return _co_demand_ranked_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, compact=compact)
+    place_wave.name = name
+    return Placement(name, place_one, place_wave)
 
 
 def build_ranked_minimizing_assignment_fn(

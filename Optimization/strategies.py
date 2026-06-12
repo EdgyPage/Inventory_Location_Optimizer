@@ -26,6 +26,7 @@ from Assignment_Functions import (
     build_ranked_uniform_assignment_fn,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
+    build_co_demand_placement,
 )
 from Inventory_Management import Placement, _uniform_assignment
 
@@ -125,6 +126,24 @@ def _build_min_cluster(mgr, ctx: StrategyContext) -> None:
         aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
 
 
+def _build_compaction(mgr, ctx: StrategyContext) -> None:
+    # Co-demand compaction (ranked): cluster co-demanded SKUs into nearby columns so the
+    # within-aisle sweep path is short (min ΣW).  Reads/maintains mgr._aisle_member_pos.
+    mgr.placement = build_co_demand_placement(
+        True, ctx.affinity, ctx.wp,
+        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
+
+
+def _build_expansion(mgr, ctx: StrategyContext) -> None:
+    # Counter control: scatter co-demanded SKUs into far columns (max sweep path) — the
+    # upper bound that brackets how much the co-demand placement lever is worth.
+    mgr.placement = build_co_demand_placement(
+        False, ctx.affinity, ctx.wp,
+        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
+
+
 # ── stock hooks ─────────────────────────────────────────────────────────────
 
 def _stock_optimal(mgr, ctx: StrategyContext, inventory) -> None:
@@ -144,10 +163,10 @@ def _hsv_hex(i: int, n: int) -> str:
 
 # ── combinatorial strategy grid ─────────────────────────────────────────────────
 # The pipeline runs this grid against each regression config:
-#     initial assignment × restock (reorder) rule × re-slot (capacity reloader)
-#     = 2 × 6 × 4 = 48 strategies.  STRATEGIES[0] (uni|FIFO|noRSL) is the plot
-# baseline.  needs_affinity/needs_demand come from the restock rule (the optimal
-# stock hook only needs freq_by_sku, which the worker builds unconditionally).
+#     initial assignment × restock (reorder) rule × re-slot (capacity reloader).
+# STRATEGIES[0] (uni|FIFO|noRSL) is the plot baseline.  needs_affinity/needs_demand
+# come from the restock rule (the optimal stock hook only needs freq_by_sku, which
+# the worker builds unconditionally).
 
 # initial assignment: (key, label, stock hook)   — None ⇒ uniform enqueue_all
 _INITIALS = [
@@ -167,6 +186,8 @@ _RESTOCKS = [
     ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
     ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
     ('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
+    ('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
+    ('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
 ]
 
 # re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)
@@ -178,6 +199,8 @@ _RESLOTS = [
     #('rboth', 'RSLboth', _RESLOT_FRAC, 'rebalance'),         # both ends
 ]
 
+_N_STRATEGIES = len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)
+
 STRATEGIES: list[Strategy] = []
 for _ik, _il, _stock in _INITIALS:
     for _rk, _rl, _bld, _na, _nd, _uix in _RESTOCKS:
@@ -185,7 +208,7 @@ for _ik, _il, _stock in _INITIALS:
             _key = f'{_ik}_{_rk}_{_sk}'
             STRATEGIES.append(Strategy(
                 key=_key, label=f'{_il}|{_rl}|{_sl}',
-                color=_hsv_hex(len(STRATEGIES), 48), run_type=_key,
+                color=_hsv_hex(len(STRATEGIES), _N_STRATEGIES), run_type=_key,
                 needs_affinity=_na, needs_demand=_nd, build=_bld,
                 stock=_stock, reslot_frac=_frac, reloader=_rld,
                 uses_aisle_index=_uix,

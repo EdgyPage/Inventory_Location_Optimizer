@@ -94,10 +94,40 @@ def test_composed_scorer_placement():
     check('travel_min picks the lowest-W aisle (20)', b.location[0] == 20)
 
 
+def test_co_demand_compaction_expansion():
+    print('\n-- co-demand: compaction places near a partner column, expansion far --')
+    wp = types.SimpleNamespace(x_speed=1.0, y_speed=0.0, pick_intercept=1.0,
+                               pick_weight_coef=0.0, pick_volume_coef=0.0)
+    aff, idx = _aff([1, 2], [(1, 2, 5.0)])                 # sku1 co-demanded with sku2 (lift 5)
+    fbi = {idx[2]: 1.0};  fbs = {1: 1.0, 2: 1.0};  qbs = {1: 1.0, 2: 1.0}
+
+    def _state(partner_x):
+        ss, ii, dd, mp = (defaultdict(set), defaultdict(set), defaultdict(float), defaultdict(list))
+        ss[10] = {2};  ii[10] = {idx[2]};  mp[10] = [(partner_x, idx[2])]   # partner sku2 at column
+        return ss, ii, dd, mp
+
+    def _cands():
+        return [_B(10, 0.0), _B(10, 5.0), _B(10, 10.0)]    # same aisle, columns 0/5/10
+
+    ss, ii, dd, mp = _state(10.0)
+    p = A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+    check('co-demand placement is ranked (has place_wave)', p.place_wave is not None)
+    check('compaction.name', p.name == 'compaction')
+    b = p.place_one(_unit(1), _cands())
+    check('compaction places in the column NEAREST the partner (x=10)', b.x_phys == 10.0, f'x={b.x_phys}')
+
+    ss, ii, dd, mp = _state(10.0)
+    pe = A.build_co_demand_placement(False, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+    be = pe.place_one(_unit(1), _cands())
+    check('expansion places in the column FARTHEST from the partner (x=0)', be.x_phys == 0.0, f'x={be.x_phys}')
+    check('expansion.name', pe.name == 'expansion')
+
+
 if __name__ == '__main__':
     print('=' * 64);  print('  Assignment_Functions tests');  print('=' * 64)
     test_registries_and_names()
     test_composed_scorer_placement()
+    test_co_demand_compaction_expansion()
     print('=' * 64)
     print(f'  All {_PASS} checks passed.' if _FAIL == 0 else f'  {_PASS} passed  {_FAIL} FAILED')
     print('=' * 64)
