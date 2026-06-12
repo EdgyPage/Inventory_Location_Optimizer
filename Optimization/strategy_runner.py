@@ -5,9 +5,9 @@ plotting logic in run_simulation.py.
 
 Public API
 ----------
-run_strategies_parallel(strategy_args, log) -> dict[str, dict]
-    Launch A/B/C workers via ProcessPoolExecutor(3); stream log records to
-    the main process in real time via a Manager().Queue + QueueListener.
+_run_strategy_worker(args) -> dict
+    Simulate one assignment strategy end-to-end (one process in the flat pool
+    owned by run_simulation._run_workers_flat).
 
 save_worker_checkpoint(run_dir, strategy, next_batch_id)
 load_worker_checkpoint(run_dir, strategy) -> int
@@ -23,10 +23,8 @@ imports without relying solely on the parent-process inheritance.
 
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 import logging.handlers
-import multiprocessing
 import os
 import pickle
 import random
@@ -436,56 +434,3 @@ def _run_strategy_worker(args: dict) -> dict:
         'skipped' : skipped,
         'last_dur': last_dur,
     }
-
-
-# ── parallel dispatcher ────────────────────────────────────────────────────────
-
-def run_strategies_parallel(
-    strategy_args: list[dict],
-    log          : logging.Logger,
-) -> dict[str, dict]:
-    """Run A/B/C workers in parallel via ProcessPoolExecutor(3).
-
-    Log records from worker processes are forwarded in real time through a
-    multiprocessing.Manager().Queue (picklable proxy) to a QueueListener
-    in the main process, writing to the shared log file and stdout.
-    Raises the first worker exception encountered via future.result().
-    """
-    mp_manager = multiprocessing.Manager()
-    log_queue  = mp_manager.Queue(-1)
-    listener   = logging.handlers.QueueListener(
-        log_queue, *log.handlers, respect_handler_level=True
-    )
-    listener.start()
-    log.info('  Log listener started — worker logs appear in real time')
-
-    args_with_queue = [{**a, 'log_queue': log_queue} for a in strategy_args]
-    results: dict[str, dict] = {}
-    t_wall  = time.perf_counter()
-
-    try:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=3) as pool:
-            futures = {
-                pool.submit(_run_strategy_worker, a): a['strategy']
-                for a in args_with_queue
-            }
-            for future in concurrent.futures.as_completed(futures):
-                s   = futures[future]
-                res = future.result()
-                results[s] = res
-                log.info(
-                    f'  Worker {s} returned  done={res["done"]}  '
-                    f'skipped={res["skipped"]}  wall={res["elapsed"]:.1f}s  '
-                    f'last_dur={res["last_dur"]:.0f}'
-                )
-    finally:
-        listener.stop()
-        mp_manager.shutdown()
-        log.info('  Log listener stopped')
-
-    log.info(f'  All workers done  wall={time.perf_counter()-t_wall:.1f}s')
-
-    if results:
-        _cleanup_checkpoints(strategy_args[0]['run_dir'])
-
-    return results

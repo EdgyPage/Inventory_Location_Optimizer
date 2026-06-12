@@ -72,7 +72,7 @@ from Picking_Data import create_run, init_run_db
 from Workload import WorkloadParams
 
 from strategy_runner import (
-    run_strategies_parallel, load_worker_checkpoint, _run_strategy_worker,
+    load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints,
 )
 
 # ── simulation constants ───────────────────────────────────────────────────────
@@ -469,82 +469,6 @@ def build_shared_assets(
     )
 
 
-# ── per-config runner ──────────────────────────────────────────────────────────
-
-def _run_config_sim(cfg: dict, shared: dict, base_dir: str, log: logging.Logger) -> dict:
-    """Run the A/B/C strategy simulation for one regression config (nested-pool path).
-
-    Delegates to _prepare_config_run + run_strategies_parallel + _finalize_config_run.
-    Returns the sim_result dict.  Used by --pair-workers/--config-workers paths.
-    """
-    strategy_args, sim_skeleton = _prepare_config_run(cfg, shared, base_dir, log)
-    run_strategies_parallel(strategy_args, log)
-    return _finalize_config_run(sim_skeleton)
-
-
-
-
-def _run_pair_sims(
-    label          : str,
-    inv_db         : str,
-    aff_db         : str,
-    pair_dir       : str,
-    config_workers : int,
-    log            : logging.Logger,
-    max_skus       : int | None = None,
-    max_aisles     : int | None = None,
-    max_bins       : int | None = None,
-    min_bins       : int | None = None,
-    composition    : dict | None = None,
-    keyframe_interval : int = 5,
-) -> tuple[str, dict, dict]:
-    """Load one inventory+affinity pair and run all regression config simulations.
-
-    Returns (label, shared, sim_results) so the caller can run analyses
-    sequentially (matplotlib is not thread-safe).
-
-    Designed to be submitted to a ThreadPoolExecutor so multiple pairs
-    run their simulations in parallel.  Each pair's A/B/C process workers
-    are also parallel (via run_strategies_parallel inside _run_config_sim).
-    """
-    log.info(f'\n{"="*64}')
-    log.info(f'  Dataset : {label}')
-    log.info(f'{"="*64}')
-    shared = build_shared_assets(inv_db, aff_db, log,
-                                 max_skus=max_skus, max_aisles=max_aisles,
-                                 max_bins=max_bins, min_bins=min_bins,
-                                 composition=composition,
-                                 keyframe_interval=keyframe_interval,
-                                 warehouse_db_path=os.path.join(pair_dir, 'warehouse.db'))
-
-    sim_results: dict[str, dict] = {}
-    if config_workers > 1:
-        log.info(f'  Running {len(REGRESSION_CONFIGS)} configs with '
-                 f'{config_workers} parallel simulation thread(s)...')
-        with concurrent.futures.ThreadPoolExecutor(max_workers=config_workers) as pool:
-            futs = {
-                pool.submit(_run_config_sim, cfg, shared, pair_dir, log): cfg
-                for cfg in REGRESSION_CONFIGS
-            }
-            for fut in concurrent.futures.as_completed(futs):
-                cfg      = futs[fut]
-                cfg_name = cfg.get('name', '?')
-                try:
-                    sim_results[cfg_name] = fut.result()
-                    log.info(f'  Config [{cfg_name}] simulation complete')
-                except Exception as exc:
-                    log.error(f'  Config [{cfg_name}] FAILED: {exc}', exc_info=True)
-    else:
-        for cfg in REGRESSION_CONFIGS:
-            cfg_name = cfg.get('name', '?')
-            try:
-                sim_results[cfg_name] = _run_config_sim(cfg, shared, pair_dir, log)
-            except Exception as exc:
-                log.error(f'  Config [{cfg_name}] FAILED: {exc}', exc_info=True)
-
-    return label, shared, sim_results
-
-
 # ── flat pool helpers ──────────────────────────────────────────────────────────
 
 def _prepare_config_run(
@@ -555,8 +479,8 @@ def _prepare_config_run(
 ) -> tuple[list, dict]:
     """Pre-initialise one regression config: create DBs, get run_ids, build strategy_args.
 
-    Extracted from _run_config_sim so the flat pool can pre-build ALL work units
-    before submitting to ProcessPoolExecutor.
+    Builds every per-strategy work unit for one config so the flat pool can submit
+    them all to one ProcessPoolExecutor.
 
     Returns (strategy_args_list, sim_result_skeleton).
     strategy_args_list: 3 dicts (A, B, C) ready for _run_strategy_worker.
@@ -700,7 +624,7 @@ def _prepare_config_run(
         wp            = wp,
         load_params   = load_params,
         batch_cfg     = batch_cfg,
-        # log_queue is NOT set here — injected by flat pool or run_strategies_parallel
+        # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )
     strategy_args = [
         {**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
@@ -740,6 +664,7 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
     rp = _resume_path(run_dir)
     if os.path.exists(rp):
         os.remove(rp)
+    _cleanup_checkpoints(run_dir)   # config complete — clear its per-strategy _ckpt_*.pkl
     # Additive runs: if a sim_meta.json already exists (e.g. a --resume run adding
     # a NEW strategy into a prior comparison dir), MERGE the strategy lists instead
     # of overwriting, so run_analysis sees the previously-run strategies plus the
@@ -866,16 +791,10 @@ def main():
                         help='Run every profile pair instead of only the newest')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
-    parser.add_argument('--config-workers', type=int, default=1,
-                        help='Regression configs to simulate in parallel per pair '
-                             '(each uses 3 A/B/C workers; default=1 = sequential)')
-    parser.add_argument('--pair-workers', type=int, default=1,
-                        help='DB pairs to simulate in parallel '
-                             '(multiplies with --config-workers; be mindful of RAM)')
-    parser.add_argument('--workers', type=int, default=None, metavar='N',
-                        help='Flat ProcessPoolExecutor pool size — all (pair,config,strategy) '
-                             'work units share one pool; no idle between A/B/C barriers. '
-                             'Replaces --pair-workers/--config-workers when specified.')
+    parser.add_argument('--workers', type=int, default=1, metavar='N',
+                        help='Flat ProcessPoolExecutor pool size — every '
+                             '(pair,config,strategy) work unit shares one pool. '
+                             'Default 1 (sequential).')
     parser.add_argument('--max-skus', type=int, default=None, metavar='N',
                         help='Cap inventory to the first N SKUs (smaller warehouse for quick runs)')
     parser.add_argument('--max-aisles', type=int, default=None, metavar='N',
@@ -950,54 +869,23 @@ def main():
     n_configs = len(REGRESSION_CONFIGS)
     n_strats  = len(STRATEGIES)
     total_workers = len(pairs) * n_configs * n_strats
-    if args.workers:
-        log.info(
-            f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
-            f' = {total_workers} work units  |  flat pool workers={args.workers}'
+    workers = args.workers or 1
+    log.info(
+        f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
+        f' = {total_workers} work units  |  flat pool workers={workers}'
+    )
+    # ── flat ProcessPoolExecutor: every (pair,config,strategy) unit shares one pool ──
+    shared_by_pair = {}
+    for label, inv_db, aff_db in pairs:
+        log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
+        shared_by_pair[label] = build_shared_assets(
+            inv_db, aff_db, log,
+            max_skus=args.max_skus, max_aisles=args.max_aisles,
+            max_bins=args.max_bins, min_bins=args.min_bins,
+            composition=composition, keyframe_interval=args.keyframe_interval,
+            warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
         )
-        # ── flat pool path (no idle between A/B/C barriers) ───────────────────
-        shared_by_pair = {}
-        for label, inv_db, aff_db in pairs:
-            log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
-            shared_by_pair[label] = build_shared_assets(
-                inv_db, aff_db, log,
-                max_skus=args.max_skus, max_aisles=args.max_aisles,
-                max_bins=args.max_bins, min_bins=args.min_bins,
-                composition=composition, keyframe_interval=args.keyframe_interval,
-                warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
-            )
-        _run_workers_flat(pairs, base_dir, shared_by_pair, args.workers, log)
-    elif args.pair_workers > 1:
-        # ── nested path: parallel pairs ───────────────────────────────────────
-        with concurrent.futures.ThreadPoolExecutor(
-                max_workers=args.pair_workers) as pair_pool:
-            pair_futs = {
-                pair_pool.submit(
-                    _run_pair_sims,
-                    label, inv_db, aff_db,
-                    os.path.join(base_dir, label),
-                    args.config_workers, log,
-                    args.max_skus, args.max_aisles, args.max_bins,
-                    args.min_bins, composition, args.keyframe_interval,
-                ): (label, inv_db, aff_db)
-                for label, inv_db, aff_db in pairs
-            }
-            for fut in concurrent.futures.as_completed(pair_futs):
-                orig = pair_futs[fut]
-                try:
-                    label, _, sim_results = fut.result()
-                    log.info(f'  [{label}] all sims complete')
-                except Exception as exc:
-                    log.error(f'  Pair {orig[0]} FAILED: {exc}', exc_info=True)
-    else:
-        # ── sequential (default) ──────────────────────────────────────────────
-        for label, inv_db, aff_db in pairs:
-            pair_dir = os.path.join(base_dir, label)
-            _run_pair_sims(
-                label, inv_db, aff_db, pair_dir, args.config_workers, log,
-                args.max_skus, args.max_aisles, args.max_bins,
-                args.min_bins, composition, args.keyframe_interval,
-            )
+    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'
              f'  Root: {base_dir}'
