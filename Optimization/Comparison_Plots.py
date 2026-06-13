@@ -159,13 +159,15 @@ def _build_series(strategies, df_b, df_t):
             agg = g.agg(['mean', 'median']).sort_index()
             q25 = g.quantile(0.25).reindex(agg.index)
             q75 = g.quantile(0.75).reindex(agg.index)
+            tsum = g.sum().reindex(agg.index)        # productivity hours = Σ task time / batch
             tb   = agg.index.values
             roll = lambda ser: ser.rolling(_WIN, min_periods=1).mean().values
             tmean, tmed = roll(agg['mean']), roll(agg['median'])
             tp25,  tp75 = roll(q25),         roll(q75)
+            tprod = roll(tsum)
         else:
             tb = batch
-            tmean = tmed = tp25 = tp75 = np.full(len(batch), np.nan)
+            tmean = tmed = tp25 = tp75 = tprod = np.full(len(batch), np.nan)
 
         maxb = int(batch.max())
         lo   = maxb - _WIN + 1
@@ -174,10 +176,12 @@ def _build_series(strategies, df_b, df_t):
         S[s['key']] = dict(
             batch=batch, thr=thr,
             task_batch=tb, task_mean=tmean, task_median=tmed,
-            task_p25=tp25, task_p75=tp75,
+            task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(ssb['completion_rate'].mean()),
             ss_dur=float(ssb['duration'].mean()),
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
+            ss_prod_hours=(float(sst.groupby('batch_id')['duration'].sum().mean())
+                           if len(sst) else float('nan')),
             picking_pct=float(ssb['picking_pct'].mean()),
             traveling_pct=float(ssb['traveling_pct'].mean()),
             initial=s.get('initial', ''), assignment=s.get('assignment', ''),
@@ -393,7 +397,7 @@ def _delta_bars(strategies, S, baseline, title, path):
 
 def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=False,
                            top_by='global'):
-    """Write faceted/, overlay/, top/, breakdown/ for the 3 core metrics."""
+    """Write faceted/, overlay/, top/, breakdown/ for the core over-time metrics."""
     fac = os.path.join(out_dir, 'faceted')
     ovl = os.path.join(out_dir, 'overlay')
     top = os.path.join(out_dir, 'top')
@@ -411,6 +415,10 @@ def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=Fals
         dict(x='batch', y='thr', blo=None, bhi=None,
              f='throughput_over_time', t='Throughput over time (items / sim-time)',
              yl='throughput' + unit),
+        dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
+             f='productivity_hours_over_time',
+             t='Productivity hours (Sigma task time per batch)',
+             yl='productivity hours' + unit),
     ]
     base = strategies[0]
     top_tag = f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
@@ -463,12 +471,13 @@ def _aggregate_series(profile_series_list):
         tmed  = _avg_norm(items, 'task_median', 'ss_task_mean')
         tp25  = _avg_norm(items, 'task_p25',    'ss_task_mean')
         tp75  = _avg_norm(items, 'task_p75',    'ss_task_mean')
+        tprod = _avg_norm(items, 'prod_hours',  'ss_prod_hours')
         thr_ratio = [d['ss_thr'] / b['ss_thr'] for d, b in items if b.get('ss_thr')]
         dur_ratio = [d['ss_dur'] / b['ss_dur'] for d, b in items if b.get('ss_dur')]
         agg_S[key] = dict(
             batch=np.arange(len(thr)), thr=thr,
             task_batch=np.arange(len(tmed)), task_mean=tmean, task_median=tmed,
-            task_p25=tp25, task_p75=tp75,
+            task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(np.mean(thr_ratio)) if thr_ratio else float('nan'),
             ss_dur=float(np.mean(dur_ratio)) if dur_ratio else float('nan'),
             picking_pct=float(np.mean([d['picking_pct']   for d, _ in items])),
