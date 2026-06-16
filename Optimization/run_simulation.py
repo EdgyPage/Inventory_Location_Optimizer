@@ -84,8 +84,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.15
 _BATCH_STD_FRAC  = 0.05
-_TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
-_INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
+_TARGET_FILL  = 0.90   # headroom fraction: size each aisle type to this utilization
+_INITIAL_FILL = 0.90   # target fill when sampling inventory to fit a capped aisle count
 
 # Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
 # Actual bin counts per aisle depend on unit type and size distribution.
