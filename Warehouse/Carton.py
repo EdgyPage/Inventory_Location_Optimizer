@@ -1,3 +1,4 @@
+import math
 import random
 from collections import namedtuple
 from Demand import Demand, poisson_sample
@@ -25,6 +26,10 @@ def _sample_weight(length: int, width: int, height: int) -> int:
 
 class Carton:
     next_sku: int = 1
+    # Per-unit pick-effort regression cost (intercept + weight/volume log terms).
+    # Config-dependent (depends on PickConfig coefficients), so it is computed once
+    # per worker via compute_labor_cost(); 0.0 until set.  Reorders copy it forward.
+    labor_cost: float = 0.0
 
     def __init__(self, storage_type: tuple[str, str], max_dim: int = _MAX_DIM) -> None:
         self.length: int = _sample_dim(max_dim)
@@ -65,6 +70,9 @@ class Carton:
         c.supply_cv             = getattr(self, 'supply_cv',             0.0)
         # Preserve the multi-tier stock plan so reorders rebuild the same tier mix.
         c.stock_plan            = getattr(self, 'stock_plan',            None)
+        # Carry the precomputed per-unit labor cost forward (same weight/coeffs);
+        # expected_popularity/expected_labor are properties so they follow demand.
+        c.labor_cost            = getattr(self, 'labor_cost',            0.0)
         c._is_reorder = True
         return c
 
@@ -72,3 +80,28 @@ class Carton:
     def popularity(self) -> float:
         """Pick weight for weighted random selection; backed by demand frequency."""
         return self.demand.frequency
+
+    @property
+    def expected_popularity(self) -> float:
+        """Expected demand mass per period = frequency x quantity_rate (freq*qty).
+
+        Static (depends only on demand), so derived on access rather than stored.
+        Used as the per-aisle 'popularity' balance metric (Rank_popularity)."""
+        return self.demand.frequency * self.demand.quantity_rate
+
+    @property
+    def expected_labor(self) -> float:
+        """Expected picking labor per period = expected_popularity x labor_cost
+        (= freq*qty*cost1).  Drives the Rank_labor enqueue order + aisle balance.
+        Zero until compute_labor_cost() has set labor_cost for this worker."""
+        return self.expected_popularity * self.labor_cost
+
+    def compute_labor_cost(self, pick_intercept: float,
+                           pick_weight_coef: float, pick_volume_coef: float) -> float:
+        """Set (and return) labor_cost = per-unit pick regression cost for this carton
+        under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
+        no cart swap.  Call once per worker after inventory load."""
+        self.labor_cost = (pick_intercept
+                           + pick_weight_coef * math.log(max(self.weight, 1))
+                           + pick_volume_coef * math.log(max(self.volume(), 1)))
+        return self.labor_cost

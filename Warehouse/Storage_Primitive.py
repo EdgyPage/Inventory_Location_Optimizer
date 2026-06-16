@@ -52,6 +52,12 @@ class StorageUnit(ABC):
         pass
 
     @property
+    def total_labor_cost(self) -> float:
+        """Labor to pick this whole unit = quantity x the carton's per-unit labor_cost.
+        Derived from the carton's precomputed labor_cost (set once per worker)."""
+        return self.quantity * self.carton.labor_cost
+
+    @property
     def height(self) -> int:
         return self._height  # type: ignore[return-value]
 

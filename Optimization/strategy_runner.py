@@ -157,6 +157,12 @@ def _run_strategy_worker(args: dict) -> dict:
     n_skus    = len(inventory.cartons)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 
+    # Precompute per-unit labor cost once per worker (config-dependent: uses this run's
+    # pick coefficients).  expected_popularity/expected_labor are Carton properties that
+    # derive from this + demand, so the hot ranked-wave order/balance never re-takes logs.
+    for c in inventory.cartons:
+        c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef)
+
     # ── affinity ──────────────────────────────────────────────────────────────
     log.info(f'Loading affinity: {aff_db}')
     t0       = time.perf_counter()
@@ -189,72 +195,56 @@ def _run_strategy_worker(args: dict) -> dict:
     total_bins = len(warehouse.bins)   # density-aware: actual count after physical expansion
     log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)')
 
-    # ── initial stock: uniform by default, or the strategy's custom layout ──────
-    # Most strategies start from the same uniform placement so batch differences
-    # reflect only the reorder/re-slot behaviour.  A strategy may override stocking
-    # with strat.stock (e.g. optimal_reslot stocks at the pure-global-W optimum).
-    # affinity=None here keeps stocking placement affinity-agnostic; _aisle_sku_counts
-    # is rebuilt below for affinity-needing strategies regardless of how we stocked.
+    # ── initial stock ───────────────────────────────────────────────────────────
+    # stock_mode='uniform' (uni_*): random fill via the manager's default placement,
+    #   THEN arm aisle state (init_lift_state/init_demand_state[/init_travel_costs])
+    #   over that layout, THEN build() the reorder placement.
+    # stock_mode='policy' (opt_*): arm per-SKU maps + travel index and build() the
+    #   placement FIRST, then fill the whole inventory THROUGH that policy so the
+    #   warehouse starts at the strategy's own ideal layout, then rebuild authoritative
+    #   aisle state.  init_lift_state/init_demand_state clear their dicts in place, so
+    #   the references build() captured stay valid across the post-stock rebuild.
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
-    if strat.stock is not None:
-        log.info(f'Initial stock: {n_skus:,} SKUs  custom layout ({strat.key})...')
-        strat.stock(mgr, ctx, inventory)
+
+    def _arm_aisle_state() -> None:
+        """Rebuild per-aisle affinity + demand/labor state from the placed bins."""
+        if strat.needs_affinity:
+            mgr._affinity = affinity   # enable incremental lift/count maintenance
+            mgr.init_lift_state(affinity)
+        if strat.needs_demand:
+            mgr.init_demand_state(inventory, wp)   # wp ⇒ also seed the labor twin
+
+    if strat.stock_mode == 'policy':
+        log.info(f'Initial stock: {n_skus:,} SKUs  via own policy ({strat.key})...')
+        # Per-SKU products must exist before placement (the labor wave reads
+        # _sku_pick_load_product); aisle sums seed to 0 over the empty warehouse and
+        # accumulate incrementally as the policy places.
+        if strat.needs_affinity:
+            mgr._affinity = affinity
+        if strat.needs_demand:
+            mgr.init_demand_state(inventory, wp)
+        if strat.uses_aisle_index:
+            mgr.init_travel_costs(wp)   # NOTE(cluster): _aisle_index is maintained
+                                        # incrementally by _index_add/remove during the fill
+        strat.build(mgr, ctx)
+        mgr.enqueue_all(inventory.cartons)   # placed by the strategy's own policy
+        _arm_aisle_state()                   # authoritative rebuild over the final layout
     else:
         log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement...')
         mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
+        _arm_aisle_state()
+        if strat.uses_aisle_index:
+            mgr.init_travel_costs(wp)
+        strat.build(mgr, ctx)
+
     base_filled = len(mgr._unavailable)
     log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
              f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
-
-    # ── enable affinity/demand state and set assignment fns (per registry) ────
-    # Strategies that need it now activate affinity/demand tracking so reorders can
-    # use the trip-cost / co-occurrence objective; the strategy's build() then wires
-    # the per-unit assignment_fn and (optional) ranked_assignment_fn.  The aisle state
-    # is rebuilt over whatever initial placement we just made (uniform or optimal).
-    if strat.needs_affinity:
-        # Activate the affinity reference so _drain and _reclaim_empty_bins
-        # update lift/count state during the simulation loop.
-        mgr._affinity = affinity
-
-        # Rebuild the FULL per-aisle affinity state from the placed bins via
-        # init_lift_state — this populates _aisle_sku_sets AND _aisle_idx_sets
-        # (plus counts, bin_sku, current_quantities, lift sums).  Those sets are
-        # what the trip/cluster assignment fns read to score co-occurrence, so the
-        # placement is aware of the INITIAL stock (uniform or optimal), not only of
-        # SKUs that later reorders happen to place.  (A prior partial rebuild filled
-        # only _aisle_sku_counts, leaving the sets empty → affinity blind to stock.)
-        log.info('Rebuilding aisle affinity state from placed bins (init_lift_state)...')
-        t0 = time.perf_counter()
-        mgr.init_lift_state(affinity)
-        n_lift = sum(1 for v in mgr._aisle_lift_sum.values() if v > 0)
-        log.info(f'  {len(mgr._aisle_sku_sets)} aisles  {n_lift} with lift>0  '
-                 f'({time.perf_counter()-t0:.1f}s)')
-
-    if strat.needs_demand:
-        log.info('Building demand state...')
-        t0 = time.perf_counter()
-        mgr.init_demand_state(inventory)
-        log.info(f'  {len(mgr._aisle_demand_sum)} aisles populated  '
-                 f'({time.perf_counter()-t0:.2f}s)')
-
-    # Per-unit cluster strategies consume the pre-sorted per-aisle index (the Fix-1
-    # fast path): arm it BEFORE build() so the cluster fn captures a populated
-    # mgr._aisle_index and _drain passes candidates=None.  The _drain coupling guard
-    # asserts _travel_costs_ready matches assignment_fn.uses_aisle_index, so this
-    # arming can never silently diverge from how the fn was built.  Ranked (tmin/tmax/
-    # rank) and FIFO strategies leave uses_aisle_index=False and stay on the scan path.
-    if strat.uses_aisle_index:
-        log.info('Arming per-aisle travel-cost index (init_travel_costs)...')
-        t0 = time.perf_counter()
-        mgr.init_travel_costs(wp)
-        log.info(f'  _aisle_index built for {sum(len(v) for v in mgr._aisle_index.values())} '
-                 f'bin-key buckets  ({time.perf_counter()-t0:.2f}s)')
-
-    strat.build(mgr, ctx)
     log.info(f'  strategy={strat.key} ({strat.label})  placement={mgr.placement.name}'
-             f'{" (ranked)" if mgr.placement.is_ranked else ""}')
+             f'{" (ranked)" if mgr.placement.is_ranked else ""}'
+             f'  stock={strat.stock_mode}')
 
     # ── capacity reloader: evict-and-requeue re-slot, budget = % of an XL pallet
     # aisle's bin capacity.  The named variant comes from the strategy (default

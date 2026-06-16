@@ -35,15 +35,20 @@ class Placement:
     drain is just a policy that also carries a ``place_wave`` — no special-casing, and
     a future ranked-cohesion policy is expressible the same way.
     """
-    __slots__ = ('name', 'place_one', 'place_wave', 'uses_aisle_index')
+    __slots__ = ('name', 'place_one', 'place_wave', 'uses_aisle_index', 'order_score')
 
     def __init__(self, name: str, place_one: AssignmentFn,
-                 place_wave: 'RankedAssignmentFn | None' = None) -> None:
+                 place_wave: 'RankedAssignmentFn | None' = None,
+                 order_score: 'Callable[[Any], float] | None' = None) -> None:
         self.name             = name
         self.place_one        = place_one
         self.place_wave       = place_wave
         # the per-unit fn declares whether it reads mgr._aisle_index (coupling guard)
         self.uses_aisle_index = bool(getattr(place_one, 'uses_aisle_index', False))
+        # Per-policy enqueue ordering: (unit)->float, sorted DESCENDING before placement.
+        # Decouples queue order from the placement impl so a policy is never forced into
+        # an ordering that fights it.  None ⇒ the ranked wave's default pick-effort order.
+        self.order_score      = order_score
 
     @property
     def is_ranked(self) -> bool:
@@ -563,6 +568,13 @@ class Inventory_Manager:
         self._aisle_demand_sum: dict[int, float]   = defaultdict(float)
         self._sku_demand_product: dict[int, float] = {}   # sku -> f * q
 
+        # Cost-weighted twin of the demand state: expected picking labor.
+        # _sku_pick_load_product[sku] = f * q * cost1 (= carton.expected_labor);
+        # _aisle_pick_load_sum[aid]   = Σ over the aisle's SKUs.  Maintained in lockstep
+        # with the demand_sum state; read by the Rank_labor aisle-balance selector.
+        self._aisle_pick_load_sum: dict[int, float]   = defaultdict(float)
+        self._sku_pick_load_product: dict[int, float] = {}   # sku -> f * q * cost1
+
         # SKU → bins split by unit type for Task.from_batch lookups.
         # Sets give O(1) add/discard; Task.from_batch sorts the bins by
         # (bayX, bayY) anyway so insertion order doesn't matter.
@@ -680,12 +692,16 @@ class Inventory_Manager:
                 bisect.insort(by_aisle[b.location[0]], b, key=lambda x: x._D)
         self._travel_costs_ready = True
 
-    def init_demand_state(self, inventory: Any) -> None:
+    def init_demand_state(self, inventory: Any, wp: Any = None) -> None:
         """Populate demand-product lookup and per-aisle demand sums.
 
         Must be called after init_lift_state() so _aisle_sku_sets already
         reflects the actual placement.  Call once per strategy worker before
         swapping to a trip-cost assignment function.
+
+        When *wp* is given, also build the cost-weighted labor twin
+        (_sku_pick_load_product = f*q*cost1 = carton.expected_labor, and the
+        per-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.
         """
         self._sku_demand_product = {
             c.sku: c.demand.frequency * c.demand.quantity_rate
@@ -696,6 +712,18 @@ class Inventory_Manager:
             self._aisle_demand_sum[aid] = sum(
                 self._sku_demand_product.get(s, 0.0) for s in sku_set
             )
+
+        if wp is not None:
+            # carton.expected_labor reads labor_cost, which the worker sets via
+            # compute_labor_cost() before this call.
+            self._sku_pick_load_product = {
+                c.sku: c.expected_labor for c in inventory.cartons
+            }
+            self._aisle_pick_load_sum.clear()
+            for aid, sku_set in self._aisle_sku_sets.items():
+                self._aisle_pick_load_sum[aid] = sum(
+                    self._sku_pick_load_product.get(s, 0.0) for s in sku_set
+                )
 
     # ── optimal layout (pure global-D) + Sigma f*D objective ─────────────────
 
@@ -842,6 +870,9 @@ class Inventory_Manager:
                 d = self._sku_demand_product.get(sku, 0.0)
                 if d:
                     self._aisle_demand_sum[aid] = max(0.0, self._aisle_demand_sum[aid] - d)
+                dl = self._sku_pick_load_product.get(sku, 0.0)
+                if dl:
+                    self._aisle_pick_load_sum[aid] = max(0.0, self._aisle_pick_load_sum[aid] - dl)
 
         # On-hand -> on-order (queued); re-enqueue the unit for the ranked drain.
         self._current_quantities[sku] = max(0, self._current_quantities.get(sku, 0) - unit.quantity)
@@ -934,6 +965,8 @@ class Inventory_Manager:
         aisle_lift_sum   = self._aisle_lift_sum
         aisle_demand_sum = self._aisle_demand_sum
         sku_demand_prod  = self._sku_demand_product
+        aisle_pick_load  = self._aisle_pick_load_sum
+        sku_pick_load    = self._sku_pick_load_product
         if has_affinity:
             sku_to_idx      = self._affinity._sku_to_idx
             delta_lift_idxs = self._affinity.delta_lift_idxs
@@ -962,6 +995,9 @@ class Inventory_Manager:
                         d = sku_demand_prod.get(sku, 0.0)
                         if d:
                             aisle_demand_sum[aid] = max(0.0, aisle_demand_sum[aid] - d)
+                        dl = sku_pick_load.get(sku, 0.0)
+                        if dl:
+                            aisle_pick_load[aid] = max(0.0, aisle_pick_load[aid] - dl)
             self._index_add(bin_)
             unavailable.pop(bin_id, None)
 

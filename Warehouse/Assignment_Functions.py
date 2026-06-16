@@ -507,6 +507,9 @@ def _ranked_assign_impl(
     beta         : float,
     minimize     : bool,
     aisle_selector = None,
+    order_key      = None,
+    aisle_extra_sum     = None,
+    sku_extra_product   = None,
 ) -> list:
     """Shared core for ranked-minimizing and ranked-maximizing assignment.
 
@@ -532,18 +535,20 @@ def _ranked_assign_impl(
     # SKU indices.  That union is identical for every unit in the wave (placement
     # is deferred to the caller, so aisle_idx_sets is static here), so build it
     # ONCE — not once per unit inside the sort key (which was O(U·Σ) per wave).
-    all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+    # Only needed for the default pick-effort ordering's co-occurrence term.
+    all_idx = (set().union(*aisle_idx_sets.values()) if (order_key is None and aisle_idx_sets)
+               else set())
 
     def pick_effort_priority(unit) -> float:
-        c    = unit.carton
-        f_i  = c.demand.frequency
-        w    = max(1, c.weight)
-        v    = max(1, c.volume())
-        effort = pi + pw * math.log(w) + pv * math.log(v)
+        c = unit.carton
+        # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
+        # so this avoids re-taking logs per unit per wave.
         co_occur = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-        return f_i * effort + co_occur
+        return c.demand.frequency * c.labor_cost + co_occur
 
-    sorted_units = sorted(units, key=pick_effort_priority, reverse=True)
+    # A policy may supply its own per-unit order score (decoupled enqueue ordering);
+    # otherwise fall back to the default pick-effort priority.  Both sort DESCENDING.
+    sorted_units = sorted(units, key=(order_key or pick_effort_priority), reverse=True)
     result: list = []
     if not sorted_units:
         return result
@@ -584,6 +589,10 @@ def _ranked_assign_impl(
             if idx is not None:
                 aisle_idx_sets[best_aid].add(idx)
             aisle_demand_sum[best_aid] += f_s * q_s
+            # Cost-weighted twin (Rank_labor): keep _aisle_pick_load_sum live within
+            # the wave so later units see the running labor balance.
+            if aisle_extra_sum is not None:
+                aisle_extra_sum[best_aid] += sku_extra_product.get(sku, 0.0)
 
         # Advance the chosen aisle's head; drop it when exhausted.
         dq = by_aisle[best_aid]
@@ -651,9 +660,9 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
 
     def priority(unit):
         c = unit.carton
-        effort = pi + pwt * math.log(max(1, c.weight)) + pv * math.log(max(1, c.volume()))
+        # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
         co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-        return c.demand.frequency * effort + co
+        return c.demand.frequency * c.labor_cost + co
 
     sorted_units = sorted(units, key=priority, reverse=True)
     result: list = []
@@ -851,6 +860,76 @@ def build_ranked_uniform_assignment_fn(
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
             aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())),
+        )
+    return ranked_assign
+
+
+# ── per-policy enqueue order-scores (decoupled queue ordering, sorted DESC) ────
+# A policy hands one of these to its Placement.order_score; the ranked wave sorts
+# the queue by it instead of the default pick-effort priority — so no ordering is
+# baked in that fights the policy.  Both read precomputed Carton attributes.
+
+def _score_expected_popularity(unit) -> float:
+    return unit.carton.expected_popularity        # freq * qty
+
+def _score_expected_labor(unit) -> float:
+    return unit.carton.expected_labor             # freq * qty * cost1
+
+
+def build_ranked_popularity_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+):
+    """Ablation: order units by expected_popularity (freq*qty) and place each into the
+    aisle with the LEAST Σ popularity (aisle_demand_sum); nearest-D bin within it,
+    nearest-aisle as the tiebreak.  Disperses demand mass evenly across aisles."""
+    def _selector(head_D, head_bin):
+        return min(head_D, key=lambda aid: (aisle_demand_sum.get(aid, 0.0), head_D[aid]))
+
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_assign_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+            aisle_selector=_selector, order_key=_score_expected_popularity,
+        )
+    return ranked_assign
+
+
+def build_ranked_labor_fn(
+    affinity,
+    wp,
+    aisle_sku_sets        : dict,
+    aisle_idx_sets        : dict,
+    aisle_demand_sum      : dict,
+    aisle_pick_load_sum   : dict,
+    sku_pick_load_product : dict,
+    freq_by_idx           : dict,
+    freq_by_sku           : dict,
+    qty_by_sku            : dict,
+    beta                  : float = 1.0,
+):
+    """Ablation: order units by expected_labor (freq*qty*cost) and place each into the
+    aisle with the LEAST Σ expected_labor (aisle_pick_load_sum); nearest-D tiebreak.
+    LPT-consistent — the enqueue order key and the aisle-balance metric are the same
+    quantity, so the greedy minimises the busiest aisle's expected picking labor."""
+    def _selector(head_D, head_bin):
+        return min(head_D, key=lambda aid: (aisle_pick_load_sum.get(aid, 0.0), head_D[aid]))
+
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_assign_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+            aisle_selector=_selector, order_key=_score_expected_labor,
+            aisle_extra_sum=aisle_pick_load_sum, sku_extra_product=sku_pick_load_product,
         )
     return ranked_assign
 

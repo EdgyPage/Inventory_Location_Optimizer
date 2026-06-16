@@ -24,9 +24,13 @@ from Assignment_Functions import (
     build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
     build_ranked_uniform_assignment_fn,
+    build_ranked_popularity_fn,
+    build_ranked_labor_fn,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
     build_co_demand_placement,
+    _score_expected_popularity,
+    _score_expected_labor,
 )
 from Inventory_Management import Placement, _uniform_assignment
 
@@ -51,7 +55,8 @@ class Strategy:
     needs_affinity : bool      # rebuild aisle sku counts + lift sums before build()
     needs_demand   : bool      # init_demand_state + freq/qty maps before build()
     build          : Callable  # (mgr, ctx: StrategyContext) -> None
-    stock          : Callable | None = None  # (mgr, ctx, inventory) -> None; None = uniform enqueue_all
+    stock_mode     : str = 'uniform'  # 'uniform' = random enqueue_all; 'policy' = stock via
+                                      # the strategy's own assignment fn (opt_* runs)
     reslot_frac    : float = 0.0             # >0 enables the capacity reloader (budget = % of XL aisle)
     reloader       : str = 'rebalance'       # named reloader variant: promote_popular | demote_unpopular | rebalance
     uses_aisle_index : bool = False          # per-unit _drain strategy that consumes mgr._aisle_index;
@@ -78,6 +83,33 @@ def _build_uniform_trip_min_ranked(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
+
+
+def _build_rank_popularity(mgr, ctx: StrategyContext) -> None:
+    # Ranked wave ordered by expected_popularity (freq*qty), placed into the aisle with
+    # the least Σ popularity (aisle_demand_sum) — disperses demand mass across aisles.
+    mgr.placement = Placement(
+        'ranked_popularity',
+        build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
+        build_ranked_popularity_fn(
+            ctx.affinity, ctx.wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        order_score=_score_expected_popularity)
+
+
+def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
+    # Ranked wave ordered by expected_labor (freq*qty*cost), placed into the aisle with
+    # the least Σ expected_labor (aisle_pick_load_sum) — LPT load-balance of pick labor.
+    mgr.placement = Placement(
+        'ranked_labor',
+        build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
+        build_ranked_labor_fn(
+            ctx.affinity, ctx.wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        order_score=_score_expected_labor)
 
 
 def _build_trip_min(mgr, ctx: StrategyContext) -> None:
@@ -168,10 +200,12 @@ def _hsv_hex(i: int, n: int) -> str:
 # come from the restock rule (the optimal stock hook only needs freq_by_sku, which
 # the worker builds unconditionally).
 
-# initial assignment: (key, label, stock hook)   — None ⇒ uniform enqueue_all
+# initial assignment: (key, label, stock_mode)
+#   'uniform' ⇒ random enqueue_all;  'policy' ⇒ stock the full inventory through the
+#   strategy's OWN assignment fn (so opt_X starts at X's ideal layout).
 _INITIALS = [
-    ('uni', 'Uni', None),
-    ('opt', 'Opt', _stock_optimal),        # optimal pure-global-D initial layout
+    ('uni', 'Uni', 'uniform'),
+    ('opt', 'Opt', 'policy'),              # stock via the strategy's own assignment fn
 ]
 
 # restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand, uses_aisle_index)
@@ -181,13 +215,17 @@ _INITIALS = [
 # the already-optimised _drain_ranked path) stay on the candidates scan → False.
 _RESTOCKS = [
     ('fifo', 'FIFO',    _build_uniform,                 False, False, False),  # uniform random, FIFO drain
-    ('rank', 'Rank',    _build_uniform_trip_min_ranked, True,  True,  False),  # uniform aisle + min-D bin, ranked
-    ('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
-    ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
-    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
-    ('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
-    ('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
-    ('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
+    # Ranked aisle-selection ablation: same wave, differ only in how the aisle is chosen.
+    ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
+    ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
+    ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # min Σ freq*qty*cost
+    # ── disabled for this run (fifo + rank ablation only) ──
+    #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
+    #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
+    #('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
+    #('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
+    #('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
+    #('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
 ]
 
 # re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)
@@ -202,7 +240,7 @@ _RESLOTS = [
 _N_STRATEGIES = len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)
 
 STRATEGIES: list[Strategy] = []
-for _ik, _il, _stock in _INITIALS:
+for _ik, _il, _stock_mode in _INITIALS:
     for _rk, _rl, _bld, _na, _nd, _uix in _RESTOCKS:
         for _sk, _sl, _frac, _rld in _RESLOTS:
             _key = f'{_ik}_{_rk}_{_sk}'
@@ -210,7 +248,7 @@ for _ik, _il, _stock in _INITIALS:
                 key=_key, label=f'{_il}|{_rl}|{_sl}',
                 color=_hsv_hex(len(STRATEGIES), _N_STRATEGIES), run_type=_key,
                 needs_affinity=_na, needs_demand=_nd, build=_bld,
-                stock=_stock, reslot_frac=_frac, reloader=_rld,
+                stock_mode=_stock_mode, reslot_frac=_frac, reloader=_rld,
                 uses_aisle_index=_uix,
             ))
 
