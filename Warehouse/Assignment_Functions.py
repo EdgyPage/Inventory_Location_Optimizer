@@ -903,6 +903,81 @@ def build_ranked_popularity_fn(
     return ranked_assign
 
 
+def _travel_balanced_impl(units, candidates_fn, affinity, wp,
+                          aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                          aisle_pick_load_sum, sku_pick_load_product,
+                          freq_by_sku, qty_by_sku):
+    """Travel-aware LPT load balance (Rank_labor).
+
+    The expected labor of placing a unit in a location is the expected number of
+    picks times the time to service one pick THERE:
+        cost(unit, bin) = freq·qty · (labor_cost + D_bin)
+    where labor_cost is the per-pick handling regression (weight/volume) and
+    D_bin = x_speed·x_phys + y_speed·y_phys is the travel time to that bin.  Empty
+    candidate bins are ordered by D within each aisle (nearest first), and each unit
+    is placed in the specific bin that minimises the resulting BUSIEST aisle's total
+    labor (greedy LPT on unrelated machines — the job's size depends on the aisle via
+    D).  A far aisle is therefore chosen only when its current load is low enough to
+    absorb the extra travel, so heavy/hot SKUs are no longer flung to distant aisles
+    just to equalise pick-handling load (the flaw of the travel-blind version).
+    """
+    x_speed, y_speed = wp.x_speed, wp.y_speed
+    sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
+    if not sorted_units:
+        return []
+    cands = candidates_fn(sorted_units[0])
+    if not cands:
+        return [(u, None) for u in sorted_units]
+
+    D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    by_aisle: dict[int, deque] = {}
+    for b in cands:
+        by_aisle.setdefault(b.location[0], []).append(b)
+    for aid, lst in by_aisle.items():
+        lst.sort(key=lambda bb: D_of[id(bb)])        # nearest (min travel) first
+        by_aisle[aid] = deque(lst)
+    head = {aid: dq[0] for aid, dq in by_aisle.items() if dq}
+    # Wave-local running TOTAL (pick+travel) labor per aisle, seeded from the manager's
+    # travel-blind pick-labor sum (maintained at init/placement/removal); the travel
+    # term is added per placement below.  At initial policy-stock the seed is ~0, so the
+    # balance is fully travel-aware; reorder waves start from current pick-labor.
+    load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
+    sku_to_idx = affinity._sku_to_idx
+    result: list = []
+
+    for unit in sorted_units:
+        live = [aid for aid, dq in by_aisle.items() if dq]
+        if not live:
+            result.append((unit, None))
+            continue
+        c = unit.carton
+        sku = c.sku
+        fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
+        lc = c.labor_cost
+        # place where the resulting aisle total-labor is smallest (keeps the max down)
+        best_aid = min(live, key=lambda a: load[a] + fq * (lc + D_of[id(head[a])]))
+        chosen = head[best_aid]
+        load[best_aid] += fq * (lc + D_of[id(chosen)])
+
+        # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl)
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            idx = sku_to_idx.get(sku)
+            if idx is not None:
+                aisle_idx_sets[best_aid].add(idx)
+            aisle_demand_sum[best_aid] += fq
+            aisle_pick_load_sum[best_aid] += sku_pick_load_product.get(sku, 0.0)
+
+        dq = by_aisle[best_aid]
+        dq.popleft()
+        if dq:
+            head[best_aid] = dq[0]
+        else:
+            head.pop(best_aid, None)
+        result.append((unit, chosen))
+    return result
+
+
 def build_ranked_labor_fn(
     affinity,
     wp,
@@ -916,21 +991,14 @@ def build_ranked_labor_fn(
     qty_by_sku            : dict,
     beta                  : float = 1.0,
 ):
-    """Ablation: order units by expected_labor (freq*qty*cost) and place each into the
-    aisle with the LEAST Σ expected_labor (aisle_pick_load_sum); nearest-D tiebreak.
-    LPT-consistent — the enqueue order key and the aisle-balance metric are the same
-    quantity, so the greedy minimises the busiest aisle's expected picking labor."""
-    def _selector(head_D, head_bin):
-        return min(head_D, key=lambda aid: (aisle_pick_load_sum.get(aid, 0.0), head_D[aid]))
-
+    """Travel-aware LPT labor balancer (see _travel_balanced_impl): places each unit in
+    the specific empty bin that minimises the busiest aisle's total expected labor,
+    where labor = freq·qty·(pick_time + travel_time).  Returns (unit, bin) pairs."""
     def ranked_assign(units: list, candidates_fn) -> list:
-        return _ranked_assign_impl(
+        return _travel_balanced_impl(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
-            aisle_selector=_selector, order_key=_score_expected_labor,
-            aisle_extra_sum=aisle_pick_load_sum, sku_extra_product=sku_pick_load_product,
-        )
+            aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
     return ranked_assign
 
 

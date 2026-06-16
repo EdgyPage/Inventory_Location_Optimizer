@@ -99,8 +99,9 @@ def _build_rank_popularity(mgr, ctx: StrategyContext) -> None:
 
 
 def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
-    # Ranked wave ordered by expected_labor (freq*qty*cost), placed into the aisle with
-    # the least Σ expected_labor (aisle_pick_load_sum) — LPT load-balance of pick labor.
+    # Travel-aware LPT labor balance: each unit goes to the specific empty bin that
+    # minimises the busiest aisle's total labor = freq*qty*(pick_time + travel_D).
+    # Candidate bins are ordered by travel time within each aisle (nearest first).
     mgr.placement = Placement(
         'ranked_labor',
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
@@ -218,7 +219,7 @@ _RESTOCKS = [
     # Ranked aisle-selection ablation: same wave, differ only in how the aisle is chosen.
     ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
-    ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # min Σ freq*qty*cost
+    ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
     # ── disabled for this run (fifo + rank ablation only) ──
     #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
     #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
