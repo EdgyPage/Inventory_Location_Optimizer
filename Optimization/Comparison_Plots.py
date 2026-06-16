@@ -493,7 +493,7 @@ def _aggregate_series(profile_series_list):
 
 
 def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
-                           top_by='global'):
+                           top_by='global', no_stats=False):
     """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
     _fresh_dir(out_dir)   # never mix this run's aggregate with a prior one
     strategies, S = _aggregate_series(profile_series_list)
@@ -504,6 +504,15 @@ def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
         strategies, S, out_dir, top_n,
         f'AGG {pickcfg} · {len(profile_series_list)} profiles', agg=True, top_by=top_by)
     log.info(f'  aggregate suite -> {out_dir} ({len(profile_series_list)} profiles)')
+
+    # ── cross-profile significance suite (strategies paired by profile) ──
+    if not no_stats:
+        try:
+            from Stats_Analysis import run_aggregate_stats
+            run_aggregate_stats(profile_series_list, os.path.join(out_dir, 'stats'),
+                                log, pickcfg)
+        except Exception as exc:                                   # noqa: BLE001
+            log.error(f'  aggregate stats failed for {pickcfg}: {exc!r}')
 
 
 # ── main analysis entry point ──────────────────────────────────────────────────
@@ -701,5 +710,17 @@ def run_config_analysis(
     _task_box(strategies, df_t, f'Steady-state task duration by strategy  [{inv} / {name}]',
               os.path.join(compare_dir, 'breakdown', 'task_duration_by_strategy.png'))
     _dump_series(strategies, S, os.path.join(run_dir, 'series.json'))
+
+    # ── statistical significance suite (paired by batch_id over steady state) ──
+    if not shared.get('no_stats', False):
+        try:
+            from Stats_Analysis import run_config_stats
+            maxb = max((int(df_b[s['key']]['batch_id'].max())
+                        for s in strategies if not df_b[s['key']].empty), default=0)
+            ss_lo = maxb - _WIN + 1
+            run_config_stats(strategies, df_b, df_t, ss_lo,
+                             os.path.join(run_dir, 'stats'), log)
+        except Exception as exc:                                   # noqa: BLE001
+            log.error(f'  stats suite failed for {name}: {exc!r}')
 
     log.info(f'  Saved {n} strategies: per_strategy/ + compare/ + series.json -> {run_dir}')

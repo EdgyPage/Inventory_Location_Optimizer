@@ -72,7 +72,8 @@ def _sim_result_from_meta(meta: dict) -> dict:
     return sim_result
 
 
-def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger) -> None:
+def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger,
+                   no_stats: bool = False) -> None:
     """Cross-profile roll-up: group every config's series.json by pick-config name
     (the leaf dir) across all profiles, then emit one aggregate suite per group under
     base_dir/_aggregate/<pickcfg>/."""
@@ -93,13 +94,14 @@ def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger) 
     for cfg, plist in groups.items():
         out_dir = os.path.join(base_dir, '_aggregate', cfg)
         try:
-            _run_aggregate_analysis(plist, out_dir, top_n, cfg, log, top_by=top_by)
+            _run_aggregate_analysis(plist, out_dir, top_n, cfg, log, top_by=top_by,
+                                    no_stats=no_stats)
         except Exception as exc:
             log.error(f'  aggregate FAILED for {cfg}: {exc}', exc_info=True)
 
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 top_n: int = 1, top_by: str = 'global') -> None:
+                 top_n: int = 1, top_by: str = 'global', no_stats: bool = False) -> None:
     """Re-run analysis (plots + CSV summaries) on all completed sims under *base_dir*.
 
     Scans base_dir/pair_label/config_name/sim_meta.json.  build_shared_assets runs
@@ -144,6 +146,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
             slim = {k: shared.get(k) for k in _SLIM_KEYS}  # picklable subset per pair
             slim['top_n'] = top_n
             slim['top_by'] = top_by
+            slim['no_stats'] = no_stats
 
             for meta in config_metas:
                 sim_result = _sim_result_from_meta(meta)
@@ -168,7 +171,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
 
     # ── cross-profile aggregate (main process; needs all series.json on disk) ──
     log.info('  Building cross-profile aggregate suites...')
-    _run_aggregate(base_dir, top_n, top_by, log)
+    _run_aggregate(base_dir, top_n, top_by, log, no_stats=no_stats)
 
 
 def main() -> None:
@@ -200,6 +203,11 @@ def main() -> None:
              "(tends to be dominated by optimal-start); a dimension = top-N WITHIN each "
              "value of it (e.g. 'initial' overlays the best Uniform vs best Optimal).",
     )
+    parser.add_argument(
+        '--no-stats', action='store_true', dest='no_stats',
+        help='Skip the statistical significance suite (stats/ dirs); only descriptive '
+             'plots + series.json are produced.',
+    )
     args = parser.parse_args()
 
     if args.base_dir is None:
@@ -218,8 +226,9 @@ def main() -> None:
 
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
     log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers}, '
-             f'top_n={args.top_n}, top_by={args.top_by})')
-    run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n, top_by=args.top_by)
+             f'top_n={args.top_n}, top_by={args.top_by}, stats={not args.no_stats})')
+    run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n,
+                 top_by=args.top_by, no_stats=args.no_stats)
     log.info('Done.')
 
 
