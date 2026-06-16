@@ -130,13 +130,27 @@ REGRESSION_CONFIGS = [
         'pick_intercept'  : 1.0,
         'cart_swap_coef'  : 10.0,
     },
-    #{
-    #    'name'            : 'high_weight',
-    #    'pick_weight_coef': 2.5,
-    #    'pick_volume_coef': 1e-3,
-    #    'pick_intercept'  : 1.0,
-    #    'cart_swap_coef'  : 10.0,
-    #},
+    {
+        'name'            : 'high_weight',
+        'pick_weight_coef': 5.0,
+        'pick_volume_coef': 1e-3,
+        'pick_intercept'  : 1.0,
+        'cart_swap_coef'  : 10.0,
+    },
+    {
+        'name'            : 'high_volume_penalty',
+        'pick_weight_coef': 1.1,
+        'pick_volume_coef': 5e-3,
+        'pick_intercept'  : 1.0,
+        'cart_swap_coef'  : 10.0,
+    },
+    {
+        'name'            : 'high_weight_volume_penalty',
+        'pick_weight_coef': 5.0,
+        'pick_volume_coef': 5e-3,
+        'pick_intercept'  : 1.0,
+        'cart_swap_coef'  : 10.0,
+    },
     #{
     #    'name'            : 'high_cart_penalty',
     #    'pick_weight_coef': 1.1,
@@ -688,11 +702,13 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
 
 
 def _run_workers_flat(
-    pairs         : list,
-    base_dir      : str,
-    shared_by_pair: dict,
-    max_workers   : int,
-    log           : logging.Logger,
+    pairs              : list,
+    base_dir           : str,
+    shared_by_pair     : dict,
+    max_workers        : int,
+    log                : logging.Logger,
+    max_tasks_per_child: int | None = 1,
+    skip_completed     : bool = False,
 ) -> None:
     """Flat ProcessPoolExecutor pool — zero idle time between A/B/C barriers.
 
@@ -723,6 +739,15 @@ def _run_workers_flat(
             for cfg in REGRESSION_CONFIGS:
                 cfg_name = cfg.get('name', '?')
                 key = (label, cfg_name)
+                # On resume, a config that finalized has written sim_meta.json and had
+                # its resume marker removed (_finalize_config_run).  Skip it so resume
+                # never recomputes already-complete work — _prepare_config_run would
+                # otherwise see no resume.pkl and restart it from batch 0.
+                run_dir = os.path.join(pair_dir, cfg_name)
+                if skip_completed and os.path.exists(os.path.join(run_dir, 'sim_meta.json')) \
+                        and not os.path.exists(_resume_path(run_dir)):
+                    log.info(f'  [{label}/{cfg_name}] already complete — skipping (resume)')
+                    continue
                 try:
                     strategy_args, sim_skeleton = _prepare_config_run(
                         cfg, shared, pair_dir, log)
@@ -743,11 +768,19 @@ def _run_workers_flat(
             sa['job_total'] = total_jobs
             sa['job_tag']   = f'{_label}/{_cfg_name}/{sa["strategy"]}'
 
+        # max_tasks_per_child recycles each worker process after this many jobs so
+        # the OS reclaims its full RSS between simulations.  CPython rarely returns
+        # freed arenas to the OS, so without recycling each long-lived worker's RSS
+        # ratchets to its high-water mark and pins memory at 95%+, swap-thrashing
+        # every worker's DB writes.  None = never recycle (legacy behaviour).
+        recycle = max_tasks_per_child if max_tasks_per_child and max_tasks_per_child > 0 else None
         log.info(f'  Flat pool: {total_jobs} jobs'
-                 f' -> ProcessPoolExecutor({max_workers})')
+                 f' -> ProcessPoolExecutor({max_workers}, '
+                 f'max_tasks_per_child={recycle})')
 
         # ── execute ───────────────────────────────────────────────────────────
-        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
+        with concurrent.futures.ProcessPoolExecutor(
+                max_workers=max_workers, max_tasks_per_child=recycle) as pool:
             futures = {
                 pool.submit(_run_strategy_worker, args): key
                 for key, args in work_units
@@ -795,6 +828,13 @@ def main():
                         help='Flat ProcessPoolExecutor pool size — every '
                              '(pair,config,strategy) work unit shares one pool. '
                              'Default 1 (sequential).')
+    parser.add_argument('--max-tasks-per-child', type=int, default=1, metavar='N',
+                        help='Recycle each pool worker after N jobs so the OS reclaims '
+                             'its full memory between simulations (default 1 = fresh '
+                             'process per job, the cleanest flush). Workers reload all '
+                             'assets per job anyway, so spawn cost is negligible vs '
+                             'multi-hour jobs. Raise it for fewer spawns at the cost of '
+                             'flush completeness; 0 disables recycling (legacy).')
     parser.add_argument('--max-skus', type=int, default=None, metavar='N',
                         help='Cap inventory to the first N SKUs (smaller warehouse for quick runs)')
     parser.add_argument('--max-aisles', type=int, default=None, metavar='N',
@@ -885,7 +925,9 @@ def main():
             composition=composition, keyframe_interval=args.keyframe_interval,
             warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
         )
-    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log)
+    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
+                      max_tasks_per_child=args.max_tasks_per_child,
+                      skip_completed=bool(args.resume))
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'
              f'  Root: {base_dir}'

@@ -307,11 +307,19 @@ def _run_strategy_worker(args: dict) -> dict:
     dur_count_ckpt = 0
     p1_sum_ckpt    = 0.0
     p2_sum_ckpt    = 0.0
+    # ── per-section wall timers (diagnostic): where each checkpoint's wall goes ──
+    t_reord_ckpt   = 0.0   # reloader.reload + check_reorders + pop_churn + tracked_sigma_fd
+    t_build_ckpt   = 0.0   # Batch(...) + Task.from_batch(...)
+    t_pre_ckpt     = 0.0   # build_pre_snapshot + snapshot_aisle_metrics + keyframe write
+    t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
+    t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
+    t_inv_ckpt     = 0.0   # snapshot_bin_inventory
     last_dur       = 0.0
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
 
     for i in range(start_i, n_batches):
+        _t = time.perf_counter()
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
@@ -321,9 +329,12 @@ def _run_strategy_worker(args: dict) -> dict:
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
+        _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         batch    = Batch(batch_cfg, inventory, affinity=affinity)
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
+        _now = time.perf_counter(); t_build_ckpt += _now - _t; _t = _now
+
         pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks
         am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
 
@@ -337,6 +348,7 @@ def _run_strategy_worker(args: dict) -> dict:
                  'storage_size': v['storage_size'], 'qty': v['pre_qty']}
                 for v in pre_snap.values()
             ])
+        _now = time.perf_counter(); t_pre_ckpt += _now - _t; _t = _now
 
         if not tasks:
             skipped += 1
@@ -346,6 +358,7 @@ def _run_strategy_worker(args: dict) -> dict:
         events          = sim.run()
         p1_sum_ckpt    += sim.phase1_time
         p2_sum_ckpt    += sim.phase2_time
+        _now = time.perf_counter(); t_sim_ckpt += _now - _t; _t = _now
 
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         bs.sigma_fd           = batch_sigma
@@ -355,8 +368,11 @@ def _run_strategy_worker(args: dict) -> dict:
                                  run_id=run_id, lift_cache=lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)
+        _now = time.perf_counter(); t_extract_ckpt += _now - _t; _t = _now
+
         inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id,
                                      full_snapshot=(i == start_i))
+        _now = time.perf_counter(); t_inv_ckpt += _now - _t
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
@@ -398,6 +414,10 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  p2={p2_sum_ckpt:.2f}s'
                 f'  wall={wall:.0f}s'
                 f'  db={t_save:.2f}s'
+                # per-section breakdown of this checkpoint's batch-loop wall
+                f'  | reord={t_reord_ckpt:.1f}s build={t_build_ckpt:.1f}s'
+                f' pre={t_pre_ckpt:.1f}s sim={t_sim_ckpt:.1f}s'
+                f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear()
@@ -406,6 +426,12 @@ def _run_strategy_worker(args: dict) -> dict:
             dur_count_ckpt = 0
             p1_sum_ckpt    = 0.0
             p2_sum_ckpt    = 0.0
+            t_reord_ckpt   = 0.0
+            t_build_ckpt   = 0.0
+            t_pre_ckpt     = 0.0
+            t_sim_ckpt     = 0.0
+            t_extract_ckpt = 0.0
+            t_inv_ckpt     = 0.0
             t_ckpt         = time.perf_counter()
 
     if pb:
@@ -423,6 +449,16 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
              f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
     log.info('=' * 60)
+
+    # Release large per-job state before the worker returns / is recycled.  The pool
+    # may run this worker again (max_tasks_per_child > 1), so drop the inventory,
+    # affinity CSR, warehouse, manager state, and the lift memo before the next job
+    # so RSS doesn't ratchet across jobs in a reused process.
+    lift_cache.clear()
+    del (inventory, affinity, warehouse, mgr, ctx, reloader,
+         freq_by_sku, qty_by_sku, freq_by_idx)
+    import gc
+    gc.collect()
 
     return {
         'strategy': strategy,
