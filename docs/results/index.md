@@ -3,6 +3,10 @@
 Write-ups of individual simulation runs. Each entry records the run parameters, the
 headline numbers, and the analysis plots.
 
+!!! info "Render check"
+    This text comes from `docs/results/index.md`. **Sentinel:** `RESULTS-INDEX-LIVE-v1`.
+    See the [Authoring guide](../authoring.md) to add a run write-up.
+
 ## Runs
 
 | Run | Date | Scope | Notes |

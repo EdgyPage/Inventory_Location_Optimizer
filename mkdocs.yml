@@ -47,6 +47,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Authoring guide: authoring.md
   - Results:
       - Overview: results/index.md
       - 'Example run (2026-06)': results/example-run.md

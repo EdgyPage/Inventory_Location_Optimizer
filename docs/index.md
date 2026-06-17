@@ -5,7 +5,14 @@ how the choice of where to slot incoming stock affects picker travel, batch dura
 co-location quality, and inventory churn.
 
 This site is where simulation runs are written up and their plots are published. Start with
-the [Results overview](results/index.md).
+the [Results overview](results/index.md), or see the [Authoring guide](authoring.md) to add
+a write-up.
+
+!!! success "It's working"
+    You're reading content rendered from `docs/index.md`. If this page looks styled and you
+    can navigate the sidebar, the MkDocs build and GitHub Pages deploy are working
+    end-to-end. **Sentinel:** `HOME-PAGE-LIVE-v1` — change this string and push to confirm a
+    redeploy picked up your edit.
 
 ## What's compared
 
