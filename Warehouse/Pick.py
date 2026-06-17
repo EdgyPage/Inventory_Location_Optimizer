@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from Storage_Primitive import StorageCart
@@ -11,6 +11,21 @@ if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
 
 _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
+
+# Height brackets: equipment is slower handling at height.  Each entry is
+# (upper_y_phys_exclusive, handling_multiplier); a bin's bracket is the first whose
+# threshold exceeds its y_phys (else the last).  The multiplier scales ONLY the
+# per-unit weight/volume handling term (not intercept/cart).  Placeholder defaults —
+# tune per config / in the calibration notebook.  Mirrored in Optimization/Workload.py.
+DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.9))
+
+
+def height_multiplier(brackets: tuple, y_phys: float) -> float:
+    """Handling multiplier for a pick at physical height y_phys (step over brackets)."""
+    for thr, mult in brackets:
+        if y_phys < thr:
+            return mult
+    return brackets[-1][1]
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -25,6 +40,8 @@ class PickConfig:
     pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
     cart_swap_coef: float   = 5.0
+    # (upper_y_phys, handling_multiplier) brackets — scales the per-unit handling by height
+    height_brackets: tuple  = field(default_factory=lambda: DEFAULT_HEIGHT_BRACKETS)
 
 
 # ── events ───────────────────────────────────────────────────────────────────
@@ -77,17 +94,24 @@ class PickerProgress:
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int, cart_swapped: bool) -> float:
+def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
+               cart_swapped: bool, y_phys: float = 0.0) -> float:
     """Log-linear regression model for time to pick `quantity` units of a carton.
 
     weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
     raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
     zero-volume carton is physically impossible and indicates bad data.
+
+    y_phys is the bin's physical height; the per-unit weight/volume handling is
+    multiplied by the height bracket factor (equipment is slower up high).  The
+    intercept and cart-swap penalty are not height-scaled.  y_phys defaults to 0
+    (ground bracket → factor 1.0) so callers without a bin are unaffected.
     """
+    hmult = height_multiplier(cfg.height_brackets, y_phys)
     return (
         cfg.pick_intercept
-        + cfg.pick_weight_coef * math.log(max(weight, 1)) * quantity
-        + cfg.pick_volume_coef * math.log(max(volume, 1)) * quantity
+        + hmult * (cfg.pick_weight_coef * math.log(max(weight, 1))
+                   + cfg.pick_volume_coef * math.log(max(volume, 1))) * quantity
         + cfg.cart_swap_coef * int(cart_swapped)
     )
 
@@ -211,7 +235,7 @@ class PickSimulation:
                     cart_remaining = _CART_CAPACITY
 
                 # ── pick ─────────────────────────────────────────────────────
-                pt = _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped)
+                pt = _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped, bin_.y_phys)
                 time          += pt
                 cart_remaining = max(0, cart_remaining - needed_vol)
                 bins_done      += 1

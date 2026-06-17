@@ -903,25 +903,39 @@ def build_ranked_popularity_fn(
     return ranked_assign
 
 
+def _hmult(brackets, y_phys):
+    """Height handling multiplier (mirror of Pick.height_multiplier; kept local to
+    avoid a cross-module import).  First bracket whose threshold exceeds y_phys."""
+    if not brackets:
+        return 1.0
+    for thr, mult in brackets:
+        if y_phys < thr:
+            return mult
+    return brackets[-1][1]
+
+
 def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           aisle_pick_load_sum, sku_pick_load_product,
                           freq_by_sku, qty_by_sku):
-    """Travel-aware LPT load balance (Rank_labor).
+    """Travel- AND height-aware LPT load balance (Rank_labor).
 
-    The expected labor of placing a unit in a location is the expected number of
-    picks times the time to service one pick THERE:
-        cost(unit, bin) = freq·qty · (labor_cost + D_bin)
-    where labor_cost is the per-pick handling regression (weight/volume) and
-    D_bin = x_speed·x_phys + y_speed·y_phys is the travel time to that bin.  Empty
-    candidate bins are ordered by D within each aisle (nearest first), and each unit
-    is placed in the specific bin that minimises the resulting BUSIEST aisle's total
-    labor (greedy LPT on unrelated machines — the job's size depends on the aisle via
-    D).  A far aisle is therefore chosen only when its current load is low enough to
-    absorb the extra travel, so heavy/hot SKUs are no longer flung to distant aisles
-    just to equalise pick-handling load (the flaw of the travel-blind version).
+    The expected labor of placing a unit in a bin is freq·qty times the per-pick cost
+    THERE:  pick_intercept + height_mult(y_bin)·handle_var + D_bin, where handle_var is
+    the per-unit weight/volume handling, height_mult(y) is the equipment penalty for the
+    bin's height bracket, and D_bin = x_speed·x_phys + y_speed·y_phys is travel.  Each
+    unit is placed in the specific empty bin that minimises the resulting BUSIEST aisle's
+    total labor (greedy LPT).  So a bin is only chosen high/far when the aisle's load is
+    low enough to absorb the extra handling/travel — heavy, frequently-picked SKUs gravitate
+    to low, near bins.
+
+    Within an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),
+    so bins are grouped per aisle by height bracket, each a min-D deque; for each unit we
+    scan one min-D representative per (aisle, bracket) — O(units · aisles · n_brackets).
     """
     x_speed, y_speed = wp.x_speed, wp.y_speed
+    intercept = wp.pick_intercept
+    brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
     if not sorted_units:
         return []
@@ -930,34 +944,51 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         return [(u, None) for u in sorted_units]
 
     D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
-    by_aisle: dict[int, deque] = {}
+    M_of = {id(b): _hmult(brackets, b.y_phys) for b in cands}
+    # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
+    by_aisle: dict[int, dict] = {}
     for b in cands:
-        by_aisle.setdefault(b.location[0], []).append(b)
-    for aid, lst in by_aisle.items():
-        lst.sort(key=lambda bb: D_of[id(bb)])        # nearest (min travel) first
-        by_aisle[aid] = deque(lst)
-    head = {aid: dq[0] for aid, dq in by_aisle.items() if dq}
-    # Wave-local running TOTAL (pick+travel) labor per aisle, seeded from the manager's
-    # travel-blind pick-labor sum (maintained at init/placement/removal); the travel
-    # term is added per placement below.  At initial policy-stock the seed is ~0, so the
-    # balance is fully travel-aware; reorder waves start from current pick-labor.
+        by_aisle.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
+    for groups in by_aisle.values():
+        for m, lst in list(groups.items()):
+            lst.sort(key=lambda bb: D_of[id(bb)])
+            groups[m] = deque(lst)
+    # running per-aisle total (handling+travel) labor, seeded from the maintained sum
     load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
     sku_to_idx = affinity._sku_to_idx
     result: list = []
 
+    def _aisle_best(aid, var):
+        """(cost, mult, bin) of the cheapest available bin in the aisle for this var."""
+        best = None
+        for m, dq in by_aisle[aid].items():
+            if not dq:
+                continue
+            b = dq[0]
+            cost = m * var + D_of[id(b)]
+            if best is None or cost < best[0]:
+                best = (cost, m, b)
+        return best
+
     for unit in sorted_units:
-        live = [aid for aid, dq in by_aisle.items() if dq]
-        if not live:
-            result.append((unit, None))
-            continue
         c = unit.carton
         sku = c.sku
+        var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
-        lc = c.labor_cost
-        # place where the resulting aisle total-labor is smallest (keeps the max down)
-        best_aid = min(live, key=lambda a: load[a] + fq * (lc + D_of[id(head[a])]))
-        chosen = head[best_aid]
-        load[best_aid] += fq * (lc + D_of[id(chosen)])
+        best_aid = best_choice = None
+        best_score = None
+        for aid in by_aisle:
+            ab = _aisle_best(aid, var)
+            if ab is None:
+                continue
+            score = load[aid] + fq * (intercept + ab[0])
+            if best_score is None or score < best_score:
+                best_score, best_aid, best_choice = score, aid, ab
+        if best_aid is None:
+            result.append((unit, None))
+            continue
+        cost, m, chosen = best_choice
+        load[best_aid] += fq * (intercept + cost)
 
         # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl)
         if sku not in aisle_sku_sets[best_aid]:
@@ -968,12 +999,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             aisle_demand_sum[best_aid] += fq
             aisle_pick_load_sum[best_aid] += sku_pick_load_product.get(sku, 0.0)
 
-        dq = by_aisle[best_aid]
-        dq.popleft()
-        if dq:
-            head[best_aid] = dq[0]
-        else:
-            head.pop(best_aid, None)
+        by_aisle[best_aid][m].popleft()
         result.append((unit, chosen))
     return result
 

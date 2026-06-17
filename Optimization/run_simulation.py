@@ -62,7 +62,7 @@ from Affinity_Store import AffinityStore
 from generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
 from strategies import STRATEGIES
-from Pick import PickConfig
+from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
 from Warehouse_Builder import Warehouse_Builder
@@ -124,32 +124,40 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 
 REGRESSION_CONFIGS = [
     {
-        'name'            : 'baseline',
-        'pick_weight_coef': 1.1,
-        'pick_volume_coef': 1e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 10.0,
+        'name'            : 'calibrated',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 2.33666,
+        'pick_volume_coef': 0.294014,
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 0.0291667,
+        'y_speed'         : 0.0416667,
     },
     {
-        'name'            : 'high_weight',
-        'pick_weight_coef': 5.0,
-        'pick_volume_coef': 1e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 10.0,
+        'name'            : 'calibrated_highweight',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 2.33666*2,
+        'pick_volume_coef': 0.294014,
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 0.0291667,
+        'y_speed'         : 0.0416667,
     },
     {
-        'name'            : 'high_volume_penalty',
-        'pick_weight_coef': 1.1,
-        'pick_volume_coef': 5e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 10.0,
+        'name'            : 'calibrated_highvolume',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 2.33666,
+        'pick_volume_coef': 0.294014*2,
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 0.0291667,
+        'y_speed'         : 0.0416667,
     },
     {
-        'name'            : 'high_weight_volume_penalty',
-        'pick_weight_coef': 5.0,
-        'pick_volume_coef': 5e-3,
-        'pick_intercept'  : 1.0,
-        'cart_swap_coef'  : 10.0,
+        'name'            : 'calibrated_highweight_highvolume',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 2.33666*2,
+        'pick_volume_coef': 0.294014*2,
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 0.0291667,
+        'y_speed'         : 0.0416667,
     },
     #{
     #    'name'            : 'high_cart_penalty',
@@ -513,6 +521,7 @@ def _prepare_config_run(
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
         cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
+        height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
     )
     wp      = WorkloadParams.from_pick_config(pick_cfg)
     run_dir = os.path.join(pair_dir, name)

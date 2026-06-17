@@ -155,11 +155,12 @@ def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
 
 # ── internal helpers ──────────────────────────────────────────────────────────
 
-def _pick_lines(task) -> list[tuple[int, int, int]]:
-    """(weight, volume, qty) per bin stop that has inventory for this task."""
+def _pick_lines(task) -> list[tuple[int, int, int, float]]:
+    """(weight, volume, qty, y_phys) per bin stop that has inventory for this task.
+    y_phys lets aisle_workload apply the height-bracket handling multiplier."""
     return [
         (b.storage.carton.weight, b.storage.carton.volume(),
-         task.items[b.storage.carton.sku])
+         task.items[b.storage.carton.sku], b.y_phys)
         for b in task.path
         if b.storage is not None and b.storage.carton.sku in task.items
     ]

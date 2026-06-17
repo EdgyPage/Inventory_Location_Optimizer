@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import math
 import random
 import types
 from collections import defaultdict
@@ -18,13 +19,14 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Carton import Carton
-from Pick import PickConfig, _pick_time
+from Pick import PickConfig, _pick_time, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 from Storage_Primitive import viable_storage_units
 from Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_popularity_fn,
     build_ranked_uniform_assignment_fn,
 )
+from Workload import WorkloadParams, aisle_workload
 
 
 def _cfg() -> PickConfig:
@@ -82,8 +84,10 @@ class _Bin:
         self.location = (aid,); self.x_phys = x; self.y_phys = y
 
 class _Cart:
-    def __init__(self, sku, lc, f, q):
+    def __init__(self, sku, lc, f, q, handle_var=None):
         self.sku = sku; self.labor_cost = lc; self._f = f; self._q = q
+        # per-unit weight/volume term used by the height-aware labor balancer
+        self.handle_var = lc if handle_var is None else handle_var
         self.demand = types.SimpleNamespace(frequency=f, quantity_rate=q)
     @property
     def expected_popularity(self): return self._f * self._q
@@ -152,6 +156,67 @@ def test_rank_random_disperses_across_aisles():
     ids = [id(b) for _, b in res if b is not None]
     assert len(aisles) >= 2
     assert len(ids) == len(set(ids))
+
+
+# ── height brackets ──────────────────────────────────────────────────────────
+
+def _wp_h(brackets):
+    return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=0.0,
+                                 pick_weight_coef=1.0, pick_volume_coef=0.0,
+                                 height_brackets=brackets)
+
+
+def test_height_multiplier_brackets():
+    b = DEFAULT_HEIGHT_BRACKETS   # ((96,1.0),(240,1.4),(inf,1.9))
+    assert height_multiplier(b, 0) == 1.0
+    assert height_multiplier(b, 95.9) == 1.0
+    assert height_multiplier(b, 96.0) == 1.4
+    assert height_multiplier(b, 239.0) == 1.4
+    assert height_multiplier(b, 240.0) == 1.9
+    assert height_multiplier(b, 9999.0) == 1.9
+
+
+def test_pick_time_height_scaling():
+    cfg = PickConfig(pick_intercept=2.0, pick_weight_coef=0.5, pick_volume_coef=0.1,
+                     cart_swap_coef=10.0, height_brackets=((96.0, 1.0), (float('inf'), 2.0)))
+    var = 0.5 * math.log(20) + 0.1 * math.log(27000)
+    ground = _pick_time(cfg, 20, 27000, 3, False, 10.0)    # mult 1.0
+    high   = _pick_time(cfg, 20, 27000, 3, False, 300.0)   # mult 2.0
+    assert abs(ground - (2.0 + 1.0 * 3 * var)) < 1e-9
+    assert abs(high   - (2.0 + 2.0 * 3 * var)) < 1e-9
+    # only the per-unit handling is height-scaled (intercept/cart flat)
+    assert abs((high - ground) - (2.0 - 1.0) * 3 * var) < 1e-9
+
+
+def test_aisle_workload_matches_pick_time_with_height():
+    """Analytical W (P term) must equal the sim's Σ _pick_time handling, incl. height."""
+    cfg = PickConfig(pick_intercept=2.0, pick_weight_coef=0.5, pick_volume_coef=0.1,
+                     cart_swap_coef=10.0, height_brackets=((96.0, 1.0), (float('inf'), 2.0)))
+    wp = WorkloadParams.from_pick_config(cfg)
+    stops = [(20, 27000, 3, 10.0), (20, 27000, 2, 300.0)]   # (w, v, qty, y_phys)
+    W = aisle_workload(0, 0, 1, stops, wp)                  # D=0, C=0 → W == Σ handling
+    expect = sum(_pick_time(cfg, w, v, q, False, y) for (w, v, q, y) in stops)
+    assert abs(W - expect) < 1e-9
+
+
+def test_rank_labor_height_vs_travel_tradeoff():
+    """A costly (high handle_var) SKU prefers a LOW ground bin even if farther; a cheap
+    SKU tolerates a high bin to save travel."""
+    brackets = ((96.0, 1.0), (float('inf'), 1.9))
+
+    def place(handle_var):
+        bin_low  = _Bin(1, 200, 10)    # far (high D), ground (mult 1.0)
+        bin_high = _Bin(1, 10, 300)    # near (low D), high (mult 1.9)
+        c = _Cart(7, 1.0, 1.0, 1.0, handle_var=handle_var)
+        ass, aix, ads, apl = (defaultdict(set), defaultdict(set),
+                              defaultdict(float), defaultdict(float))
+        fn = build_ranked_labor_fn(_aff([7]), _wp_h(brackets), ass, aix, ads, apl,
+                                   {7: 0.0}, {}, {7: 1.0}, {7: 1.0})
+        res = fn([_Unit(c)], lambda u: [bin_low, bin_high])
+        return res[0][1]
+
+    assert place(100.0).y_phys == 10     # costly → ground bin
+    assert place(1.0).y_phys == 300      # cheap → near (high) bin
 
 
 if __name__ == '__main__':

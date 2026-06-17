@@ -116,7 +116,7 @@ def _simulate_picker_deferred(
                 ))
                 cart_remaining = _CART_CAPACITY
 
-            t             += _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped)
+            t             += _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped, bin_.y_phys)
             cart_remaining  = max(0, cart_remaining - needed_vol)
             bins_done      += 1
             session_items  += qty

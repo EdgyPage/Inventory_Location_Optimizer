@@ -30,6 +30,7 @@ class Carton:
     # Config-dependent (depends on PickConfig coefficients), so it is computed once
     # per worker via compute_labor_cost(); 0.0 until set.  Reorders copy it forward.
     labor_cost: float = 0.0
+    handle_var: float = 0.0   # per-unit weight/volume handling term (no intercept) for height scaling
 
     def __init__(self, storage_type: tuple[str, str], max_dim: int = _MAX_DIM) -> None:
         self.length: int = _sample_dim(max_dim)
@@ -73,6 +74,7 @@ class Carton:
         # Carry the precomputed per-unit labor cost forward (same weight/coeffs);
         # expected_popularity/expected_labor are properties so they follow demand.
         c.labor_cost            = getattr(self, 'labor_cost',            0.0)
+        c.handle_var            = getattr(self, 'handle_var',            0.0)
         c._is_reorder = True
         return c
 
@@ -100,8 +102,13 @@ class Carton:
                            pick_weight_coef: float, pick_volume_coef: float) -> float:
         """Set (and return) labor_cost = per-unit pick regression cost for this carton
         under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
-        no cart swap.  Call once per worker after inventory load."""
-        self.labor_cost = (pick_intercept
-                           + pick_weight_coef * math.log(max(self.weight, 1))
+        no cart swap, ground level.  Call once per worker after inventory load.
+
+        Also stores handle_var = the per-unit weight/volume term ALONE (without the
+        intercept) so a height-aware placement can scale just that part by the bin's
+        height multiplier: per-unit handling at height = pick_intercept + mult*handle_var.
+        """
+        self.handle_var = (pick_weight_coef * math.log(max(self.weight, 1))
                            + pick_volume_coef * math.log(max(self.volume(), 1)))
+        self.labor_cost = pick_intercept + self.handle_var
         return self.labor_cost
