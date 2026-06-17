@@ -1,0 +1,14 @@
+/* Slightly wider content column so wide analysis plots have room. */
+.md-grid {
+  max-width: 64rem;
+}
+
+/* Center figures and give captions a muted, smaller look. */
+.md-typeset figure img {
+  border-radius: 6px;
+}
+.md-typeset figcaption {
+  font-size: 0.78rem;
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.3rem;
+}

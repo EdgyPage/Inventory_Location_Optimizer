@@ -227,3 +227,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Simulation run output dirs (large SQLite DBs already covered by *.db; ignore whole run trees)
+comparison_*/
