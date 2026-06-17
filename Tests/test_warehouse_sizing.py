@@ -598,7 +598,7 @@ def test_batch_assign_extremal_order():
     cands = [_B(i) for i in range(6)]
     freqs = [0.1, 0.9, 0.5, 0.7]        # sku i -> frequency
     units = [types.SimpleNamespace(carton=types.SimpleNamespace(
-                sku=i, weight=1, volume=lambda: 1,
+                sku=i, weight=1, volume=lambda: 1, labor_cost=1.0,  # = pick_intercept (pw=pv=0)
                 demand=types.SimpleNamespace(frequency=f)))
              for i, f in enumerate(freqs)]
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})

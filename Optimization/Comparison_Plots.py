@@ -93,6 +93,62 @@ def _fresh_dir(path):
     os.makedirs(path, exist_ok=True)
 
 
+def _focus_filter(strategies, focus):
+    """Restrict strategies to one initial family by key prefix ('uni'/'opt'); fall back
+    to all if the prefix matches nothing or focus='all'.  opt_* win mainly from their
+    initial-stock advantage, so 'uni' isolates the reorder-policy comparison."""
+    if focus in ('uni', 'opt'):
+        sub = [s for s in strategies if str(s.get('key', '')).startswith(focus + '_')]
+        if sub:
+            return sub
+    return strategies
+
+
+def _strategy_travel_handling(strategies, ss_lo, max_b, n_sample=8):
+    """Per-strategy (travel, handling) picker-time totals over a sample of steady-state
+    batches, reconstructed from picker_events.  Returns {key: (travel, handling)}."""
+    from Picking_Data import load_picker_events
+    from Simulation_Analytics import task_time_breakdown
+    lo, hi = max(0, ss_lo), max_b
+    if hi < lo:
+        return {}
+    batch_ids = sorted({int(round(x)) for x in np.linspace(lo, hi, min(n_sample, hi - lo + 1))})
+    out = {}
+    for s in strategies:
+        tr = hd = 0.0
+        for b in batch_ids:
+            t, h, _ = task_time_breakdown(load_picker_events(s['db_path'], s['run_id'], b))
+            tr += t; hd += h
+        out[s['key']] = (tr, hd)
+    return out
+
+
+def _task_time_breakdown_plot(strategies, th, title, path):
+    """Stacked travel-vs-handling bar per strategy, annotated with travel %."""
+    keys = [s['key'] for s in strategies if s['key'] in th]
+    if not keys:
+        return
+    travel   = np.array([th[k][0] for k in keys], float)
+    handling = np.array([th[k][1] for k in keys], float)
+    idx = np.arange(len(keys))
+    fig, ax = plt.subplots(figsize=(max(7, 1.1 * len(keys)), 5))
+    ax.bar(idx, travel,   label='travel',   color='#4c72b0')
+    ax.bar(idx, handling, bottom=travel, label='handling', color='#dd8452')
+    tot = travel + handling
+    for i in range(len(keys)):
+        if tot[i] > 0:
+            ax.text(i, tot[i], f'{travel[i] / tot[i] * 100:.0f}% trv',
+                    ha='center', va='bottom', fontsize=7)
+    ax.set_xticks(idx)
+    ax.set_xticklabels([k[:-6] if k.endswith('_norsl') else k for k in keys],
+                       rotation=40, ha='right', fontsize=8)
+    ax.set_ylabel('Σ picker time (steady-state sample)')
+    ax.grid(axis='y', alpha=0.3)
+    ax.legend()
+    ax.set_title(title, fontsize=12, fontweight='bold')
+    _save_close(fig, path)
+
+
 def _row(n, figw=4.8, h=4.5):
     """A row of n subplots; always returns a flat list of axes."""
     fig, axes = plt.subplots(1, n, figsize=(figw * n, h), squeeze=False)
@@ -273,18 +329,22 @@ def _select_top(strategies, S, top_n, top_by):
     Returns (selected_strategies, group_of_key) where group_of_key maps key→group
     label ('' for global)."""
     avail = [s for s in strategies if S.get(s['key'])]
-    rank  = lambda s: S[s['key']]['ss_thr']
+    # Rank by productivity-hours (Σ task length = total labor); lower is better.
+    # This is the optimization target, not batch wall-time.  NaN sorts last.
+    def rank(s):
+        v = S[s['key']].get('ss_prod_hours')
+        return float('inf') if v is None or (isinstance(v, float) and v != v) else v
     if top_by in _TOP_DIMS:
         groups = defaultdict(list)
         for s in avail:
             groups[s[top_by]].append(s)
         out, gof = [], {}
         for g in sorted(groups):
-            for s in sorted(groups[g], key=rank, reverse=True)[:top_n]:
+            for s in sorted(groups[g], key=rank)[:top_n]:
                 out.append(s)
                 gof[s['key']] = g
         return out, gof
-    return sorted(avail, key=rank, reverse=True)[:top_n], {}
+    return sorted(avail, key=rank)[:top_n], {}
 
 
 def _top_metric(strategies, S, top_n, m, title, baseline, path, top_by='global'):
@@ -493,9 +553,18 @@ def _aggregate_series(profile_series_list):
 
 
 def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
-                           top_by='global', no_stats=False):
+                           top_by='global', no_stats=False, focus='uni'):
     """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
     _fresh_dir(out_dir)   # never mix this run's aggregate with a prior one
+    # Focus filter (default uni): drop opt_* whose initial-stock advantage confounds the
+    # reorder-policy comparison.  Filter each profile's series so plots + stats agree.
+    if focus in ('uni', 'opt'):
+        filtered = []
+        for ps in profile_series_list:
+            subs = [d for d in ps.get('strategies', [])
+                    if str(d.get('key', '')).startswith(focus + '_')]
+            filtered.append({**ps, 'strategies': subs or ps.get('strategies', [])})
+        profile_series_list = filtered
     strategies, S = _aggregate_series(profile_series_list)
     if not strategies:
         log.warning(f'  aggregate {pickcfg}: no usable series')
@@ -529,6 +598,9 @@ def run_config_analysis(
     name               = sim_result['name']
     run_dir            = sim_result['run_dir']
     strategies         = sim_result['strategies']        # [{key,label,color,db_path,run_id}]
+    # Focus filter: opt_* win mainly from their initial-stock advantage, which confounds
+    # the reorder-policy comparison.  Default to uni_* so plots/stats isolate the policy.
+    strategies         = _focus_filter(strategies, shared.get('focus', 'uni'))
     aisle_unittype_map = shared['aisle_unittype_map']
     aisle_handling_map = shared['aisle_handling_map']
     k_pickers          = shared.get('k_pickers', 25)
@@ -711,15 +783,26 @@ def run_config_analysis(
               os.path.join(compare_dir, 'breakdown', 'task_duration_by_strategy.png'))
     _dump_series(strategies, S, os.path.join(run_dir, 'series.json'))
 
+    maxb  = max((int(df_b[s['key']]['batch_id'].max())
+                 for s in strategies if not df_b[s['key']].empty), default=0)
+    ss_lo = maxb - _WIN + 1
+
+    # ── task-time decomposition: travel vs handling per strategy (steady-state) ──
+    th = {}
+    try:
+        th = _strategy_travel_handling(strategies, ss_lo, maxb)
+        _task_time_breakdown_plot(
+            strategies, th, f'Task time: travel vs handling  [{inv} / {name}]',
+            os.path.join(compare_dir, 'breakdown', 'task_time_breakdown.png'))
+    except Exception as exc:                                       # noqa: BLE001
+        log.error(f'  task-time breakdown failed for {name}: {exc!r}')
+
     # ── statistical significance suite (paired by batch_id over steady state) ──
     if not shared.get('no_stats', False):
         try:
             from Stats_Analysis import run_config_stats
-            maxb = max((int(df_b[s['key']]['batch_id'].max())
-                        for s in strategies if not df_b[s['key']].empty), default=0)
-            ss_lo = maxb - _WIN + 1
             run_config_stats(strategies, df_b, df_t, ss_lo,
-                             os.path.join(run_dir, 'stats'), log)
+                             os.path.join(run_dir, 'stats'), log, travel_handling=th)
         except Exception as exc:                                   # noqa: BLE001
             log.error(f'  stats suite failed for {name}: {exc!r}')
 

@@ -40,14 +40,17 @@ import scipy.stats as st
 #   source: 'batch'      -> per-batch column of df_b
 #           'task_mean'  -> per-batch mean of a df_t column
 #           'task_sum'   -> per-batch sum  of a df_t column (productivity hours)
+# Ordered with the optimization target FIRST: productivity-hours = Σ task length
+# (total labor), then mean task time — both parallelism-independent.  Batch-duration
+# "makespan" is wall-time (parallelism-dependent) and is reported as secondary.
 _METRICS = [
-    ('makespan',           'batch',     'duration',           True),
+    ('productivity_hours', 'task_sum',  'duration',           True),   # PRIMARY: Σ task length
+    ('task_mean_duration', 'task_mean', 'duration',           True),
+    ('makespan',           'batch',     'duration',           True),   # wall-time (parallel)
     ('throughput',         'batch',     'completion_rate',    False),
     ('sigma_fd',           'batch',     'sigma_fd',           True),
     ('picking_pct',        'batch',     'picking_pct',        False),
     ('reorder_churn',      'batch',     'reorder_placements', True),
-    ('task_mean_duration', 'task_mean', 'duration',           True),
-    ('productivity_hours', 'task_sum',  'duration',           True),
 ]
 
 # cross-profile steady-state scalars (from series.json): (name, ss_field, lower_is_better)
@@ -401,8 +404,13 @@ def _aligned(series_by_key, keys):
 
 # ── public API ────────────────────────────────────────────────────────────────────
 
-def run_config_stats(strategies, df_b, df_t, ss_lo, out_dir, log) -> None:
-    """Per-config significance suite (strategies paired by batch_id)."""
+def run_config_stats(strategies, df_b, df_t, ss_lo, out_dir, log,
+                     travel_handling=None) -> None:
+    """Per-config significance suite (strategies paired by batch_id).
+
+    travel_handling: optional {key: (travel, handling)} from the picker-event
+    decomposition; adds travel-fraction / travel-time / handling-time rows to the
+    summary so 'where task time goes' sits next to the productivity stats."""
     _fresh_dir(out_dir)
     keys = [s['key'] for s in strategies]
     colors = [s.get('color', '#888888') for s in strategies]
@@ -426,6 +434,19 @@ def run_config_stats(strategies, df_b, df_t, ss_lo, out_dir, log) -> None:
             _plot_rank(tests, keys, colors, name, out_dir)
         except Exception as exc:                                  # noqa: BLE001
             log.error(f'  stats plot failed for {name}: {exc!r}')
+
+    # travel vs handling decomposition (parallelism-independent; from picker_events)
+    if travel_handling:
+        for k in keys:
+            if k in travel_handling:
+                tr, hd = travel_handling[k]
+                tot = tr + hd
+                summary_rows.append({'strategy': k, 'metric': 'travel_fraction',
+                                     **_descriptives(np.array([tr / tot if tot else np.nan]))})
+                summary_rows.append({'strategy': k, 'metric': 'travel_time',
+                                     **_descriptives(np.array([tr]))})
+                summary_rows.append({'strategy': k, 'metric': 'handling_time',
+                                     **_descriptives(np.array([hd]))})
 
     pd.DataFrame(summary_rows).to_csv(os.path.join(out_dir, 'stats_summary.csv'),
                                       index=False)

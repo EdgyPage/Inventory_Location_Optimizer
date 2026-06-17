@@ -73,7 +73,7 @@ def _sim_result_from_meta(meta: dict) -> dict:
 
 
 def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger,
-                   no_stats: bool = False) -> None:
+                   no_stats: bool = False, focus: str = 'uni') -> None:
     """Cross-profile roll-up: group every config's series.json by pick-config name
     (the leaf dir) across all profiles, then emit one aggregate suite per group under
     base_dir/_aggregate/<pickcfg>/."""
@@ -95,13 +95,14 @@ def _run_aggregate(base_dir: str, top_n: int, top_by: str, log: logging.Logger,
         out_dir = os.path.join(base_dir, '_aggregate', cfg)
         try:
             _run_aggregate_analysis(plist, out_dir, top_n, cfg, log, top_by=top_by,
-                                    no_stats=no_stats)
+                                    no_stats=no_stats, focus=focus)
         except Exception as exc:
             log.error(f'  aggregate FAILED for {cfg}: {exc}', exc_info=True)
 
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 top_n: int = 1, top_by: str = 'global', no_stats: bool = False) -> None:
+                 top_n: int = 1, top_by: str = 'global', no_stats: bool = False,
+                 focus: str = 'uni') -> None:
     """Re-run analysis (plots + CSV summaries) on all completed sims under *base_dir*.
 
     Scans base_dir/pair_label/config_name/sim_meta.json.  build_shared_assets runs
@@ -147,6 +148,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
             slim['top_n'] = top_n
             slim['top_by'] = top_by
             slim['no_stats'] = no_stats
+            slim['focus'] = focus
 
             for meta in config_metas:
                 sim_result = _sim_result_from_meta(meta)
@@ -171,7 +173,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
 
     # ── cross-profile aggregate (main process; needs all series.json on disk) ──
     log.info('  Building cross-profile aggregate suites...')
-    _run_aggregate(base_dir, top_n, top_by, log, no_stats=no_stats)
+    _run_aggregate(base_dir, top_n, top_by, log, no_stats=no_stats, focus=focus)
 
 
 def main() -> None:
@@ -208,6 +210,12 @@ def main() -> None:
         help='Skip the statistical significance suite (stats/ dirs); only descriptive '
              'plots + series.json are produced.',
     )
+    parser.add_argument(
+        '--focus', default='uni', choices=('uni', 'opt', 'all'),
+        help="Which initial-stock family to analyze: 'uni' (default) isolates the "
+             "reorder policy on a random start; 'opt' = optimal-start only; 'all' = both. "
+             "opt_* otherwise dominate via their initial-layout advantage.",
+    )
     args = parser.parse_args()
 
     if args.base_dir is None:
@@ -226,9 +234,10 @@ def main() -> None:
 
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
     log.info(f'run_analysis  dir: {base_dir}  (workers={args.workers}, '
-             f'top_n={args.top_n}, top_by={args.top_by}, stats={not args.no_stats})')
+             f'top_n={args.top_n}, top_by={args.top_by}, stats={not args.no_stats}, '
+             f'focus={args.focus})')
     run_analysis(base_dir, log, workers=args.workers, top_n=args.top_n,
-                 top_by=args.top_by, no_stats=args.no_stats)
+                 top_by=args.top_by, no_stats=args.no_stats, focus=args.focus)
     log.info('Done.')
 
 

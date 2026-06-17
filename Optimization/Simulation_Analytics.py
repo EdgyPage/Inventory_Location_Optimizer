@@ -613,6 +613,38 @@ def extract_picker_events(
     return records
 
 
+def task_time_breakdown(events: list) -> tuple[float, float, float]:
+    """Decompose picker time into (travel, handling, other) from a picker-event stream.
+
+    Each picker's timeline is walked in time order; the gap *ending* at an event is
+    charged by that event's type: a gap ending at 'arrive' is travel (move to a bin),
+    a gap ending at 'pick' is handling (= _pick_time, incl. any cart-swap), everything
+    else (task_start/end, done, cart_swap markers) is 'other' (≈0 / inter-task).  Works
+    on PickEvent objects or PickerEventRecord rows (both have .picker_id/.time/.event_type).
+    travel + handling ≈ Σ task durations (productivity hours).
+    """
+    from collections import defaultdict
+    by_picker: dict = defaultdict(list)
+    for e in events:
+        by_picker[e.picker_id].append(e)
+    travel = handling = other = 0.0
+    for evs in by_picker.values():
+        evs.sort(key=lambda e: e.time)
+        prev = None
+        for e in evs:
+            if prev is not None:
+                gap = e.time - prev.time
+                if gap > 0:
+                    if e.event_type == 'arrive':
+                        travel += gap
+                    elif e.event_type == 'pick':
+                        handling += gap
+                    else:
+                        other += gap
+            prev = e
+    return travel, handling, other
+
+
 def extract_picks(events: list, batch_id: int, run_id: int = 0) -> list[PickRecord]:
     """Extract one PickRecord per 'pick' event from the picker event stream.
 
