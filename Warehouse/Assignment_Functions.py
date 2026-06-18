@@ -1030,8 +1030,9 @@ def build_ranked_labor_fn(
 
 def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                          aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam):
-    """Greedy MINIMISER of expected total task labor (Rank_minlabor).
+                          aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam,
+                          maximize=False):
+    """Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
     Models the objective E[task labor] = Σ_s f_s·q_s·(intercept + M(y_s)·v_s) + E[travel]
     and places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
@@ -1046,15 +1047,15 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin
         is pulled toward the partners' column centroid (+x_speed·|x−cx|) to shorten the sweep.
 
-    Unlike _travel_balanced_impl (Rank_labor) there is NO LPT max-aisle/load term — this MINIMISES
-    total labor (consolidation) rather than BALANCING it (dispersion).  Units are placed highest
-    expected_labor first so the costliest SKUs claim the golden/front/clustered slots.
+    maximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)
+    to deliberately MAXIMISE the objective — a worst-case upper-bound sanity control (Rank_maxlabor)
+    that brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there
+    is NO LPT load term — this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units
+    are placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.
 
-    Both the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) min-D deque
-    heads — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
-    from its deque, so heads are always live (no stale-bin bookkeeping).  Restricting the final
-    pick to bracket heads keeps the front (min-D) bin per height band; the centroid pull then
-    selects among those heads, which is where the golden-zone optimum lives anyway.
+    Both the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D
+    deque ends — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
+    from its deque end, so the ends are always live (no stale-bin bookkeeping).
     """
     x_speed, y_speed = wp.x_speed, wp.y_speed
     intercept = wp.pick_intercept
@@ -1066,9 +1067,15 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     if not cands:
         return [(u, None) for u in sorted_units]
 
+    # minimise → near (min-D) deque head; maximise → far (max-D) deque tail.
+    _rep  = (lambda dq: dq[-1]) if maximize else (lambda dq: dq[0])
+    _drop = (lambda dq: dq.pop()) if maximize else (lambda dq: dq.popleft())
+    def _better(a, b):                       # is a a better (more extreme) score than b?
+        return a > b if maximize else a < b
+
     D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
     M_of = {id(b): _hmult(brackets, b.y_phys) for b in cands}
-    by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: min-D deque}}
+    by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
     for b in cands:
         by_aisle_brkt.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
     for groups in by_aisle_brkt.values():
@@ -1079,13 +1086,14 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     result: list = []
 
     def _aisle_best_cost(aid, var):
-        """Min over the aisle's bracket heads of (intercept + M·var + D)."""
+        """Extremal (min, or max if maximize) over the aisle's bracket ends of
+        (intercept + M·var + D)."""
         best = None
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = intercept + m * var + D_of[id(dq[0])]
-            if best is None or cost < best:
+            cost = intercept + m * var + D_of[id(_rep(dq))]
+            if best is None or _better(cost, best):
                 best = cost
         return best
 
@@ -1102,14 +1110,14 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
                 continue
             delta = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
             score = fq * bc - lam * delta
-            if best_score is None or score < best_score:
+            if best_score is None or _better(score, best_score):
                 best_score, best_aid = score, aid
         if best_aid is None:
             result.append((unit, None))
             continue
 
-        # Final bin in the winning aisle: cheapest bracket head (golden-zone, min-D per height
-        # band) pulled toward the demand-weighted partner column centroid (shorter sweep).
+        # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst max-D
+        # per height band), with the centroid term pulling toward (min) or away from (max) partners.
         _mass, cx = _demand_weighted_partner_centroid(
             affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
         chosen = chosen_m = None
@@ -1117,16 +1125,16 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         for m, dq in by_aisle_brkt[best_aid].items():
             if not dq:
                 continue
-            b = dq[0]
+            b = _rep(dq)
             cost = m * var + D_of[id(b)]
             if cx is not None:
                 cost += x_speed * abs(b.x_phys - cx)
-            if cbest is None or cost < cbest:
+            if cbest is None or _better(cost, cbest):
                 cbest, chosen, chosen_m = cost, b, m
         if chosen is None:
             result.append((unit, None))
             continue
-        by_aisle_brkt[best_aid][chosen_m].popleft()
+        _drop(by_aisle_brkt[best_aid][chosen_m])
 
         if sku not in aisle_sku_sets[best_aid]:
             aisle_sku_sets[best_aid].add(sku)
@@ -1161,6 +1169,32 @@ def build_ranked_minlabor_fn(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta)
+    return ranked_assign
+
+
+def build_ranked_maxlabor_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    aisle_member_pos : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+):
+    """Worst-case sanity control: greedy MAXIMISER of expected task labor (Rank_maxlabor) —
+    the exact mirror of build_ranked_minlabor_fn (high/far bins, scatter co-demanded SKUs).
+    It should land WORST on the objective_task_labor metric, bracketing the minimiser so the
+    lever's direction and magnitude are verifiable."""
+    _require_affinity(affinity, 'rank_maxlabor')
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_minlabor_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta,
+            maximize=True)
     return ranked_assign
 
 

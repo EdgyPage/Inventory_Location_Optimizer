@@ -84,8 +84,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.15
 _BATCH_STD_FRAC  = 0.05
-_TARGET_FILL  = 0.90   # headroom fraction: size each aisle type to this utilization
-_INITIAL_FILL = 0.90   # target fill when sampling inventory to fit a capped aisle count
+_TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
+_INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
 
 # Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
 # Actual bin counts per aisle depend on unit type and size distribution.
@@ -141,24 +141,25 @@ REGRESSION_CONFIGS = [
         'x_speed'         : 0.0291667,
         'y_speed'         : 0.0416667,
     },
-    {
-        'name'            : 'calibrated_highvolume',
-        'pick_intercept'  : 10,
-        'pick_weight_coef': 2.33666,
-        'pick_volume_coef': 0.294014*2,
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 0.0291667,
-        'y_speed'         : 0.0416667,
-    },
-    {
-        'name'            : 'calibrated_highweight_highvolume',
-        'pick_intercept'  : 10,
-        'pick_weight_coef': 2.33666*2,
-        'pick_volume_coef': 0.294014*2,
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 0.0291667,
-        'y_speed'         : 0.0416667,
-    },
+    # ── disabled: run only calibrated + calibrated_highweight ──
+    #{
+    #    'name'            : 'calibrated_highvolume',
+    #    'pick_intercept'  : 10,
+    #    'pick_weight_coef': 2.33666,
+    #    'pick_volume_coef': 0.294014*2,
+    #    'cart_swap_coef'  : 300,
+    #    'x_speed'         : 0.0291667,
+    #    'y_speed'         : 0.0416667,
+    #},
+    #{
+    #    'name'            : 'calibrated_highweight_highvolume',
+    #    'pick_intercept'  : 10,
+    #    'pick_weight_coef': 2.33666*2,
+    #    'pick_volume_coef': 0.294014*2,
+    #    'cart_swap_coef'  : 300,
+    #    'x_speed'         : 0.0291667,
+    #    'y_speed'         : 0.0416667,
+    #},
     #{
     #    'name'            : 'high_cart_penalty',
     #    'pick_weight_coef': 1.1,

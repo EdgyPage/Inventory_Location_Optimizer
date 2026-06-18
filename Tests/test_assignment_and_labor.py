@@ -26,6 +26,7 @@ from Assignment_Functions import (
     build_ranked_popularity_fn,
     build_ranked_uniform_assignment_fn,
     build_ranked_minlabor_fn,
+    build_ranked_maxlabor_fn,
 )
 from Workload import WorkloadParams, aisle_workload, aisle_workload_components
 from Simulation_Analytics import expected_task_labor
@@ -253,6 +254,24 @@ def test_minlabor_picks_golden_zone_and_front_bin():
     b = res[0][1]
     assert b is not None
     assert (b.x_phys, b.y_phys) == (10, 10)        # low AND near
+
+
+def test_maxlabor_picks_high_far_bin():
+    """The maximiser (sanity control) is the exact mirror: it puts a high-handle_var SKU in
+    the WORST bin — far AND high — the opposite of the minimiser's golden-zone/front choice."""
+    brackets = ((96.0, 1.0), (float('inf'), 1.9))
+    near_low = _Bin(1, 10, 10)      # near, ground  -> minimiser's pick
+    far_high = _Bin(1, 200, 300)    # far, high      -> maximiser's pick
+    c = _Cart(100, 10.0, 1.0, 1.0, handle_var=10.0)
+    aff = _aff_csr([100])
+    ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
+                          defaultdict(float), defaultdict(list))
+    fn = build_ranked_maxlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+                                  {}, {100: 1.0}, {100: 1.0})
+    res = fn([_Unit(c)], lambda u: [near_low, far_high])
+    b = res[0][1]
+    assert b is not None
+    assert (b.x_phys, b.y_phys) == (200, 300)      # far AND high (worst)
 
 
 def test_minlabor_compacts_codemanded_into_one_aisle():
