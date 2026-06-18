@@ -1028,6 +1028,142 @@ def build_ranked_labor_fn(
     return ranked_assign
 
 
+def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
+                          aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                          aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam):
+    """Greedy MINIMISER of expected total task labor (Rank_minlabor).
+
+    Models the objective E[task labor] = Σ_s f_s·q_s·(intercept + M(y_s)·v_s) + E[travel]
+    and places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
+
+        cost(s, b) = f_s·q_s·(intercept + M(y_b)·v_s + D_b)  −  λ·Σ_{partners p in aisle} lift(s,p)·f_p
+
+    where v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,
+    D_b = x_speed·x_phys + y_speed·y_phys.  This fuses three slotting levers into one score:
+      • golden-zone height  — the M(y_b)·v_s term pushes heavy/frequent SKUs to low brackets;
+      • effort-to-front     — the D_b term pulls them to near, low bins;
+      • affinity compaction — the −λ·delta_lift aisle reward co-locates demand partners in the
+        SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin
+        is pulled toward the partners' column centroid (+x_speed·|x−cx|) to shorten the sweep.
+
+    Unlike _travel_balanced_impl (Rank_labor) there is NO LPT max-aisle/load term — this MINIMISES
+    total labor (consolidation) rather than BALANCING it (dispersion).  Units are placed highest
+    expected_labor first so the costliest SKUs claim the golden/front/clustered slots.
+
+    Both the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) min-D deque
+    heads — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
+    from its deque, so heads are always live (no stale-bin bookkeeping).  Restricting the final
+    pick to bracket heads keeps the front (min-D) bin per height band; the centroid pull then
+    selects among those heads, which is where the golden-zone optimum lives anyway.
+    """
+    x_speed, y_speed = wp.x_speed, wp.y_speed
+    intercept = wp.pick_intercept
+    brackets  = getattr(wp, 'height_brackets', ())
+    sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
+    if not sorted_units:
+        return []
+    cands = candidates_fn(sorted_units[0])
+    if not cands:
+        return [(u, None) for u in sorted_units]
+
+    D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    M_of = {id(b): _hmult(brackets, b.y_phys) for b in cands}
+    by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: min-D deque}}
+    for b in cands:
+        by_aisle_brkt.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
+    for groups in by_aisle_brkt.values():
+        for m, lst in list(groups.items()):
+            lst.sort(key=lambda bb: D_of[id(bb)])
+            groups[m] = deque(lst)
+    sku_to_idx = affinity._sku_to_idx
+    result: list = []
+
+    def _aisle_best_cost(aid, var):
+        """Min over the aisle's bracket heads of (intercept + M·var + D)."""
+        best = None
+        for m, dq in by_aisle_brkt[aid].items():
+            if not dq:
+                continue
+            cost = intercept + m * var + D_of[id(dq[0])]
+            if best is None or cost < best:
+                best = cost
+        return best
+
+    for unit in sorted_units:
+        c = unit.carton
+        sku = c.sku
+        var = c.handle_var
+        fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
+        best_aid = None
+        best_score = None
+        for aid in by_aisle_brkt:
+            bc = _aisle_best_cost(aid, var)
+            if bc is None:
+                continue
+            delta = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
+            score = fq * bc - lam * delta
+            if best_score is None or score < best_score:
+                best_score, best_aid = score, aid
+        if best_aid is None:
+            result.append((unit, None))
+            continue
+
+        # Final bin in the winning aisle: cheapest bracket head (golden-zone, min-D per height
+        # band) pulled toward the demand-weighted partner column centroid (shorter sweep).
+        _mass, cx = _demand_weighted_partner_centroid(
+            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
+        chosen = chosen_m = None
+        cbest = None
+        for m, dq in by_aisle_brkt[best_aid].items():
+            if not dq:
+                continue
+            b = dq[0]
+            cost = m * var + D_of[id(b)]
+            if cx is not None:
+                cost += x_speed * abs(b.x_phys - cx)
+            if cbest is None or cost < cbest:
+                cbest, chosen, chosen_m = cost, b, m
+        if chosen is None:
+            result.append((unit, None))
+            continue
+        by_aisle_brkt[best_aid][chosen_m].popleft()
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            aisle_demand_sum[best_aid] += fq
+        idx = sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
+            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+        result.append((unit, chosen))
+    return result
+
+
+def build_ranked_minlabor_fn(
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    aisle_member_pos : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta             : float = 1.0,
+):
+    """Greedy minimiser of expected task labor (see _ranked_minlabor_impl): golden-zone
+    height + effort-to-front + affinity compaction fused into one marginal-cost score.
+    The opposite of build_ranked_labor_fn (which BALANCES aisle load).  `beta` is λ, the
+    affinity-reward weight that converts lift·freq into the labor (time) units of the score."""
+    _require_affinity(affinity, 'rank_minlabor')
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _ranked_minlabor_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta)
+    return ranked_assign
+
+
 # ── programmatic name → builder registries (robust downstream lookup) ──────
 ASSIGNMENT_BUILDERS = {
     'travel_min':   build_trip_minimizing_assignment_fn,

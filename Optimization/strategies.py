@@ -26,6 +26,7 @@ from Assignment_Functions import (
     build_ranked_uniform_assignment_fn,
     build_ranked_popularity_fn,
     build_ranked_labor_fn,
+    build_ranked_minlabor_fn,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
     build_co_demand_placement,
@@ -109,6 +110,22 @@ def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        order_score=_score_expected_labor)
+
+
+def _build_rank_minlabor(mgr, ctx: StrategyContext) -> None:
+    # Minimiser of expected total task labor (consolidation): each unit goes to the
+    # (aisle, bin) that minimises its marginal cost = freq*qty*(intercept + M(y)*handle_var
+    # + travel_D) − λ*affinity_reward — fusing golden-zone height, effort-to-front, and
+    # co-demand compaction.  The OPPOSITE of rank_labor (which LPT-balances aisle load).
+    mgr.placement = Placement(
+        'ranked_minlabor',
+        build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
+        build_ranked_minlabor_fn(
+            ctx.affinity, ctx.wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            mgr._aisle_member_pos,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -220,6 +237,7 @@ _RESTOCKS = [
     ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
+    ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
     # ── disabled for this run (fifo + rank ablation only) ──
     #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
     #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),

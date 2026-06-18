@@ -17,7 +17,7 @@ _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCa
 # threshold exceeds its y_phys (else the last).  The multiplier scales ONLY the
 # per-unit weight/volume handling term (not intercept/cart).  Placeholder defaults —
 # tune per config / in the calibration notebook.  Mirrored in Optimization/Workload.py.
-DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.9))
+DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4))
 
 
 def height_multiplier(brackets: tuple, y_phys: float) -> float:

@@ -55,23 +55,23 @@ class WorkloadParams:
         )
 
 
-def aisle_workload(
+def aisle_workload_components(
     x_traversed: int,
     y_traversed: int,
     carts_required: int,
     pick_lines: list[tuple],
     params: WorkloadParams,
-) -> float:
-    """Estimate W: the total time (workload) to complete all picks in one aisle.
+) -> tuple[float, float, float]:
+    """The (D, P, C) decomposition of one aisle's workload W = D + P + C.
 
-    W = D + P + C
-      D (travel) = x_traversed * x_speed + y_traversed * y_speed
-      P (pick)   = Σ_stops (intercept + height_mult(y) * qty
-                                      * (weight_coef*ln(weight) + volume_coef*ln(volume)))
-      C (cart)   = cart_swap_coef * max(0, carts_required - 1)
+      D (travel)   = x_traversed * x_speed + y_traversed * y_speed
+      P (handling) = Σ_stops (intercept + height_mult(y) * qty
+                                        * (weight_coef*ln(weight) + volume_coef*ln(volume)))
+      C (cart)     = cart_swap_coef * max(0, carts_required - 1)
 
     Mirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the
-    per-unit weight/volume handling.
+    per-unit weight/volume handling.  Split out so callers can report the
+    handling-vs-travel breakdown of the analytical objective (see expected_task_labor).
 
     Parameters
     ----------
@@ -81,10 +81,7 @@ def aisle_workload(
     pick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop
     params         : WorkloadParams coefficients
     """
-    D: float = (
-        x_traversed * params.x_speed
-        + y_traversed * params.y_speed
-    )
+    D: float = x_traversed * params.x_speed + y_traversed * params.y_speed
     P = 0.0
     for line in pick_lines:
         weight, volume, qty = line[0], line[1], line[2]
@@ -94,4 +91,18 @@ def aisle_workload(
               + hmult * qty * (params.pick_weight_coef * math.log(weight)
                                + params.pick_volume_coef * math.log(volume)))
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
+    return D, P, C
+
+
+def aisle_workload(
+    x_traversed: int,
+    y_traversed: int,
+    carts_required: int,
+    pick_lines: list[tuple],
+    params: WorkloadParams,
+) -> float:
+    """Estimate W = D + P + C, the total time (workload) for one aisle's picks.
+    See aisle_workload_components for the term definitions."""
+    D, P, C = aisle_workload_components(
+        x_traversed, y_traversed, carts_required, pick_lines, params)
     return D + P + C

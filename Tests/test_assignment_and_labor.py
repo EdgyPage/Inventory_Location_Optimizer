@@ -25,8 +25,10 @@ from Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_popularity_fn,
     build_ranked_uniform_assignment_fn,
+    build_ranked_minlabor_fn,
 )
-from Workload import WorkloadParams, aisle_workload
+from Workload import WorkloadParams, aisle_workload, aisle_workload_components
+from Simulation_Analytics import expected_task_labor
 
 
 def _cfg() -> PickConfig:
@@ -100,6 +102,19 @@ class _Unit:
 def _aff(skus):
     return types.SimpleNamespace(_matrix=None, _sku_to_idx={s: i for i, s in enumerate(skus)})
 
+def _aff_csr(skus, lift_pairs=None):
+    """Affinity with a real CSR _matrix (rank_minlabor requires one).  lift_pairs is a
+    list of (sku_a, sku_b, lift) entries written symmetrically."""
+    import numpy as np
+    from scipy.sparse import csr_matrix
+    idx = {s: i for i, s in enumerate(skus)}
+    n = len(skus)
+    M = np.zeros((n, n))
+    for a, b, v in (lift_pairs or []):
+        M[idx[a], idx[b]] = v
+        M[idx[b], idx[a]] = v
+    return types.SimpleNamespace(_matrix=csr_matrix(M), _sku_to_idx=idx)
+
 def _wp():
     return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=1.0,
                                  pick_weight_coef=1.1, pick_volume_coef=1e-3)
@@ -167,13 +182,13 @@ def _wp_h(brackets):
 
 
 def test_height_multiplier_brackets():
-    b = DEFAULT_HEIGHT_BRACKETS   # ((96,1.0),(240,1.4),(inf,1.9))
+    b = DEFAULT_HEIGHT_BRACKETS   # ((96,1.0),(240,1.2),(inf,1.4))
     assert height_multiplier(b, 0) == 1.0
     assert height_multiplier(b, 95.9) == 1.0
-    assert height_multiplier(b, 96.0) == 1.4
-    assert height_multiplier(b, 239.0) == 1.4
-    assert height_multiplier(b, 240.0) == 1.9
-    assert height_multiplier(b, 9999.0) == 1.9
+    assert height_multiplier(b, 96.0) == 1.2
+    assert height_multiplier(b, 239.0) == 1.2
+    assert height_multiplier(b, 240.0) == 1.4
+    assert height_multiplier(b, 9999.0) == 1.4
 
 
 def test_pick_time_height_scaling():
@@ -217,6 +232,83 @@ def test_rank_labor_height_vs_travel_tradeoff():
 
     assert place(100.0).y_phys == 10     # costly → ground bin
     assert place(1.0).y_phys == 300      # cheap → near (high) bin
+
+
+# ── rank_minlabor (objective minimiser) ──────────────────────────────────────
+
+def test_minlabor_picks_golden_zone_and_front_bin():
+    """The minimiser places a high-handle_var SKU in the LOW (golden-zone) and NEAR
+    (front) bin — not the high bin (handling penalty) nor the far bin (travel)."""
+    brackets = ((96.0, 1.0), (float('inf'), 1.9))
+    low_near  = _Bin(1, 10, 10)     # ground (mult 1.0), near
+    low_far   = _Bin(1, 200, 10)    # ground, far
+    high_near = _Bin(1, 10, 300)    # high (mult 1.9), near
+    c = _Cart(100, 10.0, 1.0, 1.0, handle_var=10.0)
+    aff = _aff_csr([100])
+    ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
+                          defaultdict(float), defaultdict(list))
+    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+                                  {}, {100: 1.0}, {100: 1.0})
+    res = fn([_Unit(c)], lambda u: [high_near, low_far, low_near])
+    b = res[0][1]
+    assert b is not None
+    assert (b.x_phys, b.y_phys) == (10, 10)        # low AND near
+
+
+def test_minlabor_compacts_codemanded_into_one_aisle():
+    """Two equal-geometry aisles; two strongly co-demanded SKUs.  The affinity reward
+    pulls the second SKU into the SAME aisle as the first (consolidation), vs the
+    balancer which would disperse them."""
+    brackets = ((float('inf'), 1.0),)              # flat height → isolate affinity
+    bins = [_Bin(1, 10, 0), _Bin(1, 20, 0), _Bin(2, 10, 0), _Bin(2, 20, 0)]
+    c1 = _Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)   # higher expected_labor → placed first
+    c2 = _Cart(2, 1.0, 1.0, 1.0, handle_var=1.0)
+    aff = _aff_csr([1, 2], [(1, 2, 3.0)])
+    idx = aff._sku_to_idx
+    freq_by_idx = {idx[1]: 2.0, idx[2]: 1.0}
+    ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
+                          defaultdict(float), defaultdict(list))
+    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+                                  freq_by_idx, {1: 2.0, 2: 1.0}, {1: 1.0, 2: 1.0}, beta=100.0)
+    res = fn([_Unit(c1), _Unit(c2)], lambda u: list(bins))
+    placed = [b for _, b in res]
+    assert all(b is not None for b in placed)
+    assert placed[0].location[0] == placed[1].location[0]    # same aisle
+
+
+# ── analytical objective evaluator ───────────────────────────────────────────
+
+def test_workload_components_handling_matches_pick_time():
+    """aisle_workload_components' P (handling) term equals Σ _pick_time handling,
+    incl. the height multiplier — the decomposition expected_task_labor reports."""
+    cfg = PickConfig(pick_intercept=2.0, pick_weight_coef=0.5, pick_volume_coef=0.1,
+                     cart_swap_coef=10.0, height_brackets=((96.0, 1.0), (float('inf'), 2.0)))
+    wp = WorkloadParams.from_pick_config(cfg)
+    lines = [(20, 27000, 3, 10.0), (20, 27000, 2, 300.0)]   # (w, v, qty, y_phys)
+    D, P, C = aisle_workload_components(0, 0, 1, lines, wp)
+    expect = sum(_pick_time(cfg, w, v, q, False, y) for (w, v, q, y) in lines)
+    assert abs(P - expect) < 1e-9
+    assert D == 0.0 and C == 0.0
+
+
+def test_expected_task_labor_objective_and_split():
+    """expected_task_labor averages W per task and splits handling vs travel(+cart)."""
+    cfg = PickConfig(pick_intercept=1.0, pick_weight_coef=0.5, pick_volume_coef=0.0,
+                     cart_swap_coef=0.0, height_brackets=((float('inf'), 1.0),))
+    wp = WorkloadParams.from_pick_config(cfg)
+
+    def _bin(sku, w, v, y):
+        cart = types.SimpleNamespace(weight=w, volume=lambda _v=v: _v, sku=sku)
+        return types.SimpleNamespace(storage=types.SimpleNamespace(carton=cart), y_phys=y)
+
+    t = types.SimpleNamespace(path=[_bin(1, 20, 100, 0.0)], items={1: 2},
+                              x_traversed=4, y_traversed=0, carts_required=1)
+    res = expected_task_labor([t], wp)
+    P = 1.0 + 2 * 0.5 * math.log(20)               # intercept + qty*weight_coef*ln(w)
+    assert abs(res['handling'] - P) < 1e-9
+    assert abs(res['travel'] - 4.0) < 1e-9          # D = x_traversed * x_speed (1.0)
+    assert abs(res['objective'] - (P + 4.0)) < 1e-9
+    assert res['n_tasks'] == 1
 
 
 if __name__ == '__main__':

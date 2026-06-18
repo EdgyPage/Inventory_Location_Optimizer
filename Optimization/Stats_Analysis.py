@@ -45,6 +45,11 @@ import scipy.stats as st
 # "makespan" is wall-time (parallelism-dependent) and is reported as secondary.
 _METRICS = [
     ('productivity_hours', 'task_sum',  'duration',           True),   # PRIMARY: Σ task length
+    # Analytical objective: E[labor of a random task] = mean task W (D+P+C), and its sum
+    # (total analytical labor).  Scored from task structure, so robust to sim wall-timing
+    # noise / reorder starvation — the direct yardstick for the slotting objective.
+    ('objective_task_labor', 'task_mean', 'W',                True),   # E[task labor] (objective)
+    ('objective_total_labor', 'task_sum', 'W',                True),   # Σ analytical task labor
     ('task_mean_duration', 'task_mean', 'duration',           True),
     ('makespan',           'batch',     'duration',           True),   # wall-time (parallel)
     ('throughput',         'batch',     'completion_rate',    False),

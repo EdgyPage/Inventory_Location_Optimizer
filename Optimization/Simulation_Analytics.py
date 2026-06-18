@@ -37,7 +37,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
 
 from Picking_Data import BatchStats, TaskStats, PickRecord
-from Workload import WorkloadParams, aisle_workload
+from Workload import WorkloadParams, aisle_workload, aisle_workload_components
 
 
 # (sku_i, sku_j) -> lift; symmetric dict.  Only the fallback for non-AffinityStore
@@ -164,6 +164,38 @@ def _pick_lines(task) -> list[tuple[int, int, int, float]]:
         for b in task.path
         if b.storage is not None and b.storage.carton.sku in task.items
     ]
+
+
+# ── analytical objective evaluator ──────────────────────────────────────────────
+
+def expected_task_labor(tasks: list, wp: WorkloadParams) -> dict:
+    """E[task labor] for a placement, scored ANALYTICALLY from the realised tasks.
+
+    The optimization objective is the expected labor of a randomly-assigned task =
+    mean over tasks of W = D + P + C (see Workload.aisle_workload).  Computed straight
+    from each Task's path/items via the same bracket-aware formula the sim bills, so it
+    is independent of sim wall-timing (queue waits, parallelism, reorder starvation).
+
+    Returns {'objective': mean W, 'handling': mean P, 'travel': mean (D+C), 'n_tasks': n}.
+    'travel' folds the cart-swap term C in with travel D since both are placement/route
+    effects rather than per-unit handling; 'handling' is the placement-modulated P term.
+    """
+    n = 0
+    sum_W = sum_P = sum_DC = 0.0
+    for t in tasks:
+        lines = _pick_lines(t)
+        if not lines:
+            continue
+        D, P, C = aisle_workload_components(
+            t.x_traversed, t.y_traversed, t.carts_required, lines, wp)
+        sum_W  += D + P + C
+        sum_P  += P
+        sum_DC += D + C
+        n += 1
+    if n == 0:
+        return {'objective': 0.0, 'handling': 0.0, 'travel': 0.0, 'n_tasks': 0}
+    return {'objective': sum_W / n, 'handling': sum_P / n,
+            'travel': sum_DC / n, 'n_tasks': n}
 
 
 # ── extraction ────────────────────────────────────────────────────────────────
