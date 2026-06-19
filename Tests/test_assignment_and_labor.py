@@ -440,6 +440,26 @@ def test_optmap_placement_is_score_matched_not_greedy():
     assert chosen2 is prime
 
 
+def test_optmap_capped_saves_prime_spots():
+    """map_rank (capped) refuses a prime bin when the SKU's own tier is full — it takes the
+    worse bin, leaving the prime one for a higher-ranked SKU.  Plain map (symmetric) grabs it."""
+    prime = _Bin(1, 0, 0); bad = _Bin(1, 120, 0)           # pref 1.0 (prime) vs 12.0 (bad)
+    mgr = types.SimpleNamespace(
+        _bin_pref={id(prime): 1.0, id(bad): 12.0},
+        _map_target={7: 5.0})                              # SKU 7 belongs at the mid tier (5.0)
+    cand = [prime, bad]
+    # symmetric map: |5-1|=4 < |5-12|=7 → grabs the PRIME bin (the failure mode)
+    assert build_optmap_fn(mgr, capped=False)(_Unit(_Cart(7, 1, 1, 1)), cand) is prime
+    # capped map_rank: prime (1.0 < target 5.0) is off-limits → takes the worse bin, saving prime
+    assert build_optmap_fn(mgr, capped=True)(_Unit(_Cart(7, 1, 1, 1)), cand) is bad
+    # but when its own tier IS free, capped still takes it (no needless degradation)
+    tier = _Bin(1, 50, 0)                                  # pref 5.0 == target
+    mgr._bin_pref[id(tier)] = 5.0
+    assert build_optmap_fn(mgr, capped=True)(_Unit(_Cart(7, 1, 1, 1)), [prime, tier, bad]) is tier
+    # unknown SKU under capped: don't waste a prime bin → least-prime
+    assert build_optmap_fn(mgr, capped=True)(_Unit(_Cart(99, 1, 1, 1)), [prime, bad]) is bad
+
+
 if __name__ == '__main__':
     import pytest
     sys.exit(pytest.main([__file__, '-v']))

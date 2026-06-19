@@ -156,6 +156,14 @@ def _build_map(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement('optmap', build_optmap_fn(mgr))
 
 
+def _build_map_rank(mgr, ctx: StrategyContext) -> None:
+    # Upgrade-capped optimal-map: same target as `map`, but a SKU never reloads into a bin
+    # more prime than its optimal rank — prime spots are saved for higher-ranked SKUs that
+    # future orders bring (rank-relative, non-greedy).  See build_optmap_fn(capped=True).
+    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True))
+
+
 def _build_trip_min(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_min',
@@ -264,8 +272,9 @@ _RESTOCKS = [
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
     ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
-    ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
+    #('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
+    ('map_rank',        'Map_rank',        _build_map_rank,                False, False, False),  # optimal-map, upgrade-capped (saves prime spots)
     # ── disabled for this run (fifo + rank ablation only) ──
     #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
     #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),

@@ -1198,25 +1198,40 @@ def build_ranked_maxlabor_fn(
     return ranked_assign
 
 
-def build_optmap_fn(mgr):
-    """Optimal-map (soft, score-matched) placement.  Places each unit in the free
-    candidate bin whose quantity-free preferred score `mgr._bin_pref[bin]` is closest to
-    the SKU's optimal target `mgr._map_target[sku]` (the pref of its labor-optimal bin).
+def build_optmap_fn(mgr, capped=False):
+    """Optimal-map (soft, score-matched) placement.  Places each unit in the free candidate
+    bin whose quantity-free preferred score `mgr._bin_pref[bin]` matches the SKU's optimal
+    target `mgr._map_target[sku]` (the pref of its labor-optimal bin from the full LAP).
 
-    This is non-greedy: a low-value SKU's target is far from prime bins, so it is repelled
-    from them (large |pref − target|) and won't take a prime bin even when free — prime
-    spots stay open for high-value SKUs without any reservation.  Reads mgr state at call
-    time, so build_optimal_map may run before or after this is wired.  Per-unit (not a
-    ranked wave); the drain places one unit at a time over the live free-bin candidates."""
+    capped=False (default, the `map` arm): symmetric match — argmin |pref(b) − target|.
+    Non-greedy in spirit (a low-value SKU's target is far from prime bins), but with no hard
+    cap it can still UPGRADE into a prime bin when its own tier is full and the nearest free
+    bin happens to be prime.
+
+    capped=True (the `map_rank` arm): rank-relative, upgrade-CAPPED — the SKU never settles in
+    a bin more prime (lower pref) than its own optimal rank.  Among free candidates it takes
+    the closest one AT OR BELOW its tier (pref ≥ target); only if none are free does it fall
+    back to the least-prime remaining bin.  This keeps prime spots open for the higher-ranked
+    SKUs that future orders will bring.  (`_candidates` returns a single BinKey tier and pref
+    is monotone with goodness within it, so the pref-floor is exactly the relative-rank cap.)
+
+    Reads mgr state at call time, so build_optimal_map may run before or after this is wired.
+    Per-unit (not a ranked wave); the drain places one unit at a time over live free bins."""
     def place_one(unit, candidates):
         if not candidates:
             return None
         pref = mgr._bin_pref
         tgt  = mgr._map_target.get(unit.carton.sku)
-        if tgt is None:                      # no map entry (unknown SKU) → take the prime bin
-            return min(candidates, key=lambda b: pref.get(id(b), 0.0))
-        return min(candidates, key=lambda b: abs(pref.get(id(b), 0.0) - tgt))
-    place_one.name = 'optmap'
+        if tgt is None:                      # unknown SKU: no rank → don't waste a prime bin
+            return (max(candidates, key=lambda b: pref.get(id(b), 0.0)) if capped
+                    else min(candidates, key=lambda b: pref.get(id(b), 0.0)))
+        if not capped:
+            return min(candidates, key=lambda b: abs(pref.get(id(b), 0.0) - tgt))
+        eligible = [b for b in candidates if pref.get(id(b), 0.0) >= tgt]   # tier or worse
+        if eligible:                          # closest from the worse side (cap upgrades)
+            return min(eligible, key=lambda b: pref.get(id(b), 0.0) - tgt)
+        return max(candidates, key=lambda b: pref.get(id(b), 0.0))          # least-prime last resort
+    place_one.name = 'optmap_rank' if capped else 'optmap'
     return place_one
 
 
