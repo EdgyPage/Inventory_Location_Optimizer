@@ -27,6 +27,7 @@ from Assignment_Functions import (
     build_ranked_uniform_assignment_fn,
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
+    build_optmap_fn,
 )
 from Workload import WorkloadParams, aisle_workload, aisle_workload_components
 from Simulation_Analytics import expected_task_labor
@@ -328,6 +329,115 @@ def test_expected_task_labor_objective_and_split():
     assert abs(res['travel'] - 4.0) < 1e-9          # D = x_traversed * x_speed (1.0)
     assert abs(res['objective'] - (P + 4.0)) < 1e-9
     assert res['n_tasks'] == 1
+
+
+# ── optimal-map: minimal-work floor + score-matched reloading ────────────────
+
+def _mk_wh_mgr(seed=0):
+    """Small two-aisle warehouse + manager (mirrors test_placement_lifecycle)."""
+    from Aisle_Storage import Aisle
+    from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+    from Inventory_Management import Inventory_Manager
+    Aisle.next_aisle_id = 1
+    random.seed(seed)
+    W, H = 5 * 48, 4 * 48
+    cfg = WarehouseConfig(
+        total_aisles=2, aisle_splits=[0.5, 0.5],
+        aisle_configs=[
+            AisleConfig('conveyable', 'food', 'pallet',    W, H, ['small'], None),
+            AisleConfig('conveyable', 'food', 'singleton', W, H, ['small'], None),
+        ])
+    wh = Warehouse_Builder().from_config(cfg).build()
+    return wh, Inventory_Manager(wh)
+
+
+def _mk_carton(sku, f=0.8, q=3.0, weight=5, dims=(8, 8, 6), eq=12):
+    from Carton import StorageHandleConfig
+    from Demand import Demand
+    c = object.__new__(Carton)
+    c._sku = sku
+    c.storage_type = ('conveyable', 'food')
+    c.storage_handle_config = StorageHandleConfig('conveyable', 'food')
+    c.lift_group = ('conveyable', 'food')
+    c.length, c.width, c.height = dims
+    c.weight = weight
+    c.demand = Demand.from_rates(f, q)
+    c.equilibrium_qty = eq
+    c.reorder_point = max(1, eq // 2)
+    c.lead_time_mean = 0.0
+    c.expected_batch_demand = f * q
+    return c
+
+
+def _wp_work():
+    return WorkloadParams(x_speed=1.0, y_speed=0.5, pick_intercept=1.0,
+                          pick_weight_coef=1.1, pick_volume_coef=1e-3, cart_swap_coef=10.0,
+                          height_brackets=((96.0, 1.0), (float('inf'), 1.9)))
+
+
+def _layout_work(mgr, freq, qty, wp):
+    """Analytical work of the manager's CURRENT occupied layout (per-bin convention)."""
+    br = wp.height_brackets
+    def M(y):
+        for thr, m in br:
+            if y < thr:
+                return m
+        return br[-1][1] if br else 1.0
+    tot = 0.0
+    for b in mgr._unavailable.values():
+        st = b.storage
+        if st is None:
+            continue
+        c = st.carton
+        v = wp.pick_weight_coef * math.log(max(c.weight, 1)) + wp.pick_volume_coef * math.log(max(c.volume(), 1))
+        D = wp.x_speed * b.x_phys + wp.y_speed * b.y_phys
+        f = freq.get(c.sku, 0.0); qq = qty.get(c.sku, 0.0)
+        tot += f * (wp.pick_intercept + D) + f * qq * v * M(b.y_phys)
+    return tot
+
+
+def test_optimal_work_is_a_floor_below_uniform():
+    wh, mgr = _mk_wh_mgr()
+    cartons = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 4 * i) for i in range(1, 6)]
+    wp = _wp_work()
+    freq = {c.sku: c.demand.frequency for c in cartons}
+    qty  = {c.sku: c.demand.quantity_rate for c in cartons}
+    w_opt = mgr.optimal_work(cartons, freq, qty, wp)        # pure compute, no mutation
+    assert w_opt > 0 and math.isfinite(w_opt)
+    mgr.enqueue_all(cartons)                                # uniform random layout
+    w_uniform = _layout_work(mgr, freq, qty, wp)
+    assert w_opt <= w_uniform + 1e-6                        # the optimum is a floor
+
+
+def test_build_optimal_map_basis_is_quantity_free():
+    wh, mgr = _mk_wh_mgr()
+    cartons = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 5 * i) for i in range(1, 6)]
+    wp = _wp_work()
+    freq = {c.sku: c.demand.frequency for c in cartons}
+    qty  = {c.sku: c.demand.quantity_rate for c in cartons}
+    mgr.build_optimal_map(cartons, freq, qty, wp)
+    assert len(mgr._bin_pref) == len(wh.bins)               # pref for every bin
+    assert mgr._map_target                                  # some SKUs got a target
+    pref_before = dict(mgr._bin_pref)
+    # double every SKU's pick quantity — the bin basis must NOT change (quantity-free)
+    qty2 = {k: v * 2 for k, v in qty.items()}
+    mgr.build_optimal_map(cartons, freq, qty2, wp)
+    assert mgr._bin_pref == pref_before
+
+
+def test_optmap_placement_is_score_matched_not_greedy():
+    """A unit is placed in the bin whose pref matches its target — NOT greedily the
+    best (lowest-pref) bin."""
+    prime = _Bin(1, 0, 0); mid = _Bin(1, 50, 0); far = _Bin(1, 100, 0)
+    mgr = types.SimpleNamespace(
+        _bin_pref={id(prime): 1.0, id(mid): 5.0, id(far): 9.0},
+        _map_target={7: 5.0})                              # SKU 7 belongs at the mid tier
+    fn = build_optmap_fn(mgr)
+    chosen = fn(_Unit(_Cart(7, 1.0, 1.0, 1.0)), [prime, mid, far])
+    assert chosen is mid                                    # matched tier, not the prime bin
+    # an unknown SKU (no target) falls back to the prime (lowest-pref) bin
+    chosen2 = fn(_Unit(_Cart(99, 1.0, 1.0, 1.0)), [far, mid, prime])
+    assert chosen2 is prime
 
 
 if __name__ == '__main__':

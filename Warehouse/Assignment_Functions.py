@@ -1198,6 +1198,28 @@ def build_ranked_maxlabor_fn(
     return ranked_assign
 
 
+def build_optmap_fn(mgr):
+    """Optimal-map (soft, score-matched) placement.  Places each unit in the free
+    candidate bin whose quantity-free preferred score `mgr._bin_pref[bin]` is closest to
+    the SKU's optimal target `mgr._map_target[sku]` (the pref of its labor-optimal bin).
+
+    This is non-greedy: a low-value SKU's target is far from prime bins, so it is repelled
+    from them (large |pref − target|) and won't take a prime bin even when free — prime
+    spots stay open for high-value SKUs without any reservation.  Reads mgr state at call
+    time, so build_optimal_map may run before or after this is wired.  Per-unit (not a
+    ranked wave); the drain places one unit at a time over the live free-bin candidates."""
+    def place_one(unit, candidates):
+        if not candidates:
+            return None
+        pref = mgr._bin_pref
+        tgt  = mgr._map_target.get(unit.carton.sku)
+        if tgt is None:                      # no map entry (unknown SKU) → take the prime bin
+            return min(candidates, key=lambda b: pref.get(id(b), 0.0))
+        return min(candidates, key=lambda b: abs(pref.get(id(b), 0.0) - tgt))
+    place_one.name = 'optmap'
+    return place_one
+
+
 # ── programmatic name → builder registries (robust downstream lookup) ──────
 ASSIGNMENT_BUILDERS = {
     'travel_min':   build_trip_minimizing_assignment_fn,

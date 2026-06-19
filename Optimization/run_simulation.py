@@ -543,12 +543,17 @@ def _prepare_config_run(
     # strategies, so the plots can report each strategy's realised Sigma f*D as a
     # fraction of this optimum.  Cheap (sort, no placement, no mutation).
     optimal_sigma_fd = 0.0
+    optimal_work = 0.0
     if warehouse_meta is not None and inventory.cartons:
         _freq = {c.sku: c.demand.frequency for c in inventory.cartons}
+        _qty  = {c.sku: c.demand.quantity_rate for c in inventory.cartons}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
         optimal_sigma_fd = _mgr.optimal_sigma_fd(
             inventory.cartons, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
+        # Full-labor floor W* (travel + height handling) — the minimal-work yardstick.
+        optimal_work = _mgr.optimal_work(inventory.cartons, _freq, _qty, wp)
         log.info(f'  Optimal Sigma f*D (yardstick) = {optimal_sigma_fd:,.1f}')
+        log.info(f'  Optimal work W* (floor)       = {optimal_work:,.1f}')
 
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}')
@@ -604,6 +609,7 @@ def _prepare_config_run(
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
         optimal_sigma_fd  = optimal_sigma_fd,
+        optimal_work      = optimal_work,
     )
 
     resume = _load_resume(run_dir)
@@ -673,6 +679,7 @@ def _prepare_config_run(
                            **_decomp(s.label))
                       for s in STRATEGIES],
         optimal_sigma_fd = optimal_sigma_fd,
+        optimal_work     = optimal_work,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
     )
@@ -707,7 +714,8 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
     with open(meta_path, 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
     return {k: sim_skeleton[k]
-            for k in ('name', 'inventory', 'run_dir', 'strategies', 'optimal_sigma_fd')
+            for k in ('name', 'inventory', 'run_dir', 'strategies',
+                      'optimal_sigma_fd', 'optimal_work')
             if k in sim_skeleton}
 
 

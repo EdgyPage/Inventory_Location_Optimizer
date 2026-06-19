@@ -184,7 +184,7 @@ def _run_strategy_worker(args: dict) -> dict:
     ctx = StrategyContext(
         affinity=affinity, wp=wp,
         freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0)
+        beta=1.0, cartons=inventory.cartons)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')

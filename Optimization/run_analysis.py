@@ -68,6 +68,7 @@ def _analyze_config_worker(sim_result: dict, slim_shared: dict):
 def _sim_result_from_meta(meta: dict) -> dict:
     sim_result = {k: meta[k] for k in ('name', 'run_dir', 'strategies')}
     sim_result['optimal_sigma_fd'] = meta.get('optimal_sigma_fd', 0.0)
+    sim_result['optimal_work'] = meta.get('optimal_work', 0.0)
     sim_result['inventory'] = meta.get('inventory', '')
     return sim_result
 

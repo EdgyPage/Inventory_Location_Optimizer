@@ -247,7 +247,7 @@ def _build_series(strategies, df_b, df_t):
     return S
 
 
-def _dump_series(strategies, S, path):
+def _dump_series(strategies, S, path, extra=None):
     out = []
     for s in strategies:
         d = S.get(s['key'])
@@ -255,8 +255,11 @@ def _dump_series(strategies, S, path):
             continue
         out.append({k: (v.tolist() if isinstance(v, np.ndarray) else v)
                     for k, v in d.items()})
+    payload = {'strategies': out}
+    if extra:
+        payload.update(extra)              # e.g. optimal_work / optimal_sigma_fd floors
     with open(path, 'w') as f:
-        json.dump({'strategies': out}, f)
+        json.dump(payload, f)
 
 
 # ── individual plot builders (shared by per-config and aggregate) ──────────────
@@ -792,7 +795,9 @@ def run_config_analysis(
     # task-time-per-strategy comparison (raw steady-state distributions; per-config only)
     _task_box(strategies, df_t, f'Steady-state task duration by strategy  [{inv} / {name}]',
               os.path.join(compare_dir, 'breakdown', 'task_duration_by_strategy.png'))
-    _dump_series(strategies, S, os.path.join(run_dir, 'series.json'))
+    _dump_series(strategies, S, os.path.join(run_dir, 'series.json'),
+                 extra={'optimal_work': float(sim_result.get('optimal_work') or 0.0),
+                        'optimal_sigma_fd': float(sim_result.get('optimal_sigma_fd') or 0.0)})
 
     maxb  = max((int(df_b[s['key']]['batch_id'].max())
                  for s in strategies if not df_b[s['key']].empty), default=0)

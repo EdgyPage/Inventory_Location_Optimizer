@@ -28,6 +28,7 @@ from Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
+    build_optmap_fn,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
     build_co_demand_placement,
@@ -46,6 +47,7 @@ class StrategyContext:
     freq_by_sku  : dict
     qty_by_sku   : dict
     beta         : float = 1.0
+    cartons      : Any = None   # inventory.cartons — needed to build the optimal map
 
 
 @dataclass
@@ -143,6 +145,15 @@ def _build_rank_maxlabor(mgr, ctx: StrategyContext) -> None:
             mgr._aisle_member_pos,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
+
+
+def _build_map(mgr, ctx: StrategyContext) -> None:
+    # Optimal-map reloading: build the labor-minimizing map (quantity-free per-bin
+    # preferred-score basis + each SKU's optimal target), then place by SCORE MATCHING
+    # — each unit goes to the free bin whose pref is closest to its SKU's target, so
+    # reorders reload toward the optimum instead of grabbing whatever bin is free.
+    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.placement = Placement('optmap', build_optmap_fn(mgr))
 
 
 def _build_trip_min(mgr, ctx: StrategyContext) -> None:
@@ -254,6 +265,7 @@ _RESTOCKS = [
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
     ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
     ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
+    ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
     # ── disabled for this run (fifo + rank ablation only) ──
     #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
     #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
