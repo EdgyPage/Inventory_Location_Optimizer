@@ -553,12 +553,14 @@ def _aggregate_series(profile_series_list):
 
 
 def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
-                           top_by='global', no_stats=False, focus='uni'):
+                           top_by='global', no_stats=False, focus='uni',
+                           compare='assignment'):
     """Cross-profile roll-up for one pick-config: same plot suite, baseline-normalized."""
     _fresh_dir(out_dir)   # never mix this run's aggregate with a prior one
     # Focus filter (default uni): drop opt_* whose initial-stock advantage confounds the
     # reorder-policy comparison.  Filter each profile's series so plots + stats agree.
-    if focus in ('uni', 'opt'):
+    # compare='initial' pairs uni vs opt per assignment function → keep BOTH families.
+    if compare != 'initial' and focus in ('uni', 'opt'):
         filtered = []
         for ps in profile_series_list:
             subs = [d for d in ps.get('strategies', [])
@@ -577,9 +579,15 @@ def run_aggregate_analysis(profile_series_list, out_dir, top_n, pickcfg, log,
     # ── cross-profile significance suite (strategies paired by profile) ──
     if not no_stats:
         try:
-            from Stats_Analysis import run_aggregate_stats
-            run_aggregate_stats(profile_series_list, os.path.join(out_dir, 'stats'),
-                                log, pickcfg)
+            if compare == 'initial':
+                from Stats_Analysis import run_aggregate_stats_by_initial
+                run_aggregate_stats_by_initial(
+                    profile_series_list, os.path.join(out_dir, 'stats_by_initial'),
+                    log, pickcfg)
+            else:
+                from Stats_Analysis import run_aggregate_stats
+                run_aggregate_stats(profile_series_list, os.path.join(out_dir, 'stats'),
+                                    log, pickcfg)
         except Exception as exc:                                   # noqa: BLE001
             log.error(f'  aggregate stats failed for {pickcfg}: {exc!r}')
 
@@ -598,9 +606,12 @@ def run_config_analysis(
     name               = sim_result['name']
     run_dir            = sim_result['run_dir']
     strategies         = sim_result['strategies']        # [{key,label,color,db_path,run_id}]
-    # Focus filter: opt_* win mainly from their initial-stock advantage, which confounds
-    # the reorder-policy comparison.  Default to uni_* so plots/stats isolate the policy.
-    strategies         = _focus_filter(strategies, shared.get('focus', 'uni'))
+    compare            = shared.get('compare', 'assignment')
+    # compare='initial' pairs uni vs opt per assignment function, so it needs BOTH families.
+    # Otherwise focus-filter to one family: opt_* win mainly from their initial-stock
+    # advantage, which confounds the reorder-policy (assignment) comparison.
+    if compare != 'initial':
+        strategies     = _focus_filter(strategies, shared.get('focus', 'uni'))
     aisle_unittype_map = shared['aisle_unittype_map']
     aisle_handling_map = shared['aisle_handling_map']
     k_pickers          = shared.get('k_pickers', 25)
@@ -800,9 +811,15 @@ def run_config_analysis(
     # ── statistical significance suite (paired by batch_id over steady state) ──
     if not shared.get('no_stats', False):
         try:
-            from Stats_Analysis import run_config_stats
-            run_config_stats(strategies, df_b, df_t, ss_lo,
-                             os.path.join(run_dir, 'stats'), log, travel_handling=th)
+            if compare == 'initial':
+                from Stats_Analysis import run_config_stats_by_initial
+                run_config_stats_by_initial(
+                    strategies, df_b, df_t, ss_lo,
+                    os.path.join(run_dir, 'stats_by_initial'), log, travel_handling=th)
+            else:
+                from Stats_Analysis import run_config_stats
+                run_config_stats(strategies, df_b, df_t, ss_lo,
+                                 os.path.join(run_dir, 'stats'), log, travel_handling=th)
         except Exception as exc:                                   # noqa: BLE001
             log.error(f'  stats suite failed for {name}: {exc!r}')
 

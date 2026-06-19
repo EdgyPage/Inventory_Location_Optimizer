@@ -509,3 +509,127 @@ def run_aggregate_stats(profile_series_list, out_dir, log, pickcfg) -> None:
         json.dump(_clean({'pickcfg': pickcfg, 'n_profiles': len(profile_series_list),
                           'metrics': all_tests}), f, indent=2)
     log.info(f'  aggregate stats: {len(_AGG_METRICS)} metrics → {out_dir}')
+
+
+# ── compare BY INITIAL assignment (hold the assignment function constant) ─────────
+# Instead of comparing assignment functions within one initial family, these pair
+# uni_<fn> vs opt_<fn> for each assignment function <fn> — answering "does the optimal
+# initial layout beat a uniform start for the SAME reorder policy?".
+
+def _assignment_fn(key: str) -> str:
+    """Strip the leading initial-family token ('uni_'/'opt_') → the assignment+reslot key
+    that identifies the function held constant (e.g. uni_rank_labor_norsl → rank_labor_norsl)."""
+    for p in ('uni_', 'opt_'):
+        if key.startswith(p):
+            return key[len(p):]
+    return key
+
+
+def _initial_of(key: str) -> str | None:
+    if key.startswith('opt_'):
+        return 'opt'
+    if key.startswith('uni_'):
+        return 'uni'
+    return None
+
+
+def _group_by_assignment(keys: list[str]) -> dict:
+    """{assignment_fn: {'uni': key, 'opt': key}} for keys that carry an initial token,
+    preserving first-seen function order."""
+    groups: dict[str, dict] = {}
+    for k in keys:
+        ini = _initial_of(k)
+        if ini is None:
+            continue
+        groups.setdefault(_assignment_fn(k), {})[ini] = k
+    return groups
+
+
+def _opt_better(uni_med: float, opt_med: float, lower: bool) -> str:
+    """'opt' if the optimal-initial median is the better one for this metric, else 'uni'."""
+    if not (np.isfinite(uni_med) and np.isfinite(opt_med)) or uni_med == opt_med:
+        return 'tie'
+    opt_wins = (opt_med < uni_med) if lower else (opt_med > uni_med)
+    return 'opt' if opt_wins else 'uni'
+
+
+def run_config_stats_by_initial(strategies, df_b, df_t, ss_lo, out_dir, log,
+                                travel_handling=None) -> None:
+    """Per-config: for each assignment function, run the full paired suite uni_<fn> vs
+    opt_<fn> into out_dir/<fn>/, plus a combined out_dir/by_initial_summary.csv giving the
+    opt-vs-uni contrast (medians, % change, Wilcoxon p, winner) per function and metric."""
+    _fresh_dir(out_dir)
+    groups = _group_by_assignment([s['key'] for s in strategies])
+    by_key = {s['key']: s for s in strategies}
+    combined, n_done = [], 0
+    for fn, pair in groups.items():
+        if 'uni' not in pair or 'opt' not in pair:
+            continue
+        pair_strats = [by_key[pair['uni']], by_key[pair['opt']]]   # uni = baseline first
+        run_config_stats(pair_strats, df_b, df_t, ss_lo,
+                         os.path.join(out_dir, fn), log, travel_handling=travel_handling)
+        for name, source, col, lower in _METRICS:
+            su = _metric_series(df_b[pair['uni']], df_t[pair['uni']], source, col, ss_lo)
+            so = _metric_series(df_b[pair['opt']], df_t[pair['opt']], source, col, ss_lo)
+            common = sorted(set(su.index) & set(so.index))
+            if len(common) < 3:
+                continue
+            u, o = su.loc[common].values, so.loc[common].values
+            um, om = float(np.median(u)), float(np.median(o))
+            try:
+                p = float(st.wilcoxon(u, o).pvalue) if np.any(u != o) else 1.0
+            except ValueError:
+                p = float('nan')
+            combined.append({
+                'assignment': fn, 'metric': name, 'n': len(common),
+                'uni_median': um, 'opt_median': om,
+                'pct_change_opt_vs_uni': ((om - um) / um * 100.0) if um else float('nan'),
+                'p_wilcoxon': p, 'better': _opt_better(um, om, lower),
+            })
+        n_done += 1
+    pd.DataFrame(combined).to_csv(os.path.join(out_dir, 'by_initial_summary.csv'), index=False)
+    log.info(f'  by-initial stats: {n_done} assignment fns -> {out_dir}')
+
+
+def run_aggregate_stats_by_initial(profile_series_list, out_dir, log, pickcfg) -> None:
+    """Cross-profile: per assignment function, run the aggregate paired suite uni_<fn> vs
+    opt_<fn> into out_dir/<fn>/, plus a combined out_dir/by_initial_summary.csv."""
+    _fresh_dir(out_dir)
+    if not profile_series_list:
+        return
+    keys = [d['key'] for d in profile_series_list[0].get('strategies', [])]
+    groups = _group_by_assignment(keys)
+    combined, n_done = [], 0
+    for fn, pair in groups.items():
+        if 'uni' not in pair or 'opt' not in pair:
+            continue
+        want = {pair['uni'], pair['opt']}
+        sub_list = [{**ps, 'strategies': [d for d in ps.get('strategies', [])
+                                          if d.get('key') in want]}
+                    for ps in profile_series_list]
+        run_aggregate_stats(sub_list, os.path.join(out_dir, fn), log, pickcfg)
+        # combined contrast across profiles (paired by profile)
+        per_profile = [{d['key']: d for d in ps.get('strategies', [])} for ps in profile_series_list]
+        for name, field, lower in _AGG_METRICS:
+            u = [pp[pair['uni']].get(field) for pp in per_profile if pair['uni'] in pp]
+            o = [pp[pair['opt']].get(field) for pp in per_profile if pair['opt'] in pp]
+            u = np.array([v for v in u if v is not None and np.isfinite(v)], float)
+            o = np.array([v for v in o if v is not None and np.isfinite(v)], float)
+            if u.size < 3 or o.size < 3:
+                continue
+            um, om = float(np.median(u)), float(np.median(o))
+            p = float('nan')
+            if u.size == o.size:
+                try:
+                    p = float(st.wilcoxon(u, o).pvalue) if np.any(u != o) else 1.0
+                except ValueError:
+                    p = float('nan')
+            combined.append({
+                'assignment': fn, 'metric': name, 'n_profiles': int(min(u.size, o.size)),
+                'uni_median': um, 'opt_median': om,
+                'pct_change_opt_vs_uni': ((om - um) / um * 100.0) if um else float('nan'),
+                'p_wilcoxon': p, 'better': _opt_better(um, om, lower),
+            })
+        n_done += 1
+    pd.DataFrame(combined).to_csv(os.path.join(out_dir, 'by_initial_summary.csv'), index=False)
+    log.info(f'  aggregate by-initial stats: {n_done} assignment fns -> {out_dir}')
