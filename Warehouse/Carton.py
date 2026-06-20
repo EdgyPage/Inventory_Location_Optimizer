@@ -2,6 +2,7 @@ import math
 import random
 from collections import namedtuple
 from Demand import Demand, poisson_sample
+from cost_model import handle_var as _handle_var
 
 # Named tuple combining a carton's handling type and storage category.
 # Replaces the pattern `handling, category = carton.storage_type` throughout
@@ -108,7 +109,7 @@ class Carton:
         intercept) so a height-aware placement can scale just that part by the bin's
         height multiplier: per-unit handling at height = pick_intercept + mult*handle_var.
         """
-        self.handle_var = (pick_weight_coef * math.log(max(self.weight, 1))
-                           + pick_volume_coef * math.log(max(self.volume(), 1)))
+        self.handle_var = _handle_var(self.weight, self.volume(),
+                                      pick_weight_coef, pick_volume_coef)
         self.labor_cost = pick_intercept + self.handle_var
         return self.labor_cost

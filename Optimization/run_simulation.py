@@ -143,46 +143,6 @@ REGRESSION_CONFIGS = [
         'y_speed'         : 0.0416667,
         'height_brackets' : ((96.0, 1.0), (240.0, 1.6), (float('inf'), 2.4)),
     },
-    # ── disabled: run only calibrated + calibrated_highweight ──
-    #{
-    #    'name'            : 'calibrated_highvolume',
-    #    'pick_intercept'  : 10,
-    #    'pick_weight_coef': 2.33666,
-    #    'pick_volume_coef': 0.294014*2,
-    #    'cart_swap_coef'  : 300,
-    #    'x_speed'         : 0.0291667,
-    #    'y_speed'         : 0.0416667,
-    #},
-    #{
-    #    'name'            : 'calibrated_highweight_highvolume',
-    #    'pick_intercept'  : 10,
-    #    'pick_weight_coef': 2.33666*2,
-    #    'pick_volume_coef': 0.294014*2,
-    #    'cart_swap_coef'  : 300,
-    #    'x_speed'         : 0.0291667,
-    #    'y_speed'         : 0.0416667,
-    #},
-    #{
-    #    'name'            : 'high_cart_penalty',
-    #    'pick_weight_coef': 1.1,
-    #    'pick_volume_coef': 1e-3,
-    #    'pick_intercept'  : 1.0,
-    #    'cart_swap_coef'  : 25.0,
-    #},
-    #{
-    #    'name'            : 'high_cart_weight_penalty',
-    #    'pick_weight_coef': 2.5,
-    #    'pick_volume_coef': 1e-3,
-    #    'pick_intercept'  : 1.0,
-    #    'cart_swap_coef'  : 25.0,
-    #},
-    #{
-    #    'name'            : 'high_cart_weight_volume_penalty',
-    #    'pick_weight_coef': 2.5,
-    #    'pick_volume_coef': 5e-3,
-    #    'pick_intercept'  : 1.0,
-    #    'cart_swap_coef'  : 25.0,
-    #},
 ]
 
 

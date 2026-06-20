@@ -1,20 +1,11 @@
 ﻿from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
-# Mirror of Pick.DEFAULT_HEIGHT_BRACKETS / height_multiplier (kept here to preserve
-# the "Optimization layer computes W without importing simulation internals" rule —
-# same pattern as aisle_workload duplicating the _pick_time formula).  At runtime the
-# brackets come from the PickConfig via from_pick_config, so they stay in sync.
-_DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.9))
-
-
-def _height_mult(brackets: tuple, y_phys: float) -> float:
-    for thr, mult in brackets:
-        if y_phys < thr:
-            return mult
-    return brackets[-1][1]
+# Single source of truth for the cost primitives (Warehouse/cost_model.py — on sys.path
+# alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
+from cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
+from cost_model import height_multiplier as _height_mult, handle_var
 
 
 @dataclass
@@ -88,8 +79,8 @@ def aisle_workload_components(
         y_phys = line[3] if len(line) > 3 else 0.0
         hmult = _height_mult(params.height_brackets, y_phys)
         P += (params.pick_intercept
-              + hmult * qty * (params.pick_weight_coef * math.log(weight)
-                               + params.pick_volume_coef * math.log(volume)))
+              + hmult * qty * handle_var(weight, volume,
+                                         params.pick_weight_coef, params.pick_volume_coef))
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C
 

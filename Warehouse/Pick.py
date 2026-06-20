@@ -6,26 +6,14 @@ from typing import TYPE_CHECKING
 
 from Storage_Primitive import StorageCart
 from Workload_Builder import Task
+# Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
+# `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
+from cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var
 
 if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
 
 _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
-
-# Height brackets: equipment is slower handling at height.  Each entry is
-# (upper_y_phys_exclusive, handling_multiplier); a bin's bracket is the first whose
-# threshold exceeds its y_phys (else the last).  The multiplier scales ONLY the
-# per-unit weight/volume handling term (not intercept/cart).  Placeholder defaults —
-# tune per config / in the calibration notebook.  Mirrored in Optimization/Workload.py.
-DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4))
-
-
-def height_multiplier(brackets: tuple, y_phys: float) -> float:
-    """Handling multiplier for a pick at physical height y_phys (step over brackets)."""
-    for thr, mult in brackets:
-        if y_phys < thr:
-            return mult
-    return brackets[-1][1]
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -108,10 +96,10 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     (ground bracket → factor 1.0) so callers without a bin are unaffected.
     """
     hmult = height_multiplier(cfg.height_brackets, y_phys)
+    var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef)
     return (
         cfg.pick_intercept
-        + hmult * (cfg.pick_weight_coef * math.log(max(weight, 1))
-                   + cfg.pick_volume_coef * math.log(max(volume, 1))) * quantity
+        + hmult * var * quantity
         + cfg.cart_swap_coef * int(cart_swapped)
     )
 

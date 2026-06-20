@@ -14,6 +14,7 @@ from collections import deque
 from typing import Any
 
 from Affinity_Store import AffinityStore
+from cost_model import height_multiplier
 from Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement,
@@ -903,17 +904,6 @@ def build_ranked_popularity_fn(
     return ranked_assign
 
 
-def _hmult(brackets, y_phys):
-    """Height handling multiplier (mirror of Pick.height_multiplier; kept local to
-    avoid a cross-module import).  First bracket whose threshold exceeds y_phys."""
-    if not brackets:
-        return 1.0
-    for thr, mult in brackets:
-        if y_phys < thr:
-            return mult
-    return brackets[-1][1]
-
-
 def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           aisle_pick_load_sum, sku_pick_load_product,
@@ -944,7 +934,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         return [(u, None) for u in sorted_units]
 
     D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
-    M_of = {id(b): _hmult(brackets, b.y_phys) for b in cands}
+    M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
     by_aisle: dict[int, dict] = {}
     for b in cands:
@@ -1074,7 +1064,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         return a > b if maximize else a < b
 
     D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
-    M_of = {id(b): _hmult(brackets, b.y_phys) for b in cands}
+    M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
     for b in cands:
         by_aisle_brkt.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)

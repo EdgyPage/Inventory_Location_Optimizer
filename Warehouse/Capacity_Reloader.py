@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from cost_model import travel_cost
+
 
 # ── named target selectors: which occupied pallets to evict, per aisle ───────
 
@@ -97,7 +99,7 @@ class Capacity_Reloader:
         cap = self.per_aisle_cap(manager.warehouse)
         if cap <= 0:
             return 0
-        D = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
+        D = lambda b: travel_cost(b.x_phys, b.y_phys, x_speed, y_speed)
         by_aisle: dict[int, list] = defaultdict(list)
         # iterate the occupied-bin dict directly (the .unavailable property copies
         # the whole ~N-bin dict into a list on every call — wasteful per batch)
