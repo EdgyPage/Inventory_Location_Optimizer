@@ -267,12 +267,12 @@ _INITIALS = [
 # the already-optimised _drain_ranked path) stay on the candidates scan → False.
 _RESTOCKS = [
     ('fifo', 'FIFO',    _build_uniform,                 False, False, False),  # uniform random, FIFO drain
-    # Ranked aisle-selection ablation: same wave, differ only in how the aisle is chosen.
+    # ── full ablation (8 arms): placement functions + worst-case bracket ──
     ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
     ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
-    #('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
+    ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
     ('map_rank',        'Map_rank',        _build_map_rank,                False, False, False),  # optimal-map, upgrade-capped (saves prime spots)
     # ── disabled for this run (fifo + rank ablation only) ──

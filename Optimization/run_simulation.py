@@ -131,7 +131,7 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 500,
         'x_speed'         : 0.0833333,
         'y_speed'         : 0.0416667,
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.6), (float('inf'), 2.4)),
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
     {
         'name'            : 'calibrated_height_weight',
@@ -141,7 +141,7 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 500,
         'x_speed'         : 0.0833333,
         'y_speed'         : 0.0416667,
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.6), (float('inf'), 2.4)),
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
 ]
 
