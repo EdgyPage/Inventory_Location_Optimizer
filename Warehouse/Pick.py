@@ -90,16 +90,17 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
     zero-volume carton is physically impossible and indicates bad data.
 
-    y_phys is the bin's physical height; the per-unit weight/volume handling is
-    multiplied by the height bracket factor (equipment is slower up high).  The
-    intercept and cart-swap penalty are not height-scaled.  y_phys defaults to 0
-    (ground bracket → factor 1.0) so callers without a bin are unaffected.
+    y_phys is the bin's physical height; the height bracket factor scales the ENTIRE
+    at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
+    handling (equipment is slower at everything up high), i.e. M(y)·(intercept + qty·var).
+    The cart-swap penalty is NOT height-scaled (it is a cart/depot operation, not at the
+    bin).  y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are
+    unaffected.
     """
     hmult = height_multiplier(cfg.height_brackets, y_phys)
     var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef)
     return (
-        cfg.pick_intercept
-        + hmult * var * quantity
+        hmult * (cfg.pick_intercept + var * quantity)
         + cfg.cart_swap_coef * int(cart_swapped)
     )
 

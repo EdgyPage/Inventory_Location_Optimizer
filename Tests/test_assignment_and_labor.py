@@ -199,10 +199,11 @@ def test_pick_time_height_scaling():
     var = 0.5 * math.log(20) + 0.1 * math.log(27000)
     ground = _pick_time(cfg, 20, 27000, 3, False, 10.0)    # mult 1.0
     high   = _pick_time(cfg, 20, 27000, 3, False, 300.0)   # mult 2.0
-    assert abs(ground - (2.0 + 1.0 * 3 * var)) < 1e-9
-    assert abs(high   - (2.0 + 2.0 * 3 * var)) < 1e-9
-    # only the per-unit handling is height-scaled (intercept/cart flat)
-    assert abs((high - ground) - (2.0 - 1.0) * 3 * var) < 1e-9
+    # height scales the ENTIRE at-location pick: M*(intercept + qty*var)
+    assert abs(ground - 1.0 * (2.0 + 3 * var)) < 1e-9
+    assert abs(high   - 2.0 * (2.0 + 3 * var)) < 1e-9
+    # the whole pick (intercept + handling) is height-scaled (cart stays flat)
+    assert abs((high - ground) - (2.0 - 1.0) * (2.0 + 3 * var)) < 1e-9
 
 
 def test_aisle_workload_matches_pick_time_with_height():
@@ -392,7 +393,8 @@ def _layout_work(mgr, freq, qty, wp):
         v = wp.pick_weight_coef * math.log(max(c.weight, 1)) + wp.pick_volume_coef * math.log(max(c.volume(), 1))
         D = wp.x_speed * b.x_phys + wp.y_speed * b.y_phys
         f = freq.get(c.sku, 0.0); qq = qty.get(c.sku, 0.0)
-        tot += f * (wp.pick_intercept + D) + f * qq * v * M(b.y_phys)
+        # height scales the whole pick: f*D + f*M*(intercept + q*v)
+        tot += f * D + f * M(b.y_phys) * (wp.pick_intercept + qq * v)
     return tot
 
 

@@ -56,7 +56,7 @@ def aisle_workload_components(
     """The (D, P, C) decomposition of one aisle's workload W = D + P + C.
 
       D (travel)   = x_traversed * x_speed + y_traversed * y_speed
-      P (handling) = Σ_stops (intercept + height_mult(y) * qty
+      P (handling) = Σ_stops  height_mult(y) * (intercept + qty
                                         * (weight_coef*ln(weight) + volume_coef*ln(volume)))
       C (cart)     = cart_swap_coef * max(0, carts_required - 1)
 
@@ -78,8 +78,9 @@ def aisle_workload_components(
         weight, volume, qty = line[0], line[1], line[2]
         y_phys = line[3] if len(line) > 3 else 0.0
         hmult = _height_mult(params.height_brackets, y_phys)
-        P += (params.pick_intercept
-              + hmult * qty * handle_var(weight, volume,
+        # height scales the ENTIRE at-location pick: M·(intercept + qty·var) (mirrors _pick_time)
+        P += hmult * (params.pick_intercept
+                      + qty * handle_var(weight, volume,
                                          params.pick_weight_coef, params.pick_volume_coef))
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C

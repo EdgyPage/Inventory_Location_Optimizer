@@ -149,9 +149,12 @@ class OptimalLayoutMixin:
             if not bins:
                 continue
             n = len(units)
-            a = [freq_of.get(u.carton.sku, 0.0) for u in units]                  # α_s = f
-            b_ = [freq_of.get(u.carton.sku, 0.0) * qty_of.get(u.carton.sku, 0.0)
-                  * v_by_sku.get(u.carton.sku, 0.0) for u in units]              # β_s = f·q·v
+            a = [freq_of.get(u.carton.sku, 0.0) for u in units]                  # α_s = f (travel)
+            # height now scales the WHOLE pick: per-pick handling = M·(intercept + q·v),
+            # so the M-coefficient is f·(intercept + q·v), not f·q·v.
+            b_ = [freq_of.get(u.carton.sku, 0.0)
+                  * (intercept + qty_of.get(u.carton.sku, 0.0) * v_by_sku.get(u.carton.sku, 0.0))
+                  for u in units]                                                # β_s = f·(intercept + q·v)
             # candidate bins: lowest-D per height bracket, capped at n (others dominated)
             by_m: dict = defaultdict(list)
             for bn in bins:
@@ -200,11 +203,12 @@ class OptimalLayoutMixin:
                     assigned.append((i, j))
 
             for i, j in assigned:
-                # per occupied-bin convention (matches current_sigma_fd): f·(intercept+D)
-                # + f·q·v·M.  intercept·f is bin-independent so it doesn't affect the argmin,
-                # but is included so W* is comparable to a realised layout's work.
-                W_var += a[i] * (intercept + Dc[j]) + b_[i] * Mc[j]
-                pref = Dc[j] + Mc[j] * v_ref
+                # per occupied-bin convention (matches current_sigma_fd):
+                #   f·D  +  f·M·(intercept + q·v)   (height scales the whole pick; the
+                # intercept now lives inside b_, so it is no longer added bin-independently).
+                W_var += a[i] * Dc[j] + b_[i] * Mc[j]
+                # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref)
+                pref = Dc[j] + Mc[j] * (intercept + v_ref)
                 sku_target[units[i].carton.sku].append(pref)
 
         target = {sku: sum(p) / len(p) for sku, p in sku_target.items() if p}
@@ -224,11 +228,15 @@ class OptimalLayoutMixin:
         inventory is assigned."""
         brackets = getattr(wp, 'height_brackets', ())
         xs, ys = wp.x_speed, wp.y_speed
+        intercept = wp.pick_intercept
 
         vs = [self._handle_var(c, wp) for c in cartons]
         v_ref = (sum(vs) / len(vs)) if vs else 1.0
+        # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref),
+        # matching the new height model where M scales the whole at-location pick.
         self._bin_pref = {
-            id(b): (xs * b.x_phys + ys * b.y_phys) + height_multiplier(brackets, b.y_phys) * v_ref
+            id(b): (xs * b.x_phys + ys * b.y_phys)
+                   + height_multiplier(brackets, b.y_phys) * (intercept + v_ref)
             for b in self.warehouse.bins
         }
         w_star, self._map_target = self._optimal_work_assign(cartons, freq_of, qty_of, wp)

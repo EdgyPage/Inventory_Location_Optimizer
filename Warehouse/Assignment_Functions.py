@@ -911,9 +911,9 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     """Travel- AND height-aware LPT load balance (Rank_labor).
 
     The expected labor of placing a unit in a bin is freq·qty times the per-pick cost
-    THERE:  pick_intercept + height_mult(y_bin)·handle_var + D_bin, where handle_var is
-    the per-unit weight/volume handling, height_mult(y) is the equipment penalty for the
-    bin's height bracket, and D_bin = x_speed·x_phys + y_speed·y_phys is travel.  Each
+    THERE:  height_mult(y_bin)·(pick_intercept + handle_var) + D_bin, where handle_var is
+    the per-unit weight/volume handling, height_mult(y) scales the WHOLE at-location pick
+    (intercept + handling), and D_bin = x_speed·x_phys + y_speed·y_phys is travel.  Each
     unit is placed in the specific empty bin that minimises the resulting BUSIEST aisle's
     total labor (greedy LPT).  So a bin is only chosen high/far when the aisle's load is
     low enough to absorb the extra handling/travel — heavy, frequently-picked SKUs gravitate
@@ -949,13 +949,14 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     result: list = []
 
     def _aisle_best(aid, var):
-        """(cost, mult, bin) of the cheapest available bin in the aisle for this var."""
+        """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
+        Height scales the whole at-location pick: cost = m·(intercept+var) + D."""
         best = None
         for m, dq in by_aisle[aid].items():
             if not dq:
                 continue
             b = dq[0]
-            cost = m * var + D_of[id(b)]
+            cost = m * (intercept + var) + D_of[id(b)]
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -971,14 +972,14 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             ab = _aisle_best(aid, var)
             if ab is None:
                 continue
-            score = load[aid] + fq * (intercept + ab[0])
+            score = load[aid] + fq * ab[0]
             if best_score is None or score < best_score:
                 best_score, best_aid, best_choice = score, aid, ab
         if best_aid is None:
             result.append((unit, None))
             continue
         cost, m, chosen = best_choice
-        load[best_aid] += fq * (intercept + cost)
+        load[best_aid] += fq * cost
 
         # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl)
         if sku not in aisle_sku_sets[best_aid]:
@@ -1024,10 +1025,10 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
                           maximize=False):
     """Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
-    Models the objective E[task labor] = Σ_s f_s·q_s·(intercept + M(y_s)·v_s) + E[travel]
-    and places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
+    Models the objective E[task labor] = Σ_s f_s·[ M(y_s)·(intercept + q_s·v_s) + D ] and
+    places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
 
-        cost(s, b) = f_s·q_s·(intercept + M(y_b)·v_s + D_b)  −  λ·Σ_{partners p in aisle} lift(s,p)·f_p
+        cost(s, b) = f_s·( M(y_b)·(intercept + v_s) + D_b )  −  λ·Σ_{partners p in aisle} lift(s,p)·f_p
 
     where v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,
     D_b = x_speed·x_phys + y_speed·y_phys.  This fuses three slotting levers into one score:
@@ -1076,13 +1077,13 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     result: list = []
 
     def _aisle_best_cost(aid, var):
-        """Extremal (min, or max if maximize) over the aisle's bracket ends of
-        (intercept + M·var + D)."""
+        """Extremal (min, or max if maximize) over the aisle's bracket ends of the
+        per-pick labor + travel:  M·(intercept + var) + D  (height scales the whole pick)."""
         best = None
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = intercept + m * var + D_of[id(_rep(dq))]
+            cost = m * (intercept + var) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -1116,7 +1117,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = m * var + D_of[id(b)]
+            cost = m * (intercept + var) + D_of[id(b)]
             if cx is not None:
                 cost += x_speed * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):

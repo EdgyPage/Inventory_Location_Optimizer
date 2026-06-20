@@ -106,8 +106,9 @@ class Carton:
         no cart swap, ground level.  Call once per worker after inventory load.
 
         Also stores handle_var = the per-unit weight/volume term ALONE (without the
-        intercept) so a height-aware placement can scale just that part by the bin's
-        height multiplier: per-unit handling at height = pick_intercept + mult*handle_var.
+        intercept).  labor_cost (= intercept + handle_var) is the qty=1 ground per-pick
+        cost used to RANK items; the height multiplier scales the whole at-location pick
+        at placement time: per-pick at height = mult*(pick_intercept + qty*handle_var).
         """
         self.handle_var = _handle_var(self.weight, self.volume(),
                                       pick_weight_coef, pick_volume_coef)
