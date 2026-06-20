@@ -157,7 +157,15 @@ def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
 
 def _pick_lines(task) -> list[tuple[int, int, int, float]]:
     """(weight, volume, qty, y_phys) per bin stop that has inventory for this task.
-    y_phys lets aisle_workload apply the height-bracket handling multiplier."""
+    y_phys lets aisle_workload apply the height-bracket handling multiplier.
+
+    Prefer the snapshot captured at task build (Task.pick_lines) — the live path bins are
+    depleted by the sim's pick application before extract_task_stats runs, which would
+    otherwise drop emptied bins and zero out W.  Falls back to the live read for any task
+    object that predates the snapshot."""
+    snap = getattr(task, 'pick_lines', None)
+    if snap is not None:
+        return snap
     return [
         (b.storage.carton.weight, b.storage.carton.volume(),
          task.items[b.storage.carton.sku], b.y_phys)

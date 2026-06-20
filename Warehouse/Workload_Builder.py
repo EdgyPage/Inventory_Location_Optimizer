@@ -168,6 +168,16 @@ class Task:
             y_trav += abs(path[i].y_phys - path[i+1].y_phys)
         self.x_traversed: float = x_trav   # physical units
         self.y_traversed: float = y_trav   # physical units
+        # Snapshot the (weight, volume, qty, y_phys) pick lines NOW, while the path bins
+        # still hold stock.  The sim depletes these bins (storage→None) during run(), so
+        # computing them later (in extract_task_stats) would drop emptied bins and zero out
+        # the analytical workload W.  Captured here so W reflects the real picks at all heights.
+        self.pick_lines: list[tuple[int, int, int, float]] = [
+            (b.storage.carton.weight, b.storage.carton.volume(),
+             items[b.storage.carton.sku], b.y_phys)
+            for b in path
+            if b.storage is not None and b.storage.carton.sku in items
+        ]
         # Build volume lookup from path bins.  A SKU in items may have no bin
         # in this path when all its bins are pending reclaim (emptied last batch).
         # Fall back to the carton volume from the first bin found anywhere in the
