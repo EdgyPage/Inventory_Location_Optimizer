@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulation Lifecycle Diagnostics</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="top-bar">
+    <span id="title">Simulation Lifecycle Diagnostics</span>
+    <label class="ctrl">Run:
+      <select id="run-select"></select>
+    </label>
+    <span id="meta-msg">loading…</span>
+  </header>
+
+  <div id="main">
+    <!-- ── warehouse fill heatmap ─────────────────────────────────────────── -->
+    <section id="heatmap-panel" class="panel">
+      <div class="panel-title">Warehouse fill <span class="sub">(aisle = cell, colour = fill%)</span></div>
+      <svg id="heatmap-svg"></svg>
+      <div id="heat-legend"></div>
+    </section>
+
+    <aside id="right-col">
+      <!-- ── lifecycle flow for selected batch ────────────────────────────── -->
+      <section id="flow-panel" class="panel">
+        <div class="panel-title">Lifecycle this batch</div>
+        <div id="flow"></div>
+        <div id="leak-flag"></div>
+      </section>
+
+      <!-- ── function-execution trace ─────────────────────────────────────── -->
+      <section id="fn-panel" class="panel">
+        <div class="panel-title">Function execution <span class="sub">(this batch)</span></div>
+        <table id="fn-table">
+          <thead><tr><th>function</th><th>calls</th><th>time (ms)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ── time-series ──────────────────────────────────────────────────────── -->
+  <section id="charts-panel" class="panel">
+    <div class="panel-title">Over batches <span class="sub">(faint = other runs · marker = selected batch)</span></div>
+    <div id="charts"></div>
+  </section>
+
+  <footer id="controls">
+    <button id="play-btn" title="Play / Pause">&#9654;</button>
+    <input id="batch-slider" type="range" min="0" max="1" step="1" value="0">
+    <span id="batch-display">batch 0</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

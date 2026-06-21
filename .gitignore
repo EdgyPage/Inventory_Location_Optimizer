@@ -230,3 +230,6 @@ __marimo__/
 
 # Simulation run output dirs (large SQLite DBs already covered by *.db; ignore whole run trees)
 comparison_*/
+
+# Diagnostics generated traces (regenerate with trace_lifecycle.py / replay_run.py)
+Diagnostics/out/
