@@ -110,10 +110,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
         # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
         self._aisle_idx_sets: dict[int, set[int]]         = defaultdict(set)
-        # Per-aisle placed-member COLUMN positions: aisle → list of (x_phys, sku_idx).
-        # Lets co-demand compaction/expansion score a candidate bin by its column
-        # distance to an entering SKU's already-placed affinity partners.
-        self._aisle_member_pos: dict[int, list[tuple[float, int]]] = defaultdict(list)
+        # Per-aisle placed-member COLUMN positions: aisle → {sku_idx → [x_phys, ...]},
+        # one x per LIVE bin.  Pruned on reclaim/eviction right beside _aisle_idx_sets,
+        # so it holds only SKUs currently in the aisle (no stale positions, no unbounded
+        # growth, and the partner-centroid scan is O(distinct SKUs in aisle)).
+        # Lets co-demand compaction/expansion + the labor minimiser score a candidate
+        # bin by its column distance to an entering SKU's already-placed affinity partners.
+        self._aisle_member_pos: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
@@ -218,7 +221,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 idx = sku_to_idx.get(sku)
                 if idx is not None:
                     self._aisle_idx_sets[aid].add(idx)
-                    self._aisle_member_pos[aid].append((bin_.x_phys, idx))
+                    self._aisle_member_pos[aid][idx].append(bin_.x_phys)
                 if bin_.unit_type == 'singleton':
                     self._sku_singleton_bins[sku].add(bin_)
                 else:

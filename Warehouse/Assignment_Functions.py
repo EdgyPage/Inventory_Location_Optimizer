@@ -620,11 +620,13 @@ def _ranked_assign_impl(
 
 def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
     """Lift-weighted COLUMN centroid of an aisle's already-placed affinity partners of
-    `sku`.  ``member_pos`` is the aisle's list of (x_phys, sku_idx).  Returns
-    (mass, centroid_x); (0.0, None) when `sku` has no placed partners there.
+    `sku`.  ``member_pos`` is the aisle's ``{sku_idx -> [x_phys, ...]}`` (one x per LIVE
+    bin; pruned on reclaim so no stale members).  Returns (mass, centroid_x);
+    (0.0, None) when `sku` has no placed partners there.
 
     Mirrors _demand_weighted_delta_lift's CSR row-slice but accumulates a position
-    centroid weighted by lift(s, partner) * f_partner.
+    centroid weighted by lift(s, partner) * f_partner.  Iterating per distinct partner
+    SKU (not per placement) keeps this O(distinct SKUs in aisle).
     """
     if not member_pos or affinity._matrix is None or sku not in affinity._sku_to_idx:
         return 0.0, None
@@ -636,12 +638,14 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
     row = {int(ci): float(d) for ci, d in
            zip(affinity._matrix.indices[start:end], affinity._matrix.data[start:end])}
     mass = wx = 0.0
-    for x, idx in member_pos:
+    for idx, xs in member_pos.items():
         lift = row.get(idx)
         if lift:
-            w = lift * freq_by_idx.get(idx, 0.0)
-            mass += w
-            wx   += w * x
+            f = freq_by_idx.get(idx, 0.0)
+            if f:
+                w = lift * f                 # one bin → one position; weight each equally
+                mass += w * len(xs)
+                wx   += w * sum(xs)
     return (mass, wx / mass) if mass > 0 else (0.0, None)
 
 
@@ -711,7 +715,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         idx = sku_to_idx.get(sku)
         if idx is not None:
             aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
         result.append((unit, chosen))
 
     return result
@@ -755,7 +759,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
         idx = sku_to_idx.get(sku)
         if idx is not None:
             aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
         return chosen
 
     assign.name = name
@@ -1074,6 +1078,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             lst.sort(key=lambda bb: D_of[id(bb)])
             groups[m] = deque(lst)
     sku_to_idx = affinity._sku_to_idx
+    matrix     = affinity._matrix
     result: list = []
 
     def _aisle_best_cost(aid, var):
@@ -1093,14 +1098,53 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         sku = c.sku
         var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
-        best_aid = None
-        best_score = None
+
+        # Slice the SKU's affinity row ONCE per unit (not once per aisle): partners as
+        # (partner_idx, f_p·lift) pairs, all non-negative.  max_reward bounds lam·delta
+        # over any aisle (all partners present), enabling the early-termination prune
+        # below — the same idea as build_load_*'s lazy CSR queries.
+        row_items: list = []
+        si = sku_to_idx.get(sku)
+        if si is not None and matrix is not None:
+            s = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
+            for ci, d in zip(matrix.indices[s:e], matrix.data[s:e]):
+                w = float(d) * freq_by_idx.get(int(ci), 0.0)
+                if w:
+                    row_items.append((int(ci), w))
+        max_reward = lam * sum(w for _, w in row_items)
+
+        # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
+        bc_by_aid = {}
         for aid in by_aisle_brkt:
             bc = _aisle_best_cost(aid, var)
-            if bc is None:
-                continue
-            delta = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
-            score = fq * bc - lam * delta
+            if bc is not None:
+                bc_by_aid[aid] = bc
+        if not bc_by_aid:
+            result.append((unit, None))
+            continue
+        # minimise: ascending fq·bc, prune once base − max_reward ≥ best (reward can't save it).
+        # maximise: descending fq·bc, prune once base ≤ best (reward only lowers the score).
+        order = sorted(bc_by_aid, key=lambda a: fq * bc_by_aid[a], reverse=maximize)
+
+        best_aid = None
+        best_score = None
+        for aid in order:
+            base = fq * bc_by_aid[aid]
+            if best_score is not None:
+                if maximize:
+                    if base <= best_score:
+                        break
+                elif base - max_reward >= best_score:
+                    break
+            if row_items:
+                ais = aisle_idx_sets[aid]
+                delta = 0.0
+                for ci, w in row_items:
+                    if ci in ais:
+                        delta += w
+            else:
+                delta = 0.0
+            score = base - lam * delta
             if best_score is None or _better(score, best_score):
                 best_score, best_aid = score, aid
         if best_aid is None:
@@ -1133,7 +1177,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         idx = sku_to_idx.get(sku)
         if idx is not None:
             aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid].append((chosen.x_phys, idx))
+            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
         result.append((unit, chosen))
     return result
 

@@ -56,6 +56,19 @@ class ReorderMixin:
         # Mirror _reclaim_empty_bins' per-SKU aisle-state removal (affinity on).
         if self._affinity is not None:
             aid    = bin_.location[0]
+            idx    = self._affinity._sku_to_idx.get(sku)
+            # Drop the evicted bin's column position from _aisle_member_pos (live-bin only).
+            if idx is not None:
+                mp = self._aisle_member_pos.get(aid)
+                if mp is not None:
+                    xs = mp.get(idx)
+                    if xs:
+                        try:
+                            xs.remove(bin_.x_phys)
+                        except ValueError:
+                            pass
+                        if not xs:
+                            del mp[idx]
             counts = self._aisle_sku_counts[aid]
             n      = counts.get(sku, 0)
             if n > 1:
@@ -63,7 +76,6 @@ class ReorderMixin:
             elif n == 1:
                 counts.pop(sku, None)
                 self._aisle_sku_sets[aid].discard(sku)
-                idx = self._affinity._sku_to_idx.get(sku)
                 if idx is not None:
                     self._aisle_idx_sets[aid].discard(idx)
                 delta = 2.0 * self._affinity.delta_lift_idxs(sku, self._aisle_idx_sets[aid])
@@ -168,6 +180,7 @@ class ReorderMixin:
         sku_demand_prod  = self._sku_demand_product
         aisle_pick_load  = self._aisle_pick_load_sum
         sku_pick_load    = self._sku_pick_load_product
+        aisle_member_pos = self._aisle_member_pos
         if has_affinity:
             sku_to_idx      = self._affinity._sku_to_idx
             delta_lift_idxs = self._affinity.delta_lift_idxs
@@ -181,6 +194,20 @@ class ReorderMixin:
                     lst.discard(bin_)
                 if has_affinity:
                     aid    = bin_.location[0]
+                    idx    = sku_to_idx.get(sku)
+                    # Drop THIS bin's column position so _aisle_member_pos tracks only
+                    # live bins (every reclaimed bin, not just a SKU's last one).
+                    if idx is not None:
+                        mp = aisle_member_pos.get(aid)
+                        if mp is not None:
+                            xs = mp.get(idx)
+                            if xs:
+                                try:
+                                    xs.remove(bin_.x_phys)
+                                except ValueError:
+                                    pass
+                                if not xs:
+                                    del mp[idx]
                     counts = aisle_sku_counts[aid]
                     n      = counts.get(sku, 0)
                     if n > 1:
@@ -188,7 +215,6 @@ class ReorderMixin:
                     else:
                         counts.pop(sku, None)
                         aisle_sku_sets[aid].discard(sku)
-                        idx = sku_to_idx.get(sku)
                         if idx is not None:
                             aisle_idx_sets[aid].discard(idx)
                         delta = 2.0 * delta_lift_idxs(sku, aisle_idx_sets[aid])
