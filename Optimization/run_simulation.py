@@ -123,26 +123,27 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 
 
 REGRESSION_CONFIGS = [
-    {
+        {
         'name'            : 'calibrated',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.700998,
-        'pick_volume_coef': 0.0882042,
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 0.0208333,
-        'y_speed'         : 0.03125,
+        'pick_intercept'  : 30,
+        'pick_weight_coef': 2.33666,
+        'pick_volume_coef': 0.294014,
+        'cart_swap_coef'  : 30,
+        'x_speed'         : 0.141403,
+        'y_speed'         : 0.0848416,
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
     {
-        'name'            : 'calibrated_height_weight',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.700998*2,
-        'pick_volume_coef': 0.0882042,
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 0.0208333,
-        'y_speed'         : 0.03125,
+        'name'            : 'calibrated_high_weight',
+        'pick_intercept'  : 30,
+        'pick_weight_coef': 2.33666 * 2,
+        'pick_volume_coef': 0.294014,
+        'cart_swap_coef'  : 30,
+        'x_speed'         : 0.141403,
+        'y_speed'         : 0.0848416,
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
+
 ]
 
 
