@@ -81,6 +81,22 @@ def test_batch_stats_start_end_roundtrip():
     check('batch_start_time round-trips', loaded.batch_start_time == 0.0)
 
 
+def test_batch_stats_queue_roundtrip():
+    print('\n-- batch_stats queue_depth / lead_queue_depth / in_transit_qty round-trip --')
+    db = _tmp('sim_queue.db')
+    init_run_db(db)
+    rid = create_run(db, 'uniform_assignment')
+    rec = BatchStats(run_id=rid, batch_id=3, duration=99.0, num_tasks=2,
+                     total_items=20, avg_concurrent_pickers=1.5,
+                     picking_pct=0.7, traveling_pct=0.3,
+                     queue_depth=14395, lead_queue_depth=812, in_transit_qty=88000)
+    save_batch_stats(db, rid, [rec])
+    loaded = {b.batch_id: b for b in load_batch_stats(db, rid)}[3]
+    check('queue_depth round-trips', loaded.queue_depth == 14395, f'{loaded.queue_depth}')
+    check('lead_queue_depth round-trips', loaded.lead_queue_depth == 812, f'{loaded.lead_queue_depth}')
+    check('in_transit_qty round-trips', loaded.in_transit_qty == 88000, f'{loaded.in_transit_qty}')
+
+
 def test_aisle_layout_roundtrip():
     print('\n-- warehouse.db aisle_layout (geometry) round-trip --')
     db = _tmp('warehouse.db')

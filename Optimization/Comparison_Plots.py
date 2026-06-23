@@ -48,6 +48,9 @@ def _bdf(stats):
         'sigma_fd'              : s.sigma_fd,
         'reload_moves'          : s.reload_moves,
         'reorder_placements'    : s.reorder_placements,
+        'queue_depth'           : getattr(s, 'queue_depth', 0),
+        'lead_queue_depth'      : getattr(s, 'lead_queue_depth', 0),
+        'in_transit_qty'        : getattr(s, 'in_transit_qty', 0),
     } for s in stats])
 
 
@@ -91,6 +94,89 @@ def _fresh_dir(path):
     leave mismatched plots (e.g. an old top5_* beside a new top3_by_initial_*) behind."""
     shutil.rmtree(path, ignore_errors=True)
     os.makedirs(path, exist_ok=True)
+
+
+def _per_run_report(strategies, df_b, df_t, run_dir, ps_dir, title, log):
+    """Production-time-first per-run rollups + a raw long-format per-batch CSV.
+
+    Writes batches_long.csv (every batch × strategy, all metrics) for external analysis,
+    a per_run_summary.csv, and bar charts ranking strategies by total production time,
+    production-time-per-item (gaming-resistant), completion rate, and put-away queue depth
+    (the honesty metric — a strategy that defers placement carries a standing queue)."""
+    rows, summ = [], []
+    for s in strategies:
+        k = s['key']
+        b = df_b.get(k)
+        t = df_t.get(k)
+        if b is None or b.empty:
+            continue
+        bb = b.set_index('batch_id').sort_index()
+        prod = (t.groupby('batch_id')['duration'].sum().reindex(bb.index).fillna(0.0)
+                if t is not None and not t.empty
+                else pd.Series(0.0, index=bb.index))
+        for bid in bb.index:
+            r = bb.loc[bid]
+            rows.append(dict(
+                profile=title, strategy=k, initial=s.get('initial', ''),
+                restock=s.get('assignment', ''), batch_id=int(bid),
+                production_time=float(prod.loc[bid]),
+                makespan=float(r['duration']),
+                completion_rate=float(r['completion_rate']),
+                queue_depth=int(r.get('queue_depth', 0)),
+                lead_queue_depth=int(r.get('lead_queue_depth', 0)),
+                in_transit_qty=int(r.get('in_transit_qty', 0)),
+                sigma_fd=float(r['sigma_fd']),
+                reorder_placements=int(r['reorder_placements']),
+                reload_moves=int(r['reload_moves']),
+                picking_pct=float(r['picking_pct']),
+                avg_concurrent_pickers=float(r['avg_concurrent_pickers']),
+                num_tasks=int(r['num_tasks']),
+                total_items=int(r['total_items']),
+            ))
+        tot_prod = float(prod.sum())
+        tot_items = float(bb['total_items'].sum())
+        qd = bb['queue_depth'] if 'queue_depth' in bb else pd.Series(0.0, index=bb.index)
+        it = bb['in_transit_qty'] if 'in_transit_qty' in bb else pd.Series(0.0, index=bb.index)
+        summ.append(dict(
+            strategy=k, label=s['label'], color=s.get('color', '#888888'),
+            total_production_time=tot_prod,
+            production_time_per_item=(tot_prod / tot_items if tot_items else float('nan')),
+            mean_completion_rate=float(bb['completion_rate'].mean()),
+            mean_queue_depth=float(qd.mean()), max_queue_depth=float(qd.max()),
+            mean_in_transit=float(it.mean()),
+        ))
+
+    if rows:
+        pd.DataFrame(rows).to_csv(os.path.join(run_dir, 'batches_long.csv'), index=False)
+    sdf = pd.DataFrame(summ)
+    if sdf.empty:
+        return sdf
+    sdf.to_csv(os.path.join(ps_dir, 'per_run_summary.csv'), index=False)
+
+    def _bar(col, ylabel, fname, ascending=True):
+        d = sdf.dropna(subset=[col]).sort_values(col, ascending=ascending)
+        if d.empty:
+            return
+        fig, ax = plt.subplots(figsize=(max(7, 1.1 * len(d)), 4.5))
+        ax.bar(range(len(d)), d[col].values, color=list(d['color']), alpha=0.85)
+        ax.set_xticks(range(len(d)))
+        ax.set_xticklabels(list(d['label']), rotation=40, ha='right', fontsize=8)
+        ax.set_ylabel(ylabel)
+        ax.grid(axis='y', alpha=0.3)
+        ax.set_title(f'{ylabel} per run  [{title}]', fontsize=11, fontweight='bold')
+        _save_close(fig, os.path.join(ps_dir, fname))
+
+    _bar('total_production_time', 'total production time (sim units)',
+         'production_time_per_run.png', ascending=True)
+    _bar('production_time_per_item', 'production time per item (sim units)',
+         'production_time_per_item.png', ascending=True)
+    _bar('mean_completion_rate', 'mean completion rate (items / sim-time)',
+         'completion_rate_per_run.png', ascending=False)
+    if float(sdf['max_queue_depth'].max() or 0) > 0:
+        _bar('mean_queue_depth', 'mean put-away queue depth (units)',
+             'queue_depth_per_run.png', ascending=True)
+    log.info(f'  per-run report → {ps_dir} (+ batches_long.csv)')
+    return sdf
 
 
 def _focus_filter(strategies, focus):
@@ -479,9 +565,9 @@ def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=Fals
              f='throughput_over_time', t='Throughput over time (items / sim-time)',
              yl='throughput' + unit),
         dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
-             f='productivity_hours_over_time',
-             t='Productivity hours (Sigma task time per batch)',
-             yl='productivity hours' + unit),
+             f='production_time_over_time',
+             t='Production time (Sigma task time per batch, sim units)',
+             yl='production time (sim units)' + unit),
     ]
     base = strategies[0]
     top_tag = f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
@@ -629,14 +715,15 @@ def run_config_analysis(
     base_key   = base['key']
     base_label = base['label']
 
-    # ── load per-strategy DataFrames (outliers flagged out) ───────────────────
+    # ── load per-strategy DataFrames — ALL batches, no outlier exclusion ───────
+    # Batches are identical across strategies (shared SEED_BATCHES, RNG-isolated), so
+    # every batch is a fair paired comparison; dropping "outlier" spikes would discard
+    # valid head-to-head data, and (as the put-away-queue case showed) hide real cost.
     df_b: dict[str, pd.DataFrame] = {}
     df_t: dict[str, pd.DataFrame] = {}
     for s in strategies:
-        bs = flag_batch_outliers(load_batch_stats(s['db_path'], s['run_id']))
-        ts = flag_task_outliers(load_task_stats(s['db_path'], s['run_id']))
-        df_b[s['key']] = _bdf([x for x in bs if not x.is_outlier])
-        df_t[s['key']] = _tdf([x for x in ts if not x.is_outlier],
+        df_b[s['key']] = _bdf(load_batch_stats(s['db_path'], s['run_id']))
+        df_t[s['key']] = _tdf(load_task_stats(s['db_path'], s['run_id']),
                               aisle_unittype_map, aisle_handling_map)
 
     labels = [s['label'] for s in strategies]
@@ -658,6 +745,9 @@ def run_config_analysis(
     optimal = float(sim_result.get('optimal_sigma_fd') or 0.0)
     total_bins = float(shared.get('total_bins') or 0)
     top_by = shared.get('top_by', 'global') or 'global'
+
+    # ── production-time-first per-run rollups + raw long-format CSV (all batches) ──
+    _per_run_report(strategies, df_b, df_t, run_dir, ps_dir, f'{inv} / {name}', log)
 
     # per-strategy time series + steady-state scalars (also feeds the compare/ suite)
     S = _build_series(strategies, df_b, df_t)
@@ -813,17 +903,19 @@ def run_config_analysis(
     except Exception as exc:                                       # noqa: BLE001
         log.error(f'  task-time breakdown failed for {name}: {exc!r}')
 
-    # ── statistical significance suite (paired by batch_id over steady state) ──
+    # ── statistical significance suite (paired by batch_id over ALL batches) ──
+    # ss_lo=0: every batch is a fair paired observation (identical across strategies),
+    # so the omnibus/pairwise tests use the full n (~100), not just the tail window.
     if not shared.get('no_stats', False):
         try:
             if compare == 'initial':
                 from Stats_Analysis import run_config_stats_by_initial
                 run_config_stats_by_initial(
-                    strategies, df_b, df_t, ss_lo,
+                    strategies, df_b, df_t, 0,
                     os.path.join(run_dir, 'stats_by_initial'), log, travel_handling=th)
             else:
                 from Stats_Analysis import run_config_stats
-                run_config_stats(strategies, df_b, df_t, ss_lo,
+                run_config_stats(strategies, df_b, df_t, 0,
                                  os.path.join(run_dir, 'stats'), log, travel_handling=th)
         except Exception as exc:                                   # noqa: BLE001
             log.error(f'  stats suite failed for {name}: {exc!r}')

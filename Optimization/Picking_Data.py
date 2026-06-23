@@ -44,6 +44,9 @@ class BatchStats:
     sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
     reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
     reorder_placements: int = 0   # reorder unit placements this batch (restock churn)
+    queue_depth: int = 0          # put-away backlog: storage units packed but not yet binned
+    lead_queue_depth: int = 0     # in-transit reorders (records awaiting lead-time arrival)
+    in_transit_qty: int = 0       # total items in the lead queue (on-order, not yet arrived)
     is_outlier: bool = False
 
 
@@ -198,6 +201,9 @@ _CREATE_BATCH_STATS = """
         sigma_fd               REAL    NOT NULL DEFAULT 0,
         reload_moves           INTEGER NOT NULL DEFAULT 0,
         reorder_placements     INTEGER NOT NULL DEFAULT 0,
+        queue_depth            INTEGER NOT NULL DEFAULT 0,
+        lead_queue_depth       INTEGER NOT NULL DEFAULT 0,
+        in_transit_qty         INTEGER NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -511,13 +517,15 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
             '(run_id,batch_id,duration,num_tasks,total_items,'
             'avg_concurrent_pickers,picking_pct,traveling_pct,'
             'batch_start_time,batch_end_time,'
-            'sigma_fd,reload_moves,reorder_placements,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'sigma_fd,reload_moves,reorder_placements,'
+            'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
                  r.batch_start_time, r.batch_end_time,
-                 r.sigma_fd, r.reload_moves, r.reorder_placements, int(r.is_outlier))
+                 r.sigma_fd, r.reload_moves, r.reorder_placements,
+                 r.queue_depth, r.lead_queue_depth, r.in_transit_qty, int(r.is_outlier))
                 for r in records
             ],
         )
@@ -553,6 +561,12 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                                           if 'reload_moves' in row.keys() else 0),
                 reorder_placements     = (row['reorder_placements']
                                           if 'reorder_placements' in row.keys() else 0),
+                queue_depth            = (row['queue_depth']
+                                          if 'queue_depth' in row.keys() else 0),
+                lead_queue_depth       = (row['lead_queue_depth']
+                                          if 'lead_queue_depth' in row.keys() else 0),
+                in_transit_qty         = (row['in_transit_qty']
+                                          if 'in_transit_qty' in row.keys() else 0),
                 is_outlier             = bool(row['is_outlier']),
             )
             for row in rows

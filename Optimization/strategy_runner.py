@@ -361,6 +361,11 @@ def _run_strategy_worker(args: dict) -> dict:
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
         bs.reorder_placements = batch_rp
+        # Put-away honesty: standing backlog + in-transit pipeline after this batch's
+        # reorder/restock pass (a strategy that defers placement carries a high queue).
+        bs.queue_depth        = mgr.queue_depth
+        bs.lead_queue_depth   = mgr.lead_queue_depth
+        bs.in_transit_qty     = mgr.in_transit_qty
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp,
                                  run_id=run_id, lift_cache=lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
