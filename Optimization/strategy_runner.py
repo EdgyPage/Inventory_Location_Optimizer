@@ -208,6 +208,7 @@ def _run_strategy_worker(args: dict) -> dict:
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
+    mgr._seed = seed_world   # keys the reorder-qty noise (deterministic, off the global stream)
 
     def _arm_aisle_state() -> None:
         """Rebuild per-aisle affinity + demand/labor state from the placed bins."""
@@ -266,14 +267,15 @@ def _run_strategy_worker(args: dict) -> dict:
     # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
     mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
 
-    # ── RNG fast-forward (resume only) ────────────────────────────────────────
-    random.seed(seed_batches)
+    # ── RNG streams ───────────────────────────────────────────────────────────
+    # Batches use a dedicated per-batch stream seeded `seed_batches + i` (built in the
+    # loop below), so batch i is identical across arms and resume needs no fast-forward.
+    # The global `random` here drives only the loop's placement (group C) and reorder
+    # noise is keyed separately (mgr._seed); seed it from seed_world for per-arm
+    # reproducibility, keeping it independent of the batch stream.
+    random.seed(seed_world + 200)
     if start_i > 0:
-        log.info(f'Fast-forwarding RNG through {start_i} batches...')
-        t0 = time.perf_counter()
-        for _ in range(start_i):
-            Batch(batch_cfg, inventory, affinity=affinity)
-        log.info(f'  RNG at batch {start_i}  ({time.perf_counter()-t0:.1f}s)')
+        log.info(f'Resuming at batch {start_i} (per-batch RNG seed; no fast-forward needed)')
 
     # ── keyframe DB (full bin snapshot every keyframe_interval batches) ───────
     kf_db = None
@@ -322,7 +324,11 @@ def _run_strategy_worker(args: dict) -> dict:
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
-        batch    = Batch(batch_cfg, inventory, affinity=affinity)
+        # Dedicated per-batch RNG: batch i is a pure function of (inventory, affinity,
+        # config, seed_batches+i), so every arm over this warehouse config sees the
+        # identical batch sequence regardless of placement/reorder randomness above.
+        batch    = Batch(batch_cfg, inventory, affinity=affinity,
+                         rng=random.Random(seed_batches + i))
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
         _now = time.perf_counter(); t_build_ckpt += _now - _t; _t = _now
 

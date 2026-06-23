@@ -63,6 +63,7 @@ def _lift_weighted_sample(
     candidates: list,
     k: int,
     affinity: 'AffMatrix | AffinityStore',
+    rng: random.Random | None = None,
 ) -> list:
     """Sample k items from candidates, weighting each by demand.frequency plus
     cumulative lift to already-selected SKUs.  High-lift partners of chosen SKUs
@@ -71,7 +72,11 @@ def _lift_weighted_sample(
     Uses numpy vectorised cumsum for O(N) weighted selection per step and a
     module-level partner_map cache so the O(|affinity|) adjacency build is paid
     only once per unique affinity dict across all batches in a run.
+
+    Pass `rng` (a `random.Random`) to draw from a dedicated stream; default `None`
+    uses the global `random` module.
     """
+    r = rng or random
     partner_map = _get_partner_map(affinity)
 
     n = len(candidates)
@@ -91,7 +96,7 @@ def _lift_weighted_sample(
         if total <= 0.0:
             break
         cumw = np.cumsum(w)
-        idx = int(np.searchsorted(cumw, random.uniform(0.0, total)))
+        idx = int(np.searchsorted(cumw, r.uniform(0.0, total)))
         if idx >= n:
             idx = n - 1
         chosen = candidates[idx]
@@ -111,15 +116,21 @@ class Batch:
         config: BatchConfig,
         inventory: Inventory,
         affinity: AffMatrix | AffinityStore | None = None,
+        rng: random.Random | None = None,
     ) -> None:
         self.config = config
+        # Dedicated batch stream: pass `rng=random.Random(seed_batches + i)` so batch
+        # i is a pure function of (inventory, affinity, config) and is identical across
+        # arms, immune to whatever placement/reorder randomness ran first. Default
+        # `None` keeps the global `random` module (back-compatible).
+        r = rng or random
 
         mean = config.mean_fraction * config.inventory_size
         std  = config.std_fraction  * config.inventory_size
-        self.num_skus: int    = max(1, min(config.inventory_size, round(random.gauss(mean, std))))
+        self.num_skus: int    = max(1, min(config.inventory_size, round(r.gauss(mean, std))))
         # random threshold gives each batch a different eligibility cutoff,
         # modelling the variability in order selectivity across batches
-        self.threshold: float = random.random()
+        self.threshold: float = r.random()
 
         candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]
         k = min(self.num_skus, len(candidates))
@@ -131,16 +142,16 @@ class Batch:
         if k <= 0:
             selected = []
         elif affinity is None:
-            selected = random.sample(candidates, k)          # explicit opt-out only
+            selected = r.sample(candidates, k)               # explicit opt-out only
         elif isinstance(affinity, (dict, AffinityStore)):
-            selected = _lift_weighted_sample(candidates, k, affinity)
+            selected = _lift_weighted_sample(candidates, k, affinity, rng=r)
         else:
             raise TypeError(
                 f'Batch affinity must be dict, AffinityStore, or None; got '
                 f'{type(affinity).__name__}. Refusing to silently fall back to '
                 f'uniform sampling.')
 
-        self.items: dict[int, int] = {c.sku: max(1, c.demand.sample()) for c in selected}
+        self.items: dict[int, int] = {c.sku: max(1, c.demand.sample(rng=r)) for c in selected}
 
         # For a plain dict, store it directly for use in analytics.
         # For AffinityStore, lift_sum is computed on-demand per task in

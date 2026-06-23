@@ -283,8 +283,16 @@ class ReorderMixin:
                 continue
             # Received quantity ~ Normal(ideal, ideal·supply_cv), floor 1 (cv set at generation):
             # slight variation, centred on the equilibrium fill, so restocks can split across units.
+            # Drawn from a per-reorder RNG keyed on (seed, sku, batch) so the quantity is a pure
+            # function of the seed — reproducible and independent of global-stream call order.
             cv   = getattr(rc, 'supply_cv', 0.0)
-            qty  = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
+            if cv > 0.0:
+                # String key (tuple seeds are unsupported; str seeding is deterministic
+                # across processes, unlike hash() under randomized PYTHONHASHSEED).
+                rng = random.Random(f'{self._seed}:{sku}:{self._batch_num}')
+                qty = max(1, round(rng.gauss(ideal, ideal * cv)))
+            else:
+                qty = ideal
             lead = max(0, int(round(getattr(rc, 'lead_time_mean', 0.0))))   # deterministic lead
             self._lead_queue.append([sku, qty, lead])
             self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + qty

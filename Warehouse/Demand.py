@@ -2,13 +2,17 @@ import math
 import random
 
 
-def poisson_sample(lam: float) -> int:
-    """Knuth's algorithm: return a Poisson-distributed integer with mean `lam`."""
+def poisson_sample(lam: float, rng: random.Random | None = None) -> int:
+    """Knuth's algorithm: return a Poisson-distributed integer with mean `lam`.
+
+    Pass `rng` (a `random.Random`) to draw from a dedicated stream; default `None`
+    uses the global `random` module (back-compatible)."""
+    r = rng or random
     threshold = math.exp(-lam)
     k, p = 0, 1.0
     while p > threshold:
         k += 1
-        p *= random.random()
+        p *= r.random()
     return k - 1
 
 
@@ -36,5 +40,5 @@ class Demand:
         """Alias for quantity_rate."""
         return self.quantity_rate
 
-    def sample(self) -> int:
-        return poisson_sample(self.quantity_rate)
+    def sample(self, rng: random.Random | None = None) -> int:
+        return poisson_sample(self.quantity_rate, rng)
