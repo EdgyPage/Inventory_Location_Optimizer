@@ -816,6 +816,97 @@ def plot_dim_kde_overlay(df: pd.DataFrame, out_dir: str, title_suffix: str = '')
     _save_close(fig, os.path.join(out_dir, 'dim_kde.png'))
 
 
+# ── creation-plan distribution plots ────────────────────────────────────────────
+
+# (carton parameter name, dataframe column, value range for histogram bins)
+_CP_PARAMS = [
+    ('length',    'length',           (1, 48)),
+    ('width',     'width',            (1, 48)),
+    ('height',    'height',           (1, 48)),
+    ('weight',    'weight',           (1, 200)),
+    ('frequency', 'demand_frequency', (0, 1)),
+    ('quantity',  'demand_qty_rate',  (1, 20)),
+]
+_CONV_COLOR, _NCONV_COLOR = '#5b9bd5', '#f4a030'
+
+
+def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
+                       title_suffix: str = '') -> None:
+    """Render a graph for EVERY creation_plan row plus an aggregate-by-handling view.
+
+    df         : carton dataframe (handling, category, length/width/height/weight,
+                 demand_frequency, demand_qty_rate).
+    plan_lookup: {(handling, storage_type, parameter): (distribution, params_str)} —
+                 the creation_plan rows, used to annotate each subplot.
+
+    Output (out_dir):
+      param_<parameter>.png   — grid (rows=category × cols=handling): the realized
+                                histogram for each (handling, category, parameter) row,
+                                titled with that row's distribution family + params.
+      aggregate_by_handling.png — conveyable vs non-conveyable overlaid per parameter,
+                                + overall handling counts + per-category handling share.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    cats      = sorted(df['category'].unique())
+    handlings = ['conveyable', 'non-conveyable']
+
+    # ── one subplot per (handling, category, parameter) row, grouped by parameter ──
+    for pname, col, (lo, hi) in _CP_PARAMS:
+        fig, axes = plt.subplots(len(cats), 2, figsize=(11, 2.1 * len(cats) + 1), squeeze=False)
+        fig.suptitle(f'{pname} — distribution per family × handling{title_suffix}',
+                     fontsize=12, fontweight='bold')
+        for i, cat in enumerate(cats):
+            for j, h in enumerate(handlings):
+                ax   = axes[i][j]
+                sub  = df[(df['category'] == cat) & (df['handling'] == h)][col].values
+                dist, prm = plan_lookup.get((h, cat, pname), ('—', None))
+                if len(sub):
+                    ax.hist(sub, bins=30, range=(lo, hi),
+                            color=_CONV_COLOR if h == 'conveyable' else _NCONV_COLOR,
+                            alpha=0.8, edgecolor='white')
+                spec_txt = f'{dist}{(" " + prm) if prm else ""}'
+                ax.set_title(f'{cat} · {h[:4]}  n={len(sub)}\n{spec_txt}', fontsize=7)
+                ax.tick_params(labelsize=6)
+        plt.tight_layout()
+        _save_close(fig, os.path.join(out_dir, f'param_{pname}.png'))
+
+    # ── aggregate by handling: conv vs non-conv overlay per parameter + split bars ──
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8))
+    fig.suptitle(f'Aggregate by handling split{title_suffix}', fontsize=13, fontweight='bold')
+    for k, (pname, col, (lo, hi)) in enumerate(_CP_PARAMS):
+        ax = axes[k // 4][k % 4]
+        for h, color in (('conveyable', _CONV_COLOR), ('non-conveyable', _NCONV_COLOR)):
+            vals = df[df['handling'] == h][col].values
+            if len(vals):
+                ax.hist(vals, bins=40, range=(lo, hi), density=True, histtype='step',
+                        lw=2, color=color, label=f'{h} (n={len(vals):,})')
+        ax.set_title(pname, fontsize=10); ax.legend(fontsize=6); ax.grid(alpha=0.3)
+
+    # overall handling counts
+    ax = axes[1][2]
+    hc = df['handling'].value_counts().reindex(handlings).fillna(0)
+    ax.bar(range(len(handlings)), hc.values, color=[_CONV_COLOR, _NCONV_COLOR])
+    ax.set_xticks(range(len(handlings))); ax.set_xticklabels([h[:4] for h in handlings], fontsize=8)
+    conv_pct = df['handling'].eq('conveyable').mean() * 100
+    ax.set_title(f'handling counts  (conveyable {conv_pct:.0f}%)', fontsize=10)
+    ax.grid(axis='y', alpha=0.3)
+
+    # per-category handling share (stacked to 1.0)
+    ax = axes[1][3]
+    ct   = (df.groupby(['category', 'handling']).size().unstack(fill_value=0)
+              .reindex(index=cats).reindex(columns=handlings, fill_value=0))
+    frac = ct.div(ct.sum(axis=1).replace(0, 1), axis=0)
+    bottom = np.zeros(len(cats))
+    for h, color in (('conveyable', _CONV_COLOR), ('non-conveyable', _NCONV_COLOR)):
+        vals = np.asarray(frac[h].values, dtype=float)
+        ax.bar(range(len(cats)), vals, bottom=bottom, color=color, label=h)
+        bottom += vals
+    ax.set_xticks(range(len(cats))); ax.set_xticklabels(cats, rotation=45, ha='right', fontsize=6)
+    ax.set_ylim(0, 1); ax.set_title('handling share by category', fontsize=10); ax.legend(fontsize=6)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(out_dir, 'aggregate_by_handling.png'))
+
+
 # ── callable API ───────────────────────────────────────────────────────────────
 
 def generate_run(
@@ -984,6 +1075,20 @@ def generate_run(
     plot_volume_vs_weight(df, plot_dir, sfx)
     plot_singleton_split(df, plot_dir)
     plot_dim_kde_overlay(df, plot_dir, sfx)
+
+    if creation_plan is not None:
+        # one graph per creation_plan row + an aggregate-by-handling figure
+        conn = sqlite3.connect(db_path)
+        plan_lookup = {
+            (h, st, p): (dist, prm)
+            for h, st, p, dist, prm in conn.execute(
+                'SELECT handling, storage_type, parameter, distribution, params FROM creation_plan')
+        }
+        conn.close()
+        cp_dir = os.path.join(plot_dir, 'creation_plan')
+        plot_creation_plan(df, plan_lookup, cp_dir, sfx)
+        _log(f'[inventory:{name}] creation-plan plots → {cp_dir}  ({len(plan_lookup)} rows)')
+
     _log(f'[inventory:{name}] Done.')
 
     return run_dir

@@ -95,7 +95,7 @@ CREATION_PLAN = [
            length_spec=_tri(4, 24, 12), width_spec=_tri(4, 24, 12), height_spec=_tri(4, 20, 10),
            weight_spec={'dist': 'volume_poisson'},
            freq_spec={'dist': 'uniform', 'low': 0.3, 'high': 1.0},
-           qty_spec={'dist': 'uniform', 'low': 1, 'high': 8}),
+           qty_spec={'dist': 'uniform', 'low': 1, 'high': 20}),
 
     # clothing — medium soft boxes, light, highly conveyable
     Family('clothing', share=0.18, handling_split=(0.97, 0.03),
@@ -145,8 +145,10 @@ def main() -> None:
     parser.add_argument('--num-skus', type=int, default=76_500)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--name', default=None, help='run folder name (default: mixed_<ts>)')
-    parser.add_argument('--lead-time', type=float, default=1.0,
-                        help='deterministic lead time in batches (the per-dataset knob; e.g. 0 or 1)')
+    parser.add_argument('--lead-times', type=float, nargs='+', default=[1.0], metavar='L',
+                        help='one or more deterministic lead times in batches; each produces a '
+                             'sibling profile leaf under the same timestamped run folder '
+                             '(e.g. --lead-times 0 1 -> mixed_<ts>/{lt0,lt1}/)')
     parser.add_argument('--coverage', type=float, default=10.0,
                         help='equilibrium coverage batches (initial loaded stock = coverage * expected)')
     parser.add_argument('--top-k', type=int, default=20)
@@ -186,48 +188,54 @@ def main() -> None:
         print(f'  affinity estimate: ~{pairs:,} pairs  ~{pairs * 2 * 28 / 1_048_576:.0f} MB  (top-{args.top_k})\n')
         return
 
-    ts        = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_name  = args.name or f'mixed_{ts}'
-    prof_name = f'mixed_realistic_lt{args.lead_time:g}'
-    leaf      = os.path.join(out_dir, run_name, prof_name)
-    os.makedirs(leaf, exist_ok=True)
+    ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = args.name or f'mixed_{ts}'   # one timestamped run folder; one leaf per lead time
+    run_dir  = os.path.join(out_dir, run_name)
 
     print(f'\n{"="*64}')
-    print(f'  Mixed profile : {run_name}/{prof_name}')
-    print(f'  Dir           : {leaf}')
-    print(f'  num_skus={args.num_skus:,}  seed={args.seed}  lead_time={args.lead_time}  coverage={args.coverage}')
+    print(f'  Mixed run     : {run_name}')
+    print(f'  Dir           : {run_dir}')
+    print(f'  num_skus={args.num_skus:,}  seed={args.seed}  coverage={args.coverage}')
+    print(f'  lead_times    : {args.lead_times}  ->  ' +
+          ', '.join(f'lt{lt:g}' for lt in args.lead_times))
     print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}')
     print(f'{"="*64}\n')
 
-    t0      = time.perf_counter()
-    inv_run = _inv_run(
-        name                         = 'inventory',
-        num_skus                     = args.num_skus,
-        seed                         = args.seed,
-        out_dir                      = leaf,
-        creation_plan                = CREATION_PLAN,
-        lead_time                    = args.lead_time,
-        equilibrium_coverage_batches = args.coverage,
-        demand_override              = demand_override,
-    )
-    inv_db = os.path.join(inv_run, 'inventory.db')
-    print(f'  inventory done in {time.perf_counter()-t0:.1f}s → {inv_db}')
+    for lt in args.lead_times:
+        prof_name = f'mixed_realistic_lt{lt:g}'
+        leaf      = os.path.join(run_dir, prof_name)
+        os.makedirs(leaf, exist_ok=True)
+        print(f'\n[{prof_name}] lead_time={lt}')
 
-    if not args.skip_affinity:
-        t0 = time.perf_counter()
-        _aff_run(
-            inventory_db = inv_db,
-            name         = 'affinity',
-            out_dir      = leaf,
-            top_k        = args.top_k,
-            candidate_k  = args.candidate_k,
-            min_lift     = args.affinity_min_lift,
-            max_lift     = args.affinity_max_lift,
-            seed         = args.affinity_seed,
+        t0      = time.perf_counter()
+        inv_run = _inv_run(
+            name                         = 'inventory',
+            num_skus                     = args.num_skus,
+            seed                         = args.seed,           # same seed → datasets differ only by lead time
+            out_dir                      = leaf,
+            creation_plan                = CREATION_PLAN,
+            lead_time                    = lt,
+            equilibrium_coverage_batches = args.coverage,
+            demand_override              = demand_override,
         )
-        print(f'  affinity done in {time.perf_counter()-t0:.1f}s')
+        inv_db = os.path.join(inv_run, 'inventory.db')
+        print(f'  inventory done in {time.perf_counter()-t0:.1f}s → {inv_db}')
 
-    print(f'\n[mixed] Done → {leaf}\n')
+        if not args.skip_affinity:
+            t0 = time.perf_counter()
+            _aff_run(
+                inventory_db = inv_db,
+                name         = 'affinity',
+                out_dir      = leaf,
+                top_k        = args.top_k,
+                candidate_k  = args.candidate_k,
+                min_lift     = args.affinity_min_lift,
+                max_lift     = args.affinity_max_lift,
+                seed         = args.affinity_seed,
+            )
+            print(f'  affinity done in {time.perf_counter()-t0:.1f}s')
+
+    print(f'\n[mixed] Done → {run_dir}  ({len(args.lead_times)} lead-time profile(s))\n')
 
 
 if __name__ == '__main__':
