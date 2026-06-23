@@ -46,8 +46,16 @@ class Storage_Type:
 # reordered every batch (or any two SKUs sharing a geometry) pays the scan once per process.
 # Only ints/strings cross process boundaries (the cache lives per-process), so this stays
 # pickling-safe.  Callers regress to a fresh computation transparently on a cache miss.
+#
+# BOUNDED: maxsize caps per-process memory.  At full scale a worker sees hundreds of
+# thousands of distinct (geometry, qty) keys over a 100-batch run (reorder quantities vary
+# with supply_cv + capacity-reloader churn), and an unbounded cache grew to hundreds of MB
+# per worker — ×20 workers that OOM'd the pool (BrokenProcessPool).  The hot set within a
+# batch is far smaller than this bound, so the LRU keeps hit rate high while capping memory.
+_FIT_CACHE_MAX = 100_000
 
-@lru_cache(maxsize=None)
+
+@lru_cache(maxsize=_FIT_CACHE_MAX)
 def _pallet_fit_dims(h: int, w: int, l: int, quantity: int,
                      max_width: int, max_length: int):
     """Smallest-tier pallet fit for a geometry, or None if no orientation fits.
@@ -68,7 +76,7 @@ def _pallet_fit_dims(h: int, w: int, l: int, quantity: int,
     return best[1:] if best is not None else None
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=_FIT_CACHE_MAX)
 def _singleton_fit_dims(h: int, w: int, l: int, quantity: int,
                         max_width: int, max_length: int, bin_h: int):
     """Min-stacked-height singleton fit for a geometry, or None if no orientation fits.
