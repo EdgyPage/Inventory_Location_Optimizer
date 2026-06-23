@@ -151,6 +151,8 @@ def main() -> None:
                              '(e.g. --lead-times 0 1 -> mixed_<ts>/{lt0,lt1}/)')
     parser.add_argument('--coverage', type=float, default=10.0,
                         help='equilibrium coverage batches (initial loaded stock = coverage * expected)')
+    parser.add_argument('--supply-cv-max', type=float, default=0.15,
+                        help='per-SKU supply_cv ~ Uniform(0, this); drives reorder-quantity variation')
     parser.add_argument('--top-k', type=int, default=20)
     parser.add_argument('--candidate-k', type=int, default=60)
     parser.add_argument('--affinity-min-lift', type=float, default=1.0)
@@ -216,6 +218,7 @@ def main() -> None:
             creation_plan                = CREATION_PLAN,
             lead_time                    = lt,
             equilibrium_coverage_batches = args.coverage,
+            supply_cv_max                = args.supply_cv_max,
             demand_override              = demand_override,
         )
         inv_db = os.path.join(inv_run, 'inventory.db')

@@ -282,7 +282,7 @@ def test_oup_no_overstock() -> None:
 # ═════════════════════════════════════════════════════════════════════════════
 
 def test_immediate_reorder() -> None:
-    """With lead_time_mean=0, reorder units land in _queue immediately."""
+    """With lead_time_mean=0, reorder units land in _stock_queue immediately."""
     print('\n-- Part D: immediate reorder (lead_time=0) --')
     _, mgr = _small_warehouse(seed=2)
     c = _make_carton(sku=10, eq_qty=20, rp=8, lt=0.0)
@@ -293,34 +293,33 @@ def test_immediate_reorder() -> None:
     before_batch = mgr._batch_num
     mgr.check_reorders()
 
-    check('no deferred reorders when lead_time=0',
-          len(mgr._deferred_reorders) == 0,
-          f'deferred={dict(mgr._deferred_reorders)}')
+    check('lead queue empty when lead_time=0 (released same batch)',
+          len(mgr._lead_queue) == 0,
+          f'lead_queue={mgr._lead_queue}')
     check('quantity restored immediately',
           mgr._current_quantities.get(10, 0) == 20,
           f'qty={mgr._current_quantities.get(10)}')
 
 
 def test_deferred_reorder() -> None:
-    """With lead_time_mean=3, order should not arrive until ~3 batches later."""
+    """With lead_time_mean=3, order should not arrive until exactly 3 batches later."""
     print('\n-- Part D2: deferred reorder (lead_time=3) --')
     _, mgr = _small_warehouse(seed=3)
-    random.seed(999)   # fix sampling so gauss gives predictable lead
 
     c = _make_carton(sku=20, eq_qty=20, rp=8, lt=3.0)
     mgr.enqueue(c)
 
     mgr._current_quantities[20] = 5
     mgr._depleted_skus.add(20)
-    triggered = mgr.check_reorders()   # batch 1
+    triggered = mgr.check_reorders()   # batch 1: fires, enters lead queue (rem=3)
 
     check('reorder was triggered', 20 in triggered)
-    check('units NOT immediately in queue',
+    check('units NOT immediately in stock queue',
           mgr._queued_sku_counts.get(20, 0) == 0,
           f'queued={mgr._queued_sku_counts.get(20, 0)}')
-    check('units in deferred dict',
-          len(mgr._deferred_sku_counts) > 0,
-          f'deferred_counts={mgr._deferred_sku_counts}')
+    check('order sits in the lead queue (deterministic lead)',
+          any(e[0] == 20 for e in mgr._lead_queue),
+          f'lead_queue={mgr._lead_queue}')
     check('quantity NOT yet restored',
           mgr._current_quantities.get(20, 0) < 20,
           f'qty={mgr._current_quantities.get(20)}')
@@ -383,7 +382,7 @@ def test_position_counts_queued_units() -> None:
           30 not in mgr._depleted_skus, f'depleted={30 in mgr._depleted_skus}')
 
     # Even forced into the depleted set, check_reorders must not fire a duplicate
-    # wave while on-order already covers the threshold (no _queue units to place).
+    # wave while on-order already covers the threshold (no _stock_queue units to place).
     triggers = []
     for _ in range(10):
         mgr._depleted_skus.add(30)
@@ -574,8 +573,11 @@ def test_supply_cv_floor_prevents_zero() -> None:
     for _ in range(50):
         mgr._current_quantities[70] = 1
         mgr._depleted_skus.add(70)
+        # clear any in-flight state so a fresh reorder fires each iteration
         mgr._queued_sku_counts.pop(70, None)
-        mgr._deferred_sku_counts.pop(70, None)
+        mgr._queued_qty.pop(70, None)
+        mgr._deferred_qty.pop(70, None)
+        mgr._lead_queue = [e for e in mgr._lead_queue if e[0] != 70]
         mgr.check_reorders()
         qty = mgr._current_quantities.get(70, 1) - 1
         if qty < 1:

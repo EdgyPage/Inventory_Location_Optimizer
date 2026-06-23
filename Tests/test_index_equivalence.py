@@ -5,7 +5,7 @@ divergence (see ASSIGNMENT_DIVERGENCE_PLAN.md):
 
 1. The aisle_index fast path produces IDENTICAL aisle-level placement to the
    candidates scan, so arming init_travel_costs() never changes results.
-2. The _drain coupling guard raises if init_travel_costs() (mgr half) and an
+2. The _stock coupling guard raises if init_travel_costs() (mgr half) and an
    index-consuming assignment_fn (fn half) are armed independently, so the two
    can never silently diverge again.
 """
@@ -117,7 +117,7 @@ def test_guard_raises_when_armed_with_scan_fn(assets):
     mgr = _fresh_mgr(wh_cfg)
     mgr.init_travel_costs(_WP())            # mgr half armed; default fn does NOT read index
     with pytest.raises(RuntimeError, match='Assignment divergence'):
-        mgr._drain()
+        mgr._stock()
 
 
 def test_guard_raises_when_index_fn_without_arming(assets):
@@ -129,11 +129,11 @@ def test_guard_raises_when_index_fn_without_arming(assets):
     fn.uses_aisle_index = True             # fn half armed; mgr half not
     mgr.placement = Placement('test', fn)
     with pytest.raises(RuntimeError, match='Assignment divergence'):
-        mgr._drain()
+        mgr._stock()
 
 
 def test_guard_silent_when_consistent(assets):
     """Consistent unarmed scan path drains without raising."""
     _, wh_cfg, *_ = assets
     mgr = _fresh_mgr(wh_cfg)
-    mgr._drain()   # ready=False, default fn has no index tag -> no raise
+    mgr._stock()   # ready=False, default fn has no index tag -> no raise

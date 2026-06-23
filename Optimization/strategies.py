@@ -63,7 +63,7 @@ class Strategy:
                                       # the strategy's own assignment fn (opt_* runs)
     reslot_frac    : float = 0.0             # >0 enables the capacity reloader (budget = % of XL aisle)
     reloader       : str = 'rebalance'       # named reloader variant: promote_popular | demote_unpopular | rebalance
-    uses_aisle_index : bool = False          # per-unit _drain strategy that consumes mgr._aisle_index;
+    uses_aisle_index : bool = False          # per-unit _stock strategy that consumes mgr._aisle_index;
                                              # worker arms init_travel_costs() before build() (cluster only —
                                              # ranked/FIFO drains do not use the per-aisle index fast path)
 
@@ -261,10 +261,10 @@ _INITIALS = [
 ]
 
 # restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand, uses_aisle_index)
-# uses_aisle_index=True only for the per-unit _drain cluster policies: the worker
+# uses_aisle_index=True only for the per-unit _stock cluster policies: the worker
 # arms init_travel_costs() before build() and the cluster fn reads mgr._aisle_index.
 # FIFO (random, RNG-order sensitive) and the ranked drains (tmin/tmax/rank, which use
-# the already-optimised _drain_ranked path) stay on the candidates scan → False.
+# the already-optimised _stock_ranked path) stay on the candidates scan → False.
 _RESTOCKS = [
     ('fifo', 'FIFO',    _build_uniform,                 False, False, False),  # uniform random, FIFO drain
     # ── full ablation (8 arms): placement functions + worst-case bracket ──

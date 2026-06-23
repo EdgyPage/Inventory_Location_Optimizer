@@ -113,7 +113,7 @@ def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
     Pallet stacking height increases monotonically with quantity, so the
     required storage_size also increases.  We scan from 1 upward until the
     pallet outgrows the target tier and return the last fitting quantity.
-    Used by _drain to repack a stranded unit into smaller bins.
+    Used by _stock to repack a stranded unit into smaller bins.
     """
     target_rank = _SIZE_RANKS.get(target_size, 0)
     result = 0

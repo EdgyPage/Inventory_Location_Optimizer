@@ -473,11 +473,11 @@ def _prepare_config_run(
         num_pickers      = K_PICKERS,
         x_speed          = cfg.get('x_speed',          4.0),   # ft/s (positions are inches)
         y_speed          = cfg.get('y_speed',          2.0),   # ft/s
-        # NOTE: pick_weight_fn / pick_volume_fn in the config are not yet consumed here
-        # (handle_var still uses natural log) — pending the LaborModel refactor.
         pick_intercept   = cfg.get('pick_intercept',   1.0),
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
+        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term, now honored
+        pick_volume_fn   = cfg.get('pick_volume_fn',   'log'),
         cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
         height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
     )
@@ -522,6 +522,8 @@ def _prepare_config_run(
         'name'            : name,
         'pick_weight_coef': pick_cfg.pick_weight_coef,
         'pick_volume_coef': pick_cfg.pick_volume_coef,
+        'pick_weight_fn'  : pick_cfg.pick_weight_fn,
+        'pick_volume_fn'  : pick_cfg.pick_volume_fn,
         'pick_intercept'  : pick_cfg.pick_intercept,
         'cart_swap_coef'  : pick_cfg.cart_swap_coef,
         'x_speed'         : pick_cfg.x_speed,

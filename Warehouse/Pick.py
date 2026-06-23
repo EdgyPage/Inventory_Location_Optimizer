@@ -27,6 +27,9 @@ class PickConfig:
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
+    # Base function for each handling term (coef·fn(value)): 'log'(default)/'linear'/'sqrt'/'pow:p'/'log:b'.
+    pick_weight_fn: str     = 'log'
+    pick_volume_fn: str     = 'log'
     cart_swap_coef: float   = 5.0
     # (upper_y_phys, handling_multiplier) brackets — scales the per-unit handling by height
     height_brackets: tuple  = field(default_factory=lambda: DEFAULT_HEIGHT_BRACKETS)
@@ -98,7 +101,8 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     unaffected.
     """
     hmult = height_multiplier(cfg.height_brackets, y_phys)
-    var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef)
+    var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef,
+                       cfg.pick_weight_fn, cfg.pick_volume_fn)
     return (
         hmult * (cfg.pick_intercept + var * quantity)
         + cfg.cart_swap_coef * int(cart_swapped)

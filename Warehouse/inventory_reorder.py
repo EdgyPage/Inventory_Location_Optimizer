@@ -4,7 +4,7 @@ Order-Up-To reorder logic.
 `ReorderMixin` holds the per-batch lifecycle methods.  Mixed into Inventory_Manager so
 the public API (`pop_churn`, `requeue_bin`, `check_reorders`, and the O(1) pick
 notifications called by PickSimulation) is unchanged.  All instance state and the
-collaborators it calls (`self._index_add`, `self._drain`) are provided by
+collaborators it calls (`self._index_add`, `self._stock`) are provided by
 Inventory_Manager.__init__ / its placement methods.
 """
 from __future__ import annotations
@@ -91,7 +91,7 @@ class ReorderMixin:
         self._current_quantities[sku] = max(0, self._current_quantities.get(sku, 0) - unit.quantity)
         self._queued_qty[sku]         = self._queued_qty.get(sku, 0) + unit.quantity
         self._queued_sku_counts[sku]  = self._queued_sku_counts.get(sku, 0) + 1
-        self._queue.append(unit)
+        self._stock_queue.append(unit)
         self._reload_moves += 1
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
@@ -230,97 +230,79 @@ class ReorderMixin:
 
         self._pending_reclaim.clear()
 
+    def _release_to_stock(self, sku: int, qty: int) -> None:
+        """Convert an arrived (sku, qty) order into storage units and append them to the
+        stock queue, updating the queued-unit / queued-qty trackers.  Shared by every
+        lead-queue arrival (including lead-0 orders released the same batch)."""
+        rc    = self._originals[sku].reorder()
+        units = viable_storage_units(rc, qty)
+        if not units:
+            return
+        for unit in units:
+            self._stock_queue.append(unit)
+        self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
+        self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
+
     def check_reorders(self) -> list[int]:
-        """Order-Up-To replenishment with optional per-SKU lead-time deferral.
+        """Order-Up-To replenishment through an explicit, deterministic lead queue.
 
-        Each call:
-          1. Increments the internal batch counter.
-          2. Releases any deferred reorders whose lead time has elapsed.
-          3. For each SKU flagged by _notify_pick as below its reorder_point,
-             computes qty = equilibrium_qty − current_qty (OUP fill-back) and
-             either schedules immediately or defers by lead_time_mean batches.
+        Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
+        lead 0.  Per call (one completed batch):
+          1. Advance every pre-existing in-transit order: remaining_lead -= 1.
+          2. Fire OUP reorders for depleted SKUs → append new records (remaining_lead =
+             round(lead_time_mean) ≥ 0); reorder qty ~ Normal(ideal, ideal·supply_cv)
+             centred on the equilibrium fill (supply_cv set at generation).
+          3. Release every arrived order (remaining_lead ≤ 0) into the stock queue — this
+             catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).
+          4. Place the stock queue into bins via _stock().
 
-        Guard: a SKU with units already queued OR in-flight deferred is skipped
-        so only one replenishment wave is ever in-flight per SKU at a time.
-
-        Lead-time sampling: if carton.lead_time_mean > 0, samples
-        max(1, round(N(mean, mean))) batches.  Zero mean = immediate placement.
+        Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
+        SKU with an order already in flight is not reordered again.
         """
         self._batch_num += 1
         self._reclaim_empty_bins()
 
-        # ── 1. Release deferred reorders that have arrived ───────────────────
-        due = self._deferred_reorders.pop(self._batch_num, None)
-        if due:
-            for sku, units in due:
-                self._deferred_sku_counts[sku] = max(
-                    0, self._deferred_sku_counts.get(sku, 0) - len(units)
-                )
-                moved_qty = sum(u.quantity for u in units)
-                self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - moved_qty)
-                self._queued_qty[sku]   = self._queued_qty.get(sku, 0) + moved_qty
-                for unit in units:
-                    self._queue.append(unit)
-                self._queued_sku_counts[sku] = (
-                    self._queued_sku_counts.get(sku, 0) + len(units)
-                )
+        # ── 1. one batch elapsed: decrement pre-existing in-transit orders only ──
+        for entry in self._lead_queue:
+            entry[2] -= 1
 
-        # Fast exit when there is nothing to do.
-        if not self._depleted_skus and not self._queue:
-            return []
-
-        # ── 2. Fire OUP reorders for depleted SKUs ───────────────────────────
-        # Reorder decisions use INVENTORY POSITION = on-hand + on-order (queued +
-        # deferred), not on-hand alone.  A SKU is only genuinely depleted when its
-        # position is at/below reorder_point; if an in-flight wave already lifts
-        # position above the threshold, it is skipped — no duplicate reorder while
-        # earlier units still await a bin.  Order up to equilibrium: eq − position.
+        # ── 2. fire OUP reorders for depleted SKUs → enter the lead queue ────────
         triggered: list[int] = []
         for sku in self._depleted_skus:
             if sku not in self._originals:
                 continue
-            orig      = self._originals[sku]
-            rp        = getattr(orig, 'reorder_point', 0)
-            cur_qty   = self._current_quantities.get(sku, 0)
-            on_order  = self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
-            position  = cur_qty + on_order
+            orig     = self._originals[sku]
+            rp       = getattr(orig, 'reorder_point', 0)
+            cur_qty  = self._current_quantities.get(sku, 0)
+            position = cur_qty + self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
             if position > rp:
                 continue            # on-hand + on-order already covers the threshold
-            rc        = orig.reorder()
-            eq_qty    = _equilibrium_qty(rc)
-            ideal     = eq_qty - position               # OUP fill-back vs position
+            rc     = orig.reorder()
+            ideal  = _equilibrium_qty(rc) - position     # OUP fill-back vs position
             if ideal <= 0:
                 continue
-            cv        = getattr(rc, 'supply_cv', 0.0)
-            # Sample received quantity: N(ideal, ideal × cv), floor at 1.
-            # cv=0 → always receive exactly what was ordered.
-            qty       = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
-            units     = viable_storage_units(rc, qty)
-            if not units:
-                continue
-            ordered_qty = sum(u.quantity for u in units)
-
-            lt_mean = getattr(rc, 'lead_time_mean', 0.0)
-            if lt_mean > 0.0:
-                # Sample lead time; floor at 1 so deferred ≠ immediate
-                lead = max(1, round(random.gauss(lt_mean, lt_mean)))
-                self._deferred_reorders[self._batch_num + lead].append((sku, units))
-                self._deferred_sku_counts[sku] = (
-                    self._deferred_sku_counts.get(sku, 0) + len(units)
-                )
-                self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + ordered_qty
-            else:
-                for unit in units:
-                    self._queue.append(unit)
-                self._queued_sku_counts[sku] = (
-                    self._queued_sku_counts.get(sku, 0) + len(units)
-                )
-                self._queued_qty[sku] = self._queued_qty.get(sku, 0) + ordered_qty
+            # Received quantity ~ Normal(ideal, ideal·supply_cv), floor 1 (cv set at generation):
+            # slight variation, centred on the equilibrium fill, so restocks can split across units.
+            cv   = getattr(rc, 'supply_cv', 0.0)
+            qty  = max(1, round(random.gauss(ideal, ideal * cv))) if cv > 0.0 else ideal
+            lead = max(0, int(round(getattr(rc, 'lead_time_mean', 0.0))))   # deterministic lead
+            self._lead_queue.append([sku, qty, lead])
+            self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + qty
             triggered.append(sku)
         self._depleted_skus.clear()
 
-        # Always drain — retries prior-batch stragglers too.  _drain() dispatches
-        # to the ranked wave or the per-unit path based on the placement policy.
-        if self._queue:
-            self._drain()
+        # ── 3. release arrived orders (remaining_lead ≤ 0) into the stock queue ──
+        if self._lead_queue:
+            still: list[list] = []
+            for sku, qty, rem in self._lead_queue:
+                if rem <= 0:
+                    self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
+                    self._release_to_stock(sku, qty)
+                else:
+                    still.append([sku, qty, rem])
+            self._lead_queue = still
+
+        # ── 4. place the stock queue into bins (retries prior-batch stragglers too) ──
+        if self._stock_queue:
+            self._stock()
         return triggered

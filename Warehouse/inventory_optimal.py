@@ -95,7 +95,9 @@ class OptimalLayoutMixin:
         """Per-unit weight/volume handling term v_s (no intercept, no quantity) — the
         height-scalable part of pick effort.  Mirrors Carton.compute_labor_cost."""
         return handle_var(carton.weight, carton.volume(),
-                          wp.pick_weight_coef, wp.pick_volume_coef)
+                          wp.pick_weight_coef, wp.pick_volume_coef,
+                          getattr(wp, 'pick_weight_fn', 'log'),
+                          getattr(wp, 'pick_volume_fn', 'log'))
 
     def _optimal_work_assign(self, cartons: list[Carton], freq_of: dict,
                              qty_of: dict, wp) -> tuple[float, dict]:

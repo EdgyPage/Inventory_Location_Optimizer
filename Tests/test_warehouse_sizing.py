@@ -475,7 +475,7 @@ def _run_batch_drain(build_fn, label: str):
                     b.storage = None
                     mgr._notify_bin_emptied(b)
                     mgr._notify_pick(sku, qty)
-        mgr.check_reorders()             # uses _drain_ranked (ranked_assignment_fn set)
+        mgr.check_reorders()             # uses _stock_ranked (ranked_assignment_fn set)
         depths.append(mgr.queue_depth)
 
     total_bins = plan.total_bins
@@ -696,14 +696,14 @@ def test_requeue_bin():
     qty    = victim.storage.quantity
     pos0   = (mgr._current_quantities.get(sku, 0) + mgr._queued_qty.get(sku, 0)
               + mgr._deferred_qty.get(sku, 0))
-    onhand0, qlen0 = mgr._current_quantities.get(sku, 0), len(mgr._queue)
+    onhand0, qlen0 = mgr._current_quantities.get(sku, 0), len(mgr._stock_queue)
     mgr.pop_churn()
     mgr.requeue_bin(victim)
     rm, _ = mgr.pop_churn()
 
     check('requeue frees the bin', victim.storage is None and id(victim) not in mgr._unavailable)
     check('freed bin back in available index', id(victim) in mgr._bin_index_pos)
-    check('unit re-enqueued', len(mgr._queue) == qlen0 + 1)
+    check('unit re-enqueued', len(mgr._stock_queue) == qlen0 + 1)
     check('on-hand decreased by qty', mgr._current_quantities.get(sku, 0) == onhand0 - qty)
     pos1 = (mgr._current_quantities.get(sku, 0) + mgr._queued_qty.get(sku, 0)
             + mgr._deferred_qty.get(sku, 0))
@@ -894,7 +894,7 @@ def test_incremental_sigma_fd_matches_full():
     mgr.requeue_bin(v2)
     check('tracked == full after eviction',
           abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
-    mgr._drain()
+    mgr._stock()
     check('tracked == full after re-drain',
           abs(mgr.tracked_sigma_fd() - mgr.current_sigma_fd(freq, x, y)) < 1e-6)
 

@@ -146,7 +146,8 @@ class Carton:
         return self.expected_popularity * self.labor_cost
 
     def compute_labor_cost(self, pick_intercept: float,
-                           pick_weight_coef: float, pick_volume_coef: float) -> float:
+                           pick_weight_coef: float, pick_volume_coef: float,
+                           pick_weight_fn: str = 'log', pick_volume_fn: str = 'log') -> float:
         """Set (and return) labor_cost = per-unit pick regression cost for this carton
         under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
         no cart swap, ground level.  Call once per worker after inventory load.
@@ -157,6 +158,7 @@ class Carton:
         at placement time: per-pick at height = mult*(pick_intercept + qty*handle_var).
         """
         self.handle_var = _handle_var(self.weight, self.volume(),
-                                      pick_weight_coef, pick_volume_coef)
+                                      pick_weight_coef, pick_volume_coef,
+                                      pick_weight_fn, pick_volume_fn)
         self.labor_cost = pick_intercept + self.handle_var
         return self.labor_cost

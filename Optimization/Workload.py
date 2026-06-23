@@ -29,6 +29,8 @@ class WorkloadParams:
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
+    pick_weight_fn: str     = 'log'   # base function per handling term ('log'/'linear'/'sqrt'/'pow:p'/'log:b')
+    pick_volume_fn: str     = 'log'
     cart_swap_coef: float   = 5.0
     height_brackets: tuple  = field(default_factory=lambda: _DEFAULT_HEIGHT_BRACKETS)
 
@@ -41,6 +43,8 @@ class WorkloadParams:
             pick_intercept   = cfg.pick_intercept,    # type: ignore[attr-defined]
             pick_weight_coef = cfg.pick_weight_coef,  # type: ignore[attr-defined]
             pick_volume_coef = cfg.pick_volume_coef,  # type: ignore[attr-defined]
+            pick_weight_fn   = getattr(cfg, 'pick_weight_fn', 'log'),
+            pick_volume_fn   = getattr(cfg, 'pick_volume_fn', 'log'),
             cart_swap_coef   = cfg.cart_swap_coef,    # type: ignore[attr-defined]
             height_brackets  = getattr(cfg, 'height_brackets', _DEFAULT_HEIGHT_BRACKETS),
         )
@@ -83,7 +87,8 @@ def aisle_workload_components(
         # height scales the ENTIRE at-location pick: M·(intercept + qty·var) (mirrors _pick_time)
         P += hmult * (params.pick_intercept
                       + qty * handle_var(weight, volume,
-                                         params.pick_weight_coef, params.pick_volume_coef))
+                                         params.pick_weight_coef, params.pick_volume_coef,
+                                         params.pick_weight_fn, params.pick_volume_fn))
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C
 

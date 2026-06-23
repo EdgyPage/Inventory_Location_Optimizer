@@ -174,7 +174,7 @@ def build_load_minimizing_assignment_fn(
         return best_bin
 
     # Coupling tag: True only when this closure reads mgr._aisle_index (the fast
-    # path).  The manager's _drain guard asserts this equals _travel_costs_ready
+    # path).  The manager's _stock guard asserts this equals _travel_costs_ready
     # so the two halves can never be armed independently.
     assign.uses_aisle_index = aisle_index is not None
     return assign

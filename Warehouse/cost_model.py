@@ -5,10 +5,11 @@ copy-pasted across Pick, Workload, Assignment_Functions, Inventory_Management, C
 and Capacity_Reloader.  Centralising them keeps the simulated pick time, the analytical
 workload W, the placement scorers, and the optimal-layout/map computations in lockstep.
 
-Depends only on `math`, so every layer (Warehouse + Optimization) can import it without
-introducing a cycle or a layer violation.
+Depends only on `math` + `functools`, so every layer (Warehouse + Optimization) can import it
+without introducing a cycle or a layer violation.
 """
 import math
+from functools import lru_cache
 
 # (upper_y_phys_exclusive, handling_multiplier) brackets — a bin's bracket is the first
 # whose threshold exceeds its y_phys (else the last).  The multiplier scales ONLY the
@@ -24,13 +25,44 @@ def height_multiplier(brackets: tuple, y_phys: float) -> float:
     return brackets[-1][1] if brackets else 1.0
 
 
+# ── per-term base functions (the tunable shape of the weight/volume handling term) ──
+# A handling term is  coef · fn(value).  `fn` is named by a spec string so it can ride in
+# configs / the DB:  'log' (natural), 'log:b' (base b), 'linear', 'sqrt', 'pow:p'.
+TRANSFORMS = {
+    'log':    lambda v: math.log(max(v, 1.0)),   # natural log (base e)
+    'linear': lambda v: float(v),
+    'sqrt':   lambda v: math.sqrt(max(v, 0.0)),
+}
+
+
+@lru_cache(maxsize=None)
+def resolve_transform(spec: str):
+    """Resolve a transform spec → callable.  Cached per process (the returned lambda is never
+    pickled — only the spec string crosses process boundaries), so per-pick use is cheap.
+      'log' | 'log:e' -> ln ;  'log:b' -> log base b ;  'linear' ;  'sqrt' ;  'pow:p' -> v**p."""
+    if ':' in spec:
+        name, p = spec.split(':', 1)
+        if name == 'pow':
+            power = float(p)
+            return lambda v: max(v, 0.0) ** power
+        if name == 'log':
+            if p == 'e':
+                return TRANSFORMS['log']
+            lnb = math.log(float(p))                       # log_b(x) = ln(x) / ln(b)
+            return lambda v: math.log(max(v, 1.0)) / lnb
+        raise ValueError(f'unknown parametric transform {name!r}')
+    return TRANSFORMS[spec]
+
+
 def handle_var(weight: float, volume: float,
-               weight_coef: float, volume_coef: float) -> float:
-    """Per-unit weight/volume handling term v_s = pw·ln(w) + pv·ln(v) (no intercept, no
-    quantity).  weight/volume are clamped to ≥1 — a zero would make math.log raise and is
-    physically impossible (bad data)."""
-    return (weight_coef * math.log(max(weight, 1))
-            + volume_coef * math.log(max(volume, 1)))
+               weight_coef: float, volume_coef: float,
+               weight_fn: str = 'log', volume_fn: str = 'log') -> float:
+    """Per-unit weight/volume handling term v_s = pw·fn_w(w) + pv·fn_v(v) (no intercept, no
+    quantity).  fn defaults to natural log (the original behaviour); other base functions
+    (linear / sqrt / pow:p / log:b) are honored so a config's pick_weight_fn/pick_volume_fn
+    actually changes labor.  The transforms clamp w/v internally (log→≥1, sqrt/pow→≥0)."""
+    return (weight_coef * resolve_transform(weight_fn)(weight)
+            + volume_coef * resolve_transform(volume_fn)(volume))
 
 
 # Positions (x_phys/y_phys) are in inches — a pallet column is 48 in = 4 ft (Aisle_Dimensions).

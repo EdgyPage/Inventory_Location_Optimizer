@@ -269,7 +269,7 @@ def build_inventory_from_plan(
     *,
     coverage_batches : float        = EQUILIBRIUM_COVERAGE_BATCHES,
     lead_time        : float        = 0.0,      # deterministic per-dataset lead time (batches)
-    supply_cv_mean   : float        = SUPPLY_CV_MEAN,
+    supply_cv_max    : float        = 0.15,     # per-SKU supply_cv ~ Uniform(0, supply_cv_max)
     demand_override  : tuple | None = None,     # (freq_spec, qty_spec) overriding every family
 ) -> Inventory:
     """Build one mixed inventory from a per-category creation plan.
@@ -307,7 +307,9 @@ def build_inventory_from_plan(
 
         eq = max(1, round(coverage_batches * expected))
         rp = max(1, min(eq - 1, math.ceil(expected * (lead_time + 1)))) if eq > 1 else 1
-        sv = abs(rng.gauss(0.0, supply_cv_mean)) if supply_cv_mean > 0.0 else 0.0
+        # per-SKU supply reliability ~ Uniform(0, supply_cv_max): drives the reorder-quantity
+        # variation in check_reorders so restocks can split across different storage units.
+        sv = rng.uniform(0.0, supply_cv_max) if supply_cv_max > 0.0 else 0.0
 
         cartons.append(Carton.build(
             sku=i + 1, handling=handling, category=fam.category,
@@ -926,6 +928,7 @@ def generate_run(
     supply_cv_mean               : float              = SUPPLY_CV_MEAN,
     creation_plan                : list | None        = None,   # list[Family] → plan-based build
     lead_time                    : float              = 0.0,    # deterministic lead time for plan builds
+    supply_cv_max                : float              = 0.15,   # plan builds: supply_cv ~ U(0, max)
     demand_override              : tuple | None       = None,   # (freq_spec, qty_spec) for plan builds
     verbose                      : bool               = True,
 ) -> str:
@@ -963,7 +966,7 @@ def generate_run(
             'mode'                          : 'creation_plan',
             'equilibrium_coverage_batches'  : equilibrium_coverage_batches,
             'lead_time'                     : lead_time,
-            'supply_cv_mean'                : supply_cv_mean,
+            'supply_cv_max'                 : supply_cv_max,
             'demand_override'               : list(demand_override) if demand_override else None,
             'carton_bounds'                 : {
                 'min_dim': Carton.MIN_DIM, 'max_dim': Carton.MAX_DIM,
@@ -982,7 +985,7 @@ def generate_run(
             seed             = seed,
             coverage_batches = equilibrium_coverage_batches,
             lead_time        = lead_time,
-            supply_cv_mean   = supply_cv_mean,
+            supply_cv_max    = supply_cv_max,
             demand_override  = demand_override,
         )
     else:

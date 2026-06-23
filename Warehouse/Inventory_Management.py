@@ -34,7 +34,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self.name: str = ''        # e.g. inventory_initial_assignment_reslot; for graph titles
         # The single placement policy.  Defaults to per-unit uniform; a strategy's
         # build() swaps in its own (FIFO/cohesion = per-unit; trip/rank = ranked wave
-        # + per-unit straggler fallback).  _drain() dispatches on placement.is_ranked.
+        # + per-unit straggler fallback).  _stock() dispatches on placement.is_ranked.
         self.placement: Placement = Placement('uniform_fifo', assignment_fn)
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
@@ -48,16 +48,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
 
-        # Queue holds pre-palletized StorageUnit objects ready for bin assignment.
-        self._queue: deque[StorageUnit] = deque()
+        # Stock (restock) queue: pre-palletized StorageUnit objects ready for bin assignment.
+        # Fed by initial intake (enqueue), evictions (requeue_bin), and arrived reorders
+        # (released from the lead queue).  Placed into bins by _stock().
+        self._stock_queue: deque[StorageUnit] = deque()
         # Count of queued units per SKU — O(1) alternative to rebuilding a set
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
         # Product-quantity on-order trackers (parallel to the unit-count dicts):
-        # _queued_qty   = items reordered and queued but not yet placed in a bin,
-        # _deferred_qty = items reordered and in-transit (lead-time deferral).
+        # _queued_qty   = items reordered and queued (in the stock queue) but not yet binned,
+        # _deferred_qty = items reordered and in-transit in the LEAD queue (lead time not elapsed).
         # Reorder thresholds use inventory position = on_hand + queued + deferred
-        # so a SKU already reordered (but unbinned) is not reordered again.
+        # so a SKU already reordered (but unbinned / in-transit) is not reordered again.
         self._queued_qty: dict[int, int]   = {}
         self._deferred_qty: dict[int, int] = {}
         self._originals: dict[int, Carton] = {}
@@ -67,12 +69,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Incremental inventory count — avoids O(N_bins) scan in check_reorders.
         self._current_quantities: dict[int, int] = {}
 
-        # Deferred reorder support (Order-Up-To with lead times).
-        # _batch_num increments on each check_reorders call; deferred reorders
-        # are keyed by the batch number when they are due to arrive.
+        # Lead queue (Order-Up-To with deterministic lead times): every reorder enters here as a
+        # (sku, qty, remaining_lead) record — even lead 0.  check_reorders decrements remaining_lead
+        # by 1 each batch and hands arrivals (remaining_lead <= 0) to the stock queue.
         self._batch_num: int = 0
-        self._deferred_reorders: dict[int, list[tuple[int, list[StorageUnit]]]] = defaultdict(list)
-        self._deferred_sku_counts: dict[int, int] = {}   # in-flight deferred units per SKU
+        self._lead_queue: list[list] = []   # each entry: [sku, qty, remaining_lead]
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
@@ -156,14 +157,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         qty = quantity if quantity is not None else _equilibrium_qty(carton)
         for unit in viable_storage_units(carton, qty):
-            self._queue.append(unit)
+            self._stock_queue.append(unit)
         # Count intake units as on-order so a reorder fired before they all reach
         # a bin does not over-order (they decrement back as they place).
         self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
         if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
             self._originals[carton.sku] = carton
             self._initial_quantities[carton.sku] = qty
-        self._drain()
+        self._stock()
         return self
 
     def enqueue_all(self, cartons: list[Carton], quantity: int | None = None) -> 'Inventory_Manager':
@@ -176,14 +177,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         for carton in cartons:
             qty = quantity if quantity is not None else _equilibrium_qty(carton)
             for unit in viable_storage_units(carton, qty):
-                self._queue.append(unit)
+                self._stock_queue.append(unit)
             # Count intake units as on-order so a reorder fired before they all
             # reach a bin does not over-order (decremented back as they place).
             self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
             if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
                 self._originals[carton.sku] = carton
                 self._initial_quantities[carton.sku] = qty
-        self._drain()
+        self._stock()
         return self
 
     def init_lift_state(self, affinity: AffinityStore) -> None:
@@ -293,7 +294,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     @property
     def queue_depth(self) -> int:
-        return len(self._queue)
+        return len(self._stock_queue)
+
+    @property
+    def lead_queue_depth(self) -> int:
+        """Number of in-transit reorders waiting out their lead time (lead queue length)."""
+        return len(self._lead_queue)
+
+    @property
+    def in_transit_qty(self) -> int:
+        """Total units currently in transit (sum of lead-queue order quantities)."""
+        return sum(entry[1] for entry in self._lead_queue)
 
     @property
     def assigned_bins(self) -> list[Aisle.Bin]:
@@ -411,7 +422,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             self._sigma_fd += (self._sigma_freq.get(sku, 0.0)
                                * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
-    def _drain(self) -> None:
+    def _stock(self) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
         policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
         used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
@@ -429,18 +440,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 f'placement.uses_aisle_index={self.placement.uses_aisle_index} '
                 f'(policy {self.placement.name!r}).  init_travel_costs() and an '
                 'index-consuming placement must be armed together or not at all.')
-        if not self._queue:
+        if not self._stock_queue:
             return
         if self.placement.is_ranked:
-            self._drain_ranked()
+            self._stock_ranked()
         else:
-            self._drain_per_unit()
+            self._stock_per_unit()
 
-    def _drain_per_unit(self) -> None:
+    def _stock_per_unit(self) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
 
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
-        wave leaves behind.  The coupling guard runs in _drain() (the single entry).
+        wave leaves behind.  The coupling guard runs in _stock() (the single entry).
 
         Placement failures:
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
@@ -448,8 +459,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
         pending: deque[StorageUnit] = deque()
-        while self._queue:
-            unit   = self._queue.popleft()
+        while self._stock_queue:
+            unit   = self._stock_queue.popleft()
             carton = unit.carton
             sku    = carton.sku
 
@@ -496,7 +507,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._queue.appendleft(u)
+                            self._stock_queue.appendleft(u)
                         repacked = True
                         break
 
@@ -517,16 +528,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._queue.appendleft(u)
+                            self._stock_queue.appendleft(u)
                         repacked = True
 
                 # ── no bin available — hold in queue, retry next batch ────────
                 if not repacked:
                     pending.append(unit)
-        self._queue = pending
+        self._stock_queue = pending
 
 
-    def _drain_ranked(self) -> None:
+    def _stock_ranked(self) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
@@ -536,15 +547,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         items claim the best (lowest-D) bins before lower-priority items.
 
         Units that cannot be placed go through the same rescue logic as
-        _drain_per_unit() and then to the pending queue for retry next batch.
+        _stock_per_unit() and then to the pending queue for retry next batch.
         """
-        if not self._queue:
+        if not self._stock_queue:
             return
 
         # Snapshot queue and group by BinKey
         groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
-        while self._queue:
-            unit = self._queue.popleft()
+        while self._stock_queue:
+            unit = self._stock_queue.popleft()
             shc  = unit.carton.storage_handle_config
             key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
             groups[key].append(unit)
@@ -593,7 +604,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._queue.appendleft(u)
+                            self._stock_queue.appendleft(u)
                         repacked = True
                         break
 
@@ -614,19 +625,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._queue.appendleft(u)
+                            self._stock_queue.appendleft(u)
                         repacked = True
 
                 if not repacked:
                     pending.append(unit)
 
         # Drain any repacked stragglers immediately via the per-unit path
-        # (NOT self._drain(), which would re-dispatch back into this ranked wave).
-        if self._queue:
-            self._drain_per_unit()
+        # (NOT self._stock(), which would re-dispatch back into this ranked wave).
+        if self._stock_queue:
+            self._stock_per_unit()
 
         # Merge pending back
         for u in pending:
-            self._queue.append(u)
+            self._stock_queue.append(u)
 
 

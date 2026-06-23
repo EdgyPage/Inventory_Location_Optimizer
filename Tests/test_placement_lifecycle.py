@@ -355,7 +355,7 @@ def test_reorder_trigger() -> None:
 
     # Also check queued (may be unplaced if no space)
     queued_reorders = [
-        u for u in mgr._queue
+        u for u in mgr._stock_queue
         if u.carton.sku == 20 and getattr(u.carton, '_is_reorder', False)
     ]
 

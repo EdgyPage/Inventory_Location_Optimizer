@@ -161,7 +161,8 @@ def _run_strategy_worker(args: dict) -> dict:
     # pick coefficients).  expected_popularity/expected_labor are Carton properties that
     # derive from this + demand, so the hot ranked-wave order/balance never re-takes logs.
     for c in inventory.cartons:
-        c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef)
+        c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef,
+                             wp.pick_weight_fn, wp.pick_volume_fn)
 
     # ── affinity ──────────────────────────────────────────────────────────────
     log.info(f'Loading affinity: {aff_db}')
@@ -400,6 +401,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  fill={cur_fill:.1%}'
                 f'  q={mgr.queue_depth}'
                 f'  reorders={reorders_ckpt}'
+                f'  lead_q={mgr.lead_queue_depth}({mgr.in_transit_qty}u)'
                 f'  p1={p1_sum_ckpt:.2f}s ({p1_frac:.0f}%)'
                 f'  p2={p2_sum_ckpt:.2f}s'
                 f'  wall={wall:.0f}s'
