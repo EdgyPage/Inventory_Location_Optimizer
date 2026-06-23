@@ -8,7 +8,7 @@ from Storage_Primitive import StorageCart
 from Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
-from cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var
+from cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, sec_per_inch
 
 if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
@@ -21,8 +21,8 @@ _CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCa
 @dataclass
 class PickConfig:
     num_pickers: int        = 1
-    x_speed: float          = 1.0   # time units per physical X unit (bin.x_phys)
-    y_speed: float          = 0.5   # time units per physical Y unit (bin.y_phys)
+    x_speed: float          = 4.0   # horizontal travel speed in ft/s (bin positions are inches)
+    y_speed: float          = 2.0   # vertical travel speed in ft/s (bin positions are inches)
     # Log model: pick_time = intercept + weight_coef*ln(weight)*qty + volume_coef*ln(volume)*qty + cart_swap_coef*swapped
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
@@ -176,6 +176,9 @@ class PickSimulation:
         carts_used: int = 1
         session_items: int = 0   # cumulative items picked across all tasks
         has_manager: bool = self._manager is not None
+        # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
+        x_pace: float = sec_per_inch(cfg.x_speed)
+        y_pace: float = sec_per_inch(cfg.y_speed)
 
         for task in tasks:
             total_bins  = len(task.path)
@@ -190,9 +193,9 @@ class PickSimulation:
             ))
 
             for bin_ in task.path:
-                # ── travel (physical distances) ──────────────────────────────
-                travel = (abs(bin_.x_phys - x) * cfg.x_speed
-                          + abs(bin_.y_phys - y) * cfg.y_speed)
+                # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
+                travel = (abs(bin_.x_phys - x) * x_pace
+                          + abs(bin_.y_phys - y) * y_pace)
                 time += travel
                 x, y = bin_.x_phys, bin_.y_phys
 

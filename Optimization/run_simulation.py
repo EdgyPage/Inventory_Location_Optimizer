@@ -123,24 +123,16 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 
 
 REGRESSION_CONFIGS = [
-        {
-        'name'            : 'calibrated',
-        'pick_intercept'  : 30,
-        'pick_weight_coef': 2.33666,
-        'pick_volume_coef': 0.294014,
-        'cart_swap_coef'  : 30,
-        'x_speed'         : 0.141403,
-        'y_speed'         : 0.0848416,
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
-    },
     {
-        'name'            : 'calibrated_high_weight',
-        'pick_intercept'  : 30,
-        'pick_weight_coef': 2.33666 * 2,
-        'pick_volume_coef': 0.294014,
-        'cart_swap_coef'  : 30,
-        'x_speed'         : 0.141403,
-        'y_speed'         : 0.0848416,
+        'name'            : 'calibrated',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 5,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.66,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 2.66667,    # horizontal travel speed, ft/s (positions are inches)
+        'y_speed'         : 4.0,        # vertical travel speed, ft/s
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
 
@@ -479,8 +471,10 @@ def _prepare_config_run(
     )
     pick_cfg = PickConfig(
         num_pickers      = K_PICKERS,
-        x_speed          = cfg.get('x_speed',          1.0),
-        y_speed          = cfg.get('y_speed',          0.5),
+        x_speed          = cfg.get('x_speed',          4.0),   # ft/s (positions are inches)
+        y_speed          = cfg.get('y_speed',          2.0),   # ft/s
+        # NOTE: pick_weight_fn / pick_volume_fn in the config are not yet consumed here
+        # (handle_var still uses natural log) — pending the LaborModel refactor.
         pick_intercept   = cfg.get('pick_intercept',   1.0),
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),

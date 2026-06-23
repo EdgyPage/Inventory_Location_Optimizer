@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Carton import Carton
+from cost_model import sec_per_inch
 from Pick import PickConfig, _pick_time, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 from Storage_Primitive import viable_storage_units
 from Assignment_Functions import (
@@ -126,7 +127,8 @@ def test_rank_labor_is_travel_aware():
     """Near aisle (D=1..6) vs far aisle (D=21..26): travel-aware LPT fills the near
     aisle first and only spills to the far one as the near load builds — returning
     specific, distinct bins.  (A travel-blind balancer would split ~4/4.)"""
-    bins = [_Bin(1, 1 + i) for i in range(6)] + [_Bin(2, 21 + i) for i in range(6)]
+    # positions are inches; far aisle ~17 ft (200 in) out so its travel gap is real at ft/s speeds
+    bins = [_Bin(1, 1 + i) for i in range(6)] + [_Bin(2, 201 + i) for i in range(6)]
     c = _Cart(100, 10.0, 1.0, 1.0)
     units = [_Unit(c) for _ in range(8)]
     ass, aix, ads, apl = defaultdict(set), defaultdict(set), defaultdict(float), defaultdict(float)
@@ -220,11 +222,13 @@ def test_aisle_workload_matches_pick_time_with_height():
 def test_rank_labor_height_vs_travel_tradeoff():
     """A costly (high handle_var) SKU prefers a LOW ground bin even if farther; a cheap
     SKU tolerates a high bin to save travel."""
-    brackets = ((96.0, 1.0), (float('inf'), 1.9))
+    # positions are inches, speeds are ft/s; keep the high bin only modestly up (y=24in) so the
+    # height MULTIPLIER (not vertical travel) is the lever, and put the ground bin far in x.
+    brackets = ((20.0, 1.0), (float('inf'), 1.9))
 
     def place(handle_var):
-        bin_low  = _Bin(1, 200, 10)    # far (high D), ground (mult 1.0)
-        bin_high = _Bin(1, 10, 300)    # near (low D), high (mult 1.9)
+        bin_low  = _Bin(1, 200, 0)     # far in x (high horiz D), ground (mult 1.0)
+        bin_high = _Bin(1, 10, 24)     # near in x, just into the high bracket (mult 1.9)
         c = _Cart(7, 1.0, 1.0, 1.0, handle_var=handle_var)
         ass, aix, ads, apl = (defaultdict(set), defaultdict(set),
                               defaultdict(float), defaultdict(float))
@@ -233,8 +237,8 @@ def test_rank_labor_height_vs_travel_tradeoff():
         res = fn([_Unit(c)], lambda u: [bin_low, bin_high])
         return res[0][1]
 
-    assert place(100.0).y_phys == 10     # costly → ground bin
-    assert place(1.0).y_phys == 300      # cheap → near (high) bin
+    assert place(100.0).y_phys == 0      # costly → ground bin (avoids the 1.9x handling penalty)
+    assert place(1.0).y_phys == 24       # cheap → near high bin (saves horizontal travel)
 
 
 # ── rank_minlabor (objective minimiser) ──────────────────────────────────────
@@ -249,7 +253,7 @@ def test_minlabor_picks_golden_zone_and_front_bin():
     c = _Cart(100, 10.0, 1.0, 1.0, handle_var=10.0)
     aff = _aff_csr([100])
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
-                          defaultdict(float), defaultdict(list))
+                          defaultdict(float), defaultdict(lambda: defaultdict(list)))
     fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
                                   {}, {100: 1.0}, {100: 1.0})
     res = fn([_Unit(c)], lambda u: [high_near, low_far, low_near])
@@ -267,7 +271,7 @@ def test_maxlabor_picks_high_far_bin():
     c = _Cart(100, 10.0, 1.0, 1.0, handle_var=10.0)
     aff = _aff_csr([100])
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
-                          defaultdict(float), defaultdict(list))
+                          defaultdict(float), defaultdict(lambda: defaultdict(list)))
     fn = build_ranked_maxlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
                                   {}, {100: 1.0}, {100: 1.0})
     res = fn([_Unit(c)], lambda u: [near_low, far_high])
@@ -288,7 +292,7 @@ def test_minlabor_compacts_codemanded_into_one_aisle():
     idx = aff._sku_to_idx
     freq_by_idx = {idx[1]: 2.0, idx[2]: 1.0}
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
-                          defaultdict(float), defaultdict(list))
+                          defaultdict(float), defaultdict(lambda: defaultdict(list)))
     fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
                                   freq_by_idx, {1: 2.0, 2: 1.0}, {1: 1.0, 2: 1.0}, beta=100.0)
     res = fn([_Unit(c1), _Unit(c2)], lambda u: list(bins))
@@ -326,9 +330,10 @@ def test_expected_task_labor_objective_and_split():
                               x_traversed=4, y_traversed=0, carts_required=1)
     res = expected_task_labor([t], wp)
     P = 1.0 + 2 * 0.5 * math.log(20)               # intercept + qty*weight_coef*ln(w)
+    D = 4 * sec_per_inch(wp.x_speed)               # D = x_traversed(in) * pace(x_speed ft/s)
     assert abs(res['handling'] - P) < 1e-9
-    assert abs(res['travel'] - 4.0) < 1e-9          # D = x_traversed * x_speed (1.0)
-    assert abs(res['objective'] - (P + 4.0)) < 1e-9
+    assert abs(res['travel'] - D) < 1e-9
+    assert abs(res['objective'] - (P + D)) < 1e-9
     assert res['n_tasks'] == 1
 
 

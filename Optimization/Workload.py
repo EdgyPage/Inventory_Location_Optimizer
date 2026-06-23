@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 # Single source of truth for the cost primitives (Warehouse/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from cost_model import height_multiplier as _height_mult, handle_var
+from cost_model import height_multiplier as _height_mult, handle_var, sec_per_inch
 
 
 @dataclass
@@ -17,15 +17,15 @@ class WorkloadParams:
 
     Fields
     ------
-    x_speed      : time units per bayX step
-    y_speed      : time units per bayY step
+    x_speed      : horizontal travel speed in ft/s (positions are inches)
+    y_speed      : vertical travel speed in ft/s (positions are inches)
     pick_intercept   : fixed overhead per P stop
     pick_weight_coef : time added per (weight × quantity) unit
     pick_volume_coef : time added per (volume × quantity) unit
     cart_swap_coef   : penalty per additional cart needed beyond the first
     """
-    x_speed: float          = 1.0   # time per physical X unit (bin.x_phys)
-    y_speed: float          = 0.5   # time per physical Y unit (bin.y_phys)
+    x_speed: float          = 4.0   # horizontal travel speed (ft/s); positions in inches
+    y_speed: float          = 2.0   # vertical travel speed (ft/s); positions in inches
     pick_intercept: float   = 1.0
     pick_weight_coef: float = 0.02
     pick_volume_coef: float = 1e-4
@@ -55,7 +55,8 @@ def aisle_workload_components(
 ) -> tuple[float, float, float]:
     """The (D, P, C) decomposition of one aisle's workload W = D + P + C.
 
-      D (travel)   = x_traversed * x_speed + y_traversed * y_speed
+      D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)
+                     (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)
       P (handling) = Σ_stops  height_mult(y) * (intercept + qty
                                         * (weight_coef*ln(weight) + volume_coef*ln(volume)))
       C (cart)     = cart_swap_coef * max(0, carts_required - 1)
@@ -72,7 +73,8 @@ def aisle_workload_components(
     pick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop
     params         : WorkloadParams coefficients
     """
-    D: float = x_traversed * params.x_speed + y_traversed * params.y_speed
+    D: float = (x_traversed * sec_per_inch(params.x_speed)
+                + y_traversed * sec_per_inch(params.y_speed))
     P = 0.0
     for line in pick_lines:
         weight, volume, qty = line[0], line[1], line[2]

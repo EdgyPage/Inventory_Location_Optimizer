@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from Pick import PickConfig, PickEvent, PickerProgress, _pick_time
 from Storage_Primitive import StorageCart
 from Workload_Builder import Task
+from cost_model import sec_per_inch
 
 if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
@@ -64,6 +65,9 @@ def _simulate_picker_deferred(
     x, y           = 0.0, 0.0   # physical position (starts at aisle entrance)
     cart_remaining = _CART_CAPACITY
     session_items  = 0
+    # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
+    x_pace         = sec_per_inch(cfg.x_speed)
+    y_pace         = sec_per_inch(cfg.y_speed)
     # Tracks intra-picker depletion so picking twice from the same bin
     # within one picker's session is handled correctly.
     local_qty: dict[int, int] = {}
@@ -81,8 +85,8 @@ def _simulate_picker_deferred(
         ))
 
         for bin_ in task.path:
-            t += (abs(bin_.x_phys - x) * cfg.x_speed
-                  + abs(bin_.y_phys - y) * cfg.y_speed)
+            t += (abs(bin_.x_phys - x) * x_pace
+                  + abs(bin_.y_phys - y) * y_pace)
             x, y = bin_.x_phys, bin_.y_phys
 
             bid      = id(bin_)

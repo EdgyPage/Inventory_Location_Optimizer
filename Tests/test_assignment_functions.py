@@ -103,8 +103,9 @@ def test_co_demand_compaction_expansion():
     fbi = {idx[2]: 1.0};  fbs = {1: 1.0, 2: 1.0};  qbs = {1: 1.0, 2: 1.0}
 
     def _state(partner_x):
-        ss, ii, dd, mp = (defaultdict(set), defaultdict(set), defaultdict(float), defaultdict(list))
-        ss[10] = {2};  ii[10] = {idx[2]};  mp[10] = [(partner_x, idx[2])]   # partner sku2 at column
+        ss, ii, dd, mp = (defaultdict(set), defaultdict(set), defaultdict(float),
+                          defaultdict(lambda: defaultdict(list)))
+        ss[10] = {2};  ii[10] = {idx[2]};  mp[10][idx[2]] = [partner_x]   # partner sku2 at column
         return ss, ii, dd, mp
 
     def _cands():

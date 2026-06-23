@@ -14,7 +14,7 @@ from collections import deque
 from typing import Any
 
 from Affinity_Store import AffinityStore
-from cost_model import height_multiplier
+from cost_model import height_multiplier, sec_per_inch
 from Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement,
@@ -34,7 +34,8 @@ def _aisle_extremal_bins(
     Proof of correctness
     --------------------
     For a fixed aisle (fixed ls, dl), the score tuple (delta_l2, old_L) is
-    strictly monotone increasing in D = x_speed*x_phys + y_speed*y_phys:
+    strictly monotone increasing in D = x_pace*x_phys + y_pace*y_phys
+    (pace = sec_per_inch(speed); speeds are ft/s):
       old_L  = D + λ(D/k)^γ ls           — increasing in D
       new_L  = D + λ(D/k)^γ (ls+dl)      — increasing in D
       delta_l2 = new_L² − old_L²          — product of two positive increasing
@@ -47,9 +48,10 @@ def _aisle_extremal_bins(
     """
     best_D  : dict[int, float] = {}
     best_bin: dict[int, Any]   = {}
+    x_pace, y_pace = sec_per_inch(x_speed), sec_per_inch(y_speed)   # ft/s -> s/inch
     for b in candidates:
         aid = b.location[0]
-        D   = x_speed * b.x_phys + y_speed * b.y_phys
+        D   = x_pace * b.x_phys + y_pace * b.y_phys
         if aid not in best_D or (D < best_D[aid] if minimize else D > best_D[aid]):
             best_D[aid]   = D
             best_bin[aid] = b
@@ -526,8 +528,8 @@ def _ranked_assign_impl(
     W (task workload) remains a measurement metric only; this formula
     drives bin placement at reorder time.
     """
-    x_speed = wp.x_speed
-    y_speed = wp.y_speed
+    x_pace  = sec_per_inch(wp.x_speed)   # ft/s -> s/inch
+    y_pace  = sec_per_inch(wp.y_speed)
     pi      = wp.pick_intercept
     pw      = wp.pick_weight_coef
     pv      = wp.pick_volume_coef
@@ -561,7 +563,7 @@ def _ranked_assign_impl(
     # out by popping the head — equivalent to picking the extremal-D available bin
     # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
     by_aisle: dict[int, deque] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -659,7 +661,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     the partners' column centroid is taken — vs the extremal-D head.  Each placement also
     appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.
     """
-    x_speed, y_speed = wp.x_speed, wp.y_speed
+    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     pi, pwt, pv = wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef
     all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
 
@@ -675,7 +677,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         return result
 
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
     by_aisle: dict[int, list] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -726,7 +728,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
                                compact, name):
     """Per-unit co-demand fn (place_one) — same scoring as the wave, one unit at a time.
     Used for the ranked policy's stragglers; accumulates positions like the wave."""
-    x_speed, y_speed = wp.x_speed, wp.y_speed
+    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     sku_to_idx = affinity._sku_to_idx
 
     def assign(unit, candidates):
@@ -741,7 +743,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
 
         def aisle_key(aid):
             mass = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
-            d0   = min(x_speed * b.x_phys + y_speed * b.y_phys for b in by_aisle[aid])
+            d0   = min(x_pace * b.x_phys + y_pace * b.y_phys for b in by_aisle[aid])
             return (mass, -d0) if compact else (mass, d0)
         best_aid = (max if compact else min)(by_aisle, key=aisle_key)
 
@@ -751,7 +753,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
         if cx is not None:
             chosen = (min if compact else max)(lst, key=lambda b: abs(b.x_phys - cx))
         else:
-            chosen = (min if compact else max)(lst, key=lambda b: x_speed * b.x_phys + y_speed * b.y_phys)
+            chosen = (min if compact else max)(lst, key=lambda b: x_pace * b.x_phys + y_pace * b.y_phys)
 
         if sku not in aisle_sku_sets[best_aid]:
             aisle_sku_sets[best_aid].add(sku)
@@ -927,7 +929,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     so bins are grouped per aisle by height bracket, each a min-D deque; for each unit we
     scan one min-D representative per (aisle, bracket) — O(units · aisles · n_brackets).
     """
-    x_speed, y_speed = wp.x_speed, wp.y_speed
+    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
@@ -937,7 +939,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     if not cands:
         return [(u, None) for u in sorted_units]
 
-    D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
     by_aisle: dict[int, dict] = {}
@@ -1052,7 +1054,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     deque ends — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
     from its deque end, so the ends are always live (no stale-bin bookkeeping).
     """
-    x_speed, y_speed = wp.x_speed, wp.y_speed
+    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
@@ -1068,7 +1070,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     def _better(a, b):                       # is a a better (more extreme) score than b?
         return a > b if maximize else a < b
 
-    D_of = {id(b): x_speed * b.x_phys + y_speed * b.y_phys for b in cands}
+    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
     for b in cands:
@@ -1163,7 +1165,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             b = _rep(dq)
             cost = m * (intercept + var) + D_of[id(b)]
             if cx is not None:
-                cost += x_speed * abs(b.x_phys - cx)
+                cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
                 cbest, chosen, chosen_m = cost, b, m
         if chosen is None:

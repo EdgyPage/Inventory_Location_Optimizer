@@ -13,7 +13,7 @@ from collections import defaultdict, deque
 
 from Carton import Carton
 from Storage_Primitive import StorageUnit, viable_storage_units
-from cost_model import height_multiplier, handle_var
+from cost_model import height_multiplier, handle_var, sec_per_inch
 from inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty
 
 
@@ -43,7 +43,8 @@ class OptimalLayoutMixin:
         pick-frequency units to the lowest-D bins (rearrangement-inequality optimum
         for within-aisle travel).  Returns the minimal Sigma f*D.  When place=True,
         commits each unit to its bin and registers originals so reorders work."""
-        D = lambda b: x_speed * b.x_phys + y_speed * b.y_phys
+        xp, yp = sec_per_inch(x_speed), sec_per_inch(y_speed)   # ft/s -> s/inch
+        D = lambda b: xp * b.x_phys + yp * b.y_phys
         bins_by_key: dict = defaultdict(deque)
         for b in sorted(self.warehouse.bins, key=D):       # D ascending => low-D heads
             bins_by_key[self._key(b)].append(b)
@@ -112,7 +113,7 @@ class OptimalLayoutMixin:
         Pure computation — does not mutate manager state.
         """
         brackets  = getattr(wp, 'height_brackets', ())
-        xs, ys    = wp.x_speed, wp.y_speed
+        xs, ys    = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
         intercept = wp.pick_intercept
 
         def _D(b):  return xs * b.x_phys + ys * b.y_phys
@@ -227,7 +228,7 @@ class OptimalLayoutMixin:
         (each SKU's optimal preferred score).  Call once at warehouse build, after the
         inventory is assigned."""
         brackets = getattr(wp, 'height_brackets', ())
-        xs, ys = wp.x_speed, wp.y_speed
+        xs, ys = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
         intercept = wp.pick_intercept
 
         vs = [self._handle_var(c, wp) for c in cartons]
@@ -245,21 +246,23 @@ class OptimalLayoutMixin:
     def current_sigma_fd(self, freq_of: dict, x_speed: float, y_speed: float) -> float:
         """Realised demand-weighted within-aisle travel = sum over occupied bins of
         freq[sku] * D(bin).  The primary convergence metric."""
+        xp, yp = sec_per_inch(x_speed), sec_per_inch(y_speed)   # ft/s -> s/inch
         s = 0.0
         for b in self._unavailable.values():
             st = b.storage
             if st is not None:
                 s += (freq_of.get(st.carton.sku, 0.0)
-                      * (x_speed * b.x_phys + y_speed * b.y_phys))
+                      * (xp * b.x_phys + yp * b.y_phys))
         return s
 
     def enable_sigma_fd(self, freq_of: dict, x_speed: float, y_speed: float) -> None:
         """Bind the freq map + speeds and seed the incremental Sigma f*D from a
         single full scan.  Afterwards tracked_sigma_fd() is O(1): the running sum is
-        maintained on every placement / pick-empty / eviction."""
+        maintained on every placement / pick-empty / eviction.  x_speed/y_speed are ft/s;
+        _sigma_x/_sigma_y store the per-inch PACE so the incremental updates stay multiplies."""
         self._sigma_freq = freq_of
-        self._sigma_x = x_speed
-        self._sigma_y = y_speed
+        self._sigma_x = sec_per_inch(x_speed)
+        self._sigma_y = sec_per_inch(y_speed)
         self._sigma_fd = self.current_sigma_fd(freq_of, x_speed, y_speed)
 
     def tracked_sigma_fd(self) -> float:

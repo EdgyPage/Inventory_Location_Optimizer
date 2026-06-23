@@ -7,6 +7,7 @@ from Warehouse_Builder import Warehouse
 from Aisle_Storage import Aisle
 from Storage_Primitive import StorageUnit, Singleton, Pallet, viable_storage_units, _max_qty_fits as _sq_max
 from Affinity_Store import AffinityStore
+from cost_model import sec_per_inch
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
@@ -91,8 +92,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # None until enable_sigma_fd() binds the freq map + speeds; then maintained
         # on every placement (+), pick-empty / eviction (−).
         self._sigma_freq: dict | None = None
-        self._sigma_x: float = 0.0
-        self._sigma_y: float = 0.0
+        self._sigma_x: float = 0.0   # per-inch PACE (sec_per_inch of the ft/s x_speed), set by enable_sigma_fd
+        self._sigma_y: float = 0.0   # per-inch PACE (sec_per_inch of the ft/s y_speed)
         self._sigma_fd: float = 0.0
 
         # Optimal-map basis (populated by build_optimal_map):
@@ -238,10 +239,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         aisle_index=self._aisle_index).  After this call, _index_add and
         _index_remove maintain _aisle_index incrementally.
         """
-        x_speed = wp.x_speed
-        y_speed = wp.y_speed
+        x_pace = sec_per_inch(wp.x_speed)   # ft/s -> s/inch (positions are inches)
+        y_pace = sec_per_inch(wp.y_speed)
         for b in self.warehouse.bins:
-            b._D = x_speed * b.x_phys + y_speed * b.y_phys
+            b._D = x_pace * b.x_phys + y_pace * b.y_phys
         self._aisle_index.clear()
         for key, bins in self._index.items():
             by_aisle = self._aisle_index[key]

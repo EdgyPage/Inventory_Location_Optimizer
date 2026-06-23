@@ -33,8 +33,22 @@ def handle_var(weight: float, volume: float,
             + volume_coef * math.log(max(volume, 1)))
 
 
+# Positions (x_phys/y_phys) are in inches — a pallet column is 48 in = 4 ft (Aisle_Dimensions).
+# Travel SPEEDS (x_speed/y_speed) are in ft/s, so travel time divides distance by speed:
+#   time = (distance_in / 12) / speed_ft_per_sec = distance_in * sec_per_inch(speed).
+INCHES_PER_FOOT: float = 12.0
+
+
+def sec_per_inch(speed_ft_per_sec: float) -> float:
+    """Per-inch pace (s/inch) for a travel SPEED in ft/s.  Positions are in inches, so this
+    is the factor the hot loops multiply by:  travel = x_phys·sec_per_inch(x_speed) + …
+    Guards speed ≤ 0 → inf (a zero/negative speed never moves)."""
+    return float('inf') if speed_ft_per_sec <= 0 else 1.0 / (INCHES_PER_FOOT * speed_ft_per_sec)
+
+
 def travel_cost(x_phys: float, y_phys: float,
                 x_speed: float, y_speed: float) -> float:
-    """Demand-blind travel time to a bin: x_speed·x_phys + y_speed·y_phys.  (Hot inner
-    loops may inline this expression to avoid call overhead; everywhere else, call this.)"""
-    return x_speed * x_phys + y_speed * y_phys
+    """Demand-blind travel time (s) to a bin.  x_speed/y_speed are SPEEDS in ft/s; positions
+    are in inches.  Hot inner loops inline this with a precomputed sec_per_inch() pace to
+    avoid the per-bin division; everywhere else, call this."""
+    return x_phys * sec_per_inch(x_speed) + y_phys * sec_per_inch(y_speed)
