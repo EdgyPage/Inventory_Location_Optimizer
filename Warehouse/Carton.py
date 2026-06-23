@@ -33,6 +33,52 @@ class Carton:
     labor_cost: float = 0.0
     handle_var: float = 0.0   # per-unit weight/volume handling term (no intercept) for height scaling
 
+    # Physical bounds — every constructed carton is clamped to these so the DB only ever
+    # holds grounded integers (no float dims, no fractional/zero weights).  Tunable.
+    MIN_DIM:    int = 1
+    MAX_DIM:    int = _MAX_DIM   # 48 (pallet max)
+    MIN_WEIGHT: int = 1
+    MAX_WEIGHT: int = 200
+    MIN_QTY:    int = 1          # demand quantity_rate is integer units/pick
+    MAX_QTY:    int = 20
+
+    @staticmethod
+    def _clamp_int(x: float, lo: int, hi: int) -> int:
+        """Round to int and clamp to [lo, hi] — the single guardrail for physical fields."""
+        return min(hi, max(lo, int(round(x))))
+
+    @classmethod
+    def build(cls, sku: int, handling: str, category: str,
+              length: float, width: float, height: float, weight: float,
+              frequency: float, qty_rate: float, *,
+              equilibrium_qty: int, reorder_point: int,
+              lead_time_mean: float = 0.0, supply_cv: float = 0.0,
+              stock_plan=None) -> 'Carton':
+        """Construct a carton from supplied physical + demand values (not random sampling),
+        applying all physical guardrails.  The single construction path for generated and
+        DB-loaded cartons — accepts demand/quantity as params so the default random Demand()
+        is never invoked.  Does NOT touch Carton.next_sku (sku is explicit)."""
+        c = object.__new__(cls)
+        c._sku = sku
+        c.storage_type          = (handling, category)
+        c.storage_handle_config = StorageHandleConfig(handling, category)
+        c.lift_group            = (handling, category)
+        c.length = cls._clamp_int(length, cls.MIN_DIM,    cls.MAX_DIM)
+        c.width  = cls._clamp_int(width,  cls.MIN_DIM,    cls.MAX_DIM)
+        c.height = cls._clamp_int(height, cls.MIN_DIM,    cls.MAX_DIM)
+        c.weight = cls._clamp_int(weight, cls.MIN_WEIGHT, cls.MAX_WEIGHT)
+        qr = cls._clamp_int(qty_rate, cls.MIN_QTY, cls.MAX_QTY)   # integer units/pick
+        fr = min(1.0, max(1e-6, float(frequency)))                # fractional pick rate (0, 1]
+        c.demand = Demand.from_rates(fr, qr)
+        c.expected_batch_demand = fr * qr
+        c.equilibrium_qty = max(1, int(equilibrium_qty))
+        c.reorder_point   = max(1, min(c.equilibrium_qty - 1, int(reorder_point))) \
+            if c.equilibrium_qty > 1 else 1
+        c.lead_time_mean  = float(lead_time_mean)
+        c.supply_cv       = float(supply_cv)
+        c.stock_plan      = stock_plan
+        return c
+
     def __init__(self, storage_type: tuple[str, str], max_dim: int = _MAX_DIM) -> None:
         self.length: int = _sample_dim(max_dim)
         self.width: int = _sample_dim(max_dim)

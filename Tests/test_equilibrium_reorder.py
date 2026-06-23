@@ -225,36 +225,8 @@ def test_db_roundtrip() -> None:
         os.unlink(db_path)
 
 
-def test_legacy_db_load() -> None:
-    """Old DBs with stock_qty but no equilibrium_qty should load as equilibrium_qty."""
-    print('\n-- Part B2: legacy DB backward compat --')
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-        db_path = f.name
-    try:
-        conn = sqlite3.connect(db_path)
-        conn.executescript('''
-            CREATE TABLE cartons (
-                sku INTEGER PRIMARY KEY, handling TEXT, category TEXT,
-                length INTEGER, width INTEGER, height INTEGER, weight INTEGER,
-                demand_frequency REAL, demand_qty_rate REAL,
-                stock_qty INTEGER, expected_batch_demand REAL, reorder_point INTEGER
-            );
-        ''')
-        conn.execute(
-            'INSERT INTO cartons VALUES (1,"conveyable","food",10,10,8,5,0.5,4.0,50,2.0,6)'
-        )
-        conn.commit(); conn.close()
-
-        inv = load_inventory_from_db(db_path)
-        c = inv.cartons[0]
-        check('legacy load: equilibrium_qty == stock_qty',
-              c.equilibrium_qty == 50, f'got {c.equilibrium_qty}')
-        check('legacy load: reorder_point preserved',
-              c.reorder_point == 6, f'got {c.reorder_point}')
-        check('legacy load: lead_time_mean defaults to 0',
-              c.lead_time_mean == 0.0, f'got {c.lead_time_mean}')
-    finally:
-        os.unlink(db_path)
+# (legacy stock_qty-schema DB load test removed — the loader is canonical-schema only;
+#  backward compatibility with pre-equilibrium_qty DBs is intentionally dropped.)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -659,7 +631,6 @@ if __name__ == '__main__':
     test_profile_attributes()
     test_profile_equilibrium_formula()
     test_db_roundtrip()
-    test_legacy_db_load()
     test_oup_refill()
     test_oup_no_overstock()
     test_immediate_reorder()
