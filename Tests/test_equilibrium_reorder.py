@@ -324,11 +324,12 @@ def test_deferred_reorder() -> None:
           mgr._current_quantities.get(20, 0) < 20,
           f'qty={mgr._current_quantities.get(20)}')
 
-    # Run batches until deferred order arrives (≤ 10 batches)
+    # Run batches until deferred order arrives (≤ 10 batches).  Order-up-to is lead-aware
+    # (eq + expected·lead), so on-hand is restored to AT LEAST equilibrium once it lands.
     arrived = False
     for _ in range(10):
         mgr.check_reorders()
-        if mgr._current_quantities.get(20, 0) == 20:
+        if mgr._current_quantities.get(20, 0) >= 20:
             arrived = True
             break
 
@@ -407,15 +408,18 @@ def test_oup_qty_uses_position() -> None:
     mgr._originals[31] = c
     mgr._current_quantities[31] = 6      # on-hand
     mgr._queued_qty[31]          = 6      # already on-order (queued)
-    # position = 6 + 6 = 12 == rp=12 → genuinely depleted, fire eq - position = 18
+    # position = 6 + 6 = 12 == rp=12 → genuinely depleted.  Order-up-to is lead-aware,
+    # scaled to the warehouse eq: eq(30) + pipeline - position, pipeline =
+    # round(rp(12)·lead(5)/(lead+1)) = round(10) = 10 → ordered = 30 + 10 - 12 = 28
+    # (still off POSITION, not on_hand).
 
     before = mgr._deferred_qty.get(31, 0)
     mgr._depleted_skus.add(31)
     mgr.check_reorders()
     ordered = mgr._deferred_qty.get(31, 0) - before
 
-    check('order size = eq - position (18), not eq - on_hand (24)',
-          ordered == 18, f'ordered={ordered}')
+    check('order size = eq + lead-pipeline - position (28), off POSITION not on_hand',
+          ordered == 28, f'ordered={ordered}')
 
 
 # ═════════════════════════════════════════════════════════════════════════════

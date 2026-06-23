@@ -122,26 +122,44 @@ def _make_carton(sku: int, eq_qty: int, rp: int, lt: float, supply_cv: float) ->
     return c
 
 
-def _fire_reorder_qty(mgr_seed: int, supply_cv: float, burn: bool = False) -> int:
-    """Fire one reorder for a fixed (eq, position) and return the ordered quantity.
+_EQ_QTY, _RP, _POSITION = 30, 12, 12   # on_hand(6) + on-order(6) = 12 == rp ⇒ reorder fires
 
-    Lead time > 0 routes the order into _deferred_qty without placement muddying the
-    accounting, so the returned delta is exactly the quantity the noise produced.
-    position = on_hand(6) + on-order(6) = 12 == rp  ⇒  fires;  ideal = eq(30) - 12 = 18.
-    """
+
+def _expected_order_qty(lead: float) -> int:
+    """Lead-aware order-up-to scaled to the warehouse equilibrium:
+    eq + round(reorder_point·lead/(lead+1)) − position.
+    lead == 0 ⇒ pipeline 0 ⇒ the plain eq − position fill-back (18 here)."""
+    pipeline = round(_RP * lead / (lead + 1.0)) if lead > 0 else 0
+    return _EQ_QTY + pipeline - _POSITION
+
+
+def _fire_reorder_qty(mgr_seed: int, supply_cv: float, lead: float = 5.0,
+                      burn: bool = False) -> int:
+    """Fire one reorder for a fixed (eq, position) at the given lead time and return the
+    ordered quantity.  Generalised over all lead times: lead > 0 routes the order into
+    _deferred_qty (in-transit) without placement muddying the accounting; lead == 0 is the
+    trivial no-pipeline case.  Expected result is _expected_order_qty(lead)."""
     mgr = _small_warehouse()
     mgr._seed = mgr_seed
     sku = 31
-    c = _make_carton(sku, eq_qty=30, rp=12, lt=5.0, supply_cv=supply_cv)
+    c = _make_carton(sku, eq_qty=_EQ_QTY, rp=_RP, lt=lead, supply_cv=supply_cv)
     mgr._originals[sku] = c
     mgr._current_quantities[sku] = 6
     mgr._queued_qty[sku] = 6
     if burn:
         _burn_global()
-    before = mgr._deferred_qty.get(sku, 0)
+
+    def _position() -> int:   # on-hand + queued + in-transit (conserved across leads)
+        return (mgr._current_quantities.get(sku, 0)
+                + mgr._queued_qty.get(sku, 0)
+                + mgr._deferred_qty.get(sku, 0))
+
+    before = _position()
     mgr._depleted_skus.add(sku)
     mgr.check_reorders()
-    return mgr._deferred_qty.get(sku, 0) - before
+    # The order raises inventory POSITION to the lead-aware order-up-to regardless of
+    # whether it is still in transit (lead>0) or already released+placed (lead==0).
+    return _position() - before
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -263,9 +281,24 @@ def test_reorder_qty_varies_with_seed() -> None:
 
 
 def test_reorder_qty_cv_zero_is_exact_ideal() -> None:
-    """supply_cv == 0 → exactly ideal (18), for any seed, with no RNG drawn at all."""
-    for s in range(5):
-        assert _fire_reorder_qty(mgr_seed=s, supply_cv=0.0) == 18
+    """supply_cv == 0 → exactly the lead-aware ideal (eq + expected·lead − position), for any
+    seed and any lead time, with no RNG drawn at all."""
+    for lead in (0.0, 1.0, 2.5, 5.0):
+        expected = _expected_order_qty(lead)
+        for s in range(5):
+            assert _fire_reorder_qty(mgr_seed=s, supply_cv=0.0, lead=lead) == expected
+
+
+def test_reorder_qty_lead_zero_is_plain_fillback() -> None:
+    """lead == 0 is the no-pipeline case: order = eq − position (18 here)."""
+    assert _fire_reorder_qty(mgr_seed=1, supply_cv=0.0, lead=0.0) == _EQ_QTY - _POSITION
+
+
+def test_reorder_qty_grows_with_lead() -> None:
+    """Higher lead → larger order-up-to (more expected pipeline)."""
+    q0 = _fire_reorder_qty(mgr_seed=1, supply_cv=0.0, lead=0.0)
+    q5 = _fire_reorder_qty(mgr_seed=1, supply_cv=0.0, lead=5.0)
+    assert q5 > q0
 
 
 # ═════════════════════════════════════════════════════════════════════════════

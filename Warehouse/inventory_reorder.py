@@ -278,7 +278,15 @@ class ReorderMixin:
             if position > rp:
                 continue            # on-hand + on-order already covers the threshold
             rc     = orig.reorder()
-            ideal  = _equilibrium_qty(rc) - position     # OUP fill-back vs position
+            # Order-up-to is lead-aware, scaled to the WAREHOUSE equilibrium (not the full
+            # generated demand).  reorder_point already encodes ~(lead+1) batches of
+            # warehouse-scale demand, so one batch is rp/(lead+1) and the expected in-transit
+            # pipeline over the lead is rp·lead/(lead+1).  Raising the order-up-to by this
+            # keeps on-hand at the equilibrium target without overshooting the sampled-down
+            # eq.  lead==0 ⇒ pipeline 0 ⇒ no-op; general for all lead times.
+            lead_f   = max(0.0, getattr(rc, 'lead_time_mean', 0.0))
+            pipeline = round(rp * lead_f / (lead_f + 1.0)) if lead_f > 0.0 else 0
+            ideal    = _equilibrium_qty(rc) + pipeline - position   # OUP fill-back vs position
             if ideal <= 0:
                 continue
             # Received quantity ~ Normal(ideal, ideal·supply_cv), floor 1 (cv set at generation):
