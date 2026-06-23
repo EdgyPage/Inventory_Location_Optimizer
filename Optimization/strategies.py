@@ -275,13 +275,12 @@ _RESTOCKS = [
     ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
     ('map_rank',        'Map_rank',        _build_map_rank,                False, False, False),  # optimal-map, upgrade-capped (saves prime spots)
-    # ── disabled for this run (fifo + rank ablation only) ──
-    #('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
-    #('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
-    #('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
-    #('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
-    #('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
-    #('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
+    ('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
+    ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
+    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
+    ('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
+    ('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
+    ('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
 ]
 
 # re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)

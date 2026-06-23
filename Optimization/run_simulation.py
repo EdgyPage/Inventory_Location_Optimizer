@@ -125,14 +125,14 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated',
-        'pick_intercept'  : 10,
-        'pick_weight_coef': 5,
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02,
         'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.66,
+        'pick_volume_coef': 0.765,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
-        'x_speed'         : 2.66667,    # horizontal travel speed, ft/s (positions are inches)
-        'y_speed'         : 4.0,        # vertical travel speed, ft/s
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
 
