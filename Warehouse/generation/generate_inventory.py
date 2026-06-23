@@ -268,7 +268,8 @@ def build_inventory_from_plan(
     seed           : int,
     *,
     coverage_batches : float        = EQUILIBRIUM_COVERAGE_BATCHES,
-    lead_time        : float        = 0.0,      # deterministic per-dataset lead time (batches)
+    lead_time        : float        = 0.0,      # fixed per-SKU lead time (batches) when no range
+    lead_time_range  : tuple | None = None,     # (lo, hi): per-SKU lead ~ randint(lo, hi) if set
     supply_cv_max    : float        = 0.15,     # per-SKU supply_cv ~ Uniform(0, supply_cv_max)
     demand_override  : tuple | None = None,     # (freq_spec, qty_spec) overriding every family
 ) -> Inventory:
@@ -277,14 +278,19 @@ def build_inventory_from_plan(
     Per SKU: pick a family by share; handling by the family's propensity; sample each
     dimension independently + weight + demand; compute the JIT equilibrium/reorder model:
         equilibrium_qty = max(1, round(coverage_batches * expected))
-        reorder_point   = max(1, min(eq-1, ceil(expected * (lead_time + 1))))   # day-before-runout + transit
+        reorder_point   = max(1, min(eq-1, ceil(expected * (lead + 1))))   # day-before-runout + transit
+    `lead` is the fixed `lead_time` unless `lead_time_range=(lo,hi)` is given, in which case each
+    SKU draws lead ~ randint(lo, hi) from a SEPARATE rng — so two profiles built with the same seed
+    (e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead/reorder_point.
     All physical guardrails (integer, min 1, caps) are applied inside Carton.build.
     Initial stock is NOT sampled here — the sim loads it from equilibrium_qty.
     """
-    rng     = random.Random(seed)
-    fams    = list(plan)
-    shares  = [f.share for f in fams]
-    cartons = []
+    rng      = random.Random(seed)
+    # Dedicated rng for per-SKU lead so it never perturbs the physical-attribute sequence.
+    lead_rng = random.Random(seed + 1_000_003) if lead_time_range else None
+    fams     = list(plan)
+    shares   = [f.share for f in fams]
+    cartons  = []
 
     for i in range(num_skus):
         fam      = rng.choices(fams, weights=shares, k=1)[0]
@@ -305,8 +311,10 @@ def build_inventory_from_plan(
         qr_c     = Carton._clamp_int(qty_rate, Carton.MIN_QTY, Carton.MAX_QTY)
         expected = fr_c * qr_c
 
+        lead = (lead_rng.randint(int(lead_time_range[0]), int(lead_time_range[1]))
+                if lead_time_range else lead_time)
         eq = max(1, round(coverage_batches * expected))
-        rp = max(1, min(eq - 1, math.ceil(expected * (lead_time + 1)))) if eq > 1 else 1
+        rp = max(1, min(eq - 1, math.ceil(expected * (lead + 1)))) if eq > 1 else 1
         # per-SKU supply reliability ~ Uniform(0, supply_cv_max): drives the reorder-quantity
         # variation in check_reorders so restocks can split across different storage units.
         sv = rng.uniform(0.0, supply_cv_max) if supply_cv_max > 0.0 else 0.0
@@ -316,7 +324,7 @@ def build_inventory_from_plan(
             length=L, width=W, height=H, weight=wt,
             frequency=freq, qty_rate=qty_rate,
             equilibrium_qty=eq, reorder_point=rp,
-            lead_time_mean=lead_time, supply_cv=sv,
+            lead_time_mean=lead, supply_cv=sv,
         ))
 
     Carton.next_sku = num_skus + 1
@@ -927,7 +935,8 @@ def generate_run(
     lead_time_cv                 : float              = LEAD_TIME_CV,
     supply_cv_mean               : float              = SUPPLY_CV_MEAN,
     creation_plan                : list | None        = None,   # list[Family] → plan-based build
-    lead_time                    : float              = 0.0,    # deterministic lead time for plan builds
+    lead_time                    : float              = 0.0,    # fixed lead time for plan builds
+    lead_time_range              : tuple | None       = None,   # (lo,hi): per-SKU lead ~ randint
     supply_cv_max                : float              = 0.15,   # plan builds: supply_cv ~ U(0, max)
     demand_override              : tuple | None       = None,   # (freq_spec, qty_spec) for plan builds
     verbose                      : bool               = True,
@@ -966,6 +975,7 @@ def generate_run(
             'mode'                          : 'creation_plan',
             'equilibrium_coverage_batches'  : equilibrium_coverage_batches,
             'lead_time'                     : lead_time,
+            'lead_time_range'               : list(lead_time_range) if lead_time_range else None,
             'supply_cv_max'                 : supply_cv_max,
             'demand_override'               : list(demand_override) if demand_override else None,
             'carton_bounds'                 : {
@@ -985,6 +995,7 @@ def generate_run(
             seed             = seed,
             coverage_batches = equilibrium_coverage_batches,
             lead_time        = lead_time,
+            lead_time_range  = lead_time_range,
             supply_cv_max    = supply_cv_max,
             demand_override  = demand_override,
         )

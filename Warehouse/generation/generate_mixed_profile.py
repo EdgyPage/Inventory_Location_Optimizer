@@ -135,6 +135,16 @@ def _expected_conveyable_fraction(plan) -> float:
     return sum(f.share * f.handling_split[0] for f in plan) / tot
 
 
+def _parse_lead_spec(spec, rand_range) -> tuple:
+    """A --lead-times token → (profile_name, lead_time, lead_time_range).
+    'random' → per-SKU lead ~ randint(rand_range); a number → fixed per-SKU lead."""
+    if str(spec).strip().lower() == 'random':
+        lo, hi = int(rand_range[0]), int(rand_range[1])
+        return (f'mixed_realistic_ltrand{lo}-{hi}', 0.0, (lo, hi))
+    val = float(spec)
+    return (f'mixed_realistic_lt{val:g}', val, None)
+
+
 # ── driver ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -145,10 +155,15 @@ def main() -> None:
     parser.add_argument('--num-skus', type=int, default=76_500)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--name', default=None, help='run folder name (default: mixed_<ts>)')
-    parser.add_argument('--lead-times', type=float, nargs='+', default=[1.0], metavar='L',
-                        help='one or more deterministic lead times in batches; each produces a '
-                             'sibling profile leaf under the same timestamped run folder '
-                             '(e.g. --lead-times 0 1 -> mixed_<ts>/{lt0,lt1}/)')
+    parser.add_argument('--lead-times', nargs='+', default=['1'], metavar='L',
+                        help='one or more lead-time specs; each produces a sibling profile leaf '
+                             'under the same timestamped run folder.  A spec is a number (fixed '
+                             'per-SKU lead in batches) OR the word "random" (per-SKU lead ~ '
+                             'randint(--lead-random-range)).  e.g. --lead-times 0 random -> '
+                             'mixed_<ts>/{lt0, ltrand0-5}/ — identical inventories, differing only '
+                             'in lead/reorder.')
+    parser.add_argument('--lead-random-range', type=int, nargs=2, default=[0, 5], metavar=('LO', 'HI'),
+                        help='inclusive per-SKU lead range for the "random" lead-times spec')
     parser.add_argument('--coverage', type=float, default=10.0,
                         help='equilibrium coverage batches (initial loaded stock = coverage * expected)')
     parser.add_argument('--supply-cv-max', type=float, default=0.15,
@@ -190,33 +205,34 @@ def main() -> None:
         print(f'  affinity estimate: ~{pairs:,} pairs  ~{pairs * 2 * 28 / 1_048_576:.0f} MB  (top-{args.top_k})\n')
         return
 
-    ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_name = args.name or f'mixed_{ts}'   # one timestamped run folder; one leaf per lead time
-    run_dir  = os.path.join(out_dir, run_name)
+    ts         = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name   = args.name or f'mixed_{ts}'   # one timestamped run folder; one leaf per lead spec
+    run_dir    = os.path.join(out_dir, run_name)
+    lead_specs = [_parse_lead_spec(s, args.lead_random_range) for s in args.lead_times]
 
     print(f'\n{"="*64}')
     print(f'  Mixed run     : {run_name}')
     print(f'  Dir           : {run_dir}')
     print(f'  num_skus={args.num_skus:,}  seed={args.seed}  coverage={args.coverage}')
-    print(f'  lead_times    : {args.lead_times}  ->  ' +
-          ', '.join(f'lt{lt:g}' for lt in args.lead_times))
+    print(f'  lead specs    : {args.lead_times}  ->  ' + ', '.join(n for n, _, _ in lead_specs))
     print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}')
     print(f'{"="*64}\n')
 
-    for lt in args.lead_times:
-        prof_name = f'mixed_realistic_lt{lt:g}'
-        leaf      = os.path.join(run_dir, prof_name)
+    for prof_name, lead_time, lead_range in lead_specs:
+        leaf = os.path.join(run_dir, prof_name)
         os.makedirs(leaf, exist_ok=True)
-        print(f'\n[{prof_name}] lead_time={lt}')
+        desc = f'random {lead_range}' if lead_range else f'{lead_time:g}'
+        print(f'\n[{prof_name}] lead={desc}')
 
         t0      = time.perf_counter()
         inv_run = _inv_run(
             name                         = 'inventory',
             num_skus                     = args.num_skus,
-            seed                         = args.seed,           # same seed → datasets differ only by lead time
+            seed                         = args.seed,           # same seed → datasets differ only by lead
             out_dir                      = leaf,
             creation_plan                = CREATION_PLAN,
-            lead_time                    = lt,
+            lead_time                    = lead_time,
+            lead_time_range              = lead_range,
             equilibrium_coverage_batches = args.coverage,
             supply_cv_max                = args.supply_cv_max,
             demand_override              = demand_override,
