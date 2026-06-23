@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
+from functools import lru_cache
 from typing import TYPE_CHECKING, TypeVar
 
 from Carton import Carton
@@ -35,6 +36,54 @@ class Storage_Type:
         self.available_storage_types: list[tuple[str, str, str]] = list(
             itertools.product(self.handling_storage_types, self.category_storage_types, self.unit_storage_types)
         )
+
+
+# ── compacting cache ─────────────────────────────────────────────────────────────
+# A unit's fit (orientation, size tier, stacked dims) is a pure function of its carton
+# DIMENSIONS, the quantity stacked, and the footprint (max_width/length) — never of the
+# SKU id.  The search is an itertools.permutations × stack-axis scan run on every pallet/
+# singleton construction, so memoising it by geometry collapses the per-reorder cost: a SKU
+# reordered every batch (or any two SKUs sharing a geometry) pays the scan once per process.
+# Only ints/strings cross process boundaries (the cache lives per-process), so this stays
+# pickling-safe.  Callers regress to a fresh computation transparently on a cache miss.
+
+@lru_cache(maxsize=None)
+def _pallet_fit_dims(h: int, w: int, l: int, quantity: int,
+                     max_width: int, max_length: int):
+    """Smallest-tier pallet fit for a geometry, or None if no orientation fits.
+    Returns (storage_size, height, width, length, stack_axis)."""
+    dims = [h, w, l]
+    sorted_sizes = sorted(Storage_Size.available_sizes_heights.items(), key=lambda x: x[1])
+    best = None
+    for hh, ww, ll in itertools.permutations(dims):
+        for stack_h, stack_w, stack_l in [(quantity, 1, 1), (1, quantity, 1), (1, 1, quantity)]:
+            if ww * stack_w <= max_width and ll * stack_l <= max_length:
+                stacked_height = hh * stack_h
+                for size_name, size_height in sorted_sizes:
+                    if stacked_height <= size_height:
+                        if best is None or size_height < best[0]:
+                            axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(quantity)]
+                            best = (size_height, size_name, hh, ww, ll, axis)
+                        break
+    return best[1:] if best is not None else None
+
+
+@lru_cache(maxsize=None)
+def _singleton_fit_dims(h: int, w: int, l: int, quantity: int,
+                        max_width: int, max_length: int, bin_h: int):
+    """Min-stacked-height singleton fit for a geometry, or None if no orientation fits.
+    Returns (height, width, length, stack_axis)."""
+    dims = [h, w, l]
+    best = None   # (stacked_h, h, w, l, axis)
+    for hh, ww, ll in itertools.permutations(dims):
+        for stack_h, stack_w, stack_l in [(quantity, 1, 1), (1, quantity, 1), (1, 1, quantity)]:
+            if ww * stack_w <= max_width and ll * stack_l <= max_length:
+                stacked_height = hh * stack_h
+                if stacked_height <= bin_h:
+                    if best is None or stacked_height < best[0]:
+                        axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(quantity)]
+                        best = (stacked_height, hh, ww, ll, axis)
+    return best[1:] if best is not None else None
 
 
 class StorageUnit(ABC):
@@ -90,30 +139,14 @@ class Pallet(StorageUnit):
         super().__init__(carton, quantity)
 
     def _fit(self, carton: Carton) -> None:
-        dims: list[int] = [carton.height, carton.width, carton.length]
-        sorted_sizes: list[tuple[str, int]] = sorted(
-            Storage_Size.available_sizes_heights.items(), key=lambda x: x[1]
-        )
-
-        best: tuple[int, str, int, int, int, str] | None = None
-        for h, w, l in itertools.permutations(dims):
-            for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
-                if w * stack_w <= self.max_width and l * stack_l <= self.max_length:
-                    stacked_height: int = h * stack_h
-                    for size_name, size_height in sorted_sizes:
-                        if stacked_height <= size_height:
-                            if best is None or size_height < best[0]:
-                                axis: str = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
-                                best = (size_height, size_name, h, w, l, axis)
-                            break
-
-        if best is None:
+        res = _pallet_fit_dims(carton.height, carton.width, carton.length,
+                               self.quantity, self.max_width, self.max_length)
+        if res is None:
             raise ValueError(
                 f"No valid orientation for carton SKU {carton.sku} with dimensions "
                 f"({carton.height}, {carton.width}, {carton.length}) x{self.quantity} within pallet limits"
             )
-
-        _, self.storage_size, self._height, self._width, self._length, self._stack_axis = best
+        self.storage_size, self._height, self._width, self._length, self._stack_axis = res
 
 
 class Singleton(Pallet):
@@ -132,25 +165,15 @@ class Singleton(Pallet):
     def _fit(self, carton: Carton) -> None:
         """Validate fit in 16×16 footprint; set dimensions without size-tier logic."""
         _BIN_H = 48  # SINGLETON_BIN_HEIGHT — avoids circular import from Aisle_Dimensions
-        dims: list[int] = [carton.height, carton.width, carton.length]
-        best: tuple[int, int, int, int, str] | None = None   # (stacked_h, h, w, l, axis)
-        for h, w, l in itertools.permutations(dims):
-            for stack_h, stack_w, stack_l in [(self.quantity, 1, 1), (1, self.quantity, 1), (1, 1, self.quantity)]:
-                if w * stack_w <= self.max_width and l * stack_l <= self.max_length:
-                    stacked_height: int = h * stack_h
-                    if stacked_height <= _BIN_H:
-                        if best is None or stacked_height < best[0]:
-                            axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(self.quantity)]
-                            best = (stacked_height, h, w, l, axis)
-
-        if best is None:
+        res = _singleton_fit_dims(carton.height, carton.width, carton.length,
+                                  self.quantity, self.max_width, self.max_length, _BIN_H)
+        if res is None:
             raise ValueError(
                 f"No valid orientation for carton SKU {carton.sku} with dimensions "
                 f"({carton.height}, {carton.width}, {carton.length}) x{self.quantity} "
                 f"within singleton limits {self.max_width}×{self.max_length}×{_BIN_H}"
             )
-
-        _, self._height, self._width, self._length, self._stack_axis = best
+        self._height, self._width, self._length, self._stack_axis = res
         self.storage_size = 'singleton'  # fixed label — no size tier, never None
 
 
