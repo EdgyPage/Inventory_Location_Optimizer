@@ -551,8 +551,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         (unit, bin|None) pairs sorted by pick-effort priority so high-effort
         items claim the best (lowest-D) bins before lower-priority items.
 
-        Units that cannot be placed go through the same rescue logic as
-        _stock_per_unit() and then to the pending queue for retry next batch.
+        Units the wave cannot place are handed to the per-unit path
+        (_stock_per_unit), which re-fetches candidates per unit so they spill into
+        other tiers / remaining bins exactly as FIFO does (see below).
         """
         if not self._stock_queue:
             return
@@ -565,84 +566,24 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
             groups[key].append(unit)
 
-        pending: deque[StorageUnit] = deque()
-
         for _key, units in groups.items():
-            # Get ranked assignments — high pick-effort units first
+            # Ranked assignments — high pick-effort units claim the best bins first.
             assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
-
             for unit, bin_ in assignments:
                 if bin_ is not None:
                     self._execute_placement(unit, bin_)
+                else:
+                    # The wave couldn't place this unit: place_wave takes a single
+                    # candidate snapshot for the whole wave (one tier, fetched once),
+                    # so once that snapshot is consumed it sheds the surplus even when
+                    # bins remain free.  Hand leftovers to the per-unit path, which
+                    # re-fetches _candidates PER unit — using all currently-free bins
+                    # in the tier and spilling up to larger tiers — plus the
+                    # smaller-tier/singleton rescues.  This is the same path that keeps
+                    # FIFO's queue at zero; without it the ranked queue grows unbounded.
+                    self._stock_queue.append(unit)
 
-            # Unassigned units: run through rescue logic then pending
-            for unit, bin_ in assignments:
-                if bin_ is not None:
-                    continue
-                carton = unit.carton
-                sku    = carton.sku
-                shc    = carton.storage_handle_config
-                repacked = False
-
-                # rescue 1: smaller pallet tier
-                if unit.unit_category == 'pallet' and unit.storage_size is not None:
-                    current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
-                    for size in _SIZES_DESCENDING:
-                        if _SIZE_RANKS[size] >= current_rank:
-                            continue
-                        avail = self._index.get(
-                            (shc.handling, shc.category, size, 'pallet'))
-                        if not avail:
-                            continue
-                        max_q = _max_qty_fitting_pallet_size(carton, size)
-                        if max_q <= 0:
-                            continue
-                        remaining = unit.quantity
-                        new_units: list[StorageUnit] = []
-                        while remaining > 0:
-                            q = min(remaining, max_q)
-                            new_units.append(Pallet(carton, q))
-                            remaining -= q
-                        delta = len(new_units) - 1
-                        if delta:
-                            self._queued_sku_counts[sku] = (
-                                self._queued_sku_counts.get(sku, 1) + delta
-                            )
-                        for u in reversed(new_units):
-                            self._stock_queue.appendleft(u)
-                        repacked = True
-                        break
-
-                # rescue 2: singleton bins
-                if not repacked:
-                    max_sing = _sq_max(carton, Singleton)
-                    avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
-                    if max_sing > 0 and avail:
-                        remaining = unit.quantity
-                        new_units = []
-                        while remaining > 0:
-                            q = min(remaining, max_sing)
-                            new_units.append(Singleton(carton, q))
-                            remaining -= q
-                        delta = len(new_units) - 1
-                        if delta:
-                            self._queued_sku_counts[sku] = (
-                                self._queued_sku_counts.get(sku, 1) + delta
-                            )
-                        for u in reversed(new_units):
-                            self._stock_queue.appendleft(u)
-                        repacked = True
-
-                if not repacked:
-                    pending.append(unit)
-
-        # Drain any repacked stragglers immediately via the per-unit path
-        # (NOT self._stock(), which would re-dispatch back into this ranked wave).
         if self._stock_queue:
             self._stock_per_unit()
-
-        # Merge pending back
-        for u in pending:
-            self._stock_queue.append(u)
 
 
