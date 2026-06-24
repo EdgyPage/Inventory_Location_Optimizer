@@ -20,13 +20,14 @@ class PickRecord:
 
 @dataclass
 class AisleMetricRecord:
-    run_id:     int
-    batch_id:   int
-    aisle_id:   int
-    n_skus:     int    # unique SKUs placed in this aisle
-    n_bins:     int    # occupied bin count in this aisle
-    demand_sum: float  # Σ f_i * q_i — trip-cost secondary score (demand mass)
-    lift_sum:   float  # affinity pairwise lift sum — co-location quality
+    run_id:        int
+    batch_id:      int
+    aisle_id:      int
+    n_skus:        int    # unique SKUs placed in this aisle
+    n_bins:        int    # occupied bin count in this aisle
+    demand_sum:    float  # Σ f_i * q_i — trip-cost secondary score (demand mass)
+    lift_sum:      float  # affinity pairwise lift sum — co-location quality
+    pick_load_sum: float = 0.0  # Σ f_i*q_i*per-pick cost — labor-balance score (Rank_labor)
 
 
 @dataclass
@@ -133,6 +134,11 @@ _CREATE_RUNS = """
         run_id            INTEGER PRIMARY KEY AUTOINCREMENT,
         run_type          TEXT    NOT NULL,
         created           TEXT    NOT NULL,
+        strategy_key          TEXT,   -- identity (rename-proof): same as run_type, explicit
+        pair_label            TEXT,   -- inventory pair folder name (not a path)
+        config_label          TEXT,   -- regression config name
+        warehouse_fingerprint TEXT,   -- stable hash tying this run to its warehouse.db
+        inventory_label       TEXT,   -- planned-inventory profile label
         num_pickers       INTEGER,
         x_speed           REAL,
         y_speed           REAL,
@@ -143,24 +149,32 @@ _CREATE_RUNS = """
         k_pickers         INTEGER,
         n_batches         INTEGER,
         seed_world        INTEGER,
-        keyframe_interval INTEGER
+        keyframe_interval INTEGER,
+        optimal_sigma_fd  REAL,       -- warehouse yardstick: minimal achievable Σ f*D
+        optimal_work      REAL        -- warehouse yardstick: minimal achievable work W*
     )
 """
+
+# Identity columns set by create_run(identity=...); rename-proof run association.
+_IDENTITY_COLS = ('strategy_key', 'pair_label', 'config_label',
+                  'warehouse_fingerprint', 'inventory_label')
 
 # Run-param columns set by create_run(params=...); order matches the INSERT.
 _RUN_PARAM_COLS = ('num_pickers', 'x_speed', 'y_speed', 'pick_intercept',
                    'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef',
-                   'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval')
+                   'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval',
+                   'optimal_sigma_fd', 'optimal_work')
 
 _CREATE_AISLE_METRICS = """
     CREATE TABLE IF NOT EXISTS aisle_metrics (
-        run_id     INTEGER NOT NULL REFERENCES simulation_runs(run_id),
-        batch_id   INTEGER NOT NULL,
-        aisle_id   INTEGER NOT NULL,
-        n_skus     INTEGER NOT NULL DEFAULT 0,
-        n_bins     INTEGER NOT NULL DEFAULT 0,
-        demand_sum REAL    NOT NULL DEFAULT 0.0,
-        lift_sum   REAL    NOT NULL DEFAULT 0.0,
+        run_id        INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id      INTEGER NOT NULL,
+        aisle_id      INTEGER NOT NULL,
+        n_skus        INTEGER NOT NULL DEFAULT 0,
+        n_bins        INTEGER NOT NULL DEFAULT 0,
+        demand_sum    REAL    NOT NULL DEFAULT 0.0,
+        lift_sum      REAL    NOT NULL DEFAULT 0.0,
+        pick_load_sum REAL    NOT NULL DEFAULT 0.0,
         PRIMARY KEY (run_id, batch_id, aisle_id)
     )
 """
@@ -404,11 +418,55 @@ _CREATE_REORDER_QUEUE = """
         kind           TEXT    NOT NULL,   -- 'lead' (in-transit) | 'stock' (awaiting bin)
         sku            INTEGER NOT NULL,
         qty            INTEGER NOT NULL,   -- items in this queue entry
-        remaining_lead INTEGER NOT NULL DEFAULT 0   -- batches until arrival ('lead' only)
+        remaining_lead INTEGER NOT NULL DEFAULT 0,  -- batches until arrival ('lead' only)
+        unit_type      TEXT,               -- 'pallet'|'singleton' for stock units (NULL for lead)
+        storage_size   TEXT                -- bin size tier for stock units (NULL for lead)
     )
 """
 _CREATE_REORDER_QUEUE_IDX = """
     CREATE INDEX IF NOT EXISTS ix_rq_run_batch ON reorder_queue (run_id, batch_id)
+"""
+
+# ── Score tables ──────────────────────────────────────────────────────────────
+# Static per-run scores the assignment functions compute (geometry/config-fixed), saved
+# once after warehouse build so the viewer reads them instead of recomputing.  bin_scores:
+# the layout "goodness" of every bin (travel + golden-zone height) plus the optimal-map
+# preferred score (map/map_rank only; NULL otherwise).  sku_scores: per-SKU placement scores.
+
+_CREATE_BIN_SCORES = """
+    CREATE TABLE IF NOT EXISTS bin_scores (
+        run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        aisle_id     INTEGER NOT NULL,
+        bayX         INTEGER NOT NULL,
+        bayY         INTEGER NOT NULL,
+        travel_d     REAL    NOT NULL,   -- D = x_pace*x_phys + y_pace*y_phys (s)
+        height_mult  REAL    NOT NULL,   -- golden-zone height multiplier M(y_phys)
+        layout_score REAL    NOT NULL,   -- D + M  (lower = cheaper bin; viewer heatmap)
+        map_pref     REAL,               -- optimal-map _bin_pref (map/map_rank only; else NULL)
+        PRIMARY KEY (run_id, aisle_id, bayX, bayY)
+    )
+"""
+_CREATE_BIN_SCORES_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_bs_run ON bin_scores (run_id)
+"""
+
+_CREATE_SKU_SCORES = """
+    CREATE TABLE IF NOT EXISTS sku_scores (
+        run_id              INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        sku                 INTEGER NOT NULL,
+        map_target          REAL,        -- optimal-map target pref (map/map_rank only)
+        labor_cost          REAL,        -- per-unit pick effort (intercept + handle_var)
+        handle_var          REAL,        -- per-unit weight/volume handling term
+        expected_popularity REAL,        -- freq * qty
+        expected_labor      REAL,        -- freq * qty * labor_cost
+        equilibrium_qty     INTEGER,
+        reorder_point       INTEGER,
+        lead_time_mean      REAL,
+        PRIMARY KEY (run_id, sku)
+    )
+"""
+_CREATE_SKU_SCORES_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_ss_run ON sku_scores (run_id)
 """
 
 
@@ -433,21 +491,30 @@ def init_run_db(path: str) -> None:
         con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
         con.execute(_CREATE_REORDER_QUEUE)
         con.execute(_CREATE_REORDER_QUEUE_IDX)
+        con.execute(_CREATE_BIN_SCORES)
+        con.execute(_CREATE_BIN_SCORES_IDX)
+        con.execute(_CREATE_SKU_SCORES)
+        con.execute(_CREATE_SKU_SCORES_IDX)
         con.commit()
     finally:
         con.close()
 
 
-def create_run(path: str, run_type: str, params: dict | None = None) -> int:
+def create_run(path: str, run_type: str, params: dict | None = None,
+               identity: dict | None = None) -> int:
     """Insert a new simulation run row; return the assigned run_id.
 
     params (optional): run configuration recorded for reconstruction —
-    keys from _RUN_PARAM_COLS (num_pickers, x_speed, …, keyframe_interval).
+    keys from _RUN_PARAM_COLS (num_pickers, x_speed, …, optimal_work).
+    identity (optional): rename-proof association — keys from _IDENTITY_COLS
+    (strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).
     Missing keys are stored NULL.
     """
     params = params or {}
-    cols = ('run_type', 'created') + _RUN_PARAM_COLS
+    identity = identity or {}
+    cols = ('run_type', 'created') + _IDENTITY_COLS + _RUN_PARAM_COLS
     vals = ([run_type, datetime.now(timezone.utc).isoformat()]
+            + [identity.get(k) for k in _IDENTITY_COLS]
             + [params.get(k) for k in _RUN_PARAM_COLS])
     con = _open_db(path)
     try:
@@ -458,6 +525,53 @@ def create_run(path: str, run_type: str, params: dict | None = None) -> int:
         )
         con.commit()
         return cur.lastrowid  # type: ignore[return-value]
+    finally:
+        con.close()
+
+
+def find_run(path: str, strategy_key: str | None = None) -> int | None:
+    """Resolve a run_id WITHOUT relying on the file name.
+
+    Matches on the stored strategy_key/run_type (which equal the strategy key) so a
+    renamed sim_*.db still resolves; falls back to the first run in the DB.  Returns
+    None if the DB has no runs.  Tolerates the older schema (no strategy_key column).
+    """
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        if strategy_key is not None:
+            try:
+                row = con.execute(
+                    'SELECT run_id FROM simulation_runs '
+                    'WHERE strategy_key=? OR run_type=? ORDER BY run_id LIMIT 1',
+                    (strategy_key, strategy_key)).fetchone()
+            except sqlite3.OperationalError:   # pre-identity schema
+                row = con.execute(
+                    'SELECT run_id FROM simulation_runs WHERE run_type=? '
+                    'ORDER BY run_id LIMIT 1', (strategy_key,)).fetchone()
+            if row is not None:
+                return int(row['run_id'])
+        row = con.execute(
+            'SELECT run_id FROM simulation_runs ORDER BY run_id LIMIT 1').fetchone()
+        return int(row['run_id']) if row else None
+    finally:
+        con.close()
+
+
+def run_identity(path: str, run_id: int) -> dict:
+    """Return the stored identity + key params for a run (rename-proof metadata).
+    Missing columns (older schema) are simply omitted from the dict."""
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        row = con.execute(
+            'SELECT * FROM simulation_runs WHERE run_id=?', (run_id,)).fetchone()
+        if row is None:
+            return {}
+        keys = set(row.keys())
+        wanted = (('run_id', 'run_type', 'n_batches', 'keyframe_interval',
+                   'optimal_sigma_fd', 'optimal_work') + _IDENTITY_COLS)
+        return {k: row[k] for k in wanted if k in keys}
     finally:
         con.close()
 
@@ -598,15 +712,19 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
 # (batch_id, kind, sku, qty, remaining_lead) tuple; kind ∈ {'lead','stock'}.
 
 def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
+    """Persist per-batch queue snapshots.  Each record is
+    (batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two
+    are None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units."""
     if not records:
         return
     con = _open_db(path)
     try:
         con.executemany(
             'INSERT INTO reorder_queue '
-            '(run_id,batch_id,kind,sku,qty,remaining_lead) VALUES (?,?,?,?,?,?)',
-            [(run_id, int(b), str(k), int(s), int(q), int(rl))
-             for (b, k, s, q, rl) in records],
+            '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size) '
+            'VALUES (?,?,?,?,?,?,?,?)',
+            [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss)
+             for (b, k, s, q, rl, ut, ss) in records],
         )
         con.commit()
     finally:
@@ -615,13 +733,96 @@ def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
 
 def load_reorder_queue(path: str, run_id: int, batch_id: int) -> list[dict]:
     """Queue contents at the start of one batch.  Empty list if the table is absent
-    (older runs predate it) so the viewer degrades gracefully."""
+    (older runs predate it) so the viewer degrades gracefully.  Falls back to the
+    pre-enrichment columns when unit_type/storage_size are missing."""
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        try:
+            rows = con.execute(
+                'SELECT kind, sku, qty, remaining_lead, unit_type, storage_size '
+                'FROM reorder_queue WHERE run_id=? AND batch_id=?',
+                (run_id, batch_id)).fetchall()
+        except sqlite3.OperationalError:       # pre-enrichment schema (no unit_type/size)
+            rows = con.execute(
+                'SELECT kind, sku, qty, remaining_lead FROM reorder_queue '
+                'WHERE run_id=? AND batch_id=?', (run_id, batch_id)).fetchall()
+        return [dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        con.close()
+
+
+# ── Score DBs (bin_scores / sku_scores) ───────────────────────────────────────
+
+def save_bin_scores(path: str, run_id: int, records: list[tuple]) -> None:
+    """Per-bin static scores.  records: (aisle_id, bayX, bayY, travel_d, height_mult,
+    layout_score, map_pref); map_pref None for non-map strategies."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.execute(_CREATE_BIN_SCORES)
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_scores '
+            '(run_id,aisle_id,bayX,bayY,travel_d,height_mult,layout_score,map_pref) '
+            'VALUES (?,?,?,?,?,?,?,?)',
+            [(run_id, int(a), int(bx), int(by), float(td), float(hm), float(ls),
+              None if mp is None else float(mp))
+             for (a, bx, by, td, hm, ls, mp) in records],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_bin_scores(path: str, run_id: int) -> list[dict]:
+    """All per-bin scores for a run; empty list if the table is absent (older runs)."""
     con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
     con.row_factory = sqlite3.Row
     try:
         rows = con.execute(
-            'SELECT kind, sku, qty, remaining_lead FROM reorder_queue '
-            'WHERE run_id=? AND batch_id=?', (run_id, batch_id)).fetchall()
+            'SELECT aisle_id, bayX, bayY, travel_d, height_mult, layout_score, map_pref '
+            'FROM bin_scores WHERE run_id=?', (run_id,)).fetchall()
+        return [dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        con.close()
+
+
+def save_sku_scores(path: str, run_id: int, records: list[tuple]) -> None:
+    """Per-SKU placement scores.  records: (sku, map_target, labor_cost, handle_var,
+    expected_popularity, expected_labor, equilibrium_qty, reorder_point, lead_time_mean)."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.execute(_CREATE_SKU_SCORES)
+        con.executemany(
+            'INSERT OR REPLACE INTO sku_scores '
+            '(run_id,sku,map_target,labor_cost,handle_var,expected_popularity,'
+            'expected_labor,equilibrium_qty,reorder_point,lead_time_mean) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [(run_id, int(sku),
+              None if mt is None else float(mt),
+              float(lc), float(hv), float(ep), float(el),
+              int(eq), int(rp), float(lt))
+             for (sku, mt, lc, hv, ep, el, eq, rp, lt) in records],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_sku_scores(path: str, run_id: int) -> list[dict]:
+    """All per-SKU scores for a run; empty list if the table is absent (older runs)."""
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        rows = con.execute(
+            'SELECT * FROM sku_scores WHERE run_id=?', (run_id,)).fetchall()
         return [dict(r) for r in rows]
     except sqlite3.OperationalError:
         return []
@@ -851,11 +1052,12 @@ def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
     try:
         con.executemany(
             'INSERT OR REPLACE INTO aisle_metrics '
-            '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum) '
-            'VALUES (?,?,?,?,?,?,?)',
+            '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum,pick_load_sum) '
+            'VALUES (?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.aisle_id,
-                 r.n_skus, r.n_bins, r.demand_sum, r.lift_sum)
+                 r.n_skus, r.n_bins, r.demand_sum, r.lift_sum,
+                 getattr(r, 'pick_load_sum', 0.0))
                 for r in records
             ],
         )
@@ -899,13 +1101,15 @@ def load_aisle_metrics(
             ).fetchall()
         return [
             AisleMetricRecord(
-                run_id     = row['run_id'],
-                batch_id   = row['batch_id'],
-                aisle_id   = row['aisle_id'],
-                n_skus     = row['n_skus'],
-                n_bins     = row['n_bins'],
-                demand_sum = row['demand_sum'],
-                lift_sum   = row['lift_sum'],
+                run_id        = row['run_id'],
+                batch_id      = row['batch_id'],
+                aisle_id      = row['aisle_id'],
+                n_skus        = row['n_skus'],
+                n_bins        = row['n_bins'],
+                demand_sum    = row['demand_sum'],
+                lift_sum      = row['lift_sum'],
+                pick_load_sum = (row['pick_load_sum']
+                                 if 'pick_load_sum' in row.keys() else 0.0),
             )
             for row in rows
         ]

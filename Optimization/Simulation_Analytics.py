@@ -473,9 +473,11 @@ def snapshot_aisle_metrics(
     aisle_sku_counts  = manager._aisle_sku_counts
     aisle_demand_sum  = manager._aisle_demand_sum
     aisle_lift_sum    = manager._aisle_lift_sum
+    aisle_pick_load   = getattr(manager, '_aisle_pick_load_sum', {})
 
     # Union of all aisle IDs present in any state dict
-    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum))
+    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum)
+                | set(aisle_pick_load))
     if not all_aids:
         return []
 
@@ -484,13 +486,14 @@ def snapshot_aisle_metrics(
         sku_set  = aisle_sku_sets.get(aid, set())
         sku_cnts = aisle_sku_counts.get(aid, {})
         records.append(AisleMetricRecord(
-            run_id     = run_id,
-            batch_id   = batch_id,
-            aisle_id   = aid,
-            n_skus     = len(sku_set),
-            n_bins     = sum(sku_cnts.values()),
-            demand_sum = float(aisle_demand_sum.get(aid, 0.0)),
-            lift_sum   = float(aisle_lift_sum.get(aid, 0.0)),
+            run_id        = run_id,
+            batch_id      = batch_id,
+            aisle_id      = aid,
+            n_skus        = len(sku_set),
+            n_bins        = sum(sku_cnts.values()),
+            demand_sum    = float(aisle_demand_sum.get(aid, 0.0)),
+            lift_sum      = float(aisle_lift_sum.get(aid, 0.0)),
+            pick_load_sum = float(aisle_pick_load.get(aid, 0.0)),
         ))
     return records
 

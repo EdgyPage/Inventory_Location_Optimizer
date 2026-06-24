@@ -500,7 +500,7 @@ def main() -> None:
     profile_stats = {}
     for pname, inv_db in profile_dbs.items():
         conn = sqlite3.connect(inv_db)
-        df   = pd.read_sql_query('SELECT * FROM orders', conn)
+        df   = pd.read_sql_query('SELECT * FROM cartons', conn)
         conn.close()
         df['volume']         = df['length'] * df['width'] * df['height']
         df['is_singleton']   = (df[['length', 'width', 'height']].max(axis=1) <= 16).astype(int)

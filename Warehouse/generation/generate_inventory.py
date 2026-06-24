@@ -433,7 +433,7 @@ def build_inventory_with_profile(
 # ── DB schema ──────────────────────────────────────────────────────────────────
 
 _SCHEMA = '''
-    CREATE TABLE IF NOT EXISTS orders (
+    CREATE TABLE IF NOT EXISTS cartons (   -- persisted table name (data, not code): kept stable across the Order rename
         sku                   INTEGER PRIMARY KEY,
         handling              TEXT    NOT NULL,
         category              TEXT    NOT NULL,
@@ -515,7 +515,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             json.dumps(sp) if sp else None,
         ))
     conn.executemany(
-        'INSERT OR REPLACE INTO orders '
+        'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' demand_frequency, demand_qty_rate, expected_batch_demand, '
         ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan) '
@@ -571,7 +571,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         'SELECT sku, handling, category, length, width, height, weight, '
         'demand_frequency, demand_qty_rate, equilibrium_qty, reorder_point, '
         'lead_time_mean, supply_cv, stock_plan '
-        'FROM orders ORDER BY sku'
+        'FROM cartons ORDER BY sku'
         + (f' LIMIT {limit}' if limit is not None else '')
     )
     rows = conn.execute(select).fetchall()
@@ -1065,7 +1065,7 @@ def generate_run(
     _log(f'[inventory:{name}] Saved → {db_path}  ({time.perf_counter()-t0:.2f}s)')
 
     conn = sqlite3.connect(db_path)
-    df   = pd.read_sql_query('SELECT * FROM orders', conn)
+    df   = pd.read_sql_query('SELECT * FROM cartons', conn)
     conn.close()
     # is_singleton is not stored in the DB (derived from dimensions); add it
     # here so stats and plot functions have a consistent column to work with.

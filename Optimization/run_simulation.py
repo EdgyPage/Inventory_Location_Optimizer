@@ -364,8 +364,10 @@ def build_shared_assets(
                  f'cross-tier stock plans)')
 
     # ── persist warehouse stats and aisle distributions ───────────────────────
+    warehouse_fp: str | None = None
     if warehouse_db_path is not None:
-        from Warehouse_Data import init_warehouse_db, save_warehouse_stats, save_aisle_layout
+        from Warehouse_Data import (init_warehouse_db, save_warehouse_stats,
+                                     save_aisle_layout, compute_warehouse_fingerprint)
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
@@ -390,6 +392,22 @@ def build_shared_assets(
             ))
         avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
         avg_rp = sum(c.reorder_point   for c in inventory.orders) / max(n_skus, 1)
+        # Per-aisle physical layout for reconstruction/visualization (and DB-only
+        # analysis maps).  warehouse_meta is built from the same seed the workers
+        # use, so aisle_ids match the task_stats / picker_events they record.  The same
+        # rows seed the rename-proof fingerprint stamped on warehouse_stats AND every run.
+        layout_rows = [
+            dict(aisle_id      = a.aisle_id,
+                 handling_type = a.handling_type,
+                 category      = a.storage_type,
+                 unit_type     = a.unit_type,
+                 storage_size  = a.storage_size,
+                 bay_x         = a.bayXPerAisle,
+                 bay_y         = a.bayYPerAisle)
+            for a in warehouse_meta.aisles
+        ]
+        warehouse_fp = compute_warehouse_fingerprint(
+            layout_rows, os.path.basename(_pair_dir))
         init_warehouse_db(warehouse_db_path)
         save_warehouse_stats(
             warehouse_db_path,
@@ -406,22 +424,11 @@ def build_shared_assets(
             avg_eq_qty    = avg_eq,
             avg_rp        = avg_rp,
             aisle_rows    = aisle_rows,
+            warehouse_fingerprint = warehouse_fp,
         )
-        # Per-aisle physical layout for reconstruction/visualization (and DB-only
-        # analysis maps).  warehouse_meta is built from the same seed the workers
-        # use, so aisle_ids match the task_stats / picker_events they record.
-        save_aisle_layout(warehouse_db_path, [
-            dict(aisle_id      = a.aisle_id,
-                 handling_type = a.handling_type,
-                 category      = a.storage_type,
-                 unit_type     = a.unit_type,
-                 storage_size  = a.storage_size,
-                 bay_x         = a.bayXPerAisle,
-                 bay_y         = a.bayYPerAisle)
-            for a in warehouse_meta.aisles
-        ])
+        save_aisle_layout(warehouse_db_path, layout_rows)
         log.info(f'  Warehouse stats  -> {warehouse_db_path}'
-                 f'  ({len(warehouse_meta.aisles)} aisles in aisle_layout)')
+                 f'  ({len(warehouse_meta.aisles)} aisles, fp={warehouse_fp})')
 
     return dict(
         inventory          = inventory,
@@ -444,6 +451,7 @@ def build_shared_assets(
         planned_inv_db     = planned_inv_db,
         keyframe_interval  = keyframe_interval,
         warehouse_meta     = warehouse_meta,
+        warehouse_fingerprint = warehouse_fp,
     )
 
 
@@ -580,9 +588,18 @@ def _prepare_config_run(
         log.info('  Resuming  ' + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
     else:
         run_ids = {}
+        _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
+        _identity = dict(
+            pair_label            = _pair_label,
+            config_label          = name,
+            warehouse_fingerprint = shared.get('warehouse_fingerprint'),
+            inventory_label       = _pair_label,
+        )
         for s in STRATEGIES:
             init_run_db(db_path[s.key])
-            run_ids[s.key] = create_run(db_path[s.key], s.run_type, run_params)
+            run_ids[s.key] = create_run(
+                db_path[s.key], s.run_type, run_params,
+                identity={**_identity, 'strategy_key': s.key})
         starts = {s.key: 0 for s in STRATEGIES}
         log.info('  New run  ' + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
 

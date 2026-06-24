@@ -59,8 +59,10 @@ from Simulation_Analytics import (
 from Picking_Data import (
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
     save_bin_inventory, save_aisle_metrics, save_reorder_queue,
+    save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
+from cost_model import sec_per_inch, height_multiplier
 
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
@@ -267,6 +269,33 @@ def _run_strategy_worker(args: dict) -> dict:
     # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
     mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
 
+    # ── static per-run scores (saved once, before the loop) ────────────────────
+    # Geometry/config-fixed scores the assignment functions compute: the viewer reads
+    # these instead of recomputing.  bin layout score = travel D + golden-zone height;
+    # map_pref/_map_target only exist for the optimal-map arms (else NULL/absent).
+    if start_i == 0:
+        _xp, _yp = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
+        _brk     = getattr(wp, 'height_brackets', ())
+        _pref    = mgr._bin_pref            # {} unless this is a map/map_rank arm
+        bin_rows = []
+        for _b in warehouse.bins:
+            _d = _xp * _b.x_phys + _yp * _b.y_phys
+            _m = height_multiplier(_brk, _b.y_phys)
+            bin_rows.append((_b.location[0], _b.bayX, _b.bayY,
+                             _d, _m, _d + _m, _pref.get(id(_b))))
+        save_bin_scores(db_path, run_id, bin_rows)
+        _tgt = mgr._map_target              # {} unless this is a map/map_rank arm
+        sku_rows = [
+            (c.sku, _tgt.get(c.sku), c.labor_cost, c.handle_var,
+             c.expected_popularity, c.expected_labor,
+             getattr(c, 'equilibrium_qty', 1), getattr(c, 'reorder_point', 1),
+             getattr(c, 'lead_time_mean', 0.0))
+            for c in inventory.orders
+        ]
+        save_sku_scores(db_path, run_id, sku_rows)
+        log.info(f'  Saved scores: {len(bin_rows):,} bins, {len(sku_rows):,} SKUs'
+                 + ('  (incl. optimal-map pref/target)' if _pref else ''))
+
     # ── RNG streams ───────────────────────────────────────────────────────────
     # Batches use a dedicated per-batch stream seeded `seed_batches + i` (built in the
     # loop below), so batch i is identical across arms and resume needs no fast-forward.
@@ -325,15 +354,17 @@ def _run_strategy_worker(args: dict) -> dict:
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         # Replay viewer: snapshot the standing replenishment queues at batch start (after
         # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
-        # not yet binned.  Aggregated by (sku, remaining_lead) to keep the table compact.
+        # not yet binned (with its bin tier).  Aggregated by (sku, remaining_lead) for lead
+        # and (sku, unit_type, storage_size) for stock to keep the table compact.
         _rq: dict = {}
         for _sku, _qty, _rem in mgr._lead_queue:
-            _rq[('lead', _sku, _rem)] = _rq.get(('lead', _sku, _rem), 0) + _qty
+            _k = ('lead', _sku, _rem, None, None)
+            _rq[_k] = _rq.get(_k, 0) + _qty
         for _u in mgr._stock_queue:
-            k = ('stock', _u.order.sku, 0)
-            _rq[k] = _rq.get(k, 0) + _u.quantity
-        for (_kind, _sku, _rem), _qty in _rq.items():
-            pq.append((i, _kind, _sku, _qty, _rem))
+            _k = ('stock', _u.order.sku, 0, _u.unit_category, _u.storage_size)
+            _rq[_k] = _rq.get(_k, 0) + _u.quantity
+        for (_kind, _sku, _rem, _ut, _ss), _qty in _rq.items():
+            pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Dedicated per-batch RNG: batch i is a pure function of (inventory, affinity,
