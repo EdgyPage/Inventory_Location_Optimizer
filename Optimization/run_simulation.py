@@ -135,7 +135,42 @@ REGRESSION_CONFIGS = [
         'y_speed'         : 2,    # ft/s
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
-
+    {
+        'name'            : 'calibrated_high_weight',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02*2,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
+    },
+    {
+        'name'            : 'calibrated_high_weight_high_height',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02*2,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+    },
+    {
+        'name'            : 'calibrated_high_height',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+    },
 ]
 
 
