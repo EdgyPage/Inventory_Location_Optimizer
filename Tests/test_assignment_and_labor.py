@@ -29,6 +29,7 @@ from Assignment_Functions import (
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
+    build_cluster_map_placement,
 )
 from Workload import WorkloadParams, aisle_workload, aisle_workload_components
 from Simulation_Analytics import expected_task_labor
@@ -465,6 +466,66 @@ def test_optmap_capped_saves_prime_spots():
     assert build_optmap_fn(mgr, capped=True)(_Unit(_Cart(7, 1, 1, 1)), [prime, tier, bad]) is tier
     # unknown SKU under capped: don't waste a prime bin → least-prime
     assert build_optmap_fn(mgr, capped=True)(_Unit(_Cart(99, 1, 1, 1)), [prime, bad]) is bad
+
+
+# ── cluster_map: map favored-location + cohesion + intra-aisle compaction ─────
+
+def _cm_state():
+    return (defaultdict(set), defaultdict(set), defaultdict(float),
+            defaultdict(lambda: defaultdict(list)))
+
+
+def test_cluster_map_cohesion_pulls_codemanded_into_one_aisle():
+    """Two equal aisles, two strongly co-demanded SKUs.  cluster_map places the heavier SKU
+    first, then cohesion pulls the partner into the SAME aisle (vs scattering)."""
+    bins = [_Bin(1, 10, 0), _Bin(1, 20, 0), _Bin(2, 10, 0), _Bin(2, 20, 0)]
+    mgr = types.SimpleNamespace(
+        _bin_pref={id(b): 5.0 for b in bins},   # symmetric pref → cohesion, not anchor, decides
+        _map_target={1: 5.0, 2: 5.0})
+    aff = _aff_csr([1, 2], [(1, 2, 4.0)])        # lift 4 ⇒ (lift−1)=3 association
+    idx = aff._sku_to_idx
+    fbi = {idx[1]: 2.0, idx[2]: 1.0}
+    ass, aix, ads, amp = _cm_state()
+    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      fbi, {1: 2.0, 2: 1.0}, {1: 1.0, 2: 1.0},
+                                      beta=1.0, capped=False)
+    c1 = _Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)   # higher expected_labor → placed first
+    c2 = _Cart(2, 1.0, 1.0, 1.0, handle_var=1.0)
+    placed = [b for _, b in plc.place_wave([_Unit(c1), _Unit(c2)], lambda u: list(bins))]
+    assert all(b is not None for b in placed)
+    assert placed[0].location[0] == placed[1].location[0]    # same aisle (cohesion)
+
+
+def test_cluster_map_anchors_at_favored_location_then_compacts():
+    """Within one aisle, no partners yet → cluster_map anchors at the bin whose pref matches
+    the SKU's map target (favored location), not the most-prime bin."""
+    prime = _Bin(1, 0, 0); mid = _Bin(1, 50, 0); far = _Bin(1, 100, 0)
+    mgr = types.SimpleNamespace(
+        _bin_pref={id(prime): 1.0, id(mid): 5.0, id(far): 9.0}, _map_target={7: 5.0})
+    aff = _aff_csr([7], [])
+    fbi = {aff._sku_to_idx[7]: 1.0}
+    ass, aix, ads, amp = _cm_state()
+    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=False)
+    assert plc.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, mid, far]) is mid   # matched tier
+
+
+def test_cluster_map_rank_caps_prime_like_map_rank():
+    """cluster_map_rank refuses a bin more prime than the SKU's target (reserve prime spots);
+    uncapped cluster_map grabs the closest bin even if that upgrades into a prime one."""
+    prime = _Bin(1, 0, 0); bad = _Bin(1, 120, 0)               # pref 1.0 vs 12.0; target 5.0
+    mgr = types.SimpleNamespace(
+        _bin_pref={id(prime): 1.0, id(bad): 12.0}, _map_target={7: 5.0})
+    aff = _aff_csr([7], [])
+    fbi = {aff._sku_to_idx[7]: 1.0}
+    ass, aix, ads, amp = _cm_state()
+    unc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=False)
+    assert unc.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, bad]) is prime    # |1−5|<|12−5|
+    ass, aix, ads, amp = _cm_state()
+    cap = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=True)
+    assert cap.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, bad]) is bad      # prime off-limits
 
 
 if __name__ == '__main__':

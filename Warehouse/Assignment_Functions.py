@@ -1273,6 +1273,129 @@ def build_optmap_fn(mgr, capped=False):
     return place_one
 
 
+# ── cluster_map: map-favored cluster anchoring + intra-aisle compaction ────────
+#
+# Mixes `map` (each SKU has a favored location: the optimal-map preferred score
+# mgr._map_target[sku] over the bin basis mgr._bin_pref) with `clusters` (co-locate
+# affinity partners and compact them within the aisle).  Per unit:
+#   • aisle  — COHESION-FIRST: the aisle with the most demand-weighted association above
+#     independence to its members (Σ(lift−1)·f via _demand_weighted_delta_lift); ties (and
+#     the cold start where no aisle holds a partner yet) break toward the aisle whose best
+#     bin pref is closest to the SKU's map target → degrades to `map`.
+#   • bin    — anchor at the SKU's favored map location AND pull toward the partners' column
+#     centroid:  cost(b) = |pref(b) − target| + W·x_pace·|x(b) − cx|.
+#     capped=True (cluster_map_rank) reserves prime spots like map_rank: never settle in a
+#     bin more prime than the target (pref ≥ target), fallback least-prime.
+_CLUSTER_MAP_W_CENT = 1.0   # weight on the centroid-compaction term (pref & centroid are both s)
+
+
+def _aisle_anchor_gap(lst, pref, target):
+    """Best achievable map-anchor gap in one aisle's candidate bins (lower = more favored):
+    min |pref − target|, or min pref when the SKU has no target (prefer prime)."""
+    if target is None:
+        return min(pref.get(id(b), 0.0) for b in lst)
+    return min(abs(pref.get(id(b), 0.0) - target) for b in lst)
+
+
+def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
+    """Choose the cluster's bin within one aisle: anchor at the favored map location and
+    compact toward the partner centroid; honour the prime-spot cap when capped."""
+    def cost(b):
+        p = pref.get(id(b), 0.0)
+        c = abs(p - target) if target is not None else p
+        if cx is not None:
+            c += _CLUSTER_MAP_W_CENT * x_pace * abs(b.x_phys - cx)
+        return c
+    if capped and target is not None:
+        eligible = [b for b in lst if pref.get(id(b), 0.0) >= target]   # tier or worse
+        if eligible:
+            return min(eligible, key=cost)
+        return max(lst, key=lambda b: pref.get(id(b), 0.0))             # least-prime last resort
+    return min(lst, key=cost)
+
+
+def _cluster_map_choose_aisle(by_aisle, affinity, sku, aisle_idx_sets, freq_by_idx, pref, target):
+    """Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap."""
+    live = [aid for aid, lst in by_aisle.items() if lst]
+    if not live:
+        return None
+    return max(live, key=lambda a: (
+        _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[a], freq_by_idx),
+        -_aisle_anchor_gap(by_aisle[a], pref, target)))
+
+
+def _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+                        affinity, aid, sku, f_s, q_s, x_phys):
+    if sku not in aisle_sku_sets[aid]:
+        aisle_sku_sets[aid].add(sku)
+        aisle_demand_sum[aid] += f_s * q_s
+    idx = affinity._sku_to_idx.get(sku)
+    if idx is not None:
+        aisle_idx_sets[aid].add(idx)
+        aisle_member_pos[aid][idx].append(x_phys)
+
+
+def build_cluster_map_placement(mgr, affinity, wp,
+                                aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+                                freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement:
+    """One Placement (ranked place_wave + per-unit place_one) for cluster_map (capped=False)
+    or cluster_map_rank (capped=True).  Reads mgr._bin_pref / mgr._map_target at call time, so
+    build_optimal_map must have run (wired in strategies._build_cluster_map[_rank])."""
+    name = 'cluster_map_rank' if capped else 'cluster_map'
+    _require_affinity(affinity, name)          # cohesion is meaningless without lift data
+    _require_demand(freq_by_idx, name, 'freq_by_idx (the cohesion weight)')
+    x_pace = sec_per_inch(wp.x_speed)
+
+    def _place(sku, by_aisle, f_s, q_s):
+        """Shared aisle+bin choice; mutates the chosen aisle's bin list + aisle state."""
+        target = mgr._map_target.get(sku)
+        aid = _cluster_map_choose_aisle(by_aisle, affinity, sku, aisle_idx_sets,
+                                        freq_by_idx, mgr._bin_pref, target)
+        if aid is None:
+            return None
+        _mass, cx = _demand_weighted_partner_centroid(
+            affinity, sku, aisle_member_pos[aid], freq_by_idx)
+        chosen = _cluster_map_pick_bin(by_aisle[aid], mgr._bin_pref, target, cx, x_pace, capped)
+        by_aisle[aid].remove(chosen)
+        _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+                            affinity, aid, sku, f_s, q_s, chosen.x_phys)
+        return chosen
+
+    def place_one(unit, candidates):
+        if not candidates:
+            return None
+        by_aisle: dict[int, list] = {}
+        for b in candidates:
+            by_aisle.setdefault(b.location[0], []).append(b)
+        c = unit.order
+        return _place(c.sku, by_aisle, freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))
+
+    def place_wave(units, candidates_fn):
+        all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+
+        def priority(unit):
+            c = unit.order
+            co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+            return c.demand.relative_frequency * c.labor_cost + co
+
+        sorted_units = sorted(units, key=priority, reverse=True)
+        result: list = []
+        if not sorted_units:
+            return result
+        by_aisle: dict[int, list] = {}
+        for b in candidates_fn(sorted_units[0]):          # one BinKey tier, constant for the wave
+            by_aisle.setdefault(b.location[0], []).append(b)
+        for unit in sorted_units:
+            c = unit.order
+            result.append((unit, _place(c.sku, by_aisle,
+                                        freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))))
+        return result
+
+    place_one.name = name
+    place_wave.name = name
+    return Placement(name, place_one, place_wave)
+
+
 # ── programmatic name → builder registries (robust downstream lookup) ──────
 ASSIGNMENT_BUILDERS = {
     'travel_min':   build_trip_minimizing_assignment_fn,
