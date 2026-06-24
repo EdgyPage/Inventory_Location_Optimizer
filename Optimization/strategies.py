@@ -287,9 +287,9 @@ _RESTOCKS = [
 _RESLOT_FRAC = 0.005
 _RESLOTS = [
     ('norsl', 'noRSL',   0.0,          'rebalance'),         # no re-slot  (sweep: noReslot only)
-    #('rmin',  'RSLmin',  _RESLOT_FRAC, 'demote_unpopular'),  # re-slot least-popular (min performers)
-    #('rmax',  'RSLmax',  _RESLOT_FRAC, 'promote_popular'),   # re-slot most-popular (max performers)
-    #('rboth', 'RSLboth', _RESLOT_FRAC, 'rebalance'),         # both ends
+    ('rmin',  'RSLmin',  _RESLOT_FRAC, 'demote_unpopular'),  # re-slot least-popular (min performers)
+    ('rmax',  'RSLmax',  _RESLOT_FRAC, 'promote_popular'),   # re-slot most-popular (max performers)
+    ('rboth', 'RSLboth', _RESLOT_FRAC, 'rebalance'),         # both ends
 ]
 
 _N_STRATEGIES = len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)
