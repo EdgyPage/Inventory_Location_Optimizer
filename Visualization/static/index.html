@@ -3,57 +3,69 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Warehouse Pick Simulation</title>
+  <title>Warehouse Replay &amp; Compare</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
+  <header id="topbar">
+    <div class="title">Warehouse Replay &amp; Compare</div>
 
-    <header id="top-bar">
-      <span id="title">Warehouse Pick Simulation</span>
-      <span id="loading-msg">Loading simulation&hellip;</span>
-    </header>
-
-    <div id="main">
-      <div id="warehouse-wrap">
-        <svg id="warehouse-svg"></svg>
-      </div>
-
-      <aside id="side-panel">
-        <div id="picker-cards"></div>
-
-        <div id="legend">
-          <div class="legend-title">Bin State</div>
-          <div class="legend-item"><span class="swatch" style="background:#4CAF50"></span>Full</div>
-          <div class="legend-item"><span class="swatch" style="background:#FF9800"></span>Partial (&ge;50%)</div>
-          <div class="legend-item"><span class="swatch" style="background:#f44336"></span>Low (&lt;50%)</div>
-          <div class="legend-item"><span class="swatch" style="background:#3a2a2a"></span>Emptied</div>
-          <div class="legend-item"><span class="swatch" style="background:#2a2a3a"></span>Unstocked</div>
-          <div class="legend-item"><span class="swatch" style="background:#00E5FF"></span>Active pick</div>
-          <div class="legend-title" style="margin-top:10px">Aisle Tint</div>
-          <div class="legend-item"><span class="swatch" style="background:#1a2335"></span>Conveyable</div>
-          <div class="legend-item"><span class="swatch" style="background:#231a35"></span>Non-conveyable</div>
-        </div>
-      </aside>
+    <div class="run-picker">
+      <label>Add run:</label>
+      <select id="run-select"><option value="">— loading runs —</option></select>
+      <button id="add-run" title="Add to a free pane (up to 4)">+ pane</button>
+      <span id="run-count" class="hint">0 / 4 panes</span>
     </div>
 
-    <footer id="controls">
-      <button id="play-btn" title="Play / Pause">&#9654;</button>
-      <button id="reset-btn" title="Reset to t=0">&#8635;</button>
-      <input id="time-slider" type="range" min="0" max="100" step="0.5" value="0">
-      <span id="time-display">t&nbsp;=&nbsp;0.0</span>
-      <label class="speed-label">
-        Speed:
+    <div class="controls">
+      <button id="batch-prev" title="Previous batch">&#10216; batch</button>
+      <span id="batch-label" class="batch-label">batch —</span>
+      <button id="batch-next" title="Next batch">batch &#10217;</button>
+      <button id="play-btn" title="Play / pause">&#9654;</button>
+      <label class="speedwrap">speed
         <select id="speed-select">
+          <option value="0.25">0.25&times;</option>
           <option value="1">1&times;</option>
           <option value="5" selected>5&times;</option>
-          <option value="10">10&times;</option>
           <option value="20">20&times;</option>
+          <option value="100">100&times;</option>
         </select>
       </label>
-    </footer>
+    </div>
 
+    <div class="view-opts">
+      <label><input type="checkbox" id="active-only" checked> active aisles only</label>
+      <label>color
+        <select id="color-mode">
+          <option value="fill">fill</option>
+          <option value="picks">pick activity</option>
+          <option value="score">layout score</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div id="timeline-row">
+    <span id="phase-label" class="phase-label">&mdash;</span>
+    <input type="range" id="time-slider" min="0" max="1" step="0.001" value="0" disabled>
+    <span id="time-display" class="time-display">t = 0</span>
   </div>
+
+  <main id="panes"></main>
+
+  <div id="aisle-modal" class="hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span id="aisle-modal-title">Aisle</span>
+        <button id="aisle-close">&#10005;</button>
+      </div>
+      <canvas id="aisle-canvas"></canvas>
+      <div id="aisle-legend" class="legend"></div>
+    </div>
+  </div>
+
+  <div id="loading-msg" class="loading">Pick runs to compare&hellip;</div>
+
   <script src="app.js"></script>
 </body>
 </html>

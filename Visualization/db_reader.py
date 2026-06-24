@@ -237,6 +237,92 @@ def reconstruct_batch(run: RunRef, batch: int) -> dict:
     }
 
 
+# ── downsampled views (canvas: overview heatmap + per-aisle drill-in) ─────────────
+
+def _picker_paths(events: list[dict]) -> list[dict]:
+    """Aisle-level picker trajectories for the overview: each picker's ordered
+    (aisle_id, t) waypoints from 'arrive' events — cheap (~one per task)."""
+    paths: dict[int, list] = {}
+    for e in events:
+        if e['event_type'] == 'arrive' and e['aisle_id'] is not None:
+            paths.setdefault(e['picker_id'], []).append(
+                {'aisle_id': e['aisle_id'], 'bayX': e['location'][1], 'bayY': e['location'][2],
+                 't': e['time']})
+    return [{'picker_id': pid, 'waypoints': wp} for pid, wp in sorted(paths.items())]
+
+
+def reconstruct_overview(run: RunRef, batch: int) -> dict:
+    """Per-aisle aggregates for the zoomed-out heatmap (157 cells = cheap to render),
+    plus aisle-level picker paths.  Full bin state is reconstructed once to count
+    occupancy per aisle; detail bins are fetched lazily per aisle (reconstruct_aisle)."""
+    geom = read_geometry(run)
+    cap = {a['aisle_id']: a['bay_x'] * a['bay_y'] for a in geom['aisles']}
+    state = _state_at_batch_start(run, batch)          # whole warehouse, occupied bins
+    occ: dict[int, int] = {}
+    for key, info in state.items():
+        aid = int(key.split(',', 1)[0])
+        occ[aid] = occ.get(aid, 0) + 1
+
+    conn = _ro(run.sim_db)
+    active = sorted({int(r['aisle_id']) for r in conn.execute(
+        'SELECT DISTINCT aisle_id FROM picker_events '
+        'WHERE run_id=? AND batch_id=? AND aisle_id IS NOT NULL', (run.run_id, batch)).fetchall()})
+    picks = {int(r['aisle_id']): r['n'] for r in conn.execute(
+        "SELECT aisle_id, COUNT(*) n FROM picker_events "
+        "WHERE run_id=? AND batch_id=? AND event_type='pick' GROUP BY aisle_id",
+        (run.run_id, batch)).fetchall()}
+    events = [
+        {'time': round(r['time'], 4), 'picker_id': r['picker_id'], 'event_type': r['event_type'],
+         'aisle_id': r['aisle_id'],
+         'location': ([r['aisle_id'], r['bayX'], r['bayY']] if r['bayX'] is not None else None)}
+        for r in conn.execute(
+            "SELECT picker_id, time, event_type, aisle_id, bayX, bayY FROM picker_events "
+            "WHERE run_id=? AND batch_id=? AND event_type='arrive' ORDER BY time",
+            (run.run_id, batch)).fetchall()
+    ]
+    brow = conn.execute(
+        'SELECT duration, queue_depth, lead_queue_depth, in_transit_qty FROM batch_stats '
+        'WHERE run_id=? AND batch_id=?', (run.run_id, batch)).fetchone()
+    max_time = conn.execute(
+        'SELECT MAX(time) m FROM picker_events WHERE run_id=? AND batch_id=?',
+        (run.run_id, batch)).fetchone()['m'] or 0.0
+    conn.close()
+
+    active_set = set(active)
+    aisles = [{
+        'aisle_id': a['aisle_id'], 'grid_col': a['grid_col'], 'grid_row': a['grid_row'],
+        'handling_type': a['handling_type'], 'storage_type': a['storage_type'],
+        'unit_type': a['unit_type'], 'bay_x': a['bay_x'], 'bay_y': a['bay_y'],
+        'capacity': cap[a['aisle_id']],
+        'occupied': occ.get(a['aisle_id'], 0),
+        'fill': round(occ.get(a['aisle_id'], 0) / (cap[a['aisle_id']] or 1), 4),
+        'picks': picks.get(a['aisle_id'], 0),
+        'active': a['aisle_id'] in active_set,
+    } for a in geom['aisles']]
+    return {
+        'batch': batch, 'grid_cols': geom['grid_cols'], 'aisles': aisles,
+        'picker_paths': _picker_paths(events), 'max_time': round(max_time, 4),
+        'reorder_queue': load_reorder_queue(run.sim_db, run.run_id, batch),
+        'timing': (dict(brow) if brow else {}),
+    }
+
+
+def reconstruct_aisle(run: RunRef, batch: int, aisle_id: int) -> dict:
+    """Full bin detail + bin-level timed events for ONE aisle (the drill-in canvas)."""
+    bins = {k: v for k, v in _state_at_batch_start(run, batch, aisles={aisle_id}).items()}
+    conn = _ro(run.sim_db)
+    events = [
+        {'time': round(r['time'], 4), 'picker_id': r['picker_id'], 'event_type': r['event_type'],
+         'location': [r['aisle_id'], r['bayX'], r['bayY']] if r['bayX'] is not None else None,
+         'sku': r['sku'], 'quantity': r['quantity']}
+        for r in conn.execute(
+            'SELECT * FROM picker_events WHERE run_id=? AND batch_id=? AND aisle_id=? ORDER BY time, id',
+            (run.run_id, batch, aisle_id)).fetchall()
+    ]
+    conn.close()
+    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events}
+
+
 # ── static per-bin layout score (cached) ──────────────────────────────────────────
 
 @lru_cache(maxsize=64)

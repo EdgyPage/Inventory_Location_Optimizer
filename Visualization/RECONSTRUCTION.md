@@ -2,8 +2,24 @@
 
 Everything needed to replay any `(run, batch, time t)` is persisted by
 `run_simulation.py` — no live sim or warehouse re-plan. This documents where each
-piece lives and the queries to reconstruct state. (The DB-backed web viewer that
-consumes these is a separate, later task.)
+piece lives and the queries to reconstruct state.
+
+The DB-backed web viewer that consumes these now exists: `server.py` (Flask API over
+`db_reader.py`) + `static/` (canvas viewer). Run it with:
+
+```
+cd Visualization
+pip install -r requirements.txt
+python server.py --base "<comparison_YYYYMMDD_HHMMSS dir>"   # or set COMPARISON_OUTPUT_DIR
+# → http://localhost:5000
+```
+
+Add up to 4 runs by name → side-by-side panes; each pane is an aisle heatmap (fill /
+pick-activity / layout-score, "active aisles only" by default) with animated pickers;
+click an aisle to drill into its SKU-coloured bin grid. The batch stepper + time slider
+are synced across panes (each batch restarts at t=0, with a leading reorder phase). The
+per-batch reorder-queue panel needs a run produced after the `reorder_queue` table was
+added; older runs replay everything else.
 
 ## Files per simulation output
 

@@ -84,14 +84,35 @@ def api_geometry():
     return jsonify(R.read_geometry(run))
 
 
+def _batch_arg() -> int:
+    try:
+        return int(request.args.get('batch', 0))
+    except ValueError:
+        abort(400, description='batch must be an integer')
+
+
 @app.route('/api/batch')
 def api_batch():
     run = _run_or_404(request.args.get('run', ''))
+    return jsonify(R.reconstruct_batch(run, _batch_arg()))
+
+
+@app.route('/api/overview')
+def api_overview():
+    """Zoomed-out per-aisle heatmap + aisle-level picker paths (cheap; 157 cells)."""
+    run = _run_or_404(request.args.get('run', ''))
+    return jsonify(R.reconstruct_overview(run, _batch_arg()))
+
+
+@app.route('/api/aisle')
+def api_aisle():
+    """Drill-in: full bin detail + bin-level events for one aisle (bounded payload)."""
+    run = _run_or_404(request.args.get('run', ''))
     try:
-        batch = int(request.args.get('batch', 0))
+        aisle = int(request.args.get('aisle', 0))
     except ValueError:
-        abort(400, description='batch must be an integer')
-    return jsonify(R.reconstruct_batch(run, batch))
+        abort(400, description='aisle must be an integer')
+    return jsonify(R.reconstruct_aisle(run, _batch_arg(), aisle))
 
 
 @app.route('/api/scores')
