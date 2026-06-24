@@ -13,7 +13,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from Carton import Carton
+from Order import Order
 from Aisle_Storage import Aisle
 from Storage_Primitive import StorageUnit, Pallet, Storage_Size
 
@@ -72,7 +72,7 @@ class WarehousePlan:
     """Result of Inventory_Manager.plan_warehouse: a sized warehouse + the
     SKU sample chosen to fill it to target utilization."""
     warehouse_cfg : Any                   # WarehouseConfig
-    sampled       : list                  # cartons to actually stock
+    sampled       : list                  # orders to actually stock
     sku_allowlist : set                   # sku ids in `sampled`
     capacity      : dict                  # BinKey -> bins available in warehouse
     aisle_configs : list                  # the per-replica AisleConfig list
@@ -96,18 +96,18 @@ _SIZES_DESCENDING: tuple[str, ...] = tuple(
 BinKey = tuple[str, str, str, str]
 
 
-def _equilibrium_qty(carton: Carton) -> int:
-    """Return the Order-Up-To target for *carton*.
+def _equilibrium_qty(order: Order) -> int:
+    """Return the Order-Up-To target for *order*.
 
     Reads equilibrium_qty if present (new schema); falls back to the legacy
     stock_qty attribute so old in-memory inventories still work correctly.
     """
-    return getattr(carton, 'equilibrium_qty',
-                   getattr(carton, 'stock_qty', 1))
+    return getattr(order, 'equilibrium_qty',
+                   getattr(order, 'stock_qty', 1))
 
 
-def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
-    """Return the maximum number of *carton* items that stack onto one pallet
+def _max_qty_fitting_pallet_size(order: Order, target_size: str) -> int:
+    """Return the maximum number of *order* items that stack onto one pallet
     whose storage_size is at most *target_size*.
 
     Pallet stacking height increases monotonically with quantity, so the
@@ -119,7 +119,7 @@ def _max_qty_fitting_pallet_size(carton: Carton, target_size: str) -> int:
     result = 0
     for q in range(1, 10_000):
         try:
-            p = Pallet(carton, q)
+            p = Pallet(order, q)
             if _SIZE_RANKS.get(p.storage_size, 99) <= target_rank:
                 result = q
             else:

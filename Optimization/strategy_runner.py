@@ -153,14 +153,14 @@ def _run_strategy_worker(args: dict) -> dict:
     t0        = time.perf_counter()
     inventory = load_inventory_from_db(inv_db, limit=max_skus)
     if sku_allowlist is not None:
-        inventory.cartons = [c for c in inventory.cartons if c.sku in sku_allowlist]
-    n_skus    = len(inventory.cartons)
+        inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
+    n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 
     # Precompute per-unit labor cost once per worker (config-dependent: uses this run's
-    # pick coefficients).  expected_popularity/expected_labor are Carton properties that
+    # pick coefficients).  expected_popularity/expected_labor are Order properties that
     # derive from this + demand, so the hot ranked-wave order/balance never re-takes logs.
-    for c in inventory.cartons:
+    for c in inventory.orders:
         c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef,
                              wp.pick_weight_fn, wp.pick_volume_fn)
 
@@ -178,14 +178,14 @@ def _run_strategy_worker(args: dict) -> dict:
     # freq_by_sku ranks SKUs for the optimal stock layout and for re-slotting; built
     # for every strategy (cheap) since these don't depend on placement.
     strat = STRATEGY_BY_KEY[strategy]
-    freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.cartons}
-    qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.cartons}
+    freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.orders}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.orders}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
-                   for c in inventory.cartons if c.sku in affinity._sku_to_idx}
+                   for c in inventory.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(
         affinity=affinity, wp=wp,
         freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0, cartons=inventory.cartons)
+        beta=1.0, orders=inventory.orders)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')
@@ -231,11 +231,11 @@ def _run_strategy_worker(args: dict) -> dict:
             mgr.init_travel_costs(wp)   # NOTE(cluster): _aisle_index is maintained
                                         # incrementally by _index_add/remove during the fill
         strat.build(mgr, ctx)
-        mgr.enqueue_all(inventory.cartons)   # placed by the strategy's own policy
+        mgr.enqueue_all(inventory.orders)   # placed by the strategy's own policy
         _arm_aisle_state()                   # authoritative rebuild over the final layout
     else:
         log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement...')
-        mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
+        mgr.enqueue_all(inventory.orders)   # quantity read from order.equilibrium_qty
         _arm_aisle_state()
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)
@@ -330,7 +330,7 @@ def _run_strategy_worker(args: dict) -> dict:
         for _sku, _qty, _rem in mgr._lead_queue:
             _rq[('lead', _sku, _rem)] = _rq.get(('lead', _sku, _rem), 0) + _qty
         for _u in mgr._stock_queue:
-            k = ('stock', _u.carton.sku, 0)
+            k = ('stock', _u.order.sku, 0)
             _rq[k] = _rq.get(k, 0) + _u.quantity
         for (_kind, _sku, _rem), _qty in _rq.items():
             pq.append((i, _kind, _sku, _qty, _rem))

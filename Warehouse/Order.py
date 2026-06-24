@@ -4,9 +4,9 @@ from collections import namedtuple
 from Demand import Demand, poisson_sample
 from cost_model import handle_var as _handle_var
 
-# Named tuple combining a carton's handling type and storage category.
-# Replaces the pattern `handling, category = carton.storage_type` throughout
-# the codebase with the more self-documenting `carton.storage_handle_config`.
+# Named tuple combining a order's handling type and storage category.
+# Replaces the pattern `handling, category = order.storage_type` throughout
+# the codebase with the more self-documenting `order.storage_handle_config`.
 StorageHandleConfig = namedtuple('StorageHandleConfig', ['handling', 'category'])
 
 _MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
@@ -14,7 +14,7 @@ _MIN_DIM: int = 3
 
 
 def _sample_dim(max_dim: int = _MAX_DIM) -> int:
-    # mode=max_dim left-skews the distribution; most cartons cluster near the maximum dimension
+    # mode=max_dim left-skews the distribution; most orders cluster near the maximum dimension
     return round(random.triangular(_MIN_DIM, max_dim, max_dim))
 
 
@@ -25,7 +25,7 @@ def _sample_weight(length: int, width: int, height: int) -> int:
     return max(1, poisson_sample(lam))
 
 
-class Carton:
+class Order:
     next_sku: int = 1
     # Per-unit pick-effort regression cost (intercept + weight/volume log terms).
     # Config-dependent (depends on PickConfig coefficients), so it is computed once
@@ -33,7 +33,7 @@ class Carton:
     labor_cost: float = 0.0
     handle_var: float = 0.0   # per-unit weight/volume handling term (no intercept) for height scaling
 
-    # Physical bounds — every constructed carton is clamped to these so the DB only ever
+    # Physical bounds — every constructed order is clamped to these so the DB only ever
     # holds grounded integers (no float dims, no fractional/zero weights).  Tunable.
     MIN_DIM:    int = 1
     MAX_DIM:    int = _MAX_DIM   # 48 (pallet max)
@@ -53,11 +53,11 @@ class Carton:
               frequency: float, qty_rate: float, *,
               equilibrium_qty: int, reorder_point: int,
               lead_time_mean: float = 0.0, supply_cv: float = 0.0,
-              stock_plan=None) -> 'Carton':
-        """Construct a carton from supplied physical + demand values (not random sampling),
+              stock_plan=None) -> 'Order':
+        """Construct a order from supplied physical + demand values (not random sampling),
         applying all physical guardrails.  The single construction path for generated and
-        DB-loaded cartons — accepts demand/quantity as params so the default random Demand()
-        is never invoked.  Does NOT touch Carton.next_sku (sku is explicit)."""
+        DB-loaded orders — accepts demand/quantity as params so the default random Demand()
+        is never invoked.  Does NOT touch Order.next_sku (sku is explicit)."""
         c = object.__new__(cls)
         c._sku = sku
         c.storage_type          = (handling, category)
@@ -86,8 +86,8 @@ class Carton:
         self.weight: int = _sample_weight(self.length, self.width, self.height)
         self.storage_type: tuple[str, str] = storage_type
         self.storage_handle_config: StorageHandleConfig = StorageHandleConfig(*storage_type)
-        self._sku: int = Carton.next_sku
-        Carton.next_sku += 1
+        self._sku: int = Order.next_sku
+        Order.next_sku += 1
         self.demand: Demand = Demand()
         self.lift_group: tuple[str, str] = storage_type
 
@@ -98,10 +98,10 @@ class Carton:
     def sku(self) -> int:
         return self._sku
 
-    def reorder(self) -> 'Carton':
-        """Return a new shipment of this carton: same SKU, dimensions, weight, type, and demand rates."""
+    def reorder(self) -> 'Order':
+        """Return a new shipment of this order: same SKU, dimensions, weight, type, and demand rates."""
         # object.__new__ bypasses __init__ so next_sku is not incremented for a restock
-        c = object.__new__(Carton)
+        c = object.__new__(Order)
         c.length = self.length
         c.width = self.width
         c.height = self.height
@@ -148,7 +148,7 @@ class Carton:
     def compute_labor_cost(self, pick_intercept: float,
                            pick_weight_coef: float, pick_volume_coef: float,
                            pick_weight_fn: str = 'log', pick_volume_fn: str = 'log') -> float:
-        """Set (and return) labor_cost = per-unit pick regression cost for this carton
+        """Set (and return) labor_cost = per-unit pick regression cost for this order
         under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
         no cart swap, ground level.  Call once per worker after inventory load.
 

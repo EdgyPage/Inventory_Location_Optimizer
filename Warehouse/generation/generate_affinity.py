@@ -569,7 +569,7 @@ def generate_run(
     conn_inv = sqlite3.connect(inv_db)
     rows = conn_inv.execute(
         'SELECT sku, handling, category, demand_frequency, demand_qty_rate '
-        'FROM cartons ORDER BY sku'
+        'FROM orders ORDER BY sku'
     ).fetchall()
     conn_inv.close()
 
@@ -688,7 +688,7 @@ def main() -> None:
 
     if args.estimate:
         conn_inv     = sqlite3.connect(inv_db)
-        rows         = conn_inv.execute('SELECT handling, category FROM cartons').fetchall()
+        rows         = conn_inv.execute('SELECT handling, category FROM orders').fetchall()
         conn_inv.close()
         group_counts: dict[str, int] = {}
         for h, c in rows:

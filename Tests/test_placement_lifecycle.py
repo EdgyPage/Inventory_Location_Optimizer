@@ -28,7 +28,7 @@ from typing import Any
 
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
-from Carton import Carton
+from Order import Order
 from Demand import Demand
 from Inventory_Management import Inventory_Manager, LoadParams, Placement
 from Assignment_Functions import (
@@ -119,10 +119,10 @@ def _build_warehouse_with_affinity(seed: int = 0) -> tuple[Any, Inventory_Manage
 
 def _make_carton(sku: int, stock_qty: int = 35,
                  handling: str = 'conveyable',
-                 category: str = 'food') -> Carton:
-    """Create a Carton directly (no DB) with known dimensions and stock_qty."""
-    from Carton import StorageHandleConfig
-    c                        = object.__new__(Carton)
+                 category: str = 'food') -> Order:
+    """Create a Order directly (no DB) with known dimensions and stock_qty."""
+    from Order import StorageHandleConfig
+    c                        = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = (handling, category)
     c.storage_handle_config  = StorageHandleConfig(handling, category)
@@ -148,15 +148,15 @@ def test_initial_placement() -> None:
     random.seed(42)
     wh, mgr = _build_warehouse()
 
-    cartons = [_make_carton(sku=i, stock_qty=30) for i in range(1, 6)]
-    mgr.enqueue_all(cartons)
+    orders = [_make_carton(sku=i, stock_qty=30) for i in range(1, 6)]
+    mgr.enqueue_all(orders)
 
     total_bins = len(wh.bins)
 
     # ── 1a: every SKU has at least one bin in _sku_*_bins
     all_indexed = all(
         mgr._sku_singleton_bins.get(c.sku) or mgr._sku_pallet_bins.get(c.sku)
-        for c in cartons
+        for c in orders
     )
     check('All SKUs indexed in _sku_singleton_bins or _sku_pallet_bins', all_indexed)
 
@@ -174,10 +174,10 @@ def test_initial_placement() -> None:
     # ── 1d: total placed quantity per SKU equals equilibrium_qty
     # (individual bins hold a fraction — pallet capacity splits the total)
     wrong_total = []
-    for c in cartons:
+    for c in orders:
         bins_for_c = [
             b for b in mgr.unavailable
-            if b.storage and b.storage.carton.sku == c.sku
+            if b.storage and b.storage.order.sku == c.sku
         ]
         total = sum(b.storage.quantity for b in bins_for_c)
         if total != c.equilibrium_qty:
@@ -187,7 +187,7 @@ def test_initial_placement() -> None:
           f'mismatches: {wrong_total[:3]}')
 
     # ── 1e: _current_quantities == equilibrium_qty × n_bins for each SKU
-    for c in cartons:
+    for c in orders:
         bins_for_sku = list(mgr._sku_singleton_bins.get(c.sku, set())) + \
                        list(mgr._sku_pallet_bins.get(c.sku, set()))
         expected_qty = sum(b.storage.quantity for b in bins_for_sku if b.storage)
@@ -197,12 +197,12 @@ def test_initial_placement() -> None:
               f'expected={expected_qty}  got={actual_qty}')
 
     # ── 1f: _initial_quantities set for every SKU
-    missing_init = [c.sku for c in cartons if c.sku not in mgr._initial_quantities]
+    missing_init = [c.sku for c in orders if c.sku not in mgr._initial_quantities]
     check('_initial_quantities set for all SKUs', len(missing_init) == 0,
           f'missing: {missing_init}')
 
     # ── 1g: _originals set for every SKU
-    missing_orig = [c.sku for c in cartons if c.sku not in mgr._originals]
+    missing_orig = [c.sku for c in orders if c.sku not in mgr._originals]
     check('_originals set for all SKUs', len(missing_orig) == 0,
           f'missing: {missing_orig}')
 
@@ -213,12 +213,12 @@ def test_initial_placement() -> None:
           total_counts == 0,
           f'total={total_counts}')
 
-    # ── 1i: _is_reorder flag absent on original cartons
+    # ── 1i: _is_reorder flag absent on original orders
     has_reorder_flag = any(
-        getattr(b.storage.carton, '_is_reorder', False)
+        getattr(b.storage.order, '_is_reorder', False)
         for b in mgr.unavailable if b.storage
     )
-    check('No _is_reorder flag on initially-placed cartons', not has_reorder_flag)
+    check('No _is_reorder flag on initially-placed orders', not has_reorder_flag)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -231,19 +231,19 @@ def test_pick_depletion() -> None:
     wh, mgr = _build_warehouse()
 
     stock_qty = 20
-    carton    = _make_carton(sku=10, stock_qty=stock_qty)
-    mgr.enqueue_all([carton])   # uses equilibrium_qty=20 as default quantity
+    order    = _make_carton(sku=10, stock_qty=stock_qty)
+    mgr.enqueue_all([order])   # uses equilibrium_qty=20 as default quantity
 
     placed_bins = [
         b for b in mgr.unavailable
-        if b.storage and b.storage.carton.sku == 10
+        if b.storage and b.storage.order.sku == 10
     ]
     check('SKU 10 placed in at least one bin', len(placed_bins) > 0)
     if not placed_bins:
         return
 
     initial   = mgr._current_quantities[10]  # total placed = equilibrium_qty
-    threshold = carton.reorder_point          # reorder fires at this level
+    threshold = order.reorder_point          # reorder fires at this level
 
     # Deplete to threshold+1 (one unit above threshold — should NOT trigger yet)
     above_thresh_qty = initial - (threshold + 1)
@@ -278,12 +278,12 @@ def test_bin_reclaim() -> None:
     random.seed(42)
     wh, mgr, affinity = _build_warehouse_with_affinity()
 
-    cartons = [_make_carton(sku=i, stock_qty=15) for i in range(1, 4)]
-    mgr.enqueue_all(cartons, quantity=1)
+    orders = [_make_carton(sku=i, stock_qty=15) for i in range(1, 4)]
+    mgr.enqueue_all(orders, quantity=1)
     mgr.init_lift_state(affinity)
 
     # Pick a bin empty
-    placed = [b for b in mgr.unavailable if b.storage and b.storage.carton.sku == 1]
+    placed = [b for b in mgr.unavailable if b.storage and b.storage.order.sku == 1]
     check('SKU 1 has at least one placed bin', len(placed) > 0)
     if not placed:
         return
@@ -320,17 +320,17 @@ def test_bin_reclaim() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STAGE 4: check_reorders — carton.reorder() flags, qty formula, state dicts
+# STAGE 4: check_reorders — order.reorder() flags, qty formula, state dicts
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_reorder_trigger() -> None:
-    section('Stage 4: Reorder trigger and carton.reorder() flags')
+    section('Stage 4: Reorder trigger and order.reorder() flags')
     random.seed(42)
     wh, mgr = _build_warehouse()
 
     stock_qty = 40
-    carton    = _make_carton(sku=20, stock_qty=stock_qty)
-    mgr.enqueue_all([carton], quantity=1)
+    order    = _make_carton(sku=20, stock_qty=stock_qty)
+    mgr.enqueue_all([order], quantity=1)
 
     initial   = mgr._initial_quantities[20]
     threshold = max(1, round(initial * 0.10))
@@ -349,14 +349,14 @@ def test_reorder_trigger() -> None:
     # Find any placed reorder bin for sku=20
     reorder_bins = [
         b for b in mgr.unavailable
-        if b.storage and b.storage.carton.sku == 20
-           and getattr(b.storage.carton, '_is_reorder', False)
+        if b.storage and b.storage.order.sku == 20
+           and getattr(b.storage.order, '_is_reorder', False)
     ]
 
     # Also check queued (may be unplaced if no space)
     queued_reorders = [
         u for u in mgr._stock_queue
-        if u.carton.sku == 20 and getattr(u.carton, '_is_reorder', False)
+        if u.order.sku == 20 and getattr(u.order, '_is_reorder', False)
     ]
 
     placed_or_queued = len(reorder_bins) + len(queued_reorders)
@@ -365,9 +365,9 @@ def test_reorder_trigger() -> None:
 
     # Check _is_reorder flag
     if reorder_bins:
-        has_flag = all(getattr(b.storage.carton, '_is_reorder', False)
+        has_flag = all(getattr(b.storage.order, '_is_reorder', False)
                        for b in reorder_bins)
-        check('Reorder bins have _is_reorder=True on carton', has_flag)
+        check('Reorder bins have _is_reorder=True on order', has_flag)
 
         # Check quantity is NOT stock_qty (override must be skipped)
         for b in reorder_bins:
@@ -400,8 +400,8 @@ def test_load_aware_reorder() -> None:
     random.seed(42)
     wh, mgr, affinity = _build_warehouse_with_affinity()
 
-    cartons = [_make_carton(sku=i, stock_qty=20) for i in range(30, 35)]
-    mgr.enqueue_all(cartons, quantity=1)
+    orders = [_make_carton(sku=i, stock_qty=20) for i in range(30, 35)]
+    mgr.enqueue_all(orders, quantity=1)
     mgr.init_lift_state(affinity)
 
     # Snapshot lift sums before reorder
@@ -467,7 +467,7 @@ def test_no_duplicate_reorder() -> None:
     carton2 = _make_carton(sku=51, stock_qty=10)
     mgr.enqueue_all([carton1, carton2], quantity=1)
 
-    # Drain all remaining bins with dummy cartons to fill the warehouse
+    # Drain all remaining bins with dummy orders to fill the warehouse
     dummy_cartons = [_make_carton(sku=100 + i) for i in range(100)]
     mgr.enqueue_all(dummy_cartons, quantity=1)
 
@@ -497,8 +497,8 @@ def test_end_to_end_mini_sim() -> None:
     random.seed(99)
     wh, mgr = _build_warehouse(seed=99)
 
-    cartons = [_make_carton(sku=i, stock_qty=15) for i in range(1, 6)]
-    mgr.enqueue_all(cartons, quantity=1)
+    orders = [_make_carton(sku=i, stock_qty=15) for i in range(1, 6)]
+    mgr.enqueue_all(orders, quantity=1)
 
     pick_cfg  = PickConfig(num_pickers=2, x_speed=1.0, y_speed=0.5,
                            pick_intercept=0.5, pick_weight_coef=0.1,
@@ -507,9 +507,9 @@ def test_end_to_end_mini_sim() -> None:
 
     # Dummy inventory wrapper
     class _Inv:
-        def __init__(self, c): self.cartons = c
+        def __init__(self, c): self.orders = c
 
-    inv = _Inv(cartons)
+    inv = _Inv(orders)
 
     reorders_total = 0
     for batch_num in range(5):

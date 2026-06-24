@@ -61,10 +61,10 @@ _HANDLINGS = ['conveyable', 'non-conveyable']
 _GRID_COLS = 6
 
 
-# ── carton equilibrium (OUP) fields — mirrors Tests/profile_lifecycle._set_equilibrium ──
+# ── order equilibrium (OUP) fields — mirrors Tests/profile_lifecycle._set_equilibrium ──
 
-def _set_equilibrium(cartons, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
-    for c in cartons:
+def _set_equilibrium(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
+    for c in orders:
         expected = c.demand.frequency * c.demand.quantity_rate
         eq_qty   = max(1, min(3, round(expected * 2)))
         c.expected_batch_demand = expected
@@ -203,10 +203,10 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     # ── assets (plan_warehouse sizes + samples to target fill, like production) ──
     random.seed(seed); np.random.seed(seed)
     pool = _build_inventory(n_skus, seed)
-    _set_equilibrium(pool.cartons)
+    _set_equilibrium(pool.orders)
     n_cols = max(1, bins_per_aisle // 20)
     plan = Inventory_Manager.plan_warehouse(
-        pool.cartons, categories=_CATEGORIES, handlings=_HANDLINGS,
+        pool.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=n_cols * 48, aisle_height=20 * 48,
         target_fill=fill, rng=random.Random(seed + 1))
     inventory = Inventory(plan.sampled)
@@ -217,16 +217,16 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     wp        = WorkloadParams.from_pick_config(pick_cfg)
     batch_cfg = BatchConfig(inventory_size=len(plan.sampled),
                             mean_fraction=0.15, std_fraction=0.05)
-    for c in inventory.cartons:
+    for c in inventory.orders:
         c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef)
 
-    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.cartons}
-    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.cartons}
+    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.orders}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
-                   for c in inventory.cartons if c.sku in affinity._sku_to_idx}
+                   for c in inventory.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(affinity=affinity, wp=wp, freq_by_idx=freq_by_idx,
                           freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-                          beta=1.0, cartons=inventory.cartons)
+                          beta=1.0, orders=inventory.orders)
 
     # ── warehouse + manager ────────────────────────────────────────────────────
     Aisle.next_aisle_id = 1
@@ -260,10 +260,10 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)
         strat.build(mgr, ctx)
-        mgr.enqueue_all(inventory.cartons)
+        mgr.enqueue_all(inventory.orders)
         _arm()
     else:
-        mgr.enqueue_all(inventory.cartons)
+        mgr.enqueue_all(inventory.orders)
         _arm()
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)

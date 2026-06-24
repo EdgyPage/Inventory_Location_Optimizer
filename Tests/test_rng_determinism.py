@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Aisle_Storage import Aisle
-from Carton import Carton, StorageHandleConfig
+from Order import Order, StorageHandleConfig
 from Demand import Demand, poisson_sample
 from Inventory_Management import Inventory_Manager
 from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
@@ -103,8 +103,8 @@ def _small_warehouse() -> Inventory_Manager:
     return Inventory_Manager(wh)
 
 
-def _make_carton(sku: int, eq_qty: int, rp: int, lt: float, supply_cv: float) -> Carton:
-    c = object.__new__(Carton)
+def _make_carton(sku: int, eq_qty: int, rp: int, lt: float, supply_cv: float) -> Order:
+    c = object.__new__(Order)
     c._sku                  = sku
     c.storage_type          = ('conveyable', 'food')
     c.storage_handle_config = StorageHandleConfig('conveyable', 'food')
@@ -181,7 +181,7 @@ def test_batch_rng_immune_to_global_stream() -> None:
 def test_batch_rng_immune_to_global_stream_with_affinity() -> None:
     """Same property on the affinity (lift-weighted) selection path."""
     inv, cfg = _inventory(), _batch_cfg()
-    skus = [c.sku for c in inv.cartons]
+    skus = [c.sku for c in inv.orders]
     affinity = {(skus[i], skus[i + 1]): 5.0 for i in range(0, min(len(skus) - 1, 20), 2)}
 
     b1 = Batch(cfg, inv, affinity=affinity, rng=random.Random(3))

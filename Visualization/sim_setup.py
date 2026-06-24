@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
 
 from Aisle_Storage import Aisle
-from Carton import Carton
+from Order import Order
 from Inventory_Builder import Inventory_Builder, InventoryConfig
 from Inventory_Management import Inventory_Manager
 from Pick import PickConfig, PickSimulation
@@ -18,7 +18,7 @@ _GRID_COLS = 6
 
 
 def build_simulation(seed: int = 42) -> dict:
-    Carton.next_sku = 1
+    Order.next_sku = 1
     Aisle.next_aisle_id = 1
     random.seed(seed)
 
@@ -61,7 +61,7 @@ def build_simulation(seed: int = 42) -> dict:
     )
     inventory = Inventory_Builder().from_config(inv_config).build()
     manager = Inventory_Manager(warehouse)
-    manager.enqueue_all(inventory.cartons, quantity=5)
+    manager.enqueue_all(inventory.orders, quantity=5)
 
     # Capture initial bin states — PickSimulation is non-mutating so this is stable
     initial_bins: dict[str, dict] = {}
@@ -69,13 +69,13 @@ def build_simulation(seed: int = 42) -> dict:
     for b in warehouse.bins:
         key = f"{b.location[0]},{b.location[1]},{b.location[2]}"
         if b.storage is not None:
-            sku = b.storage.carton.sku
+            sku = b.storage.order.sku
             initial_bins[key] = {'sku': sku, 'qty': b.storage.quantity}
-            sku_volumes[sku] = b.storage.carton.volume()
+            sku_volumes[sku] = b.storage.order.volume()
 
     affinity = inventory.affinity_matrix()
     batch_cfg = BatchConfig(
-        inventory_size=len(inventory.cartons),
+        inventory_size=len(inventory.orders),
         mean_fraction=0.30,
         std_fraction=0.05,
     )

@@ -55,7 +55,7 @@ def _simulate_picker_deferred(
     """Phase 1 worker -- read-only picker simulation.
 
     Uses bin_snap so no bin_.storage.quantity reads/writes happen on the
-    shared bin objects.  bin_.storage.carton is read (sku, weight, volume)
+    shared bin objects.  bin_.storage.order is read (sku, weight, volume)
     but never mutated, so it is safe across all concurrent threads.
     """
     events:    list[PickEvent]     = []
@@ -96,8 +96,8 @@ def _simulate_picker_deferred(
             # bin_.storage is guaranteed non-None here because bin_snap was
             # built from bins where storage is not None, and Phase 1 never
             # writes bin_.storage = None (that only happens in Phase 2).
-            carton = bin_.storage.carton
-            qty    = min(task.items.get(carton.sku, 0), snap_qty)
+            order = bin_.storage.order
+            qty    = min(task.items.get(order.sku, 0), snap_qty)
             if qty == 0:
                 continue
             local_qty[bid] = snap_qty - qty
@@ -109,7 +109,7 @@ def _simulate_picker_deferred(
                 items_picked=session_items, total_items=total_items,
             ))
 
-            needed_vol   = carton.volume() * qty
+            needed_vol   = order.volume() * qty
             cart_swapped = needed_vol > cart_remaining
             if cart_swapped:
                 events.append(PickEvent(
@@ -120,20 +120,20 @@ def _simulate_picker_deferred(
                 ))
                 cart_remaining = _CART_CAPACITY
 
-            t             += _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped, bin_.y_phys)
+            t             += _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
             cart_remaining  = max(0, cart_remaining - needed_vol)
             bins_done      += 1
             session_items  += qty
 
             events.append(PickEvent(
                 time=t, picker_id=picker_id, event_type='pick',
-                aisle_id=task.aisle_id, sku=carton.sku, quantity=qty,
+                aisle_id=task.aisle_id, sku=order.sku, quantity=qty,
                 location=bin_.location,
                 bins_completed=bins_done, total_bins=total_bins,
                 items_picked=session_items, total_items=total_items,
             ))
 
-            mutations.append(_PickMutation(bin_ref=bin_, sku=carton.sku, qty=qty))
+            mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty))
 
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_end',

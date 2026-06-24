@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 
-from Carton import Carton
+from Order import Order
 from Storage_Primitive import StorageUnit, viable_storage_units
 from cost_model import height_multiplier, handle_var, sec_per_inch
 from inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty
@@ -37,7 +37,7 @@ class OptimalLayoutMixin:
                     return dq.popleft()
         return None
 
-    def _optimal_assign(self, cartons: list[Carton], freq_of: dict,
+    def _optimal_assign(self, orders: list[Order], freq_of: dict,
                         x_speed: float, y_speed: float, place: bool) -> float:
         """Pure-global-D optimal layout: per BinKey class, assign the highest
         pick-frequency units to the lowest-D bins (rearrangement-inequality optimum
@@ -50,7 +50,7 @@ class OptimalLayoutMixin:
             bins_by_key[self._key(b)].append(b)
 
         if place:
-            for c in cartons:
+            for c in orders:
                 if c.sku not in self._originals and not getattr(c, '_is_reorder', False):
                     self._originals[c.sku] = c
                     self._initial_quantities[c.sku] = _equilibrium_qty(c)
@@ -58,48 +58,48 @@ class OptimalLayoutMixin:
         # Group units by (handling, category, unit_type); place hottest first so
         # that within each size tier the hottest unit claims the lowest-D bin.
         groups: dict = defaultdict(list)
-        for c in cartons:
+        for c in orders:
             for unit in viable_storage_units(c, _equilibrium_qty(c)):
-                shc = unit.carton.storage_handle_config
+                shc = unit.order.storage_handle_config
                 groups[(shc.handling, shc.category, unit.unit_category)].append(unit)
 
         sigma = 0.0
         for (handling, category, utype), units in groups.items():
-            units.sort(key=lambda u: freq_of.get(u.carton.sku, 0.0), reverse=True)
+            units.sort(key=lambda u: freq_of.get(u.order.sku, 0.0), reverse=True)
             for unit in units:
                 b = self._take_optimal_bin(bins_by_key, handling, category, utype, unit)
                 if b is None:
                     continue                               # warehouse full for this tier
-                sigma += freq_of.get(unit.carton.sku, 0.0) * D(b)
+                sigma += freq_of.get(unit.order.sku, 0.0) * D(b)
                 if place:
                     self._execute_placement(unit, b)
         return sigma
 
-    def place_optimal(self, cartons: list[Carton], freq_of: dict,
+    def place_optimal(self, orders: list[Order], freq_of: dict,
                       x_speed: float, y_speed: float) -> float:
         """Stock the warehouse at the pure-global-D optimal layout.  Returns the
         optimal Sigma f*D.  Bumps _reorder_placements per unit (the worker discards
         the initial-stock churn with a pop_churn() before the batch loop)."""
-        return self._optimal_assign(cartons, freq_of, x_speed, y_speed, place=True)
+        return self._optimal_assign(orders, freq_of, x_speed, y_speed, place=True)
 
-    def optimal_sigma_fd(self, cartons: list[Carton], freq_of: dict,
+    def optimal_sigma_fd(self, orders: list[Order], freq_of: dict,
                          x_speed: float, y_speed: float) -> float:
         """The minimal achievable Sigma f*D for this warehouse + inventory (the
         yardstick).  Pure computation — does not mutate manager state."""
-        return self._optimal_assign(cartons, freq_of, x_speed, y_speed, place=False)
+        return self._optimal_assign(orders, freq_of, x_speed, y_speed, place=False)
 
     # ── full-labor optimum (travel + height handling) + optimal map ──────────
 
     @staticmethod
-    def _handle_var(carton, wp) -> float:
+    def _handle_var(order, wp) -> float:
         """Per-unit weight/volume handling term v_s (no intercept, no quantity) — the
-        height-scalable part of pick effort.  Mirrors Carton.compute_labor_cost."""
-        return handle_var(carton.weight, carton.volume(),
+        height-scalable part of pick effort.  Mirrors Order.compute_labor_cost."""
+        return handle_var(order.weight, order.volume(),
                           wp.pick_weight_coef, wp.pick_volume_coef,
                           getattr(wp, 'pick_weight_fn', 'log'),
                           getattr(wp, 'pick_volume_fn', 'log'))
 
-    def _optimal_work_assign(self, cartons: list[Carton], freq_of: dict,
+    def _optimal_work_assign(self, orders: list[Order], freq_of: dict,
                              qty_of: dict, wp) -> tuple[float, dict]:
         """Exact minimal expected WORK (travel + height-weighted handling) for this
         warehouse + inventory, and each SKU's optimal preferred score.
@@ -123,16 +123,16 @@ class OptimalLayoutMixin:
 
         # quantity-free reference handling so the bin basis pref carries a realistic
         # height-penalty magnitude (V_REF ~ a typical v_s); falls back to 1.0.
-        vs = [self._handle_var(c, wp) for c in cartons]
+        vs = [self._handle_var(c, wp) for c in orders]
         v_ref = (sum(vs) / len(vs)) if vs else 1.0
-        v_by_sku = {c.sku: v for c, v in zip(cartons, vs)}
+        v_by_sku = {c.sku: v for c, v in zip(orders, vs)}
 
         bins_by_key: dict = defaultdict(list)
         for b in self.warehouse.bins:
             bins_by_key[self._key(b)].append(b)
 
         units_by_key: dict = defaultdict(list)
-        for c in cartons:
+        for c in orders:
             for unit in viable_storage_units(c, _equilibrium_qty(c)):
                 if unit.unit_category == 'singleton':
                     key = (c.storage_handle_config.handling,
@@ -152,11 +152,11 @@ class OptimalLayoutMixin:
             if not bins:
                 continue
             n = len(units)
-            a = [freq_of.get(u.carton.sku, 0.0) for u in units]                  # α_s = f (travel)
+            a = [freq_of.get(u.order.sku, 0.0) for u in units]                  # α_s = f (travel)
             # height now scales the WHOLE pick: per-pick handling = M·(intercept + q·v),
             # so the M-coefficient is f·(intercept + q·v), not f·q·v.
-            b_ = [freq_of.get(u.carton.sku, 0.0)
-                  * (intercept + qty_of.get(u.carton.sku, 0.0) * v_by_sku.get(u.carton.sku, 0.0))
+            b_ = [freq_of.get(u.order.sku, 0.0)
+                  * (intercept + qty_of.get(u.order.sku, 0.0) * v_by_sku.get(u.order.sku, 0.0))
                   for u in units]                                                # β_s = f·(intercept + q·v)
             # candidate bins: lowest-D per height bracket, capped at n (others dominated)
             by_m: dict = defaultdict(list)
@@ -212,18 +212,18 @@ class OptimalLayoutMixin:
                 W_var += a[i] * Dc[j] + b_[i] * Mc[j]
                 # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref)
                 pref = Dc[j] + Mc[j] * (intercept + v_ref)
-                sku_target[units[i].carton.sku].append(pref)
+                sku_target[units[i].order.sku].append(pref)
 
         target = {sku: sum(p) / len(p) for sku, p in sku_target.items() if p}
         return W_var, target
 
-    def optimal_work(self, cartons: list[Carton], freq_of: dict,
+    def optimal_work(self, orders: list[Order], freq_of: dict,
                      qty_of: dict, wp) -> float:
         """Minimal achievable expected work W* (travel + height handling) — the floor
         yardstick.  Pure computation; does not mutate manager state."""
-        return self._optimal_work_assign(cartons, freq_of, qty_of, wp)[0]
+        return self._optimal_work_assign(orders, freq_of, qty_of, wp)[0]
 
-    def build_optimal_map(self, cartons: list[Carton], freq_of: dict,
+    def build_optimal_map(self, orders: list[Order], freq_of: dict,
                           qty_of: dict, wp) -> float:
         """Build the optimal map (the score-match basis) on this manager and return W*.
         Sets `_bin_pref` (quantity-free location score for EVERY bin) and `_map_target`
@@ -233,7 +233,7 @@ class OptimalLayoutMixin:
         xs, ys = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
         intercept = wp.pick_intercept
 
-        vs = [self._handle_var(c, wp) for c in cartons]
+        vs = [self._handle_var(c, wp) for c in orders]
         v_ref = (sum(vs) / len(vs)) if vs else 1.0
         # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref),
         # matching the new height model where M scales the whole at-location pick.
@@ -242,7 +242,7 @@ class OptimalLayoutMixin:
                    + height_multiplier(brackets, b.y_phys) * (intercept + v_ref)
             for b in self.warehouse.bins
         }
-        w_star, self._map_target = self._optimal_work_assign(cartons, freq_of, qty_of, wp)
+        w_star, self._map_target = self._optimal_work_assign(orders, freq_of, qty_of, wp)
         return w_star
 
     def current_sigma_fd(self, freq_of: dict, x_speed: float, y_speed: float) -> float:
@@ -253,7 +253,7 @@ class OptimalLayoutMixin:
         for b in self._unavailable.values():
             st = b.storage
             if st is not None:
-                s += (freq_of.get(st.carton.sku, 0.0)
+                s += (freq_of.get(st.order.sku, 0.0)
                       * (xp * b.x_phys + yp * b.y_phys))
         return s
 

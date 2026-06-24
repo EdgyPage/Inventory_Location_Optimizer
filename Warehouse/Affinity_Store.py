@@ -96,8 +96,8 @@ class AffinityStore:
               self._matrix.indptr.nbytes) / 1_048_576
 
     def index_inventory(self, inventory: Inventory) -> None:
-        """Store sku → lift_group for every carton. Safe to call multiple times."""
-        rows = [(c.sku, c.lift_group) for c in inventory.cartons]
+        """Store sku → lift_group for every order. Safe to call multiple times."""
+        rows = [(c.sku, c.lift_group) for c in inventory.orders]
         self._conn.executemany('INSERT OR IGNORE INTO sku_group VALUES (?,?)', rows)
         self._conn.commit()
 

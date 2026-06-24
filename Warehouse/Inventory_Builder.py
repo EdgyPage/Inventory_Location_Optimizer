@@ -1,7 +1,7 @@
 import random
 from collections import defaultdict
 from dataclasses import dataclass
-from Carton import Carton
+from Order import Order
 from Storage_Primitive import Storage_Type, Singleton
 
 AffMatrix = dict[tuple[int, int], float]
@@ -19,8 +19,8 @@ class InventoryConfig:
 
 
 class Inventory:
-    def __init__(self, cartons: list[Carton]) -> None:
-        self.cartons: list[Carton] = cartons
+    def __init__(self, orders: list[Order]) -> None:
+        self.orders: list[Order] = orders
 
     def affinity_matrix(
         self,
@@ -36,7 +36,7 @@ class Inventory:
         enough for batch sampling at warehouse scale.
         """
         by_group: dict[tuple[str, str], list[int]] = defaultdict(list)
-        for c in self.cartons:
+        for c in self.orders:
             by_group[c.lift_group].append(c.sku)
 
         affinity: AffMatrix = {}
@@ -52,7 +52,7 @@ class Inventory:
 
 class Inventory_Builder:
     def __init__(self) -> None:
-        self._cartons: list[Carton] = []
+        self._cartons: list[Order] = []
         self._storage_type: Storage_Type = Storage_Type()
 
     def from_config(self, config: InventoryConfig) -> 'Inventory_Builder':
@@ -73,8 +73,8 @@ class Inventory_Builder:
                 else None
             )
             self._cartons.append(
-                Carton((handling, category)) if max_dim is None
-                else Carton((handling, category), max_dim=max_dim)
+                Order((handling, category)) if max_dim is None
+                else Order((handling, category), max_dim=max_dim)
             )
         return self
 

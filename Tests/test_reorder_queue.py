@@ -8,12 +8,12 @@ The warehouse uses the same 24-aisle-type layout as run_simulation:
 
 Reorder policy (OUP equilibrium model)
 ---------------------------------------
-Each Carton carries attributes set at profile generation time:
+Each Order carries attributes set at profile generation time:
   expected_batch_demand = demand.frequency * demand.quantity_rate
   equilibrium_qty       = max(1, round(coverage_batches * expected_batch_demand))
   reorder_point         = max(1, min(eq-1, round(demand * (lead_time + safety_batches))))
 
-_notify_pick reads carton.reorder_point directly.  check_reorders fires an
+_notify_pick reads order.reorder_point directly.  check_reorders fires an
 Order-Up-To reorder: qty = equilibrium_qty - current_qty.  Received quantity
 is sampled from N(ideal, ideal * supply_cv) floored at 1.
 
@@ -23,7 +23,7 @@ stabilises — it should NOT grow without limit.
 
 Checks
 ------
-  PASS 1  reorder_point and expected_batch_demand set on all cartons
+  PASS 1  reorder_point and expected_batch_demand set on all orders
   PASS 2  queue does not grow in the final STABLE_WINDOW batches
   PASS 3  at least N_SKUS * 0.05 reorders triggered total
   PASS 4  fill rate stays above MIN_FILL at the end
@@ -154,10 +154,10 @@ def run() -> bool:
         weight_spec        = DEFAULT_WEIGHT_SPEC,
         seed               = SEED,
     )
-    n_skus   = len(inventory.cartons)
-    eq_qtys  = [c.equilibrium_qty       for c in inventory.cartons]
-    rops     = [c.reorder_point         for c in inventory.cartons]
-    ebds     = [c.expected_batch_demand for c in inventory.cartons]
+    n_skus   = len(inventory.orders)
+    eq_qtys  = [c.equilibrium_qty       for c in inventory.orders]
+    rops     = [c.reorder_point         for c in inventory.orders]
+    ebds     = [c.expected_batch_demand for c in inventory.orders]
 
     print(f'  equilibrium_qty:       min={min(eq_qtys)}  max={max(eq_qtys)}  '
           f'mean={sum(eq_qtys)/len(eq_qtys):.1f}')
@@ -176,7 +176,7 @@ def run() -> bool:
     # ── initial stock: 1 bin per SKU ──────────────────────────────────────────
     random.seed(SEED + 100)
     mgr = Inventory_Manager(warehouse)
-    mgr.enqueue_all(inventory.cartons)
+    mgr.enqueue_all(inventory.orders)
     init_fill  = len(mgr.unavailable) / total_bins
     init_queue = mgr.queue_depth
 
@@ -256,11 +256,11 @@ def run() -> bool:
 
     print(f'\n  Bin type breakdown: pallet={pallet_occupied}  singleton={singleton_occupied}')
     print(f'\n  Checks:')
-    all_eq_set  = all(hasattr(c, 'equilibrium_qty')       for c in inventory.cartons)
-    all_rops_set = all(hasattr(c, 'reorder_point')        for c in inventory.cartons)
-    all_ebds_set = all(hasattr(c, 'expected_batch_demand') for c in inventory.cartons)
+    all_eq_set  = all(hasattr(c, 'equilibrium_qty')       for c in inventory.orders)
+    all_rops_set = all(hasattr(c, 'reorder_point')        for c in inventory.orders)
+    all_ebds_set = all(hasattr(c, 'expected_batch_demand') for c in inventory.orders)
     check(
-        'equilibrium_qty, reorder_point and expected_batch_demand set on all cartons',
+        'equilibrium_qty, reorder_point and expected_batch_demand set on all orders',
         all_eq_set and all_rops_set and all_ebds_set,
         f'eq_set={all_eq_set}  rops_set={all_rops_set}  ebds_set={all_ebds_set}',
     )

@@ -38,7 +38,7 @@ import numpy as np
 
 from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
-from Carton import Carton
+from Order import Order
 from Demand import Demand
 from Inventory_Builder import Inventory
 from Inventory_Management import Inventory_Manager, LoadParams, Placement
@@ -70,7 +70,7 @@ def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) 
     # Group by storage_type; within each group assign Pareto rank scores
     from collections import defaultdict
     groups: dict[tuple, list] = defaultdict(list)
-    for c in inventory.cartons:
+    for c in inventory.orders:
         groups[c.storage_type].append(c)
     rows = []
     for group_cartons in groups.values():
@@ -107,16 +107,16 @@ _ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
 def _build_inventory(n_skus: int, seed: int = 42) -> Inventory:
     rng = random.Random(seed)
     # Reset the class-level SKU counter for reproducibility across runs
-    Carton.next_sku = 1
-    random.seed(seed)   # Carton.__init__ uses the global random state
-    cartons = []
+    Order.next_sku = 1
+    random.seed(seed)   # Order.__init__ uses the global random state
+    orders = []
     handlings  = ['conveyable', 'non-conveyable']
     for _ in range(n_skus):
         handling = rng.choice(handlings)
         category = rng.choice(_CATEGORIES)
-        c = Carton((handling, category))
-        cartons.append(c)
-    return Inventory(cartons)
+        c = Order((handling, category))
+        orders.append(c)
+    return Inventory(orders)
 
 
 def _build_warehouse_cfg(
@@ -185,7 +185,7 @@ def run_benchmark(
     warehouse_A = Warehouse_Builder().from_config(wh_cfg).build()
     manager_A   = Inventory_Manager(warehouse_A)
     random.seed(seed + 1)
-    manager_A.enqueue_all(inventory.cartons, quantity=1)
+    manager_A.enqueue_all(inventory.orders, quantity=1)
 
     from Workload import WorkloadParams
     pick_cfg = PickConfig(
@@ -208,7 +208,7 @@ def run_benchmark(
     warehouse_B = Warehouse_Builder().from_config(wh_cfg).build()
     manager_B   = Inventory_Manager(warehouse_B, affinity=affinity_store)
     random.seed(seed + 1)
-    manager_B.enqueue_all(inventory.cartons, quantity=1)
+    manager_B.enqueue_all(inventory.orders, quantity=1)
     manager_B.init_lift_state(affinity_store)
     manager_B.placement = Placement('load_min', build_load_minimizing_assignment_fn(
         load_params, affinity_store, wp,
@@ -221,7 +221,7 @@ def run_benchmark(
     warehouse_C = Warehouse_Builder().from_config(wh_cfg).build()
     manager_C   = Inventory_Manager(warehouse_C, affinity=affinity_store)
     random.seed(seed + 1)
-    manager_C.enqueue_all(inventory.cartons, quantity=1)
+    manager_C.enqueue_all(inventory.orders, quantity=1)
     manager_C.init_lift_state(affinity_store)
     manager_C.placement = Placement('load_max', build_load_maximizing_assignment_fn(
         load_params, affinity_store, wp,

@@ -93,13 +93,13 @@ def build_load_minimizing_assignment_fn(
         return D + lam * (D / k) ** gam * ls
 
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
-        sku = unit.carton.sku
+        sku = unit.order.sku
 
         # Step 1: one representative bin per aisle (min-D).
         # Fast path: derive BinKey from unit, read directly from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            shc       = unit.carton.storage_handle_config
+            shc       = unit.order.storage_handle_config
             unit_type = unit.unit_category
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
@@ -210,13 +210,13 @@ def build_load_maximizing_assignment_fn(
         return D + lam * (D / k) ** gam * ls
 
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
-        sku = unit.carton.sku
+        sku = unit.order.sku
 
         # One representative bin per aisle (max-D) — exact by monotonicity.
         # Fast path: derive BinKey from unit, read from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            shc       = unit.carton.storage_handle_config
+            shc       = unit.order.storage_handle_config
             unit_type = unit.unit_category
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
@@ -354,7 +354,7 @@ def _require_affinity(affinity, policy: str) -> None:
 def _require_demand(freq_map, policy: str, what: str) -> None:
     """Fail loudly if a demand-WEIGHTED policy is built with an empty frequency map,
     rather than silently weighting every SKU by 0 and degrading to uniform.  Ranked
-    drains are exempt: their priority reads carton.demand.frequency directly."""
+    drains are exempt: their priority reads order.demand.frequency directly."""
     if not freq_map:
         raise ValueError(
             f"{policy} placement requires {what} but it is empty. "
@@ -391,13 +391,13 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     bin_minimize = True if score_kind == 'cohesion' else (not maximize)
 
     def assign(unit, candidates):
-        sku = unit.carton.sku
+        sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
 
         # Step 1: one representative bin per aisle (extremal-D).
         if aisle_index is not None:
-            shc       = unit.carton.storage_handle_config
+            shc       = unit.order.storage_handle_config
             unit_type = unit.unit_category
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
@@ -543,7 +543,7 @@ def _ranked_assign_impl(
                else set())
 
     def pick_effort_priority(unit) -> float:
-        c = unit.carton
+        c = unit.order
         # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
         # so this avoids re-taking logs per unit per wave.
         co_occur = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
@@ -583,7 +583,7 @@ def _ranked_assign_impl(
             best_aid = (min if minimize else max)(head_D, key=head_D.__getitem__)
         chosen = head_bin[best_aid]
 
-        sku = unit.carton.sku
+        sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
         if sku not in aisle_sku_sets[best_aid]:
@@ -666,7 +666,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
 
     def priority(unit):
-        c = unit.carton
+        c = unit.order
         # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
         co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
         return c.demand.frequency * c.labor_cost + co
@@ -690,7 +690,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         if not live:
             result.append((unit, None))
             continue
-        sku = unit.carton.sku
+        sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
 
@@ -737,7 +737,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
         by_aisle: dict[int, list] = {}
         for b in candidates:
             by_aisle.setdefault(b.location[0], []).append(b)
-        sku = unit.carton.sku
+        sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
 
@@ -874,13 +874,13 @@ def build_ranked_uniform_assignment_fn(
 # ── per-policy enqueue order-scores (decoupled queue ordering, sorted DESC) ────
 # A policy hands one of these to its Placement.order_score; the ranked wave sorts
 # the queue by it instead of the default pick-effort priority — so no ordering is
-# baked in that fights the policy.  Both read precomputed Carton attributes.
+# baked in that fights the policy.  Both read precomputed Order attributes.
 
 def _score_expected_popularity(unit) -> float:
-    return unit.carton.expected_popularity        # freq * qty
+    return unit.order.expected_popularity        # freq * qty
 
 def _score_expected_labor(unit) -> float:
-    return unit.carton.expected_labor             # freq * qty * cost1
+    return unit.order.expected_labor             # freq * qty * cost1
 
 
 def build_ranked_popularity_fn(
@@ -932,7 +932,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())
-    sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
+    sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
         return []
     cands = candidates_fn(sorted_units[0])
@@ -968,7 +968,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         return best
 
     for unit in sorted_units:
-        c = unit.carton
+        c = unit.order
         sku = c.sku
         var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
@@ -1057,7 +1057,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())
-    sorted_units = sorted(units, key=lambda u: u.carton.expected_labor, reverse=True)
+    sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
         return []
     cands = candidates_fn(sorted_units[0])
@@ -1096,7 +1096,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         return best
 
     for unit in sorted_units:
-        c = unit.carton
+        c = unit.order
         sku = c.sku
         var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
@@ -1258,7 +1258,7 @@ def build_optmap_fn(mgr, capped=False):
         if not candidates:
             return None
         pref = mgr._bin_pref
-        tgt  = mgr._map_target.get(unit.carton.sku)
+        tgt  = mgr._map_target.get(unit.order.sku)
         if tgt is None:                      # unknown SKU: no rank → don't waste a prime bin
             return (max(candidates, key=lambda b: pref.get(id(b), 0.0)) if capped
                     else min(candidates, key=lambda b: pref.get(id(b), 0.0)))

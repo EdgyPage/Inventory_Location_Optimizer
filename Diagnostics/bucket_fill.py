@@ -55,7 +55,7 @@ def _bin_bucket(b) -> Bucket:
 
 
 def _unit_bucket(u) -> Bucket:
-    shc = u.carton.storage_handle_config
+    shc = u.order.storage_handle_config
     return (shc.handling, shc.category, u.storage_size, u.unit_category)
 
 
@@ -91,14 +91,14 @@ def _fmt_bucket(b: Bucket) -> str:
 def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, log) -> None:
     cap = _capacity_by_bucket(warehouse)
 
-    # SPREAD footprint: planned cartons carry stock_plan -> viable_storage_units reproduces it.
+    # SPREAD footprint: planned orders carry stock_plan -> viable_storage_units reproduces it.
     t0 = time.perf_counter()
     spread = Inventory_Manager.bucket_requirements(planned_cartons)
     t_spread = time.perf_counter() - t0
 
     # DEFAULT-PACK footprint: same SKUs, original equilibrium, NO stock_plan -> dumb-JIT packing.
     orig = load_inventory_from_db(inv_db)
-    subset = [c for c in orig.cartons if c.sku in allowlist] if allowlist else orig.cartons
+    subset = [c for c in orig.orders if c.sku in allowlist] if allowlist else orig.orders
     for c in subset:                       # ensure no plan sneaks in from the DB
         c.stock_plan = None
     t0 = time.perf_counter()
@@ -150,14 +150,14 @@ def _build_pick_cfg(cfg: dict) -> PickConfig:
 def _setup_strategy(mgr, strat, planned_inv, affinity, wp) -> None:
     """Mirror strategy_runner's uniform-stock arm: uniform initial stock, arm aisle
     state, then build() swaps in the strategy's (possibly ranked-wave) placement."""
-    freq_by_sku = {c.sku: c.demand.frequency    for c in planned_inv.cartons}
-    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in planned_inv.cartons}
+    freq_by_sku = {c.sku: c.demand.frequency    for c in planned_inv.orders}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in planned_inv.orders}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
-                   for c in planned_inv.cartons if c.sku in affinity._sku_to_idx}
+                   for c in planned_inv.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(affinity=affinity, wp=wp, freq_by_idx=freq_by_idx,
                           freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-                          beta=1.0, cartons=planned_inv.cartons)
-    mgr.enqueue_all(planned_inv.cartons)              # uniform initial stock
+                          beta=1.0, orders=planned_inv.orders)
+    mgr.enqueue_all(planned_inv.orders)              # uniform initial stock
     if strat.needs_affinity:
         mgr._affinity = affinity
         mgr.init_lift_state(affinity)
@@ -233,7 +233,7 @@ def runtime_view(planned_inv, warehouse, affinity, batch_cfg, n_batches: int,
         wp = WorkloadParams.from_pick_config(pick_cfg)
         _setup_strategy(mgr, strat, planned_inv, affinity, wp)
     else:
-        mgr.enqueue_all(planned_inv.cartons)        # plain FIFO uniform
+        mgr.enqueue_all(planned_inv.orders)        # plain FIFO uniform
     mgr.pop_churn()
 
     total_bins = len(warehouse.bins)
@@ -328,7 +328,7 @@ def main() -> None:
     warehouse = Warehouse_Builder().from_config(shared['warehouse_cfg']).build()
 
     sizing_view(inv_db, shared.get('sku_allowlist') or set(),
-                warehouse, planned_inv.cartons, log)
+                warehouse, planned_inv.orders, log)
     runtime_view(planned_inv, warehouse, shared['affinity_store'],
                  shared['batch_cfg'], args.batches, args.strategy, log)
 

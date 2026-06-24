@@ -132,7 +132,7 @@ class Batch:
         # modelling the variability in order selectivity across batches
         self.threshold: float = r.random()
 
-        candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]
+        candidates = [c for c in inventory.orders if c.demand.frequency > self.threshold]
         k = min(self.num_skus, len(candidates))
 
         # Affinity must NEVER be silently dropped: whenever it is present (dict or
@@ -184,27 +184,27 @@ class Task:
         # computing them later (in extract_task_stats) would drop emptied bins and zero out
         # the analytical workload W.  Captured here so W reflects the real picks at all heights.
         self.pick_lines: list[tuple[int, int, int, float]] = [
-            (b.storage.carton.weight, b.storage.carton.volume(),
-             items[b.storage.carton.sku], b.y_phys)
+            (b.storage.order.weight, b.storage.order.volume(),
+             items[b.storage.order.sku], b.y_phys)
             for b in path
-            if b.storage is not None and b.storage.carton.sku in items
+            if b.storage is not None and b.storage.order.sku in items
         ]
         # Build volume lookup from path bins.  A SKU in items may have no bin
         # in this path when all its bins are pending reclaim (emptied last batch).
-        # Fall back to the carton volume from the first bin found anywhere in the
+        # Fall back to the order volume from the first bin found anywhere in the
         # path for that SKU — missing SKUs keep volume=0 which underestimates
         # carts_required, so use a secondary lookup from any path bin.
         sku_to_vol: dict[int, int] = {}
         for b in path:
             if b.storage is not None:
-                sku = b.storage.carton.sku
+                sku = b.storage.order.sku
                 if sku not in sku_to_vol:
-                    sku_to_vol[sku] = b.storage.carton.volume()
+                    sku_to_vol[sku] = b.storage.order.volume()
         # For SKUs in items not covered by path bins, approximate with any
-        # non-None path bin's carton volume (they share the same aisle type,
+        # non-None path bin's order volume (they share the same aisle type,
         # so dimensions are at least in the same order of magnitude).
         fallback_vol = next(
-            (b.storage.carton.volume() for b in path if b.storage is not None), 1
+            (b.storage.order.volume() for b in path if b.storage is not None), 1
         )
         total_vol: int = sum(
             sku_to_vol.get(sku, fallback_vol) * qty for sku, qty in items.items()
@@ -250,7 +250,7 @@ class Task:
             sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
             for bin_ in warehouse.bins:
                 if bin_.storage is not None:
-                    sku_to_bins[bin_.storage.carton.sku].append(bin_)
+                    sku_to_bins[bin_.storage.order.sku].append(bin_)
             for bins in sku_to_bins.values():
                 bins.sort(key=lambda b: 0 if b.unit_type == 'singleton' else 1)
             for sku, qty in batch.items.items():
@@ -269,7 +269,7 @@ class Task:
         for bin_, take in bin_pick.items():
             aisle_id = bin_.location[0]
             aisle_bins[aisle_id].append(bin_)
-            sku = bin_.storage.carton.sku  # type: ignore[union-attr]
+            sku = bin_.storage.order.sku  # type: ignore[union-attr]
             aisle_items[aisle_id][sku] = aisle_items[aisle_id].get(sku, 0) + take
 
         tasks = []

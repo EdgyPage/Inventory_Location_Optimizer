@@ -18,7 +18,7 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Carton import Carton
+from Order import Order
 from cost_model import sec_per_inch
 from Pick import PickConfig, _pick_time, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 from Storage_Primitive import viable_storage_units
@@ -42,12 +42,12 @@ def _cfg() -> PickConfig:
 # ── labor-cost / precomputed attributes ──────────────────────────────────────
 
 def test_labor_cost_matches_pick_time_qty1():
-    """carton.labor_cost must equal the sim's per-unit handling charge (_pick_time
+    """order.labor_cost must equal the sim's per-unit handling charge (_pick_time
     at qty=1, no cart swap) — so the assignment proxy == what the sim actually bills."""
     cfg = _cfg()
     random.seed(0)
     for _ in range(25):
-        c = Carton(('conveyable', 'food'))
+        c = Order(('conveyable', 'food'))
         lc = c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
         expect = _pick_time(cfg, c.weight, c.volume(), 1, False)
         assert abs(lc - expect) < 1e-9
@@ -56,7 +56,7 @@ def test_labor_cost_matches_pick_time_qty1():
 
 def test_expected_popularity_and_labor():
     cfg = _cfg(); random.seed(1)
-    c = Carton(('conveyable', 'food'))
+    c = Order(('conveyable', 'food'))
     c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
     assert abs(c.expected_popularity - c.demand.frequency * c.demand.quantity_rate) < 1e-12
     assert abs(c.expected_labor - c.expected_popularity * c.labor_cost) < 1e-12
@@ -64,7 +64,7 @@ def test_expected_popularity_and_labor():
 
 def test_total_labor_cost_is_qty_times_labor():
     cfg = _cfg(); random.seed(2)
-    c = Carton(('conveyable', 'food'))
+    c = Order(('conveyable', 'food'))
     c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
     units = viable_storage_units(c, 5)
     assert units
@@ -74,7 +74,7 @@ def test_total_labor_cost_is_qty_times_labor():
 
 def test_reorder_propagates_labor_cost():
     cfg = _cfg(); random.seed(3)
-    c = Carton(('conveyable', 'food'))
+    c = Order(('conveyable', 'food'))
     c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
     r = c.reorder()
     assert r.labor_cost > 0
@@ -100,7 +100,7 @@ class _Cart:
     def expected_labor(self): return self._f * self._q * self.labor_cost
 
 class _Unit:
-    def __init__(self, c): self.carton = c
+    def __init__(self, c): self.order = c
 
 def _aff(skus):
     return types.SimpleNamespace(_matrix=None, _sku_to_idx={s: i for i, s in enumerate(skus)})
@@ -324,7 +324,7 @@ def test_expected_task_labor_objective_and_split():
 
     def _bin(sku, w, v, y):
         cart = types.SimpleNamespace(weight=w, volume=lambda _v=v: _v, sku=sku)
-        return types.SimpleNamespace(storage=types.SimpleNamespace(carton=cart), y_phys=y)
+        return types.SimpleNamespace(storage=types.SimpleNamespace(order=cart), y_phys=y)
 
     t = types.SimpleNamespace(path=[_bin(1, 20, 100, 0.0)], items={1: 2},
                               x_traversed=4, y_traversed=0, carts_required=1)
@@ -358,9 +358,9 @@ def _mk_wh_mgr(seed=0):
 
 
 def _mk_carton(sku, f=0.8, q=3.0, weight=5, dims=(8, 8, 6), eq=12):
-    from Carton import StorageHandleConfig
+    from Order import StorageHandleConfig
     from Demand import Demand
-    c = object.__new__(Carton)
+    c = object.__new__(Order)
     c._sku = sku
     c.storage_type = ('conveyable', 'food')
     c.storage_handle_config = StorageHandleConfig('conveyable', 'food')
@@ -394,7 +394,7 @@ def _layout_work(mgr, freq, qty, wp):
         st = b.storage
         if st is None:
             continue
-        c = st.carton
+        c = st.order
         v = wp.pick_weight_coef * math.log(max(c.weight, 1)) + wp.pick_volume_coef * math.log(max(c.volume(), 1))
         D = wp.x_speed * b.x_phys + wp.y_speed * b.y_phys
         f = freq.get(c.sku, 0.0); qq = qty.get(c.sku, 0.0)
@@ -405,30 +405,30 @@ def _layout_work(mgr, freq, qty, wp):
 
 def test_optimal_work_is_a_floor_below_uniform():
     wh, mgr = _mk_wh_mgr()
-    cartons = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 4 * i) for i in range(1, 6)]
+    orders = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 4 * i) for i in range(1, 6)]
     wp = _wp_work()
-    freq = {c.sku: c.demand.frequency for c in cartons}
-    qty  = {c.sku: c.demand.quantity_rate for c in cartons}
-    w_opt = mgr.optimal_work(cartons, freq, qty, wp)        # pure compute, no mutation
+    freq = {c.sku: c.demand.frequency for c in orders}
+    qty  = {c.sku: c.demand.quantity_rate for c in orders}
+    w_opt = mgr.optimal_work(orders, freq, qty, wp)        # pure compute, no mutation
     assert w_opt > 0 and math.isfinite(w_opt)
-    mgr.enqueue_all(cartons)                                # uniform random layout
+    mgr.enqueue_all(orders)                                # uniform random layout
     w_uniform = _layout_work(mgr, freq, qty, wp)
     assert w_opt <= w_uniform + 1e-6                        # the optimum is a floor
 
 
 def test_build_optimal_map_basis_is_quantity_free():
     wh, mgr = _mk_wh_mgr()
-    cartons = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 5 * i) for i in range(1, 6)]
+    orders = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 5 * i) for i in range(1, 6)]
     wp = _wp_work()
-    freq = {c.sku: c.demand.frequency for c in cartons}
-    qty  = {c.sku: c.demand.quantity_rate for c in cartons}
-    mgr.build_optimal_map(cartons, freq, qty, wp)
+    freq = {c.sku: c.demand.frequency for c in orders}
+    qty  = {c.sku: c.demand.quantity_rate for c in orders}
+    mgr.build_optimal_map(orders, freq, qty, wp)
     assert len(mgr._bin_pref) == len(wh.bins)               # pref for every bin
     assert mgr._map_target                                  # some SKUs got a target
     pref_before = dict(mgr._bin_pref)
     # double every SKU's pick quantity — the bin basis must NOT change (quantity-free)
     qty2 = {k: v * 2 for k, v in qty.items()}
-    mgr.build_optimal_map(cartons, freq, qty2, wp)
+    mgr.build_optimal_map(orders, freq, qty2, wp)
     assert mgr._bin_pref == pref_before
 
 

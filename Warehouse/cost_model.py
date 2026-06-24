@@ -1,7 +1,7 @@
 """cost_model.py — single source of truth for the pick-cost primitives.
 
 These three helpers (height multiplier, per-unit handling, travel) were previously
-copy-pasted across Pick, Workload, Assignment_Functions, Inventory_Management, Carton
+copy-pasted across Pick, Workload, Assignment_Functions, Inventory_Management, Order
 and Capacity_Reloader.  Centralising them keeps the simulated pick time, the analytical
 workload W, the placement scorers, and the optimal-layout/map computations in lockstep.
 

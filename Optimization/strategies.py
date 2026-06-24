@@ -47,7 +47,7 @@ class StrategyContext:
     freq_by_sku  : dict
     qty_by_sku   : dict
     beta         : float = 1.0
-    cartons      : Any = None   # inventory.cartons — needed to build the optimal map
+    orders      : Any = None   # inventory.orders — needed to build the optimal map
 
 
 @dataclass
@@ -152,7 +152,7 @@ def _build_map(mgr, ctx: StrategyContext) -> None:
     # preferred-score basis + each SKU's optimal target), then place by SCORE MATCHING
     # — each unit goes to the free bin whose pref is closest to its SKU's target, so
     # reorders reload toward the optimum instead of grabbing whatever bin is free.
-    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = Placement('optmap', build_optmap_fn(mgr))
 
 
@@ -160,7 +160,7 @@ def _build_map_rank(mgr, ctx: StrategyContext) -> None:
     # Upgrade-capped optimal-map: same target as `map`, but a SKU never reloads into a bin
     # more prime than its optimal rank — prime spots are saved for higher-ranked SKUs that
     # future orders bring (rank-relative, non-greedy).  See build_optmap_fn(capped=True).
-    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True))
 
 
@@ -233,7 +233,7 @@ def _build_expansion(mgr, ctx: StrategyContext) -> None:
 def _stock_optimal(mgr, ctx: StrategyContext, inventory) -> None:
     """Place initial stock at the pure-global-W optimal layout (hottest SKUs in the
     lowest-W bins).  Stores nothing on mgr; reorders use the normal placement."""
-    mgr.place_optimal(inventory.cartons, ctx.freq_by_sku,
+    mgr.place_optimal(inventory.orders, ctx.freq_by_sku,
                       ctx.wp.x_speed, ctx.wp.y_speed)
 
 

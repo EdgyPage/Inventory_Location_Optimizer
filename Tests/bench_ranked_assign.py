@@ -41,7 +41,7 @@ def _make_units(n, rng):
             sku=i, weight=rng.randint(1, 50),
             demand=types.SimpleNamespace(frequency=rng.random()),
             volume=lambda: 100)
-        units.append(types.SimpleNamespace(carton=c))
+        units.append(types.SimpleNamespace(order=c))
     return units
 
 

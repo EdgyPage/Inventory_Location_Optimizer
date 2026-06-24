@@ -127,8 +127,8 @@ def _wrap_assignment(manager: Inventory_Manager, key: str, counters: dict) -> No
 
 # ── shared asset builder ──────────────────────────────────────────────────────
 
-def _set_equilibrium(cartons: list, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
-    """Set OUP equilibrium fields on carton objects directly.
+def _set_equilibrium(orders: list, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
+    """Set OUP equilibrium fields on order objects directly.
 
     Called only from the test script — no source files are modified.
     Keeps equilibrium_qty small (capped at 3) so warehouse size stays
@@ -137,9 +137,9 @@ def _set_equilibrium(cartons: list, lead_time: float = 2.0, supply_cv: float = 0
     lead_time : mean replenishment lag in batches (sampled by check_reorders)
     supply_cv : coefficient of variation of received quantity (0 = exact fill)
     """
-    for c in cartons:
+    for c in orders:
         expected = c.demand.frequency * c.demand.quantity_rate  # E[picks/batch]
-        # Cap at 3 so each carton needs at most 3 bin slots; prevents warehouse
+        # Cap at 3 so each order needs at most 3 bin slots; prevents warehouse
         # from ballooning when demand.quantity_rate is high.
         eq_qty = max(1, min(3, round(expected * 2)))
         c.expected_batch_demand = expected
@@ -159,30 +159,30 @@ def _build_assets(
     """Build inventory, three warehouses (A / B / C), pick config, affinity store.
 
     Uses Inventory_Manager.plan_warehouse() so warehouse sizing accounts for
-    actual carton-type compatibility and the target fill is honoured.
-    Equilibrium OUP fields are set on cartons in the test script so
+    actual order-type compatibility and the target fill is honoured.
+    Equilibrium OUP fields are set on orders in the test script so
     check_reorders uses realistic reorder thresholds throughout the run.
-    enqueue_all is called with quantity=None so each carton stocks its own
+    enqueue_all is called with quantity=None so each order stocks its own
     equilibrium_qty rather than a fixed override.
     """
     random.seed(seed)
     np.random.seed(seed)
 
-    # Build exactly n_skus cartons; plan_warehouse sizes the warehouse around them
+    # Build exactly n_skus orders; plan_warehouse sizes the warehouse around them
     # and samples down to target_fill, so no 2x pool is needed.
     pool_inv = _build_inventory(n_skus, seed)
-    _set_equilibrium(pool_inv.cartons)
+    _set_equilibrium(pool_inv.orders)
 
     # Physical aisle dimensions derived from bins_per_aisle
     n_cols   = max(1, bins_per_aisle // 20)
     aisle_w  = n_cols * 48
     aisle_h  = 20 * 48
 
-    print(f'  plan_warehouse (pool={len(pool_inv.cartons):,} cartons, '
+    print(f'  plan_warehouse (pool={len(pool_inv.orders):,} orders, '
           f'target_fill={fill:.0%})...', end='', flush=True)
     t0 = time.perf_counter()
     plan = Inventory_Manager.plan_warehouse(
-        pool_inv.cartons,
+        pool_inv.orders,
         categories   = _CATEGORIES,
         handlings    = _HANDLINGS,
         aisle_width  = aisle_w,
@@ -225,7 +225,7 @@ def _build_assets(
         # the load-aware fn so reorders during the batch loop use it.
         random.seed(seed + 1)
         t_enq = time.perf_counter()
-        mgr.enqueue_all(sampled, quantity=None)   # reads carton.equilibrium_qty
+        mgr.enqueue_all(sampled, quantity=None)   # reads order.equilibrium_qty
         enq_s = time.perf_counter() - t_enq
         if aff and fn_builder:
             # Mirror the production worker (strategy_runner) for a cluster strategy:

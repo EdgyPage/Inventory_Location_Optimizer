@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Aisle_Storage import Aisle
-from Carton import Carton, StorageHandleConfig
+from Order import Order, StorageHandleConfig
 from Demand import Demand
 from generation.generate_inventory import (
     EQUILIBRIUM_COVERAGE_BATCHES,
@@ -83,8 +83,8 @@ def _small_warehouse(seed: int = 0) -> tuple[WarehouseConfig, Inventory_Manager]
 
 
 def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10,
-                 lt: float = 0.0, supply_cv: float = 0.0) -> Carton:
-    c                        = object.__new__(Carton)
+                 lt: float = 0.0, supply_cv: float = 0.0) -> Order:
+    c                        = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = ('conveyable', 'food')
     c.storage_handle_config  = StorageHandleConfig('conveyable', 'food')
@@ -118,7 +118,7 @@ def test_profile_attributes() -> None:
         equilibrium_coverage_batches=10.0,
         reorder_safety_batches=2.0,
     )
-    for c in inv.cartons:
+    for c in inv.orders:
         check(f'sku={c.sku} has equilibrium_qty', hasattr(c, 'equilibrium_qty'))
         check(f'sku={c.sku} has reorder_point',   hasattr(c, 'reorder_point'))
         check(f'sku={c.sku} has lead_time_mean',  hasattr(c, 'lead_time_mean'))
@@ -150,7 +150,7 @@ def test_profile_equilibrium_formula() -> None:
     )
     mismatches_eq = []
     mismatches_rp = []
-    for c in inv.cartons:
+    for c in inv.orders:
         expected_eq = max(1, round(10.0 * c.expected_batch_demand))
         # ROP = demand × (lead_time + safety), capped at eq-1
         raw_rp      = round(c.expected_batch_demand * (c.lead_time_mean + 2.0))
@@ -166,7 +166,7 @@ def test_profile_equilibrium_formula() -> None:
           len(mismatches_rp) == 0, f'{mismatches_rp[:3]}')
 
     # Popular items should have higher reorder_point than slow movers
-    sorted_by_demand = sorted(inv.cartons, key=lambda c: c.expected_batch_demand)
+    sorted_by_demand = sorted(inv.orders, key=lambda c: c.expected_batch_demand)
     low_rp  = sorted_by_demand[0].reorder_point
     high_rp = sorted_by_demand[-1].reorder_point
     check('highest-demand SKU has higher reorder_point than lowest-demand SKU',
@@ -198,8 +198,8 @@ def test_db_roundtrip() -> None:
         save_inventory_to_db(inv, db_path, {'test': True})
         inv2 = load_inventory_from_db(db_path)
 
-        orig = {c.sku: c for c in inv.cartons}
-        loaded = {c.sku: c for c in inv2.cartons}
+        orig = {c.sku: c for c in inv.orders}
+        loaded = {c.sku: c for c in inv2.orders}
 
         check('same SKU count', len(orig) == len(loaded))
         mismatches = []
@@ -216,7 +216,7 @@ def test_db_roundtrip() -> None:
 
         # Verify no stock_qty column was written
         conn = sqlite3.connect(db_path)
-        cols = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(orders)').fetchall()]
         conn.close()
         check('stock_qty column absent from new DB', 'stock_qty' not in cols)
         check('equilibrium_qty column present',      'equilibrium_qty' in cols)
@@ -429,13 +429,13 @@ def test_oup_qty_uses_position() -> None:
 def test_equilibrium_qty_helper() -> None:
     print('\n-- Part E: _equilibrium_qty helper --')
     c_new = _make_carton(sku=40, eq_qty=25)
-    check('reads equilibrium_qty on new carton', _equilibrium_qty(c_new) == 25)
+    check('reads equilibrium_qty on new order', _equilibrium_qty(c_new) == 25)
 
-    c_legacy = object.__new__(Carton)
+    c_legacy = object.__new__(Order)
     c_legacy.stock_qty = 50
-    check('falls back to stock_qty on legacy carton', _equilibrium_qty(c_legacy) == 50)
+    check('falls back to stock_qty on legacy order', _equilibrium_qty(c_legacy) == 50)
 
-    c_bare = object.__new__(Carton)
+    c_bare = object.__new__(Order)
     check('defaults to 1 with neither attribute', _equilibrium_qty(c_bare) == 1)
 
 
@@ -476,7 +476,7 @@ def test_fill_stability() -> None:
                 if (u.unit_category == ('pallet' if cfg.unit_type == 'pallet' else 'singleton')))
             / (len(cfgs) * 0.80)
         ))
-        for cfg in cfgs for c in inv.cartons[:1]  # just sizing heuristic
+        for cfg in cfgs for c in inv.orders[:1]  # just sizing heuristic
     )
     n_aisles = max(len(cfgs), 1)
 
@@ -487,7 +487,7 @@ def test_fill_stability() -> None:
     )
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh)
-    mgr.enqueue_all(inv.cartons)
+    mgr.enqueue_all(inv.orders)
 
     total_bins = len(wh.bins)
     batch_cfg  = BatchConfig(inventory_size=100, mean_fraction=0.3, std_fraction=0.05)
@@ -533,7 +533,7 @@ def test_supply_cv_zero_is_exact() -> None:
 def test_supply_cv_produces_variance() -> None:
     """supply_cv > 0 should produce varying received quantities across many samples.
 
-    Tests the sampling math directly — build the carton, call reorder() to get
+    Tests the sampling math directly — build the order, call reorder() to get
     the rc copy (with supply_cv), then replicate the sampling formula N times.
     This avoids needing a warehouse large enough to accept 30 consecutive reorders.
     """
@@ -602,11 +602,11 @@ def test_supply_cv_in_profile_and_db() -> None:
         weight_spec=DEFAULT_WEIGHT_SPEC,
         supply_cv_mean=0.15,
     )
-    # All cartons should have supply_cv >= 0
-    all_nonneg = all(getattr(c, 'supply_cv', -1) >= 0 for c in inv.cartons)
+    # All orders should have supply_cv >= 0
+    all_nonneg = all(getattr(c, 'supply_cv', -1) >= 0 for c in inv.orders)
     check('all supply_cv >= 0', all_nonneg)
     # With supply_cv_mean=0.15, expect variation across SKUs
-    cvs = [c.supply_cv for c in inv.cartons]
+    cvs = [c.supply_cv for c in inv.orders]
     check('supply_cv varies across SKUs (not all identical)',
           len(set(round(v, 4) for v in cvs)) > 1,
           f'unique values={len(set(round(v,4) for v in cvs))}')
@@ -616,8 +616,8 @@ def test_supply_cv_in_profile_and_db() -> None:
     try:
         save_inventory_to_db(inv, db_path, {})
         inv2 = load_inventory_from_db(db_path)
-        orig   = {c.sku: c.supply_cv for c in inv.cartons}
-        loaded = {c.sku: c.supply_cv for c in inv2.cartons}
+        orig   = {c.sku: c.supply_cv for c in inv.orders}
+        loaded = {c.sku: c.supply_cv for c in inv2.orders}
         mismatches = [(s, orig[s], loaded[s]) for s in orig if abs(orig[s] - loaded.get(s, -1)) > 1e-9]
         check('supply_cv preserved in DB round-trip', len(mismatches) == 0,
               f'{mismatches[:3]}')

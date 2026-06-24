@@ -43,15 +43,15 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=affinity)
     random.seed(SEED + 1)
-    mgr.enqueue_all(inventory.cartons)
+    mgr.enqueue_all(inventory.orders)
     mgr.init_lift_state(affinity)
     mgr.init_demand_state(inventory)
     if arm:
         mgr.init_travel_costs(wp)
-    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.cartons}
-    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.cartons}
+    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.orders}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
-                   for c in inventory.cartons if c.sku in affinity._sku_to_idx}
+                   for c in inventory.orders if c.sku in affinity._sku_to_idx}
     mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
         affinity, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
         freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
@@ -107,7 +107,7 @@ def _fresh_mgr(wh_cfg):
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=None)
     random.seed(SEED + 1)
-    mgr.enqueue_all(_build_inventory(200, SEED).cartons)
+    mgr.enqueue_all(_build_inventory(200, SEED).orders)
     return mgr
 
 
