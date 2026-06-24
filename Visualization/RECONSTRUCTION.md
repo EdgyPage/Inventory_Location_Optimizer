@@ -10,15 +10,24 @@ The DB-backed web viewer that consumes these now exists: `server.py` (Flask API 
 ```
 cd Visualization
 pip install -r requirements.txt
-python server.py --base "<comparison_YYYYMMDD_HHMMSS dir>"   # or set COMPARISON_OUTPUT_DIR
+python server.py "<comparison_YYYYMMDD_HHMMSS dir>"   # positional, or --base, or $COMPARISON_OUTPUT_DIR
 # → http://localhost:5000
 ```
 
-Add up to 4 runs by name → side-by-side panes; each pane is an aisle heatmap (fill /
-pick-activity / layout-score, "active aisles only" by default) with animated pickers;
-click an aisle to drill into its SKU-coloured bin grid. The batch stepper + time slider
-are synced across panes (each batch restarts at t=0, with a leading reorder phase). The
-per-batch reorder-queue panel needs a run produced after the `reorder_queue` table was
+Add up to 4 runs by name → side-by-side panes. Two view modes:
+
+- **active aisles only** (default): only the aisles a picker is *currently* standing in are
+  drawn, each as its own SKU-coloured **bin layout** with the picker dot and Manhattan-routed
+  **arrows tracing the pick path** (served by `/api/batch`: active-aisle bins + full timed
+  events, indexed client-side so within-batch scrubbing is recompute-free).
+- **all aisles**: zoomed-out per-aisle heatmap (fill / pick-activity / layout-score), served
+  by the cheap `/api/overview` aggregates.
+
+Click any aisle to drill into its full bin grid (`/api/aisle`), then click a bin to inspect
+its status (SKU, qty now vs. start, picked, layout score). The batch stepper + time slider are
+synced across panes — a single load token guards against stale fetches so panes never drift to
+different batches (each batch restarts at t=0, with a leading reorder phase that shows the
+queued restock). The reorder panel needs a run produced after the `reorder_queue` table was
 added; older runs replay everything else.
 
 ## Files per simulation output

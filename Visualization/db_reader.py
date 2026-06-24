@@ -8,9 +8,12 @@ Public API
 ----------
 discover_runs(base_dir)                 -> list[RunRef]
 read_geometry(run)                      -> {aisles:[...], grid_cols}
-reconstruct_batch(run, batch)           -> {batch, bins:{key:{sku,qty}}, events:[...],
-                                            reorder_queue:[...], restock:[...], timing:{...}}
-bin_scores(run)                         -> {key: score}   (cached, static layout cost)
+reconstruct_batch(run, batch)           -> {batch, active_aisles:[...], aisle_geom:{id:{...}},
+                                            bins:{key:{sku,qty}}, events:[...],
+                                            reorder_queue:[...], timing:{...}}
+reconstruct_overview(run, batch)        -> {aisles:[per-aisle aggregates], picker_paths:[...]}
+reconstruct_aisle(run, batch, aisle)    -> {aisle_id, geom:{...}, bins:{...}, events:[...]}
+bin_scores(sim_db, warehouse_db, run_id)-> {key: score}   (cached, static layout cost)
 """
 from __future__ import annotations
 
@@ -195,11 +198,30 @@ def _state_at_batch_start(run: RunRef, batch: int, aisles: set[int] | None = Non
     return state
 
 
+def _aisle_geom(run: RunRef, aisle_ids) -> dict:
+    """{aisle_id: {bay_x, bay_y, unit_type, storage_size, ...}} for the given aisles — used
+    so the frontend can draw the full bin grid (including empty bins) for active aisles."""
+    ids = [int(a) for a in aisle_ids]
+    if not ids:
+        return {}
+    in_clause = ','.join(str(a) for a in ids)
+    conn = _ro(run.warehouse_db)
+    rows = conn.execute(
+        f'SELECT aisle_id, unit_type, storage_size, bay_x, bay_y, handling_type, category '
+        f'FROM aisle_layout WHERE aisle_id IN ({in_clause})').fetchall()
+    conn.close()
+    return {int(r['aisle_id']): {
+        'bay_x': int(r['bay_x'] or 0), 'bay_y': int(r['bay_y'] or 0),
+        'unit_type': r['unit_type'], 'storage_size': r['storage_size'],
+        'handling_type': r['handling_type'], 'storage_type': r['category'],
+    } for r in rows}
+
+
 def reconstruct_batch(run: RunRef, batch: int) -> dict:
     """Everything the viewer needs to play one batch, scoped to the ACTIVE pick aisles:
-    bin state at batch start, the timed picker events, the reorder-queue snapshot, timing.
-    (The frontend highlights restock by diffing consecutive batches; the reorder_queue table
-    carries the queue contents — no expensive per-bin restock derivation here.)"""
+    bin state at batch start, the timed picker events, per-aisle geometry, the reorder-queue
+    snapshot, timing.  (The frontend highlights restock by diffing consecutive batches; the
+    reorder_queue table carries the queue contents — no expensive per-bin restock here.)"""
     conn = _ro(run.sim_db)
     active = sorted({int(r['aisle_id']) for r in conn.execute(
         'SELECT DISTINCT aisle_id FROM picker_events '
@@ -232,7 +254,8 @@ def reconstruct_batch(run: RunRef, batch: int) -> dict:
     queue = load_reorder_queue(run.sim_db, run.run_id, batch)
     return {
         'batch': batch, 'n_pickers': n_pickers, 'max_time': round(max_time, 4),
-        'active_aisles': active, 'bins': start_bins, 'events': events,
+        'active_aisles': active, 'aisle_geom': _aisle_geom(run, active),
+        'bins': start_bins, 'events': events,
         'reorder_queue': queue, 'timing': timing,
     }
 
@@ -308,7 +331,8 @@ def reconstruct_overview(run: RunRef, batch: int) -> dict:
 
 
 def reconstruct_aisle(run: RunRef, batch: int, aisle_id: int) -> dict:
-    """Full bin detail + bin-level timed events for ONE aisle (the drill-in canvas)."""
+    """Full bin detail + bin-level timed events for ONE aisle (the drill-in canvas).  Includes
+    the aisle geometry so the grid shows every bin (incl. empty) at exact extents."""
     bins = {k: v for k, v in _state_at_batch_start(run, batch, aisles={aisle_id}).items()}
     conn = _ro(run.sim_db)
     events = [
@@ -320,7 +344,8 @@ def reconstruct_aisle(run: RunRef, batch: int, aisle_id: int) -> dict:
             (run.run_id, batch, aisle_id)).fetchall()
     ]
     conn.close()
-    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events}
+    geom = _aisle_geom(run, {aisle_id}).get(aisle_id, {})
+    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events, 'geom': geom}
 
 
 # ── static per-bin layout score (cached) ──────────────────────────────────────────
