@@ -24,14 +24,16 @@ class Demand:
         min_quantity: float = 0.5,
         max_quantity: float = 20.0,
     ) -> None:
-        self.frequency: float = random.uniform(min_frequency, max_frequency)
+        # relative_frequency: a SKU's pick weight as a [0,1] RELATIVE share, not an
+        # absolute rate — drives weighted selection in batch sampling.
+        self.relative_frequency: float = random.uniform(min_frequency, max_frequency)
         self.quantity_rate: float = random.uniform(min_quantity, max_quantity)
 
     @classmethod
-    def from_rates(cls, frequency: float, quantity_rate: float) -> 'Demand':
+    def from_rates(cls, relative_frequency: float, quantity_rate: float) -> 'Demand':
         """Create a Demand with specific, pre-determined rates (used for reorders)."""
         d = cls.__new__(cls)
-        d.frequency = frequency
+        d.relative_frequency = relative_frequency
         d.quantity_rate = quantity_rate
         return d
 

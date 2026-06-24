@@ -510,7 +510,7 @@ def _prepare_config_run(
     optimal_sigma_fd = 0.0
     optimal_work = 0.0
     if warehouse_meta is not None and inventory.orders:
-        _freq = {c.sku: c.demand.frequency for c in inventory.orders}
+        _freq = {c.sku: c.demand.relative_frequency for c in inventory.orders}
         _qty  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
         optimal_sigma_fd = _mgr.optimal_sigma_fd(

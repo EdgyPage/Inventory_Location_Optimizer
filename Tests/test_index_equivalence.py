@@ -48,9 +48,9 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     mgr.init_demand_state(inventory)
     if arm:
         mgr.init_travel_costs(wp)
-    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.orders}
+    freq_by_sku = {c.sku: c.demand.relative_frequency    for c in inventory.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
-    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
     mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
         affinity, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,

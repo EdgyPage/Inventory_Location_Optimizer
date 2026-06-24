@@ -9,7 +9,7 @@ The warehouse uses the same 24-aisle-type layout as run_simulation:
 Reorder policy (OUP equilibrium model)
 ---------------------------------------
 Each Order carries attributes set at profile generation time:
-  expected_batch_demand = demand.frequency * demand.quantity_rate
+  expected_batch_demand = demand.relative_frequency * demand.quantity_rate
   equilibrium_qty       = max(1, round(coverage_batches * expected_batch_demand))
   reorder_point         = max(1, min(eq-1, round(demand * (lead_time + safety_batches))))
 

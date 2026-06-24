@@ -354,7 +354,7 @@ def _require_affinity(affinity, policy: str) -> None:
 def _require_demand(freq_map, policy: str, what: str) -> None:
     """Fail loudly if a demand-WEIGHTED policy is built with an empty frequency map,
     rather than silently weighting every SKU by 0 and degrading to uniform.  Ranked
-    drains are exempt: their priority reads order.demand.frequency directly."""
+    drains are exempt: their priority reads order.demand.relative_frequency directly."""
     if not freq_map:
         raise ValueError(
             f"{policy} placement requires {what} but it is empty. "
@@ -547,7 +547,7 @@ def _ranked_assign_impl(
         # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
         # so this avoids re-taking logs per unit per wave.
         co_occur = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-        return c.demand.frequency * c.labor_cost + co_occur
+        return c.demand.relative_frequency * c.labor_cost + co_occur
 
     # A policy may supply its own per-unit order score (decoupled enqueue ordering);
     # otherwise fall back to the default pick-effort priority.  Both sort DESCENDING.
@@ -669,7 +669,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         c = unit.order
         # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
         co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-        return c.demand.frequency * c.labor_cost + co
+        return c.demand.relative_frequency * c.labor_cost + co
 
     sorted_units = sorted(units, key=priority, reverse=True)
     result: list = []

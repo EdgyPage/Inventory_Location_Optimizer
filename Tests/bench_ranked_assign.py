@@ -39,7 +39,7 @@ def _make_units(n, rng):
     for i in range(n):
         c = types.SimpleNamespace(
             sku=i, weight=rng.randint(1, 50),
-            demand=types.SimpleNamespace(frequency=rng.random()),
+            demand=types.SimpleNamespace(relative_frequency=rng.random()),
             volume=lambda: 100)
         units.append(types.SimpleNamespace(order=c))
     return units

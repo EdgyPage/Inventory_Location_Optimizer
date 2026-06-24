@@ -150,9 +150,9 @@ def _build_pick_cfg(cfg: dict) -> PickConfig:
 def _setup_strategy(mgr, strat, planned_inv, affinity, wp) -> None:
     """Mirror strategy_runner's uniform-stock arm: uniform initial stock, arm aisle
     state, then build() swaps in the strategy's (possibly ranked-wave) placement."""
-    freq_by_sku = {c.sku: c.demand.frequency    for c in planned_inv.orders}
+    freq_by_sku = {c.sku: c.demand.relative_frequency    for c in planned_inv.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate for c in planned_inv.orders}
-    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in planned_inv.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(affinity=affinity, wp=wp, freq_by_idx=freq_by_idx,
                           freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,

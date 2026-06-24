@@ -70,7 +70,7 @@ def _batch_cfg(num_skus: int = 80) -> BatchConfig:
 
 def _fingerprint(b: Batch):
     """Everything random about a batch, hashable for equality."""
-    return (b.num_skus, b.threshold, tuple(sorted(b.items.items())))
+    return (b.num_skus, tuple(sorted(b.items.items())))
 
 
 def _burn_global(n: int = 137, seed: int | None = None) -> None:

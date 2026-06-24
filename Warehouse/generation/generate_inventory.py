@@ -506,7 +506,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
         rows.append((
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
-            c.demand.frequency, c.demand.quantity_rate,
+            c.demand.relative_frequency, c.demand.quantity_rate,
             getattr(c, 'expected_batch_demand', 0.0),
             getattr(c, 'equilibrium_qty',       1),
             getattr(c, 'reorder_point',         1),

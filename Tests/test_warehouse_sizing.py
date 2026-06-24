@@ -599,7 +599,7 @@ def test_batch_assign_extremal_order():
     freqs = [0.1, 0.9, 0.5, 0.7]        # sku i -> frequency
     units = [types.SimpleNamespace(order=types.SimpleNamespace(
                 sku=i, weight=1, volume=lambda: 1, labor_cost=1.0,  # = pick_intercept (pw=pv=0)
-                demand=types.SimpleNamespace(frequency=f)))
+                demand=types.SimpleNamespace(relative_frequency=f)))
              for i, f in enumerate(freqs)]
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=0.0,        # W == x_phys
@@ -632,7 +632,7 @@ def test_optimal_layout_minimizes_sigma_fd():
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=11)
     plan = _plan(inv)
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
 
     wh_u  = _build_wh(plan, 11)
     mgr_u = Inventory_Manager(wh_u)
@@ -686,7 +686,7 @@ def test_requeue_bin():
     print('\n-- requeue_bin: frees bin, re-enqueues unit, preserves inventory position --')
     x, y = 1.0, 0.5
     plan = _plan(_inventory(120, seed=17))
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
     wh   = _build_wh(plan, 17)
     mgr  = Inventory_Manager(wh)
     mgr.place_optimal(plan.sampled, freq, x, y)
@@ -719,8 +719,8 @@ def test_capacity_reloader_variants():
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=23)
     plan = _plan(inv)
-    freq = {c.sku:  c.demand.frequency for c in plan.sampled}
-    neg  = {c.sku: -c.demand.frequency for c in plan.sampled}
+    freq = {c.sku:  c.demand.relative_frequency for c in plan.sampled}
+    neg  = {c.sku: -c.demand.relative_frequency for c in plan.sampled}
 
     check('RELOADERS registry = 3 named variants',
           set(RELOADERS) == {'promote_popular', 'demote_unpopular', 'rebalance'})
@@ -750,7 +750,7 @@ def test_capacity_reloader_variants():
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])      # empty-lift store (co_occur=0)
     mgr._affinity = aff
     mgr.init_lift_state(aff);  mgr.init_demand_state(inv)
-    fbs = {c.sku: c.demand.frequency    for c in plan.sampled}
+    fbs = {c.sku: c.demand.relative_frequency    for c in plan.sampled}
     qbs = {c.sku: c.demand.quantity_rate for c in plan.sampled}
     wp  = type('wp', (), {'x_speed': x, 'y_speed': y, 'pick_intercept': 1.0,
                           'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
@@ -874,7 +874,7 @@ def test_incremental_sigma_fd_matches_full():
     print('\n-- incremental Sigma f*D tracks full recompute through place/empty/evict --')
     x, y = 1.0, 0.5
     plan = _plan(_inventory(120, seed=29))
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
     wh   = _build_wh(plan, 29)
     mgr  = Inventory_Manager(wh)
     mgr.enqueue_all(plan.sampled)

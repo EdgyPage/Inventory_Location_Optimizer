@@ -109,7 +109,7 @@ class Order:
         c.storage_type = self.storage_type
         c.storage_handle_config = self.storage_handle_config
         c._sku = self._sku
-        c.demand = Demand.from_rates(self.demand.frequency, self.demand.quantity_rate)
+        c.demand = Demand.from_rates(self.demand.relative_frequency, self.demand.quantity_rate)
         c.lift_group = self.lift_group
         c.expected_batch_demand = getattr(self, 'expected_batch_demand', 0.0)
         c.equilibrium_qty       = getattr(self, 'equilibrium_qty',       1)
@@ -128,7 +128,7 @@ class Order:
     @property
     def popularity(self) -> float:
         """Pick weight for weighted random selection; backed by demand frequency."""
-        return self.demand.frequency
+        return self.demand.relative_frequency
 
     @property
     def expected_popularity(self) -> float:
@@ -136,7 +136,7 @@ class Order:
 
         Static (depends only on demand), so derived on access rather than stored.
         Used as the per-aisle 'popularity' balance metric (Rank_popularity)."""
-        return self.demand.frequency * self.demand.quantity_rate
+        return self.demand.relative_frequency * self.demand.quantity_rate
 
     @property
     def expected_labor(self) -> float:

@@ -65,7 +65,7 @@ _GRID_COLS = 6
 
 def _set_equilibrium(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
     for c in orders:
-        expected = c.demand.frequency * c.demand.quantity_rate
+        expected = c.demand.relative_frequency * c.demand.quantity_rate
         eq_qty   = max(1, min(3, round(expected * 2)))
         c.expected_batch_demand = expected
         c.equilibrium_qty       = eq_qty
@@ -220,9 +220,9 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     for c in inventory.orders:
         c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef)
 
-    freq_by_sku = {c.sku: c.demand.frequency    for c in inventory.orders}
+    freq_by_sku = {c.sku: c.demand.relative_frequency    for c in inventory.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
-    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(affinity=affinity, wp=wp, freq_by_idx=freq_by_idx,
                           freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,

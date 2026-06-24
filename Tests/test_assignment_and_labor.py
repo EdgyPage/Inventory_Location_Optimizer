@@ -58,7 +58,7 @@ def test_expected_popularity_and_labor():
     cfg = _cfg(); random.seed(1)
     c = Order(('conveyable', 'food'))
     c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
-    assert abs(c.expected_popularity - c.demand.frequency * c.demand.quantity_rate) < 1e-12
+    assert abs(c.expected_popularity - c.demand.relative_frequency * c.demand.quantity_rate) < 1e-12
     assert abs(c.expected_labor - c.expected_popularity * c.labor_cost) < 1e-12
 
 
@@ -93,7 +93,7 @@ class _Cart:
         self.sku = sku; self.labor_cost = lc; self._f = f; self._q = q
         # per-unit weight/volume term used by the height-aware labor balancer
         self.handle_var = lc if handle_var is None else handle_var
-        self.demand = types.SimpleNamespace(frequency=f, quantity_rate=q)
+        self.demand = types.SimpleNamespace(relative_frequency=f, quantity_rate=q)
     @property
     def expected_popularity(self): return self._f * self._q
     @property
@@ -407,7 +407,7 @@ def test_optimal_work_is_a_floor_below_uniform():
     wh, mgr = _mk_wh_mgr()
     orders = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 4 * i) for i in range(1, 6)]
     wp = _wp_work()
-    freq = {c.sku: c.demand.frequency for c in orders}
+    freq = {c.sku: c.demand.relative_frequency for c in orders}
     qty  = {c.sku: c.demand.quantity_rate for c in orders}
     w_opt = mgr.optimal_work(orders, freq, qty, wp)        # pure compute, no mutation
     assert w_opt > 0 and math.isfinite(w_opt)
@@ -420,7 +420,7 @@ def test_build_optimal_map_basis_is_quantity_free():
     wh, mgr = _mk_wh_mgr()
     orders = [_mk_carton(i, f=0.3 + 0.1 * i, weight=3 + 5 * i) for i in range(1, 6)]
     wp = _wp_work()
-    freq = {c.sku: c.demand.frequency for c in orders}
+    freq = {c.sku: c.demand.relative_frequency for c in orders}
     qty  = {c.sku: c.demand.quantity_rate for c in orders}
     mgr.build_optimal_map(orders, freq, qty, wp)
     assert len(mgr._bin_pref) == len(wh.bins)               # pref for every bin

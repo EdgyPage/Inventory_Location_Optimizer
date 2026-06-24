@@ -268,7 +268,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         per-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.
         """
         self._sku_demand_product = {
-            c.sku: c.demand.frequency * c.demand.quantity_rate
+            c.sku: c.demand.relative_frequency * c.demand.quantity_rate
             for c in inventory.orders
         }
         self._aisle_demand_sum.clear()

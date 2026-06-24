@@ -1,29 +1,28 @@
 """
 Generate a demand-weighted sparse affinity matrix from an inventory DB.
 
-Lift values reflect co-purchase likelihood: SKUs in the same
-(handling × category) storage area whose demand_frequency × demand_qty_rate
-(throughput) is high have higher affinity.  Only the top-K partners per SKU
-are stored, producing a sparse matrix that is semantically richer and orders
-of magnitude smaller than the old all-pairs approach.
+Lift is a genuine co-purchase association **independent of demand**: within each
+(handling × category) storage area, SKUs are partitioned into random latent
+affinity clusters (assigned independently of demand_frequency / demand_qty_rate),
+and same-cluster pairs get a positive association strength.  This makes lift a real
+signal — `lift = 1` is independence, `lift > 1` is positive association — rather
+than a restatement of popularity.  Only the top-K partners per SKU are stored,
+producing a sparse matrix orders of magnitude smaller than all-pairs.
 
 Lift formula
 ------------
-For each SKU s in a group, compute a Pareto rank score:
+1. Partition each storage area's SKUs into ⌈n / cluster_size⌉ clusters, assigned
+   uniformly at random (independent of demand).
+2. For a pair (i, j) in the SAME cluster:
 
-    rank_score(s) = 1 / sqrt(rank(s) + 1)      # rank 0 = highest demand → 1.0
+       lift(i, j) = clip( min_lift + (max_lift - min_lift) * U(0,1], min_lift, max_lift )
 
-For a pair (i, j) in the same storage area:
+   (with `min_lift = 1` ⇒ stored lift ∈ (1, max_lift], i.e. positive association).
+3. Different-cluster pairs are independent (lift = 1) and are NOT stored.
 
-    geometric_mean = sqrt(rank_score_i * rank_score_j)
-    lift(i, j)     = clip(
-        min_lift + (max_lift - min_lift) * geometric_mean + Gaussian(0, noise_std),
-        min_lift, max_lift
-    )
-
-For each SKU, the top-K partners (highest lift) are selected from a candidate
-pool of the top-candidate_k SKUs by rank score.  Both (i→j) and (j→i) are
-stored with the same lift so delta_lift and sum_lift remain symmetric.
+For each SKU, the top-K cluster-mates by lift are stored.  Both (i→j) and (j→i)
+share the same lift (first-writer-wins via INSERT OR IGNORE) so delta_lift and
+sum_lift remain symmetric.
 
 Storage
 -------
@@ -65,6 +64,7 @@ import random
 import sqlite3
 import sys
 import time
+from collections import defaultdict
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -78,8 +78,9 @@ sys.path.insert(0, _WH)
 
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
 _TOP_K_DEFAULT       = 20
-_CANDIDATE_K_DEFAULT = 60    # must be > _TOP_K_DEFAULT; provides buffer for noise reranking
-_NOISE_STD_DEFAULT   = 0.15  # Gaussian noise std added to each lift score
+_CANDIDATE_K_DEFAULT = 60    # legacy (demand-rank model); unused by the latent-cluster model
+_NOISE_STD_DEFAULT   = 0.15  # legacy (demand-rank model); unused by the latent-cluster model
+_CLUSTER_SIZE_DEFAULT = 80   # avg SKUs per latent affinity cluster (co-purchase group)
 _BYTES_PER_ROW       = 28    # 2× INTEGER (8) + REAL (8) + SQLite overhead (~4)
 _MB                  = 1_048_576
 _GB                  = 1_073_741_824
@@ -203,23 +204,24 @@ def _rank_scores(
 # ── generation ─────────────────────────────────────────────────────────────────
 
 def generate_affinity(
-    group_skus  : dict[str, list[int]],
-    sku_demand  : dict[int, tuple[float, float]],   # sku → (freq, qty_rate)
-    min_lift    : float,
-    max_lift    : float,
-    noise_std   : float,
-    top_k       : int,
-    candidate_k : int,
-    rng         : random.Random,
-    conn        : sqlite3.Connection,
-    batch_size  : int = 500_000,
+    group_skus   : dict[str, list[int]],
+    sku_demand   : dict[int, tuple[float, float]],   # sku → (freq, qty_rate); stats/plots only
+    min_lift     : float,
+    max_lift     : float,
+    noise_std    : float,                            # legacy (unused by the cluster model)
+    top_k        : int,
+    candidate_k  : int,                              # legacy (unused by the cluster model)
+    rng          : random.Random,
+    conn         : sqlite3.Connection,
+    cluster_size : int = _CLUSTER_SIZE_DEFAULT,
+    batch_size   : int = 500_000,
 ) -> dict:
-    """Generate demand-weighted top-K affinity pairs and insert to the DB.
+    """Generate latent-cluster top-K affinity pairs and insert to the DB.
 
-    For each SKU i, scores the top-candidate_k SKUs by Pareto rank, adds
-    Gaussian noise, and keeps the top-k highest-scoring partners.  Both
-    (i→j) and (j→i) are inserted with the same lift value; INSERT OR IGNORE
-    silently skips pairs already stored from a previous direction.
+    Within each group, SKUs are partitioned into random clusters (independent of
+    demand); each SKU's top-k same-cluster partners are stored with a random
+    association strength in (min_lift, max_lift].  Both (i→j) and (j→i) are inserted
+    with the same lift; INSERT OR IGNORE skips pairs already stored.
 
     Returns per-group statistics for stats.json and plots.
     """
@@ -240,33 +242,31 @@ def generate_affinity(
 
         t_group = time.perf_counter()
 
-        activity    = {s: sku_demand[s][0] * sku_demand[s][1] for s in skus}
-        sorted_skus, rs = _rank_scores(skus, activity)
+        eff_top_k = min(top_k, n - 1)
 
-        eff_top_k  = min(top_k, n - 1)
-        eff_cand_k = min(candidate_k, n - 1)
+        # Latent affinity clusters — assigned INDEPENDENTLY of demand, so stored lift
+        # is genuine co-purchase association, not popularity.  Cross-cluster pairs are
+        # independent (lift = 1) and never stored; within a cluster the pair strength is
+        # a random draw in (min_lift, max_lift].
+        n_clusters = max(1, round(n / max(1, cluster_size)))
+        cluster_of = {s: rng.randrange(n_clusters) for s in skus}
+        members: dict[int, list[int]] = defaultdict(list)
+        for s in skus:
+            members[cluster_of[s]].append(s)
 
         pending    : list[tuple[int, int, float]] = []
         lift_sample: list[float]                  = []
         rows_written = 0
 
-        for sku_i in sorted_skus:
-            rs_i = rs[sku_i]
+        for sku_i in skus:
+            mates = members[cluster_of[sku_i]]
 
-            # Candidate pool: top eff_cand_k by rank score, excluding sku_i.
-            # Since sorted_skus is ordered by rank, a prefix slice gives the
-            # highest-activity candidates.
-            if n - 1 <= eff_cand_k:
-                candidates = [s for s in sorted_skus if s != sku_i]
-            else:
-                pool       = sorted_skus[:eff_cand_k + 1]
-                candidates = [s for s in pool if s != sku_i][:eff_cand_k]
-
-            # Score each candidate: geometric mean of rank scores + noise.
+            # Score same-cluster mates with a demand-independent random strength.
             scored: list[tuple[float, int]] = []
-            for sku_j in candidates:
-                geo  = (rs_i * rs[sku_j]) ** 0.5
-                lift = min_lift + lift_range * geo + rng.gauss(0, noise_std)
+            for sku_j in mates:
+                if sku_j == sku_i:
+                    continue
+                lift = min_lift + lift_range * rng.random()
                 lift = max(min_lift, min(max_lift, lift))
                 scored.append((lift, sku_j))
 
@@ -536,6 +536,7 @@ def generate_run(
     min_lift     : float      = 1.0,
     max_lift     : float      = 5.0,
     noise_std    : float      = _NOISE_STD_DEFAULT,
+    cluster_size : int        = _CLUSTER_SIZE_DEFAULT,
     seed         : int        = 0,
     batch_size   : int        = 500_000,
     verbose      : bool       = True,
@@ -604,6 +605,7 @@ def generate_run(
         'min_lift'           : min_lift,
         'max_lift'           : max_lift,
         'noise_std'          : noise_std,
+        'cluster_size'       : cluster_size,
         'batch_size'         : batch_size,
         'total_sku_count'    : len(rows),
         'group_counts'       : group_counts,
@@ -631,6 +633,7 @@ def generate_run(
         candidate_k = candidate_k,
         rng         = rng,
         conn        = conn_aff,
+        cluster_size = cluster_size,
         batch_size  = batch_size,
     )
     elapsed    = time.perf_counter() - t0
@@ -670,7 +673,9 @@ def main() -> None:
     parser.add_argument('--min-lift',    type=float, default=1.0)
     parser.add_argument('--max-lift',    type=float, default=5.0)
     parser.add_argument('--noise-std',   type=float, default=_NOISE_STD_DEFAULT,
-                        help='Gaussian noise std added to lift scores')
+                        help='(legacy, unused by the latent-cluster model)')
+    parser.add_argument('--cluster-size', type=int, default=_CLUSTER_SIZE_DEFAULT,
+                        help='Avg SKUs per latent affinity cluster (co-purchase group size)')
     parser.add_argument('--seed',        type=int,   default=0)
     parser.add_argument('--batch-size',  type=int,   default=500_000)
     parser.add_argument('--name',        default=None)
@@ -709,6 +714,7 @@ def main() -> None:
         min_lift     = args.min_lift,
         max_lift     = args.max_lift,
         noise_std    = args.noise_std,
+        cluster_size = args.cluster_size,
         seed         = args.seed,
         batch_size   = args.batch_size,
     )

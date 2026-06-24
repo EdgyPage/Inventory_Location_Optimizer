@@ -180,9 +180,9 @@ def _run_strategy_worker(args: dict) -> dict:
     # freq_by_sku ranks SKUs for the optimal stock layout and for re-slotting; built
     # for every strategy (cheap) since these don't depend on placement.
     strat = STRATEGY_BY_KEY[strategy]
-    freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.orders}
+    freq_by_sku = {c.sku: c.demand.relative_frequency     for c in inventory.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.orders}
-    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(
         affinity=affinity, wp=wp,

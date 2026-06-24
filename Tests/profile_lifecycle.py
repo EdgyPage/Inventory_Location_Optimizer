@@ -138,7 +138,7 @@ def _set_equilibrium(orders: list, lead_time: float = 2.0, supply_cv: float = 0.
     supply_cv : coefficient of variation of received quantity (0 = exact fill)
     """
     for c in orders:
-        expected = c.demand.frequency * c.demand.quantity_rate  # E[picks/batch]
+        expected = c.demand.relative_frequency * c.demand.quantity_rate  # E[picks/batch]
         # Cap at 3 so each order needs at most 3 bin slots; prevents warehouse
         # from ballooning when demand.quantity_rate is high.
         eq_qty = max(1, min(3, round(expected * 2)))
@@ -236,9 +236,9 @@ def _build_assets(
             mgr.init_lift_state(aff)              # scan placed bins for aisle state
             mgr.init_demand_state(inventory)     # per-aisle demand sums (cluster reads/commits)
             mgr.init_travel_costs(wp)            # precompute _D + per-aisle sorted index
-            freq_by_sku = {c.sku: c.demand.frequency    for c in sampled}
+            freq_by_sku = {c.sku: c.demand.relative_frequency    for c in sampled}
             qty_by_sku  = {c.sku: c.demand.quantity_rate for c in sampled}
-            freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.frequency
+            freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.relative_frequency
                            for c in sampled if c.sku in aff._sku_to_idx}
             mgr.placement = Placement('profiled', fn_builder(
                 aff, wp,

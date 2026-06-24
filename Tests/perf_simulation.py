@@ -75,7 +75,7 @@ def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) 
     rows = []
     for group_cartons in groups.values():
         n = len(group_cartons)
-        sorted_g = sorted(group_cartons, key=lambda c: c.demand.frequency * c.demand.quantity_rate, reverse=True)
+        sorted_g = sorted(group_cartons, key=lambda c: c.demand.relative_frequency * c.demand.quantity_rate, reverse=True)
         rank_score = {c.sku: 1.0 / (r + 1) ** 0.5 for r, c in enumerate(sorted_g)}
         cand_k = min(top_k + 10, n - 1)
         for c_i in sorted_g:
