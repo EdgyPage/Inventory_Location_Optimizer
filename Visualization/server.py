@@ -27,12 +27,14 @@ import db_reader as R
 
 
 def _resolve_base() -> str:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description='DB-backed warehouse replay & compare viewer')
+    ap.add_argument('base_dir', nargs='?', default=None,
+                    help='comparison output dir to serve (positional)')
     ap.add_argument('--base', default=None, help='comparison output dir to serve')
     ap.add_argument('--port', type=int, default=5000)
     args, _ = ap.parse_known_args()
-    base = args.base or os.environ.get('COMPARISON_OUTPUT_DIR') or os.getcwd()
-    base = base.strip('"').strip("'")
+    base = args.base_dir or args.base or os.environ.get('COMPARISON_OUTPUT_DIR') or os.getcwd()
+    base = base.strip().strip('"').strip("'").rstrip('\\/')   # tolerate trailing slash/quote
     return os.path.abspath(base), args.port
 
 
@@ -50,7 +52,13 @@ def _refresh_runs() -> None:
 
 _refresh_runs()
 print(f'Serving runs from: {_BASE}', flush=True)
-print(f'  {len(_RUNS)} run(s) found.  http://localhost:{_PORT}', flush=True)
+if _RUNS:
+    print(f'  {len(_RUNS)} run(s) found.  http://localhost:{_PORT}', flush=True)
+else:
+    print(f'  WARNING: 0 runs found under this directory.  Pass the comparison_* dir, e.g.\n'
+          f'    python server.py "<...>/comparison_YYYYMMDD_HHMMSS"\n'
+          f'  (looks for <pair>/warehouse.db + <pair>/<config>/sim_*.db).  '
+          f'http://localhost:{_PORT}', flush=True)
 
 
 def _run_or_404(rid: str):
