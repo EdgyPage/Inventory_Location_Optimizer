@@ -53,6 +53,11 @@ $('color-mode').onchange   = e => { colorMode = e.target.value; ensureScores().t
 slider.oninput = () => { curT = parseFloat(slider.value); if (!playing) renderAll(); updateTimeUI(); };
 $('aisle-close').onclick = () => $('aisle-modal').classList.add('hidden');
 $('aisle-canvas').onclick = onAisleCanvasClick;
+$('queue-btn').onclick = () => {
+  $('queue-modal').classList.remove('hidden');
+  Promise.all(panes.filter(p => !p.scores).map(fetchScores)).then(renderQueuePanel);
+};
+$('queue-close').onclick = () => $('queue-modal').classList.add('hidden');
 window.addEventListener('resize', () => { sizeCanvases(); layoutAll(); renderAll(); });
 
 // ── panes ───────────────────────────────────────────────────────────────────────
@@ -136,18 +141,30 @@ function indexBatch(pane) {
 }
 
 function ensureScores() {
-  if (colorMode !== 'score') return Promise.resolve();
+  if (colorMode !== 'score' && colorMode !== 'mappref') return Promise.resolve();
   return Promise.all(panes.filter(p => !p.scores).map(fetchScores));
 }
+// per-aisle mean of a {key: value} bin map → {aisle_id: mean}
+function _perAisle(map) {
+  const sum = {}, cnt = {};
+  for (const [k, v] of Object.entries(map || {})) {
+    const a = +k.split(',', 1)[0]; sum[a] = (sum[a] || 0) + v; cnt[a] = (cnt[a] || 0) + 1;
+  }
+  const out = {}; for (const a in sum) out[a] = sum[a] / cnt[a];
+  return out;
+}
 function fetchScores(pane) {
+  // {layout:{key:score}, map_pref:{key:score}, has_map, source}
   return fetch(`/api/scores?run=${encodeURIComponent(pane.run.id)}`).then(r => r.json()).then(s => {
     pane.scores = s;
-    const sum = {}, cnt = {};
-    for (const [k, v] of Object.entries(s)) {
-      const a = +k.split(',', 1)[0]; sum[a] = (sum[a] || 0) + v; cnt[a] = (cnt[a] || 0) + 1;
-    }
-    pane.perAisleScore = {}; for (const a in sum) pane.perAisleScore[a] = sum[a] / cnt[a];
+    pane.perAisleScore   = _perAisle(s.layout);
+    pane.perAisleMapPref = _perAisle(s.map_pref);
   });
+}
+function fetchSkuScores(pane) {
+  if (pane.skuScores) return Promise.resolve();
+  return fetch(`/api/sku_scores?run=${encodeURIComponent(pane.run.id)}`)
+    .then(r => r.json()).then(s => { pane.skuScores = s; });
 }
 
 // ── batch / playback ──────────────────────────────────────────────────────────
@@ -286,6 +303,13 @@ function aisleColor(pane, a) {
     const s = pane.perAisleScore[a.aisle_id];
     return s == null ? '#1b2030' : heat((s - lo) / (hi - lo || 1));
   }
+  if (colorMode === 'mappref' && pane.perAisleMapPref) {
+    const vals = Object.values(pane.perAisleMapPref);
+    if (!vals.length) return '#1b2030';            // non-map strategy: no pref
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const s = pane.perAisleMapPref[a.aisle_id];
+    return s == null ? '#1b2030' : heat((s - lo) / (hi - lo || 1));
+  }
   return a.capacity ? heat(a.fill) : '#1b2030';     // fill (default)
 }
 
@@ -293,6 +317,56 @@ function aisleColor(pane, a) {
 function renderAll() {
   for (const p of panes) (activeOnly ? renderActive : renderOverview)(p);
   if (!$('aisle-modal').classList.contains('hidden')) renderAisle();
+  if (!$('queue-modal').classList.contains('hidden')) renderQueuePanel();
+}
+
+// ── queue panel: standing reorder queues + score summary, side by side per pane ──
+function paneQueue(pane) {
+  const d = activeOnly ? pane.bd : pane.ov;
+  return d ? (d.reorder_queue || []) : [];
+}
+function paneTiming(pane) {
+  const d = activeOnly ? pane.bd : pane.ov;
+  return (d && d.timing) || {};
+}
+function mean(obj) {
+  const v = Object.values(obj || {}); if (!v.length) return null;
+  return v.reduce((a, b) => a + b, 0) / v.length;
+}
+
+function renderQueuePanel() {
+  $('queue-batch').textContent = `batch ${curBatch} / ${maxBatch}`;
+  if (!panes.length) { $('queue-body').innerHTML = '<div class="hint">Add runs to compare.</div>'; return; }
+  const cards = panes.map(pane => {
+    const q = paneQueue(pane), tm = paneTiming(pane);
+    const lead = q.filter(r => r.kind === 'lead').sort((a, b) => b.qty - a.qty);
+    const stock = q.filter(r => r.kind === 'stock').sort((a, b) => b.qty - a.qty);
+    const leadItems = lead.reduce((s, r) => s + r.qty, 0);
+    const stockItems = stock.reduce((s, r) => s + r.qty, 0);
+    const avgLayout = pane.scores ? mean(pane.scores.layout) : null;
+    const hasMap = pane.scores && pane.scores.has_map;
+    const qrow = r => `<tr><td>#${r.sku}</td><td>${r.qty}</td>`
+      + `<td>${r.unit_type ? r.unit_type + '/' + r.storage_size : '—'}</td>`
+      + `<td>${r.kind === 'lead' ? '+' + r.remaining_lead + 'b' : 'ready'}</td></tr>`;
+    const tbl = rows => rows.length
+      ? `<table class="qtbl"><tr><th>sku</th><th>qty</th><th>unit</th><th>eta</th></tr>`
+        + rows.slice(0, 25).map(qrow).join('')
+        + (rows.length > 25 ? `<tr><td colspan="4" class="hint">+${rows.length - 25} more…</td></tr>` : '')
+        + `</table>`
+      : '<div class="hint">empty</div>';
+    return `<div class="qcard">
+      <div class="qcard-h">${pane.run.strategy}</div>
+      <div class="qstat">queue ${tm.queue_depth ?? 0} · lead ${tm.lead_queue_depth ?? 0}`
+      + ` (${tm.in_transit_qty ?? 0}u) · avg layout ${avgLayout == null ? '—' : avgLayout.toFixed(1)}`
+      + `${hasMap ? ' · map ✓' : ''}</div>
+      <div class="qcols">
+        <div><div class="qttl">lead / in-transit (${leadItems}u)</div>${tbl(lead)}</div>
+        <div><div class="qttl">stock / awaiting bin (${stockItems}u)</div>${tbl(stock)}</div>
+      </div></div>`;
+  });
+  const note = panes.some(p => paneQueue(p).length)
+    ? '' : '<div class="hint" style="margin-bottom:8px">No queued reorders recorded for this batch (older runs predate the reorder_queue table).</div>';
+  $('queue-body').innerHTML = note + cards.join('');
 }
 
 // ── render: all-aisles heatmap ──────────────────────────────────────────────────
@@ -554,13 +628,14 @@ function onPaneClick(pane, ev) {
 }
 
 function openAisle(pane, aisle) {
-  modal = { run: pane.run, aisle, data: null, scores: pane.scores, sel: null };
+  modal = { run: pane.run, pane, aisle, data: null, scores: pane.scores, sel: null };
   $('aisle-modal-title').textContent = `${pane.run.strategy} · Aisle ${aisle} · batch ${curBatch}`;
   $('bin-detail').innerHTML = '<div class="bin-detail-hint">Click a bin to inspect its status.</div>';
   $('aisle-modal').classList.remove('hidden');
   const jobs = [fetch(`/api/aisle?run=${encodeURIComponent(pane.run.id)}&batch=${curBatch}&aisle=${aisle}`)
     .then(r => r.json()).then(d => { modal.data = d; })];
   if (!pane.scores) jobs.push(fetchScores(pane).then(() => { modal.scores = pane.scores; }));
+  jobs.push(fetchSkuScores(pane));            // per-SKU scores for the bin inspector
   Promise.all(jobs).then(renderAisle);
 }
 
@@ -630,8 +705,16 @@ function renderAisle() {
 
   modal._cells = cells;
   modal._state = { qty, startSku, startQty, sku: startSku, active };
+  const sc = d.scores;
+  const ascore = sc
+    ? ` &nbsp;·&nbsp; <b>aisle scores</b> demand ${(+sc.demand_sum).toFixed(1)} · `
+      + `lift ${(+sc.lift_sum).toFixed(1)} · pick-load ${(+sc.pick_load_sum).toFixed(0)} · `
+      + `${sc.n_skus} SKUs / ${sc.n_bins} bins`
+    : ' &nbsp;·&nbsp; <span style="opacity:.6">no aisle scores for this strategy</span>';
   $('aisle-legend').innerHTML =
-    'Bins coloured by SKU · opacity = remaining qty · <span class="sw" style="background:#3a2a2a"></span>emptied · cyan = active pick · arrows = picker path';
+    'Bins coloured by SKU · opacity = remaining qty · '
+    + '<span class="sw" style="background:#3a2a2a"></span>emptied · cyan = active pick · '
+    + 'arrows = picker path' + ascore;
   if (modal.sel) showBinDetail(modal.sel);
 }
 
@@ -651,18 +734,34 @@ function showBinDetail(key) {
   const occupied = key in s.startSku;
   const sku = s.startSku[key];
   const qnow = s.qty[key] || 0, q0 = s.startQty[key] || 0;
-  const score = modal.scores ? modal.scores[key] : null;
+  const layout = modal.scores && modal.scores.layout ? modal.scores.layout[key] : null;
+  const mapPref = modal.scores && modal.scores.map_pref ? modal.scores.map_pref[key] : null;
+  const ss = (modal.pane && modal.pane.skuScores && occupied) ? modal.pane.skuScores[String(sku)] : null;
   let status = 'empty bin', cls = 'empty';
   if (s.active.has(key)) { status = 'active pick'; cls = 'active'; }
   else if (occupied && qnow <= 0) { status = 'emptied this batch'; cls = 'emptied'; }
   else if (occupied) { status = 'stocked'; cls = ''; }
-  $('bin-detail').innerHTML =
-    `<h4>${occupied ? `<span class="sw" style="background:${skuColor(sku)}"></span>` : ''}Bin A${aid} · ${bx},${by}</h4>` +
-    `<dl>` +
-    `<dt>SKU</dt><dd>${occupied ? '#' + sku : '—'}</dd>` +
-    `<dt>qty now</dt><dd>${qnow}</dd>` +
-    `<dt>qty @ start</dt><dd>${q0}</dd>` +
-    `<dt>picked</dt><dd>${Math.max(0, q0 - qnow)}</dd>` +
-    (score != null ? `<dt>layout score</dt><dd>${score.toFixed(1)}</dd>` : '') +
-    `</dl><div class="status ${cls}">${status}</div>`;
+  const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  const num = (v, d = 1) => (v == null ? '—' : (+v).toFixed(d));
+  let html =
+    `<h4>${occupied ? `<span class="sw" style="background:${skuColor(sku)}"></span>` : ''}Bin A${aid} · ${bx},${by}</h4>`
+    + `<dl>`
+    + row('SKU', occupied ? '#' + sku : '—')
+    + row('qty now', qnow) + row('qty @ start', q0) + row('picked', Math.max(0, q0 - qnow))
+    + (layout != null ? row('layout score', num(layout)) : '')
+    + (mapPref != null ? row('map pref', num(mapPref)) : '')
+    + `</dl>`;
+  if (ss) {
+    html += `<h4>SKU #${sku} scores</h4><dl>`
+      + (ss.map_target != null ? row('map target', num(ss.map_target)) : '')
+      + row('labor cost', num(ss.labor_cost, 2))
+      + row('exp. popularity', num(ss.expected_popularity, 3))
+      + row('exp. labor', num(ss.expected_labor, 2))
+      + row('equilibrium', ss.equilibrium_qty ?? '—')
+      + row('reorder pt', ss.reorder_point ?? '—')
+      + row('lead time', num(ss.lead_time_mean, 2))
+      + `</dl>`;
+  }
+  html += `<div class="status ${cls}">${status}</div>`;
+  $('bin-detail').innerHTML = html;
 }

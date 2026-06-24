@@ -34,12 +34,14 @@
     </div>
 
     <div class="view-opts">
+      <button id="queue-btn" title="Show reorder queues + score summary alongside">queues</button>
       <label><input type="checkbox" id="active-only" checked> active aisles only</label>
       <label>color
         <select id="color-mode">
           <option value="fill">fill</option>
           <option value="picks">pick activity</option>
           <option value="score">layout score</option>
+          <option value="mappref">map pref</option>
         </select>
       </label>
     </div>
@@ -66,6 +68,16 @@
         </aside>
       </div>
       <div id="aisle-legend" class="legend"></div>
+    </div>
+  </div>
+
+  <div id="queue-modal" class="hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>Reorder queues &amp; scores &mdash; <span id="queue-batch"></span></span>
+        <button id="queue-close">&#10005;</button>
+      </div>
+      <div id="queue-body" class="queue-body"></div>
     </div>
   </div>
 

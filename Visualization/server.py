@@ -14,7 +14,8 @@ Endpoints
     GET /api/runs                 [{id,label,pair,config,strategy,n_batches}, ...]
     GET /api/geometry?run=<id>    {aisles:[...], grid_cols}
     GET /api/batch?run=<id>&batch=<b>   reconstructed batch payload
-    GET /api/scores?run=<id>      {key: static_layout_score}
+    GET /api/scores?run=<id>      {layout:{key:score}, map_pref:{key:score}, has_map, source}
+    GET /api/sku_scores?run=<id>  {sku: {map_target, labor_cost, expected_*, ...}}
 """
 import argparse
 import os
@@ -125,8 +126,16 @@ def api_aisle():
 
 @app.route('/api/scores')
 def api_scores():
+    """Per-bin scores: {layout:{key:score}, map_pref:{key:score}, has_map, source}."""
     run = _run_or_404(request.args.get('run', ''))
     return jsonify(R.bin_scores(run.sim_db, run.warehouse_db, run.run_id))
+
+
+@app.route('/api/sku_scores')
+def api_sku_scores():
+    """Per-SKU placement scores keyed by sku (map_target, labor, popularity, …)."""
+    run = _run_or_404(request.args.get('run', ''))
+    return jsonify(R.sku_scores(run.sim_db, run.run_id))
 
 
 if __name__ == '__main__':

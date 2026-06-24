@@ -31,7 +31,9 @@ for _p in (os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')
 from Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT   # noqa: E402
 from cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS   # noqa: E402
 
-from Picking_Data import load_reorder_queue   # noqa: E402
+from Picking_Data import (   # noqa: E402
+    load_reorder_queue, load_bin_scores, load_sku_scores, run_identity,
+)
 
 _GRID_COLS = 6
 
@@ -68,17 +70,67 @@ def _nearest_warehouse_db(sim_db: str) -> str | None:
     return None
 
 
+def _warehouse_fingerprint(warehouse_db: str) -> str | None:
+    try:
+        conn = _ro(warehouse_db)
+        row = conn.execute(
+            'SELECT warehouse_fingerprint FROM warehouse_stats '
+            'ORDER BY id DESC LIMIT 1').fetchone()
+        conn.close()
+        return row['warehouse_fingerprint'] if row else None
+    except sqlite3.OperationalError:
+        return None
+
+
+def _warehouse_fp_index(base_dir: str) -> dict[str, str]:
+    """Map warehouse_fingerprint -> warehouse.db path across the tree, so a run resolves
+    its warehouse even if folders were renamed/moved after the run finished."""
+    index: dict[str, str] = {}
+    for root, _dirs, files in os.walk(base_dir):
+        if 'warehouse.db' in files:
+            wh = os.path.join(root, 'warehouse.db')
+            fp = _warehouse_fingerprint(wh)
+            if fp and fp not in index:
+                index[fp] = wh
+    return index
+
+
+def _read_run_meta(sim_db: str) -> dict | None:
+    """First run's identity from a sim DB, tolerant of the pre-identity schema."""
+    try:
+        conn = _ro(sim_db)
+        row = conn.execute(
+            'SELECT * FROM simulation_runs ORDER BY run_id LIMIT 1').fetchone()
+        conn.close()
+    except sqlite3.OperationalError:
+        return None
+    if row is None:
+        return None
+    keys = set(row.keys())
+    get = lambda k: (row[k] if k in keys else None)
+    return {
+        'run_id': int(row['run_id']),
+        'n_batches': int(get('n_batches') or 0),
+        'strategy_key': get('strategy_key'),
+        'pair_label': get('pair_label'),
+        'config_label': get('config_label'),
+        'warehouse_fingerprint': get('warehouse_fingerprint'),
+    }
+
+
 def discover_runs(base_dir: str) -> list[RunRef]:
-    """Walk <base>/<pair>/<config>/sim_*.db and return one RunRef per strategy run."""
+    """Walk <base>/<pair>/<config>/sim_*.db and return one RunRef per strategy run.
+
+    Rename-proof: the strategy/pair/config labels come from the DB's stored identity
+    (falling back to the file/dir names for older runs), and each run's warehouse.db is
+    matched by warehouse_fingerprint (falling back to the nearest warehouse.db by path)."""
     runs: list[RunRef] = []
     if not os.path.isdir(base_dir):
         return runs
+    fp_index = _warehouse_fp_index(base_dir)
     for pair in sorted(os.listdir(base_dir)):
         pair_dir = os.path.join(base_dir, pair)
         if not os.path.isdir(pair_dir) or pair.startswith('_'):
-            continue
-        wh = os.path.join(pair_dir, 'warehouse.db')
-        if not os.path.exists(wh):
             continue
         for config in sorted(os.listdir(pair_dir)):
             cfg_dir = os.path.join(pair_dir, config)
@@ -88,26 +140,24 @@ def discover_runs(base_dir: str) -> list[RunRef]:
                 if not (fn.startswith('sim_') and fn.endswith('.db')) or fn.endswith('.keyframes.db'):
                     continue
                 sim_db = os.path.join(cfg_dir, fn)
-                strategy = fn[4:-3]
-                try:
-                    conn = _ro(sim_db)
-                    row = conn.execute(
-                        'SELECT run_id, n_batches FROM simulation_runs ORDER BY run_id LIMIT 1'
-                    ).fetchone()
-                    conn.close()
-                except sqlite3.OperationalError:
+                meta = _read_run_meta(sim_db)
+                if meta is None:
                     continue
-                if row is None:
+                strategy = meta['strategy_key'] or fn[4:-3]
+                pair_lbl = meta['pair_label'] or pair
+                cfg_lbl  = meta['config_label'] or config
+                wh = (fp_index.get(meta['warehouse_fingerprint'])
+                      or _nearest_warehouse_db(sim_db))
+                if not wh:
                     continue
                 kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
                 runs.append(RunRef(
-                    id=f'{pair}/{config}/{strategy}',
-                    label=f'{pair} · {config} · {strategy}',
-                    pair=pair, config=config, strategy=strategy,
+                    id=f'{pair_lbl}/{cfg_lbl}/{strategy}',
+                    label=f'{pair_lbl} · {cfg_lbl} · {strategy}',
+                    pair=pair_lbl, config=cfg_lbl, strategy=strategy,
                     sim_db=sim_db, warehouse_db=wh,
                     keyframe_db=kf if os.path.exists(kf) else '',
-                    run_id=int(row['run_id']),
-                    n_batches=int(row['n_batches']) if 'n_batches' in row.keys() and row['n_batches'] else 0,
+                    run_id=meta['run_id'], n_batches=meta['n_batches'],
                 ))
     return runs
 
@@ -312,6 +362,7 @@ def reconstruct_overview(run: RunRef, batch: int) -> dict:
     conn.close()
 
     active_set = set(active)
+    ascore = _aisle_metric_scores(run, batch)          # demand/lift/pick-load per aisle
     aisles = [{
         'aisle_id': a['aisle_id'], 'grid_col': a['grid_col'], 'grid_row': a['grid_row'],
         'handling_type': a['handling_type'], 'storage_type': a['storage_type'],
@@ -321,6 +372,7 @@ def reconstruct_overview(run: RunRef, batch: int) -> dict:
         'fill': round(occ.get(a['aisle_id'], 0) / (cap[a['aisle_id']] or 1), 4),
         'picks': picks.get(a['aisle_id'], 0),
         'active': a['aisle_id'] in active_set,
+        'scores': ascore.get(a['aisle_id']),
     } for a in geom['aisles']]
     return {
         'batch': batch, 'grid_cols': geom['grid_cols'], 'aisles': aisles,
@@ -345,15 +397,16 @@ def reconstruct_aisle(run: RunRef, batch: int, aisle_id: int) -> dict:
     ]
     conn.close()
     geom = _aisle_geom(run, {aisle_id}).get(aisle_id, {})
-    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events, 'geom': geom}
+    scores = _aisle_metric_scores(run, batch, aisles={aisle_id}).get(aisle_id)
+    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events,
+            'geom': geom, 'scores': scores}
 
 
-# ── static per-bin layout score (cached) ──────────────────────────────────────────
+# ── per-bin / per-SKU scores (saved by the sim; live fallback for older runs) ──────
 
-@lru_cache(maxsize=64)
-def bin_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict:
-    """Per-bin static layout cost = travel D + golden-zone height penalty, from geometry +
-    run speeds.  Lower = cheaper to pick.  Computed once per run (O(bins)), cached."""
+def _compute_layout_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict[str, float]:
+    """Live per-bin layout cost = travel D + golden-zone height, from geometry + run speeds.
+    Fallback for runs saved before the bin_scores table existed."""
     conn = _ro(sim_db)
     row = conn.execute(
         'SELECT x_speed, y_speed, pick_intercept FROM simulation_runs WHERE run_id=?',
@@ -380,3 +433,68 @@ def bin_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict:
                 d = xp * x_phys + yp * y_phys
                 scores[f"{r['aisle_id']},{cx},{cy}"] = round(m * 1.0 + d, 4)
     return scores
+
+
+@lru_cache(maxsize=64)
+def bin_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict:
+    """Per-bin scores for the heatmap + inspector.  Prefers the saved bin_scores table
+    (authoritative layout_score + optimal-map pref); falls back to a live geometry
+    computation for older runs.  Returns {layout:{key:score}, map_pref:{key:score},
+    has_map:bool, source:'db'|'computed'}.  Lower layout = cheaper to pick."""
+    rows = load_bin_scores(sim_db, run_id)
+    if rows:
+        layout, mp = {}, {}
+        for r in rows:
+            k = f"{r['aisle_id']},{r['bayX']},{r['bayY']}"
+            layout[k] = round(r['layout_score'], 4)
+            if r['map_pref'] is not None:
+                mp[k] = round(r['map_pref'], 4)
+        return {'layout': layout, 'map_pref': mp, 'has_map': bool(mp), 'source': 'db'}
+    return {'layout': _compute_layout_scores(sim_db, warehouse_db, run_id),
+            'map_pref': {}, 'has_map': False, 'source': 'computed'}
+
+
+@lru_cache(maxsize=64)
+def sku_scores(sim_db: str, run_id: int) -> dict:
+    """Per-SKU placement scores keyed by sku (string).  {} for runs predating the table."""
+    out: dict[str, dict] = {}
+    for r in load_sku_scores(sim_db, run_id):
+        out[str(r['sku'])] = {
+            'map_target': r.get('map_target'),
+            'labor_cost': r.get('labor_cost'),
+            'handle_var': r.get('handle_var'),
+            'expected_popularity': r.get('expected_popularity'),
+            'expected_labor': r.get('expected_labor'),
+            'equilibrium_qty': r.get('equilibrium_qty'),
+            'reorder_point': r.get('reorder_point'),
+            'lead_time_mean': r.get('lead_time_mean'),
+        }
+    return out
+
+
+def _aisle_metric_scores(run: RunRef, batch: int, aisles: set[int] | None = None) -> dict:
+    """Per-aisle demand/lift/pick-load scores from aisle_metrics for one batch.
+    {aid: {demand_sum, lift_sum, pick_load_sum, n_skus, n_bins}} (empty if none saved)."""
+    conn = _ro(run.sim_db)
+    try:
+        sql = ('SELECT aisle_id, n_skus, n_bins, demand_sum, lift_sum, pick_load_sum '
+               'FROM aisle_metrics WHERE run_id=? AND batch_id=?')
+        args = [run.run_id, batch]
+        if aisles:
+            sql += ' AND aisle_id IN (%s)' % ','.join(str(int(a)) for a in aisles)
+        rows = conn.execute(sql, args).fetchall()
+    except sqlite3.OperationalError:        # pre-pick_load_sum schema
+        rows = conn.execute(
+            'SELECT aisle_id, n_skus, n_bins, demand_sum, lift_sum '
+            'FROM aisle_metrics WHERE run_id=? AND batch_id=?', (run.run_id, batch)).fetchall()
+    finally:
+        conn.close()
+    out = {}
+    for r in rows:
+        k = r.keys()
+        out[int(r['aisle_id'])] = {
+            'n_skus': r['n_skus'], 'n_bins': r['n_bins'],
+            'demand_sum': round(r['demand_sum'], 4), 'lift_sum': round(r['lift_sum'], 4),
+            'pick_load_sum': round(r['pick_load_sum'], 4) if 'pick_load_sum' in k else 0.0,
+        }
+    return out

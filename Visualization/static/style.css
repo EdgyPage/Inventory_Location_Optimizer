@@ -107,6 +107,29 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
   vertical-align: -2px; margin-right: 4px; }
 
+/* queue + score compare panel */
+#queue-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+#queue-modal.hidden { display: none; }
+.queue-body {
+  display: flex; gap: 10px; flex-wrap: wrap; max-width: 94vw; max-height: 84vh;
+  overflow: auto; align-items: flex-start;
+}
+.qcard { background: #0b0e14; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; min-width: 320px; flex: 1 1 320px; }
+.qcard-h { font-weight: 600; color: #fff; margin-bottom: 2px; }
+.qstat { color: var(--muted); font-size: 12px; margin-bottom: 6px;
+  font-variant-numeric: tabular-nums; }
+.qcols { display: flex; gap: 10px; }
+.qcols > div { flex: 1; min-width: 0; }
+.qttl { color: var(--accent); font-size: 11px; margin-bottom: 3px; }
+.qtbl { width: 100%; border-collapse: collapse; font-size: 11px;
+  font-variant-numeric: tabular-nums; }
+.qtbl th { text-align: left; color: var(--muted); font-weight: 500; }
+.qtbl td, .qtbl th { padding: 1px 4px; border-bottom: 1px solid #1b2030; }
+
 .loading {
   position: fixed; bottom: 10px; left: 14px; color: var(--muted); font-size: 12px;
 }
