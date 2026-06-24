@@ -292,12 +292,11 @@ def _demand_weighted_delta_lift(
     member_idx_set : set[int],
     freq_by_idx    : dict[int, float],
 ) -> float:
-    """Sum of affinity(s, i) * f_i for all affinity partners i in the aisle.
+    """Sum of (lift(s,i) − 1) * f_i for all affinity partners i in the aisle.
 
-    Uses the same CSR row-slice pattern as delta_lift_idxs but multiplies
-    each affinity score by the partner's demand frequency.  This weights the
-    co-location benefit by how often the partner actually appears in a batch,
-    so rare-but-high-affinity pairs do not dominate over common low-affinity ones.
+    Same CSR row-slice as delta_lift_idxs but weights each partner's association
+    ABOVE independence (lift − 1; lift = 1 ⇒ 0) by its demand frequency, so common
+    strongly-associated partners dominate over rare or near-independent ones.
     """
     if not member_idx_set or affinity._matrix is None or sku not in affinity._sku_to_idx:
         return 0.0
@@ -309,7 +308,7 @@ def _demand_weighted_delta_lift(
     col_indices = affinity._matrix.indices[start:end]
     data        = affinity._matrix.data[start:end]
     return float(sum(
-        d * freq_by_idx.get(int(ci), 0.0)
+        (d - 1.0) * freq_by_idx.get(int(ci), 0.0)
         for ci, d in zip(col_indices, data)
         if ci in member_idx_set
     ))
@@ -645,9 +644,10 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
         if lift:
             f = freq_by_idx.get(idx, 0.0)
             if f:
-                w = lift * f                 # one bin → one position; weight each equally
-                mass += w * len(xs)
-                wx   += w * sum(xs)
+                w = (lift - 1.0) * f         # association above independence, demand-weighted
+                if w:
+                    mass += w * len(xs)
+                    wx   += w * sum(xs)
     return (mass, wx / mass) if mass > 0 else (0.0, None)
 
 
@@ -1102,15 +1102,16 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
 
         # Slice the SKU's affinity row ONCE per unit (not once per aisle): partners as
-        # (partner_idx, f_p·lift) pairs, all non-negative.  max_reward bounds lam·delta
-        # over any aisle (all partners present), enabling the early-termination prune
-        # below — the same idea as build_load_*'s lazy CSR queries.
+        # (partner_idx, f_p·(lift−1)) pairs, all non-negative (association above
+        # independence, mirroring _demand_weighted_delta_lift).  max_reward bounds
+        # lam·delta over any aisle (all partners present), enabling the early-termination
+        # prune below — the same idea as build_load_*'s lazy CSR queries.
         row_items: list = []
         si = sku_to_idx.get(sku)
         if si is not None and matrix is not None:
             s = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
             for ci, d in zip(matrix.indices[s:e], matrix.data[s:e]):
-                w = float(d) * freq_by_idx.get(int(ci), 0.0)
+                w = (float(d) - 1.0) * freq_by_idx.get(int(ci), 0.0)
                 if w:
                     row_items.append((int(ci), w))
         max_reward = lam * sum(w for _, w in row_items)
