@@ -27,7 +27,7 @@ sum_lift remain symmetric.
 Storage
 -------
 Expected rows ≈ N_skus × top_k × 2 (some overlap reduced by INSERT OR IGNORE).
-For 76 500 SKUs with top_k=20: ~3 M rows ≈ 85 MB.
+For 76 500 SKUs with top_k=10: ~1.5 M rows ≈ 43 MB.
 Previous all-pairs approach: up to 488 M rows ≈ 13 GB.
 
 Output layout
@@ -51,7 +51,7 @@ python generate_affinity.py --inventory-db ... --estimate
 Callable API
 ------------
 from generate_affinity import generate_run
-generate_run(inventory_db='...', name='run1', top_k=20)
+generate_run(inventory_db='...', name='run1', top_k=10)
 """
 
 import matplotlib
@@ -77,7 +77,7 @@ _WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports 
 sys.path.insert(0, _WH)
 
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
-_TOP_K_DEFAULT       = 20
+_TOP_K_DEFAULT       = 10
 _CANDIDATE_K_DEFAULT = 60    # legacy (demand-rank model); unused by the latent-cluster model
 _NOISE_STD_DEFAULT   = 0.15  # legacy (demand-rank model); unused by the latent-cluster model
 _CLUSTER_SIZE_DEFAULT = 80   # avg SKUs per latent affinity cluster (co-purchase group)
@@ -548,7 +548,7 @@ def generate_run(
     inventory_db : path to inventory.db produced by generate_inventory.py
     name         : folder name under out_dir
     out_dir      : parent directory; run is created at out_dir/name/
-    top_k        : partners stored per SKU (default 20)
+    top_k        : partners stored per SKU (default 10)
     candidate_k  : candidate pool per SKU before noise reranking (default 60)
     min_lift     : lower bound of the lift scale (default 1.0)
     max_lift     : upper bound of the lift scale (default 5.0)
