@@ -397,6 +397,21 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
     return con
 
 
+_CREATE_REORDER_QUEUE = """
+    CREATE TABLE IF NOT EXISTS reorder_queue (
+        run_id         INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id       INTEGER NOT NULL,
+        kind           TEXT    NOT NULL,   -- 'lead' (in-transit) | 'stock' (awaiting bin)
+        sku            INTEGER NOT NULL,
+        qty            INTEGER NOT NULL,   -- items in this queue entry
+        remaining_lead INTEGER NOT NULL DEFAULT 0   -- batches until arrival ('lead' only)
+    )
+"""
+_CREATE_REORDER_QUEUE_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_rq_run_batch ON reorder_queue (run_id, batch_id)
+"""
+
+
 def init_run_db(path: str) -> None:
     """Create all tables and indexes if they don't already exist, and enable WAL mode."""
     con = _open_db(path)
@@ -416,6 +431,8 @@ def init_run_db(path: str) -> None:
         con.execute(_CREATE_AISLE_METRICS)
         con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
         con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
+        con.execute(_CREATE_REORDER_QUEUE)
+        con.execute(_CREATE_REORDER_QUEUE_IDX)
         con.commit()
     finally:
         con.close()
@@ -571,6 +588,43 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
             )
             for row in rows
         ]
+    finally:
+        con.close()
+
+
+# ── ReorderQueue DB ───────────────────────────────────────────────────────────
+# Per-batch snapshot of the replenishment queues *after* check_reorders (i.e. the
+# state the viewer shows draining into bins at t=0 of the batch).  Each record is a
+# (batch_id, kind, sku, qty, remaining_lead) tuple; kind ∈ {'lead','stock'}.
+
+def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT INTO reorder_queue '
+            '(run_id,batch_id,kind,sku,qty,remaining_lead) VALUES (?,?,?,?,?,?)',
+            [(run_id, int(b), str(k), int(s), int(q), int(rl))
+             for (b, k, s, q, rl) in records],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_reorder_queue(path: str, run_id: int, batch_id: int) -> list[dict]:
+    """Queue contents at the start of one batch.  Empty list if the table is absent
+    (older runs predate it) so the viewer degrades gracefully."""
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        rows = con.execute(
+            'SELECT kind, sku, qty, remaining_lead FROM reorder_queue '
+            'WHERE run_id=? AND batch_id=?', (run_id, batch_id)).fetchall()
+        return [dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        return []
     finally:
         con.close()
 

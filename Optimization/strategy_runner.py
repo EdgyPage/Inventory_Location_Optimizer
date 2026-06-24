@@ -58,7 +58,7 @@ from Simulation_Analytics import (
 )
 from Picking_Data import (
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
-    save_bin_inventory, save_aisle_metrics,
+    save_bin_inventory, save_aisle_metrics, save_reorder_queue,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
 
@@ -293,6 +293,7 @@ def _run_strategy_worker(args: dict) -> dict:
     pk: list = []   # individual pick records
     pi: list = []   # bin inventory snapshots
     pm: list = []   # aisle metrics snapshots
+    pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     reorders_ckpt  = 0
@@ -322,6 +323,17 @@ def _run_strategy_worker(args: dict) -> dict:
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
+        # Replay viewer: snapshot the standing replenishment queues at batch start (after
+        # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
+        # not yet binned.  Aggregated by (sku, remaining_lead) to keep the table compact.
+        _rq: dict = {}
+        for _sku, _qty, _rem in mgr._lead_queue:
+            _rq[('lead', _sku, _rem)] = _rq.get(('lead', _sku, _rem), 0) + _qty
+        for _u in mgr._stock_queue:
+            k = ('stock', _u.carton.sku, 0)
+            _rq[k] = _rq.get(k, 0) + _u.quantity
+        for (_kind, _sku, _rem), _qty in _rq.items():
+            pq.append((i, _kind, _sku, _qty, _rem))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Dedicated per-batch RNG: batch i is a pure function of (inventory, affinity,
@@ -393,6 +405,7 @@ def _run_strategy_worker(args: dict) -> dict:
             save_picks(db_path, run_id, pk)
             save_bin_inventory(db_path, run_id, pi)
             save_aisle_metrics(db_path, run_id, pm)
+            save_reorder_queue(db_path, run_id, pq)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -423,7 +436,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
 
-            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear()
+            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
             reorders_ckpt  = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
@@ -445,6 +458,7 @@ def _run_strategy_worker(args: dict) -> dict:
         save_picks(db_path, run_id, pk)
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
+        save_reorder_queue(db_path, run_id, pq)
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped

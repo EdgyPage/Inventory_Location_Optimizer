@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 from Picking_Data import (
     init_run_db, create_run, save_batch_stats, load_batch_stats, BatchStats,
     init_keyframe_db, save_bin_keyframe, keyframe_db_path,
+    save_reorder_queue, load_reorder_queue,
 )
 from Warehouse_Data import init_warehouse_db, save_aisle_layout
 
@@ -95,6 +96,25 @@ def test_batch_stats_queue_roundtrip():
     check('queue_depth round-trips', loaded.queue_depth == 14395, f'{loaded.queue_depth}')
     check('lead_queue_depth round-trips', loaded.lead_queue_depth == 812, f'{loaded.lead_queue_depth}')
     check('in_transit_qty round-trips', loaded.in_transit_qty == 88000, f'{loaded.in_transit_qty}')
+
+
+def test_reorder_queue_roundtrip():
+    print('\n-- reorder_queue contents round-trip --')
+    db = _tmp('sim_rq.db')
+    init_run_db(db)
+    rid = create_run(db, 'uniform_assignment')
+    recs = [(5, 'lead', 101, 30, 2), (5, 'lead', 102, 12, 1), (5, 'stock', 101, 8, 0)]
+    save_reorder_queue(db, rid, recs)
+    got = {(r['kind'], r['sku']): r for r in load_reorder_queue(db, rid, 5)}
+    check('3 queue rows at batch 5', len(got) == 3, f'{len(got)}')
+    check('lead sku101 qty/lead', got[('lead', 101)]['qty'] == 30 and got[('lead', 101)]['remaining_lead'] == 2)
+    check('stock sku101 qty', got[('stock', 101)]['qty'] == 8)
+    check('other batch empty', load_reorder_queue(db, rid, 6) == [])
+    # graceful: a DB without the table returns [] (older runs)
+    db2 = _tmp('sim_no_rq.db')
+    import sqlite3 as _sq
+    _c = _sq.connect(db2); _c.execute('CREATE TABLE simulation_runs(run_id INTEGER)'); _c.commit(); _c.close()
+    check('missing table -> []', load_reorder_queue(db2, 1, 0) == [])
 
 
 def test_aisle_layout_roundtrip():
