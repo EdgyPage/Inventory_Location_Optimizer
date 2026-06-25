@@ -5,9 +5,24 @@ Written once per inventory pair (shared across A/B/C strategies) to
 pair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.
 """
 
+import hashlib
 import os
 import sqlite3
 from datetime import datetime, timezone
+
+
+def compute_warehouse_fingerprint(aisle_rows: list[dict], inventory_label: str = '') -> str:
+    """Stable hash of a warehouse's geometry + inventory profile.
+
+    Rename-proof identity: stored in warehouse_stats and in every sim run row so a run
+    can be matched to its warehouse.db regardless of folder/file names.  Keyed on the
+    per-aisle layout (id, handling, category, unit_type, size, bays) which uniquely
+    fixes the geometry the picker_events/aisle_ids were recorded against."""
+    parts = [str(inventory_label)]
+    for r in sorted(aisle_rows, key=lambda r: r['aisle_id']):
+        parts.append('{aisle_id}:{handling_type}:{category}:{unit_type}:{storage_size}:'
+                     '{bay_x}x{bay_y}'.format(**r))
+    return hashlib.sha1('|'.join(parts).encode('utf-8')).hexdigest()[:16]
 
 
 # ── schemas ────────────────────────────────────────────────────────────────────
@@ -27,7 +42,8 @@ _CREATE_WAREHOUSE_STATS = """
         max_aisles_cap      INTEGER,
         max_bins_cap        INTEGER,
         avg_equilibrium_qty REAL    NOT NULL DEFAULT 0.0,
-        avg_reorder_point   REAL    NOT NULL DEFAULT 0.0
+        avg_reorder_point   REAL    NOT NULL DEFAULT 0.0,
+        warehouse_fingerprint TEXT
     )
 """
 
@@ -133,6 +149,7 @@ def save_warehouse_stats(
     avg_eq_qty    : float,
     avg_rp        : float,
     aisle_rows    : list[dict],
+    warehouse_fingerprint : str | None = None,
 ) -> int:
     """Insert one warehouse_stats row + one aisle_type_stats row per aisle type.
 
@@ -149,11 +166,12 @@ def save_warehouse_stats(
             'INSERT INTO warehouse_stats '
             '(inventory_db, timestamp, n_skus, n_pallet_units, n_singleton_units, '
             'total_aisles, total_bins, expected_fill, target_fill, '
-            'max_aisles_cap, max_bins_cap, avg_equilibrium_qty, avg_reorder_point) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'max_aisles_cap, max_bins_cap, avg_equilibrium_qty, avg_reorder_point, '
+            'warehouse_fingerprint) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             (inventory_db, ts, n_skus, n_pallet, n_singleton,
              total_aisles, total_bins, expected_fill, target_fill,
-             max_aisles, max_bins, avg_eq_qty, avg_rp),
+             max_aisles, max_bins, avg_eq_qty, avg_rp, warehouse_fingerprint),
         )
         warehouse_id = cur.lastrowid
 

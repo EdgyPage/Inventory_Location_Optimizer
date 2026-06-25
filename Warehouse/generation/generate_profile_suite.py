@@ -1,5 +1,5 @@
 """
-Run generate_inventory + generate_affinity for a suite of carton profiles.
+Run generate_inventory + generate_affinity for a suite of order profiles.
 
 Each profile varies the dimension and / or weight distribution to produce
 inventories with meaningfully different physical characteristics — from
@@ -108,7 +108,7 @@ _DEFAULT_PROFILES_DIR = _clean_path(os.getenv(
 ))
 
 
-# ── carton profiles ────────────────────────────────────────────────────────────
+# ── order profiles ────────────────────────────────────────────────────────────
 #
 # dim_spec controls how each of length / width / height is sampled.
 # weight_spec controls how weight is sampled (optionally volume-correlated).
@@ -134,14 +134,14 @@ CARTON_PROFILES = [
     },
     {
         'name': 'small_dense',
-        'description': 'Small cartons (triangular → small), high fixed weight. '
+        'description': 'Small orders (triangular → small), high fixed weight. '
                        'Models dense electronics or hardware.',
         'dim_spec'   : {'dist': 'triangular', 'low': 3, 'high': 18, 'mode': 12},
         'weight_spec': {'dist': 'uniform', 'low': 20, 'high': 70},
     },
     {
         'name': 'large_light',
-        'description': 'Large cartons (triangular → large end), very light weight. '
+        'description': 'Large orders (triangular → large end), very light weight. '
                        'Models foam packaging, pillows, or flat-pack furniture.',
         'dim_spec'   : {'dist': 'triangular', 'low': 24, 'high': 48, 'mode': 44},
         'weight_spec': {'dist': 'poisson_fixed', 'lam': 3.0},
@@ -331,7 +331,7 @@ def plot_profile_stats_table(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description='Generate inventory + affinity for a suite of carton profiles.',
+        description='Generate inventory + affinity for a suite of order profiles.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--name', default=None,

@@ -30,7 +30,7 @@ import tempfile
 import types
 
 from Aisle_Storage import Aisle
-from Carton import Carton, StorageHandleConfig
+from Order import Order, StorageHandleConfig
 from Demand import Demand
 from generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
@@ -86,8 +86,8 @@ def _inventory(n_skus: int, seed: int = 7):
 
 
 def _make_carton(sku: int, eq_qty: int, length=8, width=8, height=6,
-                 handling='conveyable', category='food') -> Carton:
-    c = object.__new__(Carton)
+                 handling='conveyable', category='food') -> Order:
+    c = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = (handling, category)
     c.storage_handle_config  = StorageHandleConfig(handling, category)
@@ -104,7 +104,7 @@ def _make_carton(sku: int, eq_qty: int, length=8, width=8, height=6,
 
 def _plan(inv, **kw):
     return Inventory_Manager.plan_warehouse(
-        inv.cartons,
+        inv.orders,
         categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=_AISLE_W, aisle_height=_AISLE_H,
         target_fill=_TARGET, rng=random.Random(42), **kw,
@@ -115,17 +115,17 @@ def _plan(inv, **kw):
 
 def test_bucket_requirements_track_size_tier():
     print('\n-- bucket_requirements track size tier --')
-    cartons = [
+    orders = [
         _make_carton(1, 30, 10, 10, 10),   # pallet, some tier
         _make_carton(2, 5,  6,  6,  4),    # likely singleton
     ]
-    req = Inventory_Manager.bucket_requirements(cartons)
+    req = Inventory_Manager.bucket_requirements(orders)
     # keys are 4-tuples including storage_size
     check('keys are (h, c, size, unit_type) 4-tuples',
           all(len(k) == 4 for k in req), f'{list(req)[:2]}')
     # counts match manual viable_storage_units
     manual = {}
-    for c in cartons:
+    for c in orders:
         shc = c.storage_handle_config
         for u in viable_storage_units(c, c.equilibrium_qty):
             manual[(shc.handling, shc.category, u.storage_size, u.unit_category)] = \
@@ -165,7 +165,7 @@ def test_every_sku_is_placeable():
     wh  = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
     mgr = Inventory_Manager(wh)
     mgr.enqueue_all(plan.sampled)
-    placed = {b.storage.carton.sku for b in mgr.unavailable if b.storage}
+    placed = {b.storage.order.sku for b in mgr.unavailable if b.storage}
     missing = [c.sku for c in plan.sampled if c.sku not in placed]
     check('every sampled SKU has >=1 occupied bin', not missing,
           f'{len(missing)} unplaced, e.g. {missing[:3]}')
@@ -215,7 +215,7 @@ def test_below_floor_clamps():
 
 def _plan_kw(inv, **kw):
     return Inventory_Manager.plan_warehouse(
-        inv.cartons, categories=_CATEGORIES, handlings=_HANDLINGS,
+        inv.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=_AISLE_W, aisle_height=_AISLE_H, target_fill=_TARGET,
         rng=random.Random(1), **kw)
 
@@ -276,7 +276,7 @@ def test_cross_tier_fill():
     print('\n-- cross-tier fill: flexible items fill ALL tiers --')
     from collections import defaultdict
     inv = _inventory(80, seed=5)
-    eq_before = {c.sku: c.equilibrium_qty for c in inv.cartons}
+    eq_before = {c.sku: c.equilibrium_qty for c in inv.orders}
     plan = _plan(inv)
     check('expected_fill never exceeds target',
           plan.expected_fill <= _TARGET + 0.02, f'{plan.expected_fill:.2%}')
@@ -303,11 +303,11 @@ def test_cross_tier_fill():
 
 def test_resample_scales_eq_reorder():
     print('\n-- resample grows equilibrium; reorder_point keeps its ratio; plan set --')
-    # One carton, lots of capacity across all tiers it can reach → it grows.
+    # One order, lots of capacity across all tiers it can reach → it grows.
     c = _make_carton(1, eq_qty=4)   # small footprint → reaches many tiers
     eq0, rp0 = c.equilibrium_qty, c.reorder_point
     f = rp0 / eq0
-    # Give generous capacity for every tier this carton can reach.
+    # Give generous capacity for every tier this order can reach.
     shc = c.storage_handle_config
     capacity = {}
     for size in ['small', 'medium', 'large', 'extra_large']:
@@ -316,7 +316,7 @@ def test_resample_scales_eq_reorder():
     sampled, allow = Inventory_Manager.sample_to_capacity(
         [c], capacity, target_fill=1.0, rng=random.Random(1))
     sc = sampled[0]
-    check('carton selected and grown to fill space', sampled and sc.equilibrium_qty > eq0,
+    check('order selected and grown to fill space', sampled and sc.equilibrium_qty > eq0,
           f'eq {eq0} -> {sc.equilibrium_qty}')
     expected_rp = max(1, min(sc.equilibrium_qty - 1, round(f * sc.equilibrium_qty)))
     check('reorder_point preserves original ratio',
@@ -379,7 +379,7 @@ def test_partial_placement_drains_incrementally():
     mgr = Inventory_Manager(wh)
     n_bins = len(wh.bins)
 
-    # A carton whose 10 units are singletons (more than the 6 bins).
+    # A order whose 10 units are singletons (more than the 6 bins).
     c = _make_carton(1, eq_qty=10)
     c.stock_plan = [(True, 1, 10)]       # 10 singleton units of 1 item each
     mgr.enqueue(c, quantity=10)
@@ -412,7 +412,7 @@ def test_unit_split_rescue():
     wh  = Warehouse_Builder().from_config(cfg).build()
     mgr = Inventory_Manager(wh)
 
-    # A 48x48x12 carton makes a small pallet at 1 item, medium at 2, xl at 4 —
+    # A 48x48x12 order makes a small pallet at 1 item, medium at 2, xl at 4 —
     # and fits a small pallet (small_per=1).  Force a >= medium pallet for which
     # the small-only warehouse has no bin.
     c = _make_carton(1, eq_qty=1, length=48, width=48, height=12)
@@ -492,7 +492,7 @@ def _run_batch_drain(build_fn, label: str):
         u = b.storage
         if u is None:
             continue
-        shc = u.carton.storage_handle_config
+        shc = u.order.storage_handle_config
         if (b.handling_type != shc.handling or b.storage_type != shc.category
                 or b.unit_type != u.unit_category):
             violations.append(('group', b.handling_type, b.storage_type, b.unit_type))
@@ -512,7 +512,7 @@ def test_planned_inventory_roundtrip_no_queue():
     inv  = _inventory(120, seed=5)
     plan = _plan(inv)
     planned = Inventory.__new__(Inventory)
-    planned.cartons = plan.sampled
+    planned.orders = plan.sampled
     db = os.path.join(tempfile.gettempdir(), 'planned_sizing_test.db')
     if os.path.exists(db):
         os.remove(db)
@@ -524,25 +524,25 @@ def test_planned_inventory_roundtrip_no_queue():
             os.remove(db)
 
     check('every planned SKU round-trips carrying a stock_plan',
-          reloaded.cartons and all(getattr(c, 'stock_plan', None) for c in reloaded.cartons),
-          f'{sum(1 for c in reloaded.cartons if getattr(c, "stock_plan", None))}'
-          f'/{len(reloaded.cartons)}')
+          reloaded.orders and all(getattr(c, 'stock_plan', None) for c in reloaded.orders),
+          f'{sum(1 for c in reloaded.orders if getattr(c, "stock_plan", None))}'
+          f'/{len(reloaded.orders)}')
     eq_by_sku = {c.sku: c.equilibrium_qty for c in plan.sampled}
     check('grown equilibrium_qty preserved through the DB',
-          all(c.equilibrium_qty == eq_by_sku[c.sku] for c in reloaded.cartons))
+          all(c.equilibrium_qty == eq_by_sku[c.sku] for c in reloaded.orders))
 
-    # Worker flow: build the planned warehouse, enqueue the RELOADED cartons.
+    # Worker flow: build the planned warehouse, enqueue the RELOADED orders.
     Aisle.next_aisle_id = 1
     random.seed(5)
     wh  = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
     mgr = Inventory_Manager(wh)
-    mgr.enqueue_all(reloaded.cartons)
-    check('reloaded cartons place with NO queue (cross-tier plan reproduced)',
+    mgr.enqueue_all(reloaded.orders)
+    check('reloaded orders place with NO queue (cross-tier plan reproduced)',
           mgr.queue_depth == 0, f'queue={mgr.queue_depth}')
-    placed = {b.storage.carton.sku for b in mgr.unavailable if b.storage is not None}
+    placed = {b.storage.order.sku for b in mgr.unavailable if b.storage is not None}
     check('every reloaded SKU placed',
-          all(c.sku in placed for c in reloaded.cartons),
-          f'{len(placed)}/{len(reloaded.cartons)}')
+          all(c.sku in placed for c in reloaded.orders),
+          f'{len(placed)}/{len(reloaded.orders)}')
 
 
 def test_uniform_aisle_trip_min_assignment():
@@ -597,9 +597,9 @@ def test_batch_assign_extremal_order():
 
     cands = [_B(i) for i in range(6)]
     freqs = [0.1, 0.9, 0.5, 0.7]        # sku i -> frequency
-    units = [types.SimpleNamespace(carton=types.SimpleNamespace(
+    units = [types.SimpleNamespace(order=types.SimpleNamespace(
                 sku=i, weight=1, volume=lambda: 1, labor_cost=1.0,  # = pick_intercept (pw=pv=0)
-                demand=types.SimpleNamespace(frequency=f)))
+                demand=types.SimpleNamespace(relative_frequency=f)))
              for i, f in enumerate(freqs)]
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=0.0,        # W == x_phys
@@ -609,7 +609,7 @@ def test_batch_assign_extremal_order():
         {}, {}, {}, beta=1.0)
     res = fn(units, lambda u: cands)
 
-    by_sku = {u.carton.sku: b for u, b in res}
+    by_sku = {u.order.sku: b for u, b in res}
     # priority is pure frequency (effort constant) → highest freq gets W=0, etc.
     order = sorted(range(4), key=lambda i: freqs[i], reverse=True)   # [1,3,2,0]
     expected = {sku: rank for rank, sku in enumerate(order)}
@@ -632,7 +632,7 @@ def test_optimal_layout_minimizes_sigma_fd():
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=11)
     plan = _plan(inv)
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
 
     wh_u  = _build_wh(plan, 11)
     mgr_u = Inventory_Manager(wh_u)
@@ -649,7 +649,7 @@ def test_optimal_layout_minimizes_sigma_fd():
           f'{opt:.3f} vs {sig_o:.3f}')
 
     # independent recompute validates current_sigma_fd
-    indep = sum(freq.get(b.storage.carton.sku, 0.0) * (x * b.x_phys + y * b.y_phys)
+    indep = sum(freq.get(b.storage.order.sku, 0.0) * (x * b.x_phys + y * b.y_phys)
                 for b in wh_o.bins if b.storage is not None)
     check('current_sigma_fd matches independent sum', abs(indep - sig_o) < 1e-6,
           f'{indep:.3f} vs {sig_o:.3f}')
@@ -686,7 +686,7 @@ def test_requeue_bin():
     print('\n-- requeue_bin: frees bin, re-enqueues unit, preserves inventory position --')
     x, y = 1.0, 0.5
     plan = _plan(_inventory(120, seed=17))
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
     wh   = _build_wh(plan, 17)
     mgr  = Inventory_Manager(wh)
     mgr.place_optimal(plan.sampled, freq, x, y)
@@ -719,8 +719,8 @@ def test_capacity_reloader_variants():
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=23)
     plan = _plan(inv)
-    freq = {c.sku:  c.demand.frequency for c in plan.sampled}
-    neg  = {c.sku: -c.demand.frequency for c in plan.sampled}
+    freq = {c.sku:  c.demand.relative_frequency for c in plan.sampled}
+    neg  = {c.sku: -c.demand.relative_frequency for c in plan.sampled}
 
     check('RELOADERS registry = 3 named variants',
           set(RELOADERS) == {'promote_popular', 'demote_unpopular', 'rebalance'})
@@ -750,7 +750,7 @@ def test_capacity_reloader_variants():
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])      # empty-lift store (co_occur=0)
     mgr._affinity = aff
     mgr.init_lift_state(aff);  mgr.init_demand_state(inv)
-    fbs = {c.sku: c.demand.frequency    for c in plan.sampled}
+    fbs = {c.sku: c.demand.relative_frequency    for c in plan.sampled}
     qbs = {c.sku: c.demand.quantity_rate for c in plan.sampled}
     wp  = type('wp', (), {'x_speed': x, 'y_speed': y, 'pick_intercept': 1.0,
                           'pick_weight_coef': 0.0, 'pick_volume_coef': 0.0})()
@@ -799,7 +799,7 @@ def test_cluster_assignment_max_min():
     fbi = {idx[2]: 1.0, idx[1]: 0.5}
     fbs = {1: 0.5, 2: 1.0};  qbs = {1: 1.0, 2: 1.0}
     cands = [_B(10, 9.0), _B(20, 1.0)]                     # aisle10 W=9 (has partner), aisle20 W=1
-    unit = types.SimpleNamespace(carton=types.SimpleNamespace(sku=1))
+    unit = types.SimpleNamespace(order=types.SimpleNamespace(sku=1))
 
     def state_with_partner():
         ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)
@@ -824,10 +824,10 @@ def test_affinity_sampler_correlates_and_guards():
     import random as _r
     from Workload_Builder import Batch, BatchConfig
 
-    cartons = [_make_carton(i, 30) for i in range(1, 7)]   # conveyable/food
-    for c in cartons:
+    orders = [_make_carton(i, 30) for i in range(1, 7)]   # conveyable/food
+    for c in orders:
         c.demand = Demand.from_rates(0.9, 4.0)             # freq 0.9 -> usually a candidate
-    inv = types.SimpleNamespace(cartons=cartons)
+    inv = types.SimpleNamespace(orders=orders)
     aff, _ = _aff_store([1, 2, 3, 4, 5, 6], [(1, 2, 8.0)]) # strong lift between sku1 & sku2
     cfg = BatchConfig(inventory_size=6, mean_fraction=0.5, std_fraction=0.0)
 
@@ -862,7 +862,7 @@ def test_init_lift_state_populates_aisle_sets():
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])   # sku_to_idx coverage, no pairs
     mgr._affinity = aff
     mgr.init_lift_state(aff)
-    placed = {b.storage.carton.sku for b in wh.bins if b.storage is not None}
+    placed = {b.storage.order.sku for b in wh.bins if b.storage is not None}
     in_sets = set().union(*mgr._aisle_sku_sets.values()) if mgr._aisle_sku_sets else set()
     check('init_lift_state fills aisle_sku_sets with every placed SKU', in_sets == placed,
           f'{len(in_sets)} vs {len(placed)}')
@@ -874,7 +874,7 @@ def test_incremental_sigma_fd_matches_full():
     print('\n-- incremental Sigma f*D tracks full recompute through place/empty/evict --')
     x, y = 1.0, 0.5
     plan = _plan(_inventory(120, seed=29))
-    freq = {c.sku: c.demand.frequency for c in plan.sampled}
+    freq = {c.sku: c.demand.relative_frequency for c in plan.sampled}
     wh   = _build_wh(plan, 29)
     mgr  = Inventory_Manager(wh)
     mgr.enqueue_all(plan.sampled)

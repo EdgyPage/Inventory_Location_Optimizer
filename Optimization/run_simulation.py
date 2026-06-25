@@ -84,8 +84,8 @@ _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.15
 _BATCH_STD_FRAC  = 0.05
-_TARGET_FILL  = 0.85   # headroom fraction: size each aisle type to this utilization
-_INITIAL_FILL = 0.85   # target fill when sampling inventory to fit a capped aisle count
+_TARGET_FILL  = 0.875   # headroom fraction: size each aisle type to this utilization
+_INITIAL_FILL = 0.875   # target fill when sampling inventory to fit a capped aisle count
 
 # Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
 # Actual bin counts per aisle depend on unit type and size distribution.
@@ -135,7 +135,42 @@ REGRESSION_CONFIGS = [
         'y_speed'         : 2,    # ft/s
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
-
+    {
+        'name'            : 'calibrated_high_weight',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02*2,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
+    },
+    {
+        'name'            : 'calibrated_high_weight_high_height',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02*2,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+    },
+    {
+        'name'            : 'calibrated_high_height',
+        'pick_intercept'  : 15,
+        'pick_weight_coef': 3.02,
+        'pick_weight_fn'  : 'log:2',
+        'pick_volume_coef': 0.765,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 300,
+        'x_speed'         : 3,    # ft/s
+        'y_speed'         : 2,    # ft/s
+        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+    },
 ]
 
 
@@ -258,8 +293,8 @@ def build_shared_assets(
              + (f'  (limit {max_skus:,} SKUs)' if max_skus else ''))
     t0        = time.perf_counter()
     inventory = load_inventory_from_db(inventory_db, limit=max_skus)
-    n_skus    = len(inventory.cartons)
-    log.info(f'  {n_skus:,} cartons  ({time.perf_counter()-t0:.2f}s)')
+    n_skus    = len(inventory.orders)
+    log.info(f'  {n_skus:,} orders  ({time.perf_counter()-t0:.2f}s)')
 
     # ── Warehouse sizing — delegated to Inventory_Manager.plan_warehouse ──────
     # Sizes per-(handling, category, size_tier, unit_type) uniform aisles from
@@ -267,14 +302,14 @@ def build_shared_assets(
     # then samples SKUs to fill to _INITIAL_FILL.  All sizing/sampling lives in
     # the Warehouse layer — run_simulation just supplies the shape + constraints.
     t_size = time.perf_counter()
-    avg_eq = sum(c.equilibrium_qty for c in inventory.cartons) / max(n_skus, 1)
+    avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
     log.info(f'  Inventory model  : avg equilibrium_qty={avg_eq:.1f}'
-             f'  avg reorder_point={sum(c.reorder_point for c in inventory.cartons)/max(n_skus,1):.1f}'
-             f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.cartons)/max(n_skus,1):.2f}'
-             f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.cartons)/max(n_skus,1):.3f}')
+             f'  avg reorder_point={sum(c.reorder_point for c in inventory.orders)/max(n_skus,1):.1f}'
+             f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.orders)/max(n_skus,1):.2f}'
+             f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.orders)/max(n_skus,1):.3f}')
 
     plan = Inventory_Manager.plan_warehouse(
-        inventory.cartons,
+        inventory.orders,
         categories   = _CATEGORIES,
         handlings    = _HANDLINGS,
         aisle_width  = _AISLE_W,
@@ -291,8 +326,8 @@ def build_shared_assets(
         log          = log,
     )
     if plan.sampled:                 # empty when sample=False (analysis path)
-        inventory.cartons = plan.sampled
-    n_skus             = len(inventory.cartons)
+        inventory.orders = plan.sampled
+    n_skus             = len(inventory.orders)
     sku_allowlist      = plan.sku_allowlist
     warehouse_cfg      = plan.warehouse_cfg
     total_aisles       = plan.total_aisles
@@ -364,8 +399,10 @@ def build_shared_assets(
                  f'cross-tier stock plans)')
 
     # ── persist warehouse stats and aisle distributions ───────────────────────
+    warehouse_fp: str | None = None
     if warehouse_db_path is not None:
-        from Warehouse_Data import init_warehouse_db, save_warehouse_stats, save_aisle_layout
+        from Warehouse_Data import (init_warehouse_db, save_warehouse_stats,
+                                     save_aisle_layout, compute_warehouse_fingerprint)
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
@@ -388,8 +425,24 @@ def build_shared_assets(
                 size_large_pct     = pcts[2],
                 size_xlarge_pct    = pcts[3],
             ))
-        avg_eq = sum(c.equilibrium_qty for c in inventory.cartons) / max(n_skus, 1)
-        avg_rp = sum(c.reorder_point   for c in inventory.cartons) / max(n_skus, 1)
+        avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
+        avg_rp = sum(c.reorder_point   for c in inventory.orders) / max(n_skus, 1)
+        # Per-aisle physical layout for reconstruction/visualization (and DB-only
+        # analysis maps).  warehouse_meta is built from the same seed the workers
+        # use, so aisle_ids match the task_stats / picker_events they record.  The same
+        # rows seed the rename-proof fingerprint stamped on warehouse_stats AND every run.
+        layout_rows = [
+            dict(aisle_id      = a.aisle_id,
+                 handling_type = a.handling_type,
+                 category      = a.storage_type,
+                 unit_type     = a.unit_type,
+                 storage_size  = a.storage_size,
+                 bay_x         = a.bayXPerAisle,
+                 bay_y         = a.bayYPerAisle)
+            for a in warehouse_meta.aisles
+        ]
+        warehouse_fp = compute_warehouse_fingerprint(
+            layout_rows, os.path.basename(_pair_dir))
         init_warehouse_db(warehouse_db_path)
         save_warehouse_stats(
             warehouse_db_path,
@@ -406,22 +459,11 @@ def build_shared_assets(
             avg_eq_qty    = avg_eq,
             avg_rp        = avg_rp,
             aisle_rows    = aisle_rows,
+            warehouse_fingerprint = warehouse_fp,
         )
-        # Per-aisle physical layout for reconstruction/visualization (and DB-only
-        # analysis maps).  warehouse_meta is built from the same seed the workers
-        # use, so aisle_ids match the task_stats / picker_events they record.
-        save_aisle_layout(warehouse_db_path, [
-            dict(aisle_id      = a.aisle_id,
-                 handling_type = a.handling_type,
-                 category      = a.storage_type,
-                 unit_type     = a.unit_type,
-                 storage_size  = a.storage_size,
-                 bay_x         = a.bayXPerAisle,
-                 bay_y         = a.bayYPerAisle)
-            for a in warehouse_meta.aisles
-        ])
+        save_aisle_layout(warehouse_db_path, layout_rows)
         log.info(f'  Warehouse stats  -> {warehouse_db_path}'
-                 f'  ({len(warehouse_meta.aisles)} aisles in aisle_layout)')
+                 f'  ({len(warehouse_meta.aisles)} aisles, fp={warehouse_fp})')
 
     return dict(
         inventory          = inventory,
@@ -444,6 +486,7 @@ def build_shared_assets(
         planned_inv_db     = planned_inv_db,
         keyframe_interval  = keyframe_interval,
         warehouse_meta     = warehouse_meta,
+        warehouse_fingerprint = warehouse_fp,
     )
 
 
@@ -501,14 +544,14 @@ def _prepare_config_run(
     # fraction of this optimum.  Cheap (sort, no placement, no mutation).
     optimal_sigma_fd = 0.0
     optimal_work = 0.0
-    if warehouse_meta is not None and inventory.cartons:
-        _freq = {c.sku: c.demand.frequency for c in inventory.cartons}
-        _qty  = {c.sku: c.demand.quantity_rate for c in inventory.cartons}
+    if warehouse_meta is not None and inventory.orders:
+        _freq = {c.sku: c.demand.relative_frequency for c in inventory.orders}
+        _qty  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
         optimal_sigma_fd = _mgr.optimal_sigma_fd(
-            inventory.cartons, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
+            inventory.orders, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
         # Full-labor floor W* (travel + height handling) — the minimal-work yardstick.
-        optimal_work = _mgr.optimal_work(inventory.cartons, _freq, _qty, wp)
+        optimal_work = _mgr.optimal_work(inventory.orders, _freq, _qty, wp)
         log.info(f'  Optimal Sigma f*D (yardstick) = {optimal_sigma_fd:,.1f}')
         log.info(f'  Optimal work W* (floor)       = {optimal_work:,.1f}')
 
@@ -534,7 +577,7 @@ def _prepare_config_run(
         'load_gamma'      : load_params.gamma,
         'total_aisles'    : total_aisles,
         'total_bins'      : total_bins,
-        'n_skus'          : len(inventory.cartons),
+        'n_skus'          : len(inventory.orders),
         'total_units'     : total_units_needed,
         'bin_slack_pct'   : round((total_bins / max(total_units_needed, 1) - 1) * 100, 2),
         'batch_mean_frac' : _BATCH_MEAN_FRAC,
@@ -542,13 +585,13 @@ def _prepare_config_run(
         'seed_world'      : SEED_WORLD,
         'seed_batches'    : SEED_BATCHES,
         'avg_equilibrium_qty': round(sum(getattr(c, 'equilibrium_qty', 1)
-                                         for c in inventory.cartons) / max(len(inventory.cartons), 1), 1),
+                                         for c in inventory.orders) / max(len(inventory.orders), 1), 1),
         'avg_reorder_point'  : round(sum(getattr(c, 'reorder_point', 1)
-                                         for c in inventory.cartons) / max(len(inventory.cartons), 1), 2),
+                                         for c in inventory.orders) / max(len(inventory.orders), 1), 2),
         'avg_lead_time_mean' : round(sum(getattr(c, 'lead_time_mean', 0.0)
-                                         for c in inventory.cartons) / max(len(inventory.cartons), 1), 3),
+                                         for c in inventory.orders) / max(len(inventory.orders), 1), 3),
         'avg_supply_cv'      : round(sum(getattr(c, 'supply_cv', 0.0)
-                                         for c in inventory.cartons) / max(len(inventory.cartons), 1), 3),
+                                         for c in inventory.orders) / max(len(inventory.orders), 1), 3),
     }
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
@@ -580,9 +623,18 @@ def _prepare_config_run(
         log.info('  Resuming  ' + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
     else:
         run_ids = {}
+        _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
+        _identity = dict(
+            pair_label            = _pair_label,
+            config_label          = name,
+            warehouse_fingerprint = shared.get('warehouse_fingerprint'),
+            inventory_label       = _pair_label,
+        )
         for s in STRATEGIES:
             init_run_db(db_path[s.key])
-            run_ids[s.key] = create_run(db_path[s.key], s.run_type, run_params)
+            run_ids[s.key] = create_run(
+                db_path[s.key], s.run_type, run_params,
+                identity={**_identity, 'strategy_key': s.key})
         starts = {s.key: 0 for s in STRATEGIES}
         log.info('  New run  ' + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
 

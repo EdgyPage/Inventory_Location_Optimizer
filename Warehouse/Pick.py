@@ -87,11 +87,11 @@ class PickerProgress:
 
 def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
                cart_swapped: bool, y_phys: float = 0.0) -> float:
-    """Log-linear regression model for time to pick `quantity` units of a carton.
+    """Log-linear regression model for time to pick `quantity` units of a order.
 
     weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
     raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
-    zero-volume carton is physically impossible and indicates bad data.
+    zero-volume order is physically impossible and indicates bad data.
 
     y_phys is the bin's physical height; the height bracket factor scales the ENTIRE
     at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
@@ -205,8 +205,8 @@ class PickSimulation:
 
                 if bin_.storage is None:
                     continue
-                carton  = bin_.storage.carton
-                qty     = task.items.get(carton.sku, 0)
+                order  = bin_.storage.order
+                qty     = task.items.get(order.sku, 0)
                 if qty == 0:
                     continue
 
@@ -218,7 +218,7 @@ class PickSimulation:
                 ))
 
                 # ── cart swap ────────────────────────────────────────────────
-                needed_vol   = carton.volume() * qty
+                needed_vol   = order.volume() * qty
                 cart_swapped = needed_vol > cart_remaining
                 if cart_swapped:
                     events.append(PickEvent(
@@ -231,7 +231,7 @@ class PickSimulation:
                     cart_remaining = _CART_CAPACITY
 
                 # ── pick ─────────────────────────────────────────────────────
-                pt = _pick_time(cfg, carton.weight, carton.volume(), qty, cart_swapped, bin_.y_phys)
+                pt = _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
                 time          += pt
                 cart_remaining = max(0, cart_remaining - needed_vol)
                 bins_done      += 1
@@ -239,7 +239,7 @@ class PickSimulation:
 
                 events.append(PickEvent(
                     time=time, picker_id=picker_id, event_type='pick',
-                    aisle_id=task.aisle_id, sku=carton.sku, quantity=qty,
+                    aisle_id=task.aisle_id, sku=order.sku, quantity=qty,
                     location=bin_.location,
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
@@ -249,7 +249,7 @@ class PickSimulation:
                 # application after the simulation ends (before check_reorders).
                 bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
                 if has_manager:
-                    picks.append((carton.sku, qty))
+                    picks.append((order.sku, qty))
                 if bin_.storage.quantity == 0:
                     bin_.storage = None
                     if has_manager:

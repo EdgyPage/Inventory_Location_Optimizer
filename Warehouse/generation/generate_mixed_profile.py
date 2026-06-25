@@ -6,7 +6,7 @@ run_simulation's discover_db_pairs consumes.
 Families = the 6 categories, each with its own multimodal length/width/height/weight
 specs and a per-family conveyable/non-conveyable propensity (aggregate ~0.75/0.25).
 Dimensions are sampled INDEPENDENTLY per axis; every stored number is a grounded
-integer >= 1, capped (enforced in Carton.build).  Initial stock is the equilibrium
+integer >= 1, capped (enforced in Order.build).  Initial stock is the equilibrium
 point loaded by the sim; reorder is the JIT "day-before-runout" rule
     reorder_point = ceil(expected * (lead_time + 1))
 with lead_time a deterministic per-dataset knob (e.g. 0 vs 1 -> two datasets).

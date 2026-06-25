@@ -29,8 +29,12 @@ from Simulation_Analytics import flag_batch_outliers, flag_task_outliers
 
 _TRAVEL_COL = '#a9a9a9'
 
-# ── rolling-average window ─────────────────────────────────────────────────────
-_WIN = 50   # batches
+# ── rolling-average windows ────────────────────────────────────────────────────
+_WIN    = 50   # batches — steady-state scalar window (ss_* / ranking / aggregate)
+_SMOOTH = 5    # batches — over-time trajectory smoothing.  Kept small so early dynamics
+               # (e.g. an optimal-start layout advantage converging away over the first
+               # ~30 batches) stay visible instead of being averaged out by a half-horizon
+               # window.  Decoupled from _WIN so plot smoothing never moves the rankings.
 
 
 # ── DataFrame helpers ──────────────────────────────────────────────────────────
@@ -294,16 +298,20 @@ def _build_series(strategies, df_b, df_t):
             continue
         bd    = b.sort_values('batch_id')
         batch = bd['batch_id'].values
-        thr   = bd['completion_rate'].rolling(_WIN, min_periods=1).mean().values
+        # Over-time trajectories use the small _SMOOTH window so early dynamics stay visible.
+        thr   = bd['completion_rate'].rolling(_SMOOTH, min_periods=1).mean().values
+        # Layout/travel cost over time (Sigma f*D) — the dimension where an optimal initial
+        # start shows its advantage (and where uniform converges as reorders re-place items).
+        sigma = bd['sigma_fd'].rolling(_SMOOTH, min_periods=1).mean().values
 
         if not t.empty:
             g   = t.groupby('batch_id')['duration']
             agg = g.agg(['mean', 'median']).sort_index()
             q25 = g.quantile(0.25).reindex(agg.index)
             q75 = g.quantile(0.75).reindex(agg.index)
-            tsum = g.sum().reindex(agg.index)        # productivity hours = Σ task time / batch
+            tsum = g.sum().reindex(agg.index)        # production time = Σ task time / batch
             tb   = agg.index.values
-            roll = lambda ser: ser.rolling(_WIN, min_periods=1).mean().values
+            roll = lambda ser: ser.rolling(_SMOOTH, min_periods=1).mean().values
             tmean, tmed = roll(agg['mean']), roll(agg['median'])
             tp25,  tp75 = roll(q25),         roll(q75)
             tprod = roll(tsum)
@@ -312,15 +320,16 @@ def _build_series(strategies, df_b, df_t):
             tmean = tmed = tp25 = tp75 = tprod = np.full(len(batch), np.nan)
 
         maxb = int(batch.max())
-        lo   = maxb - _WIN + 1
+        lo   = maxb - _WIN + 1                        # steady-state window (unchanged)
         ssb  = bd[bd['batch_id'] >= lo]
         sst  = t[t['batch_id'] >= lo] if not t.empty else t
         S[s['key']] = dict(
-            batch=batch, thr=thr,
+            batch=batch, thr=thr, sigma_fd=sigma,
             task_batch=tb, task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(ssb['completion_rate'].mean()),
             ss_dur=float(ssb['duration'].mean()),
+            ss_sigma=float(ssb['sigma_fd'].mean()),
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
             ss_prod_hours=(float(sst.groupby('batch_id')['duration'].sum().mean())
                            if len(sst) else float('nan')),
@@ -568,6 +577,10 @@ def _emit_comparison_suite(strategies, S, out_dir, top_n, title_prefix, agg=Fals
              f='production_time_over_time',
              t='Production time (Sigma task time per batch, sim units)',
              yl='production time (sim units)' + unit),
+        dict(x='batch', y='sigma_fd', blo=None, bhi=None,
+             f='layout_travel_over_time',
+             t='Layout travel cost over time (Sigma f*D, lower=better)',
+             yl='Sigma f*D' + unit),
     ]
     base = strategies[0]
     top_tag = f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
@@ -621,10 +634,11 @@ def _aggregate_series(profile_series_list):
         tp25  = _avg_norm(items, 'task_p25',    'ss_task_mean')
         tp75  = _avg_norm(items, 'task_p75',    'ss_task_mean')
         tprod = _avg_norm(items, 'prod_hours',  'ss_prod_hours')
+        sigma = _avg_norm(items, 'sigma_fd',    'ss_sigma')
         thr_ratio = [d['ss_thr'] / b['ss_thr'] for d, b in items if b.get('ss_thr')]
         dur_ratio = [d['ss_dur'] / b['ss_dur'] for d, b in items if b.get('ss_dur')]
         agg_S[key] = dict(
-            batch=np.arange(len(thr)), thr=thr,
+            batch=np.arange(len(thr)), thr=thr, sigma_fd=sigma,
             task_batch=np.arange(len(tmed)), task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(np.mean(thr_ratio)) if thr_ratio else float('nan'),

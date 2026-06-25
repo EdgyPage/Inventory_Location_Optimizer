@@ -167,10 +167,10 @@ def _pick_lines(task) -> list[tuple[int, int, int, float]]:
     if snap is not None:
         return snap
     return [
-        (b.storage.carton.weight, b.storage.carton.volume(),
-         task.items[b.storage.carton.sku], b.y_phys)
+        (b.storage.order.weight, b.storage.order.volume(),
+         task.items[b.storage.order.sku], b.y_phys)
         for b in task.path
-        if b.storage is not None and b.storage.carton.sku in task.items
+        if b.storage is not None and b.storage.order.sku in task.items
     ]
 
 
@@ -410,7 +410,7 @@ def build_placed_affinity(
     Parameters
     ----------
     warehouse      : built Warehouse object (bins already stocked)
-    inventory      : Inventory object whose cartons have .sku and .lift_group
+    inventory      : Inventory object whose orders have .sku and .lift_group
     max_per_group  : SKUs with affinity per lift group; higher → denser lift
                      coverage but more memory (~150 MB at 1 000 per group)
     """
@@ -418,13 +418,13 @@ def build_placed_affinity(
     from collections import defaultdict
 
     placed_skus: set[int] = {
-        b.storage.carton.sku
+        b.storage.order.sku
         for b in warehouse.bins
         if b.storage is not None
     }
 
     by_group: defaultdict[int, list[int]] = defaultdict(list)
-    for c in inventory.cartons:
+    for c in inventory.orders:
         if c.sku in placed_skus:
             by_group[c.lift_group].append(c.sku)
 
@@ -473,9 +473,11 @@ def snapshot_aisle_metrics(
     aisle_sku_counts  = manager._aisle_sku_counts
     aisle_demand_sum  = manager._aisle_demand_sum
     aisle_lift_sum    = manager._aisle_lift_sum
+    aisle_pick_load   = getattr(manager, '_aisle_pick_load_sum', {})
 
     # Union of all aisle IDs present in any state dict
-    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum))
+    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum)
+                | set(aisle_pick_load))
     if not all_aids:
         return []
 
@@ -484,13 +486,14 @@ def snapshot_aisle_metrics(
         sku_set  = aisle_sku_sets.get(aid, set())
         sku_cnts = aisle_sku_counts.get(aid, {})
         records.append(AisleMetricRecord(
-            run_id     = run_id,
-            batch_id   = batch_id,
-            aisle_id   = aid,
-            n_skus     = len(sku_set),
-            n_bins     = sum(sku_cnts.values()),
-            demand_sum = float(aisle_demand_sum.get(aid, 0.0)),
-            lift_sum   = float(aisle_lift_sum.get(aid, 0.0)),
+            run_id        = run_id,
+            batch_id      = batch_id,
+            aisle_id      = aid,
+            n_skus        = len(sku_set),
+            n_bins        = sum(sku_cnts.values()),
+            demand_sum    = float(aisle_demand_sum.get(aid, 0.0)),
+            lift_sum      = float(aisle_lift_sum.get(aid, 0.0)),
+            pick_load_sum = float(aisle_pick_load.get(aid, 0.0)),
         ))
     return records
 
@@ -517,7 +520,7 @@ def build_pre_snapshot(manager) -> dict:
             'aisle_id'    : bin_.location[0],
             'bayX'        : bin_.bayX,
             'bayY'        : bin_.bayY,
-            'sku'         : bin_.storage.carton.sku,
+            'sku'         : bin_.storage.order.sku,
             'unit_type'   : 'singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
             'storage_size': bin_.storage_size,
             'pre_qty'     : bin_.storage.quantity,
@@ -600,7 +603,7 @@ def snapshot_bin_inventory(
             aisle_id     = bin_.location[0],
             bayX         = bin_.bayX,
             bayY         = bin_.bayY,
-            sku          = bin_.storage.carton.sku,
+            sku          = bin_.storage.order.sku,
             unit_type    = 'singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
             storage_size = bin_.storage_size,
             pre_qty      = bin_.storage.quantity,

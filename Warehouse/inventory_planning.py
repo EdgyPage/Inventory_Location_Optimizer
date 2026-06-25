@@ -12,7 +12,7 @@ import random
 from collections import defaultdict
 from typing import Any
 
-from Carton import Carton
+from Order import Order
 from Aisle_Dimensions import uniform_aisle_bins
 from Warehouse_Builder import AisleConfig, WarehouseConfig
 from Storage_Primitive import Pallet, Singleton, viable_storage_units, _max_qty_fits as _sq_max
@@ -32,12 +32,12 @@ class PlanningMixin:
     # sample SKUs to fill to a target utilization.
 
     @staticmethod
-    def bucket_requirements(cartons: list[Carton]) -> dict[BinKey, int]:
+    def bucket_requirements(orders: list[Order]) -> dict[BinKey, int]:
         """Exact bin count per (handling, category, storage_size, unit_type)
-        bucket, computed by running each carton through viable_storage_units at
+        bucket, computed by running each order through viable_storage_units at
         its equilibrium_qty.  This is the authoritative per-tier demand."""
         req: dict[BinKey, int] = defaultdict(int)
-        for c in cartons:
+        for c in orders:
             shc = c.storage_handle_config
             for u in viable_storage_units(c, _equilibrium_qty(c)):
                 req[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
@@ -46,7 +46,7 @@ class PlanningMixin:
     @classmethod
     def plan_warehouse(
         cls,
-        cartons      : list[Carton],
+        orders      : list[Order],
         *,
         categories   : list[str],
         handlings    : list[str],
@@ -61,7 +61,7 @@ class PlanningMixin:
         rng          : random.Random | None = None,
         log          : Any = None,
     ) -> 'WarehousePlan':
-        """Size a warehouse to fit *cartons* under the given constraints.
+        """Size a warehouse to fit *orders* under the given constraints.
 
         1. Enumerate the full bucket set (every handling×category gets 4 pallet
            size tiers + 1 singleton) — the structural floor that guarantees
@@ -82,7 +82,7 @@ class PlanningMixin:
             {'unit': {'pallet': 0.7, 'singleton': 0.3},
              'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
         """
-        req = cls.bucket_requirements(cartons)
+        req = cls.bucket_requirements(orders)
 
         # 1: enumerate every bucket with a ≥1 floor.
         bucket_list: list[tuple] = []     # (handling, category, size, unit_type)
@@ -197,7 +197,7 @@ class PlanningMixin:
         # a restocked inventory) — this avoids re-stocking the whole inventory.
         if sample:
             sampled, allowlist = cls.sample_to_capacity(
-                cartons, capacity, target_fill=target_fill, rng=rng)
+                orders, capacity, target_fill=target_fill, rng=rng)
             total_units = sum(
                 len(viable_storage_units(c, _equilibrium_qty(c))) for c in sampled)
             expected_fill = total_units / total_bins if total_bins else 0.0
@@ -225,41 +225,41 @@ class PlanningMixin:
 
     @staticmethod
     def sample_to_capacity(
-        cartons     : list[Carton],
+        orders     : list[Order],
         capacity    : dict[BinKey, int],
         *,
         target_fill : float = 0.85,
         rng         : random.Random | None = None,
-    ) -> tuple[list[Carton], set]:
-        """Assign each carton a multi-tier stock_plan that fills bin capacity.
+    ) -> tuple[list[Order], set]:
+        """Assign each order a multi-tier stock_plan that fills bin capacity.
 
-        A carton's units are spread across the EMPTIEST bin tiers it can reach:
+        A order's units are spread across the EMPTIEST bin tiers it can reach:
         flexible (small-footprint) items can be palletized into any tier their
         geometry permits; rigid (large) items only reach the large tiers they
         genuinely require.  Each plan slot is a (is_singleton, qty_per_unit)
-        pair; the slots sum to the carton's (possibly grown) equilibrium_qty.
+        pair; the slots sum to the order's (possibly grown) equilibrium_qty.
 
         Allocation: phase 1 is round-robin so every SKU gets at least one unit
         first (placeability) and reaches its base equilibrium; phase 2 fills the
         leftover capacity per (handling, category) group in BULK — distributing
-        each bin tier's free space across the cartons that can reach it in one
-        step rather than one bin at a time.  The plan is stored on the carton as
+        each bin tier's free space across the orders that can reach it in one
+        step rather than one bin at a time.  The plan is stored on the order as
         run-length slots (is_singleton, qty_per_unit, count) so
         viable_storage_units — and therefore every reorder — reproduces the exact
         tier mix.
 
-        Performance: each carton's reachable tiers (and the qty that lands a full
+        Performance: each order's reachable tiers (and the qty that lands a full
         pallet in each) are computed once via Pallet._fit (O(N) fits).  Full
         pallets reuse that cached tier, so no _fit runs in the fill loops; only a
-        capped final slot (phase 1, ≤1 per carton) needs a fit.
+        capped final slot (phase 1, ≤1 per order) needs a fit.
 
         Returns (sampled_cartons, sampled_sku_ids).
         """
         _rng   = rng or random
         free   = {b: int(cap * target_fill) for b, cap in capacity.items()}
 
-        def _reachable(c: Carton) -> list[tuple[BinKey, int, bool]]:
-            """(bucket, qty_per_unit, is_singleton) options this carton can fill.
+        def _reachable(c: Order) -> list[tuple[BinKey, int, bool]]:
+            """(bucket, qty_per_unit, is_singleton) options this order can fill.
             qty_per_unit is the quantity whose pallet lands exactly in that tier,
             so a full pallet of it never needs a _fit recheck at fill time."""
             shc  = c.storage_handle_config
@@ -273,7 +273,7 @@ class PlanningMixin:
                 opts.append(((shc.handling, shc.category, 'singleton', 'singleton'), sq, True))
             return opts
 
-        order: list[Carton] = list(cartons)
+        order: list[Order] = list(orders)
         _rng.shuffle(order)
         reach   = {id(c): _reachable(c) for c in order}
         plans   : dict[int, list[tuple[bool, int, int]]] = {id(c): [] for c in order}
@@ -281,7 +281,7 @@ class PlanningMixin:
         eq0     = {id(c): _equilibrium_qty(c) for c in order}
         shc_of  = {id(c): c.storage_handle_config for c in order}
 
-        def _add_run(c: Carton, is_single: bool, per: int, count: int, bucket: BinKey) -> None:
+        def _add_run(c: Order, is_single: bool, per: int, count: int, bucket: BinKey) -> None:
             """Append `count` units of `per` items to c's plan, charging `bucket`.
             Merges with the previous run if it is the same (is_single, per)."""
             plan = plans[id(c)]
@@ -293,7 +293,7 @@ class PlanningMixin:
             qty_sum[id(c)] += per * count
             free[bucket]    = free.get(bucket, 0) - count
 
-        def _add_one(c: Carton, cap_qty: int | None) -> bool:
+        def _add_one(c: Order, cap_qty: int | None) -> bool:
             """Add ONE pallet/singleton in c's emptiest reachable bucket with
             budget.  cap_qty caps the slot quantity to land the final slot exactly
             on equilibrium.  Returns False when no reachable bucket has space."""
@@ -320,7 +320,7 @@ class PlanningMixin:
             _add_run(c, isng, per, 1, actual_b)
             return True
 
-        # Phase 1 (round-robin): every carton up to its base equilibrium.
+        # Phase 1 (round-robin): every order up to its base equilibrium.
         progress = True
         while progress:
             progress = False
@@ -332,15 +332,15 @@ class PlanningMixin:
                     progress = True
 
         # Phase 2 (bulk): fill leftover space per (handling, category) group.
-        # For each bin tier with free budget, distribute it across the cartons in
+        # For each bin tier with free budget, distribute it across the orders in
         # the group that can reach it (full pallets only → exact tier, no _fit).
-        groups: dict[tuple, list[Carton]] = defaultdict(list)
+        groups: dict[tuple, list[Order]] = defaultdict(list)
         for c in order:
             shc = shc_of[id(c)]
             groups[(shc.handling, shc.category)].append(c)
 
         for gcartons in groups.values():
-            bucket_reachers: dict[BinKey, list[tuple[Carton, int, bool]]] = defaultdict(list)
+            bucket_reachers: dict[BinKey, list[tuple[Order, int, bool]]] = defaultdict(list)
             for c in gcartons:
                 for (b, per, isng) in reach[id(c)]:
                     bucket_reachers[b].append((c, per, isng))

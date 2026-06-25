@@ -96,8 +96,8 @@ class AffinityStore:
               self._matrix.indptr.nbytes) / 1_048_576
 
     def index_inventory(self, inventory: Inventory) -> None:
-        """Store sku → lift_group for every carton. Safe to call multiple times."""
-        rows = [(c.sku, c.lift_group) for c in inventory.cartons]
+        """Store sku → lift_group for every order. Safe to call multiple times."""
+        rows = [(c.sku, c.lift_group) for c in inventory.orders]
         self._conn.executemany('INSERT OR IGNORE INTO sku_group VALUES (?,?)', rows)
         self._conn.commit()
 
@@ -165,11 +165,12 @@ class AffinityStore:
         return dict(rows)
 
     def delta_lift(self, sku: int, aisle_members: list[int]) -> float:
-        """Sum of lift between sku and every member of aisle_members.
+        """Association ABOVE independence between sku and aisle_members: Σ (lift − 1).
 
-        Walks the CSR row for sku directly via indptr/indices/data — no SQL,
-        no matrix construction.  Bounded by the number of affinity partners of
-        sku (≤ group size, typically ~100), regardless of aisle_members length.
+        Lift is a multiplier with 1 = independence, so the co-location *value* of a
+        partner is (lift − 1); unstored pairs (lift = 1) contribute 0.  Walks the CSR
+        row for sku directly — bounded by sku's partner count, regardless of
+        aisle_members length.
         """
         if not aisle_members or self._matrix is None or sku not in self._sku_to_idx:
             return 0.0
@@ -183,18 +184,16 @@ class AffinityStore:
         member_set  = {self._sku_to_idx[s] for s in aisle_members if s in self._sku_to_idx}
         if not member_set:
             return 0.0
-        return float(sum(d for ci, d in zip(col_indices, data) if ci in member_set))
+        return float(sum(d - 1.0 for ci, d in zip(col_indices, data) if ci in member_set))
 
     def delta_lift_idxs(self, sku: int, member_idx_set: set[int]) -> float:
-        """Sum of lift between sku and a pre-translated set of matrix indices.
+        """Association ABOVE independence: Σ (lift − 1) between sku and a pre-translated
+        set of matrix indices.
 
-        Drop-in replacement for delta_lift() that accepts a set of matrix
-        indices directly instead of SKU IDs, eliminating the per-call
-        {_sku_to_idx[s] for s in aisle_members} set-comprehension that
-        otherwise costs O(N_aisle_members) dict lookups on every call.
-
-        The caller is responsible for keeping member_idx_set current with
-        the aisle's SKU composition (add on placement, discard on removal).
+        Index-set form of delta_lift() (no per-call {_sku_to_idx[s] ...} comprehension).
+        Lift = 1 is independence ⇒ each stored partner contributes (lift − 1); unstored
+        pairs contribute 0.  The caller keeps member_idx_set current with the aisle's SKU
+        composition (add on placement, discard on removal).
         """
         if not member_idx_set or self._matrix is None or sku not in self._sku_to_idx:
             return 0.0
@@ -205,7 +204,7 @@ class AffinityStore:
             return 0.0
         col_indices = self._matrix.indices[start:end]
         data        = self._matrix.data[start:end]
-        return float(sum(d for ci, d in zip(col_indices, data) if ci in member_idx_set))
+        return float(sum(d - 1.0 for ci, d in zip(col_indices, data) if ci in member_idx_set))
 
     def delta_lift_sorted(self, sku: int, sorted_member_arr: 'np.ndarray') -> float:
         """Sum of lift between sku and members described by a sorted numpy array.
@@ -228,14 +227,17 @@ class AffinityStore:
         pos      = np.searchsorted(sorted_member_arr, col_indices)
         pos_clip = np.minimum(pos, n - 1)
         in_aisle = (pos < n) & (sorted_member_arr[pos_clip] == col_indices)
-        return float(data[in_aisle].sum())
+        # Σ(lift − 1): subtract the count of matched partners (independence = 0).
+        return float(data[in_aisle].sum()) - float(in_aisle.sum())
 
     def sum_lift(self, skus: list[int]) -> float:
-        """Total pairwise lift for all ordered pairs within skus.
+        """Total association ABOVE independence within skus: Σ (lift − 1) over all stored
+        ordered pairs.
 
-        Extracts a (k × k) submatrix from the CSR matrix and sums it in C.
-        Both (i,j) and (j,i) are stored, so the result counts each undirected
-        pair twice — consistent with the ordered-pair convention used throughout.
+        Extracts a (k × k) submatrix and sums it in C, then subtracts the stored-entry
+        count (each stored pair contributes lift − 1; independence pairs contribute 0).
+        Both (i,j) and (j,i) are stored, so each undirected pair is counted twice —
+        consistent with the ordered-pair convention used throughout.
         """
         if len(skus) < 2 or self._matrix is None:
             return 0.0
@@ -243,7 +245,8 @@ class AffinityStore:
         if len(idxs) < 2:
             return 0.0
         idxs_arr = np.array(idxs, dtype=np.int32)
-        return float(self._matrix[idxs_arr][:, idxs_arr].sum())
+        sub = self._matrix[idxs_arr][:, idxs_arr]
+        return float(sub.sum()) - float(sub.nnz)
 
     def close(self) -> None:
         self._conn.close()

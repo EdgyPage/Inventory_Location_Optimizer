@@ -59,7 +59,7 @@ def _bench(n_skus: int) -> None:
     _fit_calls = 0
     t0 = time.perf_counter()
     plan = Inventory_Manager.plan_warehouse(
-        inv.cartons, categories=_CATEGORIES, handlings=_HANDLINGS,
+        inv.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=_AW, aisle_height=_AH, target_fill=0.85,
         rng=random.Random(1),
     )

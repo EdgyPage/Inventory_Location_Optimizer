@@ -24,10 +24,15 @@ sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Picking_Data import (
-    init_run_db, create_run, save_batch_stats, load_batch_stats, BatchStats,
+    init_run_db, create_run, find_run, run_identity,
+    save_batch_stats, load_batch_stats, BatchStats,
     init_keyframe_db, save_bin_keyframe, keyframe_db_path,
+    save_reorder_queue, load_reorder_queue,
+    save_bin_scores, load_bin_scores, save_sku_scores, load_sku_scores,
+    save_aisle_metrics, load_aisle_metrics, AisleMetricRecord,
 )
-from Warehouse_Data import init_warehouse_db, save_aisle_layout
+from Warehouse_Data import (init_warehouse_db, save_aisle_layout,
+                            compute_warehouse_fingerprint)
 
 _PASS = 0
 _FAIL = 0
@@ -95,6 +100,110 @@ def test_batch_stats_queue_roundtrip():
     check('queue_depth round-trips', loaded.queue_depth == 14395, f'{loaded.queue_depth}')
     check('lead_queue_depth round-trips', loaded.lead_queue_depth == 812, f'{loaded.lead_queue_depth}')
     check('in_transit_qty round-trips', loaded.in_transit_qty == 88000, f'{loaded.in_transit_qty}')
+
+
+def test_reorder_queue_roundtrip():
+    print('\n-- reorder_queue contents round-trip (enriched: unit_type/storage_size) --')
+    db = _tmp('sim_rq.db')
+    init_run_db(db)
+    rid = create_run(db, 'uniform_assignment')
+    # (batch, kind, sku, qty, remaining_lead, unit_type, storage_size)
+    recs = [(5, 'lead', 101, 30, 2, None, None),
+            (5, 'lead', 102, 12, 1, None, None),
+            (5, 'stock', 101, 8, 0, 'pallet', 'large')]
+    save_reorder_queue(db, rid, recs)
+    got = {(r['kind'], r['sku']): r for r in load_reorder_queue(db, rid, 5)}
+    check('3 queue rows at batch 5', len(got) == 3, f'{len(got)}')
+    check('lead sku101 qty/lead', got[('lead', 101)]['qty'] == 30 and got[('lead', 101)]['remaining_lead'] == 2)
+    check('stock sku101 qty + tier', got[('stock', 101)]['qty'] == 8
+          and got[('stock', 101)]['unit_type'] == 'pallet'
+          and got[('stock', 101)]['storage_size'] == 'large')
+    check('lead has NULL unit_type/size', got[('lead', 101)]['unit_type'] is None)
+    check('other batch empty', load_reorder_queue(db, rid, 6) == [])
+    # graceful: a DB without the table returns [] (older runs)
+    db2 = _tmp('sim_no_rq.db')
+    import sqlite3 as _sq
+    _c = _sq.connect(db2); _c.execute('CREATE TABLE simulation_runs(run_id INTEGER)'); _c.commit(); _c.close()
+    check('missing table -> []', load_reorder_queue(db2, 1, 0) == [])
+    assert len(got) == 3 and got[('stock', 101)]['unit_type'] == 'pallet'
+    assert got[('lead', 101)]['unit_type'] is None
+    assert load_reorder_queue(db2, 1, 0) == []
+
+
+def test_bin_scores_roundtrip():
+    print('\n-- bin_scores round-trip (layout score + optional map_pref) --')
+    db = _tmp('sim_bs.db')
+    init_run_db(db)
+    rid = create_run(db, 'uni_map_rank_norsl')
+    # (aisle_id, bayX, bayY, travel_d, height_mult, layout_score, map_pref)
+    recs = [(1, 2, 3, 4.5, 1.2, 5.7, 9.1), (1, 2, 4, 6.0, 1.0, 7.0, None)]
+    save_bin_scores(db, rid, recs)
+    got = {(r['aisle_id'], r['bayX'], r['bayY']): r for r in load_bin_scores(db, rid)}
+    check('2 bin score rows', len(got) == 2, f'{len(got)}')
+    check('layout_score + map_pref persisted',
+          abs(got[(1, 2, 3)]['layout_score'] - 5.7) < 1e-9 and got[(1, 2, 3)]['map_pref'] == 9.1)
+    check('NULL map_pref for non-map bin', got[(1, 2, 4)]['map_pref'] is None)
+    assert len(got) == 2 and got[(1, 2, 4)]['map_pref'] is None
+    assert abs(got[(1, 2, 3)]['map_pref'] - 9.1) < 1e-9
+
+
+def test_sku_scores_roundtrip():
+    print('\n-- sku_scores round-trip --')
+    db = _tmp('sim_ss.db')
+    init_run_db(db)
+    rid = create_run(db, 'uni_map_norsl')
+    # (sku, map_target, labor_cost, handle_var, exp_pop, exp_labor, eq_qty, rp, lead)
+    recs = [(101, 3.3, 1.5, 0.5, 0.2, 0.3, 40, 12, 2.0),
+            (102, None, 1.1, 0.4, 0.1, 0.11, 20, 6, 0.0)]
+    save_sku_scores(db, rid, recs)
+    got = {r['sku']: r for r in load_sku_scores(db, rid)}
+    check('2 sku score rows', len(got) == 2, f'{len(got)}')
+    check('map_target + labor persisted',
+          got[101]['map_target'] == 3.3 and abs(got[101]['labor_cost'] - 1.5) < 1e-9)
+    check('NULL map_target survives', got[102]['map_target'] is None)
+    assert got[101]['equilibrium_qty'] == 40 and got[102]['map_target'] is None
+
+
+def test_aisle_metrics_pickload_roundtrip():
+    print('\n-- aisle_metrics pick_load_sum round-trip --')
+    db = _tmp('sim_am.db')
+    init_run_db(db)
+    rid = create_run(db, 'uni_rank_labor_norsl')
+    rec = AisleMetricRecord(run_id=rid, batch_id=2, aisle_id=7, n_skus=3, n_bins=5,
+                            demand_sum=1.5, lift_sum=0.4, pick_load_sum=2.75)
+    save_aisle_metrics(db, rid, [rec])
+    got = {a.aisle_id: a for a in load_aisle_metrics(db, rid, batch_id=2)}[7]
+    check('pick_load_sum round-trips', abs(got.pick_load_sum - 2.75) < 1e-9, f'{got.pick_load_sum}')
+    assert abs(got.pick_load_sum - 2.75) < 1e-9 and abs(got.demand_sum - 1.5) < 1e-9
+
+
+def test_run_identity_and_find_run():
+    print('\n-- rename-proof identity + find_run by strategy_key --')
+    db = _tmp('sim_id.db')
+    init_run_db(db)
+    ident = dict(strategy_key='uni_map_rank_norsl', pair_label='mixedA',
+                 config_label='calibrated', warehouse_fingerprint='abc123',
+                 inventory_label='mixedA')
+    rid = create_run(db, 'uni_map_rank_norsl',
+                     params=dict(n_batches=100, optimal_work=123.0), identity=ident)
+    check('find_run by strategy_key', find_run(db, 'uni_map_rank_norsl') == rid)
+    check('find_run unknown key falls back to first', find_run(db, 'nope') == rid)
+    meta = run_identity(db, rid)
+    check('identity columns persisted',
+          meta.get('pair_label') == 'mixedA' and meta.get('warehouse_fingerprint') == 'abc123'
+          and meta.get('config_label') == 'calibrated')
+    check('optimal_work param persisted', abs(meta.get('optimal_work') - 123.0) < 1e-9)
+    # fingerprint is stable + order-independent
+    rows = [dict(aisle_id=2, handling_type='c', category='food', unit_type='pallet',
+                 storage_size='large', bay_x=5, bay_y=4),
+            dict(aisle_id=1, handling_type='c', category='food', unit_type='pallet',
+                 storage_size='large', bay_x=5, bay_y=4)]
+    fp1 = compute_warehouse_fingerprint(rows, 'mixedA')
+    fp2 = compute_warehouse_fingerprint(list(reversed(rows)), 'mixedA')
+    check('fingerprint order-independent', fp1 == fp2, f'{fp1} vs {fp2}')
+    check('fingerprint changes with inventory label', fp1 != compute_warehouse_fingerprint(rows, 'other'))
+    assert find_run(db, 'uni_map_rank_norsl') == rid
+    assert meta.get('warehouse_fingerprint') == 'abc123' and fp1 == fp2
 
 
 def test_aisle_layout_roundtrip():
@@ -184,6 +293,12 @@ if __name__ == '__main__':
     print('=' * 60)
     test_run_params_roundtrip()
     test_batch_stats_start_end_roundtrip()
+    test_batch_stats_queue_roundtrip()
+    test_reorder_queue_roundtrip()
+    test_bin_scores_roundtrip()
+    test_sku_scores_roundtrip()
+    test_aisle_metrics_pickload_roundtrip()
+    test_run_identity_and_find_run()
     test_aisle_layout_roundtrip()
     test_keyframe_db_roundtrip()
     test_reconstruction_query()

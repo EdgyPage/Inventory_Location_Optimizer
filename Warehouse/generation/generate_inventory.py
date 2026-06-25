@@ -2,7 +2,7 @@
 Generate an Inventory with configurable dimension and weight distributions and
 persist it to SQLite.
 
-Each carton's length, width, and height are sampled from a dim_spec; weight is
+Each order's length, width, and height are sampled from a dim_spec; weight is
 sampled from a weight_spec.  Both specs support plain distributions and mixture
 models, making it easy to produce bimodal, trimodal, or heavy-tailed inventories.
 
@@ -26,7 +26,7 @@ Supported weight distributions
 Output layout
 -------------
 <out_dir>/<name>/
-    inventory.db    — SQLite: cartons + run_metadata
+    inventory.db    — SQLite: orders + run_metadata
     params.json     — full parameter record (dim_spec, weight_spec, seed, …)
     stats.json      — per-group counts, dimension / weight / demand summaries
     plots/
@@ -76,7 +76,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports + output dirs
 sys.path.insert(0, _WH)
 
-from Carton import Carton, StorageHandleConfig
+from Order import Order, StorageHandleConfig
 from Demand import Demand
 from Inventory_Builder import Inventory
 from Storage_Primitive import Storage_Type
@@ -90,7 +90,7 @@ _SINGLETON_MAX_DIM = 16
 DEFAULT_DIM_SPEC      = {'dist': 'triangular', 'low': 3, 'high': 48, 'mode': 48}
 DEFAULT_WEIGHT_SPEC   = {'dist': 'volume_poisson'}
 # Demand defaults for plan families: frequency is a fractional pick RATE in (0,1];
-# qty_rate is integer units/pick (Carton.build clamps it to [MIN_QTY, MAX_QTY]).
+# qty_rate is integer units/pick (Order.build clamps it to [MIN_QTY, MAX_QTY]).
 DEFAULT_FREQ_SPEC     = {'dist': 'uniform', 'low': 0.0,  'high': 1.0}
 DEFAULT_QTY_SPEC      = {'dist': 'uniform', 'low': 1.0,  'high': 20.0}
 
@@ -136,7 +136,7 @@ def _poisson_rng(lam: float, rng: random.Random) -> int:
 def sample_rate(spec: dict, rng: random.Random) -> float:
     """Sample a demand rate (pick frequency or quantity-per-pick) from *spec*.
 
-    Returns a float; the caller (Carton.build) clamps frequency to (0,1] and
+    Returns a float; the caller (Order.build) clamps frequency to (0,1] and
     qty_rate to the integer range [MIN_QTY, MAX_QTY].  Supported:
       uniform   low, high
       fixed     value
@@ -159,9 +159,9 @@ def sample_rate(spec: dict, rng: random.Random) -> float:
 
 
 def sample_dim(spec: dict, rng: random.Random, max_cap: int = _CARTON_MAX_DIM) -> int:
-    """Sample one carton dimension from *spec*, clipped to [3, max_cap].
+    """Sample one order dimension from *spec*, clipped to [3, max_cap].
 
-    max_cap is passed down through mixture components so singleton cartons
+    max_cap is passed down through mixture components so singleton orders
     (max_cap=16) are respected even inside nested mixture specs.
     """
     lo   = 3
@@ -203,7 +203,7 @@ def sample_dim(spec: dict, rng: random.Random, max_cap: int = _CARTON_MAX_DIM) -
 
 def sample_weight(spec: dict, length: int, width: int, height: int,
                   rng: random.Random) -> int:
-    """Sample carton weight from *spec*."""
+    """Sample order weight from *spec*."""
     dist = spec.get('dist', 'volume_poisson')
 
     if dist == 'volume_poisson':
@@ -282,7 +282,7 @@ def build_inventory_from_plan(
     `lead` is the fixed `lead_time` unless `lead_time_range=(lo,hi)` is given, in which case each
     SKU draws lead ~ randint(lo, hi) from a SEPARATE rng — so two profiles built with the same seed
     (e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead/reorder_point.
-    All physical guardrails (integer, min 1, caps) are applied inside Carton.build.
+    All physical guardrails (integer, min 1, caps) are applied inside Order.build.
     Initial stock is NOT sampled here — the sim loads it from equilibrium_qty.
     """
     rng      = random.Random(seed)
@@ -290,7 +290,7 @@ def build_inventory_from_plan(
     lead_rng = random.Random(seed + 1_000_003) if lead_time_range else None
     fams     = list(plan)
     shares   = [f.share for f in fams]
-    cartons  = []
+    orders  = []
 
     for i in range(num_skus):
         fam      = rng.choices(fams, weights=shares, k=1)[0]
@@ -305,10 +305,10 @@ def build_inventory_from_plan(
         freq     = sample_rate(fspec, rng)
         qty_rate = sample_rate(qspec, rng)
 
-        # Clamp consistently here for the equilibrium/reorder math; Carton.build re-clamps
+        # Clamp consistently here for the equilibrium/reorder math; Order.build re-clamps
         # the stored values identically, so eq/reorder match the persisted physical numbers.
         fr_c     = min(1.0, max(1e-6, freq))
-        qr_c     = Carton._clamp_int(qty_rate, Carton.MIN_QTY, Carton.MAX_QTY)
+        qr_c     = Order._clamp_int(qty_rate, Order.MIN_QTY, Order.MAX_QTY)
         expected = fr_c * qr_c
 
         lead = (lead_rng.randint(int(lead_time_range[0]), int(lead_time_range[1]))
@@ -319,7 +319,7 @@ def build_inventory_from_plan(
         # variation in check_reorders so restocks can split across different storage units.
         sv = rng.uniform(0.0, supply_cv_max) if supply_cv_max > 0.0 else 0.0
 
-        cartons.append(Carton.build(
+        orders.append(Order.build(
             sku=i + 1, handling=handling, category=fam.category,
             length=L, width=W, height=H, weight=wt,
             frequency=freq, qty_rate=qty_rate,
@@ -327,8 +327,8 @@ def build_inventory_from_plan(
             lead_time_mean=lead, supply_cv=sv,
         ))
 
-    Carton.next_sku = num_skus + 1
-    return Inventory(cartons)
+    Order.next_sku = num_skus + 1
+    return Inventory(orders)
 
 
 # ── inventory builder ──────────────────────────────────────────────────────────
@@ -349,8 +349,8 @@ def build_inventory_with_profile(
 ) -> Inventory:
     """Build an Inventory using the equilibrium inventory model.
 
-    Bypasses Carton.__init__ so any distribution can be used.
-    Carton.next_sku is reset to 1 at the start of this function.
+    Bypasses Order.__init__ so any distribution can be used.
+    Order.next_sku is reset to 1 at the start of this function.
 
     Per-SKU attributes (all stored in DB):
       expected_batch_demand = freq × qty_rate
@@ -371,8 +371,8 @@ def build_inventory_with_profile(
     """
     storage = Storage_Type()
     rng     = random.Random(seed)
-    Carton.next_sku = 1
-    cartons = []
+    Order.next_sku = 1
+    orders = []
 
     for _ in range(num_skus):
         handling     = rng.choices(storage.handling_storage_types, weights=handling_splits, k=1)[0]
@@ -389,9 +389,9 @@ def build_inventory_with_profile(
         qty_rate = rng.uniform(0.5, 20.0)
         expected = freq * qty_rate
 
-        c              = object.__new__(Carton)
-        c._sku         = Carton.next_sku
-        Carton.next_sku += 1
+        c              = object.__new__(Order)
+        c._sku         = Order.next_sku
+        Order.next_sku += 1
         c.storage_type          = (handling, category)
         c.storage_handle_config = StorageHandleConfig(handling, category)
         c.lift_group            = (handling, category)
@@ -425,15 +425,15 @@ def build_inventory_with_profile(
         else:
             c.supply_cv = 0.0
 
-        cartons.append(c)
+        orders.append(c)
 
-    return Inventory(cartons)
+    return Inventory(orders)
 
 
 # ── DB schema ──────────────────────────────────────────────────────────────────
 
 _SCHEMA = '''
-    CREATE TABLE IF NOT EXISTS cartons (
+    CREATE TABLE IF NOT EXISTS cartons (   -- persisted table name (data, not code): kept stable across the Order rename
         sku                   INTEGER PRIMARY KEY,
         handling              TEXT    NOT NULL,
         category              TEXT    NOT NULL,
@@ -455,7 +455,7 @@ _SCHEMA = '''
         value TEXT NOT NULL
     );
     -- Structured, queryable record of the creation plan: one row per
-    -- (handling, storage_type/category, carton parameter).  The distribution
+    -- (handling, storage_type/category, order parameter).  The distribution
     -- "family" is `distribution` (e.g. triangular / normal / mixture /
     -- volume_poisson); its parameters are a JSON string in `params` (NULL when
     -- the distribution takes none, e.g. volume_poisson).  Populated only for
@@ -472,7 +472,7 @@ _SCHEMA = '''
     );
 '''
 
-# (Family attr → carton parameter name) for the creation_plan table rows.
+# (Family attr → order parameter name) for the creation_plan table rows.
 _PLAN_PARAM_SPECS = [
     ('length',    'length_spec'),
     ('width',     'width_spec'),
@@ -501,12 +501,12 @@ def _init_db(db_path: str) -> sqlite3.Connection:
 def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> None:
     conn = _init_db(db_path)
     rows = []
-    for c in inventory.cartons:
+    for c in inventory.orders:
         sp = getattr(c, 'stock_plan', None)
         rows.append((
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
-            c.demand.frequency, c.demand.quantity_rate,
+            c.demand.relative_frequency, c.demand.quantity_rate,
             getattr(c, 'expected_batch_demand', 0.0),
             getattr(c, 'equilibrium_qty',       1),
             getattr(c, 'reorder_point',         1),
@@ -562,8 +562,8 @@ def _save_creation_plan(conn: sqlite3.Connection, plan: list) -> None:
 def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     """Reconstruct an Inventory from a DB written by save_inventory_to_db.
 
-    Canonical schema only (no legacy fallbacks).  Every carton is rebuilt through
-    Carton.build, so the same physical guardrails (integer dims/weight, min-1, caps)
+    Canonical schema only (no legacy fallbacks).  Every order is rebuilt through
+    Order.build, so the same physical guardrails (integer dims/weight, min-1, caps)
     are enforced on load as on generation.
     """
     conn = sqlite3.connect(db_path)
@@ -577,7 +577,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     rows = conn.execute(select).fetchall()
     conn.close()
 
-    cartons = []
+    orders = []
     max_sku = 0
     for (sku, handling, category, length, width, height, weight, freq, qty_rate,
          equilibrium_qty, reorder_point, lead_time_mean, supply_cv, raw_sp) in rows:
@@ -586,7 +586,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
             # JSON stores tuples as lists; restore (is_singleton, qty, count) tuples.
             stock_plan = [(bool(s), int(q), int(n)) for s, q, n in json.loads(raw_sp)]
 
-        cartons.append(Carton.build(
+        orders.append(Order.build(
             sku=sku, handling=handling, category=category,
             length=length, width=width, height=height, weight=weight,
             frequency=freq, qty_rate=qty_rate,
@@ -595,8 +595,8 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         ))
         max_sku = max(max_sku, sku)
 
-    Carton.next_sku = max_sku + 1
-    return Inventory(cartons)
+    Order.next_sku = max_sku + 1
+    return Inventory(orders)
 
 
 # ── statistics ─────────────────────────────────────────────────────────────────
@@ -671,7 +671,7 @@ def plot_dimensions(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> N
     df['volume'] = df['length'] * df['width'] * df['height']
 
     fig, axes = plt.subplots(2, 2, figsize=(13, 9))
-    fig.suptitle(f'Carton Dimension Distributions{title_suffix}', fontsize=13, fontweight='bold')
+    fig.suptitle(f'Order Dimension Distributions{title_suffix}', fontsize=13, fontweight='bold')
     for ax, col, title in [
         (axes[0, 0], 'length', 'Length'),
         (axes[0, 1], 'width',  'Width'),
@@ -693,7 +693,7 @@ def plot_dimensions(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> N
 def plot_weight(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> None:
     vals = df['weight'].values
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
-    fig.suptitle(f'Carton Weight Distribution{title_suffix}', fontsize=13, fontweight='bold')
+    fig.suptitle(f'Order Weight Distribution{title_suffix}', fontsize=13, fontweight='bold')
 
     axes[0].hist(vals, bins=80, color='#70ad47', alpha=0.75, edgecolor='white')
     axes[0].axvline(vals.mean(),     color='red',    lw=1.5, linestyle='--', label=f'Mean   {vals.mean():.1f}')
@@ -828,7 +828,7 @@ def plot_dim_kde_overlay(df: pd.DataFrame, out_dir: str, title_suffix: str = '')
 
 # ── creation-plan distribution plots ────────────────────────────────────────────
 
-# (carton parameter name, dataframe column, value range for histogram bins)
+# (order parameter name, dataframe column, value range for histogram bins)
 _CP_PARAMS = [
     ('length',    'length',           (1, 48)),
     ('width',     'width',            (1, 48)),
@@ -844,7 +844,7 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
                        title_suffix: str = '') -> None:
     """Render a graph for EVERY creation_plan row plus an aggregate-by-handling view.
 
-    df         : carton dataframe (handling, category, length/width/height/weight,
+    df         : order dataframe (handling, category, length/width/height/weight,
                  demand_frequency, demand_qty_rate).
     plan_lookup: {(handling, storage_type, parameter): (distribution, params_str)} —
                  the creation_plan rows, used to annotate each subplot.
@@ -979,9 +979,9 @@ def generate_run(
             'supply_cv_max'                 : supply_cv_max,
             'demand_override'               : list(demand_override) if demand_override else None,
             'carton_bounds'                 : {
-                'min_dim': Carton.MIN_DIM, 'max_dim': Carton.MAX_DIM,
-                'min_weight': Carton.MIN_WEIGHT, 'max_weight': Carton.MAX_WEIGHT,
-                'min_qty': Carton.MIN_QTY, 'max_qty': Carton.MAX_QTY,
+                'min_dim': Order.MIN_DIM, 'max_dim': Order.MAX_DIM,
+                'min_weight': Order.MIN_WEIGHT, 'max_weight': Order.MAX_WEIGHT,
+                'min_qty': Order.MIN_QTY, 'max_qty': Order.MAX_QTY,
             },
             'creation_plan'                 : [asdict(f) for f in creation_plan],
         }
@@ -1053,11 +1053,11 @@ def generate_run(
             lead_time_cv                 = lead_time_cv,
             supply_cv_mean               = supply_cv_mean,
         )
-    _log(f'[inventory:{name}] Built {len(inventory.cartons):,} cartons  ({time.perf_counter()-t0:.2f}s)')
+    _log(f'[inventory:{name}] Built {len(inventory.orders):,} orders  ({time.perf_counter()-t0:.2f}s)')
     if creation_plan is not None:
-        conv = sum(1 for c in inventory.cartons if c.storage_type[0] == 'conveyable')
+        conv = sum(1 for c in inventory.orders if c.storage_type[0] == 'conveyable')
         _log(f'[inventory:{name}] realized conveyable fraction = '
-             f'{conv / max(1, len(inventory.cartons)):.3f}  (target ~0.75)')
+             f'{conv / max(1, len(inventory.orders)):.3f}  (target ~0.75)')
 
     db_path = os.path.join(run_dir, 'inventory.db')
     t0      = time.perf_counter()

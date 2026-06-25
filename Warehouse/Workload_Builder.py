@@ -23,7 +23,9 @@ _partner_map_cache: dict[int, dict[int, list[tuple[int, float]]]] = {}
 def _get_partner_map(affinity) -> dict[int, list[tuple[int, float]]]:
     """Build sku -> [(partner_sku, lift), ...] from either a dict AffMatrix
     {(i, j): lift} or an AffinityStore (CSR matrix).  Cached per affinity-object id
-    so the O(|affinity|) build is paid once per run."""
+    so the O(|affinity|) build is paid once per run.  `None` ⇒ {} (pure demand weighting)."""
+    if affinity is None:
+        return {}
     key = id(affinity)
     cached = _partner_map_cache.get(key)
     if cached is not None:
@@ -62,19 +64,20 @@ class BatchConfig:
 def _lift_weighted_sample(
     candidates: list,
     k: int,
-    affinity: 'AffMatrix | AffinityStore',
+    affinity: 'AffMatrix | AffinityStore | None',
     rng: random.Random | None = None,
 ) -> list:
-    """Sample k items from candidates, weighting each by demand.frequency plus
-    cumulative lift to already-selected SKUs.  High-lift partners of chosen SKUs
-    become progressively more likely to be drawn next.
+    """Sample k distinct items from candidates without replacement.
 
-    Uses numpy vectorised cumsum for O(N) weighted selection per step and a
-    module-level partner_map cache so the O(|affinity|) adjacency build is paid
-    only once per unique affinity dict across all batches in a run.
+    Weight of a candidate B is the conditional-demand model
+        weight(B) = demand.relative_frequency(B) · Π lift(A, B)
+    over the already-selected partners A of B.  Lift enters MULTIPLICATIVELY (its
+    natural sense: lift = 1 = independence ⇒ no change), so demand and affinity stay
+    commensurable.  affinity=None ⇒ pure demand weighting (empty partner map).
 
-    Pass `rng` (a `random.Random`) to draw from a dedicated stream; default `None`
-    uses the global `random` module.
+    Uses a numpy cumsum draw per step + the module-level partner-map cache.  Pass `rng`
+    (a `random.Random`) to draw from a dedicated stream; default `None` uses the global
+    module.
     """
     r = rng or random
     partner_map = _get_partner_map(affinity)
@@ -82,15 +85,15 @@ def _lift_weighted_sample(
     n = len(candidates)
     sku_to_idx: dict[int, int] = {c.sku: i for i, c in enumerate(candidates)}
     base_weights = np.fromiter(
-        (c.demand.frequency for c in candidates), dtype=np.float64, count=n
+        (c.demand.relative_frequency for c in candidates), dtype=np.float64, count=n
     )
-    lift_bonus = np.zeros(n, dtype=np.float64)
+    lift_mult = np.ones(n, dtype=np.float64)   # Π lift(A,B) over already-selected partners
     active = np.ones(n, dtype=bool)
     w = np.empty(n, dtype=np.float64)
     selected: list = []
 
     for _ in range(k):
-        np.add(base_weights, lift_bonus, out=w)
+        np.multiply(base_weights, lift_mult, out=w)   # weight(B) = freq(B) · Π lift(A,B)
         w[~active] = 0.0
         total: float = float(w.sum())
         if total <= 0.0:
@@ -105,7 +108,7 @@ def _lift_weighted_sample(
         for partner_sku, lv in partner_map.get(chosen.sku, []):
             j = sku_to_idx.get(partner_sku)
             if j is not None:
-                lift_bonus[j] += lv
+                lift_mult[j] *= lv
 
     return selected
 
@@ -125,25 +128,24 @@ class Batch:
         # `None` keeps the global `random` module (back-compatible).
         r = rng or random
 
+        # Batch SIZE (distinct SKUs / order lines) ~ Normal(mean_fraction·N,
+        # std_fraction·N), bounded to [1, N].  No eligibility cutoff: the size follows the
+        # requested mean/sd directly (a small "low-pick" batch from the left tail is fine),
+        # and WHICH SKUs fill it is demand- (relative_frequency) and lift-weighted below.
         mean = config.mean_fraction * config.inventory_size
         std  = config.std_fraction  * config.inventory_size
-        self.num_skus: int    = max(1, min(config.inventory_size, round(r.gauss(mean, std))))
-        # random threshold gives each batch a different eligibility cutoff,
-        # modelling the variability in order selectivity across batches
-        self.threshold: float = r.random()
+        self.num_skus: int = max(1, min(config.inventory_size, round(r.gauss(mean, std))))
 
-        candidates = [c for c in inventory.cartons if c.demand.frequency > self.threshold]
+        candidates = inventory.orders           # every SKU is eligible
         k = min(self.num_skus, len(candidates))
 
-        # Affinity must NEVER be silently dropped: whenever it is present (dict or
-        # AffinityStore) we use lift-weighted selection so strong-lift partners
-        # co-occur.  Only an explicit affinity=None samples uniformly; any other
-        # (unhandled) affinity object raises rather than degrading to uniform.
+        # Selection is always demand-weighted (by demand.relative_frequency); an
+        # AffinityStore/dict additionally multiplies in lift toward partners of already-
+        # chosen SKUs.  affinity=None ⇒ pure demand weighting (empty partner map).  An
+        # unhandled affinity type raises rather than silently degrading.
         if k <= 0:
             selected = []
-        elif affinity is None:
-            selected = r.sample(candidates, k)               # explicit opt-out only
-        elif isinstance(affinity, (dict, AffinityStore)):
+        elif affinity is None or isinstance(affinity, (dict, AffinityStore)):
             selected = _lift_weighted_sample(candidates, k, affinity, rng=r)
         else:
             raise TypeError(
@@ -184,27 +186,27 @@ class Task:
         # computing them later (in extract_task_stats) would drop emptied bins and zero out
         # the analytical workload W.  Captured here so W reflects the real picks at all heights.
         self.pick_lines: list[tuple[int, int, int, float]] = [
-            (b.storage.carton.weight, b.storage.carton.volume(),
-             items[b.storage.carton.sku], b.y_phys)
+            (b.storage.order.weight, b.storage.order.volume(),
+             items[b.storage.order.sku], b.y_phys)
             for b in path
-            if b.storage is not None and b.storage.carton.sku in items
+            if b.storage is not None and b.storage.order.sku in items
         ]
         # Build volume lookup from path bins.  A SKU in items may have no bin
         # in this path when all its bins are pending reclaim (emptied last batch).
-        # Fall back to the carton volume from the first bin found anywhere in the
+        # Fall back to the order volume from the first bin found anywhere in the
         # path for that SKU — missing SKUs keep volume=0 which underestimates
         # carts_required, so use a secondary lookup from any path bin.
         sku_to_vol: dict[int, int] = {}
         for b in path:
             if b.storage is not None:
-                sku = b.storage.carton.sku
+                sku = b.storage.order.sku
                 if sku not in sku_to_vol:
-                    sku_to_vol[sku] = b.storage.carton.volume()
+                    sku_to_vol[sku] = b.storage.order.volume()
         # For SKUs in items not covered by path bins, approximate with any
-        # non-None path bin's carton volume (they share the same aisle type,
+        # non-None path bin's order volume (they share the same aisle type,
         # so dimensions are at least in the same order of magnitude).
         fallback_vol = next(
-            (b.storage.carton.volume() for b in path if b.storage is not None), 1
+            (b.storage.order.volume() for b in path if b.storage is not None), 1
         )
         total_vol: int = sum(
             sku_to_vol.get(sku, fallback_vol) * qty for sku, qty in items.items()
@@ -250,7 +252,7 @@ class Task:
             sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
             for bin_ in warehouse.bins:
                 if bin_.storage is not None:
-                    sku_to_bins[bin_.storage.carton.sku].append(bin_)
+                    sku_to_bins[bin_.storage.order.sku].append(bin_)
             for bins in sku_to_bins.values():
                 bins.sort(key=lambda b: 0 if b.unit_type == 'singleton' else 1)
             for sku, qty in batch.items.items():
@@ -269,7 +271,7 @@ class Task:
         for bin_, take in bin_pick.items():
             aisle_id = bin_.location[0]
             aisle_bins[aisle_id].append(bin_)
-            sku = bin_.storage.carton.sku  # type: ignore[union-attr]
+            sku = bin_.storage.order.sku  # type: ignore[union-attr]
             aisle_items[aisle_id][sku] = aisle_items[aisle_id].get(sku, 0) + take
 
         tasks = []

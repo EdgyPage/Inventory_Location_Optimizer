@@ -53,7 +53,7 @@ def _aff(skus, pairs):
 
 
 def _unit(sku):
-    return types.SimpleNamespace(carton=types.SimpleNamespace(sku=sku))
+    return types.SimpleNamespace(order=types.SimpleNamespace(sku=sku))
 
 
 def test_registries_and_names():

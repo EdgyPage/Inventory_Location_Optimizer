@@ -58,9 +58,11 @@ from Simulation_Analytics import (
 )
 from Picking_Data import (
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
-    save_bin_inventory, save_aisle_metrics,
+    save_bin_inventory, save_aisle_metrics, save_reorder_queue,
+    save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
+from cost_model import sec_per_inch, height_multiplier
 
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
@@ -153,14 +155,14 @@ def _run_strategy_worker(args: dict) -> dict:
     t0        = time.perf_counter()
     inventory = load_inventory_from_db(inv_db, limit=max_skus)
     if sku_allowlist is not None:
-        inventory.cartons = [c for c in inventory.cartons if c.sku in sku_allowlist]
-    n_skus    = len(inventory.cartons)
+        inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
+    n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 
     # Precompute per-unit labor cost once per worker (config-dependent: uses this run's
-    # pick coefficients).  expected_popularity/expected_labor are Carton properties that
+    # pick coefficients).  expected_popularity/expected_labor are Order properties that
     # derive from this + demand, so the hot ranked-wave order/balance never re-takes logs.
-    for c in inventory.cartons:
+    for c in inventory.orders:
         c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef,
                              wp.pick_weight_fn, wp.pick_volume_fn)
 
@@ -178,14 +180,14 @@ def _run_strategy_worker(args: dict) -> dict:
     # freq_by_sku ranks SKUs for the optimal stock layout and for re-slotting; built
     # for every strategy (cheap) since these don't depend on placement.
     strat = STRATEGY_BY_KEY[strategy]
-    freq_by_sku = {c.sku: c.demand.frequency     for c in inventory.cartons}
-    qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.cartons}
-    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.frequency
-                   for c in inventory.cartons if c.sku in affinity._sku_to_idx}
+    freq_by_sku = {c.sku: c.demand.relative_frequency     for c in inventory.orders}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate  for c in inventory.orders}
+    freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
+                   for c in inventory.orders if c.sku in affinity._sku_to_idx}
     ctx = StrategyContext(
         affinity=affinity, wp=wp,
         freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0, cartons=inventory.cartons)
+        beta=1.0, orders=inventory.orders)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')
@@ -231,11 +233,11 @@ def _run_strategy_worker(args: dict) -> dict:
             mgr.init_travel_costs(wp)   # NOTE(cluster): _aisle_index is maintained
                                         # incrementally by _index_add/remove during the fill
         strat.build(mgr, ctx)
-        mgr.enqueue_all(inventory.cartons)   # placed by the strategy's own policy
+        mgr.enqueue_all(inventory.orders)   # placed by the strategy's own policy
         _arm_aisle_state()                   # authoritative rebuild over the final layout
     else:
         log.info(f'Initial stock: {n_skus:,} SKUs  uniform placement...')
-        mgr.enqueue_all(inventory.cartons)   # quantity read from carton.equilibrium_qty
+        mgr.enqueue_all(inventory.orders)   # quantity read from order.equilibrium_qty
         _arm_aisle_state()
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)
@@ -267,6 +269,33 @@ def _run_strategy_worker(args: dict) -> dict:
     # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
     mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
 
+    # ── static per-run scores (saved once, before the loop) ────────────────────
+    # Geometry/config-fixed scores the assignment functions compute: the viewer reads
+    # these instead of recomputing.  bin layout score = travel D + golden-zone height;
+    # map_pref/_map_target only exist for the optimal-map arms (else NULL/absent).
+    if start_i == 0:
+        _xp, _yp = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
+        _brk     = getattr(wp, 'height_brackets', ())
+        _pref    = mgr._bin_pref            # {} unless this is a map/map_rank arm
+        bin_rows = []
+        for _b in warehouse.bins:
+            _d = _xp * _b.x_phys + _yp * _b.y_phys
+            _m = height_multiplier(_brk, _b.y_phys)
+            bin_rows.append((_b.location[0], _b.bayX, _b.bayY,
+                             _d, _m, _d + _m, _pref.get(id(_b))))
+        save_bin_scores(db_path, run_id, bin_rows)
+        _tgt = mgr._map_target              # {} unless this is a map/map_rank arm
+        sku_rows = [
+            (c.sku, _tgt.get(c.sku), c.labor_cost, c.handle_var,
+             c.expected_popularity, c.expected_labor,
+             getattr(c, 'equilibrium_qty', 1), getattr(c, 'reorder_point', 1),
+             getattr(c, 'lead_time_mean', 0.0))
+            for c in inventory.orders
+        ]
+        save_sku_scores(db_path, run_id, sku_rows)
+        log.info(f'  Saved scores: {len(bin_rows):,} bins, {len(sku_rows):,} SKUs'
+                 + ('  (incl. optimal-map pref/target)' if _pref else ''))
+
     # ── RNG streams ───────────────────────────────────────────────────────────
     # Batches use a dedicated per-batch stream seeded `seed_batches + i` (built in the
     # loop below), so batch i is identical across arms and resume needs no fast-forward.
@@ -293,6 +322,7 @@ def _run_strategy_worker(args: dict) -> dict:
     pk: list = []   # individual pick records
     pi: list = []   # bin inventory snapshots
     pm: list = []   # aisle metrics snapshots
+    pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     reorders_ckpt  = 0
@@ -322,6 +352,19 @@ def _run_strategy_worker(args: dict) -> dict:
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
+        # Replay viewer: snapshot the standing replenishment queues at batch start (after
+        # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
+        # not yet binned (with its bin tier).  Aggregated by (sku, remaining_lead) for lead
+        # and (sku, unit_type, storage_size) for stock to keep the table compact.
+        _rq: dict = {}
+        for _sku, _qty, _rem in mgr._lead_queue:
+            _k = ('lead', _sku, _rem, None, None)
+            _rq[_k] = _rq.get(_k, 0) + _qty
+        for _u in mgr._stock_queue:
+            _k = ('stock', _u.order.sku, 0, _u.unit_category, _u.storage_size)
+            _rq[_k] = _rq.get(_k, 0) + _u.quantity
+        for (_kind, _sku, _rem, _ut, _ss), _qty in _rq.items():
+            pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Dedicated per-batch RNG: batch i is a pure function of (inventory, affinity,
@@ -393,6 +436,7 @@ def _run_strategy_worker(args: dict) -> dict:
             save_picks(db_path, run_id, pk)
             save_bin_inventory(db_path, run_id, pi)
             save_aisle_metrics(db_path, run_id, pm)
+            save_reorder_queue(db_path, run_id, pq)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -423,7 +467,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
 
-            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear()
+            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
             reorders_ckpt  = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
@@ -445,6 +489,7 @@ def _run_strategy_worker(args: dict) -> dict:
         save_picks(db_path, run_id, pk)
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
+        save_reorder_queue(db_path, run_id, pq)
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped

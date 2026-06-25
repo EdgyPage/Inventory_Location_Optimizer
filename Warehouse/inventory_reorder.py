@@ -39,7 +39,7 @@ class ReorderMixin:
         unit = bin_.storage
         if unit is None:
             return
-        sku = unit.carton.sku
+        sku = unit.order.sku
 
         if self._sigma_freq is not None:           # incremental Sigma f*D: eviction (−)
             self._sigma_fd -= (self._sigma_freq.get(sku, 0.0)

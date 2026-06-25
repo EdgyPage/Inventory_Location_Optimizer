@@ -29,6 +29,7 @@ from Assignment_Functions import (
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
+    build_cluster_map_placement,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
     build_co_demand_placement,
@@ -47,7 +48,7 @@ class StrategyContext:
     freq_by_sku  : dict
     qty_by_sku   : dict
     beta         : float = 1.0
-    cartons      : Any = None   # inventory.cartons — needed to build the optimal map
+    orders      : Any = None   # inventory.orders — needed to build the optimal map
 
 
 @dataclass
@@ -152,7 +153,7 @@ def _build_map(mgr, ctx: StrategyContext) -> None:
     # preferred-score basis + each SKU's optimal target), then place by SCORE MATCHING
     # — each unit goes to the free bin whose pref is closest to its SKU's target, so
     # reorders reload toward the optimum instead of grabbing whatever bin is free.
-    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = Placement('optmap', build_optmap_fn(mgr))
 
 
@@ -160,8 +161,31 @@ def _build_map_rank(mgr, ctx: StrategyContext) -> None:
     # Upgrade-capped optimal-map: same target as `map`, but a SKU never reloads into a bin
     # more prime than its optimal rank — prime spots are saved for higher-ranked SKUs that
     # future orders bring (rank-relative, non-greedy).  See build_optmap_fn(capped=True).
-    mgr.build_optimal_map(ctx.cartons, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True))
+
+
+def _build_cluster_map(mgr, ctx: StrategyContext) -> None:
+    # Mix map + clusters: build the optimal map (per-bin pref + per-SKU target), then place
+    # cohesion-first into the aisle holding co-demanded partners, anchoring each unit at its
+    # favored map location and compacting it toward the partners' column centroid.  Uncapped
+    # score-match (mirrors `map`); may upgrade into prime bins.
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.placement = build_cluster_map_placement(
+        mgr, ctx.affinity, ctx.wp,
+        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta, capped=False)
+
+
+def _build_cluster_map_rank(mgr, ctx: StrategyContext) -> None:
+    # Upgrade-capped cluster_map: same cohesion + compaction, but a unit never settles in a bin
+    # more prime than its map target — reserving prime spots for higher-ranked SKUs/clusters
+    # future orders bring (mirrors `map_rank`).
+    mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
+    mgr.placement = build_cluster_map_placement(
+        mgr, ctx.affinity, ctx.wp,
+        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta, capped=True)
 
 
 def _build_trip_min(mgr, ctx: StrategyContext) -> None:
@@ -233,7 +257,7 @@ def _build_expansion(mgr, ctx: StrategyContext) -> None:
 def _stock_optimal(mgr, ctx: StrategyContext, inventory) -> None:
     """Place initial stock at the pure-global-W optimal layout (hottest SKUs in the
     lowest-W bins).  Stores nothing on mgr; reorders use the normal placement."""
-    mgr.place_optimal(inventory.cartons, ctx.freq_by_sku,
+    mgr.place_optimal(inventory.orders, ctx.freq_by_sku,
                       ctx.wp.x_speed, ctx.wp.y_speed)
 
 
@@ -275,6 +299,8 @@ _RESTOCKS = [
     ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
     ('map_rank',        'Map_rank',        _build_map_rank,                False, False, False),  # optimal-map, upgrade-capped (saves prime spots)
+    ('cluster_map',     'CluMap',          _build_cluster_map,             True,  True,  False),  # map favored-location + cohesion + intra-aisle compaction
+    ('cluster_map_rank','CluMapRk',        _build_cluster_map_rank,        True,  True,  False),  # cluster_map, upgrade-capped (saves prime spots)
     ('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
     ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
     ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),

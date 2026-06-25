@@ -2,7 +2,7 @@ import bisect
 from collections import defaultdict, deque
 from typing import Any
 
-from Carton import Carton
+from Order import Order
 from Warehouse_Builder import Warehouse
 from Aisle_Storage import Aisle
 from Storage_Primitive import StorageUnit, Singleton, Pallet, viable_storage_units, _max_qty_fits as _sq_max
@@ -62,7 +62,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # so a SKU already reordered (but unbinned / in-transit) is not reordered again.
         self._queued_qty: dict[int, int]   = {}
         self._deferred_qty: dict[int, int] = {}
-        self._originals: dict[int, Carton] = {}
+        self._originals: dict[int, Order] = {}
         # equilibrium_qty at initial intake per SKU (not updated on reorders).
         self._initial_quantities: dict[int, int] = {}
 
@@ -133,7 +133,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._sku_demand_product: dict[int, float] = {}   # sku -> f * q
 
         # Cost-weighted twin of the demand state: expected picking labor.
-        # _sku_pick_load_product[sku] = f * q * cost1 (= carton.expected_labor);
+        # _sku_pick_load_product[sku] = f * q * cost1 (= order.expected_labor);
         # _aisle_pick_load_sum[aid]   = Σ over the aisle's SKUs.  Maintained in lockstep
         # with the demand_sum state; read by the Rank_labor aisle-balance selector.
         self._aisle_pick_load_sum: dict[int, float]   = defaultdict(float)
@@ -153,42 +153,42 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     # ── public API ──────────────────────────────────────────────────────────
 
-    def enqueue(self, carton: Carton, quantity: int | None = None) -> 'Inventory_Manager':
-        """Queue one carton for bin placement.
+    def enqueue(self, order: Order, quantity: int | None = None) -> 'Inventory_Manager':
+        """Queue one order for bin placement.
 
-        quantity=None (default) reads equilibrium_qty from the carton — the normal
+        quantity=None (default) reads equilibrium_qty from the order — the normal
         path for inventory intake.  Pass an explicit integer only when you need
-        to override the carton's own stock level (e.g. overstock sampling).
+        to override the order's own stock level (e.g. overstock sampling).
         """
-        qty = quantity if quantity is not None else _equilibrium_qty(carton)
-        for unit in viable_storage_units(carton, qty):
+        qty = quantity if quantity is not None else _equilibrium_qty(order)
+        for unit in viable_storage_units(order, qty):
             self._stock_queue.append(unit)
         # Count intake units as on-order so a reorder fired before they all reach
         # a bin does not over-order (they decrement back as they place).
-        self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
-        if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
-            self._originals[carton.sku] = carton
-            self._initial_quantities[carton.sku] = qty
+        self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
+        if order.sku not in self._originals and not getattr(order, '_is_reorder', False):
+            self._originals[order.sku] = order
+            self._initial_quantities[order.sku] = qty
         self._stock()
         return self
 
-    def enqueue_all(self, cartons: list[Carton], quantity: int | None = None) -> 'Inventory_Manager':
-        """Queue a list of cartons for bin placement.
+    def enqueue_all(self, orders: list[Order], quantity: int | None = None) -> 'Inventory_Manager':
+        """Queue a list of orders for bin placement.
 
-        quantity=None (default) reads equilibrium_qty from each carton — the normal
+        quantity=None (default) reads equilibrium_qty from each order — the normal
         path for inventory intake.  Pass an explicit integer only when you need
-        to override every carton's stock level (e.g. overstock sampling).
+        to override every order's stock level (e.g. overstock sampling).
         """
-        for carton in cartons:
-            qty = quantity if quantity is not None else _equilibrium_qty(carton)
-            for unit in viable_storage_units(carton, qty):
+        for order in orders:
+            qty = quantity if quantity is not None else _equilibrium_qty(order)
+            for unit in viable_storage_units(order, qty):
                 self._stock_queue.append(unit)
             # Count intake units as on-order so a reorder fired before they all
             # reach a bin does not over-order (decremented back as they place).
-            self._queued_qty[carton.sku] = self._queued_qty.get(carton.sku, 0) + qty
-            if carton.sku not in self._originals and not getattr(carton, '_is_reorder', False):
-                self._originals[carton.sku] = carton
-                self._initial_quantities[carton.sku] = qty
+            self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
+            if order.sku not in self._originals and not getattr(order, '_is_reorder', False):
+                self._originals[order.sku] = order
+                self._initial_quantities[order.sku] = qty
         self._stock()
         return self
 
@@ -215,7 +215,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         for bin_ in self._unavailable.values():
             if bin_.storage is not None:
-                sku = bin_.storage.carton.sku
+                sku = bin_.storage.order.sku
                 aid = bin_.location[0]
                 qty = bin_.storage.quantity
                 self._aisle_sku_sets[aid].add(sku)
@@ -264,12 +264,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         swapping to a trip-cost assignment function.
 
         When *wp* is given, also build the cost-weighted labor twin
-        (_sku_pick_load_product = f*q*cost1 = carton.expected_labor, and the
+        (_sku_pick_load_product = f*q*cost1 = order.expected_labor, and the
         per-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.
         """
         self._sku_demand_product = {
-            c.sku: c.demand.frequency * c.demand.quantity_rate
-            for c in inventory.cartons
+            c.sku: c.demand.relative_frequency * c.demand.quantity_rate
+            for c in inventory.orders
         }
         self._aisle_demand_sum.clear()
         for aid, sku_set in self._aisle_sku_sets.items():
@@ -278,10 +278,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             )
 
         if wp is not None:
-            # carton.expected_labor reads labor_cost, which the worker sets via
+            # order.expected_labor reads labor_cost, which the worker sets via
             # compute_labor_cost() before this call.
             self._sku_pick_load_product = {
-                c.sku: c.expected_labor for c in inventory.cartons
+                c.sku: c.expected_labor for c in inventory.orders
             }
             self._aisle_pick_load_sum.clear()
             for aid, sku_set in self._aisle_sku_sets.items():
@@ -377,7 +377,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         Returning a single tier keeps the candidate list small (one index
         bucket) regardless of warehouse size.
         """
-        shc       = unit.carton.storage_handle_config
+        shc       = unit.order.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' or 'singleton'
         if unit_type == 'singleton':
             bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
@@ -393,7 +393,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
         """Commit one unit→bin placement and update all manager state dicts."""
-        sku = unit.carton.sku
+        sku = unit.order.sku
         n = self._queued_sku_counts.get(sku, 0)
         if n <= 1:
             self._queued_sku_counts.pop(sku, None)
@@ -460,14 +460,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         Placement failures:
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
-          2. Fall back to singleton bins of the same carton type (same).
+          2. Fall back to singleton bins of the same order type (same).
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
         pending: deque[StorageUnit] = deque()
         while self._stock_queue:
             unit   = self._stock_queue.popleft()
-            carton = unit.carton
-            sku    = carton.sku
+            order = unit.order
+            sku    = order.sku
 
             # B/C: aisle_index is active — assign derives BinKey from unit directly.
             # A: uniform assignment needs a real candidates list.
@@ -480,12 +480,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             else:
                 # No bin fits this unit.  Attempt rescues in priority order:
                 #   1. Repack into smaller pallet size tier (existing logic).
-                #   2. Fall back to singleton bins of the same carton type.
+                #   2. Fall back to singleton bins of the same order type.
                 #   3. If all else fails, track consecutive failures; after
                 #      _MAX_DRAIN_RETRIES the unit is abandoned and the queued-
                 #      count is decremented so a fresh reorder can fire next batch.
                 repacked = False
-                shc = carton.storage_handle_config
+                shc = order.storage_handle_config
 
                 # ── rescue 1: smaller pallet tier ────────────────────────────
                 if unit.unit_category == 'pallet' and unit.storage_size is not None:
@@ -497,14 +497,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                             (shc.handling, shc.category, size, 'pallet'))
                         if not avail:
                             continue
-                        max_q = _max_qty_fitting_pallet_size(carton, size)
+                        max_q = _max_qty_fitting_pallet_size(order, size)
                         if max_q <= 0:
                             continue
                         remaining  = unit.quantity
                         new_units: list[StorageUnit] = []
                         while remaining > 0:
                             q = min(remaining, max_q)
-                            new_units.append(Pallet(carton, q))
+                            new_units.append(Pallet(order, q))
                             remaining -= q
                         delta = len(new_units) - 1
                         if delta:
@@ -516,16 +516,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                         repacked = True
                         break
 
-                # ── rescue 2: singleton bins of same carton type ──────────────
+                # ── rescue 2: singleton bins of same order type ──────────────
                 if not repacked:
-                    max_sing = _sq_max(carton, Singleton)
+                    max_sing = _sq_max(order, Singleton)
                     avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
                     if max_sing > 0 and avail:
                         remaining = unit.quantity
                         new_units: list[StorageUnit] = []
                         while remaining > 0:
                             q = min(remaining, max_sing)
-                            new_units.append(Singleton(carton, q))
+                            new_units.append(Singleton(order, q))
                             remaining -= q
                         delta = len(new_units) - 1
                         if delta:
@@ -562,7 +562,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
         while self._stock_queue:
             unit = self._stock_queue.popleft()
-            shc  = unit.carton.storage_handle_config
+            shc  = unit.order.storage_handle_config
             key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
             groups[key].append(unit)
 
