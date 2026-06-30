@@ -13,10 +13,12 @@ The old CLI combinations map to presets:
 """
 
 _PER_STRATEGY = ['per_strategy.report_bars', 'per_strategy.metric_grids',
-                 'per_strategy.scorecards', 'per_strategy.summary_bars']
+                 'per_strategy.scorecards', 'per_strategy.summary_bars',
+                 'per_strategy.delta_over_time', 'per_strategy.delta_by_batch']
 _CONFIG = ['config.summary_csv', 'config.series']
 _COMPARE = ['compare.faceted', 'compare.overlay', 'compare.top_metric',
             'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_bars',
+            'compare.delta_over_time', 'compare.delta_by_batch',
             'compare.task_box', 'breakdown.travel_handling']
 _AGG = ['agg.cross_profile']
 
@@ -31,11 +33,19 @@ def _keys(stats):
     return base
 
 
+# The top-N delta graphs track compare.top_metric's selection, so they get the same
+# {top_n, top_by} override in every preset.
 _GLOBAL_TOP = {'compare.top_metric': {'top_n': 1, 'top_by': 'global'},
+               'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'},
+               'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'},
                'agg.cross_profile': {'top_n': 1, 'top_by': 'global'}}
 _INITIAL_TOP = {'compare.top_metric': {'top_n': 3, 'top_by': 'initial'},
+                'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'},
+                'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'},
                 'agg.cross_profile': {'top_n': 3, 'top_by': 'initial'}}
 _E2E_TOP = {'compare.top_metric': {'top_n': 2, 'top_by': 'initial'},
+            'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'},
+            'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'},
             'agg.cross_profile': {'top_n': 2, 'top_by': 'initial'}}
 
 

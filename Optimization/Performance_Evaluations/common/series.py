@@ -115,6 +115,37 @@ def _select_top(strategies, S, top_n, top_by):
     return sorted(avail, key=rank)[:top_n], {}
 
 
+def _prodtime_delta(S, key, base_key):
+    """Per-batch and cumulative % improvement of production time (Σ task time / batch =
+    'prod_hours') for `key` vs `base_key`, aligned by task_batch id.
+
+    Returns (batches, per_batch_pct, cum_pct) as np arrays; positive = faster than baseline:
+      per_batch_pct = (base − strat)/base · 100   per shared batch
+      cum_pct       = Σ(base − strat) / Σ base · 100  (running task-time saved ÷ running
+                      baseline total — the honest cumulative measure, not a mean of percents)
+    Empty arrays if either series is missing.  Uses the same smoothed prod_hours as the other
+    over-time graphs; a raw per-batch variant could read the unsmoothed tsum instead.
+    """
+    bd = S.get(base_key)
+    sd = S.get(key)
+    if not bd or not sd:
+        return np.array([]), np.array([]), np.array([])
+    base_by = {int(b): v for b, v in zip(bd['task_batch'], bd['prod_hours'])
+               if v == v and v > 0}                       # skip NaN / non-positive baseline
+    batches, pb, cum = [], [], []
+    sav = tot = 0.0
+    for b, v in zip(sd['task_batch'], sd['prod_hours']):
+        bv = base_by.get(int(b))
+        if bv is None or v != v:                          # not in baseline, or NaN strategy
+            continue
+        batches.append(int(b))
+        pb.append((bv - v) / bv * 100.0)
+        sav += bv - v
+        tot += bv
+        cum.append(sav / tot * 100.0 if tot else 0.0)
+    return np.array(batches), np.array(pb), np.array(cum)
+
+
 def _aggregate_series(profile_series_list):
     """Average per-strategy curves across profiles, normalized per-profile to that
     profile's baseline-strategy steady-state mean (scale-free).  Returns
