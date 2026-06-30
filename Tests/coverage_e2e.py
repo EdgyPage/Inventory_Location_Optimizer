@@ -50,6 +50,9 @@ for cfg in rs.REGRESSION_CONFIGS:
             traceback.print_exc()
     rs._finalize_config_run(skeleton)
 
-# analysis end-to-end, in-process (workers=1) -- exercises Comparison_Plots + aggregate
-ra.run_analysis(base, log, workers=1, top_n=2, top_by='initial')
+# analysis end-to-end, in-process (workers=1) -- exercises the Performance_Evaluations
+# registry (per-config + cross-profile aggregate).  Two presets so both stats variants
+# (stats.suite and stats.by_initial) are covered.
+ra.run_analysis(base, log, workers=1, preset='E2E_PARITY')
+ra.run_analysis(base, log, workers=1, preset='BY_INITIAL')
 print('DONE', base)
