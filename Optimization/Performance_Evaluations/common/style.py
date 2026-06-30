@@ -53,6 +53,19 @@ def _grid(n, panel_w=3.0, panel_h=2.3, max_cols=8):
     return fig, flat[:n]
 
 
+def legend_right(ax, handles=None, *, anchor=(1.02, 1.0), **kw):
+    """Place a legend just OUTSIDE the axes on the right, never overlapping the data.
+
+    _save_close saves with bbox_inches='tight', so the outside legend is captured in full.
+    `anchor` is the axes-fraction bbox_to_anchor (use a lower y to stack a second legend).
+    """
+    kwargs = dict(loc='upper left', bbox_to_anchor=anchor, borderaxespad=0.0, frameon=True)
+    kwargs.update(kw)
+    if handles is not None:
+        return ax.legend(handles=handles, **kwargs)
+    return ax.legend(**kwargs)
+
+
 def _stitle(s):
     """Compact strategy label: initial|assignment|reslot (falls back to label/key)."""
     parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),

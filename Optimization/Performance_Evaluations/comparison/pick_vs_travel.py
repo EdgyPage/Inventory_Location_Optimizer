@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from Performance_Evaluations.core.registry import evaluation
 from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle
+from Performance_Evaluations.common.style import _stitle, legend_right
 
 
 def _pick_travel_bars(strategies, S, title, path):
@@ -23,7 +23,7 @@ def _pick_travel_bars(strategies, S, title, path):
     ax.invert_yaxis()
     ax.set_xlabel('% of aggregate picker-time')
     ax.grid(axis='x', alpha=0.3)
-    ax.legend(loc='lower right')
+    legend_right(ax)
     ax.set_title(title, fontsize=12, fontweight='bold')
     plt.tight_layout()
     _save_close(fig, path)

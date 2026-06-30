@@ -37,7 +37,8 @@ def _facet_metric(strategies, S, m, title, path):
             if c == 0:
                 ax.set_ylabel(m['yl'], fontsize=8)
     handles = [Line2D([], [], color=acmap[a], lw=2, label=a) for a in sorted(acmap)]
-    axes[0][ncol - 1].legend(handles=handles, fontsize=7, title='assignment')
+    fig.legend(handles=handles, loc='center left', bbox_to_anchor=(1.0, 0.5),
+               fontsize=7, title='assignment')
     fig.suptitle(title, fontsize=13, fontweight='bold')
     plt.tight_layout(rect=(0, 0, 1, 0.97))
     _save_close(fig, path)

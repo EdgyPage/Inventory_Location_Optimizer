@@ -20,7 +20,7 @@ def render(ctx, params):
         panel_duration(ctx, a1, s); a1.set_title('Batch duration', fontsize=10)
         a1.set_xlabel('batch'); a1.grid(alpha=0.3)
         panel_eff(ctx, a2, s)
-        a2.set_title('Sigma f*D ' + ('% of optimal' if optimal > 0 else '(raw)'), fontsize=10)
+        a2.set_title('total f*D ' + ('% of optimal' if optimal > 0 else '(raw)'), fontsize=10)
         a2.set_xlabel('batch'); a2.grid(alpha=0.3)
         panel_churn(ctx, a3, s); a3.set_title('Churn (% bins/batch)', fontsize=10)
         a3.set_xlabel('batch'); a3.grid(alpha=0.3)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from Performance_Evaluations.core.registry import evaluation
 from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle, _assign_color_map, _WIN
+from Performance_Evaluations.common.style import _stitle, _assign_color_map, _WIN, legend_right
 
 
 def _task_box(strategies, df_t, title, path, win=_WIN):
@@ -43,7 +43,7 @@ def _task_box(strategies, df_t, title, path, win=_WIN):
     ax.set_title(title, fontsize=12, fontweight='bold')
     handles = [Line2D([], [], color=acmap[a], lw=6, label=a) for a in sorted(acmap)]
     handles.append(Line2D([], [], marker='D', color='black', ls='', label='mean'))
-    ax.legend(handles=handles, fontsize=7, ncol=2)
+    legend_right(ax, handles, fontsize=7)
     plt.tight_layout()
     _save_close(fig, path)
 

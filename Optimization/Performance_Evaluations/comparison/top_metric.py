@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from Performance_Evaluations.core.registry import evaluation
 from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS
+from Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS, legend_right
 from Performance_Evaluations.common.series import _select_top
 from Performance_Evaluations.comparison import overtime_metrics, top_tag
 
@@ -36,7 +36,7 @@ def _top_metric(strategies, S, top_n, m, title, baseline, path, top_by='global')
     ax.grid(alpha=0.3)
     sub = f'  (top {top_n} per {top_by})' if top_by in _TOP_DIMS else f'  (top {top_n})'
     ax.set_title(title + sub, fontsize=12, fontweight='bold')
-    ax.legend(fontsize=8)
+    legend_right(ax, fontsize=8)
     plt.tight_layout()
     _save_close(fig, path)
 

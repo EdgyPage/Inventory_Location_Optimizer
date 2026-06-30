@@ -21,12 +21,12 @@ def overtime_metrics(agg=False):
              yl='throughput' + unit),
         dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
              f='production_time_over_time',
-             t='Production time (Sigma task time per batch, sim units)',
+             t='Production time (total task time per batch, sim units)',
              yl='production time (sim units)' + unit),
         dict(x='batch', y='sigma_fd', blo=None, bhi=None,
              f='layout_travel_over_time',
-             t='Layout travel cost over time (Sigma f*D, lower=better)',
-             yl='Sigma f*D' + unit),
+             t='Layout travel cost over time (total f*D, lower=better)',
+             yl='total f*D' + unit),
     ]
 
 

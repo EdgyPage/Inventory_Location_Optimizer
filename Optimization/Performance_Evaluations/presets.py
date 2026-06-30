@@ -16,8 +16,8 @@ _PER_STRATEGY = ['per_strategy.report_bars', 'per_strategy.metric_grids',
                  'per_strategy.scorecards', 'per_strategy.summary_bars']
 _CONFIG = ['config.summary_csv', 'config.series']
 _COMPARE = ['compare.faceted', 'compare.overlay', 'compare.top_metric',
-            'compare.pick_vs_travel', 'compare.delta_bars', 'compare.task_box',
-            'breakdown.travel_handling']
+            'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_bars',
+            'compare.task_box', 'breakdown.travel_handling']
 _AGG = ['agg.cross_profile']
 
 

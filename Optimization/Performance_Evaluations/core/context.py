@@ -9,6 +9,7 @@ holds; it just calls ctx.batch_df(key) / ctx.series() / ctx.breakdown().
 from __future__ import annotations
 
 import logging
+import os
 
 import numpy as np
 
@@ -74,6 +75,13 @@ class EvalContext:
     @property
     def title(self) -> str:
         return f'{self.inv} / {self.name}'
+
+    def footer(self) -> str:
+        """Provenance line stamped on every figure: origin sim folder + inventory."""
+        cfg  = os.path.basename(self.run_dir)
+        pair = os.path.basename(os.path.dirname(self.run_dir))
+        base = os.path.basename(os.path.dirname(os.path.dirname(self.run_dir)))
+        return f"sim: {base} / {pair} / {cfg}     inventory: {self.inv}"
 
     def full_title(self, s) -> str:
         bits = [self.inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
@@ -158,6 +166,11 @@ class AggregateContext:
     def from_job(cls, job: dict, focus: str) -> 'AggregateContext':
         log = logging.getLogger('analysis')
         return cls(job['profile_series_list'], job['out_dir'], job['pickcfg'], focus, log)
+
+    def footer(self) -> str:
+        base = os.path.basename(os.path.dirname(os.path.dirname(self.out_dir)))
+        return (f"sim: {base} / _aggregate / {self.pickcfg}     "
+                f"{self.n_profiles} profiles (cross-profile)")
 
     def agg_series(self):
         if self._agg is None:

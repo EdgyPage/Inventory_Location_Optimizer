@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from Performance_Evaluations.core.registry import evaluation
 from Performance_Evaluations.common.io import _save_close
+from Performance_Evaluations.common.style import legend_right
 
 
 def _task_time_breakdown_plot(strategies, th, title, path):
@@ -31,7 +32,7 @@ def _task_time_breakdown_plot(strategies, th, title, path):
                        rotation=40, ha='right', fontsize=8)
     ax.set_ylabel('Σ picker time (steady-state sample)')
     ax.grid(axis='y', alpha=0.3)
-    ax.legend()
+    legend_right(ax)
     ax.set_title(title, fontsize=12, fontweight='bold')
     _save_close(fig, path)
 

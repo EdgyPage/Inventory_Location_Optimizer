@@ -9,6 +9,7 @@ evaluation only writes its own files (stats/aggregate graphs wipe their own priv
 import os
 
 from Performance_Evaluations.core.registry import EVAL_BY_KEY
+from Performance_Evaluations.common import io
 from Performance_Evaluations.common.io import _fresh_dir
 
 _CONFIG_SCOPES = ('per_strategy', 'config')
@@ -35,6 +36,7 @@ def resolve_params(ev, overrides, cli_set):
 
 
 def _run_one(ctx, ev, overrides, cli_set):
+    io.set_footer(getattr(ctx, 'footer', lambda: None)())   # stamp provenance on every figure
     try:
         ev.render(ctx, resolve_params(ev, overrides, cli_set))
     except Exception as exc:                                       # noqa: BLE001 — one dies, rest live

@@ -41,7 +41,7 @@ def render(ctx, params):
     b1.set_yticks(ypos); b1.set_yticklabels(ylabels, fontsize=6); b1.invert_yaxis(); b1.grid(axis='x', alpha=0.3)
     b2.barh(ypos, mean_thr, color=yc); b2.set_title('Mean throughput (higher better)', fontsize=10)
     b2.grid(axis='x', alpha=0.3)
-    b3.barh(ypos, mean_eff, color=yc); b3.set_title('Mean Sigma f*D efficiency % (higher better)', fontsize=10)
+    b3.barh(ypos, mean_eff, color=yc); b3.set_title('Mean total f*D efficiency % (higher better)', fontsize=10)
     b3.grid(axis='x', alpha=0.3)
     plt.tight_layout(rect=(0, 0, 1, 0.98))
     _save_close(fig, os.path.join(ps_dir, 'summary.png'))
