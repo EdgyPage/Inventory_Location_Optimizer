@@ -52,6 +52,7 @@ from Capacity_Reloader import RELOADERS
 from strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import Batch, Task
+from batch_precompute import load_batches, batch_fingerprint
 from Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
     build_pre_snapshot, snapshot_bin_inventory, snapshot_aisle_metrics,
@@ -138,6 +139,8 @@ def _run_strategy_worker(args: dict) -> dict:
     wp            = args['wp']
     load_params   = args['load_params']
     batch_cfg     = args['batch_cfg']
+    batches_path        = args.get('batches_path')
+    batches_fingerprint = args.get('batches_fingerprint')
 
     log.info('=' * 60)
     if job_tag is not None:
@@ -175,6 +178,25 @@ def _run_strategy_worker(args: dict) -> dict:
         affinity._matrix.data.nbytes + affinity._matrix.indices.nbytes +
         affinity._matrix.indptr.nbytes) / 1_048_576
     log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)')
+
+    # ── shared precomputed batch sequence (dedup of sampling across arms) ───────
+    # The parent precomputed this family's batch list once (a pure function of inv+aff+batch_cfg+seed).
+    # Verify it was built for THIS worker's exact inputs by recomputing the fingerprint from our own
+    # inventory+affinity; on any miss/mismatch, leave batches=None and sample inline in the loop
+    # (bit-identical result — just not deduplicated).
+    batches = None
+    if batches_path and batches_fingerprint:
+        try:
+            own_fp = batch_fingerprint(inventory, batch_cfg, seed_batches, n_batches, affinity)
+            if own_fp != batches_fingerprint:
+                log.warning('  precomputed-batch fingerprint mismatch -> sampling inline')
+            else:
+                batches = load_batches(batches_path, batches_fingerprint)
+                if batches is not None and len(batches) < n_batches:
+                    batches = None                       # short list (shouldn't happen) -> inline
+        except Exception as exc:                          # noqa: BLE001 — never block the run
+            log.warning(f'  precomputed-batch load failed ({exc!r}) -> sampling inline')
+    log.info(f'  batches: {"precomputed/shared" if batches is not None else "inline sampling"}')
 
     # ── strategy + frequency maps (needed BEFORE stocking for custom layouts) ──
     # freq_by_sku ranks SKUs for the optimal stock layout and for re-slotting; built
@@ -332,7 +354,9 @@ def _run_strategy_worker(args: dict) -> dict:
     p2_sum_ckpt    = 0.0
     # ── per-section wall timers (diagnostic): where each checkpoint's wall goes ──
     t_reord_ckpt   = 0.0   # reloader.reload + check_reorders + pop_churn + tracked_sigma_fd
-    t_build_ckpt   = 0.0   # Batch(...) + Task.from_batch(...)
+    t_build_ckpt   = 0.0   # Batch(...) + Task.from_batch(...)  (= smpl + task below)
+    t_sample_ckpt  = 0.0   # Batch(...) order-sampling only (the precompute/dedup target)
+    t_task_ckpt    = 0.0   # Task.from_batch(...) only (sequential — reads live placement)
     t_pre_ckpt     = 0.0   # build_pre_snapshot + snapshot_aisle_metrics + keyframe write
     t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
     t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
@@ -367,13 +391,16 @@ def _run_strategy_worker(args: dict) -> dict:
             pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
-        # Dedicated per-batch RNG: batch i is a pure function of (inventory, affinity,
-        # config, seed_batches+i), so every arm over this warehouse config sees the
-        # identical batch sequence regardless of placement/reorder randomness above.
-        batch    = Batch(batch_cfg, inventory, affinity=affinity,
-                         rng=random.Random(seed_batches + i))
+        # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
+        # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
+        # shared (see batch_precompute); `batches` is None only when that list is unavailable, in which
+        # case we sample inline here — bit-identical, just not deduplicated across arms.
+        batch    = (batches[i] if batches is not None
+                    else Batch(batch_cfg, inventory, affinity=affinity,
+                               rng=random.Random(seed_batches + i)))
+        _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
         tasks    = Task.from_batch(batch, warehouse, manager=mgr)
-        _now = time.perf_counter(); t_build_ckpt += _now - _t; _t = _now
+        _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
         pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks
         am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
@@ -463,6 +490,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  db={t_save:.2f}s'
                 # per-section breakdown of this checkpoint's batch-loop wall
                 f'  | reord={t_reord_ckpt:.1f}s build={t_build_ckpt:.1f}s'
+                f' (smpl={t_sample_ckpt:.1f}s task={t_task_ckpt:.1f}s)'
                 f' pre={t_pre_ckpt:.1f}s sim={t_sim_ckpt:.1f}s'
                 f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
@@ -475,6 +503,8 @@ def _run_strategy_worker(args: dict) -> dict:
             p2_sum_ckpt    = 0.0
             t_reord_ckpt   = 0.0
             t_build_ckpt   = 0.0
+            t_sample_ckpt  = 0.0
+            t_task_ckpt    = 0.0
             t_pre_ckpt     = 0.0
             t_sim_ckpt     = 0.0
             t_extract_ckpt = 0.0
@@ -504,7 +534,7 @@ def _run_strategy_worker(args: dict) -> dict:
     # so RSS doesn't ratchet across jobs in a reused process.
     lift_cache.clear()
     del (inventory, affinity, warehouse, mgr, ctx, reloader,
-         freq_by_sku, qty_by_sku, freq_by_idx)
+         freq_by_sku, qty_by_sku, freq_by_idx, batches)
     import gc
     gc.collect()
 
