@@ -126,9 +126,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:1.5',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -138,9 +138,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_weight',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02*2,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:2.0',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -150,9 +150,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_weight_high_height',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02*2,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:2.0',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -162,9 +162,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_height',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:1.5',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
