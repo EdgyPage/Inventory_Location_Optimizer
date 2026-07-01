@@ -87,6 +87,36 @@ Then edit the Markdown. Common building blocks:
     MaxClu raised churn — note the trade-off.
 ```
 
+## 3b. Pull setup parameters from JSON instead of retyping them
+
+Don't hand-copy run parameters — the [`docs/macros.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py)
+helpers (via `mkdocs-macros-plugin`) read a committed `config.json` / `params.json`
+snapshot and render it. So a page never states a value that can drift from the run.
+
+1. **Commit the snapshot.** Copy the run's `config.json` next to its images
+   (`docs/results/images/<run>/<inv>/<cfg>/config.json`) and, for a new inventory,
+   its `inventory/params.json` to `docs/inventory/data/<variant>/params.json`. These are
+   tiny; the large `*.db` run files stay off the repo.
+
+   !!! warning "The `comparison_*` gitignore trap"
+       Run folders are named `comparison_*`, which `.gitignore` excludes. The docs image
+       subtree is re-included by an explicit negation in `.gitignore`
+       (`!/docs/results/images/comparison_*/**`). Confirm new images are tracked with
+       `git status` / `git check-ignore <path>` before pushing — CI has no access to the
+       run drive, so anything untracked is simply missing from the built site.
+
+2. **Call the macros** in Markdown:
+
+   ```markdown
+   {{ '{{' }} setup_table('comparison_20260627_054619', 'mixed_..._lt0', 'calibrated') {{ '}}' }}
+   {{ '{{' }} pick_time_formula('comparison_20260627_054619', 'mixed_..._lt0', 'calibrated') {{ '}}' }}
+   {{ '{{' }} reorder_formula(...) {{ '}}' }}          # equilibrium / ROP model with this run's averages
+   {{ '{{' }} run_section('comparison_20260627_054619', 'mixed_..._lt0') {{ '}}' }}   # collapsible per-config figure blocks
+   {{ '{{' }} inv_distribution_table('mixed_realistic_lt0') {{ '}}' }}   # inventory category table
+   ```
+
+   A missing JSON raises a build error under `--strict`, so a typo can't silently render blank.
+
 ## 4. Add the page to the navigation
 
 Open `mkdocs.yml` and add your page under `nav:` → `Results:`
