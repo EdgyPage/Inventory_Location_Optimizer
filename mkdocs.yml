@@ -32,6 +32,8 @@ extra_css:
 
 plugins:
   - search
+  - macros:
+      module_name: docs/macros   # docs/macros.py; injects run params/formulas from committed JSON
   - glightbox        # zoom result images on click
 
 markdown_extensions:
@@ -44,10 +46,16 @@ markdown_extensions:
       permalink: true
   - pymdownx.highlight
   - pymdownx.superfences
+  - pymdownx.details   # collapsible ??? blocks (per-config figure groups)
 
 nav:
   - Home: index.md
   - Authoring guide: authoring.md
+  - Inventory distributions: inventory/index.md
   - Results:
       - Overview: results/index.md
-      - 'Example run (2026-06)': results/example-run.md
+      - Simulation lifecycle: results/comparison-overview.md
+      - 'Comparison — 2026-06-27': results/comparison-20260627.md
+      - 'Comparison — 2026-06-24': results/comparison-20260624.md
+      - 'Example run (template)': results/example-run.md
+      - Glossary: results/glossary.md

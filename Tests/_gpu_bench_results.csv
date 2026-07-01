@@ -1,0 +1,11 @@
+kernel,size,cpu_ms,cupy_ms,torch_ms,equiv,best_speedup,section,section_share,whole_run_speedup,note
+sampling:inner_op (1 draw),100000,0.224,0.091,0.111,True,2.47,build,0.412,1.325,per-draw heavy op; x20000 draws/batch
+sampling:full faithful port,100000x20000,9287.986,10327.844,,True,0.90,build,0.412,0.956,selected-set overlap=1.000 (per-draw host sync)
+sampling:gumbel-topk (static),100000x20000,1.759,1.191,0.748,,2.35,build,0.412,1.310,NOT equiv: drops dynamic lift; overlap vs CPU=0.125
+placement:cost-matrix+argmin,500x5000,11.238,2.556,2.405,True,4.67,reord,0.441,1.530,greedy select + affinity stay sequential (CPU)
+placement:cost-matrix+argmin,2000x20000,173.237,5.287,3.220,True,53.80,reord,0.441,1.762,greedy select + affinity stay sequential (CPU)
+placement:cost-matrix+argmin,5000x50000,906.287,31.386,19.650,True,46.12,reord,0.441,1.758,greedy select + affinity stay sequential (CPU)
+placement:cost-matrix+argmin,2000x200000,1707.420,63.634,704.159,True,26.83,reord,0.441,1.737,greedy select + affinity stay sequential (CPU)
+picksim:per-pick map+cumsum,20000,0.897,0.875,0.775,True,1.16,sim,0.025,1.003,section is ~5% of wall (low Amdahl ceiling)
+picksim:per-pick map+cumsum,100000,3.226,0.784,0.746,True,4.32,sim,0.025,1.020,section is ~5% of wall (low Amdahl ceiling)
+picksim:per-pick map+cumsum,1000000,56.013,1.418,12.031,True,39.49,sim,0.025,1.025,section is ~5% of wall (low Amdahl ceiling)

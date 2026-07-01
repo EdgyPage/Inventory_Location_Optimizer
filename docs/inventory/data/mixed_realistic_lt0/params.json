@@ -1,0 +1,353 @@
+{
+  "name": "inventory",
+  "timestamp": "20260624_083549",
+  "seed": 42,
+  "num_skus": 100000,
+  "mode": "creation_plan",
+  "equilibrium_coverage_batches": 10.0,
+  "lead_time": 0.0,
+  "lead_time_range": null,
+  "supply_cv_max": 0.15,
+  "demand_override": null,
+  "carton_bounds": {
+    "min_dim": 1,
+    "max_dim": 48,
+    "min_weight": 1,
+    "max_weight": 200,
+    "min_qty": 1,
+    "max_qty": 20
+  },
+  "creation_plan": [
+    {
+      "category": "food",
+      "share": 0.25,
+      "handling_split": [
+        0.91,
+        0.09
+      ],
+      "length_spec": {
+        "dist": "triangular",
+        "low": 4,
+        "high": 24,
+        "mode": 12
+      },
+      "width_spec": {
+        "dist": "triangular",
+        "low": 4,
+        "high": 24,
+        "mode": 12
+      },
+      "height_spec": {
+        "dist": "triangular",
+        "low": 4,
+        "high": 20,
+        "mode": 10
+      },
+      "weight_spec": {
+        "dist": "volume_poisson"
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.3,
+        "high": 1.0
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1,
+        "high": 20
+      }
+    },
+    {
+      "category": "clothing",
+      "share": 0.18,
+      "handling_split": [
+        0.97,
+        0.03
+      ],
+      "length_spec": {
+        "dist": "triangular",
+        "low": 8,
+        "high": 30,
+        "mode": 18
+      },
+      "width_spec": {
+        "dist": "triangular",
+        "low": 8,
+        "high": 30,
+        "mode": 18
+      },
+      "height_spec": {
+        "dist": "triangular",
+        "low": 6,
+        "high": 24,
+        "mode": 14
+      },
+      "weight_spec": {
+        "dist": "volume_scaled_poisson",
+        "scale": 0.5
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.0,
+        "high": 1.0
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1.0,
+        "high": 20.0
+      }
+    },
+    {
+      "category": "electronic",
+      "share": 0.22,
+      "handling_split": [
+        0.93,
+        0.07
+      ],
+      "length_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.6,
+            "spec": {
+              "dist": "normal",
+              "mean": 8,
+              "std": 2
+            }
+          },
+          {
+            "prob": 0.4,
+            "spec": {
+              "dist": "normal",
+              "mean": 34,
+              "std": 5
+            }
+          }
+        ]
+      },
+      "width_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.6,
+            "spec": {
+              "dist": "normal",
+              "mean": 8,
+              "std": 2
+            }
+          },
+          {
+            "prob": 0.4,
+            "spec": {
+              "dist": "normal",
+              "mean": 30,
+              "std": 5
+            }
+          }
+        ]
+      },
+      "height_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.6,
+            "spec": {
+              "dist": "normal",
+              "mean": 6,
+              "std": 2
+            }
+          },
+          {
+            "prob": 0.4,
+            "spec": {
+              "dist": "normal",
+              "mean": 24,
+              "std": 5
+            }
+          }
+        ]
+      },
+      "weight_spec": {
+        "dist": "volume_scaled_poisson",
+        "scale": 1.6
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.0,
+        "high": 1.0
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1.0,
+        "high": 20.0
+      }
+    },
+    {
+      "category": "seasonal",
+      "share": 0.12,
+      "handling_split": [
+        0.6,
+        0.4
+      ],
+      "length_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 6,
+              "high": 20,
+              "mode": 12
+            }
+          },
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 28,
+              "high": 46,
+              "mode": 38
+            }
+          }
+        ]
+      },
+      "width_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 6,
+              "high": 20,
+              "mode": 12
+            }
+          },
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 28,
+              "high": 46,
+              "mode": 38
+            }
+          }
+        ]
+      },
+      "height_spec": {
+        "dist": "mixture",
+        "components": [
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 6,
+              "high": 18,
+              "mode": 11
+            }
+          },
+          {
+            "prob": 0.5,
+            "spec": {
+              "dist": "triangular",
+              "low": 26,
+              "high": 44,
+              "mode": 36
+            }
+          }
+        ]
+      },
+      "weight_spec": {
+        "dist": "volume_poisson"
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.0,
+        "high": 1.0
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1.0,
+        "high": 20.0
+      }
+    },
+    {
+      "category": "furniture",
+      "share": 0.13,
+      "handling_split": [
+        0.2,
+        0.8
+      ],
+      "length_spec": {
+        "dist": "triangular",
+        "low": 24,
+        "high": 48,
+        "mode": 42
+      },
+      "width_spec": {
+        "dist": "triangular",
+        "low": 24,
+        "high": 48,
+        "mode": 42
+      },
+      "height_spec": {
+        "dist": "triangular",
+        "low": 20,
+        "high": 48,
+        "mode": 38
+      },
+      "weight_spec": {
+        "dist": "volume_scaled_poisson",
+        "scale": 2.0
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.0,
+        "high": 0.35
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1,
+        "high": 4
+      }
+    },
+    {
+      "category": "chemical",
+      "share": 0.1,
+      "handling_split": [
+        0.4,
+        0.6
+      ],
+      "length_spec": {
+        "dist": "normal",
+        "mean": 20,
+        "std": 4
+      },
+      "width_spec": {
+        "dist": "normal",
+        "mean": 20,
+        "std": 4
+      },
+      "height_spec": {
+        "dist": "normal",
+        "mean": 24,
+        "std": 5
+      },
+      "weight_spec": {
+        "dist": "poisson_fixed",
+        "lam": 60.0
+      },
+      "freq_spec": {
+        "dist": "uniform",
+        "low": 0.0,
+        "high": 1.0
+      },
+      "qty_spec": {
+        "dist": "uniform",
+        "low": 1.0,
+        "high": 20.0
+      }
+    }
+  ]
+}

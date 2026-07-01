@@ -74,6 +74,7 @@ from Workload import WorkloadParams
 from strategy_runner import (
     load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints,
 )
+from batch_precompute import ensure_batches
 
 # ── simulation constants ───────────────────────────────────────────────────────
 SEED_WORLD       = 42
@@ -126,9 +127,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:1.5',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -138,9 +139,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_weight',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02*2,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:2.0',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -150,9 +151,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_weight_high_height',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02*2,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:2.0',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -162,9 +163,9 @@ REGRESSION_CONFIGS = [
     {
         'name'            : 'calibrated_high_height',
         'pick_intercept'  : 15,
-        'pick_weight_coef': 3.02,
-        'pick_weight_fn'  : 'log:2',
-        'pick_volume_coef': 0.765,
+        'pick_weight_coef': 0.58,
+        'pick_weight_fn'  : 'pow:1.5',
+        'pick_volume_coef': 0.7,
         'pick_volume_fn'  : 'log:2',
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
@@ -497,6 +498,7 @@ def _prepare_config_run(
     shared  : dict,
     pair_dir: str,
     log     : logging.Logger,
+    workers : int = 1,
 ) -> tuple[list, dict]:
     """Pre-initialise one regression config: create DBs, get run_ids, build strategy_args.
 
@@ -648,8 +650,22 @@ def _prepare_config_run(
     _worker_invdb = _planned_db or shared['inv_db']
     _worker_allow = None if _planned_db else shared.get('sku_allowlist')
     _worker_maxsk = None if _planned_db else shared.get('max_skus')
+    # Precompute this family's shared batch sequence ONCE (pure: a function of inv+aff+batch_cfg+seed),
+    # keyed by content fingerprint under pair_dir so every config/strategy arm of the family reuses it
+    # instead of re-sampling it in-process.  Parallel across `workers` (the strategy pool isn't running
+    # yet, so cores are idle).  Workers re-verify the fingerprint and fall back to inline sampling on
+    # any miss/mismatch, so a precompute failure can never block or corrupt a run.
+    try:
+        _batches_path, _batches_fp = ensure_batches(
+            pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
+            batch_cfg, SEED_BATCHES, N_BATCHES, workers=workers, log=log)
+    except Exception as exc:                       # noqa: BLE001 — never block the run on precompute
+        log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
+        _batches_path, _batches_fp = None, None
     _shared = dict(
         inv_db        = _worker_invdb,
+        batches_path        = _batches_path,
+        batches_fingerprint = _batches_fp,
         aff_db        = shared['aff_db'],
         run_dir       = run_dir,
         n_batches     = N_BATCHES,
@@ -779,7 +795,7 @@ def _run_workers_flat(
                     continue
                 try:
                     strategy_args, sim_skeleton = _prepare_config_run(
-                        cfg, shared, pair_dir, log)
+                        cfg, shared, pair_dir, log, workers=max_workers)
                     for sa in strategy_args:
                         sa['log_queue'] = log_queue   # inject shared queue
                         work_units.append((key, sa))

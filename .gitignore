@@ -231,5 +231,11 @@ __marimo__/
 # Simulation run output dirs (large SQLite DBs already covered by *.db; ignore whole run trees)
 comparison_*/
 
+# ...but the docs site keeps a curated snapshot of each run under comparison_*-named
+# folders (small PNG plots + config.json). Those MUST be committed for the GitHub Pages
+# build (CI has no access to the external run drive). Re-include just that subtree.
+!/docs/results/images/comparison_*/
+!/docs/results/images/comparison_*/**
+
 # Diagnostics generated traces (regenerate with trace_lifecycle.py / replay_run.py)
 Diagnostics/out/

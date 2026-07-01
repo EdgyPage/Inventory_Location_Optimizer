@@ -2,3 +2,4 @@
 # Install locally with:  pip install -r requirements-docs.txt
 mkdocs-material
 mkdocs-glightbox        # click-to-zoom lightbox for result images
+mkdocs-macros-plugin    # inject run parameters/formulas from committed JSON (docs/macros.py)
