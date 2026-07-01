@@ -79,11 +79,18 @@ The headline setup for this run's `lt0` variant:
 ## 3. Pick
 
 Each batch draws SKUs weighted by demand (and affinity, for co-picked partners), then
-simulates the pickers clearing them. The per-task cost model:
+simulates the pickers clearing them. The per-task cost model (this experiment's `calibrated`
+configuration):
 
 {{ pick_time_formula('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}
 
-Realised aisle workload decomposes as `W = D + P + C` (travel + pick + cart) — the
+The four **pick-time calibrations** keep the same shape and differ only in the weight exponent
+$e_w$ and the height multipliers $M(y)$ — steeper penalties stress-test how sensitive the
+strategy ranking is to the cost model:
+
+{{ pick_calibration_table('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0') }}
+
+Realised aisle workload decomposes as $W = D + P + C$ (travel + pick + cart) — the
 *measurement* that drives [makespan](glossary.md#makespan); the assignment functions optimise
 proxies of it (defined in the [Glossary](glossary.md#workload)). Picking a SKU decrements its
 on-hand quantity; once its inventory [**position**](glossary.md#position) (on-hand + queued +

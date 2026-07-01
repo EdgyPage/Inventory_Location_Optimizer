@@ -30,6 +30,10 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/mathjax.js                          # arithmatex/MathJax config (typeset equations)
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
 plugins:
   - search
   - macros:
@@ -47,6 +51,8 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
   - pymdownx.details   # collapsible ??? blocks (per-config figure groups)
+  - pymdownx.arithmatex:
+      generic: true    # typeset $…$ / $$…$$ math via MathJax
 
 # Kept in the repo but excluded from the built site (maintainer / dev reference).
 exclude_docs: |

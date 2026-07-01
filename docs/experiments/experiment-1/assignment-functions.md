@@ -14,13 +14,22 @@ performance is on [Full results](full-results.md). Symbols are defined in the
 
 ## How to read the families
 
-Most families rank the wave by a shared **pick-effort priority** before placing it, then place
-the highest-priority unit first so it claims its extremal bin:
+Every score is built on the **per-bin labor primitive** — the expected time to make one pick at
+bin $b$ (defined with the [pick-time model](comparison-overview.md#3-pick)):
 
-`priority = f_i·(pick_intercept + pick_weight_coef·ln(w) + pick_volume_coef·ln(v)) + β·co_occur`
+$$\ell(b) \;=\; M(y_b)\,(t_0 + h) + D_b,\qquad h = c_w\,w^{e_w} + c_v\,\log_2 V,\qquad
+D_b = x_{\text{pace}}\,x_{\text{phys}} + y_{\text{pace}}\,y_{\text{phys}}$$
 
-where *f_i* is [relative pick frequency](glossary.md#f-s), *w*/*v* are weight/volume, and
-`co_occur` is the [affinity](glossary.md#co-occur) subsidy.
+where $t_0$ is the pick intercept, $h$ the per-pick [handling term](glossary.md#handle-var)
+(weight $w$ + volume $V$), $M(y_b)$ the height multiplier, and $D_b$ the travel cost.
+
+Most families rank the wave by a shared **pick-effort priority** before placing it (highest
+first, so it claims its extremal bin):
+
+$$\text{priority} \;=\; f_i\,(t_0 + h) \;+\; \beta\,\text{co\_occur}$$
+
+where $f_i$ is [relative pick frequency](glossary.md#f-s) and $\text{co\_occur}$ is the
+[affinity](glossary.md#co-occur) subsidy.
 
 The suite is built as **brackets**: for each lever there is a maximiser and a minimiser that
 bound how much the lever is worth. **The maximising controls (`tmax`, `cmin`, `expn`,
@@ -50,15 +59,18 @@ Rank by expected popularity (`f·q`), place each into the aisle with the **least
 Spreads demand mass evenly across aisles (a dispersal control).
 
 ### Rank_labor — `rank_labor` { #rank-labor }
-**Travel-aware LPT (longest-processing-time) labor balance — a top-3 winner.** Each unit goes
-to the `(aisle, bin)` that least raises the busiest aisle's total labor
-`L_a = Σ f_s·q_s·ℓ(b)`, costliest SKU first. Equation on the
-[lifecycle page](comparison-overview.md#top-3-assignment-functions).
+**Travel-aware LPT (longest-processing-time) labor balance — a top-3 winner.** Aisle $a$'s total
+expected labor is $L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$; each unit is placed where it least
+raises the busiest aisle, costliest SKU first:
+
+$$\arg\min_{(a,\,b)}\ \bigl(L_a + f_s\,q_s\,\ell(b)\bigr).$$
 
 ### Rank_minlabor — `rank_minlabor` { #rank-minlabor }
-Greedy **minimiser** of expected total task labor: fuses golden-zone height (`M(y)`),
-effort-to-front (`D`), and affinity compaction into one marginal-cost score. Consolidates
-rather than balances.
+Greedy **minimiser** of expected total task labor — fuses golden-zone height, effort-to-front,
+and affinity compaction into one marginal-cost score (consolidates rather than balances):
+
+$$\arg\min_{(a,\,b)}\ \Bigl[\,f_s\bigl(M(y_b)(t_0 + h) + D_b\bigr)
+\;-\; \lambda\!\!\sum_{p\,\in\,\text{aisle}}\!\!\bigl(\text{lift}(s,p)-1\bigr) f_p\,\Bigr].$$
 
 ### Rank_maxlabor — `rank_maxlabor` { #rank-maxlabor }
 The exact **maximiser** mirror of `rank_minlabor` (high/far bins, scattered partners) — a
@@ -68,13 +80,18 @@ worst-case control that should land *worst* on task labor. Designed to lose.
 
 ### Map — `map` { #map }
 **Optimal-map score matching — a top-3 winner.** Each bin has a quantity-free preferred score
-`pref(b)`; each SKU a target from the labor-minimising full linear assignment problem (LAP);
-place at `argmin_b |pref(b) − target(s)|`. Equation on the
-[lifecycle page](comparison-overview.md#top-3-assignment-functions).
+$\operatorname{pref}(b) = D_b + M(y_b)(t_0 + \bar h)$; each SKU's $\operatorname{target}(s)$ is
+the $\operatorname{pref}$ of its bin in the labor-minimising full linear assignment problem
+(LAP). Place at
+
+$$\arg\min_{b}\ \bigl|\operatorname{pref}(b) - \operatorname{target}(s)\bigr|.$$
 
 ### Map_rank — `map_rank` { #map-rank }
-**The same map, upgrade-capped — a top-3 winner.** A SKU never reloads into a bin more prime
-than its optimal rank, reserving prime spots for higher-ranked SKUs future orders bring.
+**The same map, upgrade-capped — a top-3 winner.** A SKU never reloads into a bin more prime than
+its optimal rank, reserving prime spots for higher-ranked SKUs future orders bring:
+
+$$\arg\min_{\,b\,:\,\operatorname{pref}(b)\,\ge\,\operatorname{target}(s)}\
+\bigl(\operatorname{pref}(b) - \operatorname{target}(s)\bigr).$$
 
 ## Cluster-map (map + cohesion)
 
@@ -90,7 +107,8 @@ its map target.
 ## Travel bracket
 
 ### TripMin — `tmin` { #tmin }
-Minimise `f_s·D − β·co_occur`: hot SKUs to low-`D` (front) bins → less within-aisle walking.
+Minimise the travel score $f_s\,D - \beta\,\text{co\_occur}$: hot SKUs to low-$D$ (front) bins →
+less within-aisle walking.
 
 ### TripMax — `tmax` { #tmax }
 Maximise the same score (hot items to the **back**). Worst-case travel control; brackets `tmin`.
@@ -98,8 +116,8 @@ Maximise the same score (hot items to the **back**). Worst-case travel control; 
 ## Affinity bracket
 
 ### MaxClu — `cmax` { #cmax }
-Maximise **cohesion** `Σ (lift(s,p) − 1)·f_p`: send each SKU to the aisle where its
-co-picked partners already sit → fewer aisle visits per batch.
+Maximise **cohesion** $\text{co\_occur} = \sum_p \bigl(\text{lift}(s,p) - 1\bigr) f_p$: send each
+SKU to the aisle where its co-picked partners already sit → fewer aisle visits per batch.
 
 ### MinClu — `cmin` { #cmin }
 Minimise cohesion (scatter partners across aisles). Anti-affinity control; brackets `cmax`.
