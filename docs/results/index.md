@@ -3,6 +3,11 @@
 Write-ups of individual simulation runs. Each entry records the run parameters, the
 headline numbers, and the analysis plots.
 
+New here? Start with the [Simulation lifecycle &amp; method](comparison-overview.md) page —
+it walks the generation → stock → pick → reorder → restock loop, shows the top-3
+assignment-function equations, and lists what each run holds constant vs varies. Symbol
+definitions live in the [Glossary](glossary.md).
+
 !!! info "Render check"
     This text comes from `docs/results/index.md`. **Sentinel:** `RESULTS-INDEX-LIVE-v1`.
     See the [Authoring guide](../authoring.md) to add a run write-up.

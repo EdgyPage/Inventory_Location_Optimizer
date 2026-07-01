@@ -22,6 +22,14 @@ The `high_weight` / `high_height` configurations re-run the same catalogue with 
 weight and shelf-height ergonomic penalties, to test how sensitive the strategy ranking is
 to the cost model.
 
+**Top-3 assignment functions** (the winning restock rules; symbols in the
+[Glossary](glossary.md)):
+
+{{ assignment_formulas() }}
+
+See the [simulation lifecycle](comparison-overview.md) page for how these fit into the
+generation → stock → pick → reorder → restock loop.
+
 ## lt0 — immediate replenishment
 
 {{ setup_table('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}

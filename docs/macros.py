@@ -9,6 +9,14 @@ under ``docs/inventory/data/<inv>/``.
 Formula *shapes* are fixed here from the code that defines them
 (``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);
 only the *numbers* come from JSON, so pages never hard-code a value twice.
+
+Exception: ``assignment_formulas`` transcribes the top-3 assignment-function
+*equations* directly from ``Warehouse/Assignment_Functions.py`` /
+``Warehouse/inventory_optimal.py``. Those objectives are not (yet) emitted to any
+JSON/DB snapshot, so — unlike every other macro here — there is no programmatic
+source to read. A future refactor should expose each builder's objective (e.g. a
+``formula`` field on the builder or a small registry) so this macro can read it like
+the others; until then the shapes are maintained by hand against the code.
 """
 
 import json
@@ -127,6 +135,44 @@ def define_env(env):
             f"**{_num(c['x_speed'])} / {_num(c['y_speed'])} ft·s⁻¹** (cross-aisle / along-aisle). "
             f"Height brackets add an ergonomic multiplier in the `high_height` variants."
         )
+
+    @env.macro
+    def assignment_formulas():
+        """Equations of the top-3 winning assignment functions (Rank_labor, Map,
+        Map_rank), transcribed from the source that defines them. See the module
+        docstring: this is the one macro whose *formula* is hand-maintained against
+        code because no JSON/DB snapshot emits these objectives yet.
+
+        Sources: `_travel_balanced_impl` / `build_optmap_fn` in
+        Warehouse/Assignment_Functions.py; `build_optimal_map` in
+        Warehouse/inventory_optimal.py; registry in Optimization/strategies.py.
+        """
+        return "\n".join([
+            "All three share one **per-bin labor primitive** — the expected time to make one "
+            "pick at bin *b*:",
+            "",
+            "`ℓ(b) = M(y_b)·(t₀ + v) + D_b`   with   `D_b = x_pace·x_phys + y_pace·y_phys`",
+            "",
+            "where *t₀* is the pick intercept, *v* the per-pick handling term "
+            "(`handle_var`), *M(y_b)* the height-bracket multiplier, and *D_b* the "
+            "entrance-relative travel cost (low *D* = front bay). `x_pace`/`y_pace` are the "
+            "per-inch paces `sec_per_inch(x_speed)` / `sec_per_inch(y_speed)`.",
+            "",
+            "**1. Rank_labor** — travel-aware LPT labor balance. Aisle *a*'s total expected "
+            "labor is `L_a = Σ_{s∈a} f_s·q_s·ℓ(b_s)`; each unit is placed in the `(aisle, bin)` "
+            "that minimises `L_a + f_s·q_s·ℓ(b)` (least raises the busiest aisle), costliest "
+            "SKU first. *f_s* = pick frequency, *q_s* = pick quantity.",
+            "",
+            "**2. Map** — optimal-map score matching. Each bin has a quantity-free preferred "
+            "score `pref(b) = D_b + M(y_b)·(t₀ + v̄)` (*v̄* = mean handling term); each SKU has "
+            "a target `target(s) =` the `pref` of its bin in the labor-minimising full "
+            "assignment (LAP). A unit is placed at `argmin_b |pref(b) − target(s)|`.",
+            "",
+            "**3. Map_rank** — the same map, upgrade-capped: a SKU never reloads into a bin "
+            "more prime than its optimal rank. Place at "
+            "`argmin_{b : pref(b) ≥ target(s)} (pref(b) − target(s))`; if no bin is at or below "
+            "the SKU's tier, fall back to the least-prime free bin.",
+        ])
 
     @env.macro
     def reorder_formula(run, inv, cfg):

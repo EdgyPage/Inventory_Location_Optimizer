@@ -54,6 +54,8 @@ nav:
   - Inventory distributions: inventory/index.md
   - Results:
       - Overview: results/index.md
+      - Simulation lifecycle: results/comparison-overview.md
       - 'Comparison — 2026-06-27': results/comparison-20260627.md
       - 'Comparison — 2026-06-24': results/comparison-20260624.md
       - 'Example run (template)': results/example-run.md
+      - Glossary: results/glossary.md

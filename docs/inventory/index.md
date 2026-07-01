@@ -26,6 +26,42 @@ normal; `U(a–b)` a uniform draw; `mix(p·… + q·…)` a probabilistic mixtur
 Weights are Poisson-distributed and scaled by item volume (`∝ volume`), optionally with a
 category multiplier, except chemicals which use a fixed rate.
 
+## Category shares &amp; demand
+
+These are the catalogue's own generation plots (the analysis output of
+[`generate_inventory.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py)),
+for the seed-42 catalogue both variants share.
+
+<figure markdown>
+  ![SKU count by category and handling](images/mixed_realistic/group_sizes.png){ width=820 }
+  <figcaption>Distribution of categories — SKU count per (handling × category) group. Food,
+  electronic, and clothing dominate; furniture skews non-conveyable.</figcaption>
+</figure>
+
+<figure markdown>
+  ![Aggregate demand distributions](images/mixed_realistic/demand.png){ width=820 }
+  <figcaption>Catalogue-wide demand: pick frequency (≈U(0,1), mean 0.50) and quantity rate
+  (mean ~9.5 units/pick).</figcaption>
+</figure>
+
+<figure markdown>
+  ![Pick frequency by category](images/mixed_realistic/param_frequency.png){ width=820 }
+  <figcaption>Demand across categories — pick-frequency distribution per (category × handling).
+  Note food's <code>U(0.3–1.0)</code> floor and furniture's <code>U(0–0.35)</code> cap.</figcaption>
+</figure>
+
+<figure markdown>
+  ![Pick quantity by category](images/mixed_realistic/param_quantity.png){ width=820 }
+  <figcaption>Quantity-rate distribution per (category × handling); furniture is capped at
+  <code>U(1–4)</code>, most others span <code>U(1–20)</code>.</figcaption>
+</figure>
+
+<figure markdown>
+  ![Equilibrium quantity and reorder point](images/mixed_realistic/equilibrium_qty.png){ width=820 }
+  <figcaption>Derived stock targets: equilibrium quantity (mean 50.1) and reorder point,
+  from each SKU's expected demand via the model below.</figcaption>
+</figure>
+
 ## How the catalogue is generated
 
 The catalogue and its steady-state stock levels are produced by
