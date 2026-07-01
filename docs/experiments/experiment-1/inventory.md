@@ -77,5 +77,4 @@ Each SKU is assigned an equilibrium quantity and a reorder point from its expect
     `lt0` variant orders arrive immediately; in `ltrand0-5` they arrive after a uniform
     0–5 batch delay, so stock can dip below the reorder point before it is refilled.
 
-See the [results write-ups](../results/index.md) for how each strategy performs on these
-catalogues.
+See the [comparison write-ups](index.md) for how each strategy performs on these catalogues.

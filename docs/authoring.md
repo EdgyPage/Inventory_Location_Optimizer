@@ -2,10 +2,6 @@
 
 How to write up a results run and publish it to the site. Keep this page for reference.
 
-!!! success "Render check"
-    If you can read this green call-out box on the live site, MkDocs is building and
-    serving the Markdown in `docs/` correctly. **Sentinel:** `AUTHORING-PAGE-LIVE-v1`.
-
 ---
 
 ## The short version

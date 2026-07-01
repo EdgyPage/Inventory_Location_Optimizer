@@ -1,34 +1,34 @@
 # Inventory Location Optimizer
 
-Simulation results and analysis for warehouse SKU (stock-keeping unit)
-**placement (assignment) strategies** — how the choice of where to slot incoming stock affects
-picker travel, batch duration, co-location quality, and inventory churn.
+A warehouse simulation study of **where to put stock**. When restock arrives, the choice of
+which slot it goes into changes how far pickers walk, how long a batch takes, how well
+co-picked items sit together, and how much the layout churns. This site asks a simple question
+and measures the answer:
 
-This site is where simulation runs are written up and their plots are published. Start with
-the [Results overview](results/index.md).
+> **Does *where* you place restock matter — and by how much — versus doing nothing?**
 
-!!! success "It's working"
-    You're reading content rendered from `docs/index.md`. If this page looks styled and you
-    can navigate the sidebar, the MkDocs build and GitHub Pages deploy are working
-    end-to-end. **Sentinel:** `HOME-PAGE-LIVE-v1` — change this string and push to confirm a
-    redeploy picked up your edit.
+Each experiment simulates a full inventory lifecycle (stock → pick → reorder → restock, over
+many batches) under a suite of placement rules — from a do-nothing baseline to strategies that
+optimise for travel, item affinity, or co-demand — and compares them on picker effort. A
+recurring finding: not every "optimization" wins; some make total picking time *worse*.
 
-## What's compared
+## Experiments
 
-Each run simulates an inventory lifecycle (stock → reorder → pick, repeated over many
-batches) under different **restock placement rules**, for example:
+Each experiment is self-contained — its own definitions, inventory, strategy catalogue,
+results, and glossary — so a later sweep can change the setup without disturbing earlier ones.
 
-- **FIFO** (first-in-first-out) — uniform random placement (baseline).
-- **TripMin / TripMax** — minimise / maximise predicted pick-trip cost.
-- **MaxClu / MinClu** — cluster high-affinity SKUs together / apart.
+- **[Experiment 1](experiments/experiment-1/index.md)** — the first sweep: the
+  `mixed_realistic` catalogue (100,000 SKUs) across two replenishment lead-time variants and
+  four pick-time calibrations. Start at its **Overview**, which links to the simulation
+  lifecycle, inventory distributions, the assignment-function catalogue, the run write-ups, the
+  full-suite results, and the glossary.
+- **[Future experiment discussion](future-experiments.md)** — levers worth testing in later
+  sweeps.
 
-…optionally combined with an initial layout (`uni` uniform-random vs. `opt` policy-stocked —
-each strategy's own ideal) and a bounded per-batch re-slotting rule.
+## What's inside an experiment
 
-## How to add a results write-up
-
-The maintainer workflow (generate → analyse → publish) lives in the repo at
-`docs/authoring.md`, with `docs/results/example-run.md` as a page template. In short: run
-`python Optimization/run_analysis.py <run-dir>`, copy the plots you want into
-`docs/results/images/`, add a page under `docs/results/`, list it under `nav:` in
-`mkdocs.yml`, and `git push` — the **Deploy docs** GitHub Action republishes the site.
+The **simulation lifecycle** page explains how a run works and defines every term; the
+**assignment functions** page catalogues the placement rules compared; the **comparison
+write-ups** give the headline findings; **full results** shows every strategy; and the
+**glossary** defines the symbols. New readers should start from an experiment's Overview and
+follow the links from there.

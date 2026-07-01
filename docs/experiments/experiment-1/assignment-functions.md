@@ -12,9 +12,6 @@ performance is on [Full results](full-results.md). Symbols are defined in the
 !!! note "Notes"
     <!-- paste commentary here -->
 
-!!! info "Render check"
-    This text comes from `docs/results/assignment-functions.md`. **Sentinel:** `AF-PAGE-LIVE-v1`.
-
 ## How to read the families
 
 Most families rank the wave by a shared **pick-effort priority** before placing it, then place

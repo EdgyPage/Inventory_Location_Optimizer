@@ -28,6 +28,11 @@ _CACHE = {}
 def define_env(env):
     docs_dir = env.conf["docs_dir"]
 
+    # Per-experiment base for the committed JSON snapshots. Each experiment folder is
+    # self-contained (its own images/ + data/). A future multi-experiment refactor would
+    # parameterise this per call (out of scope now — everything here is Experiment 1).
+    _EXPERIMENT = "experiments/experiment-1"
+
     # ---- loading -------------------------------------------------------------
 
     def _load_json(rel_path):
@@ -48,12 +53,12 @@ def define_env(env):
     @env.macro
     def run_config(run, inv, cfg):
         """Return the parsed config.json dict for one run/inventory/config."""
-        return _load_json(f"results/images/{run}/{inv}/{cfg}/config.json")
+        return _load_json(f"{_EXPERIMENT}/images/{run}/{inv}/{cfg}/config.json")
 
     @env.macro
     def inv_params(inv):
         """Return the parsed inventory params.json dict for one variant."""
-        return _load_json(f"inventory/data/{inv}/params.json")
+        return _load_json(f"{_EXPERIMENT}/data/{inv}/params.json")
 
     # ---- number / spec formatting -------------------------------------------
 
