@@ -16,16 +16,18 @@ only in replenishment lead time — see [Inventory distributions](inventory.md).
 
 {{ pick_time_formula('comparison_20260624_084609', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}
 
-The `high_weight` / `high_height` configurations re-run the same catalogue with steeper
-weight and shelf-height ergonomic penalties, to test how sensitive the strategy ranking is
-to the cost model.
+The four calibrations re-run the same catalogue with steeper weight and shelf-height ergonomic
+penalties, to test how sensitive the strategy ranking is to the cost model — the exact
+per-calibration coefficients used in this run:
 
-**Top-3 assignment functions** (the winning restock rules; symbols in the
-[Glossary](glossary.md)):
+{{ pick_calibration_table('comparison_20260624_084609', 'mixed_20260624_083549__mixed_realistic_lt0') }}
+
+**Top-3 assignment functions** (the winning restock rules; full catalogue and symbols on the
+[Formula reference](formula-reference.md)):
 
 {{ assignment_formulas() }}
 
-See the [simulation lifecycle](comparison-overview.md) page for how these fit into the
+See the [simulation lifecycle](comparison-overview.md) for how these fit into the
 generation → stock → pick → reorder → restock loop, and [Full results](full-results.md) for
 every strategy arm (not just the top-3).
 

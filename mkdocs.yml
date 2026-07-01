@@ -69,7 +69,7 @@ nav:
       - Overview: experiments/experiment-1/index.md
       - Simulation lifecycle: experiments/experiment-1/comparison-overview.md
       - Inventory distributions: experiments/experiment-1/inventory.md
-      - Assignment functions: experiments/experiment-1/assignment-functions.md
+      - Formula reference: experiments/experiment-1/formula-reference.md
       - 'Comparison — 2026-06-24': experiments/experiment-1/comparison-20260624.md
       - 'Comparison — 2026-06-27': experiments/experiment-1/comparison-20260627.md
       - Full results: experiments/experiment-1/full-results.md

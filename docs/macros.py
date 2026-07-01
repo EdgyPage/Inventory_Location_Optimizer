@@ -219,9 +219,10 @@ def define_env(env):
             "",
             r"where $t_0$ is the pick intercept, $h$ the per-pick **handling term** "
             r"($h = c_w w^{e_w} + c_v \log_2 V$; see the pick-time model), $M(y_b)$ the "
-            r"height-bracket multiplier, and $D_b$ the entrance-relative travel cost "
-            r"(low $D$ = front bay). $x_{\text{pace}}$/$y_{\text{pace}}$ are the per-inch paces "
-            r"$\operatorname{sec\_per\_inch}(v_x)$ / $\operatorname{sec\_per\_inch}(v_y)$.",
+            r"height-bracket multiplier, and $D_b$ the entrance-relative **travel** cost "
+            r"(low $D$ = front bay). $x_{\text{pace}} = \tfrac{1}{12\,v_x}$ and "
+            r"$y_{\text{pace}} = \tfrac{1}{12\,v_y}$ are the per-inch paces for travel speeds "
+            r"$v_x$/$v_y$ (ft·s⁻¹).",
             "",
             r"**1. Rank_labor** — travel-aware LPT (longest-processing-time) labor balance. "
             r"Aisle $a$'s total expected labor is $L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$; "

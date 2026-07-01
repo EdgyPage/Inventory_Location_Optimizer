@@ -13,7 +13,7 @@ belongs to Experiment 1 and reflects *this* sweep's setup.
   assignment-function equations, and what this experiment holds constant vs. varies.
 - **[Inventory distributions](inventory.md)** — the `mixed_realistic` catalogue: category
   shares, demand, and the equilibrium/reorder model.
-- **[Assignment functions](assignment-functions.md)** — the full catalogue of the 16 placement
+- **[Formula reference](formula-reference.md)** — the full catalogue of the 16 placement
   families compared here.
 - **Comparison write-ups** — the headline findings, focused on the top-3 winners (below).
 - **[Full results](full-results.md)** — every strategy for every run, as a
