@@ -21,11 +21,13 @@ layout depth Σf·D is the long-run lever that *feeds* W.
 | Layout | What it does | Rank key | Result |
 |--------|--------------|----------|--------|
 | **uni** (Uniform) | `enqueue_all` → uniform-random placement. The restock rule has not been wired yet, so the start is **always random** regardless of which assignment function follows. | none (RNG) | Starts ~62% efficient; the assignment function has to *climb* from there. |
-| **opt** (Optimal) | `place_optimal`: per BinKey class, the **hottest SKU → lowest-D bin** (rearrangement-inequality optimum for Σf·D). | **frequency only** | Starts ~100% efficient, then **decays** toward whatever steady state the assignment function maintains. |
+| **opt** (Optimal) | **policy-stocked**: `build()` the strategy's own placement first, then `enqueue_all` fills the whole inventory **through that same assignment function** (`stock_mode='policy'`), so each arm starts at *its own* ideal layout. | **the strategy's own objective** | Starts at that strategy's attractor, then the batch loop perturbs it and the reorder rule must hold it. (`place_optimal`, the old frequency-only Σf·D fill, is now dormant.) |
 
 The key dynamic: **the initial layout sets the starting point; the assignment function sets the
-attractor.** `opt` only stays good if the reorder rule keeps re-optimizing the churn (~11% of
-bins/batch); under FIFO an optimal start collapses to ~62%.
+attractor.** Because `opt` stocks *through the strategy's own policy*, `opt|X` starts on X's own
+attractor and the reorders hold it there — but the rule must keep re-optimizing the churn (~11%
+of bins/batch) or it drifts. Note `opt|fifo` is a special case: FIFO places at random, so its
+"policy stock" is just uniform — the same poor start as `uni`.
 
 ---
 

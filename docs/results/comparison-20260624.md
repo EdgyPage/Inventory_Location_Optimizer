@@ -5,7 +5,7 @@ inventory variants (`lt0` and `ltrand0-5`).
 
 !!! note "Summary"
     Write the headline takeaway here — which initial-placement strategy won on cumulative
-    production time and by how much versus FIFO. Use **bold** for the headline numbers.
+    production time and by how much versus FIFO (first-in-first-out). Use **bold** for the headline numbers.
 
 ## Setup
 
@@ -26,7 +26,11 @@ to the cost model.
 {{ assignment_formulas() }}
 
 See the [simulation lifecycle](comparison-overview.md) page for how these fit into the
-generation → stock → pick → reorder → restock loop.
+generation → stock → pick → reorder → restock loop, and [Full results](full-results.md) for
+every strategy arm (not just the top-3).
+
+!!! note "Notes"
+    <!-- paste commentary here -->
 
 ## lt0 — immediate replenishment
 
@@ -34,12 +38,22 @@ generation → stock → pick → reorder → restock loop.
 
 {{ run_section('comparison_20260624_084609', 'mixed_20260624_083549__mixed_realistic_lt0') }}
 
+!!! note "Notes"
+    <!-- paste commentary here -->
+
 ## ltrand0-5 — lead time 0–5 batches
 
 {{ setup_table('comparison_20260624_084609', 'mixed_20260624_083549__mixed_realistic_ltrand0-5', 'calibrated') }}
 
 {{ run_section('comparison_20260624_084609', 'mixed_20260624_083549__mixed_realistic_ltrand0-5') }}
 
+!!! note "Notes"
+    <!-- paste commentary here -->
+
 ## Discussion
 
-Interpretation and next steps go here.
+Interpretation and next steps go here. The full strategy suite for this run is on
+[Full results](full-results.md).
+
+!!! note "Notes"
+    <!-- paste commentary here -->
