@@ -22,9 +22,10 @@ assignment function chooses a bin *within* the unit's BinKey pool, so legality n
 re-checked.
 
 ### D — travel cost { #d }
-Entrance-relative travel time to a bin: `D_b = x_pace·x_phys + y_pace·y_phys`, where
-`x_pace = sec_per_inch(x_speed)` and `y_pace = sec_per_inch(y_speed)`. Low `D` = **front bay**
-(shallow, cheap); high `D` = back of the aisle.
+Entrance-relative travel time to a bin: $D_b = x_{\text{pace}}\,x_{\text{phys}} +
+y_{\text{pace}}\,y_{\text{phys}}$, where $x_{\text{pace}} = \operatorname{sec\_per\_inch}(v_x)$
+and $y_{\text{pace}} = \operatorname{sec\_per\_inch}(v_y)$. Low $D$ = **front bay** (shallow,
+cheap); high $D$ = back of the aisle.
 
 ### x_speed / y_speed { #speeds }
 Picker travel speeds (ft·s⁻¹): `x_speed` cross-aisle, `y_speed` along-aisle. Reported per run
@@ -52,16 +53,17 @@ One picking wave: `N(mean_fraction·N, std_fraction·N)` SKUs sampled by demand 
 A run simulates many batches back-to-back.
 
 ### W — aisle workload { #workload }
-The realised time to clear one aisle, `W = D + P + C`. A **measurement** recorded per task —
-not what any scorer optimizes.
+The realised time to clear one aisle, $W = D + P + C$. A **measurement** recorded per task — not
+what any scorer optimizes.
 
-- **P — pick time**: `Σ_stops (intercept + weight_coef·ln(w)·q + volume_coef·ln(v)·q)`.
-- **C — cart penalty**: `cart_swap_coef · max(0, carts − 1)`.
+- **P — pick time**: $\sum_{\text{stops}} M(y)\,(t_0 + q\,h)$ (the per-pick model summed over the
+  aisle's stops; $h$ = [handling term](#handle-var), $q$ = quantity).
+- **C — cart penalty**: $c_{\text{cart}}\cdot\max(0,\ \text{carts} - 1)$.
 
 ### Σf·D — layout depth { #sigma-fd }
-Demand-weighted within-aisle travel summed over occupied bins. The long-run lever that *feeds*
-`W`; its theoretical minimum puts the hottest SKUs in the lowest-`D` bins (the
-rearrangement-inequality bound).
+Demand-weighted within-aisle travel $\sum_{\text{bins}} f_s\,D_b$ over occupied bins. The
+long-run lever that *feeds* $W$; its theoretical minimum puts the hottest SKUs in the lowest-$D$
+bins (the rearrangement-inequality bound).
 
 ### Productivity hours (ΣW) { #productivity-hours }
 Total within-aisle picker work per batch (Σ of `W` over the batch's tasks). The metric that
@@ -112,13 +114,14 @@ start); **opt** = **policy-stocked** — the whole inventory is placed through t
 sets the *starting point*; the assignment function sets the *attractor*.
 
 ### Pick-effort priority { #priority }
-The order the ranked families place a wave in:
-`priority = f_i·(pick_intercept + pick_weight_coef·ln(w) + pick_volume_coef·ln(v)) + β·co_occur`.
-Highest-priority unit claims its extremal bin first.
+The order the ranked families place a wave in: $\text{priority} = f_i\,(t_0 + h) +
+\beta\,\text{co\_occur}$. Highest-priority unit claims its extremal bin first.
 
-### handle_var (v) { #handle-var }
-A unit's per-pick handling term (weight/volume effort), the *v* inside the per-bin labor
-primitive `ℓ(b) = M(y_b)·(t₀ + v) + D_b`.
+### h — handling term { #handle-var }
+A unit's per-pick weight + volume effort, $h = c_w\,w^{e_w} + c_v\,\log_2 V$ (`handle_var` in
+code) — **distinct from volume $V$**. It is the term inside the per-bin labor primitive
+$\ell(b) = M(y_b)\,(t_0 + h) + D_b$, and inside the pick time $t_{\text{pick}} = M(y)\,(t_0 +
+q\,h) + c_{\text{cart}}\,\mathbb{1}[\text{swap}]$.
 
 ### lift { #lift }
 Probabilistic co-occurrence strength between two SKUs (from the affinity matrix). `lift > 1`
@@ -126,8 +129,8 @@ means they are co-picked more than chance.
 
 ### co_occur { #co-occur }
 Demand-weighted affinity of a SKU to an aisle's current members:
-`co_occur = Σ_{partner p in aisle} (lift(s,p) − 1)·f_p`. The cohesion objective; also a small
-subsidy inside the travel score.
+$\text{co\_occur} = \sum_{p\,\in\,\text{aisle}} \bigl(\text{lift}(s,p) - 1\bigr) f_p$. The
+cohesion objective; also a small subsidy inside the travel score.
 
 ### β — affinity weight { #beta }
 Weight (default `1.0`) converting `lift·freq` into the score's units — how much co-location is

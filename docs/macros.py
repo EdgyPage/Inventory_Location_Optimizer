@@ -80,6 +80,35 @@ def define_env(env):
             return f"{c}·log{_num(float(arg))}({var})"
         return f"{c}·{kind}({var})"
 
+    def _fmt_fn_tex(coef, fn, var):
+        r"""LaTeX form of a pick-time term: pow:1.5 -> ``0.58\,w^{1.5}``,
+        log:2 -> ``0.7\,\log_{2} V``."""
+        kind, _, arg = str(fn).partition(":")
+        c = _num(coef)
+        if kind == "pow":
+            return rf"{c}\,{var}^{{{_num(float(arg))}}}"
+        if kind == "log":
+            base = rf"_{{{_num(float(arg))}}}" if arg else ""
+            return rf"{c}\,\log{base} {var}"
+        return rf"{c}\,\mathrm{{{kind}}}({var})"
+
+    # Height-bracket multipliers M(y) per calibration. NOT in the committed config.json,
+    # so transcribed from Optimization/run_simulation.py REGRESSION_CONFIGS (an exception,
+    # like assignment_formulas). Each entry: (upper_y_phys_inches | None, multiplier).
+    # TODO(refactor): emit height_brackets into config.json so this becomes programmatic.
+    _HEIGHT_BRACKETS = {
+        "calibrated":                         [(96, 1.0), (240, 1.2), (None, 1.4)],
+        "calibrated_high_weight":             [(96, 1.0), (240, 1.2), (None, 1.4)],
+        "calibrated_high_height":             [(96, 1.0), (240, 1.4), (None, 1.8)],
+        "calibrated_high_weight_high_height": [(96, 1.0), (240, 1.4), (None, 1.8)],
+    }
+
+    def _fmt_brackets(cfg):
+        """Human-legible M(y) brackets for a calibration, e.g. '×1.0 (y<96″) · …'."""
+        (e1, m1), (e2, m2), (_, m3) = _HEIGHT_BRACKETS[cfg]
+        return (f"×{_num(m1)} (y&lt;{e1}″) · ×{_num(m2)} ({e1}–{e2}″) · "
+                f"×{_num(m3)} (&gt;{e2}″)")
+
     def _fmt_spec(spec):
         """One-line summary of a dimension/size distribution spec."""
         dist = spec.get("dist")
@@ -129,17 +158,46 @@ def define_env(env):
 
     @env.macro
     def pick_time_formula(run, inv, cfg):
-        """Pick-time cost model with this config's calibrated coefficients."""
+        """Pick-time cost model (LaTeX) with this config's calibrated coefficients.
+        Matches Warehouse/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""
         c = run_config(run, inv, cfg)
-        w = _fmt_fn(c["pick_weight_coef"], c["pick_weight_fn"], "w")
-        v = _fmt_fn(c["pick_volume_coef"], c["pick_volume_fn"], "v")
-        return (
-            f"`t_pick = {_num(c['pick_intercept'])} + {w} + {v}`  seconds per task, "
-            f"for item weight *w* (lb) and volume *v* (in³); "
-            f"cart swap **{_num(c['cart_swap_coef'])} s**, travel speeds "
-            f"**{_num(c['x_speed'])} / {_num(c['y_speed'])} ft·s⁻¹** (cross-aisle / along-aisle). "
-            f"Height brackets add an ergonomic multiplier in the `high_height` variants."
-        )
+        t0 = _num(c["pick_intercept"])
+        wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
+        vt = _fmt_fn_tex(c["pick_volume_coef"], c["pick_volume_fn"], "V")
+        cart = _num(c["cart_swap_coef"])
+        vx, vy = c["x_speed"], c["y_speed"]
+        dx, dy = _num(12 * vx), _num(12 * vy)
+        return "\n".join([
+            r"$$t_{\text{pick}} \;=\; M(y)\,\bigl(" + t0 + r" + q\,h\bigr)"
+            r" \;+\; " + cart + r"\,\mathbb{1}[\text{cart swap}],"
+            r"\qquad h \;=\; " + wt + " + " + vt + r"$$",
+            "",
+            r"$$D \;=\; \frac{x_{\text{phys}}}{" + dx + r"} + \frac{y_{\text{phys}}}{" + dy +
+            r"}\ \text{s}\qquad(\text{speeds } " + _num(vx) + "/" + _num(vy) +
+            r"\ \text{ft·s}^{-1}\text{, cross-aisle / along-aisle}).$$",
+            "",
+            r"Here $t_0$ is the fixed pick setup (s), $q$ the quantity picked, $w$ the item "
+            r"weight (lb), $V$ its volume (in³), $y$ the shelf height, $M(y)$ the height-bracket "
+            r"multiplier (per calibration below), $h$ the per-pick **handling term**, "
+            r"$c_{\text{cart}}$ the cart-swap penalty, and $\mathbb{1}[\cdot]$ its indicator. "
+            r"$M(y)$ scales the whole at-location pick; the cart penalty is not height-scaled.",
+        ])
+
+    @env.macro
+    def pick_calibration_table(run, inv):
+        """One row per calibration: the weight/volume handling terms (from each config's
+        JSON) and the height M(y) brackets (code-sourced — see _HEIGHT_BRACKETS)."""
+        lines = [
+            r"| Calibration | Weight term | Volume term | Height $M(y)$ |",
+            "|-------------|-------------|-------------|---------------|",
+        ]
+        for cfg, label in _CONFIGS:
+            c = run_config(run, inv, cfg)
+            wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
+            vt = _fmt_fn_tex(c["pick_volume_coef"], c["pick_volume_fn"], "V")
+            lines.append(f"| `{cfg}`<br><small>{label}</small> | ${wt}$ | ${vt}$ "
+                         f"| {_fmt_brackets(cfg)} |")
+        return "\n".join(lines)
 
     @env.macro
     def assignment_formulas():
@@ -154,40 +212,54 @@ def define_env(env):
         """
         return "\n".join([
             "All three share one **per-bin labor primitive** — the expected time to make one "
-            "pick at bin *b*:",
+            "pick at bin $b$:",
             "",
-            "`ℓ(b) = M(y_b)·(t₀ + v) + D_b`   with   `D_b = x_pace·x_phys + y_pace·y_phys`",
+            r"$$\ell(b) \;=\; M(y_b)\,(t_0 + h) + D_b,\qquad "
+            r"D_b \;=\; x_{\text{pace}}\,x_{\text{phys}} + y_{\text{pace}}\,y_{\text{phys}}$$",
             "",
-            "where *t₀* is the pick intercept, *v* the per-pick handling term "
-            "(`handle_var`), *M(y_b)* the height-bracket multiplier, and *D_b* the "
-            "entrance-relative travel cost (low *D* = front bay). `x_pace`/`y_pace` are the "
-            "per-inch paces `sec_per_inch(x_speed)` / `sec_per_inch(y_speed)`.",
+            r"where $t_0$ is the pick intercept, $h$ the per-pick **handling term** "
+            r"($h = c_w w^{e_w} + c_v \log_2 V$; see the pick-time model), $M(y_b)$ the "
+            r"height-bracket multiplier, and $D_b$ the entrance-relative travel cost "
+            r"(low $D$ = front bay). $x_{\text{pace}}$/$y_{\text{pace}}$ are the per-inch paces "
+            r"$\operatorname{sec\_per\_inch}(v_x)$ / $\operatorname{sec\_per\_inch}(v_y)$.",
             "",
-            "**1. Rank_labor** — travel-aware LPT (longest-processing-time) labor balance. "
-            "Aisle *a*'s total expected labor is `L_a = Σ_{s∈a} f_s·q_s·ℓ(b_s)`; each unit is "
-            "placed in the `(aisle, bin)` that minimises `L_a + f_s·q_s·ℓ(b)` (least raises the "
-            "busiest aisle), costliest SKU first. *f_s* = relative pick frequency (a [0,1] "
-            "selection share), *q_s* = pick quantity.",
+            r"**1. Rank_labor** — travel-aware LPT (longest-processing-time) labor balance. "
+            r"Aisle $a$'s total expected labor is $L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$; "
+            r"each unit is placed in the aisle–bin pair that least raises the busiest aisle,",
             "",
-            "**2. Map** — optimal-map score matching. Each bin has a quantity-free preferred "
-            "score `pref(b) = D_b + M(y_b)·(t₀ + v̄)` (*v̄* = mean handling term); each SKU has "
-            "a target `target(s) =` the `pref` of its bin in the labor-minimising full "
-            "linear assignment problem (LAP). A unit is placed at `argmin_b |pref(b) − target(s)|`.",
+            r"$$\arg\min_{(a,\,b)}\ \bigl(L_a + f_s\,q_s\,\ell(b)\bigr),$$",
             "",
-            "**3. Map_rank** — the same map, upgrade-capped: a SKU never reloads into a bin "
-            "more prime than its optimal rank. Place at "
-            "`argmin_{b : pref(b) ≥ target(s)} (pref(b) − target(s))`; if no bin is at or below "
-            "the SKU's tier, fall back to the least-prime free bin.",
+            r"costliest SKU first. $f_s$ = relative pick frequency (a $[0,1]$ selection share), "
+            r"$q_s$ = pick quantity.",
+            "",
+            r"**2. Map** — optimal-map score matching. Each bin has a quantity-free preferred "
+            r"score $\operatorname{pref}(b) = D_b + M(y_b)(t_0 + \bar h)$ ($\bar h$ = mean "
+            r"handling term); each SKU's target $\operatorname{target}(s)$ is the "
+            r"$\operatorname{pref}$ of its bin in the labor-minimising full linear assignment "
+            r"problem (LAP). A unit is placed at",
+            "",
+            r"$$\arg\min_{b}\ \bigl|\operatorname{pref}(b) - \operatorname{target}(s)\bigr|.$$",
+            "",
+            r"**3. Map_rank** — the same map, upgrade-capped: a SKU never reloads into a bin "
+            r"more prime than its optimal rank,",
+            "",
+            r"$$\arg\min_{\,b\,:\,\operatorname{pref}(b)\,\ge\,\operatorname{target}(s)}"
+            r"\ \bigl(\operatorname{pref}(b) - \operatorname{target}(s)\bigr);$$",
+            "",
+            r"if no free bin is at or below the SKU's tier, fall back to the least-prime bin.",
         ])
 
     @env.macro
     def reorder_formula(run, inv, cfg):
         """Equilibrium / reorder-point model with this config's averages."""
         c = run_config(run, inv, cfg)
+        # Single paragraph with INLINE math ($…$) — this macro is rendered inside an
+        # indented admonition, where a $$display$$ block (needing its own blank lines)
+        # would break out of the call-out. Inline keeps it one logical line.
         return (
-            "`q_eq = round(coverage × d̄)` and "
-            "`ROP = round(d̄ × (lead + safety))`, "
-            "where *d̄* is a SKU's expected per-batch demand. This run's averages: "
+            r"$q_{\text{eq}} = \operatorname{round}(\text{coverage}\times \bar d)$ and "
+            r"$\text{ROP} = \operatorname{round}(\bar d\,(\text{lead}+\text{safety}))$, "
+            r"where $\bar d$ is a SKU's expected per-batch demand. This run's averages: "
             f"equilibrium **{_num(c['avg_equilibrium_qty'])}**, "
             f"reorder point **{_num(c['avg_reorder_point'])}**, "
             f"lead time **{_num(c['avg_lead_time_mean'])}** batches, "
