@@ -8,9 +8,6 @@ drill-down for readers who want the whole picture in one place.
 !!! note "Notes"
     <!-- paste commentary here -->
 
-!!! info "Render check"
-    This text comes from `docs/results/full-results.md`. **Sentinel:** `FULL-RESULTS-LIVE-v1`.
-
 ## The headline: most strategies don't beat FIFO
 
 Across the suite, **only `rank_labor`, `map`, and `map_rank` beat the FIFO (first-in-first-out)

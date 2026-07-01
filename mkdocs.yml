@@ -51,18 +51,20 @@ markdown_extensions:
 # Kept in the repo but excluded from the built site (maintainer / dev reference).
 exclude_docs: |
   authoring.md
+  example-run.md
+  site-usage.md
   gpu_assessment.md
   gpu_auction_assessment.md
-  results/example-run.md
 
 nav:
   - Home: index.md
-  - Inventory distributions: inventory/index.md
-  - Results:
-      - Overview: results/index.md
-      - Simulation lifecycle: results/comparison-overview.md
-      - Assignment functions: results/assignment-functions.md
-      - 'Comparison — 2026-06-24': results/comparison-20260624.md
-      - 'Comparison — 2026-06-27': results/comparison-20260627.md
-      - Full results: results/full-results.md
-      - Glossary: results/glossary.md
+  - Future experiment discussion: future-experiments.md
+  - Experiment 1:
+      - Overview: experiments/experiment-1/index.md
+      - Simulation lifecycle: experiments/experiment-1/comparison-overview.md
+      - Inventory distributions: experiments/experiment-1/inventory.md
+      - Assignment functions: experiments/experiment-1/assignment-functions.md
+      - 'Comparison — 2026-06-24': experiments/experiment-1/comparison-20260624.md
+      - 'Comparison — 2026-06-27': experiments/experiment-1/comparison-20260627.md
+      - Full results: experiments/experiment-1/full-results.md
+      - Glossary: experiments/experiment-1/glossary.md

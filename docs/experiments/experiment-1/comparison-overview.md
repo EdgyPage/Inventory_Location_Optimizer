@@ -2,13 +2,8 @@
 
 How a run is built, what every result page holds constant, and what it varies. This is the
 **reference page** for the terms the comparison write-ups cite — every stage below names the
-source code that implements it and pulls its numbers from the committed run snapshots, so a
-value here can never drift from the run it describes. Symbols are defined in the
-[Glossary](glossary.md).
-
-!!! info "Render check"
-    This text comes from `docs/results/comparison-overview.md`. **Sentinel:**
-    `LIFECYCLE-PAGE-LIVE-v1`.
+source code that implements it and reports this experiment's numbers straight from the run's
+committed snapshots. Symbols are defined in the [Glossary](glossary.md).
 
 ## Contents
 
@@ -59,7 +54,7 @@ and — derived from that demand — an equilibrium quantity and a reorder point
     batches of expected demand; the reorder point triggers replenishment `lead + safety`
     batches ahead of stock-out. The full six-category creation plan — shares, dimension,
     weight, handling, and demand distributions — is on the
-    [Inventory distributions](../inventory/index.md) page, generated from the same snapshot.
+    [Inventory distributions](inventory.md) page, generated from the same snapshot.
 
 The two committed variants (`lt0`, `ltrand0-5`) share one seed-42, 100,000-SKU catalogue and
 differ **only** in replenishment lead time.
@@ -147,7 +142,7 @@ Everything a result page can vary, and everything it holds fixed so a comparison
 | SKUs | {{ '{:,}'.format(inv_params('mixed_realistic_lt0')['num_skus']) }} | `params.json` |
 | Equilibrium coverage | {{ inv_params('mixed_realistic_lt0')['equilibrium_coverage_batches'] }} batches | `params.json` |
 | Supply-CV ceiling | {{ inv_params('mixed_realistic_lt0')['supply_cv_max'] }} | `params.json` |
-| Category creation plan | 6 categories | [Inventory distributions](../inventory/index.md) |
+| Category creation plan | 6 categories | [Inventory distributions](inventory.md) |
 | Batches / pickers | see setup table above | `config.json` |
 | Warehouse geometry, pick-time model | identical across variants | `config.json` / [run_simulation.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py) |
 

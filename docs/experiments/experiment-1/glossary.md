@@ -6,9 +6,6 @@ in the heading link). Formula shapes match the code in
 [`Warehouse/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py)
 and [`Warehouse/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/ASSIGNMENT_SCORING.md).
 
-!!! info "Render check"
-    This text comes from `docs/results/glossary.md`. **Sentinel:** `GLOSSARY-PAGE-LIVE-v1`.
-
 ## Layout &amp; geometry
 
 ### Aisle { #aisle }
