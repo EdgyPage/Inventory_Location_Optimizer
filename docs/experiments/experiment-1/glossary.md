@@ -23,9 +23,11 @@ re-checked.
 
 ### D — travel cost { #d }
 Entrance-relative travel time to a bin: $D_b = x_{\text{pace}}\,x_{\text{phys}} +
-y_{\text{pace}}\,y_{\text{phys}}$, where $x_{\text{pace}} = \operatorname{sec\_per\_inch}(v_x)$
-and $y_{\text{pace}} = \operatorname{sec\_per\_inch}(v_y)$. Low $D$ = **front bay** (shallow,
-cheap); high $D$ = back of the aisle.
+y_{\text{pace}}\,y_{\text{phys}}$, where $x_{\text{pace}} = \tfrac{1}{12 v_x}$ and
+$y_{\text{pace}} = \tfrac{1}{12 v_y}$ (`sec_per_inch` of the travel speeds $v_x,v_y$). Low
+$D$ = **front bay** (shallow, cheap); high $D$ = back of the aisle. Realised aisle **travel**
+is the **Manhattan** (L1) sweep: $x_{\text{trav}}x_{\text{pace}} + y_{\text{trav}}y_{\text{pace}}$
+with $x_{\text{trav}} = \sum_i|x_{i+1}-x_i|$.
 
 ### x_speed / y_speed { #speeds }
 Picker travel speeds (ft·s⁻¹): `x_speed` cross-aisle, `y_speed` along-aisle. Reported per run
@@ -49,16 +51,27 @@ Units taken per pick of SKU *s* (`demand_qty_rate`). `f_s·q_s` is the SKU's dem
 A SKU's expected units picked per batch, `≈ f_s·q_s`. Feeds the equilibrium and reorder model.
 
 ### Batch { #batch }
-One picking wave: `N(mean_fraction·N, std_fraction·N)` SKUs sampled by demand and affinity.
-A run simulates many batches back-to-back.
+One picking wave: $n \sim \mathcal N(0.15\,N,\ 0.05\,N)$ distinct SKUs sampled by demand and
+affinity. A run simulates many batches back-to-back.
 
-### W — aisle workload { #workload }
-The realised time to clear one aisle, $W = D + P + C$. A **measurement** recorded per task — not
-what any scorer optimizes.
+### Task { #task }
+A batch is decomposed into **tasks — one per aisle**: a task is the ordered sweep through the
+bins a picker visits in a single aisle (with its SKU→quantity picks). Tasks are handed to the
+pickers round-robin by aisle, and each task's cost is its [labor $W$](#workload).
 
-- **P — pick time**: $\sum_{\text{stops}} M(y)\,(t_0 + q\,h)$ (the per-pick model summed over the
-  aisle's stops; $h$ = [handling term](#handle-var), $q$ = quantity).
-- **C — cart penalty**: $c_{\text{cart}}\cdot\max(0,\ \text{carts} - 1)$.
+### W — task labor (aisle workload) { #workload }
+The realised time to clear one aisle (one [task](#task)), standardised as **handling + travel +
+cart**: $W = H + T + C$. A **measurement** recorded per task — not what any scorer optimizes.
+
+- **H — handling**: $\sum_{\text{stops}} M(y)\,(t_0 + q\,h)$ (the per-pick model summed over the
+  aisle's stops; $h$ = [handling term](#handle-var), $q$ = quantity). *(code: `P`)*
+- **T — travel**: the [Manhattan sweep distance](#d) $x_{\text{trav}}x_{\text{pace}} +
+  y_{\text{trav}}y_{\text{pace}}$. *(code: `D`)*
+- **C — cart**: $c_{\text{cart}}\cdot\max(0,\ \text{carts} - 1)$.
+
+Full definitions on the [Formula reference](formula-reference.md#task-labor). $W$ is the realised
+labor; placement scorers instead rank bins by the cheaper per-bin proxy
+$\ell(b)$ — related, but **not** the same calculation.
 
 ### Σf·D — layout depth { #sigma-fd }
 Demand-weighted within-aisle travel $\sum_{\text{bins}} f_s\,D_b$ over occupied bins. The
@@ -115,7 +128,7 @@ sets the *starting point*; the assignment function sets the *attractor*.
 
 ### Pick-effort priority { #priority }
 The order the ranked families place a wave in: $\text{priority} = f_i\,(t_0 + h) +
-\beta\,\text{co\_occur}$. Highest-priority unit claims its extremal bin first.
+\beta\,\text{co-occur}$. Highest-priority unit claims its extremal bin first.
 
 ### h — handling term { #handle-var }
 A unit's per-pick weight + volume effort, $h = c_w\,w^{e_w} + c_v\,\log_2 V$ (`handle_var` in
@@ -129,7 +142,7 @@ means they are co-picked more than chance.
 
 ### co_occur { #co-occur }
 Demand-weighted affinity of a SKU to an aisle's current members:
-$\text{co\_occur} = \sum_{p\,\in\,\text{aisle}} \bigl(\text{lift}(s,p) - 1\bigr) f_p$. The
+$\text{co-occur} = \sum_{p\,\in\,\text{aisle}} \bigl(\text{lift}(s,p) - 1\bigr) f_p$. The
 cohesion objective; also a small subsidy inside the travel score.
 
 ### β — affinity weight { #beta }
@@ -139,7 +152,6 @@ rewarded against travel.
 ### Assignment function (restock family) { #assignment-function }
 The rule that places reorder waves each batch — the one thing strategies differ on. The grid
 sweeps 32 arms (2 initial layouts × 16 restock families). The three winners are **Rank_labor /
-Map / Map_rank** (equations on the [lifecycle page](comparison-overview.md#top-3-assignment-functions));
-**FIFO** (first-in-first-out) is the uniform-random baseline everything is measured against.
-See the **[Assignment functions](assignment-functions.md)** page for the full catalogue of all
-16 families and their objectives.
+Map / Map_rank**; **FIFO** (first-in-first-out) is the uniform-random baseline everything is
+measured against. See the **[Formula reference](formula-reference.md#the-families)** for the full
+catalogue of all 16 families and their scoring equations.

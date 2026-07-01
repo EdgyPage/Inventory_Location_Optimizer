@@ -1,6 +1,6 @@
 # Full results
 
-The complete strategy suite — every one of the 16 [assignment functions](assignment-functions.md)
+The complete strategy suite — every one of the 16 [assignment functions](formula-reference.md)
 under both initial layouts — for each run, laid out as a **pick-config × inventory-lead**
 matrix. The per-run [write-ups](index.md) stay focused on the top-3 winners; this page is the
 drill-down for readers who want the whole picture in one place.

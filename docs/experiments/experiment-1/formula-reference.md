@@ -1,35 +1,74 @@
-# Assignment functions
+# Formula reference
 
-The **assignment function** (a.k.a. restock family) is the rule that places each batch's
-reorder wave — the one thing the strategies differ on (picking, demand, and the warehouse are
-identical across arms). The comparison grid sweeps **32 arms = 2 initial layouts × 16 restock
-families** (see [strategies.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/strategies.py)).
-This page catalogues all 16; the top-3 by cumulative task time are on the
-[lifecycle page](comparison-overview.md#top-3-assignment-functions), and every arm's measured
-performance is on [Full results](full-results.md). Symbols are defined in the
+Every calculation in Experiment 1 in one place: the pick-time cost model, the labor
+decomposition, the per-bin placement primitive, and the scoring objective of each of the 16
+assignment functions. The [simulation lifecycle](comparison-overview.md) shows **when** each of
+these runs during a simulation; this page is the canonical **what**. Symbols are in the
 [Glossary](glossary.md).
 
 !!! note "Notes"
     <!-- paste commentary here -->
 
-## How to read the families
+## Notation
 
-Every score is built on the **per-bin labor primitive** — the expected time to make one pick at
-bin $b$ (defined with the [pick-time model](comparison-overview.md#3-pick)):
+| Symbol | Meaning |
+|--------|---------|
+| $t_0$ | fixed pick setup time (`pick_intercept`, s) |
+| $w,\ V$ | item weight (lb), volume (in³) |
+| $h$ | per-pick **handling term** $= c_w w^{e_w} + c_v \log_2 V$ (weight + volume effort) |
+| $q$ | quantity picked |
+| $y,\ M(y)$ | shelf height; its **height-bracket multiplier** |
+| $D_b$ | per-bin **travel** cost (entrance-relative, Manhattan) |
+| $x_{\text{pace}},\ y_{\text{pace}}$ | per-inch paces $\tfrac{1}{12 v_x},\ \tfrac{1}{12 v_y}$ for speeds $v_x,v_y$ (ft·s⁻¹) |
+| $f_s,\ q_s$ | SKU $s$'s relative pick frequency, pick quantity |
+| $\text{lift}(s,p)$ | co-occurrence strength of SKUs $s,p$; $\text{co-occur} = \sum_p(\text{lift}-1)f_p$ |
+| $\beta,\ \lambda$ | affinity-reward weights |
+| $\ell(b)$ | per-bin **labor primitive** (placement proxy, below) |
 
-$$\ell(b) \;=\; M(y_b)\,(t_0 + h) + D_b,\qquad h = c_w\,w^{e_w} + c_v\,\log_2 V,\qquad
+## Pick time
+
+One pick at bin $b$, from [`Warehouse/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Pick.py):
+
+{{ pick_time_formula('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}
+
+The four **calibrations** keep this shape and differ only in the weight exponent $e_w$ and the
+height multipliers $M(y)$:
+
+{{ pick_calibration_table('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0') }}
+
+## Task labor — handling + travel + cart { #task-labor }
+
+The **realised** time to clear one aisle (the simulation's measurement, from
+[`Optimization/Workload.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Workload.py))
+splits into three parts:
+
+$$W \;=\; \underbrace{\sum_{\text{stops}} M(y)\,(t_0 + q\,h)}_{H\ \text{— handling}}
+\;+\; \underbrace{x_{\text{trav}}\,x_{\text{pace}} + y_{\text{trav}}\,y_{\text{pace}}}_{T\ \text{— travel}}
+\;+\; \underbrace{c_{\text{cart}}\,\max(0,\ \text{carts}-1)}_{C\ \text{— cart}}$$
+
+**Travel is Manhattan (L1):** $x_{\text{trav}} = \sum_i |x_{i+1}-x_i|$ and
+$y_{\text{trav}} = \sum_i |y_{i+1}-y_i|$ over the aisle's ordered pick path — the summed
+horizontal + vertical distance walked, not straight-line. $H\!+\!T\!+\!C$ is what drives
+[makespan](glossary.md#makespan). (In code these are named `P`, `D`, `C`.)
+
+## Placement primitive $\ell(b)$ { #placement-primitive-ellb }
+
+Placement scorers do **not** optimise $W$ directly — they rank bins by a per-bin **proxy**:
+
+$$\ell(b) \;=\; M(y_b)\,(t_0 + h) + D_b,\qquad
 D_b = x_{\text{pace}}\,x_{\text{phys}} + y_{\text{pace}}\,y_{\text{phys}}$$
 
-where $t_0$ is the pick intercept, $h$ the per-pick [handling term](glossary.md#handle-var)
-(weight $w$ + volume $V$), $M(y_b)$ the height multiplier, and $D_b$ the travel cost.
+This shares the handling and travel terms with $W$ **but is not the same calculation**: it is
+per-bin, evaluated at $q=1$, and omits the cart penalty — a cheap ranking signal, not the
+realised labor. The families below combine $\ell(b)$ (or its parts) with demand $f_s$ and
+affinity.
 
-Most families rank the wave by a shared **pick-effort priority** before placing it (highest
-first, so it claims its extremal bin):
+Most **ranked** families order the wave by a shared **pick-effort priority** (highest first, so
+it claims its extremal bin):
 
-$$\text{priority} \;=\; f_i\,(t_0 + h) \;+\; \beta\,\text{co\_occur}$$
+$$\text{priority} \;=\; f_i\,(t_0 + h) \;+\; \beta\,\text{co-occur}$$
 
-where $f_i$ is [relative pick frequency](glossary.md#f-s) and $\text{co\_occur}$ is the
-[affinity](glossary.md#co-occur) subsidy.
+## The families
 
 The suite is built as **brackets**: for each lever there is a maximiser and a minimiser that
 bound how much the lever is worth. **The maximising controls (`tmax`, `cmin`, `expn`,
@@ -107,7 +146,7 @@ its map target.
 ## Travel bracket
 
 ### TripMin — `tmin` { #tmin }
-Minimise the travel score $f_s\,D - \beta\,\text{co\_occur}$: hot SKUs to low-$D$ (front) bins →
+Minimise the travel score $f_s\,D - \beta\,\text{co-occur}$: hot SKUs to low-$D$ (front) bins →
 less within-aisle walking.
 
 ### TripMax — `tmax` { #tmax }
@@ -116,7 +155,7 @@ Maximise the same score (hot items to the **back**). Worst-case travel control; 
 ## Affinity bracket
 
 ### MaxClu — `cmax` { #cmax }
-Maximise **cohesion** $\text{co\_occur} = \sum_p \bigl(\text{lift}(s,p) - 1\bigr) f_p$: send each
+Maximise **cohesion** $\text{co-occur} = \sum_p \bigl(\text{lift}(s,p) - 1\bigr) f_p$: send each
 SKU to the aisle where its co-picked partners already sit → fewer aisle visits per batch.
 
 ### MinClu — `cmin` { #cmin }
@@ -124,10 +163,22 @@ Minimise cohesion (scatter partners across aisles). Anti-affinity control; brack
 
 ## Co-demand bracket
 
+Both place a SKU in the chosen aisle relative to the **demand-weighted column centroid** of its
+co-demanded partners already in that aisle:
+
+$$c_x \;=\; \frac{\sum_p \bigl(\text{lift}(s,p)-1\bigr)\,f_p\,x_p}{\sum_p \bigl(\text{lift}(s,p)-1\bigr)\,f_p}$$
+
+where $x_p$ are the partners' column positions.
+
 ### Compact — `comp` { #comp }
-Minimise within-aisle **span** to co-demanded partners — place each SKU in the column nearest
-its high-lift partners, shortening the sweep path.
+Minimise within-aisle **span** — place the SKU in the column **nearest** the partner centroid,
+shortening the sweep path:
+
+$$\arg\min_{b}\ \lvert x_b - c_x \rvert.$$
 
 ### Expand — `expn` { #expn }
-Maximise within-aisle span (partners as far apart as possible). Counter to `comp`; the
-`comp ↔ expn` gap measures how much the co-demand lever is worth.
+Maximise within-aisle span — place it **farthest** from the centroid (counter control):
+
+$$\arg\max_{b}\ \lvert x_b - c_x \rvert.$$
+
+The `comp ↔ expn` gap measures how much the co-demand lever is worth.

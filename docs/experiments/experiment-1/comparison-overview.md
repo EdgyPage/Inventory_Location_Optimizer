@@ -10,11 +10,13 @@ committed snapshots. Symbols are defined in the [Glossary](glossary.md).
 - [Lifecycle at a glance](#lifecycle-at-a-glance)
 - [1. Generation](#1-generation) — the synthetic SKU catalogue
 - [2. Stock](#2-stock-initial-layout) — the initial warehouse layout
-- [3. Pick](#3-pick) — batch demand and the pick-time cost
+- [3. Pick](#3-pick) — batch → tasks, the pick-time cost, and task labor
 - [4. Reorder](#4-reorder) — when replenishment is triggered
 - [5. Restock](#5-restock) — how replenishment is placed (the assignment function)
-- [Top-3 assignment functions](#top-3-assignment-functions) — the winning equations
 - [Invariants vs experiment terms](#invariants-vs-experiment-terms)
+
+All the equations referenced below are collected on the
+[Formula reference](formula-reference.md) page.
 
 ## Lifecycle at a glance
 
@@ -78,23 +80,28 @@ The headline setup for this run's `lt0` variant:
 
 ## 3. Pick
 
-Each batch draws SKUs weighted by demand (and affinity, for co-picked partners), then
-simulates the pickers clearing them. The per-task cost model (this experiment's `calibrated`
-configuration):
+**Batch → tasks.** Each batch first samples a set of SKUs to pick — the batch size is
+$n \sim \mathcal{N}(0.15\,N,\ 0.05\,N)$ distinct SKUs (weighted by demand, and by affinity for
+co-picked partners). Those picks are then grouped into **tasks, one per aisle**: a task is the
+ordered sweep through the bins a picker visits in a single aisle (forward/singleton bins drained
+before reserve/pallet). The tasks are handed to the $K$ pickers round-robin by aisle.
+
+**Per stop**, the pick-time cost is the model below (this experiment's `calibrated` config; the
+full form and all four calibrations are on the
+[Formula reference](formula-reference.md#pick-time)):
 
 {{ pick_time_formula('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}
 
-The four **pick-time calibrations** keep the same shape and differ only in the weight exponent
-$e_w$ and the height multipliers $M(y)$ — steeper penalties stress-test how sensitive the
-strategy ranking is to the cost model:
+Clearing an aisle costs the realised **task labor** $W = H + T + C$ — **handling** (the
+height-scaled at-location picks), **travel** (the *Manhattan* sweep distance), and **cart**
+swaps — defined on the [Formula reference](formula-reference.md#task-labor). Summed over a
+batch's tasks, $W$ is the [makespan](glossary.md#makespan) proxy every assignment function is
+ultimately judged on. Note the placement scorers don't optimise $W$ itself — they use a cheaper
+per-bin proxy $\ell(b)$ ([Formula reference](formula-reference.md#placement-primitive-ellb)).
 
-{{ pick_calibration_table('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0') }}
-
-Realised aisle workload decomposes as $W = D + P + C$ (travel + pick + cart) — the
-*measurement* that drives [makespan](glossary.md#makespan); the assignment functions optimise
-proxies of it (defined in the [Glossary](glossary.md#workload)). Picking a SKU decrements its
-on-hand quantity; once its inventory [**position**](glossary.md#position) (on-hand + queued +
-in-transit) falls to the reorder point (ROP), it is flagged for replenishment.
+Picking a SKU decrements its on-hand quantity; once its inventory
+[**position**](glossary.md#position) (on-hand + queued + in-transit) falls to the reorder point
+(ROP), it is flagged for replenishment.
 
 ## 4. Reorder
 
@@ -124,18 +131,12 @@ per batch:  lead_queue[*].remaining -= 1
 ```
 
 `fifo` (first-in-first-out) drops arrivals into a uniform-random bin; the ranked/map families
-rank and slot them toward the layout optimum. All **16 restock families** and two initial
-layouts are catalogued on the [Assignment functions](assignment-functions.md) page; the three
-that win are below.
-
-## Top-3 assignment functions
-
-The winners of the committed sweep, by total task time vs the FIFO baseline: **Rank_labor**
-(≈ −3.9%), **Map**, and **Map_rank** (≈ −3.0%). Their objective functions, transcribed from
-the source that defines them (there is no JSON snapshot of these yet — see the
-[macros note](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py)):
-
-{{ assignment_formulas() }}
+rank and slot them toward the layout optimum, scoring bins with the placement primitive
+$\ell(b)$ and demand/affinity. All **16 restock families** — their scoring objectives and the
+three winners' equations — are catalogued on the
+[Formula reference](formula-reference.md#the-families). The winners of the committed sweep, by
+total task time vs the FIFO baseline, are **Rank_labor** (≈ −3.9%), **Map**, and **Map_rank**
+(≈ −3.0%).
 
 ## Invariants vs experiment terms
 
