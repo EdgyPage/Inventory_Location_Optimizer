@@ -10,7 +10,7 @@ always match what the simulation actually used.
     `mixed_realistic_lt0` uses **{{ inv_lead_time('mixed_realistic_lt0') }}** replenishment,
     while `mixed_realistic_ltrand0-5` uses **{{ inv_lead_time('mixed_realistic_ltrand0-5') }}**.
     Everything else — seed 42, 100,000 SKUs, the six-category creation plan below,
-    supply-CV ceiling, and the 10-batch equilibrium coverage — is **identical** between
+    supply coefficient-of-variation (CV) ceiling, and the 10-batch equilibrium coverage — is **identical** between
     them. Any performance difference between the variants is therefore attributable to
     lead-time variability alone.
 
@@ -40,14 +40,15 @@ for the seed-42 catalogue both variants share.
 
 <figure markdown>
   ![Aggregate demand distributions](images/mixed_realistic/demand.png){ width=820 }
-  <figcaption>Catalogue-wide demand: pick frequency (≈U(0,1), mean 0.50) and quantity rate
-  (mean ~9.5 units/pick).</figcaption>
+  <figcaption>Catalogue-wide demand: relative pick-frequency (a [0,1] selection share,
+  ≈U(0,1), mean 0.50) and quantity rate (mean ~9.5 units/pick).</figcaption>
 </figure>
 
 <figure markdown>
   ![Pick frequency by category](images/mixed_realistic/param_frequency.png){ width=820 }
-  <figcaption>Demand across categories — pick-frequency distribution per (category × handling).
-  Note food's <code>U(0.3–1.0)</code> floor and furniture's <code>U(0–0.35)</code> cap.</figcaption>
+  <figcaption>Demand across categories — relative pick-frequency (a [0,1] share) distribution
+  per (category × handling). Note food's <code>U(0.3–1.0)</code> floor and furniture's
+  <code>U(0–0.35)</code> cap.</figcaption>
 </figure>
 
 <figure markdown>

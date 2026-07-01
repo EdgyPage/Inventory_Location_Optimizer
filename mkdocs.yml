@@ -48,14 +48,21 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.details   # collapsible ??? blocks (per-config figure groups)
 
+# Kept in the repo but excluded from the built site (maintainer / dev reference).
+exclude_docs: |
+  authoring.md
+  gpu_assessment.md
+  gpu_auction_assessment.md
+  results/example-run.md
+
 nav:
   - Home: index.md
-  - Authoring guide: authoring.md
   - Inventory distributions: inventory/index.md
   - Results:
       - Overview: results/index.md
       - Simulation lifecycle: results/comparison-overview.md
-      - 'Comparison — 2026-06-27': results/comparison-20260627.md
+      - Assignment functions: results/assignment-functions.md
       - 'Comparison — 2026-06-24': results/comparison-20260624.md
-      - 'Example run (template)': results/example-run.md
+      - 'Comparison — 2026-06-27': results/comparison-20260627.md
+      - Full results: results/full-results.md
       - Glossary: results/glossary.md

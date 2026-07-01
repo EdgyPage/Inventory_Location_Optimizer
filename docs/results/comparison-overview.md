@@ -68,13 +68,14 @@ differ **only** in replenishment lead time.
 
 Before batch 1 the whole catalogue is stocked once, into bins grouped by
 `BinKey = (handling, category, storage_size, unit_type)`. Two initial layouts bracket the
-starting point (see [strategies.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/strategies.py)):
+starting point (see [strategy_runner.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/strategy_runner.py) — the `stock_mode` branch):
 
-- **`uni`** — `enqueue_all` → uniform-random placement. Starts ~62% efficient; the
+- **`uni`** — `enqueue_all` → uniform-random placement (a deliberately poor start); the
   assignment function has to *climb* from there.
-- **`opt`** — `place_optimal`: hottest SKU → lowest-`D` bin per BinKey class (the Σf·D
-  optimum). Starts ~100% efficient, then decays toward whatever steady state the assignment
-  function maintains.
+- **`opt`** — **policy-stocked**: the strategy's own reorder placement is built *first*, then
+  the whole inventory is placed **through that same assignment function**, so each arm starts
+  at **its own** ideal layout (not a generic optimum). The batch loop then perturbs it and the
+  reorder rule must hold it.
 
 The headline setup for this run's `lt0` variant:
 
@@ -88,10 +89,10 @@ simulates the pickers clearing them. The per-task cost model:
 {{ pick_time_formula('comparison_20260627_054619', 'mixed_20260624_083549__mixed_realistic_lt0', 'calibrated') }}
 
 Realised aisle workload decomposes as `W = D + P + C` (travel + pick + cart) — the
-*measurement* that drives makespan; the assignment functions optimise proxies of it (defined
-in the [Glossary](glossary.md#workload)). Picking a SKU decrements its on-hand quantity; once
-its inventory **position** (on-hand + queued + in-transit) falls to the reorder point, it is
-flagged for replenishment.
+*measurement* that drives [makespan](glossary.md#makespan); the assignment functions optimise
+proxies of it (defined in the [Glossary](glossary.md#workload)). Picking a SKU decrements its
+on-hand quantity; once its inventory [**position**](glossary.md#position) (on-hand + queued +
+in-transit) falls to the reorder point (ROP), it is flagged for replenishment.
 
 ## 4. Reorder
 
@@ -120,10 +121,10 @@ per batch:  lead_queue[*].remaining -= 1
                                                              └──────────── back to §3 Pick ───────────┘
 ```
 
-`fifo` drops arrivals into a uniform-random bin; the ranked/map families rank and slot them
-toward the layout optimum. The eight restock families and two initial layouts are enumerated
-in [strategies.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/strategies.py);
-the three that win are below.
+`fifo` (first-in-first-out) drops arrivals into a uniform-random bin; the ranked/map families
+rank and slot them toward the layout optimum. All **16 restock families** and two initial
+layouts are catalogued on the [Assignment functions](assignment-functions.md) page; the three
+that win are below.
 
 ## Top-3 assignment functions
 

@@ -158,15 +158,16 @@ def define_env(env):
             "entrance-relative travel cost (low *D* = front bay). `x_pace`/`y_pace` are the "
             "per-inch paces `sec_per_inch(x_speed)` / `sec_per_inch(y_speed)`.",
             "",
-            "**1. Rank_labor** — travel-aware LPT labor balance. Aisle *a*'s total expected "
-            "labor is `L_a = Σ_{s∈a} f_s·q_s·ℓ(b_s)`; each unit is placed in the `(aisle, bin)` "
-            "that minimises `L_a + f_s·q_s·ℓ(b)` (least raises the busiest aisle), costliest "
-            "SKU first. *f_s* = pick frequency, *q_s* = pick quantity.",
+            "**1. Rank_labor** — travel-aware LPT (longest-processing-time) labor balance. "
+            "Aisle *a*'s total expected labor is `L_a = Σ_{s∈a} f_s·q_s·ℓ(b_s)`; each unit is "
+            "placed in the `(aisle, bin)` that minimises `L_a + f_s·q_s·ℓ(b)` (least raises the "
+            "busiest aisle), costliest SKU first. *f_s* = relative pick frequency (a [0,1] "
+            "selection share), *q_s* = pick quantity.",
             "",
             "**2. Map** — optimal-map score matching. Each bin has a quantity-free preferred "
             "score `pref(b) = D_b + M(y_b)·(t₀ + v̄)` (*v̄* = mean handling term); each SKU has "
             "a target `target(s) =` the `pref` of its bin in the labor-minimising full "
-            "assignment (LAP). A unit is placed at `argmin_b |pref(b) − target(s)|`.",
+            "linear assignment problem (LAP). A unit is placed at `argmin_b |pref(b) − target(s)|`.",
             "",
             "**3. Map_rank** — the same map, upgrade-capped: a SKU never reloads into a bin "
             "more prime than its optimal rank. Place at "
@@ -241,6 +242,32 @@ def define_env(env):
         for cfg, label in _CONFIGS:
             out.append(f'??? note "{cfg} — {label}"')
             for fname, caption in _FIGURES:
+                path = f"images/{run}/{inv}/{cfg}/{fname}"
+                out.append(f"    ![{caption}]({path}){{ width=820 }}")
+                out.append("")
+                out.append(f"    *{caption}*")
+                out.append("")
+        return "\n".join(out).rstrip()
+
+    # full assignment-function suite figures (every strategy arm), for the compiled
+    # Full-results report — filename -> caption.
+    _FULL_SUITE_FIGURES = [
+        ("task_duration_by_strategy.png",
+         "Steady-state task duration for every strategy arm (Uni|… and Opt|… × 16 families); "
+         "diamond = mean. The full suite, ranked."),
+        ("production_time_over_time.png",
+         "Production time per batch, all 16 assignment functions overlaid "
+         "(Opt = solid, Uni = dashed)."),
+    ]
+
+    @env.macro
+    def full_suite_section(run, inv):
+        """Collapsible per-config full-suite figure blocks (all strategies) for one
+        run/inventory variant — used by the compiled Full-results report."""
+        out = []
+        for cfg, label in _CONFIGS:
+            out.append(f'??? note "{cfg} — {label}"')
+            for fname, caption in _FULL_SUITE_FIGURES:
                 path = f"images/{run}/{inv}/{cfg}/{fname}"
                 out.append(f"    ![{caption}]({path}){{ width=820 }}")
                 out.append("")

@@ -15,13 +15,16 @@ For the scoring objectives at a higher level see
 ## 0. Placement runs in two phases
 
 1. **Initial stock** — once, before the batch loop, in the worker
-   ([strategy_runner.py](strategy_runner.py) `_run_strategy_worker`):
-   - `uni` → `mgr.enqueue_all(cartons)` → `_drain()` with the manager's **default**
-     placement (`uniform_fifo`). The restock rule's `build()` has **not run yet**, so the
-     initial layout is *always uniform-random* for `uni` strategies.
-   - `opt` → `mgr.place_optimal(...)` (the restock rule still doesn't touch initial stock).
-   Then `strat.build(mgr, ctx)` swaps in the restock policy — which therefore only governs
-   **reorders**.
+   ([strategy_runner.py](strategy_runner.py) `_run_strategy_worker`, the `stock_mode` branch):
+   - `uni` (`stock_mode='uniform'`) → `mgr.enqueue_all(orders)` → `_drain()` with the
+     manager's **default** placement (`uniform_fifo`), **then** `strat.build(mgr, ctx)`.
+     Because `build()` runs *after* the fill, a `uni` initial layout is always uniform-random
+     and the restock rule governs **reorders only**.
+   - `opt` (`stock_mode='policy'`) → `strat.build(mgr, ctx)` runs **first**, then
+     `mgr.enqueue_all(orders)` places the whole inventory **through that same policy**, so the
+     warehouse starts at the strategy's **own** ideal layout. Here the assignment function
+     governs both the initial stock *and* the reorders. (`place_optimal` — the old frequency-only
+     Σf·D fill — is now a dormant hook, not used by the grid.)
 2. **Reorder waves** — every batch, `check_reorders()` queues replenishment units for
    depleted SKUs and calls `_drain()`.
 
@@ -54,7 +57,7 @@ For the scoring objectives at a higher level see
 | key | what | mechanism |
 |---|---|---|
 | **`uni`** (Uniform) | random initial layout | `enqueue_all` → `_drain_per_unit` → `_uniform_assignment` = `random.choice(candidates)` |
-| **`opt`** (Optimal) | rearrangement-inequality optimum | `place_optimal` → per BinKey class, **hottest SKU → lowest-D bin** (`_optimal_assign`); this is the `Σf·D` yardstick |
+| **`opt`** (policy-stocked) | the strategy's **own** ideal layout | `build()` the restock policy first, then `enqueue_all` fills the whole inventory **through it** (`stock_mode='policy'`) — each arm starts at *its own* attractor, not a generic optimum |
 
 ---
 

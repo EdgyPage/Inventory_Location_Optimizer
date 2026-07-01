@@ -5,22 +5,25 @@ headline numbers, and the analysis plots.
 
 New here? Start with the [Simulation lifecycle &amp; method](comparison-overview.md) page —
 it walks the generation → stock → pick → reorder → restock loop, shows the top-3
-assignment-function equations, and lists what each run holds constant vs varies. Symbol
-definitions live in the [Glossary](glossary.md).
+assignment-function equations, and lists what each run holds constant vs varies. The full
+catalogue of placement rules is on [Assignment functions](assignment-functions.md); the whole
+strategy suite across every run is on [Full results](full-results.md). Symbol definitions live
+in the [Glossary](glossary.md).
 
 !!! info "Render check"
     This text comes from `docs/results/index.md`. **Sentinel:** `RESULTS-INDEX-LIVE-v1`.
-    See the [Authoring guide](../authoring.md) to add a run write-up.
 
 ## Runs
 
+Each write-up focuses on the top-3 winners vs the FIFO (first-in-first-out) baseline; the
+[Full results](full-results.md) page shows every strategy for every run.
+
 | Run | Date | Scope | Notes |
 |-----|------|-------|-------|
-| [Comparison — 2026-06-27](comparison-20260627.md) | 2026-06-27 | lt0 + ltrand0-5, 4 calibrations | Placement strategies vs FIFO; adds randomised lead time. |
 | [Comparison — 2026-06-24](comparison-20260624.md) | 2026-06-24 | lt0 + ltrand0-5, 4 calibrations | Placement strategies vs FIFO. |
-| [Example run](example-run.md) | 2026-06 | template | Copy this page to start a new write-up. |
+| [Comparison — 2026-06-27](comparison-20260627.md) | 2026-06-27 | lt0 + ltrand0-5, 4 calibrations | Placement strategies vs FIFO; adds randomised lead time. |
 
-<!-- Add a row per run above, newest first. -->
+<!-- Add a row per run above, in run order (oldest first). -->
 
 ## Conventions
 
