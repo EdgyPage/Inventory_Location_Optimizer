@@ -20,6 +20,7 @@ import glob
 import logging
 import os
 import queue
+import sqlite3
 import sys
 
 import pytest
@@ -35,14 +36,32 @@ import batch_precompute as BP                   # noqa: E402
 _N_E2E_BATCHES = 6
 
 
+def _store_only_current_schema(inv_db):
+    """True if inv_db is loadable by the current code (has relative_frequency) AND store-only
+    (no fulfillment SKUs).  The precompute dedup is a single-channel/store-only optimization —
+    a fulfillment dataset runs multi-channel and samples inline (no shared batches file), so this
+    e2e only applies to store-only pairs.  Pre-rename DBs (demand_frequency) aren't loadable."""
+    try:
+        c = sqlite3.connect(inv_db)
+        cols = [r[1] for r in c.execute('PRAGMA table_info(cartons)')]
+        if 'relative_frequency' not in cols:
+            return False
+        ff = c.execute("SELECT COUNT(*) FROM cartons WHERE handling='fulfillment'").fetchone()[0]
+        c.close()
+        return ff == 0
+    except Exception:
+        return False
+
+
 def _pair_or_skip():
     try:
-        pairs = rs.find_latest_db_pairs(rs._DEFAULT_PROFILES_DIR)
+        pairs = rs.discover_db_pairs(rs._DEFAULT_PROFILES_DIR)
     except Exception:
         pairs = []
-    if not pairs:
-        pytest.skip('no generated inventory/affinity DB pair available for e2e')
-    return pairs[0]
+    for pair in pairs:
+        if _store_only_current_schema(pair[1]):
+            return pair
+    pytest.skip('no store-only, current-schema inventory/affinity pair for the precompute e2e')
 
 
 def _capture_batch_sequence(shared, pair_dir, cfg, log, *, force_inline):
