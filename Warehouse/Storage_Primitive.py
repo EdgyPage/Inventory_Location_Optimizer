@@ -218,7 +218,7 @@ class FulfillmentBin(Pallet):
     max_length:    int = 16
     unit_category: str = 'fulfillment'
     # Ascending (name, height) size tiers — small, for a ~6 ft shelf.
-    TIERS: tuple = (('ff_small', 12), ('ff_medium', 24), ('ff_large', 36))
+    TIERS: tuple = (('ff_small', 6), ('ff_medium', 12), ('ff_large', 18))
 
     def _fit(self, order: Order) -> None:
         res = _tiered_fit_dims(order.height, order.width, order.length,
