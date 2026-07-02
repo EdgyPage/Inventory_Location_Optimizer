@@ -62,8 +62,11 @@ def _load_env(path: str) -> None:
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
+from dataclasses import replace
+
 from generation.generate_inventory import (
     generate_run as _inv_run, Family, DEFAULT_FREQ_SPEC, DEFAULT_QTY_SPEC,
+    fulfillment_families, DEFAULT_FF_WEIGHT_SPEC,
 )
 from generation.generate_affinity import generate_run as _aff_run
 
@@ -145,6 +148,29 @@ def _parse_lead_spec(spec, rand_range) -> tuple:
     return (f'mixed_realistic_lt{val:g}', val, None)
 
 
+def _ff_weight_spec(args) -> dict:
+    """Fulfillment weight spec from --ff-weight-spec JSON, else triangular(min, mode, max)."""
+    if args.ff_weight_spec:
+        return json.loads(args.ff_weight_spec)
+    return {'dist': 'triangular', 'low': args.ff_weight_min,
+            'mode': args.ff_weight_mode, 'high': args.ff_weight_max}
+
+
+def _build_plan(args) -> list:
+    """The 6 store families, plus a fulfillment sub-catalog when --fulfillment-fraction > 0.
+    Store shares scale to (1-F) and the fulfillment families sum to F, so shares stay relative."""
+    f = args.fulfillment_fraction
+    if f <= 0.0:
+        return list(CREATION_PLAN)
+    store = [replace(fam, share=fam.share * (1.0 - f)) for fam in CREATION_PLAN]
+    lo, hi = args.ff_dim_range
+    ff = fulfillment_families(
+        total_share=f, cube_fraction=args.ff_cube_fraction, weight_spec=_ff_weight_spec(args),
+        dim_low=lo, dim_high=hi, cube_sizes=tuple(args.ff_cube_sizes),
+    )
+    return store + ff
+
+
 # ── driver ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -177,6 +203,23 @@ def main() -> None:
                         help='JSON demand-frequency override applied to ALL families')
     parser.add_argument('--qty-spec', default=None,
                         help='JSON demand-quantity override applied to ALL families')
+    # ── fulfillment sub-catalog (a fraction of --num-skus; store families scale down to the rest) ──
+    parser.add_argument('--fulfillment-fraction', type=float, default=0.0, metavar='F',
+                        help='fraction of num-skus that are fulfillment SKUs (0 = none). The 6 store '
+                             'families scale to 1-F; fulfillment SKUs are small forward-pick items '
+                             'routed to fulfillment bins.')
+    parser.add_argument('--ff-cube-fraction', type=float, default=0.3, metavar='C',
+                        help='cube share of the fulfillment SKUs (default 0.3 → rectangles preferred)')
+    parser.add_argument('--ff-weight-min', type=float, default=1.0)
+    parser.add_argument('--ff-weight-mode', type=float, default=2.5)
+    parser.add_argument('--ff-weight-max', type=float, default=10.0,
+                        help='fulfillment weight is triangular(min, mode, max) — right-skewed, light')
+    parser.add_argument('--ff-weight-spec', default=None,
+                        help='JSON fulfillment weight spec; overrides --ff-weight-min/mode/max')
+    parser.add_argument('--ff-dim-range', type=int, nargs=2, default=[3, 16], metavar=('LO', 'HI'),
+                        help='rectangular fulfillment dimension range (HI capped at 16 to fit FF bins)')
+    parser.add_argument('--ff-cube-sizes', type=int, nargs='+', default=[4, 6, 8], metavar='S',
+                        help='cube edge sizes for cube fulfillment SKUs (L=W=H drawn from these)')
     parser.add_argument('--out-dir', default=_DEFAULT_PROFILES_DIR)
     parser.add_argument('--skip-affinity', action='store_true')
     parser.add_argument('--estimate', action='store_true',
@@ -195,12 +238,20 @@ def main() -> None:
             json.loads(args.qty_spec)  if args.qty_spec  else dict(DEFAULT_QTY_SPEC),
         )
 
+    plan = _build_plan(args)
+
     if args.estimate:
-        print(f'\n  Creation plan: {len(CREATION_PLAN)} families  num_skus={args.num_skus:,}')
+        print(f'\n  Creation plan: {len(plan)} families  num_skus={args.num_skus:,}')
         print(f'  {"category":<12}{"share":>7}{"conv":>7}{"nonconv":>9}')
-        for f in CREATION_PLAN:
+        for f in plan:
             print(f'  {f.category:<12}{f.share:>7.2f}{f.handling_split[0]:>7.2f}{f.handling_split[1]:>9.2f}')
-        print(f'\n  expected conveyable fraction = {_expected_conveyable_fraction(CREATION_PLAN):.3f}  (target ~0.75)')
+        # Conveyable fraction is a store-only metric (fulfillment isn't conveyable/non-conveyable).
+        print(f'\n  expected conveyable fraction = {_expected_conveyable_fraction(CREATION_PLAN):.3f}  '
+              f'(store-only, target ~0.75)')
+        if args.fulfillment_fraction > 0:
+            cf = args.ff_cube_fraction
+            print(f'  fulfillment fraction = {args.fulfillment_fraction:.3f}  '
+                  f'(rect {1 - cf:.0%} / cube {cf:.0%}; weight {_ff_weight_spec(args)})')
         pairs = args.num_skus * args.top_k
         print(f'  affinity estimate: ~{pairs:,} pairs  ~{pairs * 2 * 28 / 1_048_576:.0f} MB  (top-{args.top_k})\n')
         return
@@ -215,7 +266,10 @@ def main() -> None:
     print(f'  Dir           : {run_dir}')
     print(f'  num_skus={args.num_skus:,}  seed={args.seed}  coverage={args.coverage}')
     print(f'  lead specs    : {args.lead_times}  ->  ' + ', '.join(n for n, _, _ in lead_specs))
-    print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}')
+    print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}  (store-only)')
+    if args.fulfillment_fraction > 0:
+        print(f'  fulfillment    : {args.fulfillment_fraction:.0%} of SKUs  '
+              f'(cube {args.ff_cube_fraction:.0%} / rect {1 - args.ff_cube_fraction:.0%})')
     print(f'{"="*64}\n')
 
     for prof_name, lead_time, lead_range in lead_specs:
@@ -230,7 +284,7 @@ def main() -> None:
             num_skus                     = args.num_skus,
             seed                         = args.seed,           # same seed → datasets differ only by lead
             out_dir                      = leaf,
-            creation_plan                = CREATION_PLAN,
+            creation_plan                = plan,
             lead_time                    = lead_time,
             lead_time_range              = lead_range,
             equilibrium_coverage_batches = args.coverage,

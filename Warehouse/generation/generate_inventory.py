@@ -224,6 +224,14 @@ def sample_weight(spec: dict, length: int, width: int, height: int,
         high = int(spec.get('high', 50))
         return rng.randint(low, high)
 
+    elif dist == 'triangular':
+        # Size-independent skewed weight: mode near `low` with a thin tail to `high` is
+        # a positive (right) skew — e.g. low=1, mode=2.5, high=10 for light fulfillment SKUs.
+        low  = float(spec.get('low', 1.0))
+        high = float(spec.get('high', low))
+        mode = min(high, max(low, float(spec.get('mode', low))))
+        return max(1, round(rng.triangular(low, high, mode)))
+
     elif dist == 'normal':
         mean = float(spec.get('mean', 20.0))
         std  = float(spec.get('std', 10.0))
@@ -284,6 +292,52 @@ def fulfillment_family(share: float = 0.3, cube_sizes: tuple = (4, 6, 8),
         qty_spec=qty_spec or dict(DEFAULT_QTY_SPEC),
         handling_override='fulfillment', cube_sizes=tuple(cube_sizes),
     )
+
+
+# Default fulfillment weight: right-skewed, mode ~2.5, capped at 10 (light forward-pick items).
+DEFAULT_FF_WEIGHT_SPEC = {'dist': 'triangular', 'low': 1.0, 'mode': 2.5, 'high': 10.0}
+
+
+def fulfillment_families(total_share: float, *, cube_fraction: float = 0.3,
+                         weight_spec: dict | None = None,
+                         dim_low: int = 3, dim_high: int = 16,
+                         cube_sizes: tuple = (4, 6, 8),
+                         freq_spec: dict | None = None,
+                         qty_spec: dict | None = None) -> list['Family']:
+    """A fulfillment sub-catalog summing to *total_share*: a RECTANGULAR family (independent L/W/H,
+    each triangular over [dim_low, dim_high]) plus a small-CUBE family.  Both are tagged
+    handling_override='fulfillment' so the planner routes them to fulfillment bins, and both draw
+    weight from *weight_spec* (default: right-skewed, mode ~2.5, max 10).
+
+    cube_fraction is the cube share of the fulfillment SKUs (default 0.3 ⇒ rectangles preferred).
+    dim_high is capped at 16 so every SKU fits the 16×16×18 FulfillmentBin envelope (footprint 16,
+    tallest tier 18).  Returns [rect_family, cube_family]; omit either when its share rounds to 0.
+    """
+    wspec = dict(weight_spec) if weight_spec else dict(DEFAULT_FF_WEIGHT_SPEC)
+    lo    = max(3, int(dim_low))
+    hi    = min(16, max(lo, int(dim_high)))
+    mode  = (lo + hi) / 2.0
+    dim   = {'dist': 'triangular', 'low': lo, 'high': hi, 'mode': mode}
+    fspec = freq_spec or dict(DEFAULT_FREQ_SPEC)
+    qspec = qty_spec  or dict(DEFAULT_QTY_SPEC)
+
+    cube_share = total_share * cube_fraction
+    rect_share = total_share - cube_share
+    fams: list[Family] = []
+    if rect_share > 0:
+        fams.append(Family(
+            category='fulfillment', share=rect_share, handling_split=(1.0, 0.0),
+            length_spec=dict(dim), width_spec=dict(dim), height_spec=dict(dim),
+            weight_spec=dict(wspec), freq_spec=dict(fspec), qty_spec=dict(qspec),
+            handling_override='fulfillment',
+        ))
+    if cube_share > 0:
+        fams.append(fulfillment_family(
+            share=cube_share, cube_sizes=tuple(cube_sizes),
+            freq_spec=dict(fspec), qty_spec=dict(qspec),
+        ))
+        fams[-1].weight_spec = dict(wspec)   # skewed weight for cubes too (overrides volume_poisson)
+    return fams
 
 
 def build_inventory_from_plan(

@@ -43,10 +43,10 @@ def _store_order(sku, rng):
 
 
 def _ff_order(sku, rng):
-    # small dims that fit a 16x16 fulfillment bin footprint
+    # small dims that fit a 16x16 fulfillment bin footprint and the 18-tall tallest tier
     return Order.build(sku, FULFILLMENT, FULFILLMENT,
                        length=rng.randint(4, 14), width=rng.randint(4, 14),
-                       height=rng.randint(4, 30), weight=rng.randint(1, 8),
+                       height=rng.randint(4, 16), weight=rng.randint(1, 8),
                        frequency=rng.uniform(0.1, 0.6), qty_rate=rng.randint(1, 4),
                        equilibrium_qty=rng.randint(3, 10), reorder_point=2)
 
