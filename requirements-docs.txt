@@ -3,3 +3,4 @@
 mkdocs-material
 mkdocs-glightbox        # click-to-zoom lightbox for result images
 mkdocs-macros-plugin    # inject run parameters/formulas from committed JSON (docs/macros.py)
+pyyaml                  # docs/macros.py reads per-experiment experiment.yml (ships with mkdocs; pinned explicitly)

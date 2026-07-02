@@ -1,10 +1,18 @@
 """mkdocs-macros helpers: inject run parameters and formulas into the docs.
 
-Values are pulled from JSON snapshots committed into ``docs/`` (the raw run
-outputs live on an external drive and are gitignored, and CI only has the repo).
-Each ``config.json`` sits next to its run's images under
-``docs/results/images/<run>/<inv>/<cfg>/``; inventory ``params.json`` copies live
-under ``docs/inventory/data/<inv>/``.
+Values are pulled from JSON snapshots committed per experiment under
+``docs/experiments/<exp>/`` (raw run outputs live on an external drive, gitignored;
+CI only has the repo). Each ``config.json`` sits next to its run's images under
+``images/<run>/<inv>/<cfg>/``; inventory ``params.json`` under ``data/<inv>/``.
+
+Two modes, decided per page by its experiment folder:
+  * **manifest mode** — the experiment has an ``experiment.yml`` (single source of
+    truth for its run id, inventory keys→ids, configs, figures). Pages call macros with
+    a short inventory key, e.g. ``setup_table('lt0')``; run/config/figures resolve from
+    the manifest. This is how new experiments (2+) are authored. See the ingest script
+    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.
+  * **legacy mode** — no ``experiment.yml`` (Experiment 1). Pages pass explicit
+    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.
 
 Formula *shapes* are fixed here from the code that defines them
 (``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);
@@ -22,16 +30,89 @@ the others; until then the shapes are maintained by hand against the code.
 import json
 import os
 
+import yaml
+
 _CACHE = {}
 
 
 def define_env(env):
     docs_dir = env.conf["docs_dir"]
 
-    # Per-experiment base for the committed JSON snapshots. Each experiment folder is
-    # self-contained (its own images/ + data/). A future multi-experiment refactor would
-    # parameterise this per call (out of scope now — everything here is Experiment 1).
-    _EXPERIMENT = "experiments/experiment-1"
+    # ---- experiment resolution ----------------------------------------------
+    # A page's experiment is derived from its path (experiments/<exp>/…). If that
+    # folder has an experiment.yml the macros run in **manifest mode** — pages pass a
+    # short inventory key and the run/config/figures come from the manifest. With no
+    # manifest (e.g. Experiment 1) they stay in **legacy mode** — pages pass explicit
+    # (run, inv, cfg) exactly as before, so nothing on those pages changes.
+
+    def _exp_dir():
+        page = getattr(env, "page", None)
+        src = (getattr(getattr(page, "file", None), "src_path", "") or "").replace("\\", "/")
+        parts = src.split("/")
+        if len(parts) >= 2 and parts[0] == "experiments":
+            return f"experiments/{parts[1]}"
+        return "experiments/experiment-1"   # safe default (legacy single experiment)
+
+    def _load_yaml(rel_path):
+        abs_path = os.path.join(docs_dir, *rel_path.split("/"))
+        if abs_path not in _CACHE:
+            with open(abs_path, encoding="utf-8") as fh:
+                _CACHE[abs_path] = yaml.safe_load(fh)
+        return _CACHE[abs_path]
+
+    def _manifest():
+        """The parsed experiment.yml for the current page's experiment, or None (legacy)."""
+        rel = f"{_exp_dir()}/experiment.yml"
+        abs_path = os.path.join(docs_dir, *rel.split("/"))
+        return _load_yaml(rel) if os.path.isfile(abs_path) else None
+
+    # Argument resolvers: turn a macro's args into full (run, inv, cfg) IDs, honouring
+    # legacy explicit args (no manifest) or manifest short-keys (manifest present).
+    def _ric(args):
+        """-> (run, inv, cfg).  legacy: (run, inv, cfg);  manifest: (inv_key[, cfg])."""
+        m = _manifest()
+        if m is None:
+            run, inv, cfg = args
+        else:
+            inv = m["inventories"][args[0]]["id"]
+            cfg = args[1] if len(args) > 1 else m["configs"][0]["name"]
+            run = m["run"]
+        return run, inv, cfg
+
+    def _ri(args):
+        """-> (run, inv).  legacy: (run, inv);  manifest: (inv_key,)."""
+        m = _manifest()
+        if m is None:
+            return args[0], args[1]
+        return m["run"], m["inventories"][args[0]]["id"]
+
+    def _inv1(args):
+        """-> inv id.  legacy: (inv_id,);  manifest: (inv_key,)."""
+        m = _manifest()
+        return m["inventories"][args[0]]["id"] if m else args[0]
+
+    def _cfg_list():
+        """[(cfg_name, label)] from the manifest, else the module default."""
+        m = _manifest()
+        return [(c["name"], c.get("label", "")) for c in m["configs"]] if m else _CONFIGS
+
+    def _hbrackets(cfg):
+        """Height-bracket rows for a config: manifest first, else the code-sourced map."""
+        m = _manifest()
+        if m:
+            for c in m["configs"]:
+                if c["name"] == cfg:
+                    return c.get("height_brackets")
+        return _HEIGHT_BRACKETS.get(cfg)
+
+    def _figs(kind):
+        """[(filename, caption)] for kind in {'top3','full_suite'}: manifest names
+        (captions looked up from the module maps) else the module default list."""
+        m = _manifest()
+        if m:
+            caps = dict(_FIGURES + _FULL_SUITE_FIGURES)
+            return [(n, caps.get(n, n)) for n in m.get("figures", {}).get(kind, [])]
+        return _FIGURES if kind == "top3" else _FULL_SUITE_FIGURES
 
     # ---- loading -------------------------------------------------------------
 
@@ -50,15 +131,28 @@ def define_env(env):
                 _CACHE[abs_path] = json.load(fh)
         return _CACHE[abs_path]
 
-    @env.macro
-    def run_config(run, inv, cfg):
-        """Return the parsed config.json dict for one run/inventory/config."""
-        return _load_json(f"{_EXPERIMENT}/images/{run}/{inv}/{cfg}/config.json")
+    def _load_cfg(run, inv, cfg):
+        return _load_json(f"{_exp_dir()}/images/{run}/{inv}/{cfg}/config.json")
+
+    def _load_params(inv):
+        return _load_json(f"{_exp_dir()}/data/{inv}/params.json")
 
     @env.macro
-    def inv_params(inv):
-        """Return the parsed inventory params.json dict for one variant."""
-        return _load_json(f"{_EXPERIMENT}/data/{inv}/params.json")
+    def run_config(*args):
+        """Parsed config.json — legacy (run,inv,cfg) or manifest (inv_key[,cfg])."""
+        return _load_cfg(*_ric(args))
+
+    @env.macro
+    def inv_params(*args):
+        """Parsed inventory params.json — legacy (inv_id) or manifest (inv_key)."""
+        return _load_params(_inv1(args))
+
+    @env.macro
+    def experiment():
+        """The current page's experiment manifest (dict), or {} in legacy mode. Lets
+        manifest-driven template pages loop, e.g.
+        ``{% for k, inv in experiment().inventories.items() %}``."""
+        return _manifest() or {}
 
     # ---- number / spec formatting -------------------------------------------
 
@@ -105,7 +199,7 @@ def define_env(env):
 
     def _fmt_brackets(cfg):
         """Human-legible M(y) brackets for a calibration, e.g. '×1.0 (y<96″) · …'."""
-        (e1, m1), (e2, m2), (_, m3) = _HEIGHT_BRACKETS[cfg]
+        (e1, m1), (e2, m2), (_, m3) = _hbrackets(cfg)
         return (f"×{_num(m1)} (y&lt;{e1}″) · ×{_num(m2)} ({e1}–{e2}″) · "
                 f"×{_num(m3)} (&gt;{e2}″)")
 
@@ -138,9 +232,9 @@ def define_env(env):
     # ---- rendered blocks -----------------------------------------------------
 
     @env.macro
-    def setup_table(run, inv, cfg):
+    def setup_table(*args):
         """Markdown table of the headline simulation setup for a run/inv/config."""
-        c = run_config(run, inv, cfg)
+        c = _load_cfg(*_ric(args))
         rows = [
             ("SKUs (placed / units)", f"{c['n_skus']:,} / {c['total_units']:,}"),
             ("Warehouse", f"{c['total_aisles']:,} aisles · {c['total_bins']:,} bins · {_num(c['bin_slack_pct'])}% slack"),
@@ -157,10 +251,10 @@ def define_env(env):
         return "\n".join(lines)
 
     @env.macro
-    def pick_time_formula(run, inv, cfg):
+    def pick_time_formula(*args):
         """Pick-time cost model (LaTeX) with this config's calibrated coefficients.
         Matches Warehouse/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""
-        c = run_config(run, inv, cfg)
+        c = _load_cfg(*_ric(args))
         t0 = _num(c["pick_intercept"])
         wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
         vt = _fmt_fn_tex(c["pick_volume_coef"], c["pick_volume_fn"], "V")
@@ -184,15 +278,16 @@ def define_env(env):
         ])
 
     @env.macro
-    def pick_calibration_table(run, inv):
+    def pick_calibration_table(*args):
         """One row per calibration: the weight/volume handling terms (from each config's
-        JSON) and the height M(y) brackets (code-sourced — see _HEIGHT_BRACKETS)."""
+        JSON) and the height M(y) brackets (manifest, else code-sourced map)."""
+        run, inv = _ri(args)
         lines = [
             r"| Calibration | Weight term | Volume term | Height $M(y)$ |",
             "|-------------|-------------|-------------|---------------|",
         ]
-        for cfg, label in _CONFIGS:
-            c = run_config(run, inv, cfg)
+        for cfg, label in _cfg_list():
+            c = _load_cfg(run, inv, cfg)
             wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
             vt = _fmt_fn_tex(c["pick_volume_coef"], c["pick_volume_fn"], "V")
             lines.append(f"| `{cfg}`<br><small>{label}</small> | ${wt}$ | ${vt}$ "
@@ -251,9 +346,9 @@ def define_env(env):
         ])
 
     @env.macro
-    def reorder_formula(run, inv, cfg):
+    def reorder_formula(*args):
         """Equilibrium / reorder-point model with this config's averages."""
-        c = run_config(run, inv, cfg)
+        c = _load_cfg(*_ric(args))
         # Single paragraph with INLINE math ($…$) — this macro is rendered inside an
         # indented admonition, where a $$display$$ block (needing its own blank lines)
         # would break out of the call-out. Inline keeps it one logical line.
@@ -268,9 +363,9 @@ def define_env(env):
         )
 
     @env.macro
-    def inv_distribution_table(inv):
+    def inv_distribution_table(*args):
         """Per-category distribution table for an inventory variant's params.json."""
-        p = inv_params(inv)
+        p = _load_params(_inv1(args))
         header = (
             "| Category | Share | Length (in) | Width (in) | Height (in) "
             "| Weight | Handling (conv/non) | Freq | Qty |\n"
@@ -314,12 +409,13 @@ def define_env(env):
     ]
 
     @env.macro
-    def run_section(run, inv):
+    def run_section(*args):
         """Collapsible per-config figure blocks for one run/inventory variant."""
+        run, inv = _ri(args)
         out = []
-        for cfg, label in _CONFIGS:
+        for cfg, label in _cfg_list():
             out.append(f'??? note "{cfg} — {label}"')
-            for fname, caption in _FIGURES:
+            for fname, caption in _figs("top3"):
                 path = f"images/{run}/{inv}/{cfg}/{fname}"
                 out.append(f"    ![{caption}]({path}){{ width=820 }}")
                 out.append("")
@@ -339,13 +435,14 @@ def define_env(env):
     ]
 
     @env.macro
-    def full_suite_section(run, inv):
+    def full_suite_section(*args):
         """Collapsible per-config full-suite figure blocks (all strategies) for one
         run/inventory variant — used by the compiled Full-results report."""
+        run, inv = _ri(args)
         out = []
-        for cfg, label in _CONFIGS:
+        for cfg, label in _cfg_list():
             out.append(f'??? note "{cfg} — {label}"')
-            for fname, caption in _FULL_SUITE_FIGURES:
+            for fname, caption in _figs("full_suite"):
                 path = f"images/{run}/{inv}/{cfg}/{fname}"
                 out.append(f"    ![{caption}]({path}){{ width=820 }}")
                 out.append("")
@@ -354,9 +451,9 @@ def define_env(env):
         return "\n".join(out).rstrip()
 
     @env.macro
-    def inv_lead_time(inv):
+    def inv_lead_time(*args):
         """Short human description of a variant's replenishment lead time."""
-        p = inv_params(inv)
+        p = _load_params(_inv1(args))
         rng = p.get("lead_time_range")
         if not rng:
             return "immediate (0 batches)"

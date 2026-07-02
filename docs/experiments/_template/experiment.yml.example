@@ -1,0 +1,47 @@
+# Experiment manifest — the single source of truth for one experiment's docs.
+# Copy to experiment.yml in a new experiments/<exp>/ folder (the new_experiment.py
+# helper + ingest.py --gen-manifest can scaffold this for you), then edit the values.
+# The manifest-driven macros/pages read this, so pages never hard-code long run IDs.
+
+title: "Experiment N — <one-line name>"
+
+# The analysis run folder name (the sub-folder under images/ that ingest.py fills).
+run: comparison_YYYYMMDD_HHMMSS
+
+catalogue: catalogue          # folder under images/ holding the inventory distribution plots
+baseline: fifo                # the baseline strategy key
+winners: [rank_labor, map, map_rank]   # the top-3 to highlight
+
+# Short key -> full inventory id (the run's pair label) + a human label.
+# Pages call macros with the short key, e.g. {{ setup_table('lt0') }}.
+inventories:
+  lt0:    { id: <run_name>__<profile>_lt0,       label: "lt0 — immediate replenishment" }
+  ltrand: { id: <run_name>__<profile>_ltrand0-5, label: "ltrand0-5 — lead time 0–5 batches" }
+
+# Pick-time calibrations (replaces the code-side _CONFIGS / _HEIGHT_BRACKETS).
+# height_brackets: rows of [upper_y_phys_inches | null, multiplier]; ingest fills these
+# from the run's config.json/run_manifest.json for new runs.
+configs:
+  - { name: calibrated,                         label: "base ergonomics",            height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+  - { name: calibrated_high_weight,             label: "weight penalty ↑",           height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+  - { name: calibrated_high_height,             label: "height penalty ↑",           height_brackets: [[96, 1.0], [240, 1.4], [null, 1.8]] }
+  - { name: calibrated_high_weight_high_height, label: "weight + height penalty ↑",  height_brackets: [[96, 1.0], [240, 1.4], [null, 1.8]] }
+
+# Curated figure filenames the pages render (ingest pulls these, searching the run tree).
+figures:
+  top3:
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png

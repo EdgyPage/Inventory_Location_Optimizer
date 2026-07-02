@@ -61,6 +61,10 @@ exclude_docs: |
   site-usage.md
   gpu_assessment.md
   gpu_auction_assessment.md
+  # new-experiment scaffold + data/scripts that aren't pages
+  experiments/_template/
+  experiments/*/experiment.yml
+  experiments/ingest.py
 
 nav:
   - Home: index.md
