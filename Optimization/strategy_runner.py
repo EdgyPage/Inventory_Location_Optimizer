@@ -141,6 +141,10 @@ def _run_strategy_worker(args: dict) -> dict:
     batch_cfg     = args['batch_cfg']
     batches_path        = args.get('batches_path')
     batches_fingerprint = args.get('batches_fingerprint')
+    # One-worker-per-channel: when set, this worker simulates ONLY the given regime's SKUs
+    # (store or fulfillment) over the shared warehouse, with the channel's pick cost + batch
+    # stream + output DB.  None ⇒ the whole inventory in one stream (store-only, unchanged).
+    channel_regime      = args.get('channel_regime')
 
     log.info('=' * 60)
     if job_tag is not None:
@@ -159,6 +163,9 @@ def _run_strategy_worker(args: dict) -> dict:
     inventory = load_inventory_from_db(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
+    if channel_regime is not None:
+        from regime import regime_of
+        inventory.orders = [c for c in inventory.orders if regime_of(c) == channel_regime]
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 

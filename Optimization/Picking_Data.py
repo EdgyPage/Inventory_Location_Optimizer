@@ -139,6 +139,7 @@ _CREATE_RUNS = """
         config_label          TEXT,   -- regression config name
         warehouse_fingerprint TEXT,   -- stable hash tying this run to its warehouse.db
         inventory_label       TEXT,   -- planned-inventory profile label
+        channel               TEXT,   -- operation/channel ('store'|'fulfillment'); NULL = legacy store-only
         num_pickers       INTEGER,
         x_speed           REAL,
         y_speed           REAL,
@@ -156,8 +157,10 @@ _CREATE_RUNS = """
 """
 
 # Identity columns set by create_run(identity=...); rename-proof run association.
+# 'channel' distinguishes the store vs fulfillment run subtrees in a mixed warehouse
+# (NULL for legacy store-only runs that don't pass it).
 _IDENTITY_COLS = ('strategy_key', 'pair_label', 'config_label',
-                  'warehouse_fingerprint', 'inventory_label')
+                  'warehouse_fingerprint', 'inventory_label', 'channel')
 
 # Run-param columns set by create_run(params=...); order matches the INSERT.
 _RUN_PARAM_COLS = ('num_pickers', 'x_speed', 'y_speed', 'pick_intercept',

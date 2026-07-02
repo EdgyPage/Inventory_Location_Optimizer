@@ -15,7 +15,8 @@ from typing import Any, Callable
 
 from Order import Order
 from Aisle_Storage import Aisle
-from Storage_Primitive import StorageUnit, Pallet, Storage_Size
+from Storage_Primitive import StorageUnit, Pallet, Storage_Size, FulfillmentBin
+from regime import STORE, FULFILLMENT, regime_of  # noqa: F401  (re-exported for callers)
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
 
@@ -93,6 +94,40 @@ _SIZES_DESCENDING: tuple[str, ...] = tuple(
     sorted(_SIZE_RANKS, key=_SIZE_RANKS.__getitem__, reverse=True)
 )
 
+# ── fulfillment size tiers (parallel to the pallet tiers above) ──────────────────
+# Fulfillment bins have their own short size tiers; the placement spill-up (_candidates)
+# and the planner's reachability need per-unit_category rank tables, so derive them from
+# FulfillmentBin.TIERS exactly as _SIZE_RANKS is derived from the pallet tiers.
+_FF_TIER_HEIGHTS: dict[str, int] = dict(FulfillmentBin.TIERS)
+_FF_SIZE_RANKS: dict[str, int] = {
+    size: rank
+    for rank, size in enumerate(sorted(_FF_TIER_HEIGHTS, key=_FF_TIER_HEIGHTS.__getitem__))
+}
+_FF_SIZES_DESCENDING: tuple[str, ...] = tuple(
+    sorted(_FF_SIZE_RANKS, key=_FF_SIZE_RANKS.__getitem__, reverse=True)
+)
+
+
+def tier_ranks_for(unit_category: str) -> tuple[dict, tuple]:
+    """(size_ranks, sizes_descending) for a unit_category — the fulfillment tiers for
+    'fulfillment', the pallet size tiers otherwise.  Lets the _candidates smallest-fitting-
+    tier spill-up serve either bin family from one code path."""
+    if unit_category == FULFILLMENT:
+        return _FF_SIZE_RANKS, _FF_SIZES_DESCENDING
+    return _SIZE_RANKS, _SIZES_DESCENDING
+
+
+def _wp_for(wp, obj):
+    """Resolve the WorkloadParams for *obj*'s storage regime from a mixed-warehouse
+    ``wp.by_regime`` map, falling back to *wp* itself.  Placement/assignment sites process
+    one regime at a time (a BinKey group / a single unit), so resolving from that entity is
+    exact; single-regime runs carry no map and return *wp* unchanged (store byte-identical)."""
+    by = getattr(wp, 'by_regime', None)
+    if by:
+        return by.get(regime_of(obj), wp)
+    return wp
+
+
 BinKey = tuple[str, str, str, str]
 
 
@@ -121,6 +156,23 @@ def _max_qty_fitting_pallet_size(order: Order, target_size: str) -> int:
         try:
             p = Pallet(order, q)
             if _SIZE_RANKS.get(p.storage_size, 99) <= target_rank:
+                result = q
+            else:
+                break   # size is monotone-increasing — stop early
+        except ValueError:
+            break
+    return result
+
+
+def _max_qty_fitting_ff_size(order: Order, target_size: str) -> int:
+    """Fulfillment analogue of _max_qty_fitting_pallet_size: max number of *order* items
+    that stack into a FulfillmentBin whose storage_size is at most *target_size*."""
+    target_rank = _FF_SIZE_RANKS.get(target_size, 0)
+    result = 0
+    for q in range(1, 10_000):
+        try:
+            b = FulfillmentBin(order, q)
+            if _FF_SIZE_RANKS.get(b.storage_size, 99) <= target_rank:
                 result = q
             else:
                 break   # size is monotone-increasing — stop early

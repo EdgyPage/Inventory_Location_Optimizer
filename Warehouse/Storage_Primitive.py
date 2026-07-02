@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, TypeVar
 
 from Order import Order
+from regime import regime_of, FULFILLMENT
 
 if TYPE_CHECKING:
     from Aisle_Storage import Aisle
@@ -55,25 +56,41 @@ class Storage_Type:
 _FIT_CACHE_MAX = 100_000
 
 
+_STORE_PALLET_TIERS: tuple = tuple(
+    sorted(Storage_Size.available_sizes_heights.items(), key=lambda kv: kv[1])
+)  # (('small',12),('medium',24),('large',36),('extra_large',48))
+
+
 @lru_cache(maxsize=_FIT_CACHE_MAX)
-def _pallet_fit_dims(h: int, w: int, l: int, quantity: int,
-                     max_width: int, max_length: int):
-    """Smallest-tier pallet fit for a geometry, or None if no orientation fits.
+def _tiered_fit_dims(h: int, w: int, l: int, quantity: int,
+                     max_width: int, max_length: int, tiers: tuple):
+    """Smallest-tier fit for a geometry over *tiers*, or None if no orientation fits.
+
+    *tiers* is an ASCENDING ``((name, height), ...)`` tuple (hashable, so the lru_cache
+    keys on geometry + tier set).  Generalizes the pallet/fulfillment size-tier search so
+    each bin family passes its own tiers instead of reading a single global tier map.
     Returns (storage_size, height, width, length, stack_axis)."""
     dims = [h, w, l]
-    sorted_sizes = sorted(Storage_Size.available_sizes_heights.items(), key=lambda x: x[1])
     best = None
     for hh, ww, ll in itertools.permutations(dims):
         for stack_h, stack_w, stack_l in [(quantity, 1, 1), (1, quantity, 1), (1, 1, quantity)]:
             if ww * stack_w <= max_width and ll * stack_l <= max_length:
                 stacked_height = hh * stack_h
-                for size_name, size_height in sorted_sizes:
+                for size_name, size_height in tiers:
                     if stacked_height <= size_height:
                         if best is None or size_height < best[0]:
                             axis = ('height', 'width', 'length')[[stack_h, stack_w, stack_l].index(quantity)]
                             best = (size_height, size_name, hh, ww, ll, axis)
                         break
     return best[1:] if best is not None else None
+
+
+def _pallet_fit_dims(h: int, w: int, l: int, quantity: int,
+                     max_width: int, max_length: int):
+    """Smallest-tier pallet fit for a geometry, or None if no orientation fits.
+    Returns (storage_size, height, width, length, stack_axis).  Thin wrapper over
+    _tiered_fit_dims with the store pallet tiers."""
+    return _tiered_fit_dims(h, w, l, quantity, max_width, max_length, _STORE_PALLET_TIERS)
 
 
 @lru_cache(maxsize=_FIT_CACHE_MAX)
@@ -185,6 +202,37 @@ class Singleton(Pallet):
         self.storage_size = 'singleton'  # fixed label — no size tier, never None
 
 
+class FulfillmentBin(Pallet):
+    """Forward-pick bin for the FULFILLMENT regime — a small footprint with a few short
+    size tiers, sitting on ~6 ft shelves.
+
+    Distinct ``unit_category`` so BinKey routes fulfillment items only into fulfillment
+    bins (and store items never land here).  Reuses the pallet size-tier fit, but over
+    ``FulfillmentBin.TIERS`` instead of the pallet tiers.  Because every tier is short
+    (<< 96"), a fulfillment bin's ``y_phys`` always falls in the ground height bracket, so
+    the pick-time height multiplier is 1 automatically — no per-regime height config.
+
+    Geometry here is a PLACEHOLDER until the fulfillment inventory profile is calibrated.
+    """
+    max_width:     int = 16
+    max_length:    int = 16
+    unit_category: str = 'fulfillment'
+    # Ascending (name, height) size tiers — small, for a ~6 ft shelf.
+    TIERS: tuple = (('ff_small', 12), ('ff_medium', 24), ('ff_large', 36))
+
+    def _fit(self, order: Order) -> None:
+        res = _tiered_fit_dims(order.height, order.width, order.length,
+                               self.quantity, self.max_width, self.max_length, self.TIERS)
+        if res is None:
+            raise ValueError(
+                f"No valid orientation for order SKU {order.sku} with dimensions "
+                f"({order.height}, {order.width}, {order.length}) x{self.quantity} "
+                f"within fulfillment-bin limits {self.max_width}×{self.max_length} "
+                f"tiers {self.TIERS}"
+            )
+        self.storage_size, self._height, self._width, self._length, self._stack_axis = res
+
+
 def _can_fit(order: Order, unit_class: type[T], qty: int) -> bool:
     try:
         unit_class(order, qty)
@@ -244,6 +292,30 @@ def viable_storage_units(order: Order, quantity: int) -> list[StorageUnit]:
       quantity = 10      →  3 pallets × 3 items,  1 singleton × 1 item
       quantity = 2       →  0 pallets,             1 singleton × 2 items
     """
+    # Fulfillment items live only in fulfillment bins (their own regime / BinKey family),
+    # so they never touch the pallet/singleton packing below.  Reproduce any planner
+    # stock_plan run-lengths as FulfillmentBin units (the store-vs-singleton flag in each
+    # slot is unused here — every fulfillment unit is a FulfillmentBin); pack the smallest
+    # fitting tier for anything beyond the plan.
+    if regime_of(order) == FULFILLMENT:
+        plan = getattr(order, 'stock_plan', None)
+        if plan:
+            ff_units: list[StorageUnit] = []
+            remaining = quantity
+            for _flag, per, count in plan:
+                for _ in range(count):
+                    if remaining <= 0:
+                        break
+                    take = min(per, remaining)
+                    ff_units.append(FulfillmentBin(order, take))
+                    remaining -= take
+                if remaining <= 0:
+                    break
+            if remaining > 0:
+                ff_units.extend(_build_units(order, FulfillmentBin, remaining))
+            return ff_units
+        return _build_units(order, FulfillmentBin, quantity)
+
     # If the order carries an explicit stock_plan (assigned at warehouse-planning
     # time to fill diverse bin tiers), reproduce it so every reorder rebuilds the
     # same tier mix.  The plan is a list of run-length slots

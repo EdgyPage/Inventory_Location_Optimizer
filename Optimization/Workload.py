@@ -33,6 +33,10 @@ class WorkloadParams:
     pick_volume_fn: str     = 'log'
     cart_swap_coef: float   = 5.0
     height_brackets: tuple  = field(default_factory=lambda: _DEFAULT_HEIGHT_BRACKETS)
+    # In a MIXED (multi-channel) warehouse: {regime: WorkloadParams} for per-regime cost
+    # routing.  Rides on the primary WorkloadParams so the assignment builders resolve the
+    # right regime's cost without signature churn.  None ⇒ single-regime (store), unchanged.
+    by_regime: dict | None  = None
 
     @classmethod
     def from_pick_config(cls, cfg: object) -> WorkloadParams:

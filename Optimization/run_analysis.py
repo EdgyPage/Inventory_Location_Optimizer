@@ -139,14 +139,27 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
             continue
         config_metas, inv_db, aff_db = [], None, None
         for cfg_name in sorted(os.listdir(pair_dir)):
-            meta_path = os.path.join(pair_dir, cfg_name, 'sim_meta.json')
-            if not os.path.exists(meta_path):
+            cfg_dir = os.path.join(pair_dir, cfg_name)
+            if not os.path.isdir(cfg_dir):
                 continue
-            with open(meta_path) as f:
-                meta = json.load(f)
-            config_metas.append(meta)
-            if inv_db is None:
-                inv_db, aff_db = meta.get('inv_db'), meta.get('aff_db')
+            # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
+            # <config>/<channel>/sim_meta.json.  Discover both — each meta carries its own
+            # run_dir, so the whole plot suite replicates per channel with no plot changes.
+            meta_paths = []
+            direct = os.path.join(cfg_dir, 'sim_meta.json')
+            if os.path.exists(direct):
+                meta_paths.append(direct)
+            else:
+                for sub in sorted(os.listdir(cfg_dir)):
+                    mp = os.path.join(cfg_dir, sub, 'sim_meta.json')
+                    if os.path.exists(mp):
+                        meta_paths.append(mp)
+            for meta_path in meta_paths:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                config_metas.append(meta)
+                if inv_db is None:
+                    inv_db, aff_db = meta.get('inv_db'), meta.get('aff_db')
         if not config_metas or inv_db is None or aff_db is None:
             continue
         log.info(f'  Pair: {pair_name}  ({len(config_metas)} config(s))')
@@ -183,14 +196,27 @@ def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
         if not os.path.isdir(prof_dir) or prof.startswith('_'):
             continue
         for cfg in sorted(os.listdir(prof_dir)):
-            sp = os.path.join(prof_dir, cfg, 'series.json')
-            if not os.path.exists(sp):
+            cfg_dir = os.path.join(prof_dir, cfg)
+            if not os.path.isdir(cfg_dir):
                 continue
-            try:
-                with open(sp) as f:
-                    groups.setdefault(cfg, []).append(json.load(f))
-            except (OSError, ValueError) as exc:
-                log.error(f'  bad series.json {sp}: {exc}')
+            # store-only: <config>/series.json (group by config); mixed:
+            # <config>/<channel>/series.json (group by config/channel so the cross-profile
+            # aggregate stays within one channel).
+            found = []
+            direct = os.path.join(cfg_dir, 'series.json')
+            if os.path.exists(direct):
+                found.append((cfg, direct))
+            else:
+                for sub in sorted(os.listdir(cfg_dir)):
+                    sp = os.path.join(cfg_dir, sub, 'series.json')
+                    if os.path.exists(sp):
+                        found.append((os.path.join(cfg, sub), sp))
+            for gkey, sp in found:
+                try:
+                    with open(sp) as f:
+                        groups.setdefault(gkey, []).append(json.load(f))
+                except (OSError, ValueError) as exc:
+                    log.error(f'  bad series.json {sp}: {exc}')
     jobs = []
     for cfg, plist in groups.items():
         out_dir = os.path.join(base_dir, '_aggregate', cfg)

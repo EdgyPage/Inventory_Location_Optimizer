@@ -5,16 +5,21 @@ from typing import Any
 from Order import Order
 from Warehouse_Builder import Warehouse
 from Aisle_Storage import Aisle
-from Storage_Primitive import StorageUnit, Singleton, Pallet, viable_storage_units, _max_qty_fits as _sq_max
+from Storage_Primitive import (
+    StorageUnit, Singleton, Pallet, FulfillmentBin,
+    viable_storage_units, _max_qty_fits as _sq_max,
+)
 from Affinity_Store import AffinityStore
 from cost_model import sec_per_inch
+from regime import FULFILLMENT, regime_of
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
-    BinKey, _SIZE_RANKS, _SIZES_DESCENDING,
-    _equilibrium_qty, _max_qty_fitting_pallet_size, _uniform_assignment,
+    BinKey, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
+    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+    _uniform_assignment, _wp_for,
 )
 from inventory_planning import PlanningMixin
 from inventory_optimal import OptimalLayoutMixin
@@ -245,10 +250,21 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         aisle_index=self._aisle_index).  After this call, _index_add and
         _index_remove maintain _aisle_index incrementally.
         """
-        x_pace = sec_per_inch(wp.x_speed)   # ft/s -> s/inch (positions are inches)
-        y_pace = sec_per_inch(wp.y_speed)
-        for b in self.warehouse.bins:
-            b._D = x_pace * b.x_phys + y_pace * b.y_phys
+        # Each bin's _D uses ITS regime's travel speeds in a mixed warehouse (wp.by_regime);
+        # a single regime collapses to one (x_pace, y_pace) for every bin — byte-identical.
+        by_regime = getattr(wp, 'by_regime', None)
+        if by_regime:
+            paces = {r: (sec_per_inch(w.x_speed), sec_per_inch(w.y_speed))
+                     for r, w in by_regime.items()}
+            default_pace = (sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed))
+            for b in self.warehouse.bins:
+                x_pace, y_pace = paces.get(regime_of(b), default_pace)
+                b._D = x_pace * b.x_phys + y_pace * b.y_phys
+        else:
+            x_pace = sec_per_inch(wp.x_speed)   # ft/s -> s/inch (positions are inches)
+            y_pace = sec_per_inch(wp.y_speed)
+            for b in self.warehouse.bins:
+                b._D = x_pace * b.x_phys + y_pace * b.y_phys
         self._aisle_index.clear()
         for key, bins in self._index.items():
             by_aisle = self._aisle_index[key]
@@ -378,14 +394,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         bucket) regardless of warehouse size.
         """
         shc       = unit.order.storage_handle_config
-        unit_type = unit.unit_category                    # 'pallet' or 'singleton'
+        unit_type = unit.unit_category                    # 'pallet' | 'singleton' | 'fulfillment'
         if unit_type == 'singleton':
             bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             return bins or []
-        min_rank  = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
-        # Ascending tier order (small → extra_large): smallest fitting tier first.
-        for size in reversed(_SIZES_DESCENDING):
-            if _SIZE_RANKS[size] >= min_rank:
+        # Pallet and fulfillment are both size-tiered: return the smallest non-empty tier
+        # >= the unit's own tier, spilling up.  tier_ranks_for() selects the pallet vs
+        # fulfillment tier table so one code path serves both bin families.
+        ranks, sizes_desc = tier_ranks_for(unit_type)
+        min_rank  = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
+        # Ascending tier order (smallest → largest): smallest fitting tier first.
+        for size in reversed(sizes_desc):
+            if ranks[size] >= min_rank:
                 bins = self._index.get((shc.handling, shc.category, size, unit_type))
                 if bins:
                     return bins
@@ -487,24 +507,30 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 repacked = False
                 shc = order.storage_handle_config
 
-                # ── rescue 1: smaller pallet tier ────────────────────────────
-                if unit.unit_category == 'pallet' and unit.storage_size is not None:
-                    current_rank = _SIZE_RANKS.get(unit.storage_size, 99)
-                    for size in _SIZES_DESCENDING:
-                        if _SIZE_RANKS[size] >= current_rank:
+                # ── rescue 1: repack into a smaller size tier (pallet OR fulfillment) ──
+                # Both are size-tiered; tier_ranks_for() + the unit class select the family.
+                if unit.unit_category in ('pallet', FULFILLMENT) and unit.storage_size is not None:
+                    utype        = unit.unit_category
+                    ranks, sizes_desc = tier_ranks_for(utype)
+                    unit_cls     = FulfillmentBin if utype == FULFILLMENT else Pallet
+                    max_qty_for  = (_max_qty_fitting_ff_size if utype == FULFILLMENT
+                                    else _max_qty_fitting_pallet_size)
+                    current_rank = ranks.get(unit.storage_size, 99)
+                    for size in sizes_desc:
+                        if ranks[size] >= current_rank:
                             continue   # same or larger tier — already failed
                         avail = self._index.get(
-                            (shc.handling, shc.category, size, 'pallet'))
+                            (shc.handling, shc.category, size, utype))
                         if not avail:
                             continue
-                        max_q = _max_qty_fitting_pallet_size(order, size)
+                        max_q = max_qty_for(order, size)
                         if max_q <= 0:
                             continue
                         remaining  = unit.quantity
                         new_units: list[StorageUnit] = []
                         while remaining > 0:
                             q = min(remaining, max_q)
-                            new_units.append(Pallet(order, q))
+                            new_units.append(unit_cls(order, q))
                             remaining -= q
                         delta = len(new_units) - 1
                         if delta:
@@ -516,8 +542,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                         repacked = True
                         break
 
-                # ── rescue 2: singleton bins of same order type ──────────────
-                if not repacked:
+                # ── rescue 2: singleton bins of same order type (store only; a
+                #    fulfillment unit has no singleton fallback — it stays ff) ──
+                if not repacked and unit.unit_category != FULFILLMENT:
                     max_sing = _sq_max(order, Singleton)
                     avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
                     if max_sing > 0 and avail:

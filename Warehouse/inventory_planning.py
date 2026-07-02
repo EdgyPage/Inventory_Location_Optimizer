@@ -13,12 +13,18 @@ from collections import defaultdict
 from typing import Any
 
 from Order import Order
-from Aisle_Dimensions import uniform_aisle_bins
+from Aisle_Dimensions import (
+    uniform_aisle_bins, catalog_aisle_bins,
+    FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT,
+)
 from Warehouse_Builder import AisleConfig, WarehouseConfig
-from Storage_Primitive import Pallet, Singleton, viable_storage_units, _max_qty_fits as _sq_max
+from Storage_Primitive import (
+    Pallet, Singleton, FulfillmentBin, viable_storage_units, _max_qty_fits as _sq_max,
+)
+from regime import FULFILLMENT, regime_of
 from inventory_common import (
-    BinKey, WarehousePlan, _SIZES_DESCENDING,
-    _equilibrium_qty, _max_qty_fitting_pallet_size,
+    BinKey, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
+    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
 )
 
 
@@ -52,6 +58,8 @@ class PlanningMixin:
         handlings    : list[str],
         aisle_width  : int,
         aisle_height : int,
+        ff_aisle_width  : int | None = None,   # fulfillment aisle geometry (short shelves);
+        ff_aisle_height : int | None = None,   # default width=aisle_width, height=~6 ft
         target_fill  : float = 0.85,
         min_bins     : int | None = None,
         max_bins     : int | None = None,
@@ -84,6 +92,12 @@ class PlanningMixin:
         """
         req = cls.bucket_requirements(orders)
 
+        # Fulfillment is its own self-contained regime (short shelves, small bins); size it
+        # only when the inventory actually contains fulfillment items.
+        has_ff = any(regime_of(c) == FULFILLMENT for c in orders)
+        ff_w = ff_aisle_width  if ff_aisle_width  is not None else aisle_width
+        ff_h = ff_aisle_height if ff_aisle_height is not None else FULFILLMENT_AISLE_HEIGHT
+
         # 1: enumerate every bucket with a ≥1 floor.
         bucket_list: list[tuple] = []     # (handling, category, size, unit_type)
         for h in handlings:
@@ -91,9 +105,16 @@ class PlanningMixin:
                 for size in _SIZES_DESCENDING:          # 4 pallet tiers
                     bucket_list.append((h, cat, size, 'pallet'))
                 bucket_list.append((h, cat, 'singleton', 'singleton'))
+        if has_ff:
+            # One bucket per fulfillment tier under the single ('fulfillment','fulfillment')
+            # family — NOT crossed with the store handlings/categories (no junk buckets).
+            for size in _FF_SIZES_DESCENDING:
+                bucket_list.append((FULFILLMENT, FULFILLMENT, size, FULFILLMENT))
 
         def _eff(bucket: tuple) -> int:
             _h, _c, size, unit_type = bucket
+            if unit_type == FULFILLMENT:
+                return catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS[size], ff_w, ff_h)
             return uniform_aisle_bins(unit_type, size, aisle_width, aisle_height)
 
         def _comp_weight(bucket: tuple) -> float:
@@ -186,11 +207,21 @@ class PlanningMixin:
             eff = _eff(b)
             rep = replicas[b]
             capacity[b] = rep * eff
-            sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
+            if unit_type == FULFILLMENT:
+                # Fulfillment aisles carry explicit bin geometry + short-shelf dimensions.
+                sizes_arg = [size]
+                a_w, a_h  = ff_w, ff_h
+                bin_w     = FULFILLMENT_BIN_WIDTH
+                bin_hs    = {size: FF_TIER_HEIGHTS[size]}
+            else:
+                sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
+                a_w, a_h  = aisle_width, aisle_height
+                bin_w     = None
+                bin_hs    = None
             for _ in range(rep):
                 aisle_configs.append(
-                    AisleConfig(h, cat, unit_type, aisle_width, aisle_height,
-                                sizes_arg, None))
+                    AisleConfig(h, cat, unit_type, a_w, a_h, sizes_arg, None,
+                                bin_width=bin_w, bin_heights=bin_hs))
 
         # 4: sample SKUs to fill capacity to target_fill.  Skipped when sample=
         # False (e.g. analysis only needs the warehouse shape + aisle maps, not
@@ -264,6 +295,15 @@ class PlanningMixin:
             so a full pallet of it never needs a _fit recheck at fill time."""
             shc  = c.storage_handle_config
             opts: list[tuple[BinKey, int, bool]] = []
+            if regime_of(c) == FULFILLMENT:
+                # Fulfillment orders reach only their own ff tiers (never pallet/singleton).
+                # The bool flag is unused for ff (every unit is a FulfillmentBin) — kept for
+                # tuple shape / stock_plan compatibility.
+                for size in _FF_SIZES_DESCENDING:
+                    q = _max_qty_fitting_ff_size(c, size)
+                    if q > 0 and FulfillmentBin(c, q).storage_size == size:
+                        opts.append(((shc.handling, shc.category, size, FULFILLMENT), q, True))
+                return opts
             for size in _SIZES_DESCENDING:
                 q = _max_qty_fitting_pallet_size(c, size)
                 if q > 0 and Pallet(c, q).storage_size == size:
@@ -305,13 +345,19 @@ class PlanningMixin:
                 # Full pallet — tier is the cached bucket, no _fit needed.
                 _add_run(c, isng, per, 1, b)
                 return True
-            # Capped final slot: a smaller quantity can drop a pallet into a
-            # SMALLER tier, so charge the bucket it ACTUALLY lands in.
+            # Capped final slot: a smaller quantity can drop a pallet/ff unit into a
+            # SMALLER tier, so charge the bucket it ACTUALLY lands in.  Branch on the
+            # bucket's unit_type (robust for pallet vs singleton vs fulfillment).
             per = cap_qty
             if per <= 0:
                 return False
-            if isng:
+            unit_type = b[3]
+            if unit_type == 'singleton':
                 actual_b = b
+            elif unit_type == FULFILLMENT:
+                shc = shc_of[id(c)]
+                actual_b = (shc.handling, shc.category,
+                            FulfillmentBin(c, per).storage_size, FULFILLMENT)
             else:
                 shc = shc_of[id(c)]
                 actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')

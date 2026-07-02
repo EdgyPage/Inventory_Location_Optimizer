@@ -407,9 +407,17 @@ def build_shared_assets(
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
+        from Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
+                                      FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT)
         aisle_rows = []
         for (h, cat, size, unit_type), cap_bins in plan.capacity.items():
-            eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
+            # Fulfillment buckets use the short-shelf catalog geometry (mirrors plan_warehouse._eff);
+            # store buckets use the pallet/singleton geometry.
+            if unit_type == 'fulfillment':
+                eff = catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS[size],
+                                         _AISLE_W, FULFILLMENT_AISLE_HEIGHT)
+            else:
+                eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
             rep = cap_bins // eff if eff else 0
             pcts = [0.0, 0.0, 0.0, 0.0]
             if unit_type == 'pallet' and size in _PCT_COL:
@@ -540,6 +548,19 @@ def _prepare_config_run(
     total_units_needed = shared['total_units_needed']
     warehouse_meta     = shared.get('warehouse_meta')
 
+    # ── channels: one operation per storage regime present in this catalog ──────────
+    # A store-only inventory yields a single 'store' channel → the original single-stream
+    # path (byte-identical).  A mixed catalog adds a 'fulfillment' channel with its own
+    # picker cost, batch stream, picker pool, and DB subtree.
+    from dataclasses import replace                        # noqa: E402 (local; used per config)
+    from channels import build_channels, wp_by_regime      # noqa: E402
+    from regime import regime_of, FULFILLMENT              # noqa: E402
+    _has_ff       = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
+    channels      = build_channels(pick_cfg, K_PICKERS, include_fulfillment=_has_ff)
+    multi_channel = len(channels) > 1
+    # Per-regime cost map for placement/labor routing in a mixed warehouse; None ⇒ store-only.
+    wp.by_regime  = wp_by_regime(channels) if multi_channel else None
+
     # Yardstick: minimal achievable Sigma f*D for THIS config's speeds (pure
     # global-W optimum).  Computed once over the shared warehouse; identical across
     # strategies, so the plots can report each strategy's realised Sigma f*D as a
@@ -620,101 +641,128 @@ def _prepare_config_run(
         optimal_work      = optimal_work,
     )
 
-    resume = _load_resume(run_dir)
-    if resume:
-        run_ids = resume['run_ids']
-        prev    = resume.get('next_batch', {})
-        starts  = {s.key: (load_worker_checkpoint(run_dir, s.key) or prev.get(s.key, 0))
-                   for s in STRATEGIES}
-        log.info('  Resuming  ' + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
-    else:
-        run_ids = {}
-        _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
-        _identity = dict(
-            pair_label            = _pair_label,
-            config_label          = name,
-            warehouse_fingerprint = shared.get('warehouse_fingerprint'),
-            inventory_label       = _pair_label,
-        )
-        for s in STRATEGIES:
-            init_run_db(db_path[s.key])
-            run_ids[s.key] = create_run(
-                db_path[s.key], s.run_type, run_params,
-                identity={**_identity, 'strategy_key': s.key})
-        starts = {s.key: 0 for s in STRATEGIES}
-        log.info('  New run  ' + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
-
-    _save_resume(run_dir, run_ids, starts)
-
-    # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier
-    # stock plans) when available so they reproduce the placement the warehouse
-    # was sized for.  That DB already holds only the sampled SKUs at the planned
-    # stock levels, so neither the SKU allowlist nor max_skus apply to it.
-    _planned_db   = shared.get('planned_inv_db')
-    _worker_invdb = _planned_db or shared['inv_db']
-    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
-    _worker_maxsk = None if _planned_db else shared.get('max_skus')
-    # Precompute this family's shared batch sequence ONCE (pure: a function of inv+aff+batch_cfg+seed),
-    # keyed by content fingerprint under pair_dir so every config/strategy arm of the family reuses it
-    # instead of re-sampling it in-process.  Parallel across `workers` (the strategy pool isn't running
-    # yet, so cores are idle).  Workers re-verify the fingerprint and fall back to inline sampling on
-    # any miss/mismatch, so a precompute failure can never block or corrupt a run.
-    try:
-        _batches_path, _batches_fp = ensure_batches(
-            pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
-            batch_cfg, SEED_BATCHES, N_BATCHES, workers=workers, log=log)
-    except Exception as exc:                       # noqa: BLE001 — never block the run on precompute
-        log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
-        _batches_path, _batches_fp = None, None
-    _shared = dict(
-        inv_db        = _worker_invdb,
-        batches_path        = _batches_path,
-        batches_fingerprint = _batches_fp,
-        aff_db        = shared['aff_db'],
-        run_dir       = run_dir,
-        n_batches     = N_BATCHES,
-        k_pickers     = K_PICKERS,
-        seed_world    = SEED_WORLD,
-        seed_batches  = SEED_BATCHES,
-        checkpoint    = _CHECKPOINT,
-        max_skus      = _worker_maxsk,
-        sku_allowlist = _worker_allow,
-        keyframe_interval = keyframe_interval,
-        warehouse_cfg = warehouse_cfg,
-        pick_cfg      = pick_cfg,
-        wp            = wp,
-        load_params   = load_params,
-        batch_cfg     = batch_cfg,
-        # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
-    )
-    strategy_args = [
-        {**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
-         'start_i': starts[s.key], 'db_path': db_path[s.key]}
-        for s in STRATEGIES
-    ]
-    # Profile (inventory) label + per-strategy decomposition (initial | assignment |
-    # reslot, split from the strategy label) so the graphs can title plots as
-    # inventory_initial_assignment_reslot without re-parsing the registry.
+    # Profile (inventory) label + per-strategy decomposition (initial | assignment | reslot,
+    # split from the strategy label) so graphs can title plots without re-parsing the registry.
     _profile = os.path.basename(pair_dir.rstrip('/\\')) or 'profile'
 
     def _decomp(lbl: str) -> dict:
         parts = (lbl.split('|') + ['', '', ''])[:3]
         return dict(initial=parts[0], assignment=parts[1], reslot=parts[2])
 
-    sim_skeleton = dict(
-        name       = name,
-        inventory  = _profile,
-        run_dir    = run_dir,
-        strategies = [dict(key=s.key, label=s.label, color=s.color,
-                           db_path=db_path[s.key], run_id=run_ids[s.key],
-                           **_decomp(s.label))
-                      for s in STRATEGIES],
-        optimal_sigma_fd = optimal_sigma_fd,
-        optimal_work     = optimal_work,
-        inv_db     = shared['inv_db'],
-        aff_db     = shared['aff_db'],
-    )
-    return strategy_args, sim_skeleton
+    # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)
+    # when available so they reproduce the placement the warehouse was sized for.
+    _planned_db   = shared.get('planned_inv_db')
+    _worker_invdb = _planned_db or shared['inv_db']
+    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
+    _worker_maxsk = None if _planned_db else shared.get('max_skus')
+
+    # ── one worker set per channel over the SHARED warehouse ────────────────────────
+    # Each channel filters the inventory to its regime and simulates with its own picker
+    # cost + pool + batch stream, writing its own DB subtree.  Single channel (store-only)
+    # uses the config dir directly + the precomputed pair-level batch stream → byte-identical
+    # to the pre-channel pipeline.
+    strategy_args: list = []
+    sim_skeletons: list = []
+    for ch in channels:
+        ch_run_dir = os.path.join(run_dir, ch.name) if multi_channel else run_dir
+        os.makedirs(ch_run_dir, exist_ok=True)
+        ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in STRATEGIES}
+
+        if multi_channel:
+            # Channel-specific cost + pool + an INDEPENDENT batch stream (inline sampling from
+            # the channel's SKU subset — the worker filters inventory by channel_regime).
+            ch_pick_cfg     = replace(ch.picker.cost, num_pickers=ch.picker.num_pickers)
+            ch_wp           = WorkloadParams.from_pick_config(ch_pick_cfg)
+            ch_wp.by_regime = wp.by_regime
+            _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
+            ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
+            ch_seed_batches = SEED_BATCHES + ch.batch_seed_offset
+            ch_regime       = ch.regime
+            ch_batches_path, ch_batches_fp = None, None
+        else:
+            # Store-only path: precomputed pair-level shared batch stream (dedup across configs).
+            ch_pick_cfg, ch_wp = pick_cfg, wp
+            ch_batch_cfg    = batch_cfg
+            ch_seed_batches = SEED_BATCHES
+            ch_regime       = None
+            try:
+                ch_batches_path, ch_batches_fp = ensure_batches(
+                    pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
+                    ch_batch_cfg, ch_seed_batches, N_BATCHES, workers=workers, log=log)
+            except Exception as exc:               # noqa: BLE001 — never block on precompute
+                log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
+                ch_batches_path, ch_batches_fp = None, None
+
+        resume = _load_resume(ch_run_dir)
+        if resume:
+            run_ids = resume['run_ids']
+            prev    = resume.get('next_batch', {})
+            starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
+                       for s in STRATEGIES}
+            log.info(f'  Resuming [{ch.name}]  '
+                     + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
+        else:
+            run_ids = {}
+            _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
+            _identity = dict(
+                pair_label            = _pair_label,
+                config_label          = name,
+                warehouse_fingerprint = shared.get('warehouse_fingerprint'),
+                inventory_label       = _pair_label,
+                channel               = ch.name,
+            )
+            for s in STRATEGIES:
+                init_run_db(ch_db_path[s.key])
+                run_ids[s.key] = create_run(
+                    ch_db_path[s.key], s.run_type, run_params,
+                    identity={**_identity, 'strategy_key': s.key})
+            starts = {s.key: 0 for s in STRATEGIES}
+            log.info(f'  New run [{ch.name}]  '
+                     + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
+        _save_resume(ch_run_dir, run_ids, starts)
+
+        _shared = dict(
+            inv_db              = _worker_invdb,
+            batches_path        = ch_batches_path,
+            batches_fingerprint = ch_batches_fp,
+            aff_db              = shared['aff_db'],
+            run_dir             = ch_run_dir,
+            n_batches           = N_BATCHES,
+            k_pickers           = ch.picker.num_pickers,
+            seed_world          = SEED_WORLD,
+            seed_batches        = ch_seed_batches,
+            checkpoint          = _CHECKPOINT,
+            max_skus            = _worker_maxsk,
+            sku_allowlist       = _worker_allow,
+            keyframe_interval   = keyframe_interval,
+            warehouse_cfg       = warehouse_cfg,
+            pick_cfg            = ch_pick_cfg,
+            wp                  = ch_wp,
+            load_params         = load_params,
+            batch_cfg           = ch_batch_cfg,
+            channel_regime      = ch_regime,      # worker filters inventory to this regime
+            channel_name        = ch.name,
+            # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
+        )
+        for s in STRATEGIES:
+            strategy_args.append({
+                **_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
+                'start_i': starts[s.key], 'db_path': ch_db_path[s.key], 'channel_key': ch.name})
+        sim_skeletons.append(dict(
+            name       = name,
+            inventory  = _profile,
+            run_dir    = ch_run_dir,
+            channel    = ch.name,
+            strategies = [dict(key=s.key, label=s.label, color=s.color,
+                               db_path=ch_db_path[s.key], run_id=run_ids[s.key],
+                               **_decomp(s.label))
+                          for s in STRATEGIES],
+            optimal_sigma_fd = optimal_sigma_fd,
+            optimal_work     = optimal_work,
+            inv_db     = shared['inv_db'],
+            aff_db     = shared['aff_db'],
+        ))
+    return strategy_args, sim_skeletons
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:
@@ -798,12 +846,17 @@ def _run_workers_flat(
                     log.info(f'  [{label}/{cfg_name}] already complete — skipping (resume)')
                     continue
                 try:
-                    strategy_args, sim_skeleton = _prepare_config_run(
+                    strategy_args, sim_skeletons = _prepare_config_run(
                         cfg, shared, pair_dir, log, workers=max_workers)
                     for sa in strategy_args:
                         sa['log_queue'] = log_queue   # inject shared queue
-                        work_units.append((key, sa))
-                    meta[key] = {'sim_skeleton': sim_skeleton, 'remaining': len(STRATEGIES)}
+                        ck = (label, cfg_name, sa.get('channel_key', ''))
+                        work_units.append((ck, sa))
+                    # One completion group per (pair, config, channel): its 3 strategies must
+                    # all finish before that channel's sim_meta.json is written.
+                    for sk in sim_skeletons:
+                        ck = (label, cfg_name, sk.get('channel', ''))
+                        meta[ck] = {'sim_skeleton': sk, 'remaining': len(STRATEGIES)}
                 except Exception as exc:
                     log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
                               exc_info=True)
@@ -812,10 +865,11 @@ def _run_workers_flat(
         # worker log line can show which job of the flat list is progressing.
         total_jobs = len(work_units)
         for idx, (key, sa) in enumerate(work_units, start=1):
-            _label, _cfg_name = key
+            _label, _cfg_name, _ch = key
             sa['job_index'] = idx
             sa['job_total'] = total_jobs
-            sa['job_tag']   = f'{_label}/{_cfg_name}/{sa["strategy"]}'
+            _pfx = f'{_label}/{_cfg_name}/{_ch}' if _ch else f'{_label}/{_cfg_name}'
+            sa['job_tag']   = f'{_pfx}/{sa["strategy"]}'
 
         # max_tasks_per_child recycles each worker process after this many jobs so
         # the OS reclaims its full RSS between simulations.  CPython rarely returns
@@ -836,24 +890,23 @@ def _run_workers_flat(
             }
             for fut in concurrent.futures.as_completed(futures):
                 key = futures[fut]
-                label, cfg_name = key
+                label, cfg_name, ch_key = key
+                _tag = f'{label}/{cfg_name}/{ch_key}' if ch_key else f'{label}/{cfg_name}'
                 try:
                     res = fut.result()
-                    log.info(f'  [{label}/{cfg_name}] strategy-{res["strategy"]} done'
+                    log.info(f'  [{_tag}] strategy-{res["strategy"]} done'
                              f'  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
                 except Exception as exc:
-                    log.error(f'  [{label}/{cfg_name}] strategy FAILED: {exc}',
-                              exc_info=True)
+                    log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
 
                 if key in meta:
                     meta[key]['remaining'] -= 1
                     if meta[key]['remaining'] <= 0:
                         try:
                             _finalize_config_run(meta[key]['sim_skeleton'])
-                            log.info(f'  [{label}/{cfg_name}] sim_meta.json written')
+                            log.info(f'  [{_tag}] sim_meta.json written')
                         except Exception as exc:
-                            log.error(f'  [{label}/{cfg_name}] finalize FAILED: {exc}',
-                                      exc_info=True)
+                            log.error(f'  [{_tag}] finalize FAILED: {exc}', exc_info=True)
     finally:
         listener.stop()
         mp_manager.shutdown()

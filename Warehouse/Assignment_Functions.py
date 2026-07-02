@@ -17,7 +17,7 @@ from Affinity_Store import AffinityStore
 from cost_model import height_multiplier, sec_per_inch
 from Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
-    AssignmentFn, RankedAssignmentFn, LoadParams, Placement,
+    AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
 )
 
 
@@ -527,6 +527,7 @@ def _ranked_assign_impl(
     W (task workload) remains a measurement metric only; this formula
     drives bin placement at reorder time.
     """
+    wp      = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace  = sec_per_inch(wp.x_speed)   # ft/s -> s/inch
     y_pace  = sec_per_inch(wp.y_speed)
     pi      = wp.pick_intercept
@@ -929,6 +930,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     so bins are grouped per aisle by height bracket, each a min-D deque; for each unit we
     scan one min-D representative per (aisle, bracket) — O(units · aisles · n_brackets).
     """
+    wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())
@@ -1054,6 +1056,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     deque ends — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
     from its deque end, so the ends are always live (no stale-bin bookkeeping).
     """
+    wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
     brackets  = getattr(wp, 'height_brackets', ())

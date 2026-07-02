@@ -257,9 +257,33 @@ class Family:
     weight_spec:    dict
     freq_spec:      dict = field(default_factory=lambda: dict(DEFAULT_FREQ_SPEC))
     qty_spec:       dict = field(default_factory=lambda: dict(DEFAULT_QTY_SPEC))
+    # Regime tagging for a MIXED catalog.  When handling_override is set (e.g. 'fulfillment'),
+    # this family's handling is fixed to it instead of drawn from handling_split — so the SKU
+    # carries the fulfillment BinKey.  When cube_sizes is set, each SKU is a cube (L=W=H) drawn
+    # from those sizes instead of independent per-dimension samples (fulfillment items are small
+    # cubes).  Both None ⇒ ordinary store family, unchanged.
+    handling_override: str | None   = None
+    cube_sizes:        tuple | None = None
 
 
 _HANDLING_LABELS = ['conveyable', 'non-conveyable']
+
+
+def fulfillment_family(share: float = 0.3, cube_sizes: tuple = (4, 6, 8),
+                       freq_spec: dict | None = None, qty_spec: dict | None = None) -> 'Family':
+    """A ready-made fulfillment family for a mixed catalog: small cubes (4/6/8), tagged with
+    the ('fulfillment','fulfillment') BinKey so the planner routes them to fulfillment bins.
+    dimension specs are placeholders (cube_sizes overrides them); weight is volume-scaled so
+    the small cubes stay light."""
+    _dummy = {'dist': 'uniform', 'low': min(cube_sizes), 'high': max(cube_sizes)}
+    return Family(
+        category='fulfillment', share=share, handling_split=(1.0, 0.0),
+        length_spec=_dummy, width_spec=_dummy, height_spec=_dummy,
+        weight_spec={'dist': 'volume_poisson'},
+        freq_spec=freq_spec or dict(DEFAULT_FREQ_SPEC),
+        qty_spec=qty_spec or dict(DEFAULT_QTY_SPEC),
+        handling_override='fulfillment', cube_sizes=tuple(cube_sizes),
+    )
 
 
 def build_inventory_from_plan(
@@ -294,11 +318,16 @@ def build_inventory_from_plan(
 
     for i in range(num_skus):
         fam      = rng.choices(fams, weights=shares, k=1)[0]
-        handling = rng.choices(_HANDLING_LABELS, weights=list(fam.handling_split), k=1)[0]
+        handling = (fam.handling_override if fam.handling_override
+                    else rng.choices(_HANDLING_LABELS, weights=list(fam.handling_split), k=1)[0])
 
-        L = sample_dim(fam.length_spec, rng, _CARTON_MAX_DIM)
-        W = sample_dim(fam.width_spec,  rng, _CARTON_MAX_DIM)
-        H = sample_dim(fam.height_spec, rng, _CARTON_MAX_DIM)
+        if fam.cube_sizes:
+            # Small cube SKU (fulfillment): one size for all three dimensions.
+            L = W = H = rng.choice(list(fam.cube_sizes))
+        else:
+            L = sample_dim(fam.length_spec, rng, _CARTON_MAX_DIM)
+            W = sample_dim(fam.width_spec,  rng, _CARTON_MAX_DIM)
+            H = sample_dim(fam.height_spec, rng, _CARTON_MAX_DIM)
         wt = sample_weight(fam.weight_spec, L, W, H, rng)
 
         fspec, qspec = demand_override if demand_override else (fam.freq_spec, fam.qty_spec)
