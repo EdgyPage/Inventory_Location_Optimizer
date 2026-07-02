@@ -50,7 +50,7 @@ class Order:
     @classmethod
     def build(cls, sku: int, handling: str, category: str,
               length: float, width: float, height: float, weight: float,
-              frequency: float, qty_rate: float, *,
+              relative_frequency: float, qty_rate: float, *,
               equilibrium_qty: int, reorder_point: int,
               lead_time_mean: float = 0.0, supply_cv: float = 0.0,
               stock_plan=None) -> 'Order':
@@ -68,7 +68,7 @@ class Order:
         c.height = cls._clamp_int(height, cls.MIN_DIM,    cls.MAX_DIM)
         c.weight = cls._clamp_int(weight, cls.MIN_WEIGHT, cls.MAX_WEIGHT)
         qr = cls._clamp_int(qty_rate, cls.MIN_QTY, cls.MAX_QTY)   # integer units/pick
-        fr = min(1.0, max(1e-6, float(frequency)))                # fractional pick rate (0, 1]
+        fr = min(1.0, max(1e-6, float(relative_frequency)))       # fractional pick rate (0, 1]
         c.demand = Demand.from_rates(fr, qr)
         c.expected_batch_demand = fr * qr
         c.equilibrium_qty = max(1, int(equilibrium_qty))

@@ -405,7 +405,7 @@ def build_inventory_from_plan(
         orders.append(Order.build(
             sku=i + 1, handling=handling, category=fam.category,
             length=L, width=W, height=H, weight=wt,
-            frequency=freq, qty_rate=qty_rate,
+            relative_frequency=freq, qty_rate=qty_rate,
             equilibrium_qty=eq, reorder_point=rp,
             lead_time_mean=lead, supply_cv=sv,
         ))
@@ -524,7 +524,7 @@ _SCHEMA = '''
         width                 INTEGER NOT NULL,
         height                INTEGER NOT NULL,
         weight                INTEGER NOT NULL,
-        demand_frequency      REAL    NOT NULL,
+        relative_frequency    REAL    NOT NULL,
         demand_qty_rate       REAL    NOT NULL,
         expected_batch_demand REAL    NOT NULL DEFAULT 0,
         equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
@@ -546,7 +546,7 @@ _SCHEMA = '''
     CREATE TABLE IF NOT EXISTS creation_plan (
         handling       TEXT NOT NULL,
         storage_type   TEXT NOT NULL,   -- category
-        parameter      TEXT NOT NULL,   -- length | width | height | weight | frequency | quantity
+        parameter      TEXT NOT NULL,   -- length | width | height | weight | relative_frequency | quantity
         distribution   TEXT NOT NULL,   -- distribution family / name
         params         TEXT,            -- JSON string of distribution params (NULL if none)
         handling_share REAL NOT NULL,   -- this handling's propensity within the family
@@ -561,7 +561,7 @@ _PLAN_PARAM_SPECS = [
     ('width',     'width_spec'),
     ('height',    'height_spec'),
     ('weight',    'weight_spec'),
-    ('frequency', 'freq_spec'),
+    ('relative_frequency', 'freq_spec'),
     ('quantity',  'qty_spec'),
 ]
 _HANDLINGS_ORDER = ['conveyable', 'non-conveyable']
@@ -600,7 +600,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
-        ' demand_frequency, demand_qty_rate, expected_batch_demand, '
+        ' relative_frequency, demand_qty_rate, expected_batch_demand, '
         ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan) '
         'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
@@ -652,7 +652,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     conn = sqlite3.connect(db_path)
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
-        'demand_frequency, demand_qty_rate, equilibrium_qty, reorder_point, '
+        'relative_frequency, demand_qty_rate, equilibrium_qty, reorder_point, '
         'lead_time_mean, supply_cv, stock_plan '
         'FROM cartons ORDER BY sku'
         + (f' LIMIT {limit}' if limit is not None else '')
@@ -672,7 +672,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
         orders.append(Order.build(
             sku=sku, handling=handling, category=category,
             length=length, width=width, height=height, weight=weight,
-            frequency=freq, qty_rate=qty_rate,
+            relative_frequency=freq, qty_rate=qty_rate,
             equilibrium_qty=equilibrium_qty, reorder_point=reorder_point,
             lead_time_mean=lead_time_mean, supply_cv=supply_cv, stock_plan=stock_plan,
         ))
@@ -715,8 +715,8 @@ def compute_stats(df: pd.DataFrame) -> dict:
         },
         'weight': _summary(df['weight']),
         'demand': {
-            'frequency'    : _summary(df['demand_frequency']),
-            'quantity_rate': _summary(df['demand_qty_rate']),
+            'relative_frequency': _summary(df['relative_frequency']),
+            'quantity_rate'     : _summary(df['demand_qty_rate']),
         },
         'equilibrium_qty': _summary(df['equilibrium_qty']) if 'equilibrium_qty' in df.columns else {},
         'reorder_point'  : _summary(df['reorder_point'])   if 'reorder_point'   in df.columns else {},
@@ -727,7 +727,14 @@ def compute_stats(df: pd.DataFrame) -> dict:
 
 # ── plots ──────────────────────────────────────────────────────────────────────
 
+# Footer watermark naming the generated inventory; set per-run in generate_run().
+_WATERMARK: str = ''
+
+
 def _save_close(fig, path: str) -> None:
+    if _WATERMARK:
+        fig.text(0.995, 0.004, _WATERMARK, ha='right', va='bottom',
+                 fontsize=7, color='0.55', alpha=0.85)
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
@@ -801,8 +808,8 @@ def plot_demand(df: pd.DataFrame, out_dir: str) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
     fig.suptitle('Demand Distributions', fontsize=13, fontweight='bold')
     for ax, col, title, color in [
-        (axes[0], 'demand_frequency', 'Pick Frequency', '#5b9bd5'),
-        (axes[1], 'demand_qty_rate',  'Quantity Rate',  '#f4a030'),
+        (axes[0], 'relative_frequency', 'Relative Frequency', '#5b9bd5'),
+        (axes[1], 'demand_qty_rate',    'Quantity Rate',      '#f4a030'),
     ]:
         vals = df[col].values
         ax.hist(vals, bins=50, color=color, alpha=0.75, edgecolor='white')
@@ -917,7 +924,7 @@ _CP_PARAMS = [
     ('width',     'width',            (1, 48)),
     ('height',    'height',           (1, 48)),
     ('weight',    'weight',           (1, 200)),
-    ('frequency', 'demand_frequency', (0, 1)),
+    ('relative_frequency', 'relative_frequency', (0, 1)),
     ('quantity',  'demand_qty_rate',  (1, 20)),
 ]
 _CONV_COLOR, _NCONV_COLOR = '#5b9bd5', '#f4a030'
@@ -928,7 +935,7 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
     """Render a graph for EVERY creation_plan row plus an aggregate-by-handling view.
 
     df         : order dataframe (handling, category, length/width/height/weight,
-                 demand_frequency, demand_qty_rate).
+                 relative_frequency, demand_qty_rate).
     plan_lookup: {(handling, storage_type, parameter): (distribution, params_str)} —
                  the creation_plan rows, used to annotate each subplot.
 
@@ -1162,6 +1169,10 @@ def generate_run(
     _log(f'[inventory:{name}] weight mean={stats["weight"]["mean"]:.1f}  '
          f'std={stats["weight"]["std"]:.1f}  '
          f'volume mean={stats["dimensions"]["volume"]["mean"]:.0f}')
+
+    global _WATERMARK
+    _WATERMARK = (f'{os.path.basename(os.path.dirname(run_dir))}/{name}  ·  '
+                  f'{num_skus:,} SKUs  ·  seed {seed}  ·  {params["timestamp"]}')
 
     sfx = f'  [{name}]'
     plot_group_sizes(df, plot_dir, sfx)

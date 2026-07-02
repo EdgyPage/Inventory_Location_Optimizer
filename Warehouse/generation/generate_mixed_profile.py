@@ -200,7 +200,7 @@ def main() -> None:
     parser.add_argument('--affinity-max-lift', type=float, default=5.0)
     parser.add_argument('--affinity-seed', type=int, default=0)
     parser.add_argument('--freq-spec', default=None,
-                        help='JSON demand-frequency override applied to ALL families')
+                        help='JSON relative-frequency override applied to ALL families')
     parser.add_argument('--qty-spec', default=None,
                         help='JSON demand-quantity override applied to ALL families')
     # ── fulfillment sub-catalog (a fraction of --num-skus; store families scale down to the rest) ──

@@ -3,7 +3,7 @@ Generate a demand-weighted sparse affinity matrix from an inventory DB.
 
 Lift is a genuine co-purchase association **independent of demand**: within each
 (handling × category) storage area, SKUs are partitioned into random latent
-affinity clusters (assigned independently of demand_frequency / demand_qty_rate),
+affinity clusters (assigned independently of relative_frequency / demand_qty_rate),
 and same-cluster pairs get a positive association strength.  This makes lift a real
 signal — `lift = 1` is independence, `lift > 1` is positive association — rather
 than a restatement of popularity.  Only the top-K partners per SKU are stored,
@@ -351,7 +351,14 @@ def compute_stats(conn: sqlite3.Connection, group_stats: dict, params: dict) -> 
 
 # ── plots ──────────────────────────────────────────────────────────────────────
 
+# Footer watermark naming the generated affinity dataset; set per-run in generate_run().
+_WATERMARK: str = ''
+
+
 def _save_close(fig, path: str) -> None:
+    if _WATERMARK:
+        fig.text(0.995, 0.004, _WATERMARK, ha='right', va='bottom',
+                 fontsize=7, color='0.55', alpha=0.85)
     fig.savefig(path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
@@ -569,7 +576,7 @@ def generate_run(
 
     conn_inv = sqlite3.connect(inv_db)
     rows = conn_inv.execute(
-        'SELECT sku, handling, category, demand_frequency, demand_qty_rate '
+        'SELECT sku, handling, category, relative_frequency, demand_qty_rate '
         'FROM cartons ORDER BY sku'
     ).fetchall()
     conn_inv.close()
@@ -644,6 +651,10 @@ def generate_run(
     stats = compute_stats(conn_aff, group_stats, params)
     with open(os.path.join(run_dir, 'stats.json'), 'w') as f:
         json.dump(stats, f, indent=2)
+
+    global _WATERMARK
+    _WATERMARK = (f'{os.path.basename(os.path.dirname(run_dir))}/{name}  ·  '
+                  f'{len(rows):,} SKUs  ·  seed {seed}  ·  {params["timestamp"]}')
 
     _log(f'[affinity:{name}] Generating plots...')
     plot_lift_histogram(conn_aff, plot_dir, min_lift, max_lift)

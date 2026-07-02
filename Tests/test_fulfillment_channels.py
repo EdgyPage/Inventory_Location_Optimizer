@@ -38,7 +38,7 @@ def _store_order(sku, rng):
     return Order.build(sku, _HANDS[sku % 2], _CATS[sku % 3],
                        length=rng.randint(20, 44), width=rng.randint(20, 44),
                        height=rng.randint(20, 44), weight=rng.randint(10, 80),
-                       frequency=rng.uniform(0.05, 0.5), qty_rate=rng.randint(1, 6),
+                       relative_frequency=rng.uniform(0.05, 0.5), qty_rate=rng.randint(1, 6),
                        equilibrium_qty=rng.randint(3, 12), reorder_point=2)
 
 
@@ -47,7 +47,7 @@ def _ff_order(sku, rng):
     return Order.build(sku, FULFILLMENT, FULFILLMENT,
                        length=rng.randint(4, 14), width=rng.randint(4, 14),
                        height=rng.randint(4, 16), weight=rng.randint(1, 8),
-                       frequency=rng.uniform(0.1, 0.6), qty_rate=rng.randint(1, 4),
+                       relative_frequency=rng.uniform(0.1, 0.6), qty_rate=rng.randint(1, 4),
                        equilibrium_qty=rng.randint(3, 10), reorder_point=2)
 
 
@@ -85,7 +85,7 @@ def test_fulfillment_bin_tiers_and_fit():
     assert b.storage_size in dict(FulfillmentBin.TIERS)
     # a pallet-sized item cannot fit the small ff footprint
     big = Order.build(2, FULFILLMENT, FULFILLMENT, 40, 40, 40, 50,
-                      frequency=0.3, qty_rate=1, equilibrium_qty=2, reorder_point=1)
+                      relative_frequency=0.3, qty_rate=1, equilibrium_qty=2, reorder_point=1)
     assert not _can_fit(big, FulfillmentBin, 1)
 
 
