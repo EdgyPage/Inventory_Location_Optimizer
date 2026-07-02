@@ -61,7 +61,7 @@ from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
-from strategies import STRATEGIES
+from strategies import STRATEGIES, strategies_for
 from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
@@ -81,6 +81,9 @@ SEED_WORLD       = 42
 SEED_BATCHES     = 1337
 N_BATCHES        = 100
 K_PICKERS        = 25
+# Restock rules the STORE channel runs; None ⇒ full suite.  Fulfillment always runs full.
+# Store is compared on the historic winner (rank_labor) vs the baseline (fifo) only.
+STORE_RESTOCKS   = ('fifo', 'rank_labor')
 _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.15
@@ -556,27 +559,28 @@ def _prepare_config_run(
     from channels import build_channels, wp_by_regime      # noqa: E402
     from regime import regime_of, FULFILLMENT              # noqa: E402
     _has_ff       = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
-    channels      = build_channels(pick_cfg, K_PICKERS, include_fulfillment=_has_ff)
+    channels      = build_channels(pick_cfg, K_PICKERS, include_fulfillment=_has_ff,
+                                   store_restocks=STORE_RESTOCKS)
     multi_channel = len(channels) > 1
     # Per-regime cost map for placement/labor routing in a mixed warehouse; None ⇒ store-only.
     wp.by_regime  = wp_by_regime(channels) if multi_channel else None
 
-    # Yardstick: minimal achievable Sigma f*D for THIS config's speeds (pure
-    # global-W optimum).  Computed once over the shared warehouse; identical across
-    # strategies, so the plots can report each strategy's realised Sigma f*D as a
-    # fraction of this optimum.  Cheap (sort, no placement, no mutation).
-    optimal_sigma_fd = 0.0
-    optimal_work = 0.0
-    if warehouse_meta is not None and inventory.orders:
-        _freq = {c.sku: c.demand.relative_frequency for c in inventory.orders}
-        _qty  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
+    # Yardstick: minimal achievable Sigma f*D + full-labor floor W* (pure global-W
+    # optimum) for a set of orders under a given pick cost.  Identical across strategies,
+    # so plots report each strategy's realised metric as a fraction of this optimum.
+    # Cheap (sort, no placement, no mutation).  Computed PER CHANNEL below, over that
+    # channel's regime-filtered orders + its own speeds/cost — the only thing separating
+    # the channels is the pick-time cost, so each section gets its own honest optimum
+    # (a store-speed yardstick over the mixed catalog would be apples-to-oranges).
+    def _yardsticks(orders_subset, x_speed, y_speed, wp_):
+        if warehouse_meta is None or not orders_subset:
+            return 0.0, 0.0
+        _freq = {c.sku: c.demand.relative_frequency for c in orders_subset}
+        _qty  = {c.sku: c.demand.quantity_rate for c in orders_subset}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
-        optimal_sigma_fd = _mgr.optimal_sigma_fd(
-            inventory.orders, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
-        # Full-labor floor W* (travel + height handling) — the minimal-work yardstick.
-        optimal_work = _mgr.optimal_work(inventory.orders, _freq, _qty, wp)
-        log.info(f'  Optimal Sigma f*D (yardstick) = {optimal_sigma_fd:,.1f}')
-        log.info(f'  Optimal work W* (floor)       = {optimal_work:,.1f}')
+        sfd = _mgr.optimal_sigma_fd(orders_subset, _freq, x_speed, y_speed)
+        wrk = _mgr.optimal_work(orders_subset, _freq, _qty, wp_)
+        return sfd, wrk
 
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}')
@@ -637,8 +641,9 @@ def _prepare_config_run(
         n_batches         = N_BATCHES,
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
-        optimal_sigma_fd  = optimal_sigma_fd,
-        optimal_work      = optimal_work,
+        # Placeholders — overridden PER CHANNEL below with that section's own yardsticks.
+        optimal_sigma_fd  = 0.0,
+        optimal_work      = 0.0,
     )
 
     # Profile (inventory) label + per-strategy decomposition (initial | assignment | reslot,
@@ -664,9 +669,12 @@ def _prepare_config_run(
     strategy_args: list = []
     sim_skeletons: list = []
     for ch in channels:
+        # This channel's strategy arms — a restock subset (e.g. store: fifo + rank_labor) or
+        # the full grid (fulfillment).  All per-channel work below iterates ch_strategies.
+        ch_strategies = strategies_for(ch.restocks)
         ch_run_dir = os.path.join(run_dir, ch.name) if multi_channel else run_dir
         os.makedirs(ch_run_dir, exist_ok=True)
-        ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in STRATEGIES}
+        ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in ch_strategies}
 
         if multi_channel:
             # Channel-specific cost + pool + an INDEPENDENT batch stream (inline sampling from
@@ -693,14 +701,24 @@ def _prepare_config_run(
                 log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
                 ch_batches_path, ch_batches_fp = None, None
 
+        # Per-channel yardsticks over THIS section's orders + its own speeds/cost.
+        _ch_orders = [c for c in inventory.orders if regime_of(c) == ch.regime]
+        ch_optimal_sigma_fd, ch_optimal_work = _yardsticks(
+            _ch_orders, ch_pick_cfg.x_speed, ch_pick_cfg.y_speed, ch_wp)
+        ch_run_params = {**run_params,
+                         'optimal_sigma_fd': ch_optimal_sigma_fd,
+                         'optimal_work': ch_optimal_work}
+        log.info(f'  [{ch.name}] Optimal Sigma f*D = {ch_optimal_sigma_fd:,.1f}  '
+                 f'W* floor = {ch_optimal_work:,.1f}')
+
         resume = _load_resume(ch_run_dir)
         if resume:
             run_ids = resume['run_ids']
             prev    = resume.get('next_batch', {})
             starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
-                       for s in STRATEGIES}
+                       for s in ch_strategies}
             log.info(f'  Resuming [{ch.name}]  '
-                     + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
+                     + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
         else:
             run_ids = {}
             _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
@@ -711,14 +729,14 @@ def _prepare_config_run(
                 inventory_label       = _pair_label,
                 channel               = ch.name,
             )
-            for s in STRATEGIES:
+            for s in ch_strategies:
                 init_run_db(ch_db_path[s.key])
                 run_ids[s.key] = create_run(
-                    ch_db_path[s.key], s.run_type, run_params,
+                    ch_db_path[s.key], s.run_type, ch_run_params,
                     identity={**_identity, 'strategy_key': s.key})
-            starts = {s.key: 0 for s in STRATEGIES}
+            starts = {s.key: 0 for s in ch_strategies}
             log.info(f'  New run [{ch.name}]  '
-                     + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
+                     + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
         _save_resume(ch_run_dir, run_ids, starts)
 
         _shared = dict(
@@ -744,7 +762,7 @@ def _prepare_config_run(
             channel_name        = ch.name,
             # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
         )
-        for s in STRATEGIES:
+        for s in ch_strategies:
             strategy_args.append({
                 **_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
                 'start_i': starts[s.key], 'db_path': ch_db_path[s.key], 'channel_key': ch.name})
@@ -756,9 +774,9 @@ def _prepare_config_run(
             strategies = [dict(key=s.key, label=s.label, color=s.color,
                                db_path=ch_db_path[s.key], run_id=run_ids[s.key],
                                **_decomp(s.label))
-                          for s in STRATEGIES],
-            optimal_sigma_fd = optimal_sigma_fd,
-            optimal_work     = optimal_work,
+                          for s in ch_strategies],
+            optimal_sigma_fd = ch_optimal_sigma_fd,
+            optimal_work     = ch_optimal_work,
             inv_db     = shared['inv_db'],
             aff_db     = shared['aff_db'],
         ))
@@ -852,11 +870,13 @@ def _run_workers_flat(
                         sa['log_queue'] = log_queue   # inject shared queue
                         ck = (label, cfg_name, sa.get('channel_key', ''))
                         work_units.append((ck, sa))
-                    # One completion group per (pair, config, channel): its 3 strategies must
-                    # all finish before that channel's sim_meta.json is written.
+                    # One completion group per (pair, config, channel): all of THAT channel's
+                    # strategies must finish before its sim_meta.json is written.  Channels may
+                    # run different-sized subsets (e.g. store: fifo+rank_labor vs fulfillment:
+                    # full suite), so count the skeleton's own strategies, not the global grid.
                     for sk in sim_skeletons:
                         ck = (label, cfg_name, sk.get('channel', ''))
-                        meta[ck] = {'sim_skeleton': sk, 'remaining': len(STRATEGIES)}
+                        meta[ck] = {'sim_skeleton': sk, 'remaining': len(sk['strategies'])}
                 except Exception as exc:
                     log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
                               exc_info=True)
@@ -916,6 +936,7 @@ def _run_workers_flat(
 # ── entry point ────────────────────────────────────────────────────────────────
 
 def main():
+    global N_BATCHES, _CHECKPOINT   # may be overridden by --n-batches below
     parser = argparse.ArgumentParser(
         description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -957,7 +978,16 @@ def main():
                              'batches so the visualizer can jump between batches '
                              '(0 disables). A keyframe = all occupied bins; raise K for '
                              'very large warehouses. Default 5.')
+    parser.add_argument('--n-batches', type=int, default=None, metavar='N',
+                        help='Override the per-run batch count (default '
+                             f'{N_BATCHES}). Use a small value for quick smoke runs.')
     args = parser.parse_args()
+
+    # Batch-count override (quick smoke runs) — set before any config prep so the
+    # per-run n_batches propagated to workers and the checkpoint interval both follow it.
+    if args.n_batches:
+        N_BATCHES   = args.n_batches
+        _CHECKPOINT = max(1, N_BATCHES // 10)
 
     composition = None
     if args.composition:

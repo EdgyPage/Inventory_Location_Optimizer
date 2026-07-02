@@ -67,6 +67,8 @@ class Strategy:
     uses_aisle_index : bool = False          # per-unit _stock strategy that consumes mgr._aisle_index;
                                              # worker arms init_travel_costs() before build() (cluster only —
                                              # ranked/FIFO drains do not use the per-aisle index fast path)
+    restock        : str = ''                # the restock-rule key (e.g. 'fifo', 'rank_labor'); the
+                                             # initial×reslot-invariant component used for per-channel subsets
 
 
 # ── build helpers: each sets exactly ONE named mgr.placement ─────────────────────
@@ -330,7 +332,16 @@ for _ik, _il, _stock_mode in _INITIALS:
                 color=_hsv_hex(len(STRATEGIES), _N_STRATEGIES), run_type=_key,
                 needs_affinity=_na, needs_demand=_nd, build=_bld,
                 stock_mode=_stock_mode, reslot_frac=_frac, reloader=_rld,
-                uses_aisle_index=_uix,
+                uses_aisle_index=_uix, restock=_rk,
             ))
 
 STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}
+
+
+def strategies_for(restocks) -> list[Strategy]:
+    """Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all).
+
+    Lets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)
+    while another runs the full suite, without perturbing the global grid used elsewhere.
+    """
+    return list(STRATEGIES) if restocks is None else [s for s in STRATEGIES if s.restock in restocks]

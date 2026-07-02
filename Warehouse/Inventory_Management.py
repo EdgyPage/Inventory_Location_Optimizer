@@ -413,6 +413,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
         """Commit one unit→bin placement and update all manager state dicts."""
+        # Invariant guard: a unit never lands in a bin of a different regime.  This holds
+        # structurally today (bins are drawn by the unit's own BinKey), but asserting it here
+        # turns the "store and fulfillment items never intersect each other's bins" contract
+        # into a fail-fast check — cheap insurance for the mixed-catalog / channel work.
+        if regime_of(bin_) != regime_of(unit):
+            raise AssertionError(
+                f'cross-regime placement: {regime_of(unit)} unit (sku={unit.order.sku}) '
+                f'into {regime_of(bin_)} bin {getattr(bin_, "location", None)}')
         sku = unit.order.sku
         n = self._queued_sku_counts.get(sku, 0)
         if n <= 1:

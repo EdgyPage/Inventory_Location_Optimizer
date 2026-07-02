@@ -48,6 +48,9 @@ class Channel:
     # Offset added to seed_batches so each channel draws an INDEPENDENT batch stream
     # (store and fulfillment are unrelated order streams) yet stays deterministic.
     batch_seed_offset: int = 0
+    # Restock-rule subset this channel runs (keys like 'fifo', 'rank_labor'); None ⇒ full
+    # suite.  Lets one section run a curated subset while another runs everything.
+    restocks: tuple[str, ...] | None = None
 
     def batch_config(self, inventory_size: int) -> BatchConfig:
         """Build this channel's BatchConfig for its SKU-subset size."""
@@ -82,17 +85,22 @@ def fulfillment_pick_config() -> PickConfig:
 def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
                    *, include_fulfillment: bool,
                    ff_pick_cfg: PickConfig | None = None,
-                   ff_num_pickers: int = 20) -> list[Channel]:
+                   ff_num_pickers: int = 20,
+                   store_restocks: tuple[str, ...] | None = None) -> list[Channel]:
     """Assemble the run's channel list.
 
     The STORE channel's cost is the run's own (swept) PickConfig, so store results are
     unchanged.  The FULFILLMENT channel is appended only when the inventory has fulfillment
     items (``include_fulfillment``); it uses the walker cost + its own picker pool.
+
+    ``store_restocks`` restricts the store channel to a subset of restock rules (None ⇒ full
+    suite); fulfillment always runs the full suite.
     """
     channels = [
         Channel(
             name='store', regime=STORE, batch_seed_offset=0,
             picker=PickerProfile('store_machine', store_pick_cfg, store_num_pickers),
+            restocks=store_restocks,
         )
     ]
     if include_fulfillment:
