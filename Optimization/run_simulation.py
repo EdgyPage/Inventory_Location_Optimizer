@@ -594,6 +594,10 @@ def _prepare_config_run(
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 3),
         'avg_supply_cv'      : round(sum(getattr(c, 'supply_cv', 0.0)
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 3),
+        # Height-bracket multipliers M(y): (upper_y_phys | null, multiplier). Emitted so the
+        # docs can render M(y) programmatically instead of transcribing it from code.
+        'height_brackets'    : [[(None if thr == float('inf') else thr), mult]
+                                for thr, mult in getattr(pick_cfg, 'height_brackets', ())],
     }
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
@@ -959,6 +963,25 @@ def main():
         f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
         f' = {total_workers} work units  |  flat pool workers={workers}'
     )
+
+    # Top-level run manifest: a schema index of this run (inventories × configs × strategies)
+    # so the docs ingest can auto-discover what to pull. See docs/experiments/ingest.py.
+    def _brackets_json(hb):
+        return [[(None if thr == float('inf') else thr), mult] for thr, mult in (hb or ())]
+    run_manifest = {
+        'run'        : os.path.basename(base_dir.rstrip('/\\')),
+        'inventories': [label for label, _inv, _aff in pairs],
+        'configs'    : [{'name'          : c['name'],
+                         'pick_weight_fn': c.get('pick_weight_fn'),
+                         'pick_volume_fn': c.get('pick_volume_fn'),
+                         'height_brackets': _brackets_json(c.get('height_brackets'))}
+                        for c in REGRESSION_CONFIGS],
+        'strategies' : [{'key': s.key, 'label': s.label} for s in STRATEGIES],
+        'baseline'   : STRATEGIES[0].key if STRATEGIES else None,
+    }
+    with open(os.path.join(base_dir, 'run_manifest.json'), 'w') as f:
+        json.dump(run_manifest, f, indent=2)
+    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_configs} cfg × {n_strats} strat)')
     # ── flat ProcessPoolExecutor: every (pair,config,strategy) unit shares one pool ──
     shared_by_pair = {}
     for label, inv_db, aff_db in pairs:
