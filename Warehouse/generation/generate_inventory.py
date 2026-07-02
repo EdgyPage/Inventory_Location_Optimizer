@@ -625,8 +625,13 @@ def _save_creation_plan(conn: sqlite3.Connection, plan: list) -> None:
     for fam in plan:
         cat    = fam['category']
         fshare = fam['share']
-        hsplit = fam['handling_split']
-        for handling, hshare in zip(_HANDLINGS_ORDER, hsplit):
+        # A family with handling_override (e.g. fulfillment) is a single handling, not a
+        # conveyable/non-conveyable split — store one row per parameter under that handling
+        # so the label matches the SKUs' actual handling (and the plots find their data).
+        override = fam.get('handling_override')
+        hlist    = ([(override, 1.0)] if override
+                    else list(zip(_HANDLINGS_ORDER, fam['handling_split'])))
+        for handling, hshare in hlist:
             for param_name, spec_key in _PLAN_PARAM_SPECS:
                 spec   = fam[spec_key]
                 dist   = spec.get('dist')
@@ -927,7 +932,10 @@ _CP_PARAMS = [
     ('relative_frequency', 'relative_frequency', (0, 1)),
     ('quantity',  'demand_qty_rate',  (1, 20)),
 ]
-_CONV_COLOR, _NCONV_COLOR = '#5b9bd5', '#f4a030'
+_CONV_COLOR, _NCONV_COLOR, _FF_COLOR = '#5b9bd5', '#f4a030', '#70ad47'
+# Canonical handling → colour (also fixes column order). Fulfillment is its own handling
+# (via handling_override), so it needs a column/colour alongside conveyable/non-conveyable.
+_HANDLING_COLORS = {'conveyable': _CONV_COLOR, 'non-conveyable': _NCONV_COLOR, 'fulfillment': _FF_COLOR}
 
 
 def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
@@ -948,11 +956,15 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
     """
     os.makedirs(out_dir, exist_ok=True)
     cats      = sorted(df['category'].unique())
-    handlings = ['conveyable', 'non-conveyable']
+    # Only the handlings actually present, in canonical order — so fulfillment gets its own
+    # column (its SKUs are handling='fulfillment', never conveyable/non-conveyable).
+    present   = set(df['handling'].unique())
+    handlings = [h for h in _HANDLING_COLORS if h in present]
 
     # ── one subplot per (handling, category, parameter) row, grouped by parameter ──
     for pname, col, (lo, hi) in _CP_PARAMS:
-        fig, axes = plt.subplots(len(cats), 2, figsize=(11, 2.1 * len(cats) + 1), squeeze=False)
+        fig, axes = plt.subplots(len(cats), len(handlings),
+                                 figsize=(5.5 * len(handlings), 2.1 * len(cats) + 1), squeeze=False)
         fig.suptitle(f'{pname} — distribution per family × handling{title_suffix}',
                      fontsize=12, fontweight='bold')
         for i, cat in enumerate(cats):
@@ -962,7 +974,7 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
                 dist, prm = plan_lookup.get((h, cat, pname), ('—', None))
                 if len(sub):
                     ax.hist(sub, bins=30, range=(lo, hi),
-                            color=_CONV_COLOR if h == 'conveyable' else _NCONV_COLOR,
+                            color=_HANDLING_COLORS.get(h, '#888888'),
                             alpha=0.8, edgecolor='white')
                 spec_txt = f'{dist}{(" " + prm) if prm else ""}'
                 ax.set_title(f'{cat} · {h[:4]}  n={len(sub)}\n{spec_txt}', fontsize=7)
@@ -975,17 +987,17 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
     fig.suptitle(f'Aggregate by handling split{title_suffix}', fontsize=13, fontweight='bold')
     for k, (pname, col, (lo, hi)) in enumerate(_CP_PARAMS):
         ax = axes[k // 4][k % 4]
-        for h, color in (('conveyable', _CONV_COLOR), ('non-conveyable', _NCONV_COLOR)):
+        for h in handlings:
             vals = df[df['handling'] == h][col].values
             if len(vals):
                 ax.hist(vals, bins=40, range=(lo, hi), density=True, histtype='step',
-                        lw=2, color=color, label=f'{h} (n={len(vals):,})')
+                        lw=2, color=_HANDLING_COLORS.get(h, '#888888'), label=f'{h} (n={len(vals):,})')
         ax.set_title(pname, fontsize=10); ax.legend(fontsize=6); ax.grid(alpha=0.3)
 
     # overall handling counts
     ax = axes[1][2]
     hc = df['handling'].value_counts().reindex(handlings).fillna(0)
-    ax.bar(range(len(handlings)), hc.values, color=[_CONV_COLOR, _NCONV_COLOR])
+    ax.bar(range(len(handlings)), hc.values, color=[_HANDLING_COLORS.get(h, '#888888') for h in handlings])
     ax.set_xticks(range(len(handlings))); ax.set_xticklabels([h[:4] for h in handlings], fontsize=8)
     conv_pct = df['handling'].eq('conveyable').mean() * 100
     ax.set_title(f'handling counts  (conveyable {conv_pct:.0f}%)', fontsize=10)
@@ -997,9 +1009,9 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
               .reindex(index=cats).reindex(columns=handlings, fill_value=0))
     frac = ct.div(ct.sum(axis=1).replace(0, 1), axis=0)
     bottom = np.zeros(len(cats))
-    for h, color in (('conveyable', _CONV_COLOR), ('non-conveyable', _NCONV_COLOR)):
+    for h in handlings:
         vals = np.asarray(frac[h].values, dtype=float)
-        ax.bar(range(len(cats)), vals, bottom=bottom, color=color, label=h)
+        ax.bar(range(len(cats)), vals, bottom=bottom, color=_HANDLING_COLORS.get(h, '#888888'), label=h)
         bottom += vals
     ax.set_xticks(range(len(cats))); ax.set_xticklabels(cats, rotation=45, ha='right', fontsize=6)
     ax.set_ylim(0, 1); ax.set_title('handling share by category', fontsize=10); ax.legend(fontsize=6)
