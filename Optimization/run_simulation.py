@@ -179,6 +179,38 @@ REGRESSION_CONFIGS = [
     },
 ]
 
+# ── per-channel config sweeps ───────────────────────────────────────────────────
+# Store and fulfillment are INDEPENDENT warehouse sections (see channels.py): each
+# sweeps its OWN set of pick-time regression configs, runs its own restock suite,
+# writes its own DB subtree, and is combined only post-analysis by run_channel_rollup.
+# The sweep is a UNION, not a cross product: a mixed catalog runs len(STORE_CONFIGS)
+# store runs + len(FULFILLMENT_CONFIGS) fulfillment runs (a store-only catalog runs
+# only the store set).  REGRESSION_CONFIGS above IS the store set; STORE_CONFIGS is the
+# preferred name (the alias keeps existing `rs.REGRESSION_CONFIGS` consumers working).
+STORE_CONFIGS = REGRESSION_CONFIGS
+
+# Fulfillment (human-walker) configs.  Same dict schema as the store set, plus an
+# optional 'num_pickers' key (default 20 — the walker pool size).  The single default
+# entry mirrors channels.fulfillment_pick_config() so behavior is unchanged until you
+# add entries.  Keep names DISTINCT from store config names (config.json is written per
+# config dir; a shared name would collide — see the runner's _prepare_channel_run).
+FULFILLMENT_CONFIGS = [
+    {
+        'name'            : 'walker',
+        'pick_intercept'  : 10.0,   # per-stop setup: locate + scan + grasp
+        'pick_weight_coef': 0.10,   # light items → weight nearly negligible
+        'pick_weight_fn'  : 'log',
+        'pick_volume_coef': 0.50,
+        'pick_volume_fn'  : 'log:2',
+        'cart_swap_coef'  : 30.0,   # tote swap at the depot
+        'x_speed'         : 4.5,    # ft/s — a person walking (vs a machine)
+        'y_speed'         : 2.0,    # ft/s — reaching a ~6 ft shelf
+        'cart'            : 'FulfillmentCart',   # small tote → swaps more often
+        'num_pickers'     : 20,     # walker pool size (independent of K_PICKERS)
+        # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
+    },
+]
+
 
 # ── logging ────────────────────────────────────────────────────────────────────
 
@@ -506,47 +538,72 @@ def build_shared_assets(
 
 # ── flat pool helpers ──────────────────────────────────────────────────────────
 
-# Cart types a REGRESSION_CONFIGS entry may name via a 'cart' key (default: the store cart).
+# Cart types a config entry may name via a 'cart' key (default: the store cart).
 _CART_TYPES = {'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}
 
 
-def _prepare_config_run(
-    cfg     : dict,
-    shared  : dict,
-    pair_dir: str,
-    log     : logging.Logger,
-    workers : int = 1,
-) -> tuple[list, dict]:
-    """Pre-initialise one regression config: create DBs, get run_ids, build strategy_args.
-
-    Builds every per-strategy work unit for one config so the flat pool can submit
-    them all to one ProcessPoolExecutor.
-
-    Returns (strategy_args_list, sim_result_skeleton).
-    strategy_args_list: 3 dicts (A, B, C) ready for _run_strategy_worker.
-      log_queue is NOT yet set — the caller injects it before submission.
-    sim_result_skeleton: dict with name/run_dir/db_paths/run_ids + inv_db/aff_db.
-    """
-    name = cfg.get('name') or (
+def _config_name(cfg: dict) -> str:
+    """A config's directory/identity name (explicit 'name', else a coeff fingerprint)."""
+    return cfg.get('name') or (
         f"w{cfg.get('pick_weight_coef',1.1)}_v{cfg.get('pick_volume_coef',1e-3)}"
         f"_i{cfg.get('pick_intercept',1.0)}_c{cfg.get('cart_swap_coef',10.0)}"
     )
-    pick_cfg = PickConfig(
-        num_pickers      = K_PICKERS,
+
+
+def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig:
+    """Turn a config dict (store or fulfillment) into a PickConfig.
+
+    The one canonical dict→PickConfig conversion shared by both channels' sweeps.
+    Store runs pass num_pickers=K_PICKERS, default_cart=StoreCart; fulfillment runs
+    pass the walker pool size + FulfillmentCart.  A 'cart' key overrides default_cart.
+    """
+    return PickConfig(
+        num_pickers      = num_pickers,
         x_speed          = cfg.get('x_speed',          4.0),   # ft/s (positions are inches)
         y_speed          = cfg.get('y_speed',          2.0),   # ft/s
         pick_intercept   = cfg.get('pick_intercept',   1.0),
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
-        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term, now honored
+        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term
         pick_volume_fn   = cfg.get('pick_volume_fn',   'log'),
         cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
-        cart             = _CART_TYPES.get(cfg.get('cart', 'StoreCart'), StoreCart),
+        cart             = _CART_TYPES.get(cfg['cart'], default_cart) if 'cart' in cfg else default_cart,
         height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
     )
-    wp      = WorkloadParams.from_pick_config(pick_cfg)
-    run_dir = os.path.join(pair_dir, name)
-    db_path = {s.key: os.path.join(run_dir, f'sim_{s.key}.db') for s in STRATEGIES}
+
+
+def _prepare_channel_run(
+    channel,                 # channels.Channel — its picker carries this run's cost + pool
+    cfg     : dict,
+    mixed   : bool,          # catalog has >1 regime → regime-filter + <config>/<channel>/ subdir
+    shared  : dict,
+    pair_dir: str,
+    log     : logging.Logger,
+    workers : int = 1,
+) -> tuple[list, list]:
+    """Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
+    run_ids, build strategy_args for the flat ProcessPoolExecutor.
+
+    Store and fulfillment sweep their own config sets independently, so a run drives a single
+    channel.  ``mixed`` is True when the catalog holds more than one regime — the run then
+    filters inventory to ``channel.regime``, draws its own batch stream, and writes a
+    ``<config>/<channel>/`` subtree.  A store-only catalog (``mixed`` False) collapses to the
+    legacy ``<config>/`` layout + shared precomputed batch stream (byte-identical).
+
+    Returns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set — the caller
+    injects it before submission.
+    """
+    from dataclasses import replace                        # noqa: E402 (local)
+    from regime import regime_of                           # noqa: E402
+
+    name     = _config_name(cfg)
+    pick_cfg = channel.picker.cost      # built via _build_pick_cfg with this channel's pool + cart
+    wp       = WorkloadParams.from_pick_config(pick_cfg)
+    # Single channel → placement uses this run's own wp.  Only one regime's units are placed and
+    # regimes route to disjoint bins, so a cross-regime cost map would be inert (verified against
+    # Inventory_Management.init_travel_costs — the other regime's bins are never read).
+    wp.by_regime = None
+    run_dir  = os.path.join(pair_dir, name)
     os.makedirs(run_dir, exist_ok=True)
 
     inventory          = shared['inventory']
@@ -557,20 +614,6 @@ def _prepare_config_run(
     total_bins         = shared['total_bins']
     total_units_needed = shared['total_units_needed']
     warehouse_meta     = shared.get('warehouse_meta')
-
-    # ── channels: one operation per storage regime present in this catalog ──────────
-    # A store-only inventory yields a single 'store' channel → the original single-stream
-    # path (byte-identical).  A mixed catalog adds a 'fulfillment' channel with its own
-    # picker cost, batch stream, picker pool, and DB subtree.
-    from dataclasses import replace                        # noqa: E402 (local; used per config)
-    from channels import build_channels, wp_by_regime      # noqa: E402
-    from regime import regime_of, FULFILLMENT              # noqa: E402
-    _has_ff       = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
-    channels      = build_channels(pick_cfg, K_PICKERS, include_fulfillment=_has_ff,
-                                   store_restocks=STORE_RESTOCKS)
-    multi_channel = len(channels) > 1
-    # Per-regime cost map for placement/labor routing in a mixed warehouse; None ⇒ store-only.
-    wp.by_regime  = wp_by_regime(channels) if multi_channel else None
 
     # Yardstick: minimal achievable Sigma f*D + full-labor floor W* (pure global-W
     # optimum) for a set of orders under a given pick cost.  Identical across strategies,
@@ -590,7 +633,7 @@ def _prepare_config_run(
         return sfd, wrk
 
     log.info(f'{"="*64}')
-    log.info(f'  Config : {name}')
+    log.info(f'  Config : {name}  [{channel.name}]')
     log.info(f'  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  c={pick_cfg.cart_swap_coef}')
     log.info(f'{"="*64}')
@@ -646,7 +689,7 @@ def _prepare_config_run(
         pick_weight_coef  = pick_cfg.pick_weight_coef,
         pick_volume_coef  = pick_cfg.pick_volume_coef,
         cart_swap_coef    = pick_cfg.cart_swap_coef,
-        k_pickers         = K_PICKERS,
+        k_pickers         = channel.picker.num_pickers,
         n_batches         = N_BATCHES,
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
@@ -670,126 +713,154 @@ def _prepare_config_run(
     _worker_allow = None if _planned_db else shared.get('sku_allowlist')
     _worker_maxsk = None if _planned_db else shared.get('max_skus')
 
-    # ── one worker set per channel over the SHARED warehouse ────────────────────────
-    # Each channel filters the inventory to its regime and simulates with its own picker
-    # cost + pool + batch stream, writing its own DB subtree.  Single channel (store-only)
-    # uses the config dir directly + the precomputed pair-level batch stream → byte-identical
-    # to the pre-channel pipeline.
-    strategy_args: list = []
-    sim_skeletons: list = []
-    for ch in channels:
-        # This channel's strategy arms — a restock subset (e.g. store: fifo + rank_labor) or
-        # the full grid (fulfillment).  All per-channel work below iterates ch_strategies.
-        ch_strategies = strategies_for(ch.restocks)
-        ch_run_dir = os.path.join(run_dir, ch.name) if multi_channel else run_dir
-        os.makedirs(ch_run_dir, exist_ok=True)
-        ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in ch_strategies}
+    # ── one worker set for THIS channel over the shared warehouse ────────────────────
+    # The channel filters inventory to its regime (mixed catalog) and simulates with its own
+    # picker cost + pool + batch stream, writing its own DB subtree.  A store-only catalog
+    # (mixed False) uses the config dir directly + the precomputed pair-level batch stream →
+    # byte-identical to the pre-channel pipeline.
+    ch = channel
+    # This channel's strategy arms — a restock subset (e.g. store: fifo + rank_labor) or the
+    # full grid (fulfillment).  All per-channel work below iterates ch_strategies.
+    ch_strategies = strategies_for(ch.restocks)
+    ch_run_dir = os.path.join(run_dir, ch.name) if mixed else run_dir
+    os.makedirs(ch_run_dir, exist_ok=True)
+    ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in ch_strategies}
 
-        if multi_channel:
-            # Channel-specific cost + pool + an INDEPENDENT batch stream (inline sampling from
-            # the channel's SKU subset — the worker filters inventory by channel_regime).
-            ch_pick_cfg     = replace(ch.picker.cost, num_pickers=ch.picker.num_pickers)
-            ch_wp           = WorkloadParams.from_pick_config(ch_pick_cfg)
-            ch_wp.by_regime = wp.by_regime
-            _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
-            ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
-            ch_seed_batches = SEED_BATCHES + ch.batch_seed_offset
-            ch_regime       = ch.regime
+    if mixed:
+        # Channel-specific cost + pool + an INDEPENDENT batch stream (inline sampling from the
+        # channel's SKU subset — the worker filters inventory by channel_regime).
+        ch_pick_cfg     = replace(ch.picker.cost, num_pickers=ch.picker.num_pickers)
+        ch_wp           = WorkloadParams.from_pick_config(ch_pick_cfg)
+        ch_wp.by_regime = None
+        _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
+        ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
+        ch_seed_batches = SEED_BATCHES + ch.batch_seed_offset
+        ch_regime       = ch.regime
+        ch_batches_path, ch_batches_fp = None, None
+    else:
+        # Store-only path: precomputed pair-level shared batch stream (dedup across configs).
+        ch_pick_cfg, ch_wp = pick_cfg, wp
+        ch_batch_cfg    = batch_cfg
+        ch_seed_batches = SEED_BATCHES
+        ch_regime       = None
+        try:
+            ch_batches_path, ch_batches_fp = ensure_batches(
+                pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
+                ch_batch_cfg, ch_seed_batches, N_BATCHES, workers=workers, log=log)
+        except Exception as exc:               # noqa: BLE001 — never block on precompute
+            log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
             ch_batches_path, ch_batches_fp = None, None
-        else:
-            # Store-only path: precomputed pair-level shared batch stream (dedup across configs).
-            ch_pick_cfg, ch_wp = pick_cfg, wp
-            ch_batch_cfg    = batch_cfg
-            ch_seed_batches = SEED_BATCHES
-            ch_regime       = None
-            try:
-                ch_batches_path, ch_batches_fp = ensure_batches(
-                    pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
-                    ch_batch_cfg, ch_seed_batches, N_BATCHES, workers=workers, log=log)
-            except Exception as exc:               # noqa: BLE001 — never block on precompute
-                log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
-                ch_batches_path, ch_batches_fp = None, None
 
-        # Per-channel yardsticks over THIS section's orders + its own speeds/cost.
-        _ch_orders = [c for c in inventory.orders if regime_of(c) == ch.regime]
-        ch_optimal_sigma_fd, ch_optimal_work = _yardsticks(
-            _ch_orders, ch_pick_cfg.x_speed, ch_pick_cfg.y_speed, ch_wp)
-        ch_run_params = {**run_params,
-                         'optimal_sigma_fd': ch_optimal_sigma_fd,
-                         'optimal_work': ch_optimal_work}
-        log.info(f'  [{ch.name}] Optimal Sigma f*D = {ch_optimal_sigma_fd:,.1f}  '
-                 f'W* floor = {ch_optimal_work:,.1f}')
+    # Per-channel yardsticks over THIS section's orders + its own speeds/cost.
+    _ch_orders = [c for c in inventory.orders if regime_of(c) == ch.regime]
+    ch_optimal_sigma_fd, ch_optimal_work = _yardsticks(
+        _ch_orders, ch_pick_cfg.x_speed, ch_pick_cfg.y_speed, ch_wp)
+    ch_run_params = {**run_params,
+                     'optimal_sigma_fd': ch_optimal_sigma_fd,
+                     'optimal_work': ch_optimal_work}
+    log.info(f'  [{ch.name}] Optimal Sigma f*D = {ch_optimal_sigma_fd:,.1f}  '
+             f'W* floor = {ch_optimal_work:,.1f}')
 
-        resume = _load_resume(ch_run_dir)
-        if resume:
-            run_ids = resume['run_ids']
-            prev    = resume.get('next_batch', {})
-            starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
-                       for s in ch_strategies}
-            log.info(f'  Resuming [{ch.name}]  '
-                     + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
-        else:
-            run_ids = {}
-            _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
-            _identity = dict(
-                pair_label            = _pair_label,
-                config_label          = name,
-                warehouse_fingerprint = shared.get('warehouse_fingerprint'),
-                inventory_label       = _pair_label,
-                channel               = ch.name,
-            )
-            for s in ch_strategies:
-                init_run_db(ch_db_path[s.key])
-                run_ids[s.key] = create_run(
-                    ch_db_path[s.key], s.run_type, ch_run_params,
-                    identity={**_identity, 'strategy_key': s.key})
-            starts = {s.key: 0 for s in ch_strategies}
-            log.info(f'  New run [{ch.name}]  '
-                     + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
-        _save_resume(ch_run_dir, run_ids, starts)
-
-        _shared = dict(
-            inv_db              = _worker_invdb,
-            batches_path        = ch_batches_path,
-            batches_fingerprint = ch_batches_fp,
-            aff_db              = shared['aff_db'],
-            run_dir             = ch_run_dir,
-            n_batches           = N_BATCHES,
-            k_pickers           = ch.picker.num_pickers,
-            seed_world          = SEED_WORLD,
-            seed_batches        = ch_seed_batches,
-            checkpoint          = _CHECKPOINT,
-            max_skus            = _worker_maxsk,
-            sku_allowlist       = _worker_allow,
-            keyframe_interval   = keyframe_interval,
-            warehouse_cfg       = warehouse_cfg,
-            pick_cfg            = ch_pick_cfg,
-            wp                  = ch_wp,
-            load_params         = load_params,
-            batch_cfg           = ch_batch_cfg,
-            channel_regime      = ch_regime,      # worker filters inventory to this regime
-            channel_name        = ch.name,
-            # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
+    resume = _load_resume(ch_run_dir)
+    if resume:
+        run_ids = resume['run_ids']
+        prev    = resume.get('next_batch', {})
+        starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
+                   for s in ch_strategies}
+        log.info(f'  Resuming [{ch.name}]  '
+                 + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
+    else:
+        run_ids = {}
+        _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
+        _identity = dict(
+            pair_label            = _pair_label,
+            config_label          = name,
+            warehouse_fingerprint = shared.get('warehouse_fingerprint'),
+            inventory_label       = _pair_label,
+            channel               = ch.name,
         )
         for s in ch_strategies:
-            strategy_args.append({
-                **_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
-                'start_i': starts[s.key], 'db_path': ch_db_path[s.key], 'channel_key': ch.name})
-        sim_skeletons.append(dict(
-            name       = name,
-            inventory  = _profile,
-            run_dir    = ch_run_dir,
-            channel    = ch.name,
-            strategies = [dict(key=s.key, label=s.label, color=s.color,
-                               db_path=ch_db_path[s.key], run_id=run_ids[s.key],
-                               **_decomp(s.label))
-                          for s in ch_strategies],
-            optimal_sigma_fd = ch_optimal_sigma_fd,
-            optimal_work     = ch_optimal_work,
-            inv_db     = shared['inv_db'],
-            aff_db     = shared['aff_db'],
-        ))
-    return strategy_args, sim_skeletons
+            init_run_db(ch_db_path[s.key])
+            run_ids[s.key] = create_run(
+                ch_db_path[s.key], s.run_type, ch_run_params,
+                identity={**_identity, 'strategy_key': s.key})
+        starts = {s.key: 0 for s in ch_strategies}
+        log.info(f'  New run [{ch.name}]  '
+                 + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
+    _save_resume(ch_run_dir, run_ids, starts)
+
+    _shared = dict(
+        inv_db              = _worker_invdb,
+        batches_path        = ch_batches_path,
+        batches_fingerprint = ch_batches_fp,
+        aff_db              = shared['aff_db'],
+        run_dir             = ch_run_dir,
+        n_batches           = N_BATCHES,
+        k_pickers           = ch.picker.num_pickers,
+        seed_world          = SEED_WORLD,
+        seed_batches        = ch_seed_batches,
+        checkpoint          = _CHECKPOINT,
+        max_skus            = _worker_maxsk,
+        sku_allowlist       = _worker_allow,
+        keyframe_interval   = keyframe_interval,
+        warehouse_cfg       = warehouse_cfg,
+        pick_cfg            = ch_pick_cfg,
+        wp                  = ch_wp,
+        load_params         = load_params,
+        batch_cfg           = ch_batch_cfg,
+        channel_regime      = ch_regime,      # worker filters inventory to this regime
+        channel_name        = ch.name,
+        # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
+    )
+    strategy_args = [{**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
+                      'start_i': starts[s.key], 'db_path': ch_db_path[s.key],
+                      'channel_key': ch.name}
+                     for s in ch_strategies]
+    sim_skeleton = dict(
+        name       = name,
+        inventory  = _profile,
+        run_dir    = ch_run_dir,
+        channel    = ch.name,
+        strategies = [dict(key=s.key, label=s.label, color=s.color,
+                           db_path=ch_db_path[s.key], run_id=run_ids[s.key],
+                           **_decomp(s.label))
+                      for s in ch_strategies],
+        optimal_sigma_fd = ch_optimal_sigma_fd,
+        optimal_work     = ch_optimal_work,
+        inv_db     = shared['inv_db'],
+        aff_db     = shared['aff_db'],
+    )
+    return strategy_args, [sim_skeleton]
+
+
+def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
+    """Plan the channel-runs for one catalog.
+
+    Store and fulfillment sweep their OWN config sets independently (a UNION, not a cross
+    product): every STORE_CONFIGS entry drives a store channel-run, and — only when the
+    catalog is mixed (contains fulfillment units) — every FULFILLMENT_CONFIGS entry drives a
+    fulfillment channel-run.  A store-only catalog yields just the store runs (byte-identical
+    to the pre-fulfillment pipeline).
+
+    Returns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.
+    """
+    from channels import make_channel, FF_BATCH_SEED_OFFSET   # noqa: E402
+    from regime import regime_of, STORE, FULFILLMENT          # noqa: E402
+
+    mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
+    runs: list[tuple] = []
+    for cfg in STORE_CONFIGS:
+        pc = _build_pick_cfg(cfg, num_pickers=K_PICKERS, default_cart=StoreCart)
+        ch = make_channel('store', STORE, pc, K_PICKERS, restocks=STORE_RESTOCKS)
+        runs.append((ch, cfg))
+    if mixed:
+        for cfg in FULFILLMENT_CONFIGS:
+            n  = int(cfg.get('num_pickers', 20))
+            pc = _build_pick_cfg(cfg, num_pickers=n, default_cart=FulfillmentCart)
+            ch = make_channel('fulfillment', FULFILLMENT, pc, n,
+                              restocks=None, batch_seed_offset=FF_BATCH_SEED_OFFSET)
+            runs.append((ch, cfg))
+    return mixed, runs
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:
@@ -894,21 +965,28 @@ def _run_workers_flat(
             pair_dir = os.path.join(base_dir, label)
             shared   = shared_by_pair[label]
 
-            for cfg in REGRESSION_CONFIGS:
-                cfg_name = cfg.get('name', '?')
-                key = (label, cfg_name)
-                # On resume, a config that finalized has written sim_meta.json and had
-                # its resume marker removed (_finalize_config_run).  Skip it so resume
-                # never recomputes already-complete work — _prepare_config_run would
-                # otherwise see no resume.pkl and restart it from batch 0.
-                run_dir = os.path.join(pair_dir, cfg_name)
-                if skip_completed and os.path.exists(os.path.join(run_dir, 'sim_meta.json')) \
-                        and not os.path.exists(_resume_path(run_dir)):
-                    log.info(f'  [{label}/{cfg_name}] already complete — skipping (resume)')
+            # Store and fulfillment sweep their own config sets independently — a UNION of
+            # channel-runs (store configs → store channel; fulfillment configs → fulfillment
+            # channel, only when the catalog is mixed).  See _channel_runs_for.
+            mixed, channel_runs = _channel_runs_for(shared['inventory'])
+            for ch, cfg in channel_runs:
+                cfg_name = _config_name(cfg)
+                # A channel-run's outputs live at <cfg>/<channel>/ (mixed catalog) or <cfg>/
+                # (store-only).  The skip guard must key on that exact dir — sim_meta.json and
+                # resume.pkl land there, not at the config level.
+                ch_run_dir = os.path.join(pair_dir, cfg_name, ch.name) if mixed \
+                             else os.path.join(pair_dir, cfg_name)
+                # On resume, a channel-run that finalized has written sim_meta.json and had its
+                # resume marker removed (_finalize_config_run).  Skip it so resume never
+                # recomputes already-complete work — _prepare_channel_run would otherwise see no
+                # resume.pkl and restart it from batch 0.
+                if skip_completed and os.path.exists(os.path.join(ch_run_dir, 'sim_meta.json')) \
+                        and not os.path.exists(_resume_path(ch_run_dir)):
+                    log.info(f'  [{label}/{cfg_name}/{ch.name}] already complete — skipping (resume)')
                     continue
                 try:
-                    strategy_args, sim_skeletons = _prepare_config_run(
-                        cfg, shared, pair_dir, log, workers=max_workers)
+                    strategy_args, sim_skeletons = _prepare_channel_run(
+                        ch, cfg, mixed, shared, pair_dir, log, workers=max_workers)
                     for sa in strategy_args:
                         sa['log_queue'] = log_queue   # inject shared queue
                         ck = (label, cfg_name, sa.get('channel_key', ''))
@@ -921,7 +999,7 @@ def _run_workers_flat(
                         ck = (label, cfg_name, sk.get('channel', ''))
                         meta[ck] = {'sim_skeleton': sk, 'remaining': len(sk['strategies'])}
                 except Exception as exc:
-                    log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
+                    log.error(f'  [{label}/{cfg_name}/{ch.name}] prepare FAILED: {exc}',
                               exc_info=True)
 
         # Assign a 1-based job index + identity tag to each work unit so every
@@ -1081,33 +1159,41 @@ def main():
         log.info(f'    inv : {inv_db}')
         log.info(f'    aff : {aff_db}')
 
-    n_configs = len(REGRESSION_CONFIGS)
+    n_store = len(STORE_CONFIGS)
+    n_ff    = len(FULFILLMENT_CONFIGS)
     n_strats  = len(STRATEGIES)
-    total_workers = len(pairs) * n_configs * n_strats
     workers = args.workers or 1
     log.info(
-        f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
-        f' = {total_workers} work units  |  flat pool workers={workers}'
+        f'Execution plan: {len(pairs)} pair(s) × ({n_store} store + up to {n_ff} fulfillment) '
+        f'config(s), swept independently per channel  |  flat pool workers={workers}'
     )
 
     # Top-level run manifest: a schema index of this run (inventories × configs × strategies)
     # so the docs ingest can auto-discover what to pull. See docs/experiments/ingest.py.
     def _brackets_json(hb):
         return [[(None if thr == float('inf') else thr), mult] for thr, mult in (hb or ())]
+    def _cfg_json(c, channel):
+        return {'name'           : c['name'],
+                'channel'        : channel,
+                'pick_weight_fn' : c.get('pick_weight_fn'),
+                'pick_volume_fn' : c.get('pick_volume_fn'),
+                'height_brackets': _brackets_json(c.get('height_brackets'))}
+    _store_cfgs = [_cfg_json(c, 'store') for c in STORE_CONFIGS]
+    _ff_cfgs    = [_cfg_json(c, 'fulfillment') for c in FULFILLMENT_CONFIGS]
     run_manifest = {
-        'run'        : os.path.basename(base_dir.rstrip('/\\')),
-        'inventories': [label for label, _inv, _aff in pairs],
-        'configs'    : [{'name'          : c['name'],
-                         'pick_weight_fn': c.get('pick_weight_fn'),
-                         'pick_volume_fn': c.get('pick_volume_fn'),
-                         'height_brackets': _brackets_json(c.get('height_brackets'))}
-                        for c in REGRESSION_CONFIGS],
-        'strategies' : [{'key': s.key, 'label': s.label} for s in STRATEGIES],
-        'baseline'   : STRATEGIES[0].key if STRATEGIES else None,
+        'run'                : os.path.basename(base_dir.rstrip('/\\')),
+        'inventories'        : [label for label, _inv, _aff in pairs],
+        # Merged flat list (store + fulfillment) — kept for docs ingest compatibility, which
+        # reads a single `configs` list.  The per-channel lists below are the source of truth.
+        'configs'            : _store_cfgs + _ff_cfgs,
+        'store_configs'      : _store_cfgs,
+        'fulfillment_configs': _ff_cfgs,
+        'strategies'         : [{'key': s.key, 'label': s.label} for s in STRATEGIES],
+        'baseline'           : STRATEGIES[0].key if STRATEGIES else None,
     }
     with open(os.path.join(base_dir, 'run_manifest.json'), 'w') as f:
         json.dump(run_manifest, f, indent=2)
-    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_configs} cfg × {n_strats} strat)')
+    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_store} store + {n_ff} ff cfg × {n_strats} strat)')
     # ── flat ProcessPoolExecutor: every (pair,config,strategy) unit shares one pool ──
     shared_by_pair = {}
     for label, inv_db, aff_db in pairs:
@@ -1128,7 +1214,7 @@ def main():
     # so a blank DB is discovered NOW, not halfway through downstream analysis.
     _warn_blank_arms(base_dir, log)
 
-    log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'
+    log.info(f'\nAll {len(pairs)} dataset(s) × ({n_store} store + {n_ff} ff) config(s) simulations complete.'
              f'  Root: {base_dir}'
              f'\n  Run graphs: python run_analysis.py {base_dir}')
 

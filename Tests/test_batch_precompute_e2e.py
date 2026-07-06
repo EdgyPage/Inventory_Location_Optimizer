@@ -64,11 +64,22 @@ def _pair_or_skip():
     pytest.skip('no store-only, current-schema inventory/affinity pair for the precompute e2e')
 
 
+def _store_channel_run(shared, pair_dir, cfg, log, workers=1):
+    """Prepare the single store channel-run for `cfg` (this e2e uses a store-only pair, so the
+    catalog is not mixed and the run collapses to the legacy <config>/ layout)."""
+    from channels import make_channel
+    from regime import STORE
+    pc = rs._build_pick_cfg(cfg, num_pickers=rs.K_PICKERS)
+    ch = make_channel('store', STORE, pc, rs.K_PICKERS, restocks=rs.STORE_RESTOCKS)
+    mixed, _ = rs._channel_runs_for(shared['inventory'])       # store-only → False
+    return rs._prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log, workers=workers)
+
+
 def _capture_batch_sequence(shared, pair_dir, cfg, log, *, force_inline):
     """Run the first arm with Task.from_batch stubbed to record each batch (and skip the sim).
     Returns (captured_seq, strategy_args[0]).  captured_seq[i] = (num_skus, sorted items tuple)."""
     os.makedirs(pair_dir, exist_ok=True)
-    strategy_args, _ = rs._prepare_config_run(cfg, shared, pair_dir, log, workers=1)
+    strategy_args, _ = _store_channel_run(shared, pair_dir, cfg, log, workers=1)
     a = strategy_args[0]
     a['log_queue'] = queue.Queue()
     if force_inline:

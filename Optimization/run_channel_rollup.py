@@ -1,11 +1,12 @@
 """run_channel_rollup.py — combine per-channel best plans into a whole-warehouse saving.
 
-The simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse,
-each analyzed on its own by run_analysis.py (its own `fifo` baseline, its own winner).  This
-post-analysis step is the ONE place that combines them: for each (inventory, config) it reads
-every channel's `series.json`, computes each plan's absolute production-time saving vs that
-channel's `fifo` baseline, picks the best plan per channel, and SUMS the per-channel best
-savings into a cumulative whole-warehouse saving.
+The simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each
+sweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py
+(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that
+combines them: for each inventory it reads every channel's `series.json`, computes each plan's
+absolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)
+per channel across ALL that channel's configs, and SUMS the per-channel best savings into a
+cumulative whole-warehouse saving.
 
 Because the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are
 ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
@@ -110,7 +111,7 @@ def rollup(base_dir: str, log=print) -> dict:
         return {}
 
     all_rows: list[dict] = []
-    groups: dict[tuple, list[dict]] = defaultdict(list)   # (pair, config) -> [channel_info]
+    all_infos: list[dict] = []
     for meta_path, series_path in pairs:
         with open(meta_path) as f:
             meta = json.load(f)
@@ -118,7 +119,15 @@ def rollup(base_dir: str, log=print) -> dict:
             series = json.load(f)
         info, rows = _channel_rows(meta, series)
         all_rows.extend(rows)
-        groups[(info['pair'], info['config'])].append(info)
+        all_infos.append(info)
+
+    # Store and fulfillment sweep INDEPENDENT config sets, so the whole-warehouse best is the
+    # best (config, plan) per channel summed across channels — grouped per PAIR, not per config.
+    # (Grouping per config would only combine channels that happened to share a config name; with
+    # independent sweeps store and fulfillment configs are named separately and never would.)
+    by_pair: dict = defaultdict(lambda: defaultdict(list))   # pair -> channel -> [channel_info]
+    for info in all_infos:
+        by_pair[info['pair']][info['channel']].append(info)
 
     # ── per-plan CSV (also the mix-and-match table) ──────────────────────────────
     plan_csv = os.path.join(base_dir, 'channel_rollup.csv')
@@ -130,31 +139,36 @@ def rollup(base_dir: str, log=print) -> dict:
         for r in all_rows:
             w.writerow(r)
 
-    # ── summary CSV + stdout: best per channel, then cumulative whole-warehouse ───
+    # ── summary CSV + stdout: best (config, plan) per channel, then cumulative whole-warehouse ─
     summary_csv = os.path.join(base_dir, 'channel_rollup_summary.csv')
     summary_rows = []
-    for (pair, config), infos in sorted(groups.items()):
+    for pair, chan_map in sorted(by_pair.items()):
         cum_saving = 0.0
         cum_base = 0.0
-        log(f'\n{"="*70}\n  {pair}  /  {config}\n{"="*70}')
-        for info in sorted(infos, key=lambda i: i['channel']):
-            best = info['best']
-            base_ss = info['base_ss']
-            if best is None or not _is_num(base_ss):
-                log(f'  [{info["channel"]:<12}] no numeric series — skipped')
+        log(f'\n{"="*70}\n  {pair}\n{"="*70}')
+        for channel, infos in sorted(chan_map.items()):
+            # This channel's winner ACROSS all its configs: the (config, plan) with the biggest
+            # absolute saving vs that config's own fifo baseline.
+            cand = [i for i in infos if i['best'] is not None and _is_num(i['base_ss'])]
+            if not cand:
+                log(f'  [{channel:<12}] no numeric series — skipped')
                 continue
+            win = max(cand, key=lambda i: i['best']['saving_abs'])
+            best = win['best']
+            base_ss = win['base_ss']
             cum_saving += best['saving_abs']
             cum_base += base_ss
-            log(f'  [{info["channel"]:<12}] best = {best["plan_key"]:<22} '
+            log(f'  [{channel:<12}] best = {win["config"]}/{best["plan_key"]:<22} '
                 f'saving {best["saving_abs"]:>12,.1f}  ({best["saving_pct"]:>5.1f}%)  '
-                f'baseline(fifo) {base_ss:,.1f}')
-            if info.get('dropped_arms'):
-                log(f'      !! {len(info["dropped_arms"])} arm(s) ran but are MISSING from '
-                    f'analysis (e.g. {info["dropped_arms"][0]}); best chosen from a SUBSET.')
+                f'baseline(fifo) {base_ss:,.1f}'
+                + (f'  (best of {len(cand)} configs)' if len(cand) > 1 else ''))
+            if win.get('dropped_arms'):
+                log(f'      !! {len(win["dropped_arms"])} arm(s) ran but are MISSING from '
+                    f'analysis (e.g. {win["dropped_arms"][0]}); best chosen from a SUBSET.')
                 log(f'      !! Re-run: python run_analysis.py <base> --preset BY_INITIAL '
                     f'(focus=all) to include opt_* arms.')
             summary_rows.append(dict(
-                pair=pair, config=config, channel=info['channel'],
+                pair=pair, channel=channel, best_config=win['config'],
                 best_plan=best['plan_key'], baseline_fifo_ss=base_ss,
                 best_ss=best['ss_prod_hours'], saving_abs=best['saving_abs'],
                 saving_pct=best['saving_pct']))
@@ -163,13 +177,13 @@ def rollup(base_dir: str, log=print) -> dict:
         log(f'  CUMULATIVE whole-warehouse saving = {cum_saving:,.1f} sim units '
             f'({cum_pct:.1f}% of combined fifo baseline {cum_base:,.1f})')
         summary_rows.append(dict(
-            pair=pair, config=config, channel='(cumulative)',
+            pair=pair, channel='(cumulative)', best_config='(per-channel best)',
             best_plan='sum(best per channel)', baseline_fifo_ss=cum_base,
             best_ss=cum_base - cum_saving, saving_abs=cum_saving, saving_pct=cum_pct))
 
     with open(summary_csv, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=[
-            'pair', 'config', 'channel', 'best_plan', 'baseline_fifo_ss',
+            'pair', 'channel', 'best_config', 'best_plan', 'baseline_fifo_ss',
             'best_ss', 'saving_abs', 'saving_pct'])
         w.writeheader()
         for r in summary_rows:
@@ -180,7 +194,7 @@ def rollup(base_dir: str, log=print) -> dict:
     log('\nMix-and-match: channels are independent, so any (store-plan, fulfillment-plan)')
     log('combined saving is just the sum of their saving_abs rows in channel_rollup.csv.')
     return dict(plan_csv=plan_csv, summary_csv=summary_csv,
-                n_channels=len(all_rows and pairs), n_groups=len(groups))
+                n_channels=len(all_rows and pairs), n_groups=len(by_pair))
 
 
 def main() -> None:

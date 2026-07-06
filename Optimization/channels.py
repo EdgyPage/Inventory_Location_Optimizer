@@ -84,6 +84,27 @@ def fulfillment_pick_config() -> PickConfig:
     )
 
 
+def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
+                 *, restocks: tuple[str, ...] | None = None,
+                 batch_seed_offset: int = 0) -> Channel:
+    """Build a single Channel from a picker cost + pool size.
+
+    The one-channel primitive the runner uses to sweep each section's configs
+    independently; build_channels() composes the standard store+fulfillment pair on
+    top of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream
+    (store uses 0; fulfillment a large offset so its stream never overlaps store's).
+    """
+    return Channel(
+        name=name, regime=regime, batch_seed_offset=batch_seed_offset,
+        picker=PickerProfile(f'{name}_picker', pick_cfg, num_pickers),
+        restocks=restocks,
+    )
+
+
+# Seed offset that gives the fulfillment channel a batch stream independent of store's.
+FF_BATCH_SEED_OFFSET = 1_000_000
+
+
 def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
                    *, include_fulfillment: bool,
                    ff_pick_cfg: PickConfig | None = None,

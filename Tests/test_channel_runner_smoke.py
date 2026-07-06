@@ -1,11 +1,13 @@
 """test_channel_runner_smoke.py — mixed-catalog fan-out through the REAL run_simulation wiring.
 
 Generates a small mixed catalog (store families + a fulfillment cube family), builds the shared
-assets (a mixed warehouse), runs `_prepare_config_run` + `_run_strategy_worker` per channel, and
-asserts each channel writes its OWN DB subtree with batch stats and the right `channel` identity.
+assets (a mixed warehouse), plans the independent per-channel sweep with `_channel_runs_for`,
+runs `_prepare_channel_run` + `_run_strategy_worker` per channel, and asserts each channel writes
+its OWN DB subtree with batch stats and the right `channel` identity.
 
-This exercises the production seam (`_prepare_config_run` fan-out + the one-worker-per-channel
-worker + per-channel persistence) without the full multiprocessing pool.
+This exercises the production seam (`_channel_runs_for` + `_prepare_channel_run` per channel-run
++ the one-worker-per-channel worker + per-channel persistence) without the full multiprocessing
+pool.
 
 Run:  python -m pytest Tests/test_channel_runner_smoke.py -q
 """
@@ -35,6 +37,19 @@ _DIM = {'dist': 'uniform', 'low': 20, 'high': 44}
 _WT = {'dist': 'volume_poisson'}
 
 
+def _prepare_all_channels(shared, pair_dir, log, workers=1):
+    """New independent-sweep seam: plan every channel-run (store configs + fulfillment
+    configs via _channel_runs_for) and concatenate their strategy_args + skeletons —
+    mirroring what _run_workers_flat does across the union."""
+    mixed, channel_runs = rs._channel_runs_for(shared['inventory'])
+    all_args, all_sk = [], []
+    for ch, cfg in channel_runs:
+        a, sk = rs._prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log, workers=workers)
+        all_args.extend(a)
+        all_sk.extend(sk)
+    return all_args, all_sk
+
+
 def _mixed_dbs(tmp_path):
     plan = [
         Family('food', 0.4, (0.5, 0.5), _DIM, _DIM, _DIM, _WT),
@@ -57,9 +72,11 @@ def _mixed_dbs(tmp_path):
     return inv_db, aff_db
 
 
-def test_mixed_fanout_writes_per_channel_dbs(tmp_path):
+def test_mixed_fanout_writes_per_channel_dbs(tmp_path, monkeypatch):
     log = logging.getLogger('chan-smoke'); log.setLevel(logging.ERROR)
     rs.N_BATCHES = 3
+    # One store config keeps the smoke run fast; fulfillment keeps its single default config.
+    monkeypatch.setattr(rs, 'STORE_CONFIGS', [rs.REGRESSION_CONFIGS[0]])
 
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
@@ -67,11 +84,10 @@ def test_mixed_fanout_writes_per_channel_dbs(tmp_path):
         inv_db, aff_db, log, max_skus=300, max_bins=40000, min_bins=3000,
         keyframe_interval=1, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
-    cfg = rs.REGRESSION_CONFIGS[0]
     pair_dir = str(tmp_path / 'run' / 'mixed'); os.makedirs(pair_dir, exist_ok=True)
-    strategy_args, sim_skeletons = rs._prepare_config_run(cfg, shared, pair_dir, log, workers=1)
+    strategy_args, sim_skeletons = _prepare_all_channels(shared, pair_dir, log, workers=1)
 
-    # fan-out produced one run subtree per channel
+    # the independent sweep produced one run subtree per channel
     channels = {sk['channel'] for sk in sim_skeletons}
     assert channels == {'store', 'fulfillment'}, channels
     for sk in sim_skeletons:
@@ -99,12 +115,13 @@ def test_mixed_fanout_writes_per_channel_dbs(tmp_path):
         assert row and row[0] == ch                         # persisted channel identity
 
 
-def test_mixed_analysis_replicates_per_channel(tmp_path):
+def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     """run_analysis discovers the per-channel run subtrees and replicates the whole graph
     suite for each channel (store + fulfillment) — no plot-module changes required."""
     import run_analysis as ra
     log = logging.getLogger('chan-an'); log.setLevel(logging.ERROR)
     rs.N_BATCHES = 2
+    monkeypatch.setattr(rs, 'STORE_CONFIGS', [rs.REGRESSION_CONFIGS[0]])
 
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
@@ -112,10 +129,9 @@ def test_mixed_analysis_replicates_per_channel(tmp_path):
         inv_db, aff_db, log, max_skus=200, max_bins=40000, min_bins=2000,
         keyframe_interval=1, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
-    cfg = rs.REGRESSION_CONFIGS[0]
     base_dir = str(tmp_path / 'run')
     pair_dir = os.path.join(base_dir, 'mixed'); os.makedirs(pair_dir, exist_ok=True)
-    strategy_args, sim_skeletons = rs._prepare_config_run(cfg, shared, pair_dir, log, workers=1)
+    strategy_args, sim_skeletons = _prepare_all_channels(shared, pair_dir, log, workers=1)
 
     for a in strategy_args:                       # run every strategy of every channel
         a['log_queue'] = queue.Queue()
@@ -125,8 +141,64 @@ def test_mixed_analysis_replicates_per_channel(tmp_path):
 
     ra.run_analysis(base_dir, log, workers=1, preset='NO_STATS')
 
-    for ch in ('store', 'fulfillment'):
-        ch_dir = os.path.join(pair_dir, cfg['name'], ch)
+    # Each channel writes its OWN run subtree (store under its config name, fulfillment under
+    # its own) — derive the dir from the skeleton rather than assuming a shared config name.
+    assert {sk['channel'] for sk in sim_skeletons} == {'store', 'fulfillment'}
+    for sk in sim_skeletons:
+        ch_dir = sk['run_dir']
         assert os.path.exists(os.path.join(ch_dir, 'sim_meta.json'))
         pngs = glob.glob(os.path.join(ch_dir, '**', '*.png'), recursive=True)
-        assert pngs, f'no graphs generated for channel {ch}'
+        assert pngs, f'no graphs generated for channel {sk["channel"]}'
+
+
+def _mixed_inventory(num_skus=120, seed=2):
+    plan = [
+        Family('food', 0.5, (0.5, 0.5), _DIM, _DIM, _DIM, _WT),
+        fulfillment_family(share=0.5, cube_sizes=(4, 6, 8)),
+    ]
+    return build_inventory_from_plan(num_skus=num_skus, plan=plan, seed=seed)
+
+
+def _store_only_inventory(num_skus=120, seed=3):
+    plan = [Family('food', 0.6, (0.5, 0.5), _DIM, _DIM, _DIM, _WT),
+            Family('clothing', 0.4, (0.5, 0.5), _DIM, _DIM, _DIM, _WT)]
+    return build_inventory_from_plan(num_skus=num_skus, plan=plan, seed=seed)
+
+
+def test_independent_sweep_is_union_not_cross_product(monkeypatch):
+    """A mixed catalog sweeps store and fulfillment configs INDEPENDENTLY: one channel-run per
+    store config + one per fulfillment config (a union), never the cross product.  Store runs
+    carry the store cost/pool + their own names; fulfillment runs carry the walker cost + theirs."""
+    from regime import STORE, FULFILLMENT
+    from Storage_Primitive import FulfillmentCart
+
+    # Asymmetric counts (3 vs 2) so union (5) is distinguishable from a cross product (6).
+    store_cfgs = [{'name': 's1'}, {'name': 's2'}, {'name': 's3'}]
+    ff_cfgs    = [{'name': 'f1'}, {'name': 'f2', 'cart': 'FulfillmentCart', 'num_pickers': 12}]
+    monkeypatch.setattr(rs, 'STORE_CONFIGS', store_cfgs)
+    monkeypatch.setattr(rs, 'FULFILLMENT_CONFIGS', ff_cfgs)
+
+    mixed, runs = rs._channel_runs_for(_mixed_inventory())
+    assert mixed is True
+    assert len(runs) == len(store_cfgs) + len(ff_cfgs) == 5      # union, not 3×2
+
+    store_runs = [(ch, c) for ch, c in runs if ch.name == 'store']
+    ff_runs    = [(ch, c) for ch, c in runs if ch.name == 'fulfillment']
+    assert [c['name'] for _, c in store_runs] == ['s1', 's2', 's3']
+    assert [c['name'] for _, c in ff_runs] == ['f1', 'f2']
+    for ch, _ in store_runs:
+        assert ch.regime == STORE and ch.picker.num_pickers == rs.K_PICKERS
+    for ch, _ in ff_runs:
+        assert ch.regime == FULFILLMENT and ch.picker.cost.cart is FulfillmentCart
+    assert ff_runs[1][0].picker.num_pickers == 12               # per-config walker pool override
+
+
+def test_store_only_catalog_skips_fulfillment_sweep(monkeypatch):
+    """A store-only catalog runs ONLY the store config sweep (no fulfillment channel-runs), so it
+    stays byte-identical to the pre-fulfillment pipeline regardless of FULFILLMENT_CONFIGS."""
+    monkeypatch.setattr(rs, 'STORE_CONFIGS', [{'name': 's1'}, {'name': 's2'}])
+    monkeypatch.setattr(rs, 'FULFILLMENT_CONFIGS', [{'name': 'f1'}, {'name': 'f2'}])
+    mixed, runs = rs._channel_runs_for(_store_only_inventory())
+    assert mixed is False
+    assert [ch.name for ch, _ in runs] == ['store', 'store']
+    assert [c['name'] for _, c in runs] == ['s1', 's2']
