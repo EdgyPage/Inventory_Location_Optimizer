@@ -12,11 +12,12 @@ Because the channels are independent, absolute savings (sim-unit `ss_prod_hours`
 ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
 per-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.
 
-Run AFTER run_analysis.py (which writes the series.json files).  IMPORTANT: run the
-analysis with --preset BY_INITIAL so BOTH uni_* and opt_* arms land in series.json;
-the default preset (focus='uni') drops every opt_* arm, so the rollup would pick the
-best from only half the suite (it warns when it detects this):
-  python run_analysis.py <base_dir> --preset BY_INITIAL
+Run AFTER run_analysis.py (which writes the series.json files).  The analysis default preset
+is BY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in series.json and the rollup
+sees the full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_*
+arm is dropped and the rollup picks the best from only half the suite (it warns when it detects
+this — re-run the analysis without --preset DEFAULT):
+  python run_analysis.py <base_dir>
   python run_channel_rollup.py <base_dir>
 Outputs (under <base_dir>):
   channel_rollup.csv          — one row per (inventory, config, channel, plan): absolute + % saving

@@ -12,9 +12,14 @@ loaded once, shared across its graphs); `--granularity graph` = one job per (con
 for maximum core utilization on sparse runs.
 
 Usage:
-  python run_analysis.py <base_dir>
-  python run_analysis.py <base_dir> --preset BY_INITIAL --workers 8
+  python run_analysis.py <base_dir>                        # default preset BY_INITIAL
+  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)
   python run_analysis.py <base_dir> --granularity graph --set compare.top_metric.top_n=3
+
+The default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum
+(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the
+downstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older
+uniform-only view.
 """
 
 import argparse
@@ -232,7 +237,7 @@ def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
 
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 preset: str = 'DEFAULT', granularity: str = 'config',
+                 preset: str = 'BY_INITIAL', granularity: str = 'config',
                  cli_set: dict | None = None) -> None:
     """Re-run analysis on all completed sims under *base_dir* via the registry.
 
@@ -293,8 +298,10 @@ def main() -> None:
     parser.add_argument('base_dir', nargs='?', default=None,
                         help='Comparison output directory (e.g. comparison_20260605_120000). '
                              'Relative paths are resolved under COMPARISON_OUTPUT_DIR.')
-    parser.add_argument('--preset', default='DEFAULT', choices=sorted(PRESETS),
-                        help='Which set of graphs to run (see Performance_Evaluations/presets.py).')
+    parser.add_argument('--preset', default='BY_INITIAL', choices=sorted(PRESETS),
+                        help='Which set of graphs to run (see Performance_Evaluations/presets.py). '
+                             'Default BY_INITIAL (focus=all) keeps both uni_* and opt_* arms so the '
+                             'optimum-vs-uniform comparison is produced; pass DEFAULT for uni-only.')
     parser.add_argument('--workers', type=int, default=1,
                         help='Flat-pool worker processes (1 = inline/sequential).')
     parser.add_argument('--granularity', default='config', choices=('config', 'graph'),
