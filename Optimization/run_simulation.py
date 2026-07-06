@@ -65,6 +65,7 @@ from strategies import STRATEGIES, strategies_for
 from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
+from Storage_Primitive import StoreCart, FulfillmentCart
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import BatchConfig
 
@@ -504,6 +505,10 @@ def build_shared_assets(
 
 # ── flat pool helpers ──────────────────────────────────────────────────────────
 
+# Cart types a REGRESSION_CONFIGS entry may name via a 'cart' key (default: the store cart).
+_CART_TYPES = {'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}
+
+
 def _prepare_config_run(
     cfg     : dict,
     shared  : dict,
@@ -535,6 +540,7 @@ def _prepare_config_run(
         pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term, now honored
         pick_volume_fn   = cfg.get('pick_volume_fn',   'log'),
         cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
+        cart             = _CART_TYPES.get(cfg.get('cart', 'StoreCart'), StoreCart),
         height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
     )
     wp      = WorkloadParams.from_pick_config(pick_cfg)
@@ -596,6 +602,8 @@ def _prepare_config_run(
         'pick_volume_fn'  : pick_cfg.pick_volume_fn,
         'pick_intercept'  : pick_cfg.pick_intercept,
         'cart_swap_coef'  : pick_cfg.cart_swap_coef,
+        'cart'            : pick_cfg.cart.__name__,
+        'cart_capacity'   : pick_cfg.cart.capacity(),
         'x_speed'         : pick_cfg.x_speed,
         'y_speed'         : pick_cfg.y_speed,
         'num_pickers'     : pick_cfg.num_pickers,

@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Storage_Primitive import FulfillmentCart
 from Workload import WorkloadParams
 from Workload_Builder import BatchConfig
 from regime import STORE, FULFILLMENT
@@ -78,6 +79,7 @@ def fulfillment_pick_config() -> PickConfig:
         pick_weight_fn   = 'log',
         pick_volume_fn   = 'log:2',
         cart_swap_coef   = 30.0,     # tote swap at the depot
+        cart             = FulfillmentCart,   # small tote (25,000) → swaps more often than the store cart
         height_brackets  = DEFAULT_HEIGHT_BRACKETS,   # no-op for ff bins (all M=1)
     )
 

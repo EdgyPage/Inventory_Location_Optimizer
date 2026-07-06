@@ -379,17 +379,28 @@ def viable_storage_units(order: Order, quantity: int) -> list[StorageUnit]:
 
 
 class StorageCart:
+    """Base cart type: the picking container whose volume sets the cart-swap threshold.
+
+    Subclasses model different cart sizes (see StoreCart / FulfillmentCart) by overriding
+    the dimensions; capacity() reads the volume off the *type* so config/sim code never has
+    to instantiate a cart just to know how much it holds.  Add a new cart = new subclass.
+    """
     max_length: int = 50
     max_width: int = 50
     max_height: int = 50
 
     def __init__(self) -> None:
-        self._remaining_volume: int = self.max_length * self.max_width * self.max_height
+        self._remaining_volume: int = self.capacity()
         self._contents: list[tuple[Order, int]] = []
+
+    @classmethod
+    def capacity(cls) -> int:
+        """Total cart volume (length * width * height), read off the type."""
+        return cls.max_length * cls.max_width * cls.max_height
 
     @property
     def total_volume(self) -> int:
-        return self.max_length * self.max_width * self.max_height
+        return self.capacity()
 
     @property
     def remaining_volume(self) -> int:
@@ -425,3 +436,14 @@ class StorageCart:
         if unit.quantity == 0:
             bin_.storage = None
         return actual
+
+
+class StoreCart(StorageCart):
+    """Standard picking cart for the store restock channel (50*50*50 = 125,000)."""
+
+
+class FulfillmentCart(StorageCart):
+    """Smaller tote-cart for the fulfillment channel — 1/5 the store cart (50*50*10 = 25,000).
+    The reduced volume trips the cart-swap threshold more often, shifting fulfillment labor
+    toward the cart/route terms (see the pick-time model)."""
+    max_height: int = 10

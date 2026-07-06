@@ -232,3 +232,21 @@ def test_channels_module():
     # BatchConfig is built per channel SKU-subset size
     bc = chans[1].batch_config(inventory_size=500)
     assert bc.inventory_size == 500 and bc.mean_fraction == chans[1].batch_mean_fraction
+
+
+def test_per_channel_cart_type():
+    """Store keeps the standard 125k cart; fulfillment gets the 25k tote, and the smaller
+    cart yields a strictly larger carts_required for the same picked volume."""
+    from math import ceil
+    from Pick import PickConfig
+    from Storage_Primitive import StoreCart, FulfillmentCart
+    from channels import fulfillment_pick_config
+
+    assert StoreCart.capacity() == 125_000
+    assert FulfillmentCart.capacity() == 25_000
+    assert PickConfig().cart is StoreCart                       # default unchanged (store standard)
+    assert fulfillment_pick_config().cart is FulfillmentCart    # ff channel uses the small tote
+
+    # carts_required scales inversely with cart volume for the same total picked volume.
+    total_vol = 90_000
+    assert ceil(total_vol / StoreCart.capacity()) < ceil(total_vol / FulfillmentCart.capacity())

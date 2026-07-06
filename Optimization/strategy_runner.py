@@ -406,7 +406,7 @@ def _run_strategy_worker(args: dict) -> dict:
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
         _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
-        tasks    = Task.from_batch(batch, warehouse, manager=mgr)
+        tasks    = Task.from_batch(batch, warehouse, manager=mgr, cart=pick_cfg.cart)
         _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
         pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks

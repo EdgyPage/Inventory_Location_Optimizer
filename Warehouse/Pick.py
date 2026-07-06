@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from Storage_Primitive import StorageCart
+from Storage_Primitive import StorageCart, StoreCart
 from Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
@@ -13,7 +13,7 @@ from cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, s
 if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
 
-_CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
+_CART_CAPACITY: int = StoreCart.capacity()   # default (store) cart volume; see PickConfig.cart
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -31,6 +31,10 @@ class PickConfig:
     pick_weight_fn: str     = 'log'
     pick_volume_fn: str     = 'log'
     cart_swap_coef: float   = 5.0
+    # Cart TYPE for this channel — its capacity() sets the cart-swap threshold. A smaller cart
+    # (e.g. FulfillmentCart) swaps more often. Default StoreCart = today's 125,000, so store is
+    # unchanged. Stored as the class (stateless config), read via cfg.cart.capacity().
+    cart: type[StorageCart] = StoreCart
     # (upper_y_phys, handling_multiplier) brackets — scales the per-unit handling by height
     height_brackets: tuple  = field(default_factory=lambda: DEFAULT_HEIGHT_BRACKETS)
 
@@ -176,7 +180,8 @@ class PickSimulation:
         time: float = 0.0
         x: float = 0.0   # physical X position (starts at aisle entrance)
         y: float = 0.0   # physical Y position
-        cart_remaining: int = _CART_CAPACITY
+        cart_cap: int = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
+        cart_remaining: int = cart_cap
         carts_used: int = 1
         session_items: int = 0   # cumulative items picked across all tasks
         has_manager: bool = self._manager is not None
@@ -228,7 +233,7 @@ class PickSimulation:
                         items_picked=session_items, total_items=total_items,
                     ))
                     carts_used   += 1
-                    cart_remaining = _CART_CAPACITY
+                    cart_remaining = cart_cap
 
                 # ── pick ─────────────────────────────────────────────────────
                 pt = _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
