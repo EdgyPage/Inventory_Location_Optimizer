@@ -90,8 +90,8 @@ class PickerProgress:
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
-               cart_swapped: bool, y_phys: float = 0.0) -> float:
-    """Log-linear regression model for time to pick `quantity` units of a order.
+               y_phys: float = 0.0) -> float:
+    """Log-linear model for the at-location HANDLING time to pick `quantity` units of an order.
 
     weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
     raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
@@ -100,17 +100,15 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     y_phys is the bin's physical height; the height bracket factor scales the ENTIRE
     at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
     handling (equipment is slower at everything up high), i.e. M(y)·(intercept + qty·var).
-    The cart-swap penalty is NOT height-scaled (it is a cart/depot operation, not at the
-    bin).  y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are
-    unaffected.
+    y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
+
+    The cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term — the sim loops
+    charge it as its own timed step at the swap and the decomposition attributes it to travel.
     """
     hmult = height_multiplier(cfg.height_brackets, y_phys)
     var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef,
                        cfg.pick_weight_fn, cfg.pick_volume_fn)
-    return (
-        hmult * (cfg.pick_intercept + var * quantity)
-        + cfg.cart_swap_coef * int(cart_swapped)
-    )
+    return hmult * (cfg.pick_intercept + var * quantity)
 
 
 # ── simulation ───────────────────────────────────────────────────────────────
@@ -223,9 +221,14 @@ class PickSimulation:
                 ))
 
                 # ── cart swap ────────────────────────────────────────────────
+                # The swap consumes its own time (return the full cart, fetch an empty one).
+                # Advancing `time` first, then emitting the event, makes the gap ending at the
+                # cart_swap event carry the swap seconds — which the decomposition charges to
+                # travel (a route/depot cost), not handling.
                 needed_vol   = order.volume() * qty
                 cart_swapped = needed_vol > cart_remaining
                 if cart_swapped:
+                    time += cfg.cart_swap_coef
                     events.append(PickEvent(
                         time=time, picker_id=picker_id, event_type='cart_swap',
                         aisle_id=task.aisle_id, location=bin_.location,
@@ -235,8 +238,8 @@ class PickSimulation:
                     carts_used   += 1
                     cart_remaining = cart_cap
 
-                # ── pick ─────────────────────────────────────────────────────
-                pt = _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
+                # ── pick (handling only; cart swap charged above) ────────────
+                pt = _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
                 time          += pt
                 cart_remaining = max(0, cart_remaining - needed_vol)
                 bins_done      += 1

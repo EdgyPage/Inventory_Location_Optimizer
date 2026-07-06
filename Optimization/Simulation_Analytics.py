@@ -662,9 +662,11 @@ def task_time_breakdown(events: list) -> tuple[float, float, float]:
 
     Each picker's timeline is walked in time order; the gap *ending* at an event is
     charged by that event's type: a gap ending at 'arrive' is travel (move to a bin),
-    a gap ending at 'pick' is handling (= _pick_time, incl. any cart-swap), everything
-    else (task_start/end, done, cart_swap markers) is 'other' (≈0 / inter-task).  Works
-    on PickEvent objects or PickerEventRecord rows (both have .picker_id/.time/.event_type).
+    a gap ending at 'cart_swap' is travel too (return the full cart / fetch an empty one — a
+    route/depot cost, matching the analytical objective which folds cart into travel), a gap
+    ending at 'pick' is handling (= _pick_time, at-location only), everything else
+    (task_start/end, done) is 'other' (≈0 / inter-task).  Works on PickEvent objects or
+    PickerEventRecord rows (both have .picker_id/.time/.event_type).
     travel + handling ≈ Σ task durations (productivity hours).
     """
     from collections import defaultdict
@@ -679,7 +681,7 @@ def task_time_breakdown(events: list) -> tuple[float, float, float]:
             if prev is not None:
                 gap = e.time - prev.time
                 if gap > 0:
-                    if e.event_type == 'arrive':
+                    if e.event_type in ('arrive', 'cart_swap'):
                         travel += gap
                     elif e.event_type == 'pick':
                         handling += gap

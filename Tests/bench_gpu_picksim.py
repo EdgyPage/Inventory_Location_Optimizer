@@ -5,9 +5,9 @@ big speedup here moves the whole run little - benchmarked for completeness.
 Flatten a batch's P picks into arrays and compute, vectorized:
   var  = pw*ln(w) + pv*ln(v)                       (handle term; default log fns)
   hmult = step over DEFAULT_HEIGHT_BRACKETS (y_phys)
-  pick_time = hmult*(intercept + var*qty) + cart_swap_coef*cart_swapped
+  pick_time = hmult*(intercept + var*qty)          (handling only; cart swap is a separate step)
   leg  = dx*x_pace + dy*y_pace                      (travel between consecutive bins)
-  event time = cumsum(leg + pick_time)             (prefix-sum; segmented per picker in prod)
+  event time = cumsum(leg + cart_swap_coef*cart_swapped + pick_time)  (prefix-sum; per picker in prod)
 We bench the per-pick MAP (equivalence-checked) + the cumsum scan.
 
 Fixed seeds.  Run: python Tests/bench_gpu_picksim.py

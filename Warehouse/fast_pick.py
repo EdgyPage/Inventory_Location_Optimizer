@@ -110,9 +110,12 @@ def _simulate_picker_deferred(
                 items_picked=session_items, total_items=total_items,
             ))
 
+            # Swap consumes its own time; advancing `t` before emitting the event makes the gap
+            # ending at cart_swap carry the swap seconds → attributed to travel (see Pick.py).
             needed_vol   = order.volume() * qty
             cart_swapped = needed_vol > cart_remaining
             if cart_swapped:
+                t += cfg.cart_swap_coef
                 events.append(PickEvent(
                     time=t, picker_id=picker_id, event_type='cart_swap',
                     aisle_id=task.aisle_id, location=bin_.location,
@@ -121,7 +124,7 @@ def _simulate_picker_deferred(
                 ))
                 cart_remaining = cart_cap
 
-            t             += _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
+            t             += _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
             cart_remaining  = max(0, cart_remaining - needed_vol)
             bins_done      += 1
             session_items  += qty
