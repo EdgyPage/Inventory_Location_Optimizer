@@ -23,9 +23,12 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from regime import regime_of, STORE, FULFILLMENT
 from Storage_Primitive import viable_storage_units
-from Inventory_Management import Inventory_Manager
+from Inventory_Management import Inventory_Manager, Placement
 from Warehouse_Builder import Warehouse_Builder
 from Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Affinity_Store import AffinityStore
+from Workload import WorkloadParams
+from Assignment_Functions import build_cluster_maximizing_assignment_fn
 from strategies import STRATEGIES, strategies_for
 from channels import build_channels
 from Pick import PickConfig
@@ -101,3 +104,43 @@ def test_guard_rejects_a_forced_cross_regime_placement():
     assert regime_of(ff_unit) == FULFILLMENT
     with pytest.raises(AssertionError, match='cross-regime placement'):
         mgr._execute_placement(ff_unit, store_bin)
+
+
+# ── cohesion opt-stock places fulfillment units (aisle-index size-table regression) ──
+
+def test_opt_cohesion_stock_places_fulfillment_units():
+    """Regression for the blank-DB bug: opt/policy-stock via a cohesion (cluster) policy
+    must place fulfillment units.  The aisle-index fast path used the pallet-only size
+    table, so ff units (sizes ff_*) never matched any ff BinKey and were silently dropped
+    -> no bins filled -> no pick tasks -> blank sim DB.  This asserts ff units get placed."""
+    plan = _plan(_mixed_inventory())
+    wh = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
+    mgr = Inventory_Manager(wh, affinity=None)
+    aff = AffinityStore(':memory:')
+    # A usable affinity matrix (cohesion refuses to run without one).  Edges span every
+    # sampled SKU (store + fulfillment); on an empty warehouse the lift delta is 0 anyway,
+    # so cohesion falls back to the D tie-break — exactly the first-unit opt-stock case.
+    _skus = [c.sku for c in plan.sampled]
+    aff._conn.executemany('INSERT INTO affinity VALUES (?,?,?)',
+                          [(_skus[i], _skus[i + 1], 2.0) for i in range(len(_skus) - 1)])
+    aff._conn.commit()
+    aff._load_matrix()
+    assert aff._matrix is not None
+    wp = WorkloadParams(x_speed=4.5, y_speed=2.0, pick_intercept=10.0,
+                        pick_weight_coef=0.1, pick_volume_coef=0.5)
+    mgr._affinity = aff
+    mgr.init_travel_costs(wp)                             # builds _aisle_index (incl. ff keys)
+    freq_by_sku = {c.sku: c.demand.relative_frequency for c in plan.sampled}
+    qty_by_sku  = {c.sku: c.demand.quantity_rate for c in plan.sampled}
+    freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.relative_frequency
+                   for c in plan.sampled if c.sku in aff._sku_to_idx}
+    fn = build_cluster_maximizing_assignment_fn(
+        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=mgr._aisle_index)
+    mgr.placement = Placement('cohesion_max', fn)         # the opt/policy-stock placement
+    mgr.enqueue_all(plan.sampled)                         # stock THROUGH the cohesion policy
+
+    ff_used = [b for b in wh.bins if b.storage is not None and regime_of(b) == FULFILLMENT]
+    assert ff_used, 'cohesion opt-stock placed ZERO fulfillment units (ff-dropped regression)'
+    # and the placed ff units are queryable for pick-task generation (non-blank sim)
+    assert any(mgr._sku_pallet_bins.get(b.storage.order.sku) for b in ff_used)

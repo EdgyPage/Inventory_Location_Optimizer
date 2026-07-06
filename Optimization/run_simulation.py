@@ -816,6 +816,40 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
             if k in sim_skeleton}
 
 
+def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
+    """Scan every sim_*.db under base_dir and log a prominent WARNING for any that
+    recorded zero batches (blank result DB).  Returns the list of blank db paths.
+
+    A blank arm means the whole strategy produced no metrics — almost always a
+    placement/stocking failure (units never binned → no pick tasks → all batches
+    skipped).  Downstream analysis silently omits such arms, so we flag them here.
+    """
+    import glob as _glob
+    import sqlite3
+    blank = []
+    for db in _glob.glob(os.path.join(base_dir, '**', 'sim_*.db'), recursive=True):
+        if db.endswith('.keyframes.db'):
+            continue
+        try:
+            con = sqlite3.connect(db)
+            n = con.execute('SELECT COUNT(*) FROM batch_stats').fetchone()[0]
+            con.close()
+        except Exception:                       # noqa: BLE001 — never block on the scan
+            continue
+        if n == 0:
+            blank.append(db)
+    if blank:
+        log.warning(f'{"!"*64}')
+        log.warning(f'  {len(blank)} BLANK sim DB(s) — recorded ZERO batches (no metrics):')
+        for db in sorted(blank):
+            log.warning(f'    {os.path.relpath(db, base_dir)}')
+        log.warning('  These arms produced no data (likely a placement/stocking failure).')
+        log.warning(f'{"!"*64}')
+    else:
+        log.info('  Metric check: every sim DB recorded ≥1 batch (no blanks).')
+    return blank
+
+
 def _run_workers_flat(
     pairs              : list,
     base_dir           : str,
@@ -1079,6 +1113,11 @@ def main():
     _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
                       max_tasks_per_child=args.max_tasks_per_child,
                       skip_completed=bool(args.resume))
+
+    # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
+    # batches (e.g. an arm whose placement left no stock so every batch is skipped),
+    # so a blank DB is discovered NOW, not halfway through downstream analysis.
+    _warn_blank_arms(base_dir, log)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'
              f'  Root: {base_dir}'

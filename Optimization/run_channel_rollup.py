@@ -11,7 +11,11 @@ Because the channels are independent, absolute savings (sim-unit `ss_prod_hours`
 ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
 per-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.
 
-Run AFTER run_analysis.py (which writes the series.json files):
+Run AFTER run_analysis.py (which writes the series.json files).  IMPORTANT: run the
+analysis with --preset BY_INITIAL so BOTH uni_* and opt_* arms land in series.json;
+the default preset (focus='uni') drops every opt_* arm, so the rollup would pick the
+best from only half the suite (it warns when it detects this):
+  python run_analysis.py <base_dir> --preset BY_INITIAL
   python run_channel_rollup.py <base_dir>
 Outputs (under <base_dir>):
   channel_rollup.csv          — one row per (inventory, config, channel, plan): absolute + % saving
@@ -65,8 +69,15 @@ def _channel_rows(meta: dict, series: dict) -> tuple[dict, list[dict]]:
     base = _baseline_entry(strategies)
     base_ss = base.get('ss_prod_hours') if base else None
     channel = meta.get('channel') or os.path.basename(os.path.dirname(''))
+    # Arms the simulation ran but the analysis dropped from series.json (run_analysis's
+    # default focus='uni' filters out every opt_* arm).  If present, the rollup can only
+    # see a subset — flag it so the winner isn't silently chosen from half the suite.
+    series_keys = {s.get('key') for s in strategies}
+    dropped = [s.get('key') for s in meta.get('strategies', [])
+               if s.get('key') not in series_keys]
     info = dict(pair=meta.get('inventory', '?'), config=meta.get('name', '?'),
-                channel=channel, base_key=(base or {}).get('key'), base_ss=base_ss)
+                channel=channel, base_key=(base or {}).get('key'), base_ss=base_ss,
+                dropped_arms=dropped)
     rows = []
     for s in strategies:
         ss = s.get('ss_prod_hours')
@@ -137,6 +148,11 @@ def rollup(base_dir: str, log=print) -> dict:
             log(f'  [{info["channel"]:<12}] best = {best["plan_key"]:<22} '
                 f'saving {best["saving_abs"]:>12,.1f}  ({best["saving_pct"]:>5.1f}%)  '
                 f'baseline(fifo) {base_ss:,.1f}')
+            if info.get('dropped_arms'):
+                log(f'      !! {len(info["dropped_arms"])} arm(s) ran but are MISSING from '
+                    f'analysis (e.g. {info["dropped_arms"][0]}); best chosen from a SUBSET.')
+                log(f'      !! Re-run: python run_analysis.py <base> --preset BY_INITIAL '
+                    f'(focus=all) to include opt_* arms.')
             summary_rows.append(dict(
                 pair=pair, config=config, channel=info['channel'],
                 best_plan=best['plan_key'], baseline_fifo_ss=base_ss,

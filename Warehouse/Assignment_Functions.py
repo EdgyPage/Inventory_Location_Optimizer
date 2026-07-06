@@ -16,7 +16,7 @@ from typing import Any
 from Affinity_Store import AffinityStore
 from cost_model import height_multiplier, sec_per_inch
 from Inventory_Management import (
-    _SIZE_RANKS, _SIZES_DESCENDING, BinKey,
+    _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
 )
 
@@ -104,10 +104,14 @@ def build_load_minimizing_assignment_fn(
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             else:
-                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
+                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
+                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
+                ranks, sizes_desc = tier_ranks_for(unit_type)
+                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
                 by_aisle = None
-                for size in reversed(_SIZES_DESCENDING):
-                    if _SIZE_RANKS[size] >= min_rank:
+                for size in reversed(sizes_desc):
+                    if ranks[size] >= min_rank:
                         by = aisle_index.get((shc.handling, shc.category, size, unit_type))
                         if by and any(by.values()):
                             by_aisle = by
@@ -221,10 +225,14 @@ def build_load_maximizing_assignment_fn(
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             else:
-                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
+                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
+                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
+                ranks, sizes_desc = tier_ranks_for(unit_type)
+                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
                 by_aisle = None
-                for size in reversed(_SIZES_DESCENDING):
-                    if _SIZE_RANKS[size] >= min_rank:
+                for size in reversed(sizes_desc):
+                    if ranks[size] >= min_rank:
                         by = aisle_index.get((shc.handling, shc.category, size, unit_type))
                         if by and any(by.values()):
                             by_aisle = by
@@ -401,10 +409,14 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
             if unit_type == 'singleton':
                 by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
             else:
-                min_rank = _SIZE_RANKS.get(unit.storage_size, 0) if unit.storage_size else 0
+                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
+                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
+                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
+                ranks, sizes_desc = tier_ranks_for(unit_type)
+                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
                 by_aisle = None
-                for size in reversed(_SIZES_DESCENDING):
-                    if _SIZE_RANKS[size] >= min_rank:
+                for size in reversed(sizes_desc):
+                    if ranks[size] >= min_rank:
                         by = aisle_index.get((shc.handling, shc.category, size, unit_type))
                         if by and any(by.values()):
                             by_aisle = by
