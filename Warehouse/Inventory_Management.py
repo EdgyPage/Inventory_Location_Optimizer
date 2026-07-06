@@ -144,6 +144,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._aisle_pick_load_sum: dict[int, float]   = defaultdict(float)
         self._sku_pick_load_product: dict[int, float] = {}   # sku -> f * q * cost1
 
+        # Expected-volume twin (for the cart-swap-aware Rank_cartlabor selector):
+        # _sku_vol_product[sku] = f * q * volume (raw expected picked volume mass);
+        # _aisle_vol_sum[aid]   = Σ over the aisle's SKUs.  Compared to a per-cart
+        # threshold to estimate expected cart swaps.  Maintained like the pick-load twin.
+        self._aisle_vol_sum: dict[int, float]   = defaultdict(float)
+        self._sku_vol_product: dict[int, float] = {}   # sku -> f * q * volume
+
         # SKU → bins split by unit type for Task.from_batch lookups.
         # Sets give O(1) add/discard; Task.from_batch sorts the bins by
         # (bayX, bayY) anyway so insertion order doesn't matter.
@@ -303,6 +310,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             for aid, sku_set in self._aisle_sku_sets.items():
                 self._aisle_pick_load_sum[aid] = sum(
                     self._sku_pick_load_product.get(s, 0.0) for s in sku_set
+                )
+
+            # Expected picked-volume mass (f * q * volume) per SKU and per aisle, seeded
+            # from the current placement — read by the Rank_cartlabor cart-swap term.
+            self._sku_vol_product = {
+                c.sku: c.demand.relative_frequency * c.demand.quantity_rate * c.volume()
+                for c in inventory.orders
+            }
+            self._aisle_vol_sum.clear()
+            for aid, sku_set in self._aisle_sku_sets.items():
+                self._aisle_vol_sum[aid] = sum(
+                    self._sku_vol_product.get(s, 0.0) for s in sku_set
                 )
 
     @property

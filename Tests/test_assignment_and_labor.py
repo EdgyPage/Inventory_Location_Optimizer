@@ -388,6 +388,66 @@ def test_sim_cart_swap_seconds_land_in_travel_not_handling():
     assert abs((t1 - t0) - 50.0 * n_swaps) < 1e-9  # travel gains exactly the swap seconds
 
 
+# ── Rank_cartlabor: cart-swap-aware placement ────────────────────────────────
+
+def test_workloadparams_cart_capacity_from_pick_config():
+    """WorkloadParams carries the regime's cart volume, so the placement cart term can read it."""
+    from Pick import PickConfig
+    from Storage_Primitive import FulfillmentCart
+    assert WorkloadParams().cart_capacity == 125_000
+    assert WorkloadParams.from_pick_config(PickConfig()).cart_capacity == 125_000
+    assert WorkloadParams.from_pick_config(PickConfig(cart=FulfillmentCart)).cart_capacity == 25_000
+
+
+def _cartlabor_place(cap, cart_on):
+    """Place two high-volume SKUs given a cheap aisle A (D=0) and an expensive aisle B (D=100).
+    A is strictly cheaper so plain rank_labor co-locates both in A; the cart term should push
+    the 2nd SKU to B once A's expected volume (2*50=100) overflows the cart.  Returns {sku: aid}."""
+    from Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
+    affinity = types.SimpleNamespace(_sku_to_idx={}, _matrix=None)
+    wp = WorkloadParams(x_speed=1.0, y_speed=2.0, pick_intercept=0.0,
+                        cart_swap_coef=1000.0, cart_capacity=cap)
+
+    def _bin(aid, x):
+        return types.SimpleNamespace(location=(aid, x, 0), x_phys=float(x), y_phys=0.0)
+    def _unit(sku):
+        return types.SimpleNamespace(
+            order=types.SimpleNamespace(sku=sku, handle_var=0.0, expected_labor=1.0))
+    # fresh bins each call (the impl pops them); A at x=0 (D=0), B at x=1200 (D=100 @ x_speed 1)
+    bins  = [_bin(1, 0), _bin(1, 0), _bin(2, 1200), _bin(2, 1200)]
+    units = [_unit(1), _unit(2)]
+
+    freq = {1: 0.5, 2: 0.5}; qty = {1: 1.0, 2: 1.0}
+    sku_vol = {1: 50.0, 2: 50.0}          # raw f*q*vol mass; total_freq=1, k=1 → cap_raw=cap
+    dd = lambda: defaultdict(float)
+    a_sku, a_idx = defaultdict(set), defaultdict(set)
+    a_dem, a_pl, a_vol = dd(), dd(), dd()
+    if cart_on:
+        fn = build_ranked_cartlabor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {},
+                                       a_vol, sku_vol, 1.0, {}, freq, qty)
+    else:
+        fn = build_ranked_labor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {}, {}, freq, qty)
+    pairs = fn(units, lambda u: bins)
+    return {u.order.sku: (b.location[0] if b else None) for u, b in pairs}
+
+
+def test_rank_cartlabor_disperses_only_when_cart_is_small():
+    # plain rank_labor (no cart awareness): both SKUs land in the cheap aisle A
+    assert set(_cartlabor_place(60, cart_on=False).values()) == {1}
+    # small (fulfillment-like) cart: the 2nd SKU is pushed to aisle B to avoid the swap
+    small = _cartlabor_place(60, cart_on=True)
+    assert small[1] != small[2]
+    # big (store-like) cart: the term is inert → identical to rank_labor (both in A)
+    assert set(_cartlabor_place(125_000, cart_on=True).values()) == {1}
+
+
+def test_rank_cartlabor_registered():
+    from strategies import STRATEGY_BY_KEY, strategies_for
+    assert 'uni_rank_cartlabor_norsl' in STRATEGY_BY_KEY
+    keys = {s.key for s in strategies_for(('rank_cartlabor',))}
+    assert {'uni_rank_cartlabor_norsl', 'opt_rank_cartlabor_norsl'} <= keys
+
+
 # ── optimal-map: minimal-work floor + score-matched reloading ────────────────
 
 def _mk_wh_mgr(seed=0):

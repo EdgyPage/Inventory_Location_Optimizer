@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
 from cost_model import height_multiplier as _height_mult, handle_var, sec_per_inch
+from Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
 @dataclass
@@ -32,6 +33,9 @@ class WorkloadParams:
     pick_weight_fn: str     = 'log'   # base function per handling term ('log'/'linear'/'sqrt'/'pow:p'/'log:b')
     pick_volume_fn: str     = 'log'
     cart_swap_coef: float   = 5.0
+    # Cart volume (this regime's cart.capacity()) — the swap threshold used by placement
+    # policies that estimate expected cart-swap cost. Default = standard store cart.
+    cart_capacity: int      = StoreCart.capacity()
     height_brackets: tuple  = field(default_factory=lambda: _DEFAULT_HEIGHT_BRACKETS)
     # In a MIXED (multi-channel) warehouse: {regime: WorkloadParams} for per-regime cost
     # routing.  Rides on the primary WorkloadParams so the assignment builders resolve the
@@ -50,6 +54,7 @@ class WorkloadParams:
             pick_weight_fn   = getattr(cfg, 'pick_weight_fn', 'log'),
             pick_volume_fn   = getattr(cfg, 'pick_volume_fn', 'log'),
             cart_swap_coef   = cfg.cart_swap_coef,    # type: ignore[attr-defined]
+            cart_capacity    = getattr(cfg, 'cart', StoreCart).capacity(),
             height_brackets  = getattr(cfg, 'height_brackets', _DEFAULT_HEIGHT_BRACKETS),
         )
 

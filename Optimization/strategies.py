@@ -26,6 +26,7 @@ from Assignment_Functions import (
     build_ranked_uniform_assignment_fn,
     build_ranked_popularity_fn,
     build_ranked_labor_fn,
+    build_ranked_cartlabor_fn,
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
@@ -49,6 +50,8 @@ class StrategyContext:
     qty_by_sku   : dict
     beta         : float = 1.0
     orders      : Any = None   # inventory.orders — needed to build the optimal map
+    expected_batch_skus : float = 0.0   # k = mean_fraction·N: expected distinct SKUs per
+                                        # batch, for the Rank_cartlabor expected-cart term
 
 
 @dataclass
@@ -116,6 +119,23 @@ def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        order_score=_score_expected_labor)
+
+
+def _build_rank_cartlabor(mgr, ctx: StrategyContext) -> None:
+    # Cart-swap-aware LPT balance: like rank_labor, but each aisle's balanced load also
+    # carries its EXPECTED cart-swap cost (cart_swap_coef*max(0, exp_aisle_vol/cap - 1)), so
+    # volume that would overflow a cart disperses across aisles.  Inert for the big store
+    # cart (term ~0); bites for the small fulfillment cart.
+    mgr.placement = Placement(
+        'ranked_cartlabor',
+        build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
+        build_ranked_cartlabor_fn(
+            ctx.affinity, ctx.wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            mgr._aisle_vol_sum, mgr._sku_vol_product, ctx.expected_batch_skus,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -297,6 +317,7 @@ _RESTOCKS = [
     ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
+    ('rank_cartlabor',  'Rank_cartlabor',  _build_rank_cartlabor,          True, True, False),  # rank_labor + expected cart-swap cost in the balance
     ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
     ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading

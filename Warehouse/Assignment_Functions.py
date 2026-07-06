@@ -926,7 +926,7 @@ def build_ranked_popularity_fn(
 def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           aisle_pick_load_sum, sku_pick_load_product,
-                          freq_by_sku, qty_by_sku):
+                          freq_by_sku, qty_by_sku, cart=None):
     """Travel- AND height-aware LPT load balance (Rank_labor).
 
     The expected labor of placing a unit in a bin is freq·qty times the per-pick cost
@@ -941,6 +941,11 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     Within an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),
     so bins are grouped per aisle by height bracket, each a min-D deque; for each unit we
     scan one min-D representative per (aisle, bracket) — O(units · aisles · n_brackets).
+
+    cart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,
+    expected_batch_skus, total_freq) that adds each aisle's EXPECTED CART-SWAP cost to its
+    balanced load, so the balancer disperses volume that would overflow a cart.  Default
+    None ⇒ byte-identical Rank_labor.
     """
     wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
@@ -952,6 +957,16 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     cands = candidates_fn(sorted_units[0])
     if not cands:
         return [(u, None) for u in sorted_units]
+
+    # ── optional cart-swap term ──────────────────────────────────────────────
+    # Expected picked volume in an aisle per task ≈ (k/Σf)·Σ f·q·vol; comparing that to the
+    # cart capacity is equivalent to comparing the RAW mass V_raw = Σ f·q·vol against
+    # cap_raw = cap·Σf/k.  Expected cart cost of an aisle = coef·max(0, V_raw/cap_raw − 1).
+    cart_on = cart is not None
+    if cart_on:
+        aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq = cart
+        cart_coef = wp.cart_swap_coef
+        cap_raw   = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
 
     D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
@@ -965,8 +980,15 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             groups[m] = deque(lst)
     # running per-aisle total (handling+travel) labor, seeded from the maintained sum
     load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
+    # running per-aisle expected picked-volume mass (raw f·q·vol), seeded likewise
+    vol_load = ({aid: float(aisle_vol_sum.get(aid, 0.0)) for aid in by_aisle}
+                if cart_on else None)
     sku_to_idx = affinity._sku_to_idx
     result: list = []
+
+    def _cart_cost(v_raw):
+        """Expected cart-swap cost for an aisle holding raw volume mass v_raw."""
+        return cart_coef * max(0.0, v_raw / cap_raw - 1.0)
 
     def _aisle_best(aid, var):
         """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
@@ -986,6 +1008,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         sku = c.sku
         var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
+        m_s = sku_vol_product.get(sku, 0.0) if cart_on else 0.0
         best_aid = best_choice = None
         best_score = None
         for aid in by_aisle:
@@ -993,6 +1016,13 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             if ab is None:
                 continue
             score = load[aid] + fq * ab[0]
+            if cart_on:
+                # balance TOTAL expected aisle labor = handling+travel + expected cart swaps,
+                # so an aisle nearing a full cart is penalised and further volume disperses.
+                # The SKU's volume mass counts ONCE per aisle (a second bin of a SKU already
+                # here adds no new expected picked volume), mirroring aisle_pick_load_sum.
+                add = 0.0 if sku in aisle_sku_sets[aid] else m_s
+                score += _cart_cost(vol_load[aid] + add)
             if best_score is None or score < best_score:
                 best_score, best_aid, best_choice = score, aid, ab
         if best_aid is None:
@@ -1009,6 +1039,9 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                 aisle_idx_sets[best_aid].add(idx)
             aisle_demand_sum[best_aid] += fq
             aisle_pick_load_sum[best_aid] += sku_pick_load_product.get(sku, 0.0)
+            if cart_on:                       # SKU-once, in lockstep with pick_load_sum
+                vol_load[best_aid] += m_s
+                aisle_vol_sum[best_aid] += m_s
 
         by_aisle[best_aid][m].popleft()
         result.append((unit, chosen))
@@ -1036,6 +1069,38 @@ def build_ranked_labor_fn(
             units, candidates_fn, affinity, wp,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
+    return ranked_assign
+
+
+def build_ranked_cartlabor_fn(
+    affinity,
+    wp,
+    aisle_sku_sets        : dict,
+    aisle_idx_sets        : dict,
+    aisle_demand_sum      : dict,
+    aisle_pick_load_sum   : dict,
+    sku_pick_load_product : dict,
+    aisle_vol_sum         : dict,
+    sku_vol_product       : dict,
+    expected_batch_skus   : float,
+    freq_by_idx           : dict,
+    freq_by_sku           : dict,
+    qty_by_sku            : dict,
+    beta                  : float = 1.0,
+):
+    """Cart-swap-aware LPT labor balancer (Rank_cartlabor).  Same as build_ranked_labor_fn
+    but the balanced aisle load also includes each aisle's EXPECTED cart-swap cost
+    (cart_swap_coef·max(0, expected_aisle_volume/cart_capacity − 1)), so high-volume demand
+    that would overflow a cart is dispersed across aisles.  With the big store cart the term
+    is ~0 (aisles rarely fill a cart) so store plans barely move; with the small fulfillment
+    cart it bites.  Returns (unit, bin) pairs."""
+    total_freq = sum(freq_by_sku.values())
+    def ranked_assign(units: list, candidates_fn) -> list:
+        return _travel_balanced_impl(
+            units, candidates_fn, affinity, wp,
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
+            cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq))
     return ranked_assign
 
 

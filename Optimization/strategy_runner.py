@@ -216,7 +216,10 @@ def _run_strategy_worker(args: dict) -> dict:
     ctx = StrategyContext(
         affinity=affinity, wp=wp,
         freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0, orders=inventory.orders)
+        beta=1.0, orders=inventory.orders,
+        # k = expected distinct SKUs per batch (mean_fraction·N); the Rank_cartlabor cart
+        # term uses it to convert expected demand mass into expected per-task aisle volume.
+        expected_batch_skus=batch_cfg.mean_fraction * batch_cfg.inventory_size)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')

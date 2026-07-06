@@ -83,8 +83,9 @@ SEED_BATCHES     = 1337
 N_BATCHES        = 100
 K_PICKERS        = 25
 # Restock rules the STORE channel runs; None ⇒ full suite.  Fulfillment always runs full.
-# Store is compared on the historic winner (rank_labor) vs the baseline (fifo) only.
-STORE_RESTOCKS   = ('fifo', 'rank_labor')
+# Store is compared on the historic winner (rank_labor) vs the baseline (fifo), plus the
+# cart-swap-aware variant (rank_cartlabor) to confirm the big store cart barely moves its plan.
+STORE_RESTOCKS   = ('fifo', 'rank_labor', 'rank_cartlabor')
 _CHECKPOINT      = max(1, N_BATCHES // 10)
 _WIN             = 50
 _BATCH_MEAN_FRAC = 0.15
