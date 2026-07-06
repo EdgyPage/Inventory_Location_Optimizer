@@ -491,7 +491,7 @@ def _run_strategy_worker(args: dict) -> dict:
             cum_rate  = (i + 1 - start_i) / wall
             ckpt_rate = dur_count_ckpt / ckpt_wall
             avg_dur   = dur_sum_ckpt / dur_count_ckpt if dur_count_ckpt else 0.0
-            cur_fill  = len(mgr._unavailable) / len(warehouse.bins)
+            cur_fill  = len(mgr._unavailable) / max(denom, 1)   # denom = THIS channel's regime bins
             p1_frac   = p1_sum_ckpt / (p1_sum_ckpt + p2_sum_ckpt + 1e-9) * 100
 
             log.info(
