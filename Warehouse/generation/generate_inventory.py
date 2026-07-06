@@ -402,13 +402,23 @@ def build_inventory_from_plan(
         # variation in check_reorders so restocks can split across different storage units.
         sv = rng.uniform(0.0, supply_cv_max) if supply_cv_max > 0.0 else 0.0
 
-        orders.append(Order.build(
+        # Fine-grained family label persisted for the distribution plots: fulfillment
+        # families collapse to one (handling, category) cell, so record the rect/cube split
+        # (and the exact cube size, since a cube has L==W==H) that is otherwise lost here.
+        if fam.handling_override == 'fulfillment':
+            subtype = f'cube_{L}' if fam.cube_sizes else 'rect'
+        else:
+            subtype = fam.category
+
+        o = Order.build(
             sku=i + 1, handling=handling, category=fam.category,
             length=L, width=W, height=H, weight=wt,
             relative_frequency=freq, qty_rate=qty_rate,
             equilibrium_qty=eq, reorder_point=rp,
             lead_time_mean=lead, supply_cv=sv,
-        ))
+        )
+        o.subtype = subtype
+        orders.append(o)
 
     Order.next_sku = num_skus + 1
     return Inventory(orders)
@@ -531,7 +541,11 @@ _SCHEMA = '''
         reorder_point         INTEGER NOT NULL DEFAULT 1,
         lead_time_mean        REAL    NOT NULL DEFAULT 0.0,
         supply_cv             REAL    NOT NULL DEFAULT 0.0,
-        stock_plan            TEXT
+        stock_plan            TEXT,
+        -- Fine-grained family label for distribution plots: store rows carry their
+        -- `category`; fulfillment rows carry 'rect' | 'cube_4' | 'cube_6' | 'cube_8'
+        -- (the rect/cube split + cube size that is otherwise lost at Order.build).
+        subtype               TEXT
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -596,13 +610,14 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             getattr(c, 'lead_time_mean',        0.0),
             getattr(c, 'supply_cv',             0.0),
             json.dumps(sp) if sp else None,
+            getattr(c, 'subtype', None),
         ))
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' relative_frequency, demand_qty_rate, expected_batch_demand, '
-        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, subtype) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
@@ -631,12 +646,18 @@ def _save_creation_plan(conn: sqlite3.Connection, plan: list) -> None:
         override = fam.get('handling_override')
         hlist    = ([(override, 1.0)] if override
                     else list(zip(_HANDLINGS_ORDER, fam['handling_split'])))
+        # storage_type keys the row (PK: handling, storage_type, parameter).  The two
+        # fulfillment families share handling='fulfillment' AND category='fulfillment', so
+        # keying on category would collide and INSERT OR REPLACE would drop the rect family.
+        # Key fulfillment rows by their family label ('rect' | 'cube') so both survive; store
+        # families keep their category (matches how the plots look them up).
+        storage_type = ('cube' if fam.get('cube_sizes') else 'rect') if override else cat
         for handling, hshare in hlist:
             for param_name, spec_key in _PLAN_PARAM_SPECS:
                 spec   = fam[spec_key]
                 dist   = spec.get('dist')
                 pdict  = {k: v for k, v in spec.items() if k != 'dist'}
-                rows.append((handling, cat, param_name, dist,
+                rows.append((handling, storage_type, param_name, dist,
                              json.dumps(pdict) if pdict else None,
                              float(hshare), float(fshare)))
     conn.executemany(
@@ -1019,6 +1040,90 @@ def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str,
     _save_close(fig, os.path.join(out_dir, 'aggregate_by_handling.png'))
 
 
+# Fulfillment sub-family ordering + colours (rect first, then cubes ascending by size).
+_FF_SUBTYPE_COLORS = {
+    'rect':   '#70ad47',
+    'cube_4': '#4472c4',
+    'cube_6': '#7030a0',
+    'cube_8': '#c00000',
+}
+
+
+def _ff_subtypes(ff_df: pd.DataFrame) -> list[str]:
+    """Subtypes present in the fulfillment frame, in canonical order (rect, cubes ascending)."""
+    present = set(ff_df['subtype'].dropna().unique())
+    ordered = [s for s in _FF_SUBTYPE_COLORS if s in present]
+    # include any unexpected subtype labels (e.g. a new cube size) after the canonical ones
+    return ordered + sorted(present - set(ordered))
+
+
+def plot_fulfillment_distributions(ff_df: pd.DataFrame, plan_lookup: dict, out_dir: str,
+                                   title_suffix: str = '') -> None:
+    """Fulfillment-only distribution plots, faceted by the `subtype` sub-family.
+
+    The store-centric (handling × category) faceting collapses fulfillment into a single
+    cell, so this renders its OWN views broken down by subtype (rect | cube_4 | cube_6 |
+    cube_8).  ``plan_lookup`` keys are (handling, storage_type, parameter) where storage_type
+    is the fulfillment FAMILY ('rect' | 'cube'); a subtype maps to its family for annotation.
+    """
+    if ff_df.empty:
+        return
+    os.makedirs(out_dir, exist_ok=True)
+    subs = _ff_subtypes(ff_df)
+
+    def _family(subtype: str) -> str:            # subtype -> creation_plan family label
+        return 'cube' if subtype.startswith('cube') else 'rect'
+
+    # ── one figure per parameter: a column of per-subtype histograms (data-scaled range) ──
+    for pname, col, _rng in _CP_PARAMS:
+        fig, axes = plt.subplots(len(subs), 1,
+                                 figsize=(6.5, 1.9 * len(subs) + 1), squeeze=False)
+        fig.suptitle(f'fulfillment {pname} — distribution per sub-family{title_suffix}',
+                     fontsize=12, fontweight='bold')
+        for i, st in enumerate(subs):
+            ax  = axes[i][0]
+            sub = ff_df[ff_df['subtype'] == st][col].values
+            dist, prm = plan_lookup.get(('fulfillment', _family(st), pname), ('—', None))
+            if len(sub):
+                ax.hist(sub, bins=30, color=_FF_SUBTYPE_COLORS.get(st, '#888888'),
+                        alpha=0.85, edgecolor='white')
+            spec_txt = f'{dist}{(" " + prm) if prm else ""}'
+            ax.set_title(f'{st}  n={len(sub):,}   {spec_txt}', fontsize=8)
+            ax.grid(axis='y', alpha=0.3); ax.tick_params(labelsize=7)
+        plt.tight_layout()
+        _save_close(fig, os.path.join(out_dir, f'param_{pname}.png'))
+
+    # ── overview: per-subtype counts + overlaid distributions of the key parameters ──
+    overlay = [('length', 'length'), ('width', 'width'), ('height', 'height'),
+               ('weight', 'weight'), ('relative_frequency', 'relative_frequency'),
+               ('demand_qty_rate', 'quantity rate'), ('equilibrium_qty', 'equilibrium_qty')]
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8))
+    fig.suptitle(f'fulfillment sub-family overview{title_suffix}', fontsize=13, fontweight='bold')
+
+    # panel 0: SKU counts per subtype
+    ax = axes[0][0]
+    counts = [int((ff_df['subtype'] == st).sum()) for st in subs]
+    ax.bar(range(len(subs)), counts, color=[_FF_SUBTYPE_COLORS.get(s, '#888888') for s in subs],
+           alpha=0.85, edgecolor='white')
+    ax.set_xticks(range(len(subs))); ax.set_xticklabels(subs, rotation=30, ha='right', fontsize=8)
+    ax.set_title(f'SKU count by sub-family  (n={len(ff_df):,})', fontsize=10)
+    ax.grid(axis='y', alpha=0.3)
+
+    # panels 1..: step-histogram overlays per subtype for each parameter
+    for k, (col, title) in enumerate(overlay, start=1):
+        ax = axes[k // 4][k % 4]
+        if col not in ff_df.columns:
+            ax.set_visible(False); continue
+        for st in subs:
+            vals = ff_df[ff_df['subtype'] == st][col].values
+            if len(vals):
+                ax.hist(vals, bins=30, density=True, histtype='step', lw=2,
+                        color=_FF_SUBTYPE_COLORS.get(st, '#888888'), label=st)
+        ax.set_title(title, fontsize=10); ax.legend(fontsize=6); ax.grid(alpha=0.3)
+    plt.tight_layout()
+    _save_close(fig, os.path.join(out_dir, 'subfamily_overview.png'))
+
+
 # ── callable API ───────────────────────────────────────────────────────────────
 
 def generate_run(
@@ -1187,14 +1292,21 @@ def generate_run(
                   f'{num_skus:,} SKUs  ·  seed {seed}  ·  {params["timestamp"]}')
 
     sfx = f'  [{name}]'
-    plot_group_sizes(df, plot_dir, sfx)
-    plot_dimensions(df, plot_dir, sfx)
-    plot_weight(df, plot_dir, sfx)
-    plot_demand(df, plot_dir)
-    plot_equilibrium_qty(df, plot_dir)
-    plot_volume_vs_weight(df, plot_dir, sfx)
-    plot_singleton_split(df, plot_dir)
-    plot_dim_kde_overlay(df, plot_dir, sfx)
+    # Regime split: store & fulfillment collapse to disjoint (handling,category) cells, so
+    # plot each separately.  Store plots run on the store-only frame (fulfillment no longer
+    # pollutes their histograms); fulfillment gets its own subtype-faceted subdir.  A
+    # store-only inventory has an empty ff frame → store_df == df → byte-identical output.
+    store_df = df[df['handling'] != 'fulfillment']
+    ff_df    = df[df['handling'] == 'fulfillment']
+
+    plot_group_sizes(store_df, plot_dir, sfx)
+    plot_dimensions(store_df, plot_dir, sfx)
+    plot_weight(store_df, plot_dir, sfx)
+    plot_demand(store_df, plot_dir)
+    plot_equilibrium_qty(store_df, plot_dir)
+    plot_volume_vs_weight(store_df, plot_dir, sfx)
+    plot_singleton_split(store_df, plot_dir)
+    plot_dim_kde_overlay(store_df, plot_dir, sfx)
 
     if creation_plan is not None:
         # one graph per creation_plan row + an aggregate-by-handling figure
@@ -1206,8 +1318,13 @@ def generate_run(
         }
         conn.close()
         cp_dir = os.path.join(plot_dir, 'creation_plan')
-        plot_creation_plan(df, plan_lookup, cp_dir, sfx)
+        plot_creation_plan(store_df, plan_lookup, cp_dir, sfx)
         _log(f'[inventory:{name}] creation-plan plots → {cp_dir}  ({len(plan_lookup)} rows)')
+        if not ff_df.empty:
+            ff_dir = os.path.join(plot_dir, 'fulfillment')
+            plot_fulfillment_distributions(ff_df, plan_lookup, ff_dir, sfx)
+            _log(f'[inventory:{name}] fulfillment plots → {ff_dir}  '
+                 f'({ff_df["subtype"].nunique()} sub-families, {len(ff_df):,} SKUs)')
 
     _log(f'[inventory:{name}] Done.')
 
