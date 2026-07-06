@@ -130,7 +130,7 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 
 REGRESSION_CONFIGS = [
     {
-        'name'            : 'calibrated',
+        'name'            : 'store',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:1.5',
@@ -139,10 +139,11 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : K_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
     {
-        'name'            : 'calibrated_high_weight',
+        'name'            : 'store_high_weight',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:2.0',
@@ -151,10 +152,11 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : K_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
     {
-        'name'            : 'calibrated_high_weight_high_height',
+        'name'            : 'store_high_weight_high_height',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:2.0',
@@ -163,10 +165,11 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : K_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
     },
     {
-        'name'            : 'calibrated_high_height',
+        'name'            : 'store_high_height',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:1.5',
@@ -175,6 +178,7 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : K_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
     },
 ]
@@ -189,14 +193,14 @@ REGRESSION_CONFIGS = [
 # preferred name (the alias keeps existing `rs.REGRESSION_CONFIGS` consumers working).
 STORE_CONFIGS = REGRESSION_CONFIGS
 
-# Fulfillment (human-walker) configs.  Same dict schema as the store set, plus an
-# optional 'num_pickers' key (default 20 — the walker pool size).  The single default
-# entry mirrors channels.fulfillment_pick_config() so behavior is unchanged until you
-# add entries.  Keep names DISTINCT from store config names (config.json is written per
-# config dir; a shared name would collide — see the runner's _prepare_channel_run).
+# Fulfillment (human-walker) configs.  IDENTICAL dict schema to the store set (every config
+# carries its own 'num_pickers' pool size + optional 'cart').  The single default entry mirrors
+# channels.fulfillment_pick_config() so behavior is unchanged until you add entries.  Keep names
+# DISTINCT from store config names (config.json is written per config dir; a shared name would
+# collide — see the runner's _prepare_channel_run).
 FULFILLMENT_CONFIGS = [
     {
-        'name'            : 'walker',
+        'name'            : 'fulfillment',
         'pick_intercept'  : 10.0,   # per-stop setup: locate + scan + grasp
         'pick_weight_coef': 0.10,   # light items → weight nearly negligible
         'pick_weight_fn'  : 'log',
@@ -553,9 +557,9 @@ def _config_name(cfg: dict) -> str:
 def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig:
     """Turn a config dict (store or fulfillment) into a PickConfig.
 
-    The one canonical dict→PickConfig conversion shared by both channels' sweeps.
-    Store runs pass num_pickers=K_PICKERS, default_cart=StoreCart; fulfillment runs
-    pass the walker pool size + FulfillmentCart.  A 'cart' key overrides default_cart.
+    The one canonical dict→PickConfig conversion shared by both channels' sweeps.  Callers
+    pass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and
+    the channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.
     """
     return PickConfig(
         num_pickers      = num_pickers,
@@ -850,8 +854,9 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
     mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
     runs: list[tuple] = []
     for cfg in STORE_CONFIGS:
-        pc = _build_pick_cfg(cfg, num_pickers=K_PICKERS, default_cart=StoreCart)
-        ch = make_channel('store', STORE, pc, K_PICKERS, restocks=STORE_RESTOCKS)
+        n  = int(cfg.get('num_pickers', K_PICKERS))
+        pc = _build_pick_cfg(cfg, num_pickers=n, default_cart=StoreCart)
+        ch = make_channel('store', STORE, pc, n, restocks=STORE_RESTOCKS)
         runs.append((ch, cfg))
     if mixed:
         for cfg in FULFILLMENT_CONFIGS:
