@@ -275,9 +275,18 @@ def _run_strategy_worker(args: dict) -> dict:
             mgr.init_travel_costs(wp)
         strat.build(mgr, ctx)
 
+    # Fill rate is over THIS channel's regime bins: a per-channel worker only stocks its own
+    # regime's units, so dividing by the whole (mixed) warehouse would understate fill by the
+    # other regime's empty share.  channel_regime None (store-only) => the whole warehouse.
     base_filled = len(mgr._unavailable)
-    log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
-             f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
+    if channel_regime is not None:
+        from regime import regime_of
+        denom = sum(1 for b in warehouse.bins if regime_of(b) == channel_regime)
+        unit  = f'{channel_regime} bins'
+    else:
+        denom, unit = len(warehouse.bins), 'bins'
+    log.info(f'  {base_filled:,} / {denom:,} {unit} filled  '
+             f'({base_filled / max(denom, 1):.1%})  ({time.perf_counter()-t0:.1f}s)')
     log.info(f'  strategy={strat.key} ({strat.label})  placement={mgr.placement.name}'
              f'{" (ranked)" if mgr.placement.is_ranked else ""}'
              f'  stock={strat.stock_mode}')

@@ -248,7 +248,7 @@ CONFIG = {
             'cart'       : 'StoreCart',
             'seed_offset': 0,
             'batch'      : {'mean': 0.15, 'std': 0.05},
-            'fill'       : 0.875,
+            'fill'       : 0.9,
             'sizing'     : {'mode': 'demand', 'min_bins': None, 'max_bins': None,
                             'max_aisles': None, 'composition': None},
         },
@@ -260,7 +260,7 @@ CONFIG = {
             'cart'       : 'FulfillmentCart',
             'seed_offset': FF_BATCH_SEED_OFFSET,
             'batch'      : {'mean': 0.20, 'std': 0.05},
-            'fill'       : 0.875,
+            'fill'       : 0.92,
             # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
             # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
             'sizing'     : {'mode': 'fixed',
@@ -579,6 +579,14 @@ def build_shared_assets(
         ]
         warehouse_fp = compute_warehouse_fingerprint(
             layout_rows, os.path.basename(_pair_dir))
+        # Effective caps for the stats row: when the per-regime path is used the legacy
+        # max_bins/max_aisles are None (the real caps live in regime_sizing), so record the
+        # summed per-regime caps instead (all-unset -> None).
+        def _agg_cap(key):
+            if regime_sizing:
+                vals = [v for r in regime_sizing if (v := regime_sizing[r].get(key))]
+                return sum(vals) if vals else None
+            return {'max_bins': max_bins, 'max_aisles': max_aisles}[key]
         init_warehouse_db(warehouse_db_path)
         save_warehouse_stats(
             warehouse_db_path,
@@ -590,8 +598,8 @@ def build_shared_assets(
             total_bins    = total_bins,
             expected_fill = expected_fill,
             target_fill   = _INITIAL_FILL,   # store fill headroom (the sizing target)
-            max_aisles    = max_aisles,
-            max_bins      = max_bins,
+            max_aisles    = _agg_cap('max_aisles'),
+            max_bins      = _agg_cap('max_bins'),
             avg_eq_qty    = avg_eq,
             avg_rp        = avg_rp,
             aisle_rows    = aisle_rows,
