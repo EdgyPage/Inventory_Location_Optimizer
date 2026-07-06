@@ -104,7 +104,7 @@ def _capture_batch_sequence(shared, pair_dir, cfg, log, *, force_inline):
 def test_e2e_worker_consumes_identical_batches(tmp_path):
     label, inv_db, aff_db = _pair_or_skip()
     log = logging.getLogger('e2e'); log.setLevel(logging.ERROR)
-    rs.N_BATCHES = _N_E2E_BATCHES
+    rs.CONFIG['global']['n_batches'] = _N_E2E_BATCHES
 
     build_pair = str(tmp_path / 'build' / label)
     os.makedirs(build_pair, exist_ok=True)

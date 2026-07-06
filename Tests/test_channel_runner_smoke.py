@@ -74,9 +74,9 @@ def _mixed_dbs(tmp_path):
 
 def test_mixed_fanout_writes_per_channel_dbs(tmp_path, monkeypatch):
     log = logging.getLogger('chan-smoke'); log.setLevel(logging.ERROR)
-    rs.N_BATCHES = 3
+    rs.CONFIG['global']['n_batches'] = 3
     # One store config keeps the smoke run fast; fulfillment keeps its single default config.
-    monkeypatch.setattr(rs, 'STORE_CONFIGS', [rs.REGRESSION_CONFIGS[0]])
+    monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [rs.REGRESSION_CONFIGS[0]])
 
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
@@ -120,8 +120,8 @@ def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     suite for each channel (store + fulfillment) — no plot-module changes required."""
     import run_analysis as ra
     log = logging.getLogger('chan-an'); log.setLevel(logging.ERROR)
-    rs.N_BATCHES = 2
-    monkeypatch.setattr(rs, 'STORE_CONFIGS', [rs.REGRESSION_CONFIGS[0]])
+    rs.CONFIG['global']['n_batches'] = 2
+    monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [rs.REGRESSION_CONFIGS[0]])
 
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
@@ -175,8 +175,8 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
     # Asymmetric counts (3 vs 2) so union (5) is distinguishable from a cross product (6).
     store_cfgs = [{'name': 's1'}, {'name': 's2'}, {'name': 's3'}]
     ff_cfgs    = [{'name': 'f1'}, {'name': 'f2', 'cart': 'FulfillmentCart', 'num_pickers': 12}]
-    monkeypatch.setattr(rs, 'STORE_CONFIGS', store_cfgs)
-    monkeypatch.setattr(rs, 'FULFILLMENT_CONFIGS', ff_cfgs)
+    monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', store_cfgs)
+    monkeypatch.setitem(rs.CONFIG['channels']['fulfillment'], 'configs', ff_cfgs)
 
     mixed, runs = rs._channel_runs_for(_mixed_inventory())
     assert mixed is True
@@ -196,8 +196,8 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
 def test_store_only_catalog_skips_fulfillment_sweep(monkeypatch):
     """A store-only catalog runs ONLY the store config sweep (no fulfillment channel-runs), so it
     stays byte-identical to the pre-fulfillment pipeline regardless of FULFILLMENT_CONFIGS."""
-    monkeypatch.setattr(rs, 'STORE_CONFIGS', [{'name': 's1'}, {'name': 's2'}])
-    monkeypatch.setattr(rs, 'FULFILLMENT_CONFIGS', [{'name': 'f1'}, {'name': 'f2'}])
+    monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [{'name': 's1'}, {'name': 's2'}])
+    monkeypatch.setitem(rs.CONFIG['channels']['fulfillment'], 'configs', [{'name': 'f1'}, {'name': 'f2'}])
     mixed, runs = rs._channel_runs_for(_store_only_inventory())
     assert mixed is False
     assert [ch.name for ch, _ in runs] == ['store', 'store']

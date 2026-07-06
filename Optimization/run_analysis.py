@@ -37,6 +37,7 @@ sys.path.insert(0, _HERE)
 
 from run_simulation import (
     build_shared_assets,
+    regime_sizing_from_config,
     _setup_logging,
     _OUTPUT_DIR,
 )
@@ -169,7 +170,10 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
             continue
         log.info(f'  Pair: {pair_name}  ({len(config_metas)} config(s))')
         try:
-            shared = build_shared_assets(inv_db, aff_db, log)
+            # Rebuild the warehouse SHAPE with the SAME per-regime sizing the run used, so the
+            # fulfillment aisle layout + total_bins match (fixed ff distribution, not demand).
+            shared = build_shared_assets(inv_db, aff_db, log,
+                                         regime_sizing=regime_sizing_from_config())
         except Exception as exc:
             log.error(f'  build_shared_assets failed for {pair_name}: {exc}', exc_info=True)
             continue

@@ -21,7 +21,7 @@ import run_simulation as rs
 import strategy_runner as sr
 import run_analysis as ra
 
-rs.N_BATCHES = 4          # toy horizon -- still exercises reorder/reslot/keyframe/steady-state
+rs.CONFIG['global']['n_batches'] = 4   # toy horizon -- still exercises reorder/reslot/keyframe/steady-state
 
 logging.basicConfig(level=logging.ERROR, format='%(message)s')
 log = logging.getLogger('cov')

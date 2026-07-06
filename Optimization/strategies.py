@@ -366,3 +366,22 @@ def strategies_for(restocks) -> list[Strategy]:
     while another runs the full suite, without perturbing the global grid used elsewhere.
     """
     return list(STRATEGIES) if restocks is None else [s for s in STRATEGIES if s.restock in restocks]
+
+
+# ── per-channel strategy selection ──────────────────────────────────────────────
+# Which restock (assignment-function) subset each channel sweeps.  Lives HERE — the
+# strategies setup file that owns the `restock` keys — so the runner has no special-case
+# strategy constants.  None ⇒ the full assignment-function suite.
+#   store       : fifo (baseline) vs rank_labor (historic winner) vs rank_cartlabor
+#                 (cart-swap-aware; confirms the big store cart barely moves the plan).
+#   fulfillment : the full sweep, so the small-cart channel is compared across every fn.
+CHANNEL_RESTOCKS: dict[str, tuple[str, ...] | None] = {
+    'store'      : ('fifo', 'rank_labor', 'rank_cartlabor'),
+    'fulfillment': None,
+}
+
+
+def restocks_for(channel: str) -> tuple[str, ...] | None:
+    """The restock-rule subset a channel sweeps (None ⇒ full suite).  Unknown channel ⇒
+    None (full suite), so a new channel runs everything until curated here."""
+    return CHANNEL_RESTOCKS.get(channel)

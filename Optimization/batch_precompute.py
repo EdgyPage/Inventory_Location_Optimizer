@@ -45,12 +45,17 @@ from generation.generate_inventory import load_inventory_from_db  # noqa: E402
 _MIN_PARALLEL = 16
 
 
-def _load_worker_inventory(inv_db: str, max_skus, sku_allowlist):
-    """Load inventory EXACTLY as strategy_runner._run_strategy_worker does (same db, limit, allowlist)
-    so the candidate list — and therefore every sampled batch — is identical to the worker's."""
+def _load_worker_inventory(inv_db: str, max_skus, sku_allowlist, channel_regime=None):
+    """Load inventory EXACTLY as strategy_runner._run_strategy_worker does (same db, limit,
+    allowlist, THEN regime filter) so the candidate list — and therefore every sampled batch —
+    is identical to the worker's.  ``channel_regime`` (store/fulfillment) keeps a mixed-catalog
+    channel's stream regime-pure; None ⇒ the whole (allowlisted) inventory (store-only)."""
     inv = load_inventory_from_db(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inv.orders = [c for c in inv.orders if c.sku in sku_allowlist]
+    if channel_regime is not None:
+        from regime import regime_of                      # noqa: E402 (Warehouse on sys.path above)
+        inv.orders = [c for c in inv.orders if regime_of(c) == channel_regime]
     return inv
 
 
@@ -82,16 +87,18 @@ def batch_fingerprint(inventory, batch_cfg, seed_batches: int, n_batches: int, a
     return h.hexdigest()
 
 
-def _sample_range(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo, hi):
+def _sample_range(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo, hi,
+                  channel_regime=None):
     """Module-level (spawn-picklable) chunk worker: load inv+aff once, sample batches [lo, hi)."""
-    inv = _load_worker_inventory(inv_db, max_skus, sku_allowlist)
+    inv = _load_worker_inventory(inv_db, max_skus, sku_allowlist, channel_regime)
     aff = AffinityStore(aff_db) if aff_db else None
     return [Batch(batch_cfg, inv, affinity=aff, rng=random.Random(seed_batches + i))
             for i in range(lo, hi)]
 
 
 def precompute_batches(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg,
-                       seed_batches: int, n_batches: int, workers: int = 1) -> list:
+                       seed_batches: int, n_batches: int, workers: int = 1,
+                       channel_regime=None) -> list:
     """Return the full list of `Batch` objects for i in [0, n_batches).
 
     Serial when workers<=1 or n_batches<_MIN_PARALLEL; otherwise splits the range across a transient
@@ -99,7 +106,7 @@ def precompute_batches(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg,
     """
     if workers <= 1 or n_batches < _MIN_PARALLEL:
         return _sample_range(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg,
-                             seed_batches, 0, n_batches)
+                             seed_batches, 0, n_batches, channel_regime)
 
     import concurrent.futures as cf
     import multiprocessing as mp
@@ -110,7 +117,7 @@ def precompute_batches(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg,
     ctx = mp.get_context('spawn')
     with cf.ProcessPoolExecutor(max_workers=nchunks, mp_context=ctx) as ex:
         futs = {ex.submit(_sample_range, inv_db, max_skus, sku_allowlist, aff_db,
-                          batch_cfg, seed_batches, lo, hi): j
+                          batch_cfg, seed_batches, lo, hi, channel_regime): j
                 for j, (lo, hi) in enumerate(bounds)}
         for f in cf.as_completed(futs):
             out[futs[f]] = f.result()
@@ -144,14 +151,19 @@ def load_batches(path: str, expected_fingerprint: str) -> list | None:
 
 
 def ensure_batches(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg,
-                   seed_batches: int, n_batches: int, workers: int = 1, log=None):
+                   seed_batches: int, n_batches: int, workers: int = 1, log=None,
+                   channel_regime=None):
     """Compute-or-reuse this family's batch file under out_dir.  Returns (path, fingerprint).
 
     The file is named by the fingerprint so different families never collide and identical families
     (e.g. configs that don't change inventory) share one file.  Existence ⇒ reuse (write is atomic);
     the worker re-verifies the full fingerprint on load.
+
+    ``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog
+    channel shares ONE list across all its configs (store and fulfillment necessarily get distinct
+    files: different regime SKUs, seed, and batch fraction all feed the fingerprint).
     """
-    inv = _load_worker_inventory(inv_db, max_skus, sku_allowlist)
+    inv = _load_worker_inventory(inv_db, max_skus, sku_allowlist, channel_regime)
     aff = AffinityStore(aff_db) if aff_db else None
     fp  = batch_fingerprint(inv, batch_cfg, seed_batches, n_batches, aff)
     path = os.path.join(out_dir, f'_batches_{fp[:16]}.pkl')
@@ -163,6 +175,7 @@ def ensure_batches(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, b
         log.info(f'  Batches: precompute {n_batches} (workers={workers}) -> '
                  f'{os.path.basename(path)} (fp {fp[:8]})')
     batches = precompute_batches(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg,
-                                 seed_batches, n_batches, workers=workers)
+                                 seed_batches, n_batches, workers=workers,
+                                 channel_regime=channel_regime)
     write_batches(path, fp, batches)
     return path, fp
