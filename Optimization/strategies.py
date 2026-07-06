@@ -30,6 +30,7 @@ from Assignment_Functions import (
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
+    build_optmap_wave_fn,
     build_cluster_map_placement,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
@@ -176,7 +177,9 @@ def _build_map(mgr, ctx: StrategyContext) -> None:
     # — each unit goes to the free bin whose pref is closest to its SKU's target, so
     # reorders reload toward the optimum instead of grabbing whatever bin is free.
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
-    mgr.placement = Placement('optmap', build_optmap_fn(mgr))
+    # place_one stays the spill fallback; the wave amortizes the closest-pref scan
+    # (O(B log B) sort + O(log B)/unit) over each reorder group.  See build_optmap_wave_fn.
+    mgr.placement = Placement('optmap', build_optmap_fn(mgr), build_optmap_wave_fn(mgr))
 
 
 def _build_map_rank(mgr, ctx: StrategyContext) -> None:
@@ -184,7 +187,8 @@ def _build_map_rank(mgr, ctx: StrategyContext) -> None:
     # more prime than its optimal rank — prime spots are saved for higher-ranked SKUs that
     # future orders bring (rank-relative, non-greedy).  See build_optmap_fn(capped=True).
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
-    mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True))
+    mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True),
+                              build_optmap_wave_fn(mgr, capped=True))
 
 
 def _build_cluster_map(mgr, ctx: StrategyContext) -> None:
