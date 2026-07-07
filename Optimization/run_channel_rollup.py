@@ -46,11 +46,12 @@ def _is_num(x) -> bool:
 
 def _find_series(base_dir: str) -> list[tuple[str, str]]:
     """(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run."""
+    from Optimization.runlayout import iter_channel_runs
     out = []
-    for root, _dirs, files in os.walk(base_dir):
-        if 'sim_meta.json' in files and 'series.json' in files:
-            out.append((os.path.join(root, 'sim_meta.json'),
-                        os.path.join(root, 'series.json')))
+    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
+        sp = os.path.join(run.path, 'series.json')
+        if os.path.exists(sp):
+            out.append((os.path.join(run.path, 'sim_meta.json'), sp))
     return sorted(out)
 
 

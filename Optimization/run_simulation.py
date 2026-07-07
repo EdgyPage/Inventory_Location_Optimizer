@@ -346,53 +346,9 @@ def _load_resume(run_dir: str):
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
 
-def discover_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
-    """Scan profiles_dir and return (label, inventory_db, affinity_db) for every valid pair."""
-    pairs: list[tuple[str, str, str]] = []
-    if not os.path.isdir(profiles_dir):
-        return pairs
-    for run_name in sorted(os.listdir(profiles_dir)):
-        run_path = os.path.join(profiles_dir, run_name)
-        if not os.path.isdir(run_path):
-            continue
-        for profile_name in sorted(os.listdir(run_path)):
-            profile_path = os.path.join(run_path, profile_name)
-            if not os.path.isdir(profile_path):
-                continue
-            inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
-            aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
-            if os.path.exists(inv_db) and os.path.exists(aff_db):
-                pairs.append((f'{run_name}__{profile_name}', inv_db, aff_db))
-    return pairs
-
-
-def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
-    """Return DB pairs from the most recently generated profile run only.
-
-    Profile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy
-    batch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is
-    always the newest.  Walks backwards until a run with valid pairs is found.
-    """
-    if not os.path.isdir(profiles_dir):
-        return []
-    run_names = sorted([
-        d for d in os.listdir(profiles_dir)
-        if os.path.isdir(os.path.join(profiles_dir, d))
-    ])
-    for run_name in reversed(run_names):
-        run_path = os.path.join(profiles_dir, run_name)
-        pairs: list[tuple[str, str, str]] = []
-        for profile_name in sorted(os.listdir(run_path)):
-            profile_path = os.path.join(run_path, profile_name)
-            if not os.path.isdir(profile_path):
-                continue
-            inv_db = os.path.join(profile_path, 'inventory', 'inventory.db')
-            aff_db = os.path.join(profile_path, 'affinity', 'affinity.db')
-            if os.path.exists(inv_db) and os.path.exists(aff_db):
-                pairs.append((f'{run_name}__{profile_name}', inv_db, aff_db))
-        if pairs:
-            return pairs
-    return []
+# Directory-layout walkers live in runlayout (single owner of the tree shapes);
+# re-imported here so rs.discover_db_pairs / rs.find_latest_db_pairs keep working.
+from Optimization.runlayout import discover_db_pairs, find_latest_db_pairs, iter_sim_dbs  # noqa: F401,E402
 
 
 # ── shared asset loader ────────────────────────────────────────────────────────
@@ -1013,12 +969,9 @@ def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
     placement/stocking failure (units never binned → no pick tasks → all batches
     skipped).  Downstream analysis silently omits such arms, so we flag them here.
     """
-    import glob as _glob
     import sqlite3
     blank = []
-    for db in _glob.glob(os.path.join(base_dir, '**', 'sim_*.db'), recursive=True):
-        if db.endswith('.keyframes.db'):
-            continue
+    for _run, db in iter_sim_dbs(base_dir):
         try:
             con = sqlite3.connect(db)
             n = con.execute('SELECT COUNT(*) FROM batch_stats').fetchone()[0]
