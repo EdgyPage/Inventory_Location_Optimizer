@@ -42,8 +42,7 @@ class ReorderMixin:
         sku = unit.order.sku
 
         if self._sigma_freq is not None:           # incremental Sigma f*D: eviction (−)
-            self._sigma_fd -= (self._sigma_freq.get(sku, 0.0)
-                               * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
+            self._sigma_fd -= self._sigma_delta(sku, bin_)
 
         # Free the bin and return it to the available index.
         bin_.storage = None
@@ -132,8 +131,7 @@ class ReorderMixin:
         if self._sigma_freq is not None:
             sku = self._bin_sku.get(id(bin_))      # still set until reclaim pops it
             if sku is not None:
-                self._sigma_fd -= (self._sigma_freq.get(sku, 0.0)
-                                   * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
+                self._sigma_fd -= self._sigma_delta(sku, bin_)
         self._pending_reclaim.append(bin_)
 
     def _apply_picks_batch(

@@ -23,7 +23,7 @@ from Warehouse.Storage_Primitive import (
 )
 from Warehouse.regime import FULFILLMENT, regime_of
 from Warehouse.inventory_common import (
-    BinKey, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
+    BinKey, binkey_of, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
     _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
 )
 
@@ -143,9 +143,8 @@ class PlanningMixin:
         its equilibrium_qty.  This is the authoritative per-tier demand."""
         req: dict[BinKey, int] = defaultdict(int)
         for c in orders:
-            shc = c.storage_handle_config
             for u in viable_storage_units(c, _equilibrium_qty(c)):
-                req[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
+                req[binkey_of(u)] += 1
         return dict(req)
 
     @classmethod
@@ -441,12 +440,9 @@ class PlanningMixin:
             if unit_type == 'singleton':
                 actual_b = b
             elif unit_type == FULFILLMENT:
-                shc = shc_of[id(c)]
-                actual_b = (shc.handling, shc.category,
-                            FulfillmentBin(c, per).storage_size, FULFILLMENT)
+                actual_b = binkey_of(FulfillmentBin(c, per))
             else:
-                shc = shc_of[id(c)]
-                actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')
+                actual_b = binkey_of(Pallet(c, per))
             if free.get(actual_b, 0) <= 0:
                 return False
             _add_run(c, isng, per, 1, actual_b)

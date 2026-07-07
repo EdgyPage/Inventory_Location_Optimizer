@@ -23,6 +23,13 @@ from Warehouse.Inventory_Management import (
 
 # ── load-aware assignment functions ───────────────────────────────────────────
 
+def _D_map(cands, x_pace, y_pace) -> dict[int, float]:
+    """id(bin) → travel-time D map.  The identical dict-comprehension sat at every
+    ranked-impl site; ONE helper so the formula can't drift.  Paces are s/inch
+    (sec_per_inch of the ft/s speeds); expression shape preserved exactly."""
+    return {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+
+
 def _aisle_extremal_bins(
     candidates: list[Any],
     x_speed   : float,
@@ -575,7 +582,7 @@ def _ranked_assign_impl(
     # out by popping the head — equivalent to picking the extremal-D available bin
     # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of  = _D_map(cands, x_pace, y_pace)
     by_aisle: dict[int, deque] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -690,7 +697,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         return result
 
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of  = _D_map(cands, x_pace, y_pace)
     by_aisle: dict[int, list] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -968,7 +975,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         cart_coef = wp.cart_swap_coef
         cap_raw   = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
 
-    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of = _D_map(cands, x_pace, y_pace)
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
     by_aisle: dict[int, dict] = {}
@@ -1150,7 +1157,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     def _better(a, b):                       # is a a better (more extreme) score than b?
         return a > b if maximize else a < b
 
-    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of = _D_map(cands, x_pace, y_pace)
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
     for b in cands:

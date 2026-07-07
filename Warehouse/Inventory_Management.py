@@ -17,7 +17,7 @@ from Warehouse.regime import FULFILLMENT, regime_of
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from Warehouse.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
-    BinKey, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
+    BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
     _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
     _uniform_assignment, _wp_for,
 )
@@ -368,7 +368,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     # ── index maintenance ────────────────────────────────────────────────────
 
     def _key(self, bin_: Aisle.Bin) -> BinKey:
-        return (bin_.handling_type, bin_.storage_type, bin_.storage_size, bin_.unit_type)
+        return binkey_of(bin_)
 
     def _index_add(self, bin_: Aisle.Bin) -> None:
         key = self._key(bin_)
@@ -415,7 +415,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         shc       = unit.order.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' | 'singleton' | 'fulfillment'
         if unit_type == 'singleton':
-            bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+            bins = self._index.get(binkey_of(unit))       # (h, c, 'singleton', 'singleton')
             return bins or []
         # Pallet and fulfillment are both size-tiered: return the smallest non-empty tier
         # >= the unit's own tier, spilling up.  tier_ranks_for() selects the pallet vs
@@ -471,8 +471,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             counts[sku] = counts.get(sku, 0) + 1
         self._reorder_placements += 1
         if self._sigma_freq is not None:
-            self._sigma_fd += (self._sigma_freq.get(sku, 0.0)
-                               * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
+            self._sigma_fd += self._sigma_delta(sku, bin_)
+
+    def _sigma_delta(self, sku: int, bin_: Aisle.Bin) -> float:
+        """f_s · D(bin) increment for the incremental Σ f·D tracker.
+
+        The ONE shared expression behind every += / -= on _sigma_fd (placement adds,
+        eviction/depletion subtracts) — kept as a method so the formula can't drift
+        between the three sites.  Callers guard on ``self._sigma_freq is not None``.
+        """
+        return (self._sigma_freq.get(sku, 0.0)
+                * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
     def _stock(self) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
@@ -616,9 +625,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
         while self._stock_queue:
             unit = self._stock_queue.popleft()
-            shc  = unit.order.storage_handle_config
-            key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
-            groups[key].append(unit)
+            groups[binkey_of(unit)].append(unit)
 
         for _key, units in groups.items():
             # Ranked assignments — high pick-effort units claim the best bins first.

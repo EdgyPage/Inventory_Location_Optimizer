@@ -14,7 +14,9 @@ from collections import defaultdict, deque
 from Warehouse.Order import Order
 from Warehouse.Storage_Primitive import StorageUnit, viable_storage_units
 from Warehouse.cost_model import height_multiplier, handle_var, sec_per_inch
-from Warehouse.inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for
+from Warehouse.inventory_common import (
+    _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for, binkey_of,
+)
 
 
 class OptimalLayoutMixin:
@@ -128,14 +130,9 @@ class OptimalLayoutMixin:
         units_by_key: dict = defaultdict(list)
         for c in orders:
             for unit in viable_storage_units(c, _equilibrium_qty(c)):
-                if unit.unit_category == 'singleton':
-                    key = (c.storage_handle_config.handling,
-                           c.storage_handle_config.category, 'singleton', 'singleton')
-                else:
-                    key = (c.storage_handle_config.handling,
-                           c.storage_handle_config.category,
-                           unit.storage_size, unit.unit_category)
-                units_by_key[key].append(unit)
+                # binkey_of covers all three families (Singleton's fixed 'singleton'
+                # label comes from the unit's own storage_size).
+                units_by_key[binkey_of(unit)].append(unit)
 
         W_var = 0.0
         sku_target: dict[int, list] = defaultdict(list)

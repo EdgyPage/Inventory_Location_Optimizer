@@ -131,6 +131,21 @@ def _wp_for(wp, obj):
 BinKey = tuple[str, str, str, str]
 
 
+def binkey_of(obj) -> BinKey:
+    """The 4-tuple BinKey of a StorageUnit or an Aisle.Bin (duck-typed like regime_of).
+
+    Units read (handling, category) from their order's storage_handle_config plus their
+    own (storage_size, unit_category) — Singleton's fixed 'singleton' label comes from
+    Singleton.storage_size itself, so no special-casing.  Bins read their four mirror
+    attributes.  One constructor for the key that used to be hand-built at ~8 sites.
+    """
+    order = getattr(obj, 'order', None)
+    if order is not None:                    # StorageUnit (Pallet/Singleton/FulfillmentBin)
+        shc = order.storage_handle_config
+        return (shc.handling, shc.category, obj.storage_size, obj.unit_category)
+    return (obj.handling_type, obj.storage_type, obj.storage_size, obj.unit_type)
+
+
 def _equilibrium_qty(order: Order) -> int:
     """Return the Order-Up-To target for *order*.
 
