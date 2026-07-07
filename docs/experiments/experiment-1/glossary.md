@@ -4,7 +4,7 @@ Definitions for every term the [lifecycle](comparison-overview.md) and result wr
 cite. Each entry has a stable anchor — link to one with `glossary.md#<id>` (the id is shown
 in the heading link). Formula shapes match the code in
 [`Warehouse/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py)
-and [`Warehouse/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/ASSIGNMENT_SCORING.md).
+and [`docs/design/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/design/ASSIGNMENT_SCORING.md).
 
 ## Layout &amp; geometry
 

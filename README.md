@@ -116,10 +116,11 @@ curates.
 | Dir | What |
 |-----|------|
 | `Warehouse/` | inventory generation, warehouse model, placement/assignment functions, reorder logic |
-| `Optimization/` | the run harness (`run_simulation.py`, `run_analysis.py`, `strategies.py`) + reference docs |
-| `Simulation/` · `Visualization/` · `Diagnostics/` | pick simulation, replay viewer, diagnostics |
+| `Optimization/` | the run harness (`run_simulation.py`, `run_analysis.py`, `strategies.py`) |
+| `Visualization/` · `Diagnostics/` | replay viewer, diagnostics |
 | `Tests/` | test + benchmark suites |
-| `docs/` | the MkDocs results site (published via GitHub Pages) |
+| `notebooks/` | exploratory Jupyter notebooks |
+| `docs/` | the MkDocs results site (published via GitHub Pages) + `docs/design/` engineering docs |
 
 ## Publishing docs
 

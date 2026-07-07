@@ -95,5 +95,5 @@ aisle state must be prepared before a scorer can run.
   sampler in `Workload_Builder.Batch`); with uniform batches there are no co‑picked
   partners to cluster around.
 
-See `Optimization/PERFORMANCE_MODEL.md` for how the realised `Σ f·D` (layout quality)
+See [`PERFORMANCE_MODEL.md`](PERFORMANCE_MODEL.md) for how the realised `Σ f·D` (layout quality)
 evolves over batches and converges to each reorder rule's characteristic level.

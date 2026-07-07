@@ -228,7 +228,7 @@ FULFILLMENT_CONFIGS = [
 # pool, cart, batch-stream shape, fill headroom, and warehouse sizing.  CLI flags override
 # these defaults (see main()).  Read internally via `g = CONFIG['global']` /
 # `CONFIG['channels'][name]`; a few module-level aliases below mirror the common values so
-# external read-only consumers (bucket_fill, diagnose_makespan) keep working.
+# external read-only consumers (bucket_fill) keep working.
 CONFIG = {
     'global': {
         'seed_world'      : 42,
@@ -271,8 +271,8 @@ CONFIG = {
     },
 }
 
-# Derived read-only aliases for external consumers (bucket_fill.py, diagnose_makespan.py,
-# README) — CONFIG is authoritative; internal code reads CONFIG, not these.
+# Derived read-only aliases for external consumers (bucket_fill.py, README) —
+# CONFIG is authoritative; internal code reads CONFIG, not these.
 SEED_WORLD     = CONFIG['global']['seed_world']
 SEED_BATCHES   = CONFIG['global']['seed_batches']
 N_BATCHES      = CONFIG['global']['n_batches']

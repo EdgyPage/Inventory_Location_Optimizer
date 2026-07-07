@@ -61,6 +61,8 @@ exclude_docs: |
   site-usage.md
   gpu_assessment.md
   gpu_auction_assessment.md
+  # engineering design docs (repo reference, not site pages)
+  design/
   # new-experiment scaffold + data/scripts that aren't pages
   experiments/_template/
   experiments/*/experiment.yml

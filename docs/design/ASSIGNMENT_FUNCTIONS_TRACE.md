@@ -2,13 +2,13 @@
 
 A concrete trace of every placement policy in the current grid: where a unit goes, what
 is scored, and which code path runs. A *strategy* = `initial stock × restock (reorder)
-rule × re-slot` ([strategies.py](strategies.py)); this doc covers the **8 restock
+rule × re-slot` ([strategies.py](../../Optimization/strategies.py)); this doc covers the **8 restock
 families** (the "assignment functions") plus the **2 initial-stock modes**.
 
-Builders live in [Warehouse/Assignment_Functions.py](../Warehouse/Assignment_Functions.py);
-the drain lives in [Warehouse/Inventory_Management.py](../Warehouse/Inventory_Management.py).
+Builders live in [Warehouse/Assignment_Functions.py](../../Warehouse/Assignment_Functions.py);
+the drain lives in [Warehouse/Inventory_Management.py](../../Warehouse/Inventory_Management.py).
 For the scoring objectives at a higher level see
-[Warehouse/ASSIGNMENT_SCORING.md](../Warehouse/ASSIGNMENT_SCORING.md).
+[ASSIGNMENT_SCORING.md](ASSIGNMENT_SCORING.md).
 
 ---
 
@@ -33,7 +33,7 @@ For the scoring objectives at a higher level see
 - **`Placement(name, place_one, place_wave=None)`** — the single policy object a strategy
   sets on `mgr.placement`. `place_one(unit, candidates) -> bin` is per-unit (always present);
   `place_wave(units, candidates_fn) -> [(unit, bin)]` is the optional ranked wave.
-- **`_drain()` dispatcher** ([Inventory_Management.py:~1187](../Warehouse/Inventory_Management.py)):
+- **`_drain()` dispatcher** ([Inventory_Management.py:~1187](../../Warehouse/Inventory_Management.py)):
   runs the coupling guard, then `if placement.place_wave: _drain_ranked() else: _drain_per_unit()`.
   - `_drain_per_unit`: pops the queue one unit at a time, `bin = placement.place_one(unit, cand)`.
   - `_drain_ranked`: groups the queue by **BinKey**, calls `place_wave` per group, then routes
@@ -135,7 +135,8 @@ incrementally so clusters build up; the front/back "bin" choice is a `D`-rank pi
 
 ## 5. What the data showed (so the mechanics connect to outcomes)
 
-- **Makespan is driven by within-aisle work `W`** (`diagnose_makespan.py`, r≈0.95), whose
+- **Makespan is driven by within-aisle work `W`** (measured by the since-removed
+  `diagnose_makespan.py` one-off diagnostic, r≈0.95), whose
   travel term is the **column-sweep path length** through a batch's demanded bins. Σf·D
   (layout depth) is *decoupled* (r≈0.16) and load balance is a near-constant overhead (r≈0.03).
 - **Coherence, not depth, is the lever the ranked drain captures.** `fifo` scatters a SKU's
@@ -147,5 +148,5 @@ incrementally so clusters build up; the front/back "bin" choice is a `D`-rank pi
   uniform start, barely moves W (the compact↔expand gap is ~2 pp with near-identical W) —
   because only ~11% of bins reorder per batch, so the uniform initial layout dominates. The
   `comp`/`expn` bracket *measures* that the residual placement lever is small; the round-robin
-  dispatcher ([fast_pick.py](../Warehouse/fast_pick.py), `i % n` over aisle-sorted tasks) and
+  dispatcher ([fast_pick.py](../../Warehouse/fast_pick.py), `i % n` over aisle-sorted tasks) and
   the initial layout are the larger levers.
