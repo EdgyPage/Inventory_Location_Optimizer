@@ -103,7 +103,7 @@ def _aisle_extremal_bins(
     return best_D, best_bin
 
 
-def build_load_minimizing_assignment_fn(
+def _build_load_assignment_fn(
     params         : LoadParams,
     affinity       : AffinityStore,
     wp             : Any,
@@ -111,22 +111,31 @@ def build_load_minimizing_assignment_fn(
     aisle_lift_sum : dict[int, float],
     aisle_idx_sets : dict[int, set[int]],
     aisle_index    : dict | None = None,
+    *,
+    maximize       : bool = False,
 ) -> AssignmentFn:
-    """Build an AssignmentFn that greedily minimises the L2 norm of predicted
-    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
+    """Shared core for the load-minimising/maximising AssignmentFns (they differed only
+    in extremum direction + the min-only early-termination prune).
+
+    Greedily extremises the L2 norm of predicted aisle loads
+    L_a = W + λ*(W/k)^γ * lift_sum.
 
     Dual-optimisation algorithm
     ---------------------------
-    1. Reduce candidates to one bin per aisle (minimum-D bin) — exact by
+    1. Reduce candidates to one bin per aisle (extremal-D bin) — exact by
        monotonicity of delta_l2 in D within a fixed aisle.
-    2. Sort the O(N_aisles) representatives by D ascending.
-    3. Evaluate aisles in D order with LAZY CSR queries (delta_lift computed
+    2. Sort the O(N_aisles) representatives by D (ascending when minimising;
+       descending when maximising — largest travel cost first has the highest
+       potential delta_l2).
+    3. Evaluate aisles in that order with LAZY CSR queries (delta_lift computed
        only when the aisle is actually reached, not upfront for all aisles).
-    4. Early termination: once the best score has delta_l2 = 0 (no affinity
-       partners in the winning aisle), any remaining aisle with D ≥ best_old_L
-       cannot improve — old_L ≥ D ≥ best_old_L and delta_l2 ≥ 0 = best_delta_l2.
-       With sparse top-20 affinity most aisles have delta_lift = 0, so the
-       termination typically fires after the first few aisles.
+    4. Early termination (MINIMISING ONLY): once the best score has delta_l2 = 0
+       (no affinity partners in the winning aisle), any remaining aisle with
+       D ≥ best_old_L cannot improve — old_L ≥ D ≥ best_old_L and
+       delta_l2 ≥ 0 = best_delta_l2.  With sparse top-20 affinity most aisles
+       have delta_lift = 0, so the termination typically fires after the first
+       few aisles.  No such prune exists when maximising: a low-D aisle can
+       still win on very high affinity lift.
     """
     lam    = params.lambda_
     k      = params.k
@@ -140,33 +149,35 @@ def build_load_minimizing_assignment_fn(
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.order.sku
 
-        # Step 1: one representative bin per aisle (min-D).
+        # Step 1: one representative bin per aisle (extremal-D).
         # Fast path: derive BinKey from unit, read directly from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=True)
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=not maximize)
             if not best_D:
                 return None
         else:
             if not candidates:
                 return None
-            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed,
+                                                        minimize=not maximize)
 
-        # Step 2: sort aisles by ascending min-D — O(N_aisles log N_aisles)
-        sorted_aids = sorted(best_D, key=best_D.__getitem__)
+        # Step 2: sort aisles by D — O(N_aisles log N_aisles)
+        sorted_aids = sorted(best_D, key=best_D.__getitem__, reverse=maximize)
 
+        _inf = float('-inf') if maximize else float('inf')
         best_bin        : Any | None          = None
         best_aid        : int                 = -1
-        best_score      : tuple[float, float] = (float('inf'), float('inf'))
+        best_score      : tuple[float, float] = (_inf, _inf)
         best_delta_lift : float               = 0.0
 
-        # Step 3+4: lazy CSR queries + early termination
+        # Step 3+4: lazy CSR queries (+ min-only early termination)
         for aid in sorted_aids:
             D = best_D[aid]
 
-            # Early termination: best has delta_l2=0; remaining D ≥ best old_L
-            # means score ≥ (0, D) ≥ (0, best_old_L) = best — prune the rest.
-            if best_score[0] == 0.0 and D >= best_score[1]:
+            if not maximize and best_score[0] == 0.0 and D >= best_score[1]:
+                # best has delta_l2=0; remaining D ≥ best old_L means
+                # score ≥ (0, D) ≥ (0, best_old_L) = best — prune the rest.
                 break
 
             ls = aisle_lift_sum[aid]
@@ -180,7 +191,7 @@ def build_load_minimizing_assignment_fn(
             delta_l2 = new_L * new_L - old_L * old_L
             score    = (delta_l2, old_L)
 
-            if score < best_score:
+            if (score > best_score) if maximize else (score < best_score):
                 best_score      = score
                 best_bin        = best_bin_map[aid]
                 best_aid        = aid
@@ -205,87 +216,20 @@ def build_load_minimizing_assignment_fn(
     return assign
 
 
-def build_load_maximizing_assignment_fn(
-    params         : LoadParams,
-    affinity       : AffinityStore,
-    wp             : Any,
-    aisle_sku_sets : dict[int, set[int]],
-    aisle_lift_sum : dict[int, float],
-    aisle_idx_sets : dict[int, set[int]],
-    aisle_index    : dict | None = None,
-) -> AssignmentFn:
-    """Build an AssignmentFn that greedily maximises the L2 norm of predicted
-    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
+def build_load_minimizing_assignment_fn(params, affinity, wp, aisle_sku_sets,
+                                        aisle_lift_sum, aisle_idx_sets,
+                                        aisle_index=None) -> AssignmentFn:
+    """Greedily MINIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn)."""
+    return _build_load_assignment_fn(params, affinity, wp, aisle_sku_sets, aisle_lift_sum,
+                                     aisle_idx_sets, aisle_index, maximize=False)
 
-    Same dual-optimisation structure as the minimising variant:
-    one bin per aisle (min-D) + aisles sorted by D descending (largest
-    travel cost first — highest potential delta_l2) + lazy CSR queries.
-    No early termination for maximising: a low-D aisle can still win if it
-    has very high affinity lift, so the sorted order does not guarantee
-    pruning.  The one-bin-per-aisle reduction still eliminates O(N_bins)
-    evaluations, leaving O(N_aisles) CSR queries.
-    """
-    lam    = params.lambda_
-    k      = params.k
-    gam    = params.gamma
-    x_speed = wp.x_speed
-    y_speed = wp.y_speed
 
-    def _L(D: float, ls: float) -> float:
-        return D + lam * (D / k) ** gam * ls
-
-    def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
-        sku = unit.order.sku
-
-        # One representative bin per aisle (max-D) — exact by monotonicity.
-        # Fast path: derive BinKey from unit, read from pre-sorted index.
-        # Fallback: scan candidates list (used only when aisle_index is None).
-        if aisle_index is not None:
-            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=False)
-            if not best_D:
-                return None
-        else:
-            if not candidates:
-                return None
-            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
-
-        # Sort descending: high-D aisles have the largest potential delta_l2
-        sorted_aids = sorted(best_D, key=best_D.__getitem__, reverse=True)
-
-        best_bin        : Any | None          = None
-        best_aid        : int                 = -1
-        best_score      : tuple[float, float] = (float('-inf'), float('-inf'))
-        best_delta_lift : float               = 0.0
-
-        for aid in sorted_aids:
-            D  = best_D[aid]
-            ls = aisle_lift_sum[aid]
-            dl = (0.0 if sku in aisle_sku_sets[aid]
-                  else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
-            old_L    = _L(D, ls)
-            new_L    = _L(D, ls + dl)
-            delta_l2 = new_L * new_L - old_L * old_L
-            score    = (delta_l2, old_L)
-
-            if score > best_score:
-                best_score      = score
-                best_bin        = best_bin_map[aid]
-                best_aid        = aid
-                best_delta_lift = dl
-
-        if best_bin is None:
-            return None
-
-        if sku not in aisle_sku_sets[best_aid]:
-            aisle_lift_sum[best_aid] += best_delta_lift
-            aisle_sku_sets[best_aid].add(sku)
-            idx = affinity._sku_to_idx.get(sku)
-            if idx is not None:
-                aisle_idx_sets[best_aid].add(idx)
-        return best_bin
-
-    assign.uses_aisle_index = aisle_index is not None
-    return assign
+def build_load_maximizing_assignment_fn(params, affinity, wp, aisle_sku_sets,
+                                        aisle_lift_sum, aisle_idx_sets,
+                                        aisle_index=None) -> AssignmentFn:
+    """Greedily MAXIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn)."""
+    return _build_load_assignment_fn(params, affinity, wp, aisle_sku_sets, aisle_lift_sum,
+                                     aisle_idx_sets, aisle_index, maximize=True)
 
 
 # ── trip-cost assignment functions ────────────────────────────────────────────
