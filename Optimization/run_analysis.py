@@ -35,12 +35,8 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__fil
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from Optimization.run_simulation import (
-    build_shared_assets,
-    regime_sizing_from_config,
-    _setup_logging,
-    _OUTPUT_DIR,
-)
+from Optimization.sim_assets import build_shared_assets
+from Optimization.sim_config import regime_sizing_from_config, _setup_logging, _OUTPUT_DIR
 from Optimization.runlayout import iter_channel_runs
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
