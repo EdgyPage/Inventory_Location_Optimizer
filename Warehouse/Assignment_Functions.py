@@ -30,6 +30,44 @@ def _D_map(cands, x_pace, y_pace) -> dict[int, float]:
     return {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
 
 
+
+def _aisle_index_for_unit(aisle_index, unit, minimize: bool):
+    """(best_D, best_bin_map) — one extremal-D representative bin per aisle for *unit*,
+    read from the manager's pre-sorted secondary index (the fast-path twin of
+    Inventory_Manager._candidates; this identical block used to sit inline at 3 sites).
+
+    Resolves the unit's BinKey tier exactly as _candidates does: singleton -> its one
+    bucket; tiered families (pallet / fulfillment) -> the smallest non-empty tier >= the
+    unit's own, via the unit's OWN size table (fulfillment sizes are ff_*, absent from the
+    pallet _SIZE_RANKS — a pallet-only lookup would silently drop every fulfillment unit).
+    minimize picks each aisle deque's min-D head, else its max-D tail (sorted ascending).
+    Returns ({}, {}) when no tier has bins.
+    """
+    shc       = unit.order.storage_handle_config
+    unit_type = unit.unit_category
+    if unit_type == 'singleton':
+        by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+    else:
+        ranks, sizes_desc = tier_ranks_for(unit_type)
+        min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
+        by_aisle = None
+        for size in reversed(sizes_desc):
+            if ranks[size] >= min_rank:
+                by = aisle_index.get((shc.handling, shc.category, size, unit_type))
+                if by and any(by.values()):
+                    by_aisle = by
+                    break
+    best_D: dict[int, float] = {}
+    best_bin_map: dict[int, Any] = {}
+    if by_aisle:
+        for aid, lst in by_aisle.items():
+            if lst:
+                b = lst[0] if minimize else lst[-1]
+                best_D[aid]       = b._D
+                best_bin_map[aid] = b
+    return best_D, best_bin_map
+
+
 def _aisle_extremal_bins(
     candidates: list[Any],
     x_speed   : float,
@@ -106,31 +144,7 @@ def build_load_minimizing_assignment_fn(
         # Fast path: derive BinKey from unit, read directly from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[0]  # sorted ascending — first is min-D
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=True)
             if not best_D:
                 return None
         else:
@@ -227,31 +241,7 @@ def build_load_maximizing_assignment_fn(
         # Fast path: derive BinKey from unit, read from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[-1]  # sorted ascending — last is max-D
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=False)
             if not best_D:
                 return None
         else:
@@ -411,31 +401,7 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
 
         # Step 1: one representative bin per aisle (extremal-D).
         if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[0] if bin_minimize else lst[-1]
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=bin_minimize)
             if not best_D:
                 return None
         else:
