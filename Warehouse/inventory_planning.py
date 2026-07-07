@@ -24,7 +24,7 @@ from Warehouse.Storage_Primitive import (
 from Warehouse.regime import FULFILLMENT, regime_of
 from Warehouse.inventory_common import (
     BinKey, binkey_of, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
-    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+    _equilibrium_qty, _max_qty_fitting_size,
 )
 
 
@@ -385,12 +385,12 @@ class PlanningMixin:
                 # The bool flag is unused for ff (every unit is a FulfillmentBin) — kept for
                 # tuple shape / stock_plan compatibility.
                 for size in _FF_SIZES_DESCENDING:
-                    q = _max_qty_fitting_ff_size(c, size)
+                    q = _max_qty_fitting_size(c, size, FULFILLMENT)
                     if q > 0 and FulfillmentBin(c, q).storage_size == size:
                         opts.append(((shc.handling, shc.category, size, FULFILLMENT), q, True))
                 return opts
             for size in _SIZES_DESCENDING:
-                q = _max_qty_fitting_pallet_size(c, size)
+                q = _max_qty_fitting_size(c, size, 'pallet')
                 if q > 0 and Pallet(c, q).storage_size == size:
                     opts.append(((shc.handling, shc.category, size, 'pallet'), q, False))
             sq = _sq_max(c, Singleton)

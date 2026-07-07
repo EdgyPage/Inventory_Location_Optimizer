@@ -38,7 +38,7 @@ from Warehouse.generation.generate_inventory import (
     save_inventory_to_db, load_inventory_from_db, Inventory,
 )
 from Warehouse.Inventory_Management import (
-    Inventory_Manager, Placement, _SIZE_RANKS, _max_qty_fitting_pallet_size,
+    Inventory_Manager, Placement, _SIZE_RANKS,
 )
 from Warehouse.Assignment_Functions import (
     build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,

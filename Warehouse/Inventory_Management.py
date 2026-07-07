@@ -17,8 +17,8 @@ from Warehouse.regime import FULFILLMENT, regime_of
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from Warehouse.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
-    BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
-    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+    BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for, UNIT_CLASSES,
+    _equilibrium_qty, _max_qty_fitting_size,
     _uniform_assignment, _wp_for,
 )
 from Warehouse.inventory_planning import PlanningMixin
@@ -545,12 +545,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
                 # ── rescue 1: repack into a smaller size tier (pallet OR fulfillment) ──
                 # Both are size-tiered; tier_ranks_for() + the unit class select the family.
-                if unit.unit_category in ('pallet', FULFILLMENT) and unit.storage_size is not None:
+                if unit.unit_category in UNIT_CLASSES and unit.storage_size is not None:
                     utype        = unit.unit_category
-                    ranks, sizes_desc = tier_ranks_for(utype)
-                    unit_cls     = FulfillmentBin if utype == FULFILLMENT else Pallet
-                    max_qty_for  = (_max_qty_fitting_ff_size if utype == FULFILLMENT
-                                    else _max_qty_fitting_pallet_size)
+                    unit_cls, ranks, sizes_desc = UNIT_CLASSES[utype]
                     current_rank = ranks.get(unit.storage_size, 99)
                     for size in sizes_desc:
                         if ranks[size] >= current_rank:
@@ -559,7 +556,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                             (shc.handling, shc.category, size, utype))
                         if not avail:
                             continue
-                        max_q = max_qty_for(order, size)
+                        max_q = _max_qty_fitting_size(order, size, utype)
                         if max_q <= 0:
                             continue
                         remaining  = unit.quantity
