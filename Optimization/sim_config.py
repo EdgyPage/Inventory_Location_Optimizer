@@ -158,10 +158,11 @@ REGRESSION_CONFIGS = [
 STORE_CONFIGS = REGRESSION_CONFIGS
 
 # Fulfillment (human-walker) configs.  IDENTICAL dict schema to the store set (every config
-# carries its own 'num_pickers' pool size + optional 'cart').  The single default entry mirrors
-# channels.fulfillment_pick_config() so behavior is unchanged until you add entries.  Keep names
-# DISTINCT from store config names (config.json is written per config dir; a shared name would
-# collide — see the runner's _prepare_channel_run).
+# carries its own 'num_pickers' pool size + optional 'cart').  The FIRST entry is the single
+# source of truth for the default walker cost — channels.fulfillment_pick_config() reads it
+# back (it used to carry its own copy, which drifted).  Keep names DISTINCT from store config
+# names (config.json is written per config dir; a shared name would collide — see the runner's
+# _prepare_channel_run).
 FULFILLMENT_CONFIGS = [
     {
         'name'            : 'ful_calibrated',

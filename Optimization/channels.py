@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.Pick import PickConfig
 from Warehouse.Storage_Primitive import FulfillmentCart
 from Optimization.Workload import WorkloadParams
 from Warehouse.Workload_Builder import BatchConfig
@@ -61,27 +61,18 @@ class Channel:
 
 
 def fulfillment_pick_config() -> PickConfig:
-    """PLACEHOLDER human-walker pick-time regression for the fulfillment channel.
+    """The fulfillment channel's default walker pick-time regression.
 
-    Same functional FORM as the machine order-picker, different coefficients + speeds:
-    faster walking travel, light handling (small items), a tote-swap penalty.  Height
-    brackets are irrelevant (fulfillment bins all sit below the first bracket → M=1), so
-    the default brackets are kept.  These numbers are a stand-in until real pick-time data
-    calibrates the walker — see the plan's deferred "walker regression calibration".
+    A thin reader of ``sim_config.FULFILLMENT_CONFIGS[0]`` — the SINGLE source of
+    truth for the walker numbers.  (This function used to carry its own copy, which
+    silently diverged once the sweep entries were tuned; folding it onto CONFIG ended
+    the two-sources-of-truth hazard.)  num_pickers stays 1 here — the PickerProfile
+    pool size overrides it.  Imported lazily to avoid the sim_config → channels
+    import cycle (FF_BATCH_SEED_OFFSET lives in this module).
     """
-    return PickConfig(
-        num_pickers      = 1,        # overridden by the PickerProfile pool size
-        x_speed          = 4.5,      # ft/s — a person walking (vs a machine)
-        y_speed          = 2.0,      # ft/s — reaching a ~6 ft shelf (small y anyway)
-        pick_intercept   = 10.0,     # per-stop setup: locate + scan + grasp
-        pick_weight_coef = 0.10,     # light items → weight nearly negligible
-        pick_volume_coef = 0.50,
-        pick_weight_fn   = 'log',
-        pick_volume_fn   = 'log:2',
-        cart_swap_coef   = 30.0,     # tote swap at the depot
-        cart             = FulfillmentCart,   # small tote (25,000) → swaps more often than the store cart
-        height_brackets  = DEFAULT_HEIGHT_BRACKETS,   # no-op for ff bins (all M=1)
-    )
+    from Optimization.sim_config import FULFILLMENT_CONFIGS, _build_pick_cfg
+    return _build_pick_cfg(FULFILLMENT_CONFIGS[0], num_pickers=1,
+                           default_cart=FulfillmentCart)
 
 
 def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
