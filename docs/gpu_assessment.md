@@ -2,8 +2,8 @@
 
 Backends: numpy 2.0.2  |  cupy 14.1.1 (NVIDIA RTX A5500 Laptop GPU)  |  torch 2.11.0+cu130 (NVIDIA RTX A5500 Laptop GPU)
 
-Fixed-seed CPU-vs-GPU microbenchmarks (`Tests/bench_gpu_*`), weighted by real
-wall-share from the newest run.log (`Tests/bench_sections.py`).
+Fixed-seed CPU-vs-GPU microbenchmarks (`Tests/gpu/bench_gpu_*`), weighted by real
+wall-share from the newest run.log (`Tests/bench/bench_sections.py`).
 
 ## Wall-share (Amdahl)
 - reord: 44%

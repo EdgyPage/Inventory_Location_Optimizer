@@ -7,7 +7,7 @@ lifecycle of inventory units:
 
 plus per-aisle / per-bucket fill, queue depth, and per-function call timings.
 The manager's lifecycle methods are wrapped on the instance (no edits to
-Warehouse/ or Optimization/ source — same approach as Tests/profile_lifecycle.py).
+Warehouse/ or Optimization/ source — same approach as Tests/bench/profile_lifecycle.py).
 
 The default compares a uniform-stocked strategy (fills to the target ~85%) against
 a policy-stocked one (which can leave units stuck in the queue -> lower fill),
@@ -62,7 +62,7 @@ _HANDLINGS = ['conveyable', 'non-conveyable']
 _GRID_COLS = 6
 
 
-# ── order equilibrium (OUP) fields — mirrors Tests/profile_lifecycle._set_equilibrium ──
+# ── order equilibrium (OUP) fields — mirrors Tests/bench/profile_lifecycle._set_equilibrium ──
 
 def _set_equilibrium(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
     for c in orders:

@@ -6,7 +6,7 @@ stats -> save, then analysis (per-config compare/ + cross-profile aggregate).
 The real CLI fans strategies through ProcessPoolExecutor, whose subprocesses
 coverage.py would miss -- this driver bypasses the pools so plain
 
-    python -m coverage run Tests/coverage_e2e.py && python -m coverage report
+    python -m coverage run Tests/bench/coverage_e2e.py && python -m coverage report
 
 captures the substantive code in one process.  Used to confirm nothing breaks
 (and to watch dead code disappear) during the structural refactor.

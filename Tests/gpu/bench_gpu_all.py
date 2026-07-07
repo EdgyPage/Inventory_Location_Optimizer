@@ -103,8 +103,8 @@ def main():
     with open(os.path.join(docs, 'gpu_assessment.md'), 'w', encoding='utf-8') as f:
         f.write('# GPU acceleration assessment (measured)\n\n')
         f.write('Backends: ' + B.describe_backends() + '\n\n')
-        f.write('Fixed-seed CPU-vs-GPU microbenchmarks (`Tests/bench_gpu_*`), weighted by real\n'
-                'wall-share from the newest run.log (`Tests/bench_sections.py`).\n\n')
+        f.write('Fixed-seed CPU-vs-GPU microbenchmarks (`Tests/gpu/bench_gpu_*`), weighted by real\n'
+                'wall-share from the newest run.log (`Tests/bench/bench_sections.py`).\n\n')
         f.write('## Wall-share (Amdahl)\n')
         for s, v in sorted(shares.items(), key=lambda kv: -kv[1]):
             f.write(f'- {s}: {v:.0%}\n')
