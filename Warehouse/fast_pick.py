@@ -28,14 +28,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from Pick import PickConfig, PickEvent, PickerProgress, _pick_time
-from Storage_Primitive import StorageCart
+from Storage_Primitive import StoreCart
 from Workload_Builder import Task
 from cost_model import sec_per_inch
 
 if TYPE_CHECKING:
     from Inventory_Management import Inventory_Manager
 
-_CART_CAPACITY: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
+_CART_CAPACITY: int = StoreCart.capacity()   # default (store) cart volume; see PickConfig.cart
 
 
 @dataclass
@@ -63,7 +63,8 @@ def _simulate_picker_deferred(
 
     t              = 0.0
     x, y           = 0.0, 0.0   # physical position (starts at aisle entrance)
-    cart_remaining = _CART_CAPACITY
+    cart_cap       = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
+    cart_remaining = cart_cap
     session_items  = 0
     # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
     x_pace         = sec_per_inch(cfg.x_speed)
@@ -109,18 +110,21 @@ def _simulate_picker_deferred(
                 items_picked=session_items, total_items=total_items,
             ))
 
+            # Swap consumes its own time; advancing `t` before emitting the event makes the gap
+            # ending at cart_swap carry the swap seconds → attributed to travel (see Pick.py).
             needed_vol   = order.volume() * qty
             cart_swapped = needed_vol > cart_remaining
             if cart_swapped:
+                t += cfg.cart_swap_coef
                 events.append(PickEvent(
                     time=t, picker_id=picker_id, event_type='cart_swap',
                     aisle_id=task.aisle_id, location=bin_.location,
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
                 ))
-                cart_remaining = _CART_CAPACITY
+                cart_remaining = cart_cap
 
-            t             += _pick_time(cfg, order.weight, order.volume(), qty, cart_swapped, bin_.y_phys)
+            t             += _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
             cart_remaining  = max(0, cart_remaining - needed_vol)
             bins_done      += 1
             session_items  += qty

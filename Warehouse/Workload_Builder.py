@@ -10,10 +10,10 @@ import numpy as np
 from Inventory_Builder import Inventory, AffMatrix
 from Aisle_Storage import Aisle
 from Warehouse_Builder import Warehouse
-from Storage_Primitive import StorageCart
+from Storage_Primitive import StorageCart, StoreCart
 from Affinity_Store import AffinityStore
 
-_CART_VOLUME: int = StorageCart.max_length * StorageCart.max_width * StorageCart.max_height
+_CART_VOLUME: int = StoreCart.capacity()   # default (store) cart volume; overridable per Task
 
 # Module-level cache keyed by affinity dict id so the O(|affinity|) partner-map
 # build is paid only once per unique affinity object across all batch calls in a run.
@@ -170,6 +170,7 @@ class Task:
         aisle_id: int,
         path: list[Aisle.Bin],
         items: dict[int, int],
+        cart: type[StorageCart] = StoreCart,
     ) -> None:
         self.aisle_id: int          = aisle_id
         self.path: list[Aisle.Bin]  = path         # bins in visit order
@@ -211,10 +212,11 @@ class Task:
         total_vol: int = sum(
             sku_to_vol.get(sku, fallback_vol) * qty for sku, qty in items.items()
         )
-        self.carts_required: int = math.ceil(total_vol / _CART_VOLUME) if total_vol > 0 else 0
+        self.carts_required: int = math.ceil(total_vol / cart.capacity()) if total_vol > 0 else 0
 
     @staticmethod
-    def from_batch(batch: Batch, warehouse: Warehouse, manager=None) -> list[Task]:
+    def from_batch(batch: Batch, warehouse: Warehouse, manager=None,
+                   cart: type[StorageCart] = StoreCart) -> list[Task]:
         """Decompose a Batch into one Task per aisle.
 
         For each SKU in the batch, singleton bins are drained before pallet bins
@@ -278,7 +280,7 @@ class Task:
         for aisle_id, bins in aisle_bins.items():
             path = _plan_aisle_path(bins)
             if path:   # guard: skip tasks with empty paths (all bins emptied mid-build)
-                tasks.append(Task(aisle_id, path, aisle_items[aisle_id]))
+                tasks.append(Task(aisle_id, path, aisle_items[aisle_id], cart=cart))
         return tasks
 
 

@@ -12,6 +12,11 @@ class AisleConfig:
     aisle_height:      int                    # physical height in storage units
     storage_sizes:     list[str]
     size_probabilities: Optional[list[float]] = None
+    # Explicit bin geometry for families NOT derived from unit_type (the fulfillment
+    # regime).  bin_width = footprint width per bin; bin_heights = {storage_size: height}.
+    # Both None ⇒ derive from unit_type / SIZE_HEIGHTS (store pallet/singleton, unchanged).
+    bin_width:          Optional[int] = None
+    bin_heights:        Optional[dict] = None
 
 
 @dataclass
@@ -43,9 +48,12 @@ class Warehouse_Builder:
         unit_type: str,
         aisle_width: int,
         aisle_height: int,
+        bin_width: int | None = None,
+        bin_height: int | None = None,
     ) -> 'Warehouse_Builder':
         self._aisles.append(
-            Aisle(storage_size, handling_type, storage_type, unit_type, aisle_width, aisle_height)
+            Aisle(storage_size, handling_type, storage_type, unit_type,
+                  aisle_width, aisle_height, bin_width=bin_width, bin_height=bin_height)
         )
         return self
 
@@ -80,13 +88,18 @@ class Warehouse_Builder:
         for count, aisle_config in zip(counts, config.aisle_configs):
             for _ in range(count):
                 if len(aisle_config.storage_sizes) == 1:
+                    size0 = aisle_config.storage_sizes[0]
+                    bin_h = (aisle_config.bin_heights.get(size0)
+                             if aisle_config.bin_heights else None)
                     self.add_aisle(
-                        aisle_config.storage_sizes[0],
+                        size0,
                         aisle_config.handling_type,
                         aisle_config.storage_type,
                         aisle_config.unit_type,
                         aisle_config.aisle_width,
                         aisle_config.aisle_height,
+                        bin_width=aisle_config.bin_width,
+                        bin_height=bin_h,
                     )
                 else:
                     self.add_aisle_from_distribution(

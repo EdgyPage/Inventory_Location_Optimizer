@@ -13,13 +13,118 @@ from collections import defaultdict
 from typing import Any
 
 from Order import Order
-from Aisle_Dimensions import uniform_aisle_bins
-from Warehouse_Builder import AisleConfig, WarehouseConfig
-from Storage_Primitive import Pallet, Singleton, viable_storage_units, _max_qty_fits as _sq_max
-from inventory_common import (
-    BinKey, WarehousePlan, _SIZES_DESCENDING,
-    _equilibrium_qty, _max_qty_fitting_pallet_size,
+from Aisle_Dimensions import (
+    uniform_aisle_bins, catalog_aisle_bins,
+    FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT,
 )
+from Warehouse_Builder import AisleConfig, WarehouseConfig
+from Storage_Primitive import (
+    Pallet, Singleton, FulfillmentBin, viable_storage_units, _max_qty_fits as _sq_max,
+)
+from regime import FULFILLMENT, regime_of
+from inventory_common import (
+    BinKey, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
+    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+)
+
+
+# ── sizing helpers (shared by the global-legacy and per-regime paths) ───────────
+# All take an `eff_fn(bucket) -> bins-per-aisle` and operate on a subset of buckets, so the
+# same math sizes the whole warehouse (regime_sizing=None) or one regime partition.
+
+def _comp_weight(bucket: tuple, comp: dict) -> float:
+    """Factored basis-vector weight for a bucket: product of the matching dimension weights
+    (each dimension defaults to 1.0 when unspecified)."""
+    h, cat, size, unit_type = bucket
+    w  = comp.get('handling', {}).get(h, 1.0)
+    w *= comp.get('category', {}).get(cat, 1.0)
+    w *= comp.get('unit', {}).get(unit_type, 1.0)
+    if unit_type == 'pallet':
+        w *= comp.get('size', {}).get(size, 1.0)
+    return w
+
+
+def _demand_replicas(buckets, req, eff_fn, target_fill) -> dict:
+    """Demand-driven replicas: max(1, ceil(bucket_demand / (bins_per_aisle · fill)))."""
+    out = {}
+    for b in buckets:
+        eff = eff_fn(b)
+        out[b] = max(1, math.ceil(req.get(b, 0) / (eff * target_fill))) if eff else 1
+    return out
+
+
+def _demand_total(buckets, req, eff_fn, target_fill) -> int:
+    """Total bins the demand-driven replicas would occupy (the default scale for ratio modes)."""
+    return sum((max(1, math.ceil(req.get(b, 0) / (eff_fn(b) * target_fill))) if eff_fn(b) else 1)
+               * eff_fn(b) for b in buckets)
+
+
+def _ratio_replicas(buckets, weight_fn, eff_fn, target_total: float) -> dict:
+    """Replicas allocated proportionally to weight_fn(bucket), scaled to ~target_total bins.
+    Used by the composition basis vector (store) and the fixed fulfillment tier distribution."""
+    weights = {b: weight_fn(b) for b in buckets}
+    tw = sum(weights.values()) or 1.0
+    out = {}
+    for b in buckets:
+        eff = eff_fn(b)
+        out[b] = max(1, round(target_total * weights[b] / tw / eff)) if eff else 1
+    return out
+
+
+def _apply_caps(buckets, replicas, eff_fn, min_bins, max_bins, max_aisles, log=None):
+    """Scale `replicas` for `buckets` UP to >= min_bins, then DOWN to <= max_bins/max_aisles
+    (never below 1 replica/bucket; min_bins wins on conflict), mutating `replicas` in place.
+    This is the original global steps 3a/3b, scoped to one bucket set so it can run per regime."""
+    if not buckets:
+        return 0, 0
+    total_aisles = sum(replicas[b] for b in buckets)
+    total_bins   = sum(replicas[b] * eff_fn(b) for b in buckets)
+
+    # 3a: scale UP to satisfy a minimum bin count.
+    if min_bins is not None and 0 < total_bins < min_bins:
+        factor = min_bins / total_bins
+        for b in buckets:
+            replicas[b] = max(1, math.ceil(replicas[b] * factor))
+        total_aisles = sum(replicas[b] for b in buckets)
+        total_bins   = sum(replicas[b] * eff_fn(b) for b in buckets)
+
+    # 3b: enforce caps, never trimming below 1/bucket or below the min_bins floor.
+    _bins_floor = min_bins if min_bins is not None else 0
+    if ((max_aisles is not None and total_aisles > max_aisles) or
+        (max_bins   is not None and total_bins   > max_bins and total_bins > _bins_floor)):
+        ratios = []
+        if max_aisles is not None and total_aisles > max_aisles:
+            ratios.append(max_aisles / total_aisles)
+        if max_bins is not None and total_bins > max_bins:
+            ratios.append(max(max_bins, _bins_floor) / total_bins)
+        scale = min(ratios)
+        for b in buckets:
+            replicas[b] = max(1, round(replicas[b] * scale))
+        total_aisles = sum(replicas[b] for b in buckets)
+        total_bins   = sum(replicas[b] * eff_fn(b) for b in buckets)
+
+        while (((max_bins   is not None and total_bins   > max_bins) or
+                (max_aisles is not None and total_aisles > max_aisles))
+               and total_bins > _bins_floor):
+            trimmable = [b for b in buckets if replicas[b] > 1]
+            if not trimmable:
+                break
+            b = max(trimmable, key=eff_fn)
+            if total_bins - eff_fn(b) < _bins_floor:
+                break
+            replicas[b] -= 1
+            total_aisles -= 1
+            total_bins   -= eff_fn(b)
+
+        if log is not None and (
+            (max_bins   is not None and total_bins   > max_bins) or
+            (max_aisles is not None and total_aisles > max_aisles)):
+            log.warning(
+                f'  max-bins/max-aisles below structural minimum — cap not honored '
+                f'(requested max_bins={max_bins} max_aisles={max_aisles}). Floor is '
+                f'{total_aisles} aisles / {total_bins:,} bins: one aisle per '
+                f'{len(buckets)} bucket(s) so every SKU is placeable. Proceeding with the floor.')
+    return total_aisles, total_bins
 
 
 class PlanningMixin:
@@ -52,11 +157,14 @@ class PlanningMixin:
         handlings    : list[str],
         aisle_width  : int,
         aisle_height : int,
+        ff_aisle_width  : int | None = None,   # fulfillment aisle geometry (short shelves);
+        ff_aisle_height : int | None = None,   # default width=aisle_width, height=~6 ft
         target_fill  : float = 0.85,
         min_bins     : int | None = None,
         max_bins     : int | None = None,
         max_aisles   : int | None = None,
         composition  : dict | None = None,
+        regime_sizing: dict | None = None,
         sample       : bool = True,
         rng          : random.Random | None = None,
         log          : Any = None,
@@ -81,8 +189,26 @@ class PlanningMixin:
         unset).  Example:
             {'unit': {'pallet': 0.7, 'singleton': 0.3},
              'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
+
+        regime_sizing: optional PER-REGIME sizing that overrides the single
+        min_bins/max_bins/max_aisles/target_fill/composition scalars — a dict
+        {'store': {...}, 'fulfillment': {...}} where each sub-dict may carry
+        'mode' ('demand' | 'fixed'), 'min_bins', 'max_bins', 'max_aisles', 'fill',
+        'composition', and (fulfillment 'fixed' mode) a tier 'distribution'
+        {ff_small/ff_medium/ff_large: weight} + 'target_bins'.  When None (the
+        default), the warehouse is sized globally exactly as before — every direct
+        caller / test is unaffected.  When given, store and fulfillment are sized
+        and capped INDEPENDENTLY (store demand-driven by default; fulfillment a
+        fixed tier distribution scaled to target_bins/min/max), each with its own
+        fill headroom.
         """
         req = cls.bucket_requirements(orders)
+
+        # Fulfillment is its own self-contained regime (short shelves, small bins); size it
+        # only when the inventory actually contains fulfillment items.
+        has_ff = any(regime_of(c) == FULFILLMENT for c in orders)
+        ff_w = ff_aisle_width  if ff_aisle_width  is not None else aisle_width
+        ff_h = ff_aisle_height if ff_aisle_height is not None else FULFILLMENT_AISLE_HEIGHT
 
         # 1: enumerate every bucket with a ≥1 floor.
         bucket_list: list[tuple] = []     # (handling, category, size, unit_type)
@@ -91,92 +217,69 @@ class PlanningMixin:
                 for size in _SIZES_DESCENDING:          # 4 pallet tiers
                     bucket_list.append((h, cat, size, 'pallet'))
                 bucket_list.append((h, cat, 'singleton', 'singleton'))
+        if has_ff:
+            # One bucket per fulfillment tier under the single ('fulfillment','fulfillment')
+            # family — NOT crossed with the store handlings/categories (no junk buckets).
+            for size in _FF_SIZES_DESCENDING:
+                bucket_list.append((FULFILLMENT, FULFILLMENT, size, FULFILLMENT))
 
         def _eff(bucket: tuple) -> int:
             _h, _c, size, unit_type = bucket
+            if unit_type == FULFILLMENT:
+                return catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS[size], ff_w, ff_h)
             return uniform_aisle_bins(unit_type, size, aisle_width, aisle_height)
 
-        def _comp_weight(bucket: tuple) -> float:
-            """Factored basis-vector weight for a bucket (product of dimension
-            weights; each dimension defaults to 1.0 when unspecified)."""
-            h, cat, size, unit_type = bucket
-            w  = composition.get('handling', {}).get(h, 1.0)
-            w *= composition.get('category', {}).get(cat, 1.0)
-            w *= composition.get('unit', {}).get(unit_type, 1.0)
-            if unit_type == 'pallet':
-                w *= composition.get('size', {}).get(size, 1.0)
-            return w
-
-        # 2: base replicas — demand-driven, or proportional to a composition vector.
-        replicas: dict[tuple, int] = {}
-        if composition is not None:
-            weights = {b: _comp_weight(b) for b in bucket_list}
-            tw      = sum(weights.values()) or 1.0
-            demand_bins = sum(
-                (max(1, math.ceil(req.get(b, 0) / (_eff(b) * target_fill))) if _eff(b) else 1) * _eff(b)
-                for b in bucket_list)
-            target_total = float(min_bins) if min_bins else float(demand_bins)
-            for b in bucket_list:
-                eff = _eff(b)
-                desired = target_total * weights[b] / tw     # desired bins for b
-                replicas[b] = max(1, round(desired / eff)) if eff else 1
+        # 2+3: base replicas then cap enforcement.  Two paths: a single GLOBAL pass
+        # (regime_sizing None — byte-identical to the original) or INDEPENDENT per-regime
+        # sizing (store demand/composition; fulfillment a fixed tier distribution), each
+        # with its own caps + fill headroom.
+        if regime_sizing is None:
+            if composition is not None:
+                target_total = (float(min_bins) if min_bins
+                                else float(_demand_total(bucket_list, req, _eff, target_fill)))
+                replicas = _ratio_replicas(
+                    bucket_list, lambda b: _comp_weight(b, composition), _eff, target_total)
+            else:
+                replicas = _demand_replicas(bucket_list, req, _eff, target_fill)
+            _apply_caps(bucket_list, replicas, _eff, min_bins, max_bins, max_aisles, log)
+            fill_for = lambda b: target_fill
         else:
-            for b in bucket_list:
-                eff = _eff(b)
-                need = req.get(b, 0)
-                replicas[b] = max(1, math.ceil(need / (eff * target_fill))) if eff else 1
+            store_buckets = [b for b in bucket_list if b[3] != FULFILLMENT]
+            ff_buckets    = [b for b in bucket_list if b[3] == FULFILLMENT]
+            scfg = regime_sizing.get('store', {}) or {}
+            fcfg = regime_sizing.get('fulfillment', {}) or {}
+            s_fill = scfg.get('fill', target_fill)
+            f_fill = fcfg.get('fill', target_fill)
+
+            # store partition: composition basis vector, else demand-driven.
+            s_comp = scfg.get('composition')
+            if s_comp is not None:
+                s_target = (float(scfg['min_bins']) if scfg.get('min_bins')
+                            else float(_demand_total(store_buckets, req, _eff, s_fill)))
+                replicas = _ratio_replicas(
+                    store_buckets, lambda b: _comp_weight(b, s_comp), _eff, s_target)
+            else:
+                replicas = _demand_replicas(store_buckets, req, _eff, s_fill)
+            _apply_caps(store_buckets, replicas, _eff,
+                        scfg.get('min_bins'), scfg.get('max_bins'), scfg.get('max_aisles'), log)
+
+            # fulfillment partition: a FIXED tier distribution scaled to target_bins
+            # (default: min_bins, else the demand-derived ff total), else demand-driven.
+            if has_ff:
+                if fcfg.get('mode', 'fixed') == 'fixed':
+                    dist = fcfg.get('distribution') or {}
+                    f_target = (fcfg.get('target_bins') or fcfg.get('min_bins')
+                                or _demand_total(ff_buckets, req, _eff, f_fill))
+                    replicas.update(_ratio_replicas(
+                        ff_buckets, lambda b: dist.get(b[2], 0.0), _eff, float(f_target)))
+                else:
+                    replicas.update(_demand_replicas(ff_buckets, req, _eff, f_fill))
+                _apply_caps(ff_buckets, replicas, _eff,
+                            fcfg.get('min_bins'), fcfg.get('max_bins'), fcfg.get('max_aisles'), log)
+            fill_for = lambda b: (f_fill if b[3] == FULFILLMENT else s_fill)
 
         total_aisles = sum(replicas.values())
         total_bins   = sum(r * _eff(b) for b, r in replicas.items())
-
-        # 3a: scale UP to satisfy a minimum bin count.
-        if min_bins is not None and total_bins < min_bins:
-            factor = min_bins / total_bins
-            for b in replicas:
-                replicas[b] = max(1, math.ceil(replicas[b] * factor))
-            total_aisles = sum(replicas.values())
-            total_bins   = sum(r * _eff(b) for b, r in replicas.items())
-
-        # 3b: enforce caps, never trimming a bucket below its floor of 1, and
-        #     never below min_bins (a min_bins > max_bins request keeps the min).
-        _bins_floor = min_bins if min_bins is not None else 0
-        if ((max_aisles is not None and total_aisles > max_aisles) or
-            (max_bins   is not None and total_bins   > max_bins and total_bins > _bins_floor)):
-            ratios = []
-            if max_aisles is not None and total_aisles > max_aisles:
-                ratios.append(max_aisles / total_aisles)
-            if max_bins is not None and total_bins > max_bins:
-                ratios.append(max(max_bins, _bins_floor) / total_bins)
-            scale = min(ratios)
-            for b in replicas:
-                replicas[b] = max(1, round(replicas[b] * scale))
-            total_aisles = sum(replicas.values())
-            total_bins   = sum(r * _eff(b) for b, r in replicas.items())
-
-            # greedy trim largest-bin trimmable bucket (replicas>1) to hit caps,
-            # but never drop total_bins below the min_bins floor.
-            while (((max_bins   is not None and total_bins   > max_bins) or
-                    (max_aisles is not None and total_aisles > max_aisles))
-                   and total_bins > _bins_floor):
-                trimmable = [b for b in bucket_list if replicas[b] > 1]
-                if not trimmable:
-                    break   # every bucket at floor — cannot shrink further
-                b = max(trimmable, key=_eff)
-                if total_bins - _eff(b) < _bins_floor:
-                    break   # one more trim would breach the min_bins floor
-                replicas[b] -= 1
-                total_aisles -= 1
-                total_bins   -= _eff(b)
-
-            if log is not None and (
-                (max_bins   is not None and total_bins   > max_bins) or
-                (max_aisles is not None and total_aisles > max_aisles)):
-                log.warning(
-                    f'  max-bins/max-aisles below structural minimum — cap not '
-                    f'honored (requested max_bins={max_bins} max_aisles={max_aisles}). '
-                    f'Floor is {total_aisles} aisles / {total_bins:,} bins: one aisle '
-                    f'per {len(bucket_list)} (handling,category,size,unit_type) buckets '
-                    f'so every SKU is placeable. Proceeding with the floor.')
 
         # Build per-replica AisleConfig list + capacity map.
         aisle_configs: list = []
@@ -186,18 +289,28 @@ class PlanningMixin:
             eff = _eff(b)
             rep = replicas[b]
             capacity[b] = rep * eff
-            sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
+            if unit_type == FULFILLMENT:
+                # Fulfillment aisles carry explicit bin geometry + short-shelf dimensions.
+                sizes_arg = [size]
+                a_w, a_h  = ff_w, ff_h
+                bin_w     = FULFILLMENT_BIN_WIDTH
+                bin_hs    = {size: FF_TIER_HEIGHTS[size]}
+            else:
+                sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
+                a_w, a_h  = aisle_width, aisle_height
+                bin_w     = None
+                bin_hs    = None
             for _ in range(rep):
                 aisle_configs.append(
-                    AisleConfig(h, cat, unit_type, aisle_width, aisle_height,
-                                sizes_arg, None))
+                    AisleConfig(h, cat, unit_type, a_w, a_h, sizes_arg, None,
+                                bin_width=bin_w, bin_heights=bin_hs))
 
         # 4: sample SKUs to fill capacity to target_fill.  Skipped when sample=
         # False (e.g. analysis only needs the warehouse shape + aisle maps, not
         # a restocked inventory) — this avoids re-stocking the whole inventory.
         if sample:
             sampled, allowlist = cls.sample_to_capacity(
-                orders, capacity, target_fill=target_fill, rng=rng)
+                orders, capacity, target_fill=target_fill, fill_for=fill_for, rng=rng)
             total_units = sum(
                 len(viable_storage_units(c, _equilibrium_qty(c))) for c in sampled)
             expected_fill = total_units / total_bins if total_bins else 0.0
@@ -229,6 +342,7 @@ class PlanningMixin:
         capacity    : dict[BinKey, int],
         *,
         target_fill : float = 0.85,
+        fill_for    : Any = None,
         rng         : random.Random | None = None,
     ) -> tuple[list[Order], set]:
         """Assign each order a multi-tier stock_plan that fills bin capacity.
@@ -256,7 +370,10 @@ class PlanningMixin:
         Returns (sampled_cartons, sampled_sku_ids).
         """
         _rng   = rng or random
-        free   = {b: int(cap * target_fill) for b, cap in capacity.items()}
+        # Per-bucket fill headroom: fill_for(bucket) when supplied (per-regime store vs ff),
+        # else the single target_fill (byte-identical to the original scalar path).
+        free   = {b: int(cap * (fill_for(b) if fill_for is not None else target_fill))
+                  for b, cap in capacity.items()}
 
         def _reachable(c: Order) -> list[tuple[BinKey, int, bool]]:
             """(bucket, qty_per_unit, is_singleton) options this order can fill.
@@ -264,6 +381,15 @@ class PlanningMixin:
             so a full pallet of it never needs a _fit recheck at fill time."""
             shc  = c.storage_handle_config
             opts: list[tuple[BinKey, int, bool]] = []
+            if regime_of(c) == FULFILLMENT:
+                # Fulfillment orders reach only their own ff tiers (never pallet/singleton).
+                # The bool flag is unused for ff (every unit is a FulfillmentBin) — kept for
+                # tuple shape / stock_plan compatibility.
+                for size in _FF_SIZES_DESCENDING:
+                    q = _max_qty_fitting_ff_size(c, size)
+                    if q > 0 and FulfillmentBin(c, q).storage_size == size:
+                        opts.append(((shc.handling, shc.category, size, FULFILLMENT), q, True))
+                return opts
             for size in _SIZES_DESCENDING:
                 q = _max_qty_fitting_pallet_size(c, size)
                 if q > 0 and Pallet(c, q).storage_size == size:
@@ -305,13 +431,19 @@ class PlanningMixin:
                 # Full pallet — tier is the cached bucket, no _fit needed.
                 _add_run(c, isng, per, 1, b)
                 return True
-            # Capped final slot: a smaller quantity can drop a pallet into a
-            # SMALLER tier, so charge the bucket it ACTUALLY lands in.
+            # Capped final slot: a smaller quantity can drop a pallet/ff unit into a
+            # SMALLER tier, so charge the bucket it ACTUALLY lands in.  Branch on the
+            # bucket's unit_type (robust for pallet vs singleton vs fulfillment).
             per = cap_qty
             if per <= 0:
                 return False
-            if isng:
+            unit_type = b[3]
+            if unit_type == 'singleton':
                 actual_b = b
+            elif unit_type == FULFILLMENT:
+                shc = shc_of[id(c)]
+                actual_b = (shc.handling, shc.category,
+                            FulfillmentBin(c, per).storage_size, FULFILLMENT)
             else:
                 shc = shc_of[id(c)]
                 actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')

@@ -20,8 +20,10 @@ sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
 from Order import Order
 from cost_model import sec_per_inch
-from Pick import PickConfig, _pick_time, height_multiplier, DEFAULT_HEIGHT_BRACKETS
-from Storage_Primitive import viable_storage_units
+from Pick import (PickConfig, PickSimulation, PickEvent, _pick_time,
+                  height_multiplier, DEFAULT_HEIGHT_BRACKETS)
+from Storage_Primitive import viable_storage_units, FulfillmentCart
+from Workload_Builder import Task
 from Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_popularity_fn,
@@ -32,7 +34,7 @@ from Assignment_Functions import (
     build_cluster_map_placement,
 )
 from Workload import WorkloadParams, aisle_workload, aisle_workload_components
-from Simulation_Analytics import expected_task_labor
+from Simulation_Analytics import expected_task_labor, task_time_breakdown
 
 
 def _cfg() -> PickConfig:
@@ -50,7 +52,7 @@ def test_labor_cost_matches_pick_time_qty1():
     for _ in range(25):
         c = Order(('conveyable', 'food'))
         lc = c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
-        expect = _pick_time(cfg, c.weight, c.volume(), 1, False)
+        expect = _pick_time(cfg, c.weight, c.volume(), 1)
         assert abs(lc - expect) < 1e-9
         assert abs(c.labor_cost - expect) < 1e-9
 
@@ -200,12 +202,12 @@ def test_pick_time_height_scaling():
     cfg = PickConfig(pick_intercept=2.0, pick_weight_coef=0.5, pick_volume_coef=0.1,
                      cart_swap_coef=10.0, height_brackets=((96.0, 1.0), (float('inf'), 2.0)))
     var = 0.5 * math.log(20) + 0.1 * math.log(27000)
-    ground = _pick_time(cfg, 20, 27000, 3, False, 10.0)    # mult 1.0
-    high   = _pick_time(cfg, 20, 27000, 3, False, 300.0)   # mult 2.0
+    ground = _pick_time(cfg, 20, 27000, 3, 10.0)    # mult 1.0
+    high   = _pick_time(cfg, 20, 27000, 3, 300.0)   # mult 2.0
     # height scales the ENTIRE at-location pick: M*(intercept + qty*var)
     assert abs(ground - 1.0 * (2.0 + 3 * var)) < 1e-9
     assert abs(high   - 2.0 * (2.0 + 3 * var)) < 1e-9
-    # the whole pick (intercept + handling) is height-scaled (cart stays flat)
+    # the whole pick (intercept + handling) is height-scaled (cart is not part of _pick_time)
     assert abs((high - ground) - (2.0 - 1.0) * (2.0 + 3 * var)) < 1e-9
 
 
@@ -216,7 +218,7 @@ def test_aisle_workload_matches_pick_time_with_height():
     wp = WorkloadParams.from_pick_config(cfg)
     stops = [(20, 27000, 3, 10.0), (20, 27000, 2, 300.0)]   # (w, v, qty, y_phys)
     W = aisle_workload(0, 0, 1, stops, wp)                  # D=0, C=0 → W == Σ handling
-    expect = sum(_pick_time(cfg, w, v, q, False, y) for (w, v, q, y) in stops)
+    expect = sum(_pick_time(cfg, w, v, q, y) for (w, v, q, y) in stops)
     assert abs(W - expect) < 1e-9
 
 
@@ -312,7 +314,7 @@ def test_workload_components_handling_matches_pick_time():
     wp = WorkloadParams.from_pick_config(cfg)
     lines = [(20, 27000, 3, 10.0), (20, 27000, 2, 300.0)]   # (w, v, qty, y_phys)
     D, P, C = aisle_workload_components(0, 0, 1, lines, wp)
-    expect = sum(_pick_time(cfg, w, v, q, False, y) for (w, v, q, y) in lines)
+    expect = sum(_pick_time(cfg, w, v, q, y) for (w, v, q, y) in lines)
     assert abs(P - expect) < 1e-9
     assert D == 0.0 and C == 0.0
 
@@ -336,6 +338,114 @@ def test_expected_task_labor_objective_and_split():
     assert abs(res['travel'] - D) < 1e-9
     assert abs(res['objective'] - (P + D)) < 1e-9
     assert res['n_tasks'] == 1
+
+
+# ── cart-swap re-attribution: swap time counts as travel, not handling ────────
+
+def test_task_time_breakdown_charges_cart_swap_to_travel():
+    """A gap ending at a 'cart_swap' event is travel (return the cart / fetch an empty one —
+    a route/depot cost); only 'pick' gaps are handling.  Locks the decomposition that
+    reconciles the sim with the analytical objective (which folds cart into travel)."""
+    def ev(t, kind):
+        return PickEvent(time=t, picker_id=0, event_type=kind)
+    stream = [ev(0, 'task_start'), ev(10, 'arrive'), ev(15, 'cart_swap'),
+              ev(25, 'pick'), ev(25, 'task_end')]
+    travel, handling, other = task_time_breakdown(stream)
+    assert travel == 15.0        # 10 (walk to bin) + 5 (cart swap)
+    assert handling == 10.0      # the pick gap only
+    assert other == 0.0
+
+
+def _swap_task():
+    """One aisle, two single-unit picks whose 15k volumes overflow a 25k FulfillmentCart on
+    the second pick → exactly one cart swap.  Fresh bins each call (the sim depletes them)."""
+    def order(sku):
+        return types.SimpleNamespace(sku=sku, weight=10, volume=lambda: 15_000)
+    def bin_(x, sku):
+        return types.SimpleNamespace(
+            x_phys=float(x), y_phys=0.0, location=(1, x, 0),
+            storage=types.SimpleNamespace(order=order(sku), quantity=5))
+    return Task(1, [bin_(0, 1), bin_(100, 2)], {1: 1, 2: 1})
+
+
+def _run_split(cart_swap_coef):
+    cfg = PickConfig(num_pickers=1, x_speed=4.0, y_speed=2.0,
+                     pick_intercept=5.0, pick_weight_coef=0.2, pick_volume_coef=0.001,
+                     cart_swap_coef=cart_swap_coef, cart=FulfillmentCart)
+    events = PickSimulation([_swap_task()], cfg).run()
+    return events, task_time_breakdown(events)
+
+
+def test_sim_cart_swap_seconds_land_in_travel_not_handling():
+    """End-to-end through the real sim: turning on cart_swap_coef adds exactly coef*n_swaps
+    to travel and leaves handling untouched (same geometry → same number of swaps).  So the
+    re-attribution is conservative — it moves seconds from handling to travel, not invents them."""
+    ev0, (t0, h0, _) = _run_split(0.0)
+    ev1, (t1, h1, _) = _run_split(50.0)
+    n_swaps = sum(1 for e in ev1 if e.event_type == 'cart_swap')
+    assert n_swaps == 1
+    assert abs(h1 - h0) < 1e-9                     # handling excludes the swap penalty
+    assert abs((t1 - t0) - 50.0 * n_swaps) < 1e-9  # travel gains exactly the swap seconds
+
+
+# ── Rank_cartlabor: cart-swap-aware placement ────────────────────────────────
+
+def test_workloadparams_cart_capacity_from_pick_config():
+    """WorkloadParams carries the regime's cart volume, so the placement cart term can read it."""
+    from Pick import PickConfig
+    from Storage_Primitive import FulfillmentCart
+    assert WorkloadParams().cart_capacity == 125_000
+    assert WorkloadParams.from_pick_config(PickConfig()).cart_capacity == 125_000
+    assert WorkloadParams.from_pick_config(PickConfig(cart=FulfillmentCart)).cart_capacity == 25_000
+
+
+def _cartlabor_place(cap, cart_on):
+    """Place two high-volume SKUs given a cheap aisle A (D=0) and an expensive aisle B (D=100).
+    A is strictly cheaper so plain rank_labor co-locates both in A; the cart term should push
+    the 2nd SKU to B once A's expected volume (2*50=100) overflows the cart.  Returns {sku: aid}."""
+    from Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
+    affinity = types.SimpleNamespace(_sku_to_idx={}, _matrix=None)
+    wp = WorkloadParams(x_speed=1.0, y_speed=2.0, pick_intercept=0.0,
+                        cart_swap_coef=1000.0, cart_capacity=cap)
+
+    def _bin(aid, x):
+        return types.SimpleNamespace(location=(aid, x, 0), x_phys=float(x), y_phys=0.0)
+    def _unit(sku):
+        return types.SimpleNamespace(
+            order=types.SimpleNamespace(sku=sku, handle_var=0.0, expected_labor=1.0))
+    # fresh bins each call (the impl pops them); A at x=0 (D=0), B at x=1200 (D=100 @ x_speed 1)
+    bins  = [_bin(1, 0), _bin(1, 0), _bin(2, 1200), _bin(2, 1200)]
+    units = [_unit(1), _unit(2)]
+
+    freq = {1: 0.5, 2: 0.5}; qty = {1: 1.0, 2: 1.0}
+    sku_vol = {1: 50.0, 2: 50.0}          # raw f*q*vol mass; total_freq=1, k=1 → cap_raw=cap
+    dd = lambda: defaultdict(float)
+    a_sku, a_idx = defaultdict(set), defaultdict(set)
+    a_dem, a_pl, a_vol = dd(), dd(), dd()
+    if cart_on:
+        fn = build_ranked_cartlabor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {},
+                                       a_vol, sku_vol, 1.0, {}, freq, qty)
+    else:
+        fn = build_ranked_labor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {}, {}, freq, qty)
+    pairs = fn(units, lambda u: bins)
+    return {u.order.sku: (b.location[0] if b else None) for u, b in pairs}
+
+
+def test_rank_cartlabor_disperses_only_when_cart_is_small():
+    # plain rank_labor (no cart awareness): both SKUs land in the cheap aisle A
+    assert set(_cartlabor_place(60, cart_on=False).values()) == {1}
+    # small (fulfillment-like) cart: the 2nd SKU is pushed to aisle B to avoid the swap
+    small = _cartlabor_place(60, cart_on=True)
+    assert small[1] != small[2]
+    # big (store-like) cart: the term is inert → identical to rank_labor (both in A)
+    assert set(_cartlabor_place(125_000, cart_on=True).values()) == {1}
+
+
+def test_rank_cartlabor_registered():
+    from strategies import STRATEGY_BY_KEY, strategies_for
+    assert 'uni_rank_cartlabor_norsl' in STRATEGY_BY_KEY
+    keys = {s.key for s in strategies_for(('rank_cartlabor',))}
+    assert {'uni_rank_cartlabor_norsl', 'opt_rank_cartlabor_norsl'} <= keys
 
 
 # ── optimal-map: minimal-work floor + score-matched reloading ────────────────

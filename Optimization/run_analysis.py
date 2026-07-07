@@ -12,9 +12,14 @@ loaded once, shared across its graphs); `--granularity graph` = one job per (con
 for maximum core utilization on sparse runs.
 
 Usage:
-  python run_analysis.py <base_dir>
-  python run_analysis.py <base_dir> --preset BY_INITIAL --workers 8
+  python run_analysis.py <base_dir>                        # default preset BY_INITIAL
+  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)
   python run_analysis.py <base_dir> --granularity graph --set compare.top_metric.top_n=3
+
+The default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum
+(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the
+downstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older
+uniform-only view.
 """
 
 import argparse
@@ -32,6 +37,7 @@ sys.path.insert(0, _HERE)
 
 from run_simulation import (
     build_shared_assets,
+    regime_sizing_from_config,
     _setup_logging,
     _OUTPUT_DIR,
 )
@@ -139,19 +145,35 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
             continue
         config_metas, inv_db, aff_db = [], None, None
         for cfg_name in sorted(os.listdir(pair_dir)):
-            meta_path = os.path.join(pair_dir, cfg_name, 'sim_meta.json')
-            if not os.path.exists(meta_path):
+            cfg_dir = os.path.join(pair_dir, cfg_name)
+            if not os.path.isdir(cfg_dir):
                 continue
-            with open(meta_path) as f:
-                meta = json.load(f)
-            config_metas.append(meta)
-            if inv_db is None:
-                inv_db, aff_db = meta.get('inv_db'), meta.get('aff_db')
+            # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
+            # <config>/<channel>/sim_meta.json.  Discover both — each meta carries its own
+            # run_dir, so the whole plot suite replicates per channel with no plot changes.
+            meta_paths = []
+            direct = os.path.join(cfg_dir, 'sim_meta.json')
+            if os.path.exists(direct):
+                meta_paths.append(direct)
+            else:
+                for sub in sorted(os.listdir(cfg_dir)):
+                    mp = os.path.join(cfg_dir, sub, 'sim_meta.json')
+                    if os.path.exists(mp):
+                        meta_paths.append(mp)
+            for meta_path in meta_paths:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                config_metas.append(meta)
+                if inv_db is None:
+                    inv_db, aff_db = meta.get('inv_db'), meta.get('aff_db')
         if not config_metas or inv_db is None or aff_db is None:
             continue
         log.info(f'  Pair: {pair_name}  ({len(config_metas)} config(s))')
         try:
-            shared = build_shared_assets(inv_db, aff_db, log)
+            # Rebuild the warehouse SHAPE with the SAME per-regime sizing the run used, so the
+            # fulfillment aisle layout + total_bins match (fixed ff distribution, not demand).
+            shared = build_shared_assets(inv_db, aff_db, log,
+                                         regime_sizing=regime_sizing_from_config())
         except Exception as exc:
             log.error(f'  build_shared_assets failed for {pair_name}: {exc}', exc_info=True)
             continue
@@ -183,14 +205,27 @@ def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
         if not os.path.isdir(prof_dir) or prof.startswith('_'):
             continue
         for cfg in sorted(os.listdir(prof_dir)):
-            sp = os.path.join(prof_dir, cfg, 'series.json')
-            if not os.path.exists(sp):
+            cfg_dir = os.path.join(prof_dir, cfg)
+            if not os.path.isdir(cfg_dir):
                 continue
-            try:
-                with open(sp) as f:
-                    groups.setdefault(cfg, []).append(json.load(f))
-            except (OSError, ValueError) as exc:
-                log.error(f'  bad series.json {sp}: {exc}')
+            # store-only: <config>/series.json (group by config); mixed:
+            # <config>/<channel>/series.json (group by config/channel so the cross-profile
+            # aggregate stays within one channel).
+            found = []
+            direct = os.path.join(cfg_dir, 'series.json')
+            if os.path.exists(direct):
+                found.append((cfg, direct))
+            else:
+                for sub in sorted(os.listdir(cfg_dir)):
+                    sp = os.path.join(cfg_dir, sub, 'series.json')
+                    if os.path.exists(sp):
+                        found.append((os.path.join(cfg, sub), sp))
+            for gkey, sp in found:
+                try:
+                    with open(sp) as f:
+                        groups.setdefault(gkey, []).append(json.load(f))
+                except (OSError, ValueError) as exc:
+                    log.error(f'  bad series.json {sp}: {exc}')
     jobs = []
     for cfg, plist in groups.items():
         out_dir = os.path.join(base_dir, '_aggregate', cfg)
@@ -206,7 +241,7 @@ def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
 
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 preset: str = 'DEFAULT', granularity: str = 'config',
+                 preset: str = 'BY_INITIAL', granularity: str = 'config',
                  cli_set: dict | None = None) -> None:
     """Re-run analysis on all completed sims under *base_dir* via the registry.
 
@@ -267,8 +302,10 @@ def main() -> None:
     parser.add_argument('base_dir', nargs='?', default=None,
                         help='Comparison output directory (e.g. comparison_20260605_120000). '
                              'Relative paths are resolved under COMPARISON_OUTPUT_DIR.')
-    parser.add_argument('--preset', default='DEFAULT', choices=sorted(PRESETS),
-                        help='Which set of graphs to run (see Performance_Evaluations/presets.py).')
+    parser.add_argument('--preset', default='BY_INITIAL', choices=sorted(PRESETS),
+                        help='Which set of graphs to run (see Performance_Evaluations/presets.py). '
+                             'Default BY_INITIAL (focus=all) keeps both uni_* and opt_* arms so the '
+                             'optimum-vs-uniform comparison is produced; pass DEFAULT for uni-only.')
     parser.add_argument('--workers', type=int, default=1,
                         help='Flat-pool worker processes (1 = inline/sequential).')
     parser.add_argument('--granularity', default='config', choices=('config', 'graph'),

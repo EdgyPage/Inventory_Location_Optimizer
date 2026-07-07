@@ -21,7 +21,7 @@ import run_simulation as rs
 import strategy_runner as sr
 import run_analysis as ra
 
-rs.N_BATCHES = 4          # toy horizon -- still exercises reorder/reslot/keyframe/steady-state
+rs.CONFIG['global']['n_batches'] = 4   # toy horizon -- still exercises reorder/reslot/keyframe/steady-state
 
 logging.basicConfig(level=logging.ERROR, format='%(message)s')
 log = logging.getLogger('cov')
@@ -39,16 +39,18 @@ shared = rs.build_shared_assets(
 )
 
 q = queue.Queue()         # worker QueueHandler sink (undrained is fine for coverage)
-for cfg in rs.REGRESSION_CONFIGS:
-    strategy_args, skeleton = rs._prepare_config_run(cfg, shared, pair_dir, log)
-    print(f'config {cfg.get("name")}: {len(strategy_args)} strategies')
+_mixed, _channel_runs = rs._channel_runs_for(shared['inventory'])
+for ch, cfg in _channel_runs:
+    strategy_args, skeletons = rs._prepare_channel_run(ch, cfg, _mixed, shared, pair_dir, log)
+    print(f'config {cfg.get("name")} [{ch.name}]: {len(strategy_args)} strategies')
     for a in strategy_args:
         a['log_queue'] = q
         try:
             sr._run_strategy_worker(a)
         except Exception:
             traceback.print_exc()
-    rs._finalize_config_run(skeleton)
+    for sk in skeletons:
+        rs._finalize_config_run(sk)
 
 # analysis end-to-end, in-process (workers=1) -- exercises the Performance_Evaluations
 # registry (per-config + cross-profile aggregate).  Two presets so both stats variants

@@ -141,6 +141,10 @@ def _run_strategy_worker(args: dict) -> dict:
     batch_cfg     = args['batch_cfg']
     batches_path        = args.get('batches_path')
     batches_fingerprint = args.get('batches_fingerprint')
+    # One-worker-per-channel: when set, this worker simulates ONLY the given regime's SKUs
+    # (store or fulfillment) over the shared warehouse, with the channel's pick cost + batch
+    # stream + output DB.  None ⇒ the whole inventory in one stream (store-only, unchanged).
+    channel_regime      = args.get('channel_regime')
 
     log.info('=' * 60)
     if job_tag is not None:
@@ -159,6 +163,9 @@ def _run_strategy_worker(args: dict) -> dict:
     inventory = load_inventory_from_db(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
+    if channel_regime is not None:
+        from regime import regime_of
+        inventory.orders = [c for c in inventory.orders if regime_of(c) == channel_regime]
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
 
@@ -209,7 +216,10 @@ def _run_strategy_worker(args: dict) -> dict:
     ctx = StrategyContext(
         affinity=affinity, wp=wp,
         freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
-        beta=1.0, orders=inventory.orders)
+        beta=1.0, orders=inventory.orders,
+        # k = expected distinct SKUs per batch (mean_fraction·N); the Rank_cartlabor cart
+        # term uses it to convert expected demand mass into expected per-task aisle volume.
+        expected_batch_skus=batch_cfg.mean_fraction * batch_cfg.inventory_size)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     log.info(f'Building warehouse: {warehouse_cfg.total_aisles} aisles...')
@@ -265,9 +275,18 @@ def _run_strategy_worker(args: dict) -> dict:
             mgr.init_travel_costs(wp)
         strat.build(mgr, ctx)
 
+    # Fill rate is over THIS channel's regime bins: a per-channel worker only stocks its own
+    # regime's units, so dividing by the whole (mixed) warehouse would understate fill by the
+    # other regime's empty share.  channel_regime None (store-only) => the whole warehouse.
     base_filled = len(mgr._unavailable)
-    log.info(f'  {base_filled:,} / {len(warehouse.bins):,} bins filled  '
-             f'({base_filled / len(warehouse.bins):.1%})  ({time.perf_counter()-t0:.1f}s)')
+    if channel_regime is not None:
+        from regime import regime_of
+        denom = sum(1 for b in warehouse.bins if regime_of(b) == channel_regime)
+        unit  = f'{channel_regime} bins'
+    else:
+        denom, unit = len(warehouse.bins), 'bins'
+    log.info(f'  {base_filled:,} / {denom:,} {unit} filled  '
+             f'({base_filled / max(denom, 1):.1%})  ({time.perf_counter()-t0:.1f}s)')
     log.info(f'  strategy={strat.key} ({strat.label})  placement={mgr.placement.name}'
              f'{" (ranked)" if mgr.placement.is_ranked else ""}'
              f'  stock={strat.stock_mode}')
@@ -399,7 +418,7 @@ def _run_strategy_worker(args: dict) -> dict:
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
         _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
-        tasks    = Task.from_batch(batch, warehouse, manager=mgr)
+        tasks    = Task.from_batch(batch, warehouse, manager=mgr, cart=pick_cfg.cart)
         _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
         pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks

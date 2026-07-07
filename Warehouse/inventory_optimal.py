@@ -14,7 +14,7 @@ from collections import defaultdict, deque
 from Order import Order
 from Storage_Primitive import StorageUnit, viable_storage_units
 from cost_model import height_multiplier, handle_var, sec_per_inch
-from inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty
+from inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for
 
 
 class OptimalLayoutMixin:
@@ -114,17 +114,11 @@ class OptimalLayoutMixin:
                         pref(b) = D_b + M(y_b)·V_REF is the quantity-free bin basis.
         Pure computation — does not mutate manager state.
         """
-        brackets  = getattr(wp, 'height_brackets', ())
-        xs, ys    = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
-        intercept = wp.pick_intercept
-
-        def _D(b):  return xs * b.x_phys + ys * b.y_phys
-        def _M(b):  return height_multiplier(brackets, b.y_phys)
-
-        # quantity-free reference handling so the bin basis pref carries a realistic
-        # height-penalty magnitude (V_REF ~ a typical v_s); falls back to 1.0.
-        vs = [self._handle_var(c, wp) for c in orders]
-        v_ref = (sum(vs) / len(vs)) if vs else 1.0
+        # Cost is resolved PER BinKey class inside the loop (each class is one regime), so a
+        # mixed warehouse scores store vs fulfillment bins with their own speeds/intercept;
+        # handle_var is likewise per-order-regime.  Single-regime runs resolve to one wp.
+        vs = [self._handle_var(c, _wp_for(wp, c)) for c in orders]
+        v_ref = (sum(vs) / len(vs)) if vs else 1.0   # quantity-free reference (basis magnitude)
         v_by_sku = {c.sku: v for c, v in zip(orders, vs)}
 
         bins_by_key: dict = defaultdict(list)
@@ -151,26 +145,33 @@ class OptimalLayoutMixin:
             bins = bins_by_key.get(key)
             if not bins:
                 continue
+            # Per-regime cost for this BinKey class (store vs fulfillment speeds/intercept).
+            w = _wp_for(wp, units[0])
+            xs_k, ys_k  = sec_per_inch(w.x_speed), sec_per_inch(w.y_speed)   # ft/s -> s/inch
+            intercept_k = w.pick_intercept
+            brackets_k  = getattr(w, 'height_brackets', ())
+            def _Dk(bn, _x=xs_k, _y=ys_k):  return _x * bn.x_phys + _y * bn.y_phys
+            def _Mk(bn, _b=brackets_k):     return height_multiplier(_b, bn.y_phys)
             n = len(units)
             a = [freq_of.get(u.order.sku, 0.0) for u in units]                  # α_s = f (travel)
             # height now scales the WHOLE pick: per-pick handling = M·(intercept + q·v),
             # so the M-coefficient is f·(intercept + q·v), not f·q·v.
             b_ = [freq_of.get(u.order.sku, 0.0)
-                  * (intercept + qty_of.get(u.order.sku, 0.0) * v_by_sku.get(u.order.sku, 0.0))
+                  * (intercept_k + qty_of.get(u.order.sku, 0.0) * v_by_sku.get(u.order.sku, 0.0))
                   for u in units]                                                # β_s = f·(intercept + q·v)
             # candidate bins: lowest-D per height bracket, capped at n (others dominated)
             by_m: dict = defaultdict(list)
             for bn in bins:
-                by_m[_M(bn)].append(bn)
+                by_m[_Mk(bn)].append(bn)
             cand: list = []
             for m, lst in by_m.items():
-                lst.sort(key=_D)
+                lst.sort(key=_Dk)
                 cand.extend(lst[:n])
             m_cnt = len(cand)
             if m_cnt == 0:
                 continue
-            Dc = [_D(bn) for bn in cand]
-            Mc = [_M(bn) for bn in cand]
+            Dc = [_Dk(bn) for bn in cand]
+            Mc = [_Mk(bn) for bn in cand]
 
             assigned: list[tuple[int, int]] = []     # (unit_idx, cand_idx)
             if n <= _LAP_CAP and n * m_cnt <= 4_000_000:
@@ -211,7 +212,7 @@ class OptimalLayoutMixin:
                 # intercept now lives inside b_, so it is no longer added bin-independently).
                 W_var += a[i] * Dc[j] + b_[i] * Mc[j]
                 # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref)
-                pref = Dc[j] + Mc[j] * (intercept + v_ref)
+                pref = Dc[j] + Mc[j] * (intercept_k + v_ref)
                 sku_target[units[i].order.sku].append(pref)
 
         target = {sku: sum(p) / len(p) for sku, p in sku_target.items() if p}

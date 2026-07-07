@@ -61,37 +61,33 @@ from Aisle_Storage import Aisle
 from Affinity_Store import AffinityStore
 from generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
 from Inventory_Management import LoadParams, Inventory_Manager
-from strategies import STRATEGIES
+from strategies import STRATEGIES, strategies_for, restocks_for
 from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 from Storage_Primitive import viable_storage_units as _vsu
+from Storage_Primitive import StoreCart, FulfillmentCart
 from Warehouse_Builder import Warehouse_Builder
 from Workload_Builder import BatchConfig
 
 from Picking_Data import create_run, init_run_db
 from Workload import WorkloadParams
+from regime import STORE, FULFILLMENT
 
 from strategy_runner import (
     load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints,
 )
 from batch_precompute import ensure_batches
+from channels import FF_BATCH_SEED_OFFSET
 
-# ── simulation constants ───────────────────────────────────────────────────────
-SEED_WORLD       = 42
-SEED_BATCHES     = 1337
-N_BATCHES        = 100
-K_PICKERS        = 25
-_CHECKPOINT      = max(1, N_BATCHES // 10)
-_WIN             = 50
-_BATCH_MEAN_FRAC = 0.15
-_BATCH_STD_FRAC  = 0.05
-_TARGET_FILL  = 0.875   # headroom fraction: size each aisle type to this utilization
-_INITIAL_FILL = 0.875   # target fill when sampling inventory to fit a capped aisle count
-
-# Physical aisle dimensions: 25 pallet-width columns × 30 extra_large-height levels.
+# ── warehouse geometry (structural; shared by both channels) ────────────────────
+# Physical aisle dimensions: 50 pallet-width columns × 10 extra_large-height levels.
 # Actual bin counts per aisle depend on unit type and size distribution.
 _AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
 _AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
+
+# Picker-pool defaults per channel (a pick-config entry may override its own 'num_pickers').
+_STORE_PICKERS = 25
+_FF_PICKERS    = 20
 
 
 def _clean_path(val: str) -> str:
@@ -125,7 +121,7 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 
 REGRESSION_CONFIGS = [
     {
-        'name'            : 'calibrated',
+        'name'            : 'store',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:1.5',
@@ -134,10 +130,11 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
     {
-        'name'            : 'calibrated_high_weight',
+        'name'            : 'store_high_weight',
         'pick_intercept'  : 15,
         'pick_weight_coef': 0.58,
         'pick_weight_fn'  : 'pow:2.0',
@@ -146,33 +143,158 @@ REGRESSION_CONFIGS = [
         'cart_swap_coef'  : 300,
         'x_speed'         : 3,    # ft/s
         'y_speed'         : 2,    # ft/s
+        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
+#    {
+#        'name'            : 'store_high_weight_high_height',
+#        'pick_intercept'  : 15,
+#        'pick_weight_coef': 0.58,
+#        'pick_weight_fn'  : 'pow:2.0',
+#        'pick_volume_coef': 0.7,
+#        'pick_volume_fn'  : 'log:2',
+#        'cart_swap_coef'  : 300,
+#        'x_speed'         : 3,    # ft/s
+#        'y_speed'         : 2,    # ft/s
+#        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
+#        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+#    },
+#    {
+#        'name'            : 'store_high_height',
+#        'pick_intercept'  : 15,
+#        'pick_weight_coef': 0.58,
+#        'pick_weight_fn'  : 'pow:1.5',
+#        'pick_volume_coef': 0.7,
+#        'pick_volume_fn'  : 'log:2',
+#        'cart_swap_coef'  : 300,
+#        'x_speed'         : 3,    # ft/s
+#        'y_speed'         : 2,    # ft/s
+#        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
+#        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+#    },
+]
+
+# ── per-channel config sweeps ───────────────────────────────────────────────────
+# Store and fulfillment are INDEPENDENT warehouse sections (see channels.py): each
+# sweeps its OWN set of pick-time regression configs, runs its own restock suite,
+# writes its own DB subtree, and is combined only post-analysis by run_channel_rollup.
+# The sweep is a UNION, not a cross product: a mixed catalog runs len(STORE_CONFIGS)
+# store runs + len(FULFILLMENT_CONFIGS) fulfillment runs (a store-only catalog runs
+# only the store set).  REGRESSION_CONFIGS above IS the store set; STORE_CONFIGS is the
+# preferred name (the alias keeps existing `rs.REGRESSION_CONFIGS` consumers working).
+STORE_CONFIGS = REGRESSION_CONFIGS
+
+# Fulfillment (human-walker) configs.  IDENTICAL dict schema to the store set (every config
+# carries its own 'num_pickers' pool size + optional 'cart').  The single default entry mirrors
+# channels.fulfillment_pick_config() so behavior is unchanged until you add entries.  Keep names
+# DISTINCT from store config names (config.json is written per config dir; a shared name would
+# collide — see the runner's _prepare_channel_run).
+FULFILLMENT_CONFIGS = [
     {
-        'name'            : 'calibrated_high_weight_high_height',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.58,
-        'pick_weight_fn'  : 'pow:2.0',
-        'pick_volume_coef': 0.7,
-        'pick_volume_fn'  : 'log:2',
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 3,    # ft/s
-        'y_speed'         : 2,    # ft/s
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+        'name'            : 'ful_calibrated',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 0.7,
+        'pick_weight_fn'  : 'log',
+        'pick_volume_coef': 0.09,
+        'pick_volume_fn'  : 'log',
+        'cart_swap_coef'  : 240,
+        'cart'            : 'FulfillmentCart',
+        'x_speed'         : 2,    # ft/s
+        'y_speed'         : 4,    # ft/s
+        'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
+        # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     },
     {
-        'name'            : 'calibrated_high_height',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.58,
-        'pick_weight_fn'  : 'pow:1.5',
-        'pick_volume_coef': 0.7,
-        'pick_volume_fn'  : 'log:2',
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 3,    # ft/s
-        'y_speed'         : 2,    # ft/s
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
+        'name'            : 'ful_calibrated_fast_walkers',
+        'pick_intercept'  : 10,
+        'pick_weight_coef': 0.7,
+        'pick_weight_fn'  : 'log',
+        'pick_volume_coef': 0.09,
+        'pick_volume_fn'  : 'log',
+        'cart_swap_coef'  : 240,
+        'cart'            : 'FulfillmentCart',
+        'x_speed'         : 4,    # ft/s
+        'y_speed'         : 4,    # ft/s
+        'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
+        # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     },
 ]
+
+
+# ── nested run configuration (single source of truth) ───────────────────────────
+# Everything tunable lives here: a `global` section (run-wide: seeds, batch count, pool
+# size, checkpointing) and a per-channel `channels` section so store and fulfillment can
+# be tuned INDEPENDENTLY — each with its own pick-config sweep, restock subset, picker
+# pool, cart, batch-stream shape, fill headroom, and warehouse sizing.  CLI flags override
+# these defaults (see main()).  Read internally via `g = CONFIG['global']` /
+# `CONFIG['channels'][name]`; a few module-level aliases below mirror the common values so
+# external read-only consumers (bucket_fill, diagnose_makespan) keep working.
+CONFIG = {
+    'global': {
+        'seed_world'      : 42,
+        'seed_batches'    : 1337,
+        'n_batches'       : 100,
+        'workers'         : 1,
+        'checkpoint_frac' : 0.1,     # checkpoint every ceil(n_batches * frac) batches
+        'keyframe_interval': 5,
+        'max_skus'        : None,    # global input-catalog cap (preserves the store/ff mix)
+    },
+    'channels': {
+        'store': {
+            'regime'     : STORE,
+            'configs'    : STORE_CONFIGS,
+            'num_pickers': _STORE_PICKERS,
+            'restocks'   : restocks_for('store'),
+            'cart'       : 'StoreCart',
+            'seed_offset': 0,
+            'batch'      : {'mean': 0.15, 'std': 0.05},
+            'fill'       : 0.9,
+            'sizing'     : {'mode': 'demand', 'min_bins': None, 'max_bins': None,
+                            'max_aisles': None, 'composition': None},
+        },
+        'fulfillment': {
+            'regime'     : FULFILLMENT,
+            'configs'    : FULFILLMENT_CONFIGS,
+            'num_pickers': _FF_PICKERS,
+            'restocks'   : restocks_for('fulfillment'),
+            'cart'       : 'FulfillmentCart',
+            'seed_offset': FF_BATCH_SEED_OFFSET,
+            'batch'      : {'mean': 0.20, 'std': 0.05},
+            'fill'       : 0.92,
+            # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
+            # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
+            'sizing'     : {'mode': 'fixed',
+                            'distribution': {'ff_small': 0.5, 'ff_medium': 0.3, 'ff_large': 0.2},
+                            'target_bins': None, 'min_bins': None, 'max_bins': None,
+                            'max_aisles': None},
+        },
+    },
+}
+
+# Derived read-only aliases for external consumers (bucket_fill.py, diagnose_makespan.py,
+# README) — CONFIG is authoritative; internal code reads CONFIG, not these.
+SEED_WORLD     = CONFIG['global']['seed_world']
+SEED_BATCHES   = CONFIG['global']['seed_batches']
+N_BATCHES      = CONFIG['global']['n_batches']
+K_PICKERS      = CONFIG['channels']['store']['num_pickers']
+STORE_RESTOCKS = CONFIG['channels']['store']['restocks']
+_INITIAL_FILL  = CONFIG['channels']['store']['fill']
+
+
+def _checkpoint_every(n_batches: int) -> int:
+    """Batches between per-strategy checkpoints (floor(n_batches * checkpoint_frac), ≥1) —
+    matches the legacy ``max(1, N_BATCHES // 10)`` cadence at the default 0.1 fraction."""
+    return max(1, int(n_batches * CONFIG['global']['checkpoint_frac']))
+
+
+def regime_sizing_from_config() -> dict:
+    """Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +
+    caps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used
+    by both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE — ff
+    aisle layout + total_bins — matches; sizing the two paths differently would misgroup ff
+    aisle stats and skew churn %."""
+    return {name: {**CONFIG['channels'][name]['sizing'], 'fill': CONFIG['channels'][name]['fill']}
+            for name in ('store', 'fulfillment')}
 
 
 # ── logging ────────────────────────────────────────────────────────────────────
@@ -282,6 +404,7 @@ def build_shared_assets(
     max_bins          : int | None = None,
     min_bins          : int | None = None,
     composition       : dict | None = None,
+    regime_sizing     : dict | None = None,
     keyframe_interval : int = 5,
     warehouse_db_path : str | None = None,
 ) -> dict:
@@ -320,6 +443,7 @@ def build_shared_assets(
         max_bins     = max_bins,
         max_aisles   = max_aisles,
         composition  = composition,
+        regime_sizing= regime_sizing,
         # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
         # maps, so skip the expensive inventory re-stock in that path.
         sample       = warehouse_db_path is not None,
@@ -369,10 +493,13 @@ def build_shared_assets(
         load_params = LoadParams(lambda_=1.1, k=1.0, gamma=1.5)
         log.info('  recovered_params.json not found — using defaults (λ=1.1  γ=1.5)')
 
+    # Shared batch_cfg for the store-only path (= the store channel, so store's batch shape).
+    # The mixed path builds each channel's own BatchConfig from its Channel fractions.
+    _store_batch = CONFIG['channels']['store']['batch']
     batch_cfg = BatchConfig(
         inventory_size = n_skus,
-        mean_fraction  = _BATCH_MEAN_FRAC,
-        std_fraction   = _BATCH_STD_FRAC,
+        mean_fraction  = _store_batch['mean'],
+        std_fraction   = _store_batch['std'],
     )
 
     # Build warehouse once in the main process only to extract aisle metadata maps
@@ -407,9 +534,17 @@ def build_shared_assets(
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
+        from Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
+                                      FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT)
         aisle_rows = []
         for (h, cat, size, unit_type), cap_bins in plan.capacity.items():
-            eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
+            # Fulfillment buckets use the short-shelf catalog geometry (mirrors plan_warehouse._eff);
+            # store buckets use the pallet/singleton geometry.
+            if unit_type == 'fulfillment':
+                eff = catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS[size],
+                                         _AISLE_W, FULFILLMENT_AISLE_HEIGHT)
+            else:
+                eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
             rep = cap_bins // eff if eff else 0
             pcts = [0.0, 0.0, 0.0, 0.0]
             if unit_type == 'pallet' and size in _PCT_COL:
@@ -444,6 +579,14 @@ def build_shared_assets(
         ]
         warehouse_fp = compute_warehouse_fingerprint(
             layout_rows, os.path.basename(_pair_dir))
+        # Effective caps for the stats row: when the per-regime path is used the legacy
+        # max_bins/max_aisles are None (the real caps live in regime_sizing), so record the
+        # summed per-regime caps instead (all-unset -> None).
+        def _agg_cap(key):
+            if regime_sizing:
+                vals = [v for r in regime_sizing if (v := regime_sizing[r].get(key))]
+                return sum(vals) if vals else None
+            return {'max_bins': max_bins, 'max_aisles': max_aisles}[key]
         init_warehouse_db(warehouse_db_path)
         save_warehouse_stats(
             warehouse_db_path,
@@ -454,9 +597,9 @@ def build_shared_assets(
             total_aisles  = total_aisles,
             total_bins    = total_bins,
             expected_fill = expected_fill,
-            target_fill   = _TARGET_FILL,
-            max_aisles    = max_aisles,
-            max_bins      = max_bins,
+            target_fill   = _INITIAL_FILL,   # store fill headroom (the sizing target)
+            max_aisles    = _agg_cap('max_aisles'),
+            max_bins      = _agg_cap('max_bins'),
             avg_eq_qty    = avg_eq,
             avg_rp        = avg_rp,
             aisle_rows    = aisle_rows,
@@ -479,7 +622,8 @@ def build_shared_assets(
         total_units_needed = total_units_needed,
         aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
         aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
-        k_pickers          = K_PICKERS,
+        # Store picker pool — read by run_analysis's slim EvalContext (Performance_Evaluations).
+        k_pickers          = CONFIG['channels']['store']['num_pickers'],
         max_skus           = max_skus,
         max_aisles         = max_aisles,
         max_bins           = max_bins,
@@ -493,42 +637,73 @@ def build_shared_assets(
 
 # ── flat pool helpers ──────────────────────────────────────────────────────────
 
-def _prepare_config_run(
-    cfg     : dict,
-    shared  : dict,
-    pair_dir: str,
-    log     : logging.Logger,
-    workers : int = 1,
-) -> tuple[list, dict]:
-    """Pre-initialise one regression config: create DBs, get run_ids, build strategy_args.
+# Cart types a config entry may name via a 'cart' key (default: the store cart).
+_CART_TYPES = {'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}
 
-    Builds every per-strategy work unit for one config so the flat pool can submit
-    them all to one ProcessPoolExecutor.
 
-    Returns (strategy_args_list, sim_result_skeleton).
-    strategy_args_list: 3 dicts (A, B, C) ready for _run_strategy_worker.
-      log_queue is NOT yet set — the caller injects it before submission.
-    sim_result_skeleton: dict with name/run_dir/db_paths/run_ids + inv_db/aff_db.
-    """
-    name = cfg.get('name') or (
+def _config_name(cfg: dict) -> str:
+    """A config's directory/identity name (explicit 'name', else a coeff fingerprint)."""
+    return cfg.get('name') or (
         f"w{cfg.get('pick_weight_coef',1.1)}_v{cfg.get('pick_volume_coef',1e-3)}"
         f"_i{cfg.get('pick_intercept',1.0)}_c{cfg.get('cart_swap_coef',10.0)}"
     )
-    pick_cfg = PickConfig(
-        num_pickers      = K_PICKERS,
+
+
+def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig:
+    """Turn a config dict (store or fulfillment) into a PickConfig.
+
+    The one canonical dict→PickConfig conversion shared by both channels' sweeps.  Callers
+    pass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and
+    the channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.
+    """
+    return PickConfig(
+        num_pickers      = num_pickers,
         x_speed          = cfg.get('x_speed',          4.0),   # ft/s (positions are inches)
         y_speed          = cfg.get('y_speed',          2.0),   # ft/s
         pick_intercept   = cfg.get('pick_intercept',   1.0),
         pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
         pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
-        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term, now honored
+        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term
         pick_volume_fn   = cfg.get('pick_volume_fn',   'log'),
         cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
+        cart             = _CART_TYPES.get(cfg['cart'], default_cart) if 'cart' in cfg else default_cart,
         height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
     )
-    wp      = WorkloadParams.from_pick_config(pick_cfg)
-    run_dir = os.path.join(pair_dir, name)
-    db_path = {s.key: os.path.join(run_dir, f'sim_{s.key}.db') for s in STRATEGIES}
+
+
+def _prepare_channel_run(
+    channel,                 # channels.Channel — its picker carries this run's cost + pool
+    cfg     : dict,
+    mixed   : bool,          # catalog has >1 regime → regime-filter + <config>/<channel>/ subdir
+    shared  : dict,
+    pair_dir: str,
+    log     : logging.Logger,
+    workers : int = 1,
+) -> tuple[list, list]:
+    """Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
+    run_ids, build strategy_args for the flat ProcessPoolExecutor.
+
+    Store and fulfillment sweep their own config sets independently, so a run drives a single
+    channel.  ``mixed`` is True when the catalog holds more than one regime — the run then
+    filters inventory to ``channel.regime``, draws its own batch stream, and writes a
+    ``<config>/<channel>/`` subtree.  A store-only catalog (``mixed`` False) collapses to the
+    legacy ``<config>/`` layout + shared precomputed batch stream (byte-identical).
+
+    Returns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set — the caller
+    injects it before submission.
+    """
+    from dataclasses import replace                        # noqa: E402 (local)
+    from regime import regime_of                           # noqa: E402
+
+    n_batches = CONFIG['global']['n_batches']              # may be overridden via --n-batches
+    name     = _config_name(cfg)
+    pick_cfg = channel.picker.cost      # built via _build_pick_cfg with this channel's pool + cart
+    wp       = WorkloadParams.from_pick_config(pick_cfg)
+    # Single channel → placement uses this run's own wp.  Only one regime's units are placed and
+    # regimes route to disjoint bins, so a cross-regime cost map would be inert (verified against
+    # Inventory_Management.init_travel_costs — the other regime's bins are never read).
+    wp.by_regime = None
+    run_dir  = os.path.join(pair_dir, name)
     os.makedirs(run_dir, exist_ok=True)
 
     inventory          = shared['inventory']
@@ -540,25 +715,25 @@ def _prepare_config_run(
     total_units_needed = shared['total_units_needed']
     warehouse_meta     = shared.get('warehouse_meta')
 
-    # Yardstick: minimal achievable Sigma f*D for THIS config's speeds (pure
-    # global-W optimum).  Computed once over the shared warehouse; identical across
-    # strategies, so the plots can report each strategy's realised Sigma f*D as a
-    # fraction of this optimum.  Cheap (sort, no placement, no mutation).
-    optimal_sigma_fd = 0.0
-    optimal_work = 0.0
-    if warehouse_meta is not None and inventory.orders:
-        _freq = {c.sku: c.demand.relative_frequency for c in inventory.orders}
-        _qty  = {c.sku: c.demand.quantity_rate for c in inventory.orders}
+    # Yardstick: minimal achievable Sigma f*D + full-labor floor W* (pure global-W
+    # optimum) for a set of orders under a given pick cost.  Identical across strategies,
+    # so plots report each strategy's realised metric as a fraction of this optimum.
+    # Cheap (sort, no placement, no mutation).  Computed PER CHANNEL below, over that
+    # channel's regime-filtered orders + its own speeds/cost — the only thing separating
+    # the channels is the pick-time cost, so each section gets its own honest optimum
+    # (a store-speed yardstick over the mixed catalog would be apples-to-oranges).
+    def _yardsticks(orders_subset, x_speed, y_speed, wp_):
+        if warehouse_meta is None or not orders_subset:
+            return 0.0, 0.0
+        _freq = {c.sku: c.demand.relative_frequency for c in orders_subset}
+        _qty  = {c.sku: c.demand.quantity_rate for c in orders_subset}
         _mgr  = Inventory_Manager(warehouse_meta, affinity=None)
-        optimal_sigma_fd = _mgr.optimal_sigma_fd(
-            inventory.orders, _freq, pick_cfg.x_speed, pick_cfg.y_speed)
-        # Full-labor floor W* (travel + height handling) — the minimal-work yardstick.
-        optimal_work = _mgr.optimal_work(inventory.orders, _freq, _qty, wp)
-        log.info(f'  Optimal Sigma f*D (yardstick) = {optimal_sigma_fd:,.1f}')
-        log.info(f'  Optimal work W* (floor)       = {optimal_work:,.1f}')
+        sfd = _mgr.optimal_sigma_fd(orders_subset, _freq, x_speed, y_speed)
+        wrk = _mgr.optimal_work(orders_subset, _freq, _qty, wp_)
+        return sfd, wrk
 
     log.info(f'{"="*64}')
-    log.info(f'  Config : {name}')
+    log.info(f'  Config : {name}  [{channel.name}]')
     log.info(f'  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  c={pick_cfg.cart_swap_coef}')
     log.info(f'{"="*64}')
@@ -571,6 +746,8 @@ def _prepare_config_run(
         'pick_volume_fn'  : pick_cfg.pick_volume_fn,
         'pick_intercept'  : pick_cfg.pick_intercept,
         'cart_swap_coef'  : pick_cfg.cart_swap_coef,
+        'cart'            : pick_cfg.cart.__name__,
+        'cart_capacity'   : pick_cfg.cart.capacity(),
         'x_speed'         : pick_cfg.x_speed,
         'y_speed'         : pick_cfg.y_speed,
         'num_pickers'     : pick_cfg.num_pickers,
@@ -582,10 +759,10 @@ def _prepare_config_run(
         'n_skus'          : len(inventory.orders),
         'total_units'     : total_units_needed,
         'bin_slack_pct'   : round((total_bins / max(total_units_needed, 1) - 1) * 100, 2),
-        'batch_mean_frac' : _BATCH_MEAN_FRAC,
-        'n_batches'       : N_BATCHES,
+        'batch_mean_frac' : channel.batch_mean_fraction,   # this channel's actual mean fraction
+        'n_batches'       : n_batches,
         'seed_world'      : SEED_WORLD,
-        'seed_batches'    : SEED_BATCHES,
+        'seed_batches'    : SEED_BATCHES + channel.batch_seed_offset,   # this channel's actual seed
         'avg_equilibrium_qty': round(sum(getattr(c, 'equilibrium_qty', 1)
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 1),
         'avg_reorder_point'  : round(sum(getattr(c, 'reorder_point', 1)
@@ -612,21 +789,88 @@ def _prepare_config_run(
         pick_weight_coef  = pick_cfg.pick_weight_coef,
         pick_volume_coef  = pick_cfg.pick_volume_coef,
         cart_swap_coef    = pick_cfg.cart_swap_coef,
-        k_pickers         = K_PICKERS,
-        n_batches         = N_BATCHES,
+        k_pickers         = channel.picker.num_pickers,
+        n_batches         = n_batches,
         seed_world        = SEED_WORLD,
         keyframe_interval = keyframe_interval,
-        optimal_sigma_fd  = optimal_sigma_fd,
-        optimal_work      = optimal_work,
+        # Placeholders — overridden PER CHANNEL below with that section's own yardsticks.
+        optimal_sigma_fd  = 0.0,
+        optimal_work      = 0.0,
     )
 
-    resume = _load_resume(run_dir)
+    # Profile (inventory) label + per-strategy decomposition (initial | assignment | reslot,
+    # split from the strategy label) so graphs can title plots without re-parsing the registry.
+    _profile = os.path.basename(pair_dir.rstrip('/\\')) or 'profile'
+
+    def _decomp(lbl: str) -> dict:
+        parts = (lbl.split('|') + ['', '', ''])[:3]
+        return dict(initial=parts[0], assignment=parts[1], reslot=parts[2])
+
+    # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)
+    # when available so they reproduce the placement the warehouse was sized for.
+    _planned_db   = shared.get('planned_inv_db')
+    _worker_invdb = _planned_db or shared['inv_db']
+    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
+    _worker_maxsk = None if _planned_db else shared.get('max_skus')
+
+    # ── one worker set for THIS channel over the shared warehouse ────────────────────
+    # The channel filters inventory to its regime (mixed catalog) and simulates with its own
+    # picker cost + pool + batch stream, writing its own DB subtree.  A store-only catalog
+    # (mixed False) uses the config dir directly + the precomputed pair-level batch stream →
+    # byte-identical to the pre-channel pipeline.
+    ch = channel
+    # This channel's strategy arms — a restock subset (e.g. store: fifo + rank_labor) or the
+    # full grid (fulfillment).  All per-channel work below iterates ch_strategies.
+    ch_strategies = strategies_for(ch.restocks)
+    ch_run_dir = os.path.join(run_dir, ch.name) if mixed else run_dir
+    os.makedirs(ch_run_dir, exist_ok=True)
+    ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in ch_strategies}
+
+    if mixed:
+        # Channel-specific cost + pool + a REGIME-PURE precomputed batch stream shared across
+        # ALL this channel's configs (fingerprint-keyed on the regime-filtered inventory + seed
+        # + batch_cfg, so the first config computes it and the rest reuse) — apples-to-apples
+        # across assignment functions and far less compute.
+        ch_pick_cfg     = replace(ch.picker.cost, num_pickers=ch.picker.num_pickers)
+        ch_wp           = WorkloadParams.from_pick_config(ch_pick_cfg)
+        ch_wp.by_regime = None
+        _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
+        ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
+        ch_seed_batches = SEED_BATCHES + ch.batch_seed_offset
+        ch_regime       = ch.regime
+    else:
+        # Store-only path: precomputed pair-level shared batch stream (whole catalog = store).
+        ch_pick_cfg, ch_wp = pick_cfg, wp
+        ch_batch_cfg    = batch_cfg
+        ch_seed_batches = SEED_BATCHES
+        ch_regime       = None
+    try:
+        ch_batches_path, ch_batches_fp = ensure_batches(
+            pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
+            ch_batch_cfg, ch_seed_batches, n_batches, workers=workers, log=log,
+            channel_regime=ch_regime)
+    except Exception as exc:                   # noqa: BLE001 — never block on precompute
+        log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
+        ch_batches_path, ch_batches_fp = None, None
+
+    # Per-channel yardsticks over THIS section's orders + its own speeds/cost.
+    _ch_orders = [c for c in inventory.orders if regime_of(c) == ch.regime]
+    ch_optimal_sigma_fd, ch_optimal_work = _yardsticks(
+        _ch_orders, ch_pick_cfg.x_speed, ch_pick_cfg.y_speed, ch_wp)
+    ch_run_params = {**run_params,
+                     'optimal_sigma_fd': ch_optimal_sigma_fd,
+                     'optimal_work': ch_optimal_work}
+    log.info(f'  [{ch.name}] Optimal Sigma f*D = {ch_optimal_sigma_fd:,.1f}  '
+             f'W* floor = {ch_optimal_work:,.1f}')
+
+    resume = _load_resume(ch_run_dir)
     if resume:
         run_ids = resume['run_ids']
         prev    = resume.get('next_batch', {})
-        starts  = {s.key: (load_worker_checkpoint(run_dir, s.key) or prev.get(s.key, 0))
-                   for s in STRATEGIES}
-        log.info('  Resuming  ' + '  '.join(f'{s.key}@{starts[s.key]}' for s in STRATEGIES))
+        starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
+                   for s in ch_strategies}
+        log.info(f'  Resuming [{ch.name}]  '
+                 + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
     else:
         run_ids = {}
         _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
@@ -635,86 +879,95 @@ def _prepare_config_run(
             config_label          = name,
             warehouse_fingerprint = shared.get('warehouse_fingerprint'),
             inventory_label       = _pair_label,
+            channel               = ch.name,
         )
-        for s in STRATEGIES:
-            init_run_db(db_path[s.key])
+        for s in ch_strategies:
+            init_run_db(ch_db_path[s.key])
             run_ids[s.key] = create_run(
-                db_path[s.key], s.run_type, run_params,
+                ch_db_path[s.key], s.run_type, ch_run_params,
                 identity={**_identity, 'strategy_key': s.key})
-        starts = {s.key: 0 for s in STRATEGIES}
-        log.info('  New run  ' + '  '.join(f'{s.key}={run_ids[s.key]}' for s in STRATEGIES))
+        starts = {s.key: 0 for s in ch_strategies}
+        log.info(f'  New run [{ch.name}]  '
+                 + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
+    _save_resume(ch_run_dir, run_ids, starts)
 
-    _save_resume(run_dir, run_ids, starts)
-
-    # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier
-    # stock plans) when available so they reproduce the placement the warehouse
-    # was sized for.  That DB already holds only the sampled SKUs at the planned
-    # stock levels, so neither the SKU allowlist nor max_skus apply to it.
-    _planned_db   = shared.get('planned_inv_db')
-    _worker_invdb = _planned_db or shared['inv_db']
-    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
-    _worker_maxsk = None if _planned_db else shared.get('max_skus')
-    # Precompute this family's shared batch sequence ONCE (pure: a function of inv+aff+batch_cfg+seed),
-    # keyed by content fingerprint under pair_dir so every config/strategy arm of the family reuses it
-    # instead of re-sampling it in-process.  Parallel across `workers` (the strategy pool isn't running
-    # yet, so cores are idle).  Workers re-verify the fingerprint and fall back to inline sampling on
-    # any miss/mismatch, so a precompute failure can never block or corrupt a run.
-    try:
-        _batches_path, _batches_fp = ensure_batches(
-            pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
-            batch_cfg, SEED_BATCHES, N_BATCHES, workers=workers, log=log)
-    except Exception as exc:                       # noqa: BLE001 — never block the run on precompute
-        log.warning(f'  batch precompute failed ({exc!r}); workers will sample inline')
-        _batches_path, _batches_fp = None, None
     _shared = dict(
-        inv_db        = _worker_invdb,
-        batches_path        = _batches_path,
-        batches_fingerprint = _batches_fp,
-        aff_db        = shared['aff_db'],
-        run_dir       = run_dir,
-        n_batches     = N_BATCHES,
-        k_pickers     = K_PICKERS,
-        seed_world    = SEED_WORLD,
-        seed_batches  = SEED_BATCHES,
-        checkpoint    = _CHECKPOINT,
-        max_skus      = _worker_maxsk,
-        sku_allowlist = _worker_allow,
-        keyframe_interval = keyframe_interval,
-        warehouse_cfg = warehouse_cfg,
-        pick_cfg      = pick_cfg,
-        wp            = wp,
-        load_params   = load_params,
-        batch_cfg     = batch_cfg,
+        inv_db              = _worker_invdb,
+        batches_path        = ch_batches_path,
+        batches_fingerprint = ch_batches_fp,
+        aff_db              = shared['aff_db'],
+        run_dir             = ch_run_dir,
+        n_batches           = n_batches,
+        k_pickers           = ch.picker.num_pickers,
+        seed_world          = SEED_WORLD,
+        seed_batches        = ch_seed_batches,
+        checkpoint          = _checkpoint_every(n_batches),
+        max_skus            = _worker_maxsk,
+        sku_allowlist       = _worker_allow,
+        keyframe_interval   = keyframe_interval,
+        warehouse_cfg       = warehouse_cfg,
+        pick_cfg            = ch_pick_cfg,
+        wp                  = ch_wp,
+        load_params         = load_params,
+        batch_cfg           = ch_batch_cfg,
+        channel_regime      = ch_regime,      # worker filters inventory to this regime
+        channel_name        = ch.name,
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )
-    strategy_args = [
-        {**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
-         'start_i': starts[s.key], 'db_path': db_path[s.key]}
-        for s in STRATEGIES
-    ]
-    # Profile (inventory) label + per-strategy decomposition (initial | assignment |
-    # reslot, split from the strategy label) so the graphs can title plots as
-    # inventory_initial_assignment_reslot without re-parsing the registry.
-    _profile = os.path.basename(pair_dir.rstrip('/\\')) or 'profile'
-
-    def _decomp(lbl: str) -> dict:
-        parts = (lbl.split('|') + ['', '', ''])[:3]
-        return dict(initial=parts[0], assignment=parts[1], reslot=parts[2])
-
+    strategy_args = [{**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
+                      'start_i': starts[s.key], 'db_path': ch_db_path[s.key],
+                      'channel_key': ch.name}
+                     for s in ch_strategies]
     sim_skeleton = dict(
         name       = name,
         inventory  = _profile,
-        run_dir    = run_dir,
+        run_dir    = ch_run_dir,
+        channel    = ch.name,
         strategies = [dict(key=s.key, label=s.label, color=s.color,
-                           db_path=db_path[s.key], run_id=run_ids[s.key],
+                           db_path=ch_db_path[s.key], run_id=run_ids[s.key],
                            **_decomp(s.label))
-                      for s in STRATEGIES],
-        optimal_sigma_fd = optimal_sigma_fd,
-        optimal_work     = optimal_work,
+                      for s in ch_strategies],
+        optimal_sigma_fd = ch_optimal_sigma_fd,
+        optimal_work     = ch_optimal_work,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
     )
-    return strategy_args, sim_skeleton
+    return strategy_args, [sim_skeleton]
+
+
+def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
+    """Plan the channel-runs for one catalog.
+
+    Store and fulfillment sweep their OWN config sets independently (a UNION, not a cross
+    product): every STORE_CONFIGS entry drives a store channel-run, and — only when the
+    catalog is mixed (contains fulfillment units) — every FULFILLMENT_CONFIGS entry drives a
+    fulfillment channel-run.  A store-only catalog yields just the store runs (byte-identical
+    to the pre-fulfillment pipeline).
+
+    Returns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.
+    """
+    from channels import make_channel                         # noqa: E402
+    from regime import regime_of                              # noqa: E402
+
+    mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
+    runs: list[tuple] = []
+    # Store first, then fulfillment (only for a mixed catalog) — every knob per channel
+    # comes from CONFIG['channels'][name]; a pick-config entry may override 'num_pickers'.
+    for name in ('store', 'fulfillment'):
+        if name == 'fulfillment' and not mixed:
+            continue
+        chan = CONFIG['channels'][name]
+        default_cart = _CART_TYPES.get(chan['cart'], StoreCart)
+        for cfg in chan['configs']:
+            n  = int(cfg.get('num_pickers', chan['num_pickers']))
+            pc = _build_pick_cfg(cfg, num_pickers=n, default_cart=default_cart)
+            ch = make_channel(name, chan['regime'], pc, n,
+                              restocks=chan['restocks'],
+                              batch_seed_offset=chan['seed_offset'],
+                              batch_mean_fraction=chan['batch']['mean'],
+                              batch_std_fraction=chan['batch']['std'])
+            runs.append((ch, cfg))
+    return mixed, runs
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:
@@ -748,6 +1001,40 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
             for k in ('name', 'inventory', 'run_dir', 'strategies',
                       'optimal_sigma_fd', 'optimal_work')
             if k in sim_skeleton}
+
+
+def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
+    """Scan every sim_*.db under base_dir and log a prominent WARNING for any that
+    recorded zero batches (blank result DB).  Returns the list of blank db paths.
+
+    A blank arm means the whole strategy produced no metrics — almost always a
+    placement/stocking failure (units never binned → no pick tasks → all batches
+    skipped).  Downstream analysis silently omits such arms, so we flag them here.
+    """
+    import glob as _glob
+    import sqlite3
+    blank = []
+    for db in _glob.glob(os.path.join(base_dir, '**', 'sim_*.db'), recursive=True):
+        if db.endswith('.keyframes.db'):
+            continue
+        try:
+            con = sqlite3.connect(db)
+            n = con.execute('SELECT COUNT(*) FROM batch_stats').fetchone()[0]
+            con.close()
+        except Exception:                       # noqa: BLE001 — never block on the scan
+            continue
+        if n == 0:
+            blank.append(db)
+    if blank:
+        log.warning(f'{"!"*64}')
+        log.warning(f'  {len(blank)} BLANK sim DB(s) — recorded ZERO batches (no metrics):')
+        for db in sorted(blank):
+            log.warning(f'    {os.path.relpath(db, base_dir)}')
+        log.warning('  These arms produced no data (likely a placement/stocking failure).')
+        log.warning(f'{"!"*64}')
+    else:
+        log.info('  Metric check: every sim DB recorded ≥1 batch (no blanks).')
+    return blank
 
 
 def _run_workers_flat(
@@ -785,37 +1072,52 @@ def _run_workers_flat(
             pair_dir = os.path.join(base_dir, label)
             shared   = shared_by_pair[label]
 
-            for cfg in REGRESSION_CONFIGS:
-                cfg_name = cfg.get('name', '?')
-                key = (label, cfg_name)
-                # On resume, a config that finalized has written sim_meta.json and had
-                # its resume marker removed (_finalize_config_run).  Skip it so resume
-                # never recomputes already-complete work — _prepare_config_run would
-                # otherwise see no resume.pkl and restart it from batch 0.
-                run_dir = os.path.join(pair_dir, cfg_name)
-                if skip_completed and os.path.exists(os.path.join(run_dir, 'sim_meta.json')) \
-                        and not os.path.exists(_resume_path(run_dir)):
-                    log.info(f'  [{label}/{cfg_name}] already complete — skipping (resume)')
+            # Store and fulfillment sweep their own config sets independently — a UNION of
+            # channel-runs (store configs → store channel; fulfillment configs → fulfillment
+            # channel, only when the catalog is mixed).  See _channel_runs_for.
+            mixed, channel_runs = _channel_runs_for(shared['inventory'])
+            for ch, cfg in channel_runs:
+                cfg_name = _config_name(cfg)
+                # A channel-run's outputs live at <cfg>/<channel>/ (mixed catalog) or <cfg>/
+                # (store-only).  The skip guard must key on that exact dir — sim_meta.json and
+                # resume.pkl land there, not at the config level.
+                ch_run_dir = os.path.join(pair_dir, cfg_name, ch.name) if mixed \
+                             else os.path.join(pair_dir, cfg_name)
+                # On resume, a channel-run that finalized has written sim_meta.json and had its
+                # resume marker removed (_finalize_config_run).  Skip it so resume never
+                # recomputes already-complete work — _prepare_channel_run would otherwise see no
+                # resume.pkl and restart it from batch 0.
+                if skip_completed and os.path.exists(os.path.join(ch_run_dir, 'sim_meta.json')) \
+                        and not os.path.exists(_resume_path(ch_run_dir)):
+                    log.info(f'  [{label}/{cfg_name}/{ch.name}] already complete — skipping (resume)')
                     continue
                 try:
-                    strategy_args, sim_skeleton = _prepare_config_run(
-                        cfg, shared, pair_dir, log, workers=max_workers)
+                    strategy_args, sim_skeletons = _prepare_channel_run(
+                        ch, cfg, mixed, shared, pair_dir, log, workers=max_workers)
                     for sa in strategy_args:
                         sa['log_queue'] = log_queue   # inject shared queue
-                        work_units.append((key, sa))
-                    meta[key] = {'sim_skeleton': sim_skeleton, 'remaining': len(STRATEGIES)}
+                        ck = (label, cfg_name, sa.get('channel_key', ''))
+                        work_units.append((ck, sa))
+                    # One completion group per (pair, config, channel): all of THAT channel's
+                    # strategies must finish before its sim_meta.json is written.  Channels may
+                    # run different-sized subsets (e.g. store: fifo+rank_labor vs fulfillment:
+                    # full suite), so count the skeleton's own strategies, not the global grid.
+                    for sk in sim_skeletons:
+                        ck = (label, cfg_name, sk.get('channel', ''))
+                        meta[ck] = {'sim_skeleton': sk, 'remaining': len(sk['strategies'])}
                 except Exception as exc:
-                    log.error(f'  [{label}/{cfg_name}] prepare FAILED: {exc}',
+                    log.error(f'  [{label}/{cfg_name}/{ch.name}] prepare FAILED: {exc}',
                               exc_info=True)
 
         # Assign a 1-based job index + identity tag to each work unit so every
         # worker log line can show which job of the flat list is progressing.
         total_jobs = len(work_units)
         for idx, (key, sa) in enumerate(work_units, start=1):
-            _label, _cfg_name = key
+            _label, _cfg_name, _ch = key
             sa['job_index'] = idx
             sa['job_total'] = total_jobs
-            sa['job_tag']   = f'{_label}/{_cfg_name}/{sa["strategy"]}'
+            _pfx = f'{_label}/{_cfg_name}/{_ch}' if _ch else f'{_label}/{_cfg_name}'
+            sa['job_tag']   = f'{_pfx}/{sa["strategy"]}'
 
         # max_tasks_per_child recycles each worker process after this many jobs so
         # the OS reclaims its full RSS between simulations.  CPython rarely returns
@@ -836,24 +1138,23 @@ def _run_workers_flat(
             }
             for fut in concurrent.futures.as_completed(futures):
                 key = futures[fut]
-                label, cfg_name = key
+                label, cfg_name, ch_key = key
+                _tag = f'{label}/{cfg_name}/{ch_key}' if ch_key else f'{label}/{cfg_name}'
                 try:
                     res = fut.result()
-                    log.info(f'  [{label}/{cfg_name}] strategy-{res["strategy"]} done'
+                    log.info(f'  [{_tag}] strategy-{res["strategy"]} done'
                              f'  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
                 except Exception as exc:
-                    log.error(f'  [{label}/{cfg_name}] strategy FAILED: {exc}',
-                              exc_info=True)
+                    log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
 
                 if key in meta:
                     meta[key]['remaining'] -= 1
                     if meta[key]['remaining'] <= 0:
                         try:
                             _finalize_config_run(meta[key]['sim_skeleton'])
-                            log.info(f'  [{label}/{cfg_name}] sim_meta.json written')
+                            log.info(f'  [{_tag}] sim_meta.json written')
                         except Exception as exc:
-                            log.error(f'  [{label}/{cfg_name}] finalize FAILED: {exc}',
-                                      exc_info=True)
+                            log.error(f'  [{_tag}] finalize FAILED: {exc}', exc_info=True)
     finally:
         listener.stop()
         mp_manager.shutdown()
@@ -886,33 +1187,58 @@ def main():
                              'flush completeness; 0 disables recycling (legacy).')
     parser.add_argument('--max-skus', type=int, default=None, metavar='N',
                         help='Cap inventory to the first N SKUs (smaller warehouse for quick runs)')
-    parser.add_argument('--max-aisles', type=int, default=None, metavar='N',
-                        help='Cap total aisle count by proportionally scaling replica counts')
-    parser.add_argument('--max-bins', type=int, default=None, metavar='N',
-                        help='Cap total bins by trimming aisle replicas (floor: '
-                             '1 replica/type ~= 30k bins). Combine with --max-aisles.')
-    parser.add_argument('--min-bins', type=int, default=None, metavar='N',
-                        help='Require AT LEAST N total bins; replicas scale up to '
-                             'meet it (min wins over --max-bins if they conflict).')
-    parser.add_argument('--composition', type=str, default=None, metavar='JSON',
-                        help='Path to a JSON file (or inline JSON) giving a factored '
-                             'basis vector of bin ratios. Keys: handling, category, '
-                             'size, unit — each a {value: weight} map. Bins are '
-                             'allocated proportionally; scale comes from --min-bins.')
+    # Per-channel warehouse-sizing caps (store vs fulfillment sized independently).
+    parser.add_argument('--s-max-aisles', type=int, default=None, metavar='N',
+                        help='STORE: cap total store aisle count (scales store replicas down).')
+    parser.add_argument('--s-max-bins', type=int, default=None, metavar='N',
+                        help='STORE: cap total store bins (trims store aisle replicas).')
+    parser.add_argument('--s-min-bins', type=int, default=None, metavar='N',
+                        help='STORE: require AT LEAST N store bins (min wins over --s-max-bins).')
+    parser.add_argument('--ff-max-aisles', type=int, default=None, metavar='N',
+                        help='FULFILLMENT: cap total fulfillment aisle count.')
+    parser.add_argument('--ff-max-bins', type=int, default=None, metavar='N',
+                        help='FULFILLMENT: cap total fulfillment bins (scales the fixed tier '
+                             'distribution down).')
+    parser.add_argument('--ff-min-bins', type=int, default=None, metavar='N',
+                        help='FULFILLMENT: total fulfillment bins to scale the fixed tier '
+                             'distribution to (also the floor).')
+    parser.add_argument('--s-composition', type=str, default=None, metavar='JSON',
+                        help='STORE: JSON file or inline factored basis vector of store bin '
+                             'ratios (keys handling/category/size/unit → weight). Scale from '
+                             '--s-min-bins (or demand). Fulfillment uses its fixed distribution.')
     parser.add_argument('--keyframe-interval', type=int, default=5, metavar='K',
                         help='Write a full bin snapshot to <run>.keyframes.db every K '
                              'batches so the visualizer can jump between batches '
                              '(0 disables). A keyframe = all occupied bins; raise K for '
                              'very large warehouses. Default 5.')
+    parser.add_argument('--n-batches', type=int, default=None, metavar='N',
+                        help='Override the per-run batch count (default '
+                             f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
     args = parser.parse_args()
 
-    composition = None
-    if args.composition:
-        if os.path.exists(args.composition):
-            with open(args.composition) as _cf:
-                composition = json.load(_cf)
+    # ── apply CLI overrides onto CONFIG (the single source of truth) ─────────────
+    g = CONFIG['global']
+    if args.n_batches:
+        g['n_batches'] = args.n_batches
+    if args.max_skus is not None:
+        g['max_skus'] = args.max_skus
+    g['workers']           = args.workers or 1
+    g['keyframe_interval'] = args.keyframe_interval
+
+    _store_comp = None
+    if args.s_composition:
+        if os.path.exists(args.s_composition):
+            with open(args.s_composition) as _cf:
+                _store_comp = json.load(_cf)
         else:
-            composition = json.loads(args.composition)
+            _store_comp = json.loads(args.s_composition)
+
+    _ss = CONFIG['channels']['store']['sizing']
+    _ss.update(max_aisles=args.s_max_aisles, max_bins=args.s_max_bins,
+               min_bins=args.s_min_bins, composition=_store_comp)
+    _fs = CONFIG['channels']['fulfillment']['sizing']
+    _fs.update(max_aisles=args.ff_max_aisles, max_bins=args.ff_max_bins,
+               min_bins=args.ff_min_bins)
 
     if args.resume:
         base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
@@ -955,49 +1281,64 @@ def main():
         log.info(f'    inv : {inv_db}')
         log.info(f'    aff : {aff_db}')
 
-    n_configs = len(REGRESSION_CONFIGS)
+    n_store = len(STORE_CONFIGS)
+    n_ff    = len(FULFILLMENT_CONFIGS)
     n_strats  = len(STRATEGIES)
-    total_workers = len(pairs) * n_configs * n_strats
     workers = args.workers or 1
     log.info(
-        f'Execution plan: {len(pairs)} pair(s) × {n_configs} config(s) × {n_strats} strategies'
-        f' = {total_workers} work units  |  flat pool workers={workers}'
+        f'Execution plan: {len(pairs)} pair(s) × ({n_store} store + up to {n_ff} fulfillment) '
+        f'config(s), swept independently per channel  |  flat pool workers={workers}'
     )
 
     # Top-level run manifest: a schema index of this run (inventories × configs × strategies)
     # so the docs ingest can auto-discover what to pull. See docs/experiments/ingest.py.
     def _brackets_json(hb):
         return [[(None if thr == float('inf') else thr), mult] for thr, mult in (hb or ())]
+    def _cfg_json(c, channel):
+        return {'name'           : c['name'],
+                'channel'        : channel,
+                'pick_weight_fn' : c.get('pick_weight_fn'),
+                'pick_volume_fn' : c.get('pick_volume_fn'),
+                'height_brackets': _brackets_json(c.get('height_brackets'))}
+    _store_cfgs = [_cfg_json(c, 'store') for c in STORE_CONFIGS]
+    _ff_cfgs    = [_cfg_json(c, 'fulfillment') for c in FULFILLMENT_CONFIGS]
     run_manifest = {
-        'run'        : os.path.basename(base_dir.rstrip('/\\')),
-        'inventories': [label for label, _inv, _aff in pairs],
-        'configs'    : [{'name'          : c['name'],
-                         'pick_weight_fn': c.get('pick_weight_fn'),
-                         'pick_volume_fn': c.get('pick_volume_fn'),
-                         'height_brackets': _brackets_json(c.get('height_brackets'))}
-                        for c in REGRESSION_CONFIGS],
-        'strategies' : [{'key': s.key, 'label': s.label} for s in STRATEGIES],
-        'baseline'   : STRATEGIES[0].key if STRATEGIES else None,
+        'run'                : os.path.basename(base_dir.rstrip('/\\')),
+        'inventories'        : [label for label, _inv, _aff in pairs],
+        # Merged flat list (store + fulfillment) — kept for docs ingest compatibility, which
+        # reads a single `configs` list.  The per-channel lists below are the source of truth.
+        'configs'            : _store_cfgs + _ff_cfgs,
+        'store_configs'      : _store_cfgs,
+        'fulfillment_configs': _ff_cfgs,
+        'strategies'         : [{'key': s.key, 'label': s.label} for s in STRATEGIES],
+        'baseline'           : STRATEGIES[0].key if STRATEGIES else None,
     }
     with open(os.path.join(base_dir, 'run_manifest.json'), 'w') as f:
         json.dump(run_manifest, f, indent=2)
-    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_configs} cfg × {n_strats} strat)')
+    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_store} store + {n_ff} ff cfg × {n_strats} strat)')
+    # Per-regime warehouse sizing assembled from CONFIG (shared with run_analysis's rebuild).
+    regime_sizing = regime_sizing_from_config()
+
     # ── flat ProcessPoolExecutor: every (pair,config,strategy) unit shares one pool ──
     shared_by_pair = {}
     for label, inv_db, aff_db in pairs:
         log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
         shared_by_pair[label] = build_shared_assets(
             inv_db, aff_db, log,
-            max_skus=args.max_skus, max_aisles=args.max_aisles,
-            max_bins=args.max_bins, min_bins=args.min_bins,
-            composition=composition, keyframe_interval=args.keyframe_interval,
+            max_skus=g['max_skus'], regime_sizing=regime_sizing,
+            keyframe_interval=g['keyframe_interval'],
             warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
         )
     _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
                       max_tasks_per_child=args.max_tasks_per_child,
                       skip_completed=bool(args.resume))
 
-    log.info(f'\nAll {len(pairs)} dataset(s) × {n_configs} config(s) simulations complete.'
+    # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
+    # batches (e.g. an arm whose placement left no stock so every batch is skipped),
+    # so a blank DB is discovered NOW, not halfway through downstream analysis.
+    _warn_blank_arms(base_dir, log)
+
+    log.info(f'\nAll {len(pairs)} dataset(s) × ({n_store} store + {n_ff} ff) config(s) simulations complete.'
              f'  Root: {base_dir}'
              f'\n  Run graphs: python run_analysis.py {base_dir}')
 

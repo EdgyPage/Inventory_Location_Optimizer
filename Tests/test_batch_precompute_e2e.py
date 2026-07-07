@@ -20,6 +20,7 @@ import glob
 import logging
 import os
 import queue
+import sqlite3
 import sys
 
 import pytest
@@ -35,21 +36,50 @@ import batch_precompute as BP                   # noqa: E402
 _N_E2E_BATCHES = 6
 
 
+def _store_only_current_schema(inv_db):
+    """True if inv_db is loadable by the current code (has relative_frequency) AND store-only
+    (no fulfillment SKUs).  The precompute dedup is a single-channel/store-only optimization —
+    a fulfillment dataset runs multi-channel and samples inline (no shared batches file), so this
+    e2e only applies to store-only pairs.  Pre-rename DBs (demand_frequency) aren't loadable."""
+    try:
+        c = sqlite3.connect(inv_db)
+        cols = [r[1] for r in c.execute('PRAGMA table_info(cartons)')]
+        if 'relative_frequency' not in cols:
+            return False
+        ff = c.execute("SELECT COUNT(*) FROM cartons WHERE handling='fulfillment'").fetchone()[0]
+        c.close()
+        return ff == 0
+    except Exception:
+        return False
+
+
 def _pair_or_skip():
     try:
-        pairs = rs.find_latest_db_pairs(rs._DEFAULT_PROFILES_DIR)
+        pairs = rs.discover_db_pairs(rs._DEFAULT_PROFILES_DIR)
     except Exception:
         pairs = []
-    if not pairs:
-        pytest.skip('no generated inventory/affinity DB pair available for e2e')
-    return pairs[0]
+    for pair in pairs:
+        if _store_only_current_schema(pair[1]):
+            return pair
+    pytest.skip('no store-only, current-schema inventory/affinity pair for the precompute e2e')
+
+
+def _store_channel_run(shared, pair_dir, cfg, log, workers=1):
+    """Prepare the single store channel-run for `cfg` (this e2e uses a store-only pair, so the
+    catalog is not mixed and the run collapses to the legacy <config>/ layout)."""
+    from channels import make_channel
+    from regime import STORE
+    pc = rs._build_pick_cfg(cfg, num_pickers=rs.K_PICKERS)
+    ch = make_channel('store', STORE, pc, rs.K_PICKERS, restocks=rs.STORE_RESTOCKS)
+    mixed, _ = rs._channel_runs_for(shared['inventory'])       # store-only → False
+    return rs._prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log, workers=workers)
 
 
 def _capture_batch_sequence(shared, pair_dir, cfg, log, *, force_inline):
     """Run the first arm with Task.from_batch stubbed to record each batch (and skip the sim).
     Returns (captured_seq, strategy_args[0]).  captured_seq[i] = (num_skus, sorted items tuple)."""
     os.makedirs(pair_dir, exist_ok=True)
-    strategy_args, _ = rs._prepare_config_run(cfg, shared, pair_dir, log, workers=1)
+    strategy_args, _ = _store_channel_run(shared, pair_dir, cfg, log, workers=1)
     a = strategy_args[0]
     a['log_queue'] = queue.Queue()
     if force_inline:
@@ -74,7 +104,7 @@ def _capture_batch_sequence(shared, pair_dir, cfg, log, *, force_inline):
 def test_e2e_worker_consumes_identical_batches(tmp_path):
     label, inv_db, aff_db = _pair_or_skip()
     log = logging.getLogger('e2e'); log.setLevel(logging.ERROR)
-    rs.N_BATCHES = _N_E2E_BATCHES
+    rs.CONFIG['global']['n_batches'] = _N_E2E_BATCHES
 
     build_pair = str(tmp_path / 'build' / label)
     os.makedirs(build_pair, exist_ok=True)

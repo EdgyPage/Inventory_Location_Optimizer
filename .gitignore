@@ -86,8 +86,9 @@ target/
 # Profiler log files
 Tests/logs/*.log
 
-# Claude Code memory
-.claude/
+# Claude Code — ignore local settings/state, but track shared project agents
+.claude/*
+!.claude/agents/
 
 # IPython
 profile_default/

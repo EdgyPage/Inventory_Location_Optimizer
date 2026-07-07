@@ -46,7 +46,7 @@ def _make_inventory_db(path: str, n: int, seed: int = 0) -> str:
             sku=s, handling=h, category=c,
             length=rng.randint(5, 40), width=rng.randint(5, 40),
             height=rng.randint(5, 40), weight=rng.randint(1, 50),
-            frequency=rng.uniform(0.01, 1.0), qty_rate=rng.randint(1, 10),
+            relative_frequency=rng.uniform(0.01, 1.0), qty_rate=rng.randint(1, 10),
             equilibrium_qty=rng.randint(2, 20), reorder_point=1,
             lead_time_mean=0.0, supply_cv=0.0, stock_plan=None))
     save_inventory_to_db(Inventory(orders), path, {'test': True})

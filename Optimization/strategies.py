@@ -26,6 +26,7 @@ from Assignment_Functions import (
     build_ranked_uniform_assignment_fn,
     build_ranked_popularity_fn,
     build_ranked_labor_fn,
+    build_ranked_cartlabor_fn,
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
@@ -49,6 +50,8 @@ class StrategyContext:
     qty_by_sku   : dict
     beta         : float = 1.0
     orders      : Any = None   # inventory.orders — needed to build the optimal map
+    expected_batch_skus : float = 0.0   # k = mean_fraction·N: expected distinct SKUs per
+                                        # batch, for the Rank_cartlabor expected-cart term
 
 
 @dataclass
@@ -67,6 +70,8 @@ class Strategy:
     uses_aisle_index : bool = False          # per-unit _stock strategy that consumes mgr._aisle_index;
                                              # worker arms init_travel_costs() before build() (cluster only —
                                              # ranked/FIFO drains do not use the per-aisle index fast path)
+    restock        : str = ''                # the restock-rule key (e.g. 'fifo', 'rank_labor'); the
+                                             # initial×reslot-invariant component used for per-channel subsets
 
 
 # ── build helpers: each sets exactly ONE named mgr.placement ─────────────────────
@@ -114,6 +119,23 @@ def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        order_score=_score_expected_labor)
+
+
+def _build_rank_cartlabor(mgr, ctx: StrategyContext) -> None:
+    # Cart-swap-aware LPT balance: like rank_labor, but each aisle's balanced load also
+    # carries its EXPECTED cart-swap cost (cart_swap_coef*max(0, exp_aisle_vol/cap - 1)), so
+    # volume that would overflow a cart disperses across aisles.  Inert for the big store
+    # cart (term ~0); bites for the small fulfillment cart.
+    mgr.placement = Placement(
+        'ranked_cartlabor',
+        build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
+        build_ranked_cartlabor_fn(
+            ctx.affinity, ctx.wp,
+            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            mgr._aisle_vol_sum, mgr._sku_vol_product, ctx.expected_batch_skus,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -295,6 +317,7 @@ _RESTOCKS = [
     ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
     ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
     ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
+    ('rank_cartlabor',  'Rank_cartlabor',  _build_rank_cartlabor,          True, True, False),  # rank_labor + expected cart-swap cost in the balance
     ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
     ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
     ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
@@ -330,7 +353,35 @@ for _ik, _il, _stock_mode in _INITIALS:
                 color=_hsv_hex(len(STRATEGIES), _N_STRATEGIES), run_type=_key,
                 needs_affinity=_na, needs_demand=_nd, build=_bld,
                 stock_mode=_stock_mode, reslot_frac=_frac, reloader=_rld,
-                uses_aisle_index=_uix,
+                uses_aisle_index=_uix, restock=_rk,
             ))
 
 STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}
+
+
+def strategies_for(restocks) -> list[Strategy]:
+    """Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all).
+
+    Lets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)
+    while another runs the full suite, without perturbing the global grid used elsewhere.
+    """
+    return list(STRATEGIES) if restocks is None else [s for s in STRATEGIES if s.restock in restocks]
+
+
+# ── per-channel strategy selection ──────────────────────────────────────────────
+# Which restock (assignment-function) subset each channel sweeps.  Lives HERE — the
+# strategies setup file that owns the `restock` keys — so the runner has no special-case
+# strategy constants.  None ⇒ the full assignment-function suite.
+#   store       : fifo (baseline) vs rank_labor (historic winner) vs rank_cartlabor
+#                 (cart-swap-aware; confirms the big store cart barely moves the plan).
+#   fulfillment : the full sweep, so the small-cart channel is compared across every fn.
+CHANNEL_RESTOCKS: dict[str, tuple[str, ...] | None] = {
+    'store'      : ('fifo', 'rank_labor', 'rank_cartlabor'),
+    'fulfillment': None,
+}
+
+
+def restocks_for(channel: str) -> tuple[str, ...] | None:
+    """The restock-rule subset a channel sweeps (None ⇒ full suite).  Unknown channel ⇒
+    None (full suite), so a new channel runs everything until curated here."""
+    return CHANNEL_RESTOCKS.get(channel)

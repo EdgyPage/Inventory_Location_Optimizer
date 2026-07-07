@@ -61,6 +61,8 @@ class Aisle:
         unit_type: str,
         aisle_width: int,
         aisle_height: int,
+        bin_width: int | None = None,
+        bin_height: int | None = None,
     ) -> None:
         """Create a uniform-size aisle from physical dimensions.
 
@@ -69,6 +71,8 @@ class Aisle:
         storage_size  : single size tier for all bins ('small', 'medium', etc.)
         aisle_width   : physical width in storage units (e.g. 25 × 48 = 1200)
         aisle_height  : physical height in storage units (e.g. 30 × 48 = 1440)
+        bin_width     : explicit bin footprint width (fulfillment); None ⇒ from unit_type
+        bin_height    : explicit bin height (fulfillment); None ⇒ from unit_type/SIZE_HEIGHTS
         """
         self.aisle_id: int = Aisle.next_aisle_id
         Aisle.next_aisle_id += 1
@@ -78,11 +82,16 @@ class Aisle:
         self.aisle_width: int = aisle_width
         self.aisle_height: int = aisle_height
 
-        x_step = unit_bin_width(unit_type)
-        if unit_type == 'singleton':
+        # Explicit bin geometry (fulfillment tiers) overrides the unit_type-derived
+        # defaults; both None keeps the store pallet/singleton behavior byte-for-byte.
+        x_step = bin_width if bin_width is not None else unit_bin_width(unit_type)
+        if bin_height is not None:
+            y_step = bin_height
+            bin_size: str = storage_size
+        elif unit_type == 'singleton':
             # All singleton bins are the same fixed height — no size tiers.
             y_step = SINGLETON_BIN_HEIGHT
-            bin_size: str = 'singleton'
+            bin_size = 'singleton'
         else:
             y_step = SIZE_HEIGHTS[storage_size]
             bin_size = storage_size
