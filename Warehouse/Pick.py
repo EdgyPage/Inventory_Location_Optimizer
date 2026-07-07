@@ -113,7 +113,81 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
 
 # ── simulation ───────────────────────────────────────────────────────────────
 
-class PickSimulation:
+class _ProgressAPIMixin:
+    """Post-run progress inspection shared by BOTH pick simulations.
+
+    progress_at/step_table/_state_at were verbatim duplicates in PickSimulation
+    and DeferredPickSimulation (cosmetic drift only).  They read nothing but
+    self._events (set by run()) and self._config.num_pickers, so one mixin
+    serves both.  NOT part of the numeric sim path - the picker loops stay
+    deliberately separate (deferred-mutation contract).
+    """
+    def progress_at(self, t: float) -> list[PickerProgress]:
+        """State of every picker at time t. run() must be called first."""
+        if self._events is None:
+            raise RuntimeError('Call run() before progress_at()')
+        return [self._state_at(pid, t) for pid in range(self._config.num_pickers)]
+
+    def step_table(self, step: float = 1.0) -> list[list[PickerProgress]]:
+        """Progress snapshots at regular time steps until all pickers are done."""
+        if self._events is None:
+            raise RuntimeError('Call run() before step_table()')
+        max_time = max((e.time for e in self._events), default=0.0)
+        snapshots: list[list[PickerProgress]] = []
+        t = 0.0
+        while t <= max_time:
+            snapshots.append(self.progress_at(t))
+            t = round(t + step, 10)
+        return snapshots
+
+    # ── picker simulation ────────────────────────────────────────────────────
+
+    def _state_at(self, picker_id: int, t: float) -> PickerProgress:
+        picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]
+        past = [e for e in picker_events if e.time <= t]
+
+        if not past:
+            return PickerProgress(t, picker_id, 'idle', None, 0, 0, 0, 0, 1, 0.0)
+
+        last       = past[-1]
+        carts_used = sum(1 for e in past if e.event_type == 'cart_swap') + 1
+
+        if last.event_type == 'done':
+            return PickerProgress(
+                t, picker_id, 'idle', None,
+                last.bins_completed, last.total_bins,
+                last.items_picked, last.total_items,
+                carts_used, 1.0,
+            )
+
+        # Derive status from last recorded event type
+        status_map = {
+            'task_start': 'traveling',
+            'arrive':     'picking',
+            'cart_swap':  'cart_swap',
+            'pick':       'traveling',  # pick is recorded at completion; picker is already moving
+            'task_end':   'traveling',
+        }
+        status   = status_map.get(last.event_type, 'idle')
+        total_b  = last.total_bins or 1
+        progress = last.bins_completed / total_b
+
+        return PickerProgress(
+            time=t,
+            picker_id=picker_id,
+            status=status,
+            task_aisle_id=last.aisle_id,
+            bins_completed=last.bins_completed,
+            total_bins=last.total_bins,
+            items_picked=last.items_picked,
+            total_items=last.total_items,
+            carts_used=carts_used,
+            progress=progress,
+        )
+
+
+
+class PickSimulation(_ProgressAPIMixin):
     """Simulate multiple pickers processing a set of Tasks in aisle order.
 
     Tasks are sorted by aisle_id and distributed to pickers round-robin so that
@@ -148,26 +222,6 @@ class PickSimulation:
         if self._manager is not None:
             self._manager._apply_picks_batch(all_picks, all_empties)
         return all_events
-
-    def progress_at(self, t: float) -> list[PickerProgress]:
-        """State of every picker at time t. run() must be called first."""
-        if self._events is None:
-            raise RuntimeError('Call run() before progress_at()')
-        return [self._state_at(pid, t) for pid in range(self._config.num_pickers)]
-
-    def step_table(self, step: float = 1.0) -> list[list[PickerProgress]]:
-        """Progress snapshots at regular time steps until all pickers are done."""
-        if self._events is None:
-            raise RuntimeError('Call run() before step_table()')
-        max_time = max((e.time for e in self._events), default=0.0)
-        snapshots: list[list[PickerProgress]] = []
-        t = 0.0
-        while t <= max_time:
-            snapshots.append(self.progress_at(t))
-            t = round(t + step, 10)
-        return snapshots
-
-    # ── picker simulation ────────────────────────────────────────────────────
 
     def _simulate_picker(
         self, picker_id: int, tasks: list[Task],
@@ -278,46 +332,3 @@ class PickSimulation:
 
     # ── progress derivation ──────────────────────────────────────────────────
 
-
-    def _state_at(self, picker_id: int, t: float) -> PickerProgress:
-        picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]
-        past = [e for e in picker_events if e.time <= t]
-
-        if not past:
-            return PickerProgress(t, picker_id, 'idle', None, 0, 0, 0, 0, 1, 0.0)
-
-        last       = past[-1]
-        carts_used = sum(1 for e in past if e.event_type == 'cart_swap') + 1
-
-        if last.event_type == 'done':
-            return PickerProgress(
-                t, picker_id, 'idle', None,
-                last.bins_completed, last.total_bins,
-                last.items_picked, last.total_items,
-                carts_used, 1.0,
-            )
-
-        # Derive status from last recorded event type
-        status_map = {
-            'task_start': 'traveling',
-            'arrive':     'picking',
-            'cart_swap':  'cart_swap',
-            'pick':       'traveling',  # pick is recorded at completion; picker is already moving
-            'task_end':   'traveling',
-        }
-        status   = status_map.get(last.event_type, 'idle')
-        total_b  = last.total_bins or 1
-        progress = last.bins_completed / total_b
-
-        return PickerProgress(
-            time=t,
-            picker_id=picker_id,
-            status=status,
-            task_aisle_id=last.aisle_id,
-            bins_completed=last.bins_completed,
-            total_bins=last.total_bins,
-            items_picked=last.items_picked,
-            total_items=last.total_items,
-            carts_used=carts_used,
-            progress=progress,
-        )

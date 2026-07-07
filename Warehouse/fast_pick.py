@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from Warehouse.Pick import PickConfig, PickEvent, PickerProgress, _pick_time
+from Warehouse.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin
 from Warehouse.Storage_Primitive import StoreCart
 from Warehouse.Workload_Builder import Task
 from Warehouse.cost_model import sec_per_inch
@@ -153,7 +153,7 @@ def _simulate_picker_deferred(
     return events, mutations
 
 
-class DeferredPickSimulation:
+class DeferredPickSimulation(_ProgressAPIMixin):
     """Two-phase pick simulation with the same interface as PickSimulation.
 
     After run() completes, .phase1_time and .phase2_time hold wall-clock
@@ -237,46 +237,3 @@ class DeferredPickSimulation:
         return all_events
 
     # ── same progress API as PickSimulation ───────────────────────────────────
-
-    def progress_at(self, t: float) -> list[PickerProgress]:
-        if self._events is None:
-            raise RuntimeError('Call run() before progress_at()')
-        return [self._state_at(pid, t) for pid in range(self._config.num_pickers)]
-
-    def step_table(self, step: float = 1.0) -> list[list[PickerProgress]]:
-        if self._events is None:
-            raise RuntimeError('Call run() before step_table()')
-        max_time  = max((e.time for e in self._events), default=0.0)
-        snapshots = []
-        t = 0.0
-        while t <= max_time:
-            snapshots.append(self.progress_at(t))
-            t = round(t + step, 10)
-        return snapshots
-
-    def _state_at(self, picker_id: int, t: float) -> PickerProgress:
-        picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]
-        past = [e for e in picker_events if e.time <= t]
-        if not past:
-            return PickerProgress(t, picker_id, 'idle', None, 0, 0, 0, 0, 1, 0.0)
-        last       = past[-1]
-        carts_used = sum(1 for e in past if e.event_type == 'cart_swap') + 1
-        if last.event_type == 'done':
-            return PickerProgress(
-                t, picker_id, 'idle', None,
-                last.bins_completed, last.total_bins,
-                last.items_picked, last.total_items,
-                carts_used, 1.0,
-            )
-        status = {
-            'task_start': 'traveling', 'arrive': 'picking',
-            'cart_swap': 'cart_swap', 'pick': 'traveling', 'task_end': 'traveling',
-        }.get(last.event_type, 'idle')
-        return PickerProgress(
-            time=t, picker_id=picker_id, status=status,
-            task_aisle_id=last.aisle_id,
-            bins_completed=last.bins_completed, total_bins=last.total_bins,
-            items_picked=last.items_picked, total_items=last.total_items,
-            carts_used=carts_used,
-            progress=last.bins_completed / (last.total_bins or 1),
-        )
