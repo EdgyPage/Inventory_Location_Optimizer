@@ -7,8 +7,10 @@ How to write up a results run and publish it to the site. Keep this page for ref
 ## The short version
 
 1. Generate plots from a completed run.
-2. Copy the plots into `docs/results/images/`.
-3. Copy `results/example-run.md` to a new page and write it up.
+2. Copy the plots into the experiment's image tree, `docs/experiments/<experiment>/images/`
+   (the schema-driven loop in [`site-usage.md`](site-usage.md) automates this via
+   `docs/experiments/ingest.py`).
+3. Copy `example-run.md` to a new page and write it up.
 4. Add the new page to `nav:` in `mkdocs.yml`.
 5. Preview locally, then push — the site redeploys automatically.
 
@@ -28,10 +30,10 @@ This writes PNGs next to the run (e.g. `compare/`, `per_strategy/`, grid plots l
 
 ## 2. Add the images
 
-Copy the plots you actually want to show into the site's image folder:
+Copy the plots you actually want to show into the experiment's image folder:
 
 ```
-docs/results/images/
+docs/experiments/<experiment>/images/
 ```
 
 !!! warning "Don't commit the raw run data"
@@ -44,7 +46,7 @@ docs/results/images/
 Copy the template and rename it:
 
 ```bash
-cp docs/results/example-run.md docs/results/2026-06-run.md
+cp docs/example-run.md docs/experiments/<experiment>/2026-06-run.md
 ```
 
 Then edit the Markdown. Common building blocks:
@@ -90,14 +92,14 @@ helpers (via `mkdocs-macros-plugin`) read a committed `config.json` / `params.js
 snapshot and render it. So a page never states a value that can drift from the run.
 
 1. **Commit the snapshot.** Copy the run's `config.json` next to its images
-   (`docs/results/images/<run>/<inv>/<cfg>/config.json`) and, for a new inventory,
-   its `inventory/params.json` to `docs/inventory/data/<variant>/params.json`. These are
-   tiny; the large `*.db` run files stay off the repo.
+   (`docs/experiments/<experiment>/images/<run>/<inv>/<cfg>/config.json`) and, for a new
+   inventory, its `inventory/params.json` to `docs/experiments/<experiment>/data/<inv>/params.json`.
+   These are tiny; the large `*.db` run files stay off the repo.
 
    !!! warning "The `comparison_*` gitignore trap"
        Run folders are named `comparison_*`, which `.gitignore` excludes. The docs image
        subtree is re-included by an explicit negation in `.gitignore`
-       (`!/docs/results/images/comparison_*/**`). Confirm new images are tracked with
+       (`!/docs/experiments/*/images/comparison_*/**`). Confirm new images are tracked with
        `git status` / `git check-ignore <path>` before pushing — CI has no access to the
        run drive, so anything untracked is simply missing from the built site.
 
@@ -115,19 +117,17 @@ snapshot and render it. So a page never states a value that can drift from the r
 
 ## 4. Add the page to the navigation
 
-Open `mkdocs.yml` and add your page under `nav:` → `Results:`
+Open `mkdocs.yml` and add your page under the experiment's `nav:` block:
 
 ```yaml
 nav:
   - Home: index.md
-  - Authoring guide: authoring.md
-  - Results:
-      - Overview: results/index.md
-      - '2026-06 run': results/2026-06-run.md      # <- new entry (newest first)
-      - 'Example run (2026-06)': results/example-run.md
+  - Experiment 1:
+      - Overview: experiments/experiment-1/index.md
+      - '2026-06 run': experiments/experiment-1/2026-06-run.md   # <- new entry (newest first)
 ```
 
-Also add a row to the table in `docs/results/index.md` so it's linked from the overview.
+(`scripts/new_experiment.py` prints a ready-made nav block when scaffolding a new experiment.)
 
 ## 5. Preview, then publish
 

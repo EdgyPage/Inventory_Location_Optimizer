@@ -3,8 +3,8 @@ closures), rewritten to take the context so the metric_grids and scorecards grap
 both reuse them.  Not graphs themselves — pure helpers."""
 import numpy as np
 
-from Performance_Evaluations.common.frames import _roll
-from Performance_Evaluations.common.style import _WIN
+from Optimization.Performance_Evaluations.common.frames import _roll
+from Optimization.Performance_Evaluations.common.style import _WIN
 
 
 def _eff_series(df, optimal):

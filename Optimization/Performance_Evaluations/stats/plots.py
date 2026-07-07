@@ -7,8 +7,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _short
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _short
 
 
 def _stars(p: float) -> str:

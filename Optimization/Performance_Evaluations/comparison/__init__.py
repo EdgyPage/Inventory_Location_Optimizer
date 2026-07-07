@@ -4,7 +4,7 @@ The same five trajectories drive faceted/, overlay/, and top/ (per-config) and t
 cross-profile aggregate suite.  `agg=True` appends the '(× baseline)' unit used when the
 curves are baseline-normalized ratios rather than raw values.
 """
-from Performance_Evaluations.common.style import _TOP_DIMS
+from Optimization.Performance_Evaluations.common.style import _TOP_DIMS
 
 
 def overtime_metrics(agg=False):

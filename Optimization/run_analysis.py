@@ -29,26 +29,23 @@ import logging
 import os
 import sys
 
-# ── path setup ─────────────────────────────────────────────────────────────────
-_HERE      = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.normpath(os.path.join(_HERE, '..'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, _HERE)
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_analysis.py <dir>); `-m` form needs none of this.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
-from run_simulation import (
-    build_shared_assets,
-    regime_sizing_from_config,
-    _setup_logging,
-    _OUTPUT_DIR,
-)
+from Optimization.sim_assets import build_shared_assets
+from Optimization.sim_config import regime_sizing_from_config, _setup_logging, _OUTPUT_DIR
+from Optimization.runlayout import iter_channel_runs
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
 # so the registry is populated before any job runs.
-import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
-from Performance_Evaluations.core.registry import EVAL_BY_KEY
-from Performance_Evaluations.core.context import EvalContext, AggregateContext
-from Performance_Evaluations import driver
-from Performance_Evaluations.presets import PRESETS
+from Optimization import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
+from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+from Optimization.Performance_Evaluations.core.context import EvalContext, AggregateContext
+from Optimization.Performance_Evaluations import driver
+from Optimization.Performance_Evaluations.presets import PRESETS
 
 
 # Keys the context reads from `shared` — a small, picklable slice sent to worker processes
@@ -139,34 +136,18 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
     preset = PRESETS[preset_name]
     cfg_keys = driver.config_keys(preset)
     jobs = []
-    for pair_name in sorted(os.listdir(base_dir)):
-        pair_dir = os.path.join(base_dir, pair_name)
-        if not os.path.isdir(pair_dir):
-            continue
-        config_metas, inv_db, aff_db = [], None, None
-        for cfg_name in sorted(os.listdir(pair_dir)):
-            cfg_dir = os.path.join(pair_dir, cfg_name)
-            if not os.path.isdir(cfg_dir):
-                continue
-            # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
-            # <config>/<channel>/sim_meta.json.  Discover both — each meta carries its own
-            # run_dir, so the whole plot suite replicates per channel with no plot changes.
-            meta_paths = []
-            direct = os.path.join(cfg_dir, 'sim_meta.json')
-            if os.path.exists(direct):
-                meta_paths.append(direct)
-            else:
-                for sub in sorted(os.listdir(cfg_dir)):
-                    mp = os.path.join(cfg_dir, sub, 'sim_meta.json')
-                    if os.path.exists(mp):
-                        meta_paths.append(mp)
-            for meta_path in meta_paths:
-                with open(meta_path) as f:
-                    meta = json.load(f)
-                config_metas.append(meta)
-                if inv_db is None:
-                    inv_db, aff_db = meta.get('inv_db'), meta.get('aff_db')
-        if not config_metas or inv_db is None or aff_db is None:
+    # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
+    # <config>/<channel>/sim_meta.json.  iter_channel_runs discovers both — each meta
+    # carries its own run_dir, so the whole plot suite replicates per channel with no
+    # plot changes.  Group by pair (shared assets are per-pair).
+    metas_by_pair: dict[str, list] = {}
+    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
+        with open(os.path.join(run.path, 'sim_meta.json')) as f:
+            metas_by_pair.setdefault(run.pair, []).append(json.load(f))
+    for pair_name, config_metas in metas_by_pair.items():
+        inv_db = next((m.get('inv_db') for m in config_metas if m.get('inv_db')), None)
+        aff_db = next((m.get('aff_db') for m in config_metas if m.get('aff_db')), None)
+        if inv_db is None or aff_db is None:
             continue
         log.info(f'  Pair: {pair_name}  ({len(config_metas)} config(s))')
         try:
@@ -199,33 +180,17 @@ def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
     agg_keys = driver.aggregate_keys(preset)
     if not agg_keys:
         return []
+    # store-only: <config>/series.json (group by config); mixed: <config>/<channel>/
+    # series.json (group by config/channel so the cross-profile aggregate stays within
+    # one channel).  ChannelRun.group_key encodes exactly that.
     groups: dict = {}
-    for prof in sorted(os.listdir(base_dir)):
-        prof_dir = os.path.join(base_dir, prof)
-        if not os.path.isdir(prof_dir) or prof.startswith('_'):
-            continue
-        for cfg in sorted(os.listdir(prof_dir)):
-            cfg_dir = os.path.join(prof_dir, cfg)
-            if not os.path.isdir(cfg_dir):
-                continue
-            # store-only: <config>/series.json (group by config); mixed:
-            # <config>/<channel>/series.json (group by config/channel so the cross-profile
-            # aggregate stays within one channel).
-            found = []
-            direct = os.path.join(cfg_dir, 'series.json')
-            if os.path.exists(direct):
-                found.append((cfg, direct))
-            else:
-                for sub in sorted(os.listdir(cfg_dir)):
-                    sp = os.path.join(cfg_dir, sub, 'series.json')
-                    if os.path.exists(sp):
-                        found.append((os.path.join(cfg, sub), sp))
-            for gkey, sp in found:
-                try:
-                    with open(sp) as f:
-                        groups.setdefault(gkey, []).append(json.load(f))
-                except (OSError, ValueError) as exc:
-                    log.error(f'  bad series.json {sp}: {exc}')
+    for run in iter_channel_runs(base_dir, marker='series.json'):
+        sp = os.path.join(run.path, 'series.json')
+        try:
+            with open(sp) as f:
+                groups.setdefault(run.group_key, []).append(json.load(f))
+        except (OSError, ValueError) as exc:
+            log.error(f'  bad series.json {sp}: {exc}')
     jobs = []
     for cfg, plist in groups.items():
         out_dir = os.path.join(base_dir, '_aggregate', cfg)

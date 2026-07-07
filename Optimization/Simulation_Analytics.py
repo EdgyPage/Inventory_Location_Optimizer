@@ -29,15 +29,10 @@ sum_lift(skus, affinity)
 """
 from __future__ import annotations
 
-import os
-import sys
-
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
-
-from Picking_Data import BatchStats, TaskStats, PickRecord
-from Workload import WorkloadParams, aisle_workload, aisle_workload_components
+from Optimization.Picking_Data import BatchStats, TaskStats, PickRecord
+from Optimization.Workload import WorkloadParams, aisle_workload, aisle_workload_components
 
 
 # (sku_i, sku_j) -> lift; symmetric dict.  Only the fallback for non-AffinityStore
@@ -467,7 +462,7 @@ def snapshot_aisle_metrics(
     will have non-zero values.  Strategy A produces no rows here by design —
     it has no structured placement state to track.
     """
-    from Picking_Data import AisleMetricRecord
+    from Optimization.Picking_Data import AisleMetricRecord
 
     aisle_sku_sets    = manager._aisle_sku_sets
     aisle_sku_counts  = manager._aisle_sku_counts
@@ -510,7 +505,7 @@ def build_pre_snapshot(manager) -> dict:
     Only non-empty bins are captured; empty bins are implicitly quantity=0
     and are not written to the DB.
     """
-    from Storage_Primitive import Singleton
+    from Warehouse.Storage_Primitive import Singleton
     snap = {}
     for bin_ in manager._unavailable.values():
         if bin_.storage is None:
@@ -567,8 +562,8 @@ def snapshot_bin_inventory(
         SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t
         FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)
     """
-    from Picking_Data import BinInventoryRecord
-    from Storage_Primitive import Singleton
+    from Optimization.Picking_Data import BinInventoryRecord
+    from Warehouse.Storage_Primitive import Singleton
 
     records = []
 
@@ -633,7 +628,7 @@ def extract_picker_events(
         HAVING time = MAX(time)
         ORDER  BY picker_id;
     """
-    from Picking_Data import PickerEventRecord
+    from Optimization.Picking_Data import PickerEventRecord
 
     records = []
     for e in events:

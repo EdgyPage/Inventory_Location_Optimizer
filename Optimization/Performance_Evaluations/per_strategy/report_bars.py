@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
 
 
 def _per_run_report(strategies, df_b, df_t, run_dir, ps_dir, title, log):

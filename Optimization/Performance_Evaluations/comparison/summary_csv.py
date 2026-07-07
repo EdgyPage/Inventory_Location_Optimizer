@@ -4,7 +4,7 @@ import os
 
 import pandas as pd
 
-from Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.core.registry import evaluation
 
 
 @evaluation(key='config.summary_csv', label='Summary batch/task CSVs',

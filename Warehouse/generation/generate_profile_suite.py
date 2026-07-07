@@ -67,7 +67,9 @@ from scipy.stats import gaussian_kde
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _WH        = os.path.dirname(_HERE)          # Warehouse/ (parent of generation/)
 _REPO_ROOT = os.path.dirname(_WH)            # repo root
-sys.path.insert(0, _WH)
+# repo root on sys.path so package imports resolve when run as a script.
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 
 def _load_env(path: str) -> None:
@@ -91,9 +93,9 @@ def _load_env(path: str) -> None:
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
-from generation.generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _INV_DEFAULT
-from generation.generate_affinity  import generate_run as _aff_run, estimate as _aff_estimate, \
-                                          print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
+from Warehouse.generation.generate_inventory import generate_run as _inv_run, _DEFAULT_OUT_DIR as _INV_DEFAULT
+from Warehouse.generation.generate_affinity import generate_run as _aff_run, estimate as _aff_estimate, \
+                                                   print_estimate as _print_estimate, _DEFAULT_OUT_DIR as _AFF_DEFAULT
 
 def _clean_path(val: str) -> str:
     """Strip r\"...\" / r'...' notation or plain quotes from an env-var path."""

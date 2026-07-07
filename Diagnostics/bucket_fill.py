@@ -30,20 +30,23 @@ import tempfile
 import time
 from collections import defaultdict
 
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Diagnostics/bucket_fill.py ...).
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path[:0] = [os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')]
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-import run_simulation as rs
-from Aisle_Storage import Aisle
-from Inventory_Management import Inventory_Manager
-from Warehouse_Builder import Warehouse_Builder
-from Workload_Builder import Batch, Task
-from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
-from fast_pick import DeferredPickSimulation
-from generation.generate_inventory import load_inventory_from_db
-from strategies import STRATEGY_BY_KEY, StrategyContext
-from Workload import WorkloadParams
+from Optimization import run_simulation as rs
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.Workload_Builder import Batch, Task
+from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.fast_pick import DeferredPickSimulation
+from Warehouse.generation.generate_inventory import load_inventory_from_db
+from Optimization.strategies import STRATEGY_BY_KEY, StrategyContext
+from Optimization.Workload import WorkloadParams
 
 Bucket = tuple   # (handling, category, size, unit_type)
 

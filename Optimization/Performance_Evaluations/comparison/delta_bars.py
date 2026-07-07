@@ -5,9 +5,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle, _pct_delta
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _stitle, _pct_delta
 
 
 def _delta_bars(strategies, S, baseline, title, path):

@@ -29,16 +29,11 @@ import sys
 
 import numpy as np
 
-# Path setup mirrors strategy_runner so Warehouse imports resolve in spawned chunk workers.
-_HERE      = os.path.dirname(os.path.abspath(__file__))
-_WAREHOUSE = os.path.normpath(os.path.join(_HERE, '..', 'Warehouse'))
-for _p in (_WAREHOUSE, _HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from Affinity_Store import AffinityStore                       # noqa: E402
-from Workload_Builder import Batch                             # noqa: E402
-from generation.generate_inventory import load_inventory_from_db  # noqa: E402
+# No sys.path bootstrap: imports are package-absolute and spawn's prepare()
+# propagates the parent's sys.path (seeded by the entry script) to chunk workers.
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.Workload_Builder import Batch
+from Warehouse.generation.generate_inventory import load_inventory_from_db
 
 # Below this many batches (or with workers<=1) precompute runs serially — a transient process pool's
 # spawn/import overhead isn't worth amortizing for a tiny sequence.
@@ -54,7 +49,7 @@ def _load_worker_inventory(inv_db: str, max_skus, sku_allowlist, channel_regime=
     if sku_allowlist is not None:
         inv.orders = [c for c in inv.orders if c.sku in sku_allowlist]
     if channel_regime is not None:
-        from regime import regime_of                      # noqa: E402 (Warehouse on sys.path above)
+        from Warehouse.regime import regime_of
         inv.orders = [c for c in inv.orders if regime_of(c) == channel_regime]
     return inv
 
@@ -139,11 +134,15 @@ def write_batches(path: str, fingerprint: str, batches: list) -> None:
 
 def load_batches(path: str, expected_fingerprint: str) -> list | None:
     """Return the stored batch list IFF the stored fingerprint matches expected; else None so the
-    caller falls back to inline sampling (never the wrong family's list)."""
+    caller falls back to inline sampling (never the wrong family's list).
+
+    ImportError/AttributeError guard: a cache written before a module rename/move (e.g. the
+    flat->package conversion) embeds the OLD class paths — unpicklable now.  Treat it exactly
+    like a corrupt file (fall back inline; delete stale _batches_*.pkl to regain the dedup)."""
     try:
         with open(path, 'rb') as f:
             blob = pickle.load(f)
-    except (OSError, pickle.UnpicklingError, EOFError, ValueError):
+    except (OSError, pickle.UnpicklingError, EOFError, ValueError, ImportError, AttributeError):
         return None
     if not isinstance(blob, dict) or blob.get('fingerprint') != expected_fingerprint:
         return None

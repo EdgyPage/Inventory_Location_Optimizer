@@ -22,14 +22,14 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-import batch_precompute as BP                      # noqa: E402  (adds Warehouse to sys.path on import)
-from Workload_Builder import Batch, BatchConfig    # noqa: E402
-from Affinity_Store import AffinityStore           # noqa: E402
-from generation.generate_inventory import (        # noqa: E402
+
+from Optimization import batch_precompute as BP                      # noqa: E402  (adds Warehouse to sys.path on import)
+from Warehouse.Workload_Builder import Batch, BatchConfig    # noqa: E402
+from Warehouse.Affinity_Store import AffinityStore           # noqa: E402
+from Warehouse.generation.generate_inventory import (        # noqa: E402
     save_inventory_to_db, Inventory)
-from Order import Order                            # noqa: E402
+from Warehouse.Order import Order                            # noqa: E402
 
 SEED_B = 1337
 N = 24                                             # batches per sequence in the equivalence checks

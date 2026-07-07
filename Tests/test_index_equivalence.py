@@ -15,17 +15,14 @@ import random
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Optimization'))
-sys.path.insert(0, os.path.dirname(__file__))
 
-from Aisle_Storage import Aisle
-from Inventory_Management import Inventory_Manager, Placement
-from Assignment_Functions import build_cluster_minimizing_assignment_fn
-from Pick import PickConfig, PickSimulation
-from Workload import WorkloadParams
-from Warehouse_Builder import Warehouse_Builder
-from Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Inventory_Management import Inventory_Manager, Placement
+from Warehouse.Assignment_Functions import build_cluster_minimizing_assignment_fn
+from Warehouse.Pick import PickConfig, PickSimulation
+from Optimization.Workload import WorkloadParams
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
 from perf_simulation import _build_inventory, _build_affinity_store, _build_warehouse_cfg
 
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES, N_PICKERS = 42, 2000, 100, 60, 5

@@ -1,8 +1,8 @@
 # GPU auction placement — measured assessment (prototype)
 
 **Verdict: NO-GO for a custom GPU auction placement solver.** Prototype only; nothing is wired into the
-simulation. Source: `Optimization/gpu_auction.py`, `Tests/test_gpu_auction.py`,
-`Tests/bench_gpu_auction.py` (RTX A5500, structured placement cost
+simulation. Source: `Optimization/gpu/gpu_auction.py`, `Tests/gpu/test_gpu_auction.py`,
+`Tests/gpu/bench_gpu_auction.py` (RTX A5500, structured placement cost
 `cost[u,b] = f_s·(M_b·(intercept+v_s) + D_b)`).
 
 ## What we wanted
@@ -56,4 +56,4 @@ Affinity fixed-point (auction_place_wave): objective 11499 → 11502 → 11466 �
   the affinity QAP problem remains. Treat it as a separate research spike, not a quick win.
 
 The prototype's purpose was a grounded go/no-go; it delivered one and saved building a dead-end arm.
-The dormant GPU broker (`Optimization/gpu_broker.py`) likewise stays dormant — placement is not its use.
+The dormant GPU broker (`Optimization/gpu/gpu_broker.py`) likewise stays dormant — placement is not its use.

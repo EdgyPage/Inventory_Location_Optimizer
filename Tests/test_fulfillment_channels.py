@@ -18,17 +18,16 @@ import random
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Order import Order
-from regime import regime_of, STORE, FULFILLMENT
-from Storage_Primitive import Pallet, Singleton, FulfillmentBin, viable_storage_units, _can_fit
-from Inventory_Management import Inventory_Manager
-from Warehouse_Builder import Warehouse_Builder
-from Aisle_Dimensions import aisle_width_for, aisle_height_for, FULFILLMENT_AISLE_HEIGHT
-from cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
-from Workload import WorkloadParams
+
+from Warehouse.Order import Order
+from Warehouse.regime import regime_of, STORE, FULFILLMENT
+from Warehouse.Storage_Primitive import Pallet, Singleton, FulfillmentBin, viable_storage_units, _can_fit
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for, FULFILLMENT_AISLE_HEIGHT
+from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
+from Optimization.Workload import WorkloadParams
 
 _CATS = ['food', 'clothing', 'electronic']
 _HANDS = ['conveyable', 'non-conveyable']
@@ -210,8 +209,8 @@ def test_fulfillment_bin_height_multiplier_is_one():
 # ── Channel abstraction ──────────────────────────────────────────────────────
 
 def test_channels_module():
-    from Pick import PickConfig
-    from channels import build_channels, wp_by_regime, fulfillment_pick_config, Channel
+    from Warehouse.Pick import PickConfig
+    from Optimization.channels import build_channels, wp_by_regime, fulfillment_pick_config, Channel
 
     store_cfg = PickConfig(num_pickers=25, x_speed=3.0, y_speed=2.0)
     chans = build_channels(store_cfg, 25, include_fulfillment=True, ff_num_pickers=30)
@@ -238,9 +237,9 @@ def test_per_channel_cart_type():
     """Store keeps the standard 125k cart; fulfillment gets the 25k tote, and the smaller
     cart yields a strictly larger carts_required for the same picked volume."""
     from math import ceil
-    from Pick import PickConfig
-    from Storage_Primitive import StoreCart, FulfillmentCart
-    from channels import fulfillment_pick_config
+    from Warehouse.Pick import PickConfig
+    from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
+    from Optimization.channels import fulfillment_pick_config
 
     assert StoreCart.capacity() == 125_000
     assert FulfillmentCart.capacity() == 25_000

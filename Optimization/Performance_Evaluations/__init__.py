@@ -15,6 +15,6 @@ worker process (Windows spawn re-imports this package) is headless-safe.
 import matplotlib
 matplotlib.use('Agg')   # must precede any pyplot import in the graph modules
 
-from Performance_Evaluations.core.discovery import import_all
+from Optimization.Performance_Evaluations.core.discovery import import_all
 
 import_all()            # fire every @evaluation so the registry is populated on import

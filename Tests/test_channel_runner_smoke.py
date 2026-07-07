@@ -14,22 +14,16 @@ Run:  python -m pytest Tests/test_channel_runner_smoke.py -q
 from __future__ import annotations
 
 import os
-import sys
 import glob
 import queue
 import sqlite3
 import logging
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path[:0] = [os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization'),
-                os.path.join(_ROOT, 'Warehouse', 'generation')]
-
-import run_simulation as rs               # noqa: E402
-import strategy_runner as sr              # noqa: E402
-import generate_affinity as ga           # noqa: E402
-from Picking_Data import load_batch_stats  # noqa: E402
-from generation.generate_inventory import (  # noqa: E402
+from Optimization import run_simulation as rs
+from Optimization import strategy_runner as sr
+from Warehouse.generation import generate_affinity as ga
+from Optimization.Picking_Data import load_batch_stats
+from Warehouse.generation.generate_inventory import (
     Family, fulfillment_family, build_inventory_from_plan, save_inventory_to_db,
 )
 
@@ -118,7 +112,7 @@ def test_mixed_fanout_writes_per_channel_dbs(tmp_path, monkeypatch):
 def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     """run_analysis discovers the per-channel run subtrees and replicates the whole graph
     suite for each channel (store + fulfillment) — no plot-module changes required."""
-    import run_analysis as ra
+    from Optimization import run_analysis as ra
     log = logging.getLogger('chan-an'); log.setLevel(logging.ERROR)
     rs.CONFIG['global']['n_batches'] = 2
     monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [rs.REGRESSION_CONFIGS[0]])
@@ -169,8 +163,8 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
     """A mixed catalog sweeps store and fulfillment configs INDEPENDENTLY: one channel-run per
     store config + one per fulfillment config (a union), never the cross product.  Store runs
     carry the store cost/pool + their own names; fulfillment runs carry the walker cost + theirs."""
-    from regime import STORE, FULFILLMENT
-    from Storage_Primitive import FulfillmentCart
+    from Warehouse.regime import STORE, FULFILLMENT
+    from Warehouse.Storage_Primitive import FulfillmentCart
 
     # Asymmetric counts (3 vs 2) so union (5) is distinguishable from a cross product (6).
     store_cfgs = [{'name': 's1'}, {'name': 's2'}, {'name': 's3'}]

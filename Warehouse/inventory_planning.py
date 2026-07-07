@@ -12,19 +12,19 @@ import random
 from collections import defaultdict
 from typing import Any
 
-from Order import Order
-from Aisle_Dimensions import (
+from Warehouse.Order import Order
+from Warehouse.Aisle_Dimensions import (
     uniform_aisle_bins, catalog_aisle_bins,
     FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT,
 )
-from Warehouse_Builder import AisleConfig, WarehouseConfig
-from Storage_Primitive import (
+from Warehouse.Warehouse_Builder import AisleConfig, WarehouseConfig
+from Warehouse.Storage_Primitive import (
     Pallet, Singleton, FulfillmentBin, viable_storage_units, _max_qty_fits as _sq_max,
 )
-from regime import FULFILLMENT, regime_of
-from inventory_common import (
-    BinKey, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
-    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+from Warehouse.regime import FULFILLMENT, regime_of
+from Warehouse.inventory_common import (
+    BinKey, binkey_of, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
+    _equilibrium_qty, _max_qty_fitting_size,
 )
 
 
@@ -143,9 +143,8 @@ class PlanningMixin:
         its equilibrium_qty.  This is the authoritative per-tier demand."""
         req: dict[BinKey, int] = defaultdict(int)
         for c in orders:
-            shc = c.storage_handle_config
             for u in viable_storage_units(c, _equilibrium_qty(c)):
-                req[(shc.handling, shc.category, u.storage_size, u.unit_category)] += 1
+                req[binkey_of(u)] += 1
         return dict(req)
 
     @classmethod
@@ -386,12 +385,12 @@ class PlanningMixin:
                 # The bool flag is unused for ff (every unit is a FulfillmentBin) — kept for
                 # tuple shape / stock_plan compatibility.
                 for size in _FF_SIZES_DESCENDING:
-                    q = _max_qty_fitting_ff_size(c, size)
+                    q = _max_qty_fitting_size(c, size, FULFILLMENT)
                     if q > 0 and FulfillmentBin(c, q).storage_size == size:
                         opts.append(((shc.handling, shc.category, size, FULFILLMENT), q, True))
                 return opts
             for size in _SIZES_DESCENDING:
-                q = _max_qty_fitting_pallet_size(c, size)
+                q = _max_qty_fitting_size(c, size, 'pallet')
                 if q > 0 and Pallet(c, q).storage_size == size:
                     opts.append(((shc.handling, shc.category, size, 'pallet'), q, False))
             sq = _sq_max(c, Singleton)
@@ -441,12 +440,9 @@ class PlanningMixin:
             if unit_type == 'singleton':
                 actual_b = b
             elif unit_type == FULFILLMENT:
-                shc = shc_of[id(c)]
-                actual_b = (shc.handling, shc.category,
-                            FulfillmentBin(c, per).storage_size, FULFILLMENT)
+                actual_b = binkey_of(FulfillmentBin(c, per))
             else:
-                shc = shc_of[id(c)]
-                actual_b = (shc.handling, shc.category, Pallet(c, per).storage_size, 'pallet')
+                actual_b = binkey_of(Pallet(c, per))
             if free.get(actual_b, 0) <= 0:
                 return False
             _add_run(c, isng, per, 1, actual_b)

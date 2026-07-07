@@ -1,0 +1,75 @@
+# context/flows/analysis.yml — verifiable spec of the analysis flow.
+# Anchors as in simulation.yml; see ../artifacts.yml for artifact ids.
+version: 1
+flow: analysis
+summary: >
+  Registry-driven graph generation over a completed comparison run, then the
+  channel rollup. run_analysis walks <pair>/<config>[/<channel>]/sim_meta.json,
+  rebuilds the warehouse SHAPE with the same per-regime sizing the run used, and
+  executes the @evaluation registry (preset-selected) per channel-run — the whole
+  plot suite replicates per channel with no plot changes. run_channel_rollup then
+  combines each channel's best plan into the whole-warehouse saving.
+entry:
+  command: "python Optimization/run_analysis.py <base_dir> [--preset BY_INITIAL] [--workers N] [--granularity config|graph]"
+  file: Optimization/run_analysis.py
+  function: main
+
+steps:
+  - id: discover_runs
+    summary: >
+      Walk the comparison tree for finalized channel-runs (sim_meta.json at
+      <config>/ for store-only layouts, <config>/<channel>/ for mixed) and group
+      them by pair for the shared-asset rebuild.
+    functions:
+      - {name: iter_channel_runs, file: Optimization/runlayout.py, kind: function}
+      - {name: ChannelRun, file: Optimization/runlayout.py, kind: class}
+      - {name: _config_jobs, file: Optimization/run_analysis.py, kind: function}
+    reads: [sim_meta]
+    writes: []
+    guards: [Tests/test_channel_runner_smoke.py]
+    next: [config_stage]
+
+  - id: config_stage
+    summary: >
+      Per channel-run: an EvalContext lazily loads each strategy's frames from its
+      sim DB (db_path + run_id from sim_meta) and runs every config-scope evaluation
+      in the preset — per-strategy panels, comparison plots, stats suites — writing
+      the PNG trees and series.json.
+    functions:
+      - {name: EvalContext, file: Optimization/Performance_Evaluations/core/context.py, kind: class}
+      - {name: evaluation, file: Optimization/Performance_Evaluations/core/registry.py, kind: function}
+      - {name: PRESETS, file: Optimization/Performance_Evaluations/presets.py, kind: const}
+      - {name: _build_series, file: Optimization/Performance_Evaluations/common/series.py, kind: function}
+      - {name: load_batch_stats, file: Optimization/Picking_Data.py, kind: function}
+      - {name: load_task_stats, file: Optimization/Picking_Data.py, kind: function}
+    reads: [sim_db, sim_meta]
+    writes: [series_json, analysis_pngs]
+    guards: [Tests/test_visualization_data.py]
+    next: [aggregate_stage]
+
+  - id: aggregate_stage
+    summary: >
+      Group every series.json by config (or config/channel on mixed runs) across
+      profiles and render the cross-profile aggregate suites under _aggregate/.
+    functions:
+      - {name: _aggregate_jobs, file: Optimization/run_analysis.py, kind: function}
+      - {name: AggregateContext, file: Optimization/Performance_Evaluations/core/context.py, kind: class}
+      - {name: _aggregate_series, file: Optimization/Performance_Evaluations/common/series.py, kind: function}
+    reads: [series_json]
+    writes: [analysis_pngs]
+    guards: []
+    next: [channel_rollup]
+
+  - id: channel_rollup
+    summary: >
+      Combine the independent channels: per channel pick the best (config, plan) by
+      steady-state productivity-hours saving vs the fifo baseline, then SUM the
+      per-channel bests into the cumulative whole-warehouse saving.
+    functions:
+      - {name: rollup, file: Optimization/run_channel_rollup.py, kind: function}
+      - {name: _find_series, file: Optimization/run_channel_rollup.py, kind: function}
+      - {name: _baseline_entry, file: Optimization/run_channel_rollup.py, kind: function}
+    reads: [sim_meta, series_json]
+    writes: [channel_rollup_csv]
+    guards: []
+    next: []

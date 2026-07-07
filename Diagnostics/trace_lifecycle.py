@@ -7,7 +7,7 @@ lifecycle of inventory units:
 
 plus per-aisle / per-bucket fill, queue depth, and per-function call timings.
 The manager's lifecycle methods are wrapped on the instance (no edits to
-Warehouse/ or Optimization/ source — same approach as Tests/profile_lifecycle.py).
+Warehouse/ or Optimization/ source — same approach as Tests/bench/profile_lifecycle.py).
 
 The default compares a uniform-stocked strategy (fills to the target ~85%) against
 a policy-stocked one (which can leave units stuck in the queue -> lower fill),
@@ -36,23 +36,24 @@ import sys
 import time
 from collections import Counter, defaultdict
 
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Diagnostics/trace_lifecycle.py ...).
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_HERE)
 _OUT_DIR   = os.path.join(_HERE, 'out')
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Optimization'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Tests'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import numpy as np
 
-from Aisle_Storage import Aisle
-from Inventory_Builder import Inventory
-from Inventory_Management import Inventory_Manager
-from Warehouse_Builder import Warehouse_Builder
-from Workload import WorkloadParams
-from Workload_Builder import Batch, BatchConfig, Task
-from Pick import PickConfig, PickSimulation
-from strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Inventory_Builder import Inventory
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Optimization.Workload import WorkloadParams
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.Pick import PickConfig, PickSimulation
+from Optimization.strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
 
 # Reuse the small-sim builders from the perf harness (no DB needed).
 from perf_simulation import _build_inventory, _build_affinity_store, _CATEGORIES
@@ -61,7 +62,7 @@ _HANDLINGS = ['conveyable', 'non-conveyable']
 _GRID_COLS = 6
 
 
-# ── order equilibrium (OUP) fields — mirrors Tests/profile_lifecycle._set_equilibrium ──
+# ── order equilibrium (OUP) fields — mirrors Tests/bench/profile_lifecycle._set_equilibrium ──
 
 def _set_equilibrium(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
     for c in orders:

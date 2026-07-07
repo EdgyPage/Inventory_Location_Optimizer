@@ -13,10 +13,10 @@ import random
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from Order import Order
-from Aisle_Storage import Aisle
-from Storage_Primitive import StorageUnit, Pallet, Storage_Size, FulfillmentBin
-from regime import STORE, FULFILLMENT, regime_of  # noqa: F401  (re-exported for callers)
+from Warehouse.Order import Order
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Storage_Primitive import StorageUnit, Pallet, Storage_Size, FulfillmentBin
+from Warehouse.regime import STORE, FULFILLMENT, regime_of  # noqa: F401  (re-exported for callers)
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
 
@@ -108,13 +108,22 @@ _FF_SIZES_DESCENDING: tuple[str, ...] = tuple(
 )
 
 
+# ── unit-class registry (per unit_category) ─────────────────────────────────────
+# One row per size-tiered bin family: its StorageUnit class + tier rank tables.
+# tier_ranks_for() and _max_qty_fitting_size() read this instead of per-family
+# branches/twin functions — adding a bin family = adding a row here.
+UNIT_CLASSES: dict[str, tuple] = {
+    'pallet':    (Pallet,         _SIZE_RANKS,    _SIZES_DESCENDING),
+    FULFILLMENT: (FulfillmentBin, _FF_SIZE_RANKS, _FF_SIZES_DESCENDING),
+}
+
+
 def tier_ranks_for(unit_category: str) -> tuple[dict, tuple]:
-    """(size_ranks, sizes_descending) for a unit_category — the fulfillment tiers for
-    'fulfillment', the pallet size tiers otherwise.  Lets the _candidates smallest-fitting-
-    tier spill-up serve either bin family from one code path."""
-    if unit_category == FULFILLMENT:
-        return _FF_SIZE_RANKS, _FF_SIZES_DESCENDING
-    return _SIZE_RANKS, _SIZES_DESCENDING
+    """(size_ranks, sizes_descending) for a unit_category — registry lookup; unknown
+    categories (e.g. 'singleton', which has no tiers) fall back to the pallet tables,
+    preserving the original behaviour."""
+    _cls, ranks, sizes_desc = UNIT_CLASSES.get(unit_category, UNIT_CLASSES['pallet'])
+    return ranks, sizes_desc
 
 
 def _wp_for(wp, obj):
@@ -131,6 +140,21 @@ def _wp_for(wp, obj):
 BinKey = tuple[str, str, str, str]
 
 
+def binkey_of(obj) -> BinKey:
+    """The 4-tuple BinKey of a StorageUnit or an Aisle.Bin (duck-typed like regime_of).
+
+    Units read (handling, category) from their order's storage_handle_config plus their
+    own (storage_size, unit_category) — Singleton's fixed 'singleton' label comes from
+    Singleton.storage_size itself, so no special-casing.  Bins read their four mirror
+    attributes.  One constructor for the key that used to be hand-built at ~8 sites.
+    """
+    order = getattr(obj, 'order', None)
+    if order is not None:                    # StorageUnit (Pallet/Singleton/FulfillmentBin)
+        shc = order.storage_handle_config
+        return (shc.handling, shc.category, obj.storage_size, obj.unit_category)
+    return (obj.handling_type, obj.storage_type, obj.storage_size, obj.unit_type)
+
+
 def _equilibrium_qty(order: Order) -> int:
     """Return the Order-Up-To target for *order*.
 
@@ -141,38 +165,24 @@ def _equilibrium_qty(order: Order) -> int:
                    getattr(order, 'stock_qty', 1))
 
 
-def _max_qty_fitting_pallet_size(order: Order, target_size: str) -> int:
-    """Return the maximum number of *order* items that stack onto one pallet
-    whose storage_size is at most *target_size*.
+def _max_qty_fitting_size(order: Order, target_size: str,
+                          unit_category: str = 'pallet') -> int:
+    """Max number of *order* items that stack into ONE unit of *unit_category* whose
+    storage_size is at most *target_size* (the pallet/fulfillment twins, unified via
+    the UNIT_CLASSES registry).
 
-    Pallet stacking height increases monotonically with quantity, so the
-    required storage_size also increases.  We scan from 1 upward until the
-    pallet outgrows the target tier and return the last fitting quantity.
-    Used by _stock to repack a stranded unit into smaller bins.
+    Stacking height increases monotonically with quantity, so the required
+    storage_size also increases: scan from 1 upward until the unit outgrows the
+    target tier and return the last fitting quantity.  Used by _stock to repack a
+    stranded unit into smaller bins and by the planner's reachability pass.
     """
-    target_rank = _SIZE_RANKS.get(target_size, 0)
+    unit_cls, ranks, _sizes = UNIT_CLASSES.get(unit_category, UNIT_CLASSES['pallet'])
+    target_rank = ranks.get(target_size, 0)
     result = 0
     for q in range(1, 10_000):
         try:
-            p = Pallet(order, q)
-            if _SIZE_RANKS.get(p.storage_size, 99) <= target_rank:
-                result = q
-            else:
-                break   # size is monotone-increasing — stop early
-        except ValueError:
-            break
-    return result
-
-
-def _max_qty_fitting_ff_size(order: Order, target_size: str) -> int:
-    """Fulfillment analogue of _max_qty_fitting_pallet_size: max number of *order* items
-    that stack into a FulfillmentBin whose storage_size is at most *target_size*."""
-    target_rank = _FF_SIZE_RANKS.get(target_size, 0)
-    result = 0
-    for q in range(1, 10_000):
-        try:
-            b = FulfillmentBin(order, q)
-            if _FF_SIZE_RANKS.get(b.storage_size, 99) <= target_rank:
+            u = unit_cls(order, q)
+            if ranks.get(u.storage_size, 99) <= target_rank:
                 result = q
             else:
                 break   # size is monotone-increasing — stop early

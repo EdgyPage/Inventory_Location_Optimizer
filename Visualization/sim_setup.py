@@ -1,18 +1,14 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-import os
 import random
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
-
-from Aisle_Storage import Aisle
-from Order import Order
-from Inventory_Builder import Inventory_Builder, InventoryConfig
-from Inventory_Management import Inventory_Manager
-from Pick import PickConfig, PickSimulation
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Order import Order
+from Warehouse.Inventory_Builder import Inventory_Builder, InventoryConfig
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.Pick import PickConfig, PickSimulation
+from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
 
 _GRID_COLS = 6
 

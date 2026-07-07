@@ -15,11 +15,10 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Affinity_Store import AffinityStore
-from Assignment_Functions import _demand_weighted_delta_lift
+
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.Assignment_Functions import _demand_weighted_delta_lift
 
 
 def _store(pairs):

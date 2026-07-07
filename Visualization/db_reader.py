@@ -24,14 +24,12 @@ import sys
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for _p in (os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-from Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT   # noqa: E402
-from cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS   # noqa: E402
+# No sys.path bootstrap: imports are package-absolute; the entry script
+# (Visualization/server.py) seeds the repo root.
+from Warehouse.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT
+from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 
-from Picking_Data import (   # noqa: E402
+from Optimization.Picking_Data import (
     load_reorder_queue, load_bin_scores, load_sku_scores, run_identity,
 )
 
@@ -119,46 +117,42 @@ def _read_run_meta(sim_db: str) -> dict | None:
 
 
 def discover_runs(base_dir: str) -> list[RunRef]:
-    """Walk <base>/<pair>/<config>/sim_*.db and return one RunRef per strategy run.
+    """Walk <base>/<pair>/<config>[/<channel>]/sim_*.db and return one RunRef per
+    strategy run (the layout walk lives in Optimization.runlayout).
 
     Rename-proof: the strategy/pair/config labels come from the DB's stored identity
     (falling back to the file/dir names for older runs), and each run's warehouse.db is
-    matched by warehouse_fingerprint (falling back to the nearest warehouse.db by path)."""
+    matched by warehouse_fingerprint (falling back to the nearest warehouse.db by path).
+    Mixed-catalog runs surface with the channel folded into the config label
+    (e.g. 'store_high_weight/fulfillment') so store-only ids are unchanged."""
+    from Optimization.runlayout import iter_sim_dbs
     runs: list[RunRef] = []
     if not os.path.isdir(base_dir):
         return runs
     fp_index = _warehouse_fp_index(base_dir)
-    for pair in sorted(os.listdir(base_dir)):
-        pair_dir = os.path.join(base_dir, pair)
-        if not os.path.isdir(pair_dir) or pair.startswith('_'):
+    for cr, sim_db in iter_sim_dbs(base_dir):
+        fn = os.path.basename(sim_db)
+        meta = _read_run_meta(sim_db)
+        if meta is None:
             continue
-        for config in sorted(os.listdir(pair_dir)):
-            cfg_dir = os.path.join(pair_dir, config)
-            if not os.path.isdir(cfg_dir):
-                continue
-            for fn in sorted(os.listdir(cfg_dir)):
-                if not (fn.startswith('sim_') and fn.endswith('.db')) or fn.endswith('.keyframes.db'):
-                    continue
-                sim_db = os.path.join(cfg_dir, fn)
-                meta = _read_run_meta(sim_db)
-                if meta is None:
-                    continue
-                strategy = meta['strategy_key'] or fn[4:-3]
-                pair_lbl = meta['pair_label'] or pair
-                cfg_lbl  = meta['config_label'] or config
-                wh = (fp_index.get(meta['warehouse_fingerprint'])
-                      or _nearest_warehouse_db(sim_db))
-                if not wh:
-                    continue
-                kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
-                runs.append(RunRef(
-                    id=f'{pair_lbl}/{cfg_lbl}/{strategy}',
-                    label=f'{pair_lbl} · {cfg_lbl} · {strategy}',
-                    pair=pair_lbl, config=cfg_lbl, strategy=strategy,
-                    sim_db=sim_db, warehouse_db=wh,
-                    keyframe_db=kf if os.path.exists(kf) else '',
-                    run_id=meta['run_id'], n_batches=meta['n_batches'],
-                ))
+        strategy = meta['strategy_key'] or fn[4:-3]
+        pair_lbl = meta['pair_label'] or cr.pair
+        cfg_lbl  = meta['config_label'] or cr.config
+        if cr.channel:
+            cfg_lbl = f'{cfg_lbl}/{cr.channel}'
+        wh = (fp_index.get(meta['warehouse_fingerprint'])
+              or _nearest_warehouse_db(sim_db))
+        if not wh:
+            continue
+        kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
+        runs.append(RunRef(
+            id=f'{pair_lbl}/{cfg_lbl}/{strategy}',
+            label=f'{pair_lbl} · {cfg_lbl} · {strategy}',
+            pair=pair_lbl, config=cfg_lbl, strategy=strategy,
+            sim_db=sim_db, warehouse_db=wh,
+            keyframe_db=kf if os.path.exists(kf) else '',
+            run_id=meta['run_id'], n_batches=meta['n_batches'],
+        ))
     return runs
 
 

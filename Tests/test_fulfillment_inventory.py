@@ -17,14 +17,14 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
 
-from generation.generate_inventory import (          # noqa: E402
+
+from Warehouse.generation.generate_inventory import (          # noqa: E402
     sample_weight, fulfillment_families, build_inventory_from_plan,
     Family, DEFAULT_FF_WEIGHT_SPEC,
 )
-from Storage_Primitive import FulfillmentBin          # noqa: E402
-from regime import regime_of, FULFILLMENT            # noqa: E402
+from Warehouse.Storage_Primitive import FulfillmentBin          # noqa: E402
+from Warehouse.regime import regime_of, FULFILLMENT            # noqa: E402
 
 
 def _fits_ff_bin(order) -> bool:

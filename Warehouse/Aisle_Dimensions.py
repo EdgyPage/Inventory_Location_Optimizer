@@ -10,7 +10,7 @@ Bin counts per aisle are derived from physical dimensions and unit type:
   bins_per_col  = aisle_height // bin_height       (y direction, per size tier)
 """
 
-from Storage_Primitive import Pallet, Singleton, Storage_Size, FulfillmentBin
+from Warehouse.Storage_Primitive import Pallet, Singleton, Storage_Size, FulfillmentBin
 
 PALLET_WIDTH:         int = Pallet.max_width          # 48
 SINGLETON_WIDTH:      int = Singleton.max_width        # 16
