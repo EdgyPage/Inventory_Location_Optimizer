@@ -3,13 +3,14 @@ import random
 from collections import namedtuple
 from Warehouse.Demand import Demand, poisson_sample
 from Warehouse.cost_model import handle_var as _handle_var
+from Warehouse.physical import PALLET_FOOTPRINT
 
 # Named tuple combining a order's handling type and storage category.
 # Replaces the pattern `handling, category = order.storage_type` throughout
 # the codebase with the more self-documenting `order.storage_handle_config`.
 StorageHandleConfig = namedtuple('StorageHandleConfig', ['handling', 'category'])
 
-_MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
+_MAX_DIM: int = PALLET_FOOTPRINT   # = Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
 
 
