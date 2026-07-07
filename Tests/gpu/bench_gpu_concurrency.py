@@ -6,7 +6,7 @@ the CPU-only baseline (each client runs the numpy cpu_argmin).  Reports peak VRA
 counts (must be 0 under budget; a deliberate over-budget probe must fall back, not crash).
 
 Answers the real question: is a 20-worker speedup realized through a single bounded GPU, and what
-max_inflight maximizes it.  Run: python Tests/bench_gpu_concurrency.py
+max_inflight maximizes it.  Run: python Tests/gpu/bench_gpu_concurrency.py
 """
 from __future__ import annotations
 
@@ -17,10 +17,13 @@ import time
 import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-import gpu_client as C  # noqa: E402
+
+from Optimization.gpu import gpu_client as C  # noqa: E402
 
 _SEED = 1337
 _U, _CBINS, _ITERS = 1500, 60_000, 40       # late-run-ish wave; iters per client
@@ -70,7 +73,7 @@ def main():
           f'wall={cpu_wall:.2f}s  throughput={cpu_thr:.0f} waves/s')
 
     # ── GPU via broker, sweep max_inflight ──────────────────────────────────────
-    import gpu_broker as Bk
+    from Optimization.gpu import gpu_broker as Bk
     print(f'\n{"inflight":>8} {"wall s":>8} {"waves/s":>9} {"vs CPU":>7} {"fallbacks":>10} {"peakVRAM MB":>12}')
     best = (0.0, None)
     for inflight in _INFLIGHT_SWEEP:

@@ -12,17 +12,17 @@ import random
 from collections import defaultdict
 from typing import Any
 
-from Order import Order
-from Aisle_Dimensions import (
+from Warehouse.Order import Order
+from Warehouse.Aisle_Dimensions import (
     uniform_aisle_bins, catalog_aisle_bins,
     FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT,
 )
-from Warehouse_Builder import AisleConfig, WarehouseConfig
-from Storage_Primitive import (
+from Warehouse.Warehouse_Builder import AisleConfig, WarehouseConfig
+from Warehouse.Storage_Primitive import (
     Pallet, Singleton, FulfillmentBin, viable_storage_units, _max_qty_fits as _sq_max,
 )
-from regime import FULFILLMENT, regime_of
-from inventory_common import (
+from Warehouse.regime import FULFILLMENT, regime_of
+from Warehouse.inventory_common import (
     BinKey, WarehousePlan, _SIZES_DESCENDING, _FF_SIZES_DESCENDING,
     _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
 )

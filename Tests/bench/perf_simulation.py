@@ -1,4 +1,4 @@
-﻿"""
+"""
 perf_simulation.py — end-to-end simulation performance benchmark.
 
 Builds a small in-memory warehouse and inventory (no DB required), runs N
@@ -6,7 +6,7 @@ batch iterations, and reports per-phase timing so bottlenecks are visible.
 
 Usage
 -----
-    cd Tests
+    cd Tests/bench
     python perf_simulation.py              # 200 batches, default size
     python perf_simulation.py --batches 50 --skus 500 --bins-per-aisle 50
 
@@ -29,28 +29,30 @@ from collections import defaultdict
 
 # ── path setup ──────────────────────────────────────────────────────────────
 _HERE      = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Optimization'))
+_REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 
 import math
 import numpy as np
 
-from Aisle_Storage import Aisle
-from Affinity_Store import AffinityStore
-from Order import Order
-from Demand import Demand
-from Inventory_Builder import Inventory
-from Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Assignment_Functions import (
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.Order import Order
+from Warehouse.Demand import Demand
+from Warehouse.Inventory_Builder import Inventory
+from Warehouse.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
 )
-from Pick import PickConfig, PickSimulation
-from Storage_Primitive import Storage_Size
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Workload_Builder import Batch, BatchConfig, Task
-from Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Warehouse.Pick import PickConfig, PickSimulation
+from Warehouse.Storage_Primitive import Storage_Size
+from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Optimization.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 
 def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) -> AffinityStore:
@@ -187,7 +189,7 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_A.enqueue_all(inventory.orders, quantity=1)
 
-    from Workload import WorkloadParams
+    from Optimization.Workload import WorkloadParams
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
         x_speed      = 1.0,

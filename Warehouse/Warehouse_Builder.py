@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from Aisle_Storage import Aisle
+from Warehouse.Aisle_Storage import Aisle
 
 
 @dataclass

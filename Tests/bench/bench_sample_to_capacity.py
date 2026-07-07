@@ -7,7 +7,7 @@ Pallet._fit / _max_qty_fits).  The batched sampler should keep _can_fit calls
 per-bin fill loop, while expected_fill stays unchanged.
 
 Not part of the pass/fail suite.  Run directly:
-    cd Tests
+    cd Tests/bench
     python bench_sample_to_capacity.py
 """
 from __future__ import annotations
@@ -18,14 +18,16 @@ import sys
 import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-import Storage_Primitive
-from Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Inventory_Management import Inventory_Manager
-from generation.generate_inventory import (
+
+from Warehouse import Storage_Primitive
+from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
 )
 

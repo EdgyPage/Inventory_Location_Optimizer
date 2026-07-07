@@ -2,28 +2,28 @@ import bisect
 from collections import defaultdict, deque
 from typing import Any
 
-from Order import Order
-from Warehouse_Builder import Warehouse
-from Aisle_Storage import Aisle
-from Storage_Primitive import (
+from Warehouse.Order import Order
+from Warehouse.Warehouse_Builder import Warehouse
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Storage_Primitive import (
     StorageUnit, Singleton, Pallet, FulfillmentBin,
     viable_storage_units, _max_qty_fits as _sq_max,
 )
-from Affinity_Store import AffinityStore
-from cost_model import sec_per_inch
-from regime import FULFILLMENT, regime_of
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.cost_model import sec_per_inch
+from Warehouse.regime import FULFILLMENT, regime_of
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
-from inventory_common import (
+from Warehouse.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
     BinKey, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
     _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
     _uniform_assignment, _wp_for,
 )
-from inventory_planning import PlanningMixin
-from inventory_optimal import OptimalLayoutMixin
-from inventory_reorder import ReorderMixin
+from Warehouse.inventory_planning import PlanningMixin
+from Warehouse.inventory_optimal import OptimalLayoutMixin
+from Warehouse.inventory_reorder import ReorderMixin
 
 
 class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):

@@ -7,16 +7,15 @@ color: green
 ---
 
 You write pytest tests for Inventory_Location_Optimizer. New tests MUST match repo conventions exactly
-(no pytest config, no conftest — every file is self-contained).
+(Warehouse/ and Optimization/ are real packages; `Tests/conftest.py` is the single sys.path bootstrap).
 
 ## File skeleton (copy this shape)
 - Module docstring: filename on line 1; a short *what/why* paragraph (bullet the invariants you lock in);
   a trailing `Run:  python -m pytest Tests/<file>.py -q` line.
 - `from __future__ import annotations`.
-- sys.path bootstrap BEFORE project imports (add only the dirs this file imports from):
-  `_HERE = os.path.dirname(os.path.abspath(__file__)); _ROOT = os.path.dirname(_HERE)` then
-  `sys.path[:0] = [.../Warehouse, .../Optimization, .../Warehouse/generation]`. Project imports carry
-  `# noqa: E402`.
+- Imports are PACKAGE-ABSOLUTE: `from Warehouse.Order import Order`,
+  `from Optimization import channels`. NO per-file sys.path bootstrap — `Tests/conftest.py`
+  puts the repo root (and `Tests/bench` for shared scenario builders) on sys.path.
 - Optional `if __name__ == '__main__': sys.exit(pytest.main([__file__, '-v']))`.
 - Module-level `_snake_case` helper builders; reuse existing helpers (e.g.
   `from perf_simulation import _build_inventory, _build_affinity_store`) rather than duplicating.

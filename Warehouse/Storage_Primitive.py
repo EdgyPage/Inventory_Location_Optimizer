@@ -5,11 +5,11 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from typing import TYPE_CHECKING, TypeVar
 
-from Order import Order
-from regime import regime_of, FULFILLMENT
+from Warehouse.Order import Order
+from Warehouse.regime import regime_of, FULFILLMENT
 
 if TYPE_CHECKING:
-    from Aisle_Storage import Aisle
+    from Warehouse.Aisle_Storage import Aisle
 
 T = TypeVar('T', bound='StorageUnit')
 

@@ -1,8 +1,8 @@
 import math
 import random
 from collections import namedtuple
-from Demand import Demand, poisson_sample
-from cost_model import handle_var as _handle_var
+from Warehouse.Demand import Demand, poisson_sample
+from Warehouse.cost_model import handle_var as _handle_var
 
 # Named tuple combining a order's handling type and storage category.
 # Replaces the pattern `handling, category = order.storage_type` throughout

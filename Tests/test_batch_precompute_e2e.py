@@ -27,11 +27,11 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path[:0] = [os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')]
 
-import run_simulation as rs                     # noqa: E402
-import strategy_runner as sr                    # noqa: E402
-import batch_precompute as BP                   # noqa: E402
+
+from Optimization import run_simulation as rs                     # noqa: E402
+from Optimization import strategy_runner as sr                    # noqa: E402
+from Optimization import batch_precompute as BP                   # noqa: E402
 
 _N_E2E_BATCHES = 6
 
@@ -67,8 +67,8 @@ def _pair_or_skip():
 def _store_channel_run(shared, pair_dir, cfg, log, workers=1):
     """Prepare the single store channel-run for `cfg` (this e2e uses a store-only pair, so the
     catalog is not mixed and the run collapses to the legacy <config>/ layout)."""
-    from channels import make_channel
-    from regime import STORE
+    from Optimization.channels import make_channel
+    from Warehouse.regime import STORE
     pc = rs._build_pick_cfg(cfg, num_pickers=rs.K_PICKERS)
     ch = make_channel('store', STORE, pc, rs.K_PICKERS, restocks=rs.STORE_RESTOCKS)
     mixed, _ = rs._channel_runs_for(shared['inventory'])       # store-only → False

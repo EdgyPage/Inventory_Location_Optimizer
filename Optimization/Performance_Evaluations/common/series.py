@@ -11,7 +11,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from Performance_Evaluations.common.style import _WIN, _SMOOTH, _TOP_DIMS
+from Optimization.Performance_Evaluations.common.style import _WIN, _SMOOTH, _TOP_DIMS
 
 
 def _build_series(strategies, df_b, df_t):

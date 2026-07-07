@@ -33,8 +33,11 @@ import os
 import sys
 from collections import defaultdict
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_channel_rollup.py <dir>); `-m` form needs none.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 
 def _is_num(x) -> bool:

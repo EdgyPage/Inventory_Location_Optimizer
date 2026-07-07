@@ -13,9 +13,9 @@ import random
 from collections import deque
 from typing import Any
 
-from Affinity_Store import AffinityStore
-from cost_model import height_multiplier, sec_per_inch
-from Inventory_Management import (
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.cost_model import height_multiplier, sec_per_inch
+from Warehouse.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
 )

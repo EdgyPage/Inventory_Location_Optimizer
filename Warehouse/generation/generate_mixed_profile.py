@@ -38,7 +38,9 @@ from datetime import datetime
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _WH        = os.path.dirname(_HERE)             # Warehouse/
 _REPO_ROOT = os.path.dirname(_WH)               # repo root
-sys.path.insert(0, _WH)
+# repo root on sys.path so package imports resolve when run as a script.
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 
 def _load_env(path: str) -> None:
@@ -64,11 +66,11 @@ _load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from dataclasses import replace
 
-from generation.generate_inventory import (
+from Warehouse.generation.generate_inventory import (
     generate_run as _inv_run, Family, DEFAULT_FREQ_SPEC, DEFAULT_QTY_SPEC,
     fulfillment_families, DEFAULT_FF_WEIGHT_SPEC,
 )
-from generation.generate_affinity import generate_run as _aff_run
+from Warehouse.generation.generate_affinity import generate_run as _aff_run
 
 
 def _clean_path(val: str) -> str:

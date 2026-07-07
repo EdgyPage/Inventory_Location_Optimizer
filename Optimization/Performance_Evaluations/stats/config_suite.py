@@ -9,14 +9,14 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _fresh_dir
-from Performance_Evaluations.common.frames import _metric_series, _aligned
-from Performance_Evaluations.common.stats_core import (
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _fresh_dir
+from Optimization.Performance_Evaluations.common.frames import _metric_series, _aligned
+from Optimization.Performance_Evaluations.common.stats_core import (
     _METRICS, _descriptives, _run_tests, _clean,
     _group_by_assignment, _opt_better,
 )
-from Performance_Evaluations.stats.plots import _plot_dist, _plot_pmatrix, _plot_effect, _plot_rank
+from Optimization.Performance_Evaluations.stats.plots import _plot_dist, _plot_pmatrix, _plot_effect, _plot_rank
 
 
 def _run_config_stats(strategies, df_b, df_t, ss_lo, out_dir, log, travel_handling=None) -> None:

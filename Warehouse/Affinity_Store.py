@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Collection
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from Inventory_Builder import AffMatrix
+from Warehouse.Inventory_Builder import AffMatrix
 
 if TYPE_CHECKING:
-    from Inventory_Builder import Inventory
+    from Warehouse.Inventory_Builder import Inventory
 
 
 class AffinityStore:

@@ -3,7 +3,7 @@ weight each kernel's measured speedup by its real wall-share (bench_sections / A
 summary, and write Tests/_gpu_bench_results.csv + docs/gpu_assessment.md.
 
 Backends auto-detected (CuPy + PyTorch when available; CPU always).  Run:
-    python Tests/bench_gpu_all.py
+    python Tests/gpu/bench_gpu_all.py
 """
 from __future__ import annotations
 
@@ -17,7 +17,14 @@ import bench_gpu_picksim
 import bench_sections
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+# bench_sections lives in Tests/bench (CPU bench, aggregated here too).
+_BENCH = os.path.join(os.path.dirname(_HERE), 'bench')
+if _BENCH not in sys.path:
+    sys.path.insert(0, _BENCH)
 
 # kernel-prefix -> the wall section it would accelerate (for Amdahl weighting)
 _SECTION_OF = {'sampling': 'build', 'placement': 'reord', 'picksim': 'sim'}

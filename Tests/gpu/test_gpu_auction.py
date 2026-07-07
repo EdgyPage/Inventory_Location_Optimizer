@@ -14,9 +14,9 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-import gpu_auction as A
+
+from Optimization.gpu import gpu_auction as A
 
 
 def _cuda():

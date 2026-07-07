@@ -28,9 +28,12 @@ dependence: `python -m pytest Tests/<file>.py -q`.
 - **Floats** use a tolerance (`< 1e-9` or `rtol/atol`), never `==`.
 - **Messages & shape.** Informative assert messages with offending values; one concept per test; name
   states the invariant; docstring the *why*; guard tests use `pytest.raises(match=)`.
-- **Bootstrap.** sys.path inserts only the dirs the file imports; project imports carry `# noqa: E402`.
-- **Not-a-test confusion.** `bench_*` / `perf_*` / `profile_*` / `coverage_e2e.py` are runnable scripts
-  (CLI args, write files) — not pytest tests; don't critique them as such.
+- **Imports.** Package-absolute (`from Warehouse.X import ...`); NO per-file sys.path bootstrap —
+  `Tests/conftest.py` is the single bootstrap. Flag any new per-file insert (only the 7 legacy
+  check()-harness files keep a guarded `_ROOT` insert for their direct-run `__main__`).
+- **Not-a-test confusion.** `Tests/bench/` (`bench_*`/`perf_*`/`profile_*`/`coverage_e2e.py`) and
+  `Tests/gpu/bench_gpu_*` are runnable scripts (CLI args, write files) — not pytest tests; don't
+  critique them as such.
 - **Speed.** Integration/e2e should use `tmp_path`, `workers=1`, shrunk `n_batches`, a cut config sweep,
   capped sizes, and stub the heavy sim when it isn't under test.
 - **Coverage.** Note untested branches/edge cases the test claims to cover (empty input, boundary sizes,

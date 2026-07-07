@@ -13,9 +13,9 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-import gpu_client as C
+
+from Optimization.gpu import gpu_client as C
 
 
 def _cuda_available():
@@ -69,7 +69,7 @@ def test_client_over_budget_returns_none():
 
 @pytest.mark.skipif(not _cuda_available(), reason='no CUDA torch')
 def test_gpu_argmin_matches_cpu():
-    import gpu_broker as Bk
+    from Optimization.gpu import gpu_broker as Bk
     import torch
     v, D, M = _rand(500, 30_000, seed=4)
     idx = Bk.gpu_argmin_torch(torch, v, D, M, 15.0, tile=8192)
@@ -79,7 +79,7 @@ def test_gpu_argmin_matches_cpu():
 @pytest.mark.skipif(not _cuda_available(), reason='no CUDA torch')
 def test_broker_roundtrip_and_overbudget_fallback():
     import multiprocessing as mp
-    import gpu_broker as Bk
+    from Optimization.gpu import gpu_broker as Bk
     mgr = mp.Manager()
     proc, req_q, status = Bk.start_broker(mgr, vram_frac=0.4, max_inflight=4)
     assert status.get('ready'), status.get('error')

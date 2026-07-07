@@ -10,7 +10,7 @@ greedy placement (argmin per unit, then consume the bin + update aisle/affinity 
 sequential on CPU; we benchmark the matrix build + per-unit argmin (the vectorizable part) and
 assert the chosen bins match.
 
-Fixed seeds.  Run: python Tests/bench_gpu_placement.py
+Fixed seeds.  Run: python Tests/gpu/bench_gpu_placement.py
 """
 from __future__ import annotations
 

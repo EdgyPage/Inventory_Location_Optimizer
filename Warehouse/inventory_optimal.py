@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 
-from Order import Order
-from Storage_Primitive import StorageUnit, viable_storage_units
-from cost_model import height_multiplier, handle_var, sec_per_inch
-from inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for
+from Warehouse.Order import Order
+from Warehouse.Storage_Primitive import StorageUnit, viable_storage_units
+from Warehouse.cost_model import height_multiplier, handle_var, sec_per_inch
+from Warehouse.inventory_common import _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for
 
 
 class OptimalLayoutMixin:

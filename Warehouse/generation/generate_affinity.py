@@ -50,7 +50,7 @@ python generate_affinity.py --inventory-db ... --estimate
 
 Callable API
 ------------
-from generate_affinity import generate_run
+from Warehouse.generation.generate_affinity import generate_run
 generate_run(inventory_db='...', name='run1', top_k=10)
 """
 
@@ -73,8 +73,12 @@ import numpy as np
 import pandas as pd
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports + output dirs
-sys.path.insert(0, _WH)
+_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — output dirs
+# repo root on sys.path so package imports resolve when run as a script
+# (python Warehouse/generation/generate_affinity.py ...).
+_REPO_ROOT = os.path.dirname(_WH)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
 _TOP_K_DEFAULT       = 10

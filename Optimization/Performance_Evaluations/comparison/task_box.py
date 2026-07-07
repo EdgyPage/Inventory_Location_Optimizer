@@ -8,9 +8,9 @@ import numpy as np
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle, _assign_color_map, _WIN, legend_right
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _stitle, _assign_color_map, _WIN, legend_right
 
 
 def _task_box(strategies, df_t, title, path, win=_WIN):

@@ -3,7 +3,7 @@
 Backend detection (CuPy / PyTorch), warmup + device-synced timing, conversions, and
 equivalence / distributional-agreement helpers.  Import-guarded so a no-CUDA box degrades to
 CPU-only (cupy/torch = None) instead of erroring.  Standalone - not collected by pytest; run
-any bench_gpu_*.py directly, or Tests/bench_gpu_all.py for the full suite + CSV summary.
+any bench_gpu_*.py directly, or Tests/gpu/bench_gpu_all.py for the full suite + CSV summary.
 
 Each bench module exposes `run() -> list[dict]` (rows for the aggregate table) and a
 `__main__` that prints its own table.
@@ -18,10 +18,10 @@ import time
 import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-for _p in (os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 
 # ── backend detection ────────────────────────────────────────────────────────

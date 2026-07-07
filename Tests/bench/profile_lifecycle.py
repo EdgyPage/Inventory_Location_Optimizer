@@ -15,7 +15,7 @@ AffinityStore methods and assignment_fn are patched on the fly and restored.
 
 Usage
 -----
-    cd Tests
+    cd Tests/bench
     python profile_lifecycle.py                            # both modes, defaults
     python profile_lifecycle.py --mode wall --batches 50
     python profile_lifecycle.py --mode cprofile --top-n 40
@@ -36,26 +36,28 @@ import time
 from collections import defaultdict
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_HERE)
-_LOGS_DIR  = os.path.join(_HERE, 'logs')
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Optimization'))
+_REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_LOGS_DIR  = os.path.join(os.path.dirname(_HERE), 'logs')   # Tests/logs (gitignored)
+
 
 import numpy as np
 
-from Affinity_Store import AffinityStore
-from Aisle_Storage import Aisle
-from Inventory_Builder import Inventory
-from Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Assignment_Functions import (
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Inventory_Builder import Inventory
+from Warehouse.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.Assignment_Functions import (
     build_cluster_minimizing_assignment_fn,
     build_cluster_maximizing_assignment_fn,
 )
-from Pick import PickConfig, PickSimulation
-from Warehouse_Builder import Warehouse_Builder
-from Workload import WorkloadParams
-from Workload_Builder import Batch, BatchConfig, Task
-from Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Warehouse.Pick import PickConfig, PickSimulation
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Optimization.Workload import WorkloadParams
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Optimization.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 # Reuse setup helpers from the existing benchmark — no duplication, no source changes
 from perf_simulation import (

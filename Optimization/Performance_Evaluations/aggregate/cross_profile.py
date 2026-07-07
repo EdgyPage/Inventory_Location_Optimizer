@@ -3,13 +3,13 @@ top/breakdown over-time suite as per-config, but on baseline-normalized curves a
 across profiles.  Reuses the comparison builders.  Params: top_n, top_by."""
 import os
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.comparison import overtime_metrics, top_tag
-from Performance_Evaluations.comparison.faceted import _facet_metric
-from Performance_Evaluations.comparison.overlay import _overlay_metric
-from Performance_Evaluations.comparison.top_metric import _top_metric
-from Performance_Evaluations.comparison.pick_vs_travel import _pick_travel_bars
-from Performance_Evaluations.comparison.delta_bars import _delta_bars
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.comparison import overtime_metrics, top_tag
+from Optimization.Performance_Evaluations.comparison.faceted import _facet_metric
+from Optimization.Performance_Evaluations.comparison.overlay import _overlay_metric
+from Optimization.Performance_Evaluations.comparison.top_metric import _top_metric
+from Optimization.Performance_Evaluations.comparison.pick_vs_travel import _pick_travel_bars
+from Optimization.Performance_Evaluations.comparison.delta_bars import _delta_bars
 
 
 @evaluation(key='agg.cross_profile', label='Cross-profile over-time suite',

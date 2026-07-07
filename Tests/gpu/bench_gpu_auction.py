@@ -4,7 +4,7 @@ Decision driver, not a production path.  On the static placement cost it compare
 (numpy + torch) to scipy.optimize.linear_sum_assignment (the exact LAP your opt/map arms already use)
 and to the sequential argmin-consume greedy, reporting optimality, QUALITY (auction is optimal; greedy
 is not), wall-time, and the auction's ROUND COUNT (the speed killer on structured costs).  Writes
-docs/gpu_auction_assessment.md.  Run: python Tests/bench_gpu_auction.py
+docs/gpu_auction_assessment.md.  Run: python Tests/gpu/bench_gpu_auction.py
 """
 from __future__ import annotations
 
@@ -15,10 +15,13 @@ import time
 import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-import gpu_auction as A          # noqa: E402
+
+from Optimization.gpu import gpu_auction as A          # noqa: E402
 
 # Auction is run only at SMALL sizes (single-eps needs ~1e5 rounds on structured costs); scipy+greedy
 # also run at SCALE sizes to show scipy stays fast where a custom solver would have to win.

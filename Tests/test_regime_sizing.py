@@ -15,11 +15,9 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path[:0] = [os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization'),
-                os.path.join(_ROOT, 'Warehouse', 'generation')]
 
-from Inventory_Management import Inventory_Manager                # noqa: E402
-from generation.generate_inventory import (                      # noqa: E402
+from Warehouse.Inventory_Management import Inventory_Manager                # noqa: E402
+from Warehouse.generation.generate_inventory import (                      # noqa: E402
     Family, fulfillment_family, build_inventory_from_plan)
 
 _DIM = {'dist': 'uniform', 'low': 20, 'high': 44}

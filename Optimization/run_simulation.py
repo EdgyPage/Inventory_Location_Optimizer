@@ -1,4 +1,4 @@
-﻿"""
+"""
 Warehouse assignment strategy simulation runner.
 
 Runs A/B/C strategy workers for each (pair × regression-config) combination
@@ -24,11 +24,13 @@ import sys
 import time
 from datetime import datetime
 
-# ── path setup ────────────────────────────────────────────────────────────────
+# ── path setup: put the repo root on sys.path so package imports resolve when
+#    this file is run as a script (python Optimization/run_simulation.py).
+#    Running via `python -m Optimization.run_simulation` needs none of this.
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.normpath(os.path.join(_HERE, '..'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, _HERE)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 # ── .env support ──────────────────────────────────────────────────────────────
 # Reads <repo_root>/.env and injects KEY=VALUE pairs into os.environ.
@@ -57,27 +59,27 @@ def _load_env(path: str) -> None:
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
-from Aisle_Storage import Aisle
-from Affinity_Store import AffinityStore
-from generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
-from Inventory_Management import LoadParams, Inventory_Manager
-from strategies import STRATEGIES, strategies_for, restocks_for
-from Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
-from Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
-from Storage_Primitive import viable_storage_units as _vsu
-from Storage_Primitive import StoreCart, FulfillmentCart
-from Warehouse_Builder import Warehouse_Builder
-from Workload_Builder import BatchConfig
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
+from Warehouse.Inventory_Management import LoadParams, Inventory_Manager
+from Optimization.strategies import STRATEGIES, strategies_for, restocks_for
+from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
+from Warehouse.Storage_Primitive import viable_storage_units as _vsu
+from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.Workload_Builder import BatchConfig
 
-from Picking_Data import create_run, init_run_db
-from Workload import WorkloadParams
-from regime import STORE, FULFILLMENT
+from Optimization.Picking_Data import create_run, init_run_db
+from Optimization.Workload import WorkloadParams
+from Warehouse.regime import STORE, FULFILLMENT
 
-from strategy_runner import (
+from Optimization.strategy_runner import (
     load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints,
 )
-from batch_precompute import ensure_batches
-from channels import FF_BATCH_SEED_OFFSET
+from Optimization.batch_precompute import ensure_batches
+from Optimization.channels import FF_BATCH_SEED_OFFSET
 
 # ── warehouse geometry (structural; shared by both channels) ────────────────────
 # Physical aisle dimensions: 50 pallet-width columns × 10 extra_large-height levels.
@@ -529,12 +531,12 @@ def build_shared_assets(
     # ── persist warehouse stats and aisle distributions ───────────────────────
     warehouse_fp: str | None = None
     if warehouse_db_path is not None:
-        from Warehouse_Data import (init_warehouse_db, save_warehouse_stats,
+        from Optimization.Warehouse_Data import (init_warehouse_db, save_warehouse_stats,
                                      save_aisle_layout, compute_warehouse_fingerprint)
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
-        from Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
+        from Warehouse.Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
                                       FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT)
         aisle_rows = []
         for (h, cat, size, unit_type), cap_bins in plan.capacity.items():
@@ -693,7 +695,7 @@ def _prepare_channel_run(
     injects it before submission.
     """
     from dataclasses import replace                        # noqa: E402 (local)
-    from regime import regime_of                           # noqa: E402
+    from Warehouse.regime import regime_of                           # noqa: E402
 
     n_batches = CONFIG['global']['n_batches']              # may be overridden via --n-batches
     name     = _config_name(cfg)
@@ -946,8 +948,8 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
 
     Returns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.
     """
-    from channels import make_channel                         # noqa: E402
-    from regime import regime_of                              # noqa: E402
+    from Optimization.channels import make_channel                         # noqa: E402
+    from Warehouse.regime import regime_of                              # noqa: E402
 
     mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
     runs: list[tuple] = []

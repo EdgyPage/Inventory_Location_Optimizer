@@ -7,7 +7,7 @@ build-once approach.  Demonstrates:
   - Fix 2: candidate pool bucketed once, not re-scanned per unit
            (O(U·bucket_bins) -> O(bucket log bucket + U·n_aisles)).
 
-Not part of the pass/fail suite.  Run:  cd Tests && python bench_ranked_assign.py
+Not part of the pass/fail suite.  Run:  python Tests/bench/bench_ranked_assign.py
 """
 from __future__ import annotations
 
@@ -19,11 +19,13 @@ import types
 from collections import defaultdict
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-from Assignment_Functions import build_ranked_minimizing_assignment_fn
+
+from Warehouse.Assignment_Functions import build_ranked_minimizing_assignment_fn
 
 
 class _Bin:

@@ -14,12 +14,15 @@ captures the substantive code in one process.  Used to confirm nothing breaks
 import os, sys, logging, queue, tempfile, traceback
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-sys.path[:0] = [os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')]
+_ROOT = os.path.dirname(os.path.dirname(_HERE))   # Tests/<sub>/ -> repo root
+# repo root on sys.path so package imports resolve when run as a script.
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-import run_simulation as rs
-import strategy_runner as sr
-import run_analysis as ra
+
+from Optimization import run_simulation as rs
+from Optimization import strategy_runner as sr
+from Optimization import run_analysis as ra
 
 rs.CONFIG['global']['n_batches'] = 4   # toy horizon -- still exercises reorder/reslot/keyframe/steady-state
 

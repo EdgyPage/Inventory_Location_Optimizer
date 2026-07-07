@@ -82,14 +82,18 @@ grid is the cartesian product of the three lists.
 ```bash
 python Optimization/run_simulation.py --workers 15          # parallel run
 python Optimization/run_simulation.py --resume <run_dir>    # resume a crashed run
+python -m Optimization.run_simulation --workers 15          # equivalent module form
 ```
 
-Key module constants: `SEED_WORLD=42`, `SEED_BATCHES=1337`, `N_BATCHES=100` (batches),
-`K_PICKERS=25` (pickers), `_TARGET_FILL=0.875`, and the `REGRESSION_CONFIGS` pick-time
-calibrations (`calibrated`, `calibrated_high_weight`, `calibrated_high_height`,
-`calibrated_high_weight_high_height`). Useful args: `--workers`, `--resume`, `--all-profiles`,
-`--max-skus` (cap for a smaller/faster warehouse), `--keyframe-interval`. **Writes:**
-`sim_<strategy>.db` per arm (**~150–600 MB each**) + `config.json`.
+Everything tunable lives in the **`CONFIG` dict** (`run_simulation.py`): a `global` section
+(`seed_world=42`, `seed_batches=1337`, `n_batches=100`, workers, checkpointing) and a
+per-channel `channels` section — `store` and `fulfillment` are tuned independently, each
+with its own pick-config sweep (`STORE_CONFIGS`: `store`, `store_high_weight`;
+`FULFILLMENT_CONFIGS`: `ful_calibrated`, `ful_calibrated_fast_walkers`), picker pool, cart,
+restock subset, batch shape, fill headroom, and warehouse sizing. Useful args: `--workers`,
+`--resume`, `--all-profiles`, `--max-skus` (cap for a smaller/faster warehouse),
+`--keyframe-interval`, `--n-batches`. **Writes:** `sim_<strategy>.db` per arm
+(**~150–600 MB each**) + `config.json` per config (+ per-channel subdirs on mixed catalogs).
 
 ### 4. Run analysis — `Optimization/run_analysis.py`
 

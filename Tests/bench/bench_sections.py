@@ -5,7 +5,7 @@ whole-run impact is bounded by its section's share, so the runner weights speedu
 The strategy_runner checkpoint line carries per-section wall:
     | reord=..s build=..s pre=..s sim=..s extr=..s inv=..s     (+ db=..s wall=..s)
 We average those across all checkpoints (and split early vs late, since reord grows as queues
-fill).  Run: python Tests/bench_sections.py
+fill).  Run: python Tests/bench/bench_sections.py
 """
 from __future__ import annotations
 

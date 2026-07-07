@@ -29,13 +29,13 @@ import logging
 import os
 import sys
 
-# ── path setup ─────────────────────────────────────────────────────────────────
-_HERE      = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.normpath(os.path.join(_HERE, '..'))
-sys.path.insert(0, os.path.join(_REPO_ROOT, 'Warehouse'))
-sys.path.insert(0, _HERE)
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_analysis.py <dir>); `-m` form needs none of this.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
-from run_simulation import (
+from Optimization.run_simulation import (
     build_shared_assets,
     regime_sizing_from_config,
     _setup_logging,
@@ -44,11 +44,11 @@ from run_simulation import (
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
 # so the registry is populated before any job runs.
-import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
-from Performance_Evaluations.core.registry import EVAL_BY_KEY
-from Performance_Evaluations.core.context import EvalContext, AggregateContext
-from Performance_Evaluations import driver
-from Performance_Evaluations.presets import PRESETS
+from Optimization import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
+from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+from Optimization.Performance_Evaluations.core.context import EvalContext, AggregateContext
+from Optimization.Performance_Evaluations import driver
+from Optimization.Performance_Evaluations.presets import PRESETS
 
 
 # Keys the context reads from `shared` — a small, picklable slice sent to worker processes

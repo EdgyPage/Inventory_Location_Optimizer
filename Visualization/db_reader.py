@@ -24,14 +24,12 @@ import sys
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for _p in (os.path.join(_ROOT, 'Warehouse'), os.path.join(_ROOT, 'Optimization')):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-from Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT   # noqa: E402
-from cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS   # noqa: E402
+# No sys.path bootstrap: imports are package-absolute; the entry script
+# (Visualization/server.py) seeds the repo root.
+from Warehouse.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT
+from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 
-from Picking_Data import (   # noqa: E402
+from Optimization.Picking_Data import (
     load_reorder_queue, load_bin_scores, load_sku_scores, run_identity,
 )
 

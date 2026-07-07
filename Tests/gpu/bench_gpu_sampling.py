@@ -11,7 +11,7 @@ The production draw is sequential & without-replacement with DYNAMIC per-step we
   D. one-shot static-weight Gumbel-top-k (CuPy + Torch) - the speed CEILING, but NOT equivalent
      (drops the dynamic partner lift); reported with its distributional overlap vs CPU.
 
-Fixed seeds throughout.  Run: python Tests/bench_gpu_sampling.py
+Fixed seeds throughout.  Run: python Tests/gpu/bench_gpu_sampling.py
 """
 from __future__ import annotations
 
@@ -23,9 +23,9 @@ import numpy as np
 import bench_gpu_common as B
 from bench_gpu_common import cp, torch, bench, record, print_table, set_overlap
 
-from Workload_Builder import _lift_weighted_sample, _get_partner_map
-from Affinity_Store import AffinityStore
-from generation.generate_inventory import load_inventory_from_db
+from Warehouse.Workload_Builder import _lift_weighted_sample, _get_partner_map
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.generation.generate_inventory import load_inventory_from_db
 
 _SEED = 1337
 _MEAN_FRAC = 0.20
@@ -34,7 +34,7 @@ _MAX_SKUS = int(os.environ.get('BENCH_MAX_SKUS', '0')) or None   # 0/unset -> fu
 
 def _load():
     """Real inventory + affinity for realistic weights/partner map; synthetic fallback."""
-    import run_simulation as rs
+    from Optimization import run_simulation as rs
     pairs = rs.find_latest_db_pairs(rs._DEFAULT_PROFILES_DIR)
     if pairs:
         _label, inv_db, aff_db = pairs[0]

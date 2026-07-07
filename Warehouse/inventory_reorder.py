@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import random
 
-from Aisle_Storage import Aisle
-from Storage_Primitive import viable_storage_units
-from inventory_common import _equilibrium_qty
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Storage_Primitive import viable_storage_units
+from Warehouse.inventory_common import _equilibrium_qty
 
 
 class ReorderMixin:

@@ -15,12 +15,14 @@ from collections import defaultdict
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
+if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
+    sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
+
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from Affinity_Store import AffinityStore
-import Assignment_Functions as A
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse import Assignment_Functions as A
 
 _PASS = _FAIL = 0
 
