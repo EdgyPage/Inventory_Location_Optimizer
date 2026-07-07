@@ -8,7 +8,7 @@ from Warehouse.Storage_Primitive import StorageCart, StoreCart
 from Warehouse.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
-from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, sec_per_inch
+from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch
 
 if TYPE_CHECKING:
     from Warehouse.Inventory_Management import Inventory_Manager
@@ -108,7 +108,7 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     hmult = height_multiplier(cfg.height_brackets, y_phys)
     var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef,
                        cfg.pick_weight_fn, cfg.pick_volume_fn)
-    return hmult * (cfg.pick_intercept + var * quantity)
+    return per_pick(hmult, cfg.pick_intercept, var, quantity)
 
 
 # ── simulation ───────────────────────────────────────────────────────────────

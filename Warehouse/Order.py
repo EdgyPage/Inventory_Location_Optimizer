@@ -2,7 +2,7 @@ import math
 import random
 from collections import namedtuple
 from Warehouse.Demand import Demand, poisson_sample
-from Warehouse.cost_model import handle_var as _handle_var
+from Warehouse.cost_model import handle_var as _handle_var, per_pick as _per_pick
 from Warehouse.physical import PALLET_FOOTPRINT
 
 # Named tuple combining a order's handling type and storage category.
@@ -161,5 +161,5 @@ class Order:
         self.handle_var = _handle_var(self.weight, self.volume(),
                                       pick_weight_coef, pick_volume_coef,
                                       pick_weight_fn, pick_volume_fn)
-        self.labor_cost = pick_intercept + self.handle_var
+        self.labor_cost = _per_pick(1.0, pick_intercept, self.handle_var)
         return self.labor_cost

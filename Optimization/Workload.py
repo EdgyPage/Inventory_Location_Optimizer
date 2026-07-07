@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 # Single source of truth for the cost primitives (Warehouse/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from Warehouse.cost_model import height_multiplier as _height_mult, handle_var, sec_per_inch
+from Warehouse.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch
 from Warehouse.Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
@@ -93,11 +93,11 @@ def aisle_workload_components(
         weight, volume, qty = line[0], line[1], line[2]
         y_phys = line[3] if len(line) > 3 else 0.0
         hmult = _height_mult(params.height_brackets, y_phys)
-        # height scales the ENTIRE at-location pick: M·(intercept + qty·var) (mirrors _pick_time)
-        P += hmult * (params.pick_intercept
-                      + qty * handle_var(weight, volume,
-                                         params.pick_weight_coef, params.pick_volume_coef,
-                                         params.pick_weight_fn, params.pick_volume_fn))
+        # height scales the ENTIRE at-location pick: per_pick = M·(intercept + qty·var)
+        P += per_pick(hmult, params.pick_intercept,
+                      handle_var(weight, volume,
+                                 params.pick_weight_coef, params.pick_volume_coef,
+                                 params.pick_weight_fn, params.pick_volume_fn), qty)
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C
 

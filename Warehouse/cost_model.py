@@ -65,6 +65,19 @@ def handle_var(weight: float, volume: float,
             + volume_coef * resolve_transform(volume_fn)(volume))
 
 
+def per_pick(mult: float, intercept: float, var: float, qty: float = 1) -> float:
+    """The composite at-location pick expression  mult · (intercept + qty · var).
+
+    THE one formula behind every per-pick cost in the codebase — the sim's pick time
+    (mult = height bracket M(y)), the analytical workload P-term, the per-SKU labor_cost
+    (mult=1, qty=1), the optimal-map coefficients (mult = frequency), and the marginal
+    placement scores (… + D).  Previously inlined at 7 sites with "mirrors _pick_time"
+    comments; one helper makes the invariant structural.  Expression shape/associativity
+    preserved exactly — float-identical with the inlined originals (a·b is commutative
+    bit-for-bit in IEEE 754, so qty·var == var·qty)."""
+    return mult * (intercept + qty * var)
+
+
 # Positions (x_phys/y_phys) are in inches — a pallet column is 48 in = 4 ft (Aisle_Dimensions).
 # Travel SPEEDS (x_speed/y_speed) are in ft/s, so travel time divides distance by speed:
 #   time = (distance_in / 12) / speed_ft_per_sec = distance_in * sec_per_inch(speed).

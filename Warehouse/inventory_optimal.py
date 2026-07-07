@@ -13,7 +13,7 @@ from collections import defaultdict, deque
 
 from Warehouse.Order import Order
 from Warehouse.Storage_Primitive import StorageUnit, viable_storage_units
-from Warehouse.cost_model import height_multiplier, handle_var, sec_per_inch
+from Warehouse.cost_model import height_multiplier, handle_var, per_pick, sec_per_inch
 from Warehouse.inventory_common import (
     _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for, binkey_of,
 )
@@ -153,8 +153,8 @@ class OptimalLayoutMixin:
             a = [freq_of.get(u.order.sku, 0.0) for u in units]                  # α_s = f (travel)
             # height now scales the WHOLE pick: per-pick handling = M·(intercept + q·v),
             # so the M-coefficient is f·(intercept + q·v), not f·q·v.
-            b_ = [freq_of.get(u.order.sku, 0.0)
-                  * (intercept_k + qty_of.get(u.order.sku, 0.0) * v_by_sku.get(u.order.sku, 0.0))
+            b_ = [per_pick(freq_of.get(u.order.sku, 0.0), intercept_k,
+                           v_by_sku.get(u.order.sku, 0.0), qty_of.get(u.order.sku, 0.0))
                   for u in units]                                                # β_s = f·(intercept + q·v)
             # candidate bins: lowest-D per height bracket, capped at n (others dominated)
             by_m: dict = defaultdict(list)

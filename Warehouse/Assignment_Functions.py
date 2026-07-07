@@ -14,7 +14,7 @@ from collections import deque
 from typing import Any
 
 from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.cost_model import height_multiplier, sec_per_inch
+from Warehouse.cost_model import height_multiplier, per_pick, sec_per_inch
 from Warehouse.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
@@ -1005,7 +1005,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = dq[0]
-            cost = m * (intercept + var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -1177,7 +1177,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = m * (intercept + var) + D_of[id(_rep(dq))]
+            cost = per_pick(m, intercept, var) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -1251,7 +1251,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = m * (intercept + var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
