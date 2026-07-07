@@ -52,39 +52,7 @@ class ReorderMixin:
          else self._sku_pallet_bins)[sku].discard(bin_)
         self._index_add(bin_)
 
-        # Mirror _reclaim_empty_bins' per-SKU aisle-state removal (affinity on).
-        if self._affinity is not None:
-            aid    = bin_.location[0]
-            idx    = self._affinity._sku_to_idx.get(sku)
-            # Drop the evicted bin's column position from _aisle_member_pos (live-bin only).
-            if idx is not None:
-                mp = self._aisle_member_pos.get(aid)
-                if mp is not None:
-                    xs = mp.get(idx)
-                    if xs:
-                        try:
-                            xs.remove(bin_.x_phys)
-                        except ValueError:
-                            pass
-                        if not xs:
-                            del mp[idx]
-            counts = self._aisle_sku_counts[aid]
-            n      = counts.get(sku, 0)
-            if n > 1:
-                counts[sku] = n - 1
-            elif n == 1:
-                counts.pop(sku, None)
-                self._aisle_sku_sets[aid].discard(sku)
-                if idx is not None:
-                    self._aisle_idx_sets[aid].discard(idx)
-                delta = 2.0 * self._affinity.delta_lift_idxs(sku, self._aisle_idx_sets[aid])
-                self._aisle_lift_sum[aid] = max(0.0, self._aisle_lift_sum[aid] - delta)
-                d = self._sku_demand_product.get(sku, 0.0)
-                if d:
-                    self._aisle_demand_sum[aid] = max(0.0, self._aisle_demand_sum[aid] - d)
-                dl = self._sku_pick_load_product.get(sku, 0.0)
-                if dl:
-                    self._aisle_pick_load_sum[aid] = max(0.0, self._aisle_pick_load_sum[aid] - dl)
+        self._drop_sku_from_aisle(sku, bin_)
 
         # On-hand -> on-order (queued); re-enqueue the unit for the ranked drain.
         self._current_quantities[sku] = max(0, self._current_quantities.get(sku, 0) - unit.quantity)
@@ -92,6 +60,53 @@ class ReorderMixin:
         self._queued_sku_counts[sku]  = self._queued_sku_counts.get(sku, 0) + 1
         self._stock_queue.append(unit)
         self._reload_moves += 1
+
+    def _drop_sku_from_aisle(self, sku: int, bin_: 'Aisle.Bin') -> None:
+        """Remove one bin's contribution to the per-SKU aisle state (affinity on).
+
+        The CANONICAL per-SKU aisle teardown: drop the bin's column position from
+        _aisle_member_pos, decrement the aisle's SKU count, and — when this was the
+        SKU's LAST bin in the aisle — retire it from the sku/idx sets and subtract
+        its lift/demand/pick-load contributions (clamped at 0).
+
+        _reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for
+        its per-batch hot loop (deliberate micro-optimization over ~7k bins; it also
+        treats a defensive n==0 like n==1, which this cold path never reaches) —
+        KEEP THE TWO IN SYNC when editing either.
+        """
+        if self._affinity is None:
+            return
+        aid = bin_.location[0]
+        idx = self._affinity._sku_to_idx.get(sku)
+        # Drop the evicted bin's column position from _aisle_member_pos (live-bin only).
+        if idx is not None:
+            mp = self._aisle_member_pos.get(aid)
+            if mp is not None:
+                xs = mp.get(idx)
+                if xs:
+                    try:
+                        xs.remove(bin_.x_phys)
+                    except ValueError:
+                        pass
+                    if not xs:
+                        del mp[idx]
+        counts = self._aisle_sku_counts[aid]
+        n      = counts.get(sku, 0)
+        if n > 1:
+            counts[sku] = n - 1
+        elif n == 1:
+            counts.pop(sku, None)
+            self._aisle_sku_sets[aid].discard(sku)
+            if idx is not None:
+                self._aisle_idx_sets[aid].discard(idx)
+            delta = 2.0 * self._affinity.delta_lift_idxs(sku, self._aisle_idx_sets[aid])
+            self._aisle_lift_sum[aid] = max(0.0, self._aisle_lift_sum[aid] - delta)
+            d = self._sku_demand_product.get(sku, 0.0)
+            if d:
+                self._aisle_demand_sum[aid] = max(0.0, self._aisle_demand_sum[aid] - d)
+            dl = self._sku_pick_load_product.get(sku, 0.0)
+            if dl:
+                self._aisle_pick_load_sum[aid] = max(0.0, self._aisle_pick_load_sum[aid] - dl)
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
@@ -161,6 +176,10 @@ class ReorderMixin:
         this is O(pending_bins) — typically a handful per batch — instead of
         the previous O(total_bins) full scan.  Attribute refs are hoisted
         outside the loop to avoid repeated self. lookups across ~7k iterations.
+
+        The per-SKU aisle teardown inside the loop is the hoisted INLINE TWIN of
+        _drop_sku_from_aisle (the canonical cold-path version used by requeue_bin)
+        — KEEP THE TWO IN SYNC when editing either.
         """
         if not self._pending_reclaim:
             return
