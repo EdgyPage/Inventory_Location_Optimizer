@@ -135,19 +135,47 @@ CREATION_PLAN = [
 ]
 
 
+# ── bell (normal) frequency profile ────────────────────────────────────────────
+# Opt-in alternative to the uniform freq specs above (select with --freq-profile bell).
+# Store frequency is drawn per-category from a NORMAL centered by mover speed (furniture
+# slowest, food fastest; chemical high per its consumable restock cadence); fulfillment
+# SKUs draw from an equal-weight mixture of three normals (single category → nothing to key
+# on).  Only freq_spec changes — BELL_CREATION_PLAN is CREATION_PLAN with dimensions/weight/
+# handling/share untouched — so a bell run differs from the uniform baseline only in demand
+# skew.  Tails past the (1e-6, 1.0] frequency clamp (Order.build) are absorbed, as the dim specs
+# already rely on their own clamps.
+BELL_STORE_FREQ = {
+    'food':       _norm(0.80, 0.10),
+    'chemical':   _norm(0.50, 0.10),
+    'clothing':   _norm(0.35, 0.05),
+    'electronic': _norm(0.35, 0.05),
+    'seasonal':   _norm(0.15, 0.05),
+    'furniture':  _norm(0.05, 0.015),
+}
+BELL_FF_FREQ = _mix((1 / 3, _norm(0.15, 0.05)),
+                    (1 / 3, _norm(0.25, 0.05)),
+                    (1 / 3, _norm(0.55, 0.10)))
+BELL_CREATION_PLAN = [replace(fam, freq_spec=dict(BELL_STORE_FREQ[fam.category]))
+                      for fam in CREATION_PLAN]
+
+
 def _expected_conveyable_fraction(plan) -> float:
     tot = sum(f.share for f in plan)
     return sum(f.share * f.handling_split[0] for f in plan) / tot
 
 
-def _parse_lead_spec(spec, rand_range) -> tuple:
+def _parse_lead_spec(spec, rand_range, freq_profile='uniform') -> tuple:
     """A --lead-times token → (profile_name, lead_time, lead_time_range).
-    'random' → per-SKU lead ~ randint(rand_range); a number → fixed per-SKU lead."""
+    'random' → per-SKU lead ~ randint(rand_range); a number → fixed per-SKU lead.
+    A non-uniform freq_profile (e.g. 'bell') is tagged into the name so its run leaf stays
+    distinct from the uniform baseline (mixed_realistic_bell_lt1 vs mixed_realistic_lt1);
+    'uniform' keeps the historical names unchanged."""
+    tag = '' if freq_profile == 'uniform' else f'{freq_profile}_'
     if str(spec).strip().lower() == 'random':
         lo, hi = int(rand_range[0]), int(rand_range[1])
-        return (f'mixed_realistic_ltrand{lo}-{hi}', 0.0, (lo, hi))
+        return (f'mixed_realistic_{tag}ltrand{lo}-{hi}', 0.0, (lo, hi))
     val = float(spec)
-    return (f'mixed_realistic_lt{val:g}', val, None)
+    return (f'mixed_realistic_{tag}lt{val:g}', val, None)
 
 
 def _ff_weight_spec(args) -> dict:
@@ -160,15 +188,20 @@ def _ff_weight_spec(args) -> dict:
 
 def _build_plan(args) -> list:
     """The 6 store families, plus a fulfillment sub-catalog when --fulfillment-fraction > 0.
-    Store shares scale to (1-F) and the fulfillment families sum to F, so shares stay relative."""
+    Store shares scale to (1-F) and the fulfillment families sum to F, so shares stay relative.
+    --freq-profile bell swaps the per-category freq specs for bell (normal) ones and gives
+    fulfillment SKUs an equal-weight 3-normal mixture; 'uniform' keeps the baseline plan."""
+    bell    = args.freq_profile == 'bell'
+    base    = BELL_CREATION_PLAN if bell else CREATION_PLAN
+    ff_freq = BELL_FF_FREQ if bell else None
     f = args.fulfillment_fraction
     if f <= 0.0:
-        return list(CREATION_PLAN)
-    store = [replace(fam, share=fam.share * (1.0 - f)) for fam in CREATION_PLAN]
+        return list(base)
+    store = [replace(fam, share=fam.share * (1.0 - f)) for fam in base]
     lo, hi = args.ff_dim_range
     ff = fulfillment_families(
         total_share=f, cube_fraction=args.ff_cube_fraction, weight_spec=_ff_weight_spec(args),
-        dim_low=lo, dim_high=hi, cube_sizes=tuple(args.ff_cube_sizes),
+        dim_low=lo, dim_high=hi, cube_sizes=tuple(args.ff_cube_sizes), freq_spec=ff_freq,
     )
     return store + ff
 
@@ -201,6 +234,10 @@ def main() -> None:
     parser.add_argument('--affinity-min-lift', type=float, default=1.0)
     parser.add_argument('--affinity-max-lift', type=float, default=5.0)
     parser.add_argument('--affinity-seed', type=int, default=0)
+    parser.add_argument('--freq-profile', choices=['uniform', 'bell'], default='uniform',
+                        help="relative-frequency profile: 'uniform' (baseline per-category specs) "
+                             "or 'bell' (per-category normals for store + a 3-normal mixture for "
+                             'fulfillment). --freq-spec, if given, overrides this for every family.')
     parser.add_argument('--freq-spec', default=None,
                         help='JSON relative-frequency override applied to ALL families')
     parser.add_argument('--qty-spec', default=None,
@@ -243,7 +280,8 @@ def main() -> None:
     plan = _build_plan(args)
 
     if args.estimate:
-        print(f'\n  Creation plan: {len(plan)} families  num_skus={args.num_skus:,}')
+        print(f'\n  Creation plan: {len(plan)} families  num_skus={args.num_skus:,}  '
+              f'freq profile={args.freq_profile}')
         print(f'  {"category":<12}{"share":>7}{"conv":>7}{"nonconv":>9}')
         for f in plan:
             print(f'  {f.category:<12}{f.share:>7.2f}{f.handling_split[0]:>7.2f}{f.handling_split[1]:>9.2f}')
@@ -261,12 +299,13 @@ def main() -> None:
     ts         = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_name   = args.name or f'mixed_{ts}'   # one timestamped run folder; one leaf per lead spec
     run_dir    = os.path.join(out_dir, run_name)
-    lead_specs = [_parse_lead_spec(s, args.lead_random_range) for s in args.lead_times]
+    lead_specs = [_parse_lead_spec(s, args.lead_random_range, args.freq_profile) for s in args.lead_times]
 
     print(f'\n{"="*64}')
     print(f'  Mixed run     : {run_name}')
     print(f'  Dir           : {run_dir}')
     print(f'  num_skus={args.num_skus:,}  seed={args.seed}  coverage={args.coverage}')
+    print(f'  freq profile  : {args.freq_profile}')
     print(f'  lead specs    : {args.lead_times}  ->  ' + ', '.join(n for n, _, _ in lead_specs))
     print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}  (store-only)')
     if args.fulfillment_fraction > 0:
