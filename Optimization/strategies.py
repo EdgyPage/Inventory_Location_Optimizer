@@ -376,12 +376,13 @@ def strategies_for(restocks) -> list[Strategy]:
 # Which restock (assignment-function) subset each channel sweeps.  Lives HERE — the
 # strategies setup file that owns the `restock` keys — so the runner has no special-case
 # strategy constants.  None ⇒ the full assignment-function suite.
-#   store       : fifo (baseline) vs rank_labor (historic winner) vs rank_cartlabor
-#                 (cart-swap-aware; confirms the big store cart barely moves the plan).
-#   fulfillment : the full sweep, so the small-cart channel is compared across every fn.
+#   store       : full sweep — every assignment function is compared on the big-cart channel.
+#   fulfillment : full sweep — every assignment function is compared on the small-cart channel.
+# To re-restrict a channel to a curated subset, set its value to a tuple of restock keys,
+# e.g. store: ('fifo', 'rank_labor', 'rank_cartlabor').
 CHANNEL_RESTOCKS: dict[str, tuple[str, ...] | None] = {
-    'store'      : ('fifo', 'rank_labor', 'rank_cartlabor'),
-    'fulfillment': None,
+    'store'      : None,   # full assignment-function suite
+    'fulfillment': None,   # full assignment-function suite
 }
 
 
