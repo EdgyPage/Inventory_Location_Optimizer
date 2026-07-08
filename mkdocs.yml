@@ -71,6 +71,14 @@ exclude_docs: |
 nav:
   - Home: index.md
   - Future experiment discussion: future-experiments.md
+  - Experiment 2:
+      - Overview: experiments/experiment-2/index.md
+      - Simulation lifecycle: experiments/experiment-2/comparison-overview.md
+      - Inventory baselines: experiments/experiment-2/inventory.md
+      - Formula reference: experiments/experiment-2/formula-reference.md
+      - Highlights: experiments/experiment-2/highlights.md
+      - Everything else: experiments/experiment-2/everything-else.md
+      - Glossary: experiments/experiment-2/glossary.md
   - Experiment 1:
       - Overview: experiments/experiment-1/index.md
       - Simulation lifecycle: experiments/experiment-1/comparison-overview.md
