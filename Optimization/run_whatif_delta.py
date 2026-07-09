@@ -61,7 +61,8 @@ def _scan(cell_dir: str) -> dict:
 def main():
     ap = argparse.ArgumentParser(description='Diff what-if scenarios vs a reference cell.')
     ap.add_argument('base_dir')
-    ap.add_argument('--reference', default='base')
+    ap.add_argument('--reference', default='k1_off',
+                    help="reference cell to diff against (default the no-split/no-zoning 'k1_off')")
     args = ap.parse_args()
 
     cells = [d for d in sorted(os.listdir(args.base_dir))
