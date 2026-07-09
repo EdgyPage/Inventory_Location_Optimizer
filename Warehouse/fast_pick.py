@@ -157,6 +157,16 @@ def _simulate_picker_deferred(
 
             mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty))
 
+        # One-way lane EXIT (lockstep with Pick.py): traverse to the aisle far end + descend.
+        if cfg.one_way and task.path:
+            L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
+            if L is None:
+                L = max((b.x_phys for b in task.path), default=0.0)
+            exit_x = abs(L - x) * x_pace
+            exit_y = y * y_pace
+            t      += exit_x + exit_y
+            acc_npx += exit_x; acc_npy += exit_y
+
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_end',
             aisle_id=task.aisle_id,

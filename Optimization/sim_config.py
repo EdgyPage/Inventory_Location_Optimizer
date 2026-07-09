@@ -175,6 +175,7 @@ FULFILLMENT_CONFIGS = [
         'cart'            : 'FulfillmentCart',
         'x_speed'         : 2,    # ft/s
         'y_speed'         : 4,    # ft/s
+        'one_way'         : True, # one-way lanes: aisle DEPTH drives x-travel (see travel model)
         'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
         # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     },
@@ -189,6 +190,7 @@ FULFILLMENT_CONFIGS = [
         'cart'            : 'FulfillmentCart',
         'x_speed'         : 4,    # ft/s
         'y_speed'         : 4,    # ft/s
+        'one_way'         : True, # one-way lanes (see travel model)
         'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
         # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     },

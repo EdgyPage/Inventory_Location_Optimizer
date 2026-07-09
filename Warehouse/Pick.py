@@ -355,8 +355,20 @@ class PickSimulation(_ProgressAPIMixin):
                     if has_manager:
                         empties.append(bin_)
 
-            # Flush any trailing travel (to skipped bins after the last pick) so the split
-            # reconciles exactly with task duration; two-way has no explicit exit segment.
+            # One-way lane EXIT: the picker must traverse to the aisle far end (aisle_width) to
+            # leave, then descend to the ground, so aisle DEPTH (not within-aisle span) drives
+            # x-travel.  Charged to non_pick.  Two-way (default) has no exit segment.
+            if cfg.one_way and task.path:
+                L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
+                if L is None:
+                    L = max((b.x_phys for b in task.path), default=0.0)
+                exit_x = abs(L - x) * x_pace
+                exit_y = y * y_pace
+                time   += exit_x + exit_y
+                acc_npx += exit_x; acc_npy += exit_y
+
+            # Flush any trailing travel (skipped bins after the last pick, plus the one-way exit)
+            # so the split reconciles exactly with task duration.
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_end',
                 aisle_id=task.aisle_id,

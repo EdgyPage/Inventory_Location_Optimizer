@@ -68,6 +68,38 @@ def test_pick_fastpick_decomposition_lockstep():
     assert abs(max(e.time for e in ref) - max(e.time for e in fast)) < 1e-9
 
 
+def _bin_a(x, sku, aisle_width, vol=100):
+    """A bin that knows its aisle's far-end width (for the one-way exit)."""
+    return types.SimpleNamespace(
+        x_phys=float(x), y_phys=0.0, location=(1, x, 0),
+        aisle=types.SimpleNamespace(aisle_width=aisle_width),
+        storage=types.SimpleNamespace(order=_order(sku, vol), quantity=5))
+
+
+def test_one_way_total_x_per_visit_equals_aisle_width():
+    """Under one-way lanes, x-travel per aisle visit = the aisle WIDTH (a per-aisle constant,
+    independent of which columns are picked): entry 50 + inter-pick 100 + exit (300-150) = 300."""
+    xp = sec_per_inch(4.0)
+    L = 300
+    task = Task(1, [_bin_a(50, 1, L), _bin_a(150, 2, L)], {1: 1, 2: 1})
+    cfg = _cfg(); cfg.one_way = True
+    events = PickSimulation([task], cfg).run()
+    tx, ty = task_travel_axes(events)
+    assert abs(tx - L * xp) < 1e-9, (tx, L * xp)        # total x == aisle width
+    pick, nonpick, cart = task_travel_breakdown(events)
+    assert abs(pick - 100 * xp) < 1e-9                   # inter-pick sweep 50→150
+    assert abs(nonpick - (50 + 150) * xp) < 1e-9         # entry 50 + exit 150
+
+
+def test_two_way_has_no_exit_segment():
+    """Two-way (default) charges no exit: x-travel stops at the deepest pick (150), not aisle end."""
+    xp = sec_per_inch(4.0)
+    task = Task(1, [_bin_a(50, 1, 300), _bin_a(150, 2, 300)], {1: 1, 2: 1})
+    events = PickSimulation([task], _cfg()).run()          # one_way defaults False
+    tx, _ = task_travel_axes(events)
+    assert abs(tx - 150 * xp) < 1e-9                       # 0→150 monotone, no exit to 300
+
+
 def test_per_task_reset_measures_entry_from_entrance():
     """Per-task reset (B2): each aisle visit starts at the entrance, so task 2's entry is measured
     from (0,0) — NOT carried over from task 1's last position (the old cross-aisle artifact).
