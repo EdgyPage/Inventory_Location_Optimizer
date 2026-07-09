@@ -51,6 +51,7 @@ from Optimization.sim_manifest import (                                    # noq
 
 
 from Warehouse.Inventory_Management import Inventory_Manager
+from Optimization import strategies                       # noqa: F401  (--whatif arm override)
 from Optimization.strategies import STRATEGIES, strategies_for
 from Warehouse.Storage_Primitive import StoreCart
 
@@ -560,6 +561,135 @@ def _run_workers_flat(
         log.info('  Log listener stopped')
 
 
+# ── one scenario: manifest + shared-asset build + flat pool run ──────────────────
+# The inner run pipeline for a SINGLE warehouse configuration.  Both the normal
+# single-config run and each what-if matrix cell call this, so the per-pair glue
+# lives in exactly one place.  frozen_by_pair maps label -> an already-planned
+# inventory DB to reshape from (what-if freeze); None per label ⇒ sample fresh.
+def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
+                  frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1):
+    write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
+    g = CONFIG['global']
+    shared_by_pair = {}
+    for label, inv_db, aff_db in pairs:
+        log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
+        shared_by_pair[label] = build_shared_assets(
+            inv_db, aff_db, log,
+            max_skus=g['max_skus'], regime_sizing=regime_sizing,
+            keyframe_interval=g['keyframe_interval'],
+            warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
+            frozen_inventory_db=(frozen_by_pair or {}).get(label),
+        )
+    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
+                      max_tasks_per_child=max_tasks_per_child,
+                      skip_completed=skip_completed)
+    # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
+    # batches so a blank DB is discovered NOW, not halfway through downstream analysis.
+    _warn_blank_arms(base_dir, log)
+
+
+# ── what-if matrix (--whatif): aisle-reconstruction × velocity-zoning sweep ──────
+# The experiment spec (cells, arms, reference) is committed data in whatif_config.py;
+# everything below is the driver that consumes it.  The matrix reshapes ONE frozen
+# inventory across every cell, so cells differ only in layout + zoning.
+
+def _build_cells(spec):
+    """Combinatorial (zoning × k × capacity_loss) cells from a WHATIF spec.  k=1 = no
+    split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec), …];
+    the (k=1, off) cell is the natural reference."""
+    cells, seen = [], set()
+    for zname, zspec in spec['zoning']:
+        for k in spec['ks']:
+            for loss in (spec['losses'] if k > 1 else [0.0]):
+                split = None if k <= 1 else {'k': k, 'capacity_loss': loss}
+                name = f'k{k}' + ('' if k <= 1 else f'_l{int(round(loss * 100))}') + f'_{zname}'
+                if name in seen:
+                    continue
+                seen.add(name)
+                cells.append((name, split, dict(zspec)))
+    return cells
+
+
+def _apply_cell(aisle_split, zoning) -> None:
+    """Mutate CONFIG for one cell: same aisle_split + velocity_zoning on every channel."""
+    for ch in CONFIG['channels']:
+        CONFIG['channels'][ch]['sizing']['aisle_split'] = aisle_split
+        CONFIG['channels'][ch]['velocity_zoning'] = dict(zoning)
+
+
+def _tightest_split(cells):
+    """The split with the largest capacity_loss (fewest bins).  Freezing the sampled
+    inventory to it guarantees every roomier cell can hold it (the frozen inventory
+    always fits)."""
+    splits = [c[1] for c in cells
+              if c[1] and c[1].get('capacity_loss', 0.0) > 0 and int(c[1].get('k', 1)) > 1]
+    return max(splits, key=lambda s: s.get('capacity_loss', 0.0), default=None)
+
+
+def _cell_complete(scenario_base: str, pairs: list) -> bool:
+    """A cell is done when it has ≥1 sim_meta.json per pair (all its configs finalized)."""
+    import glob
+    if not os.path.isdir(scenario_base):
+        return False
+    return all(glob.glob(os.path.join(scenario_base, label, '**', 'sim_meta.json'), recursive=True)
+               for label, _i, _a in pairs)
+
+
+def _run_whatif_matrix(base_dir, pairs, log, resume=False):
+    """Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory
+    once (tightest cell), then reshape + simulate it for every cell."""
+    from Optimization.whatif_config import WHATIF
+    cells = _build_cells(WHATIF)
+    reference = next((c[0] for c in cells if c[1] is None and not c[2].get('enabled')),
+                     cells[0][0])
+    # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
+    # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
+    # snapshotted at import, so refresh it too.
+    if WHATIF.get('arms') is not None:
+        arms = None if str(WHATIF['arms']).lower() == 'all' else tuple(WHATIF['arms'])
+        for ch in CONFIG['channels']:
+            strategies.CHANNEL_RESTOCKS[ch] = arms
+            CONFIG['channels'][ch]['restocks'] = strategies.restocks_for(ch)
+
+    log.info(f'What-if matrix → {base_dir}  ({len(cells)} cells, reference={reference}, '
+             f'arms={WHATIF.get("arms")!r}, resume={resume})')
+    log.info('  cells: ' + ', '.join(c[0] for c in cells))
+
+    # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair ────
+    _apply_cell(_tightest_split(cells), {'enabled': False})
+    g = CONFIG['global']
+    frozen: dict = {}
+    for label, inv_db, aff_db in pairs:
+        frozen_db = os.path.join(base_dir, '_frozen', label, 'planned_inventory.db')
+        if resume and os.path.exists(frozen_db):
+            frozen[label] = frozen_db
+            log.info(f'  reusing frozen inventory[{label}]')
+            continue
+        log.info(f'\n{"="*64}\n  FREEZE inventory (tightest cell): {label}\n{"="*64}')
+        shared = build_shared_assets(
+            inv_db, aff_db, log, max_skus=g['max_skus'],
+            regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
+            warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
+        frozen[label] = shared['planned_inv_db']
+
+    # ── 2. Each cell: reshape the warehouse from the FROZEN inventory + simulate ──
+    for name, aisle_split, zoning in cells:
+        scenario_base = os.path.join(base_dir, name)
+        if resume and _cell_complete(scenario_base, pairs):
+            log.info(f'  SKIP cell {name} (already complete)')
+            continue
+        zdesc = zoning.get('mode', 'off') if zoning.get('enabled') else 'off'
+        log.info(f'\n{"#"*64}\n  CELL {name}  split={aisle_split}  zoning={zdesc}\n{"#"*64}')
+        _apply_cell(aisle_split, zoning)
+        os.makedirs(scenario_base, exist_ok=True)
+        _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
+                      frozen_by_pair=frozen, skip_completed=resume)
+
+    log.info(f'\nWhat-if matrix complete → {base_dir}')
+    log.info(f'  Per-cell graphs: python run_analysis.py {base_dir}\\<cell>')
+    log.info(f'  Compare:         python -m Optimization.run_whatif_delta {base_dir} --reference {reference}')
+
+
 # ── entry point ────────────────────────────────────────────────────────────────
 
 def main():
@@ -613,6 +743,11 @@ def main():
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
+    parser.add_argument('--whatif', action='store_true',
+                        help='What-if MODE: sweep the aisle-reconstruction × velocity-zoning matrix '
+                             'defined in Optimization/whatif_config.py over ONE frozen inventory + '
+                             'batch stream (apples-to-apples layout comparison). Shares this whole CLI; '
+                             'output goes to comparison_whatif_<ts>/<cell>/…. Compare with run_whatif_delta.')
     args = parser.parse_args()
 
     # ── apply CLI overrides onto CONFIG (the single source of truth) ─────────────
@@ -645,7 +780,8 @@ def main():
             sys.exit(f'Resume directory not found: {base_dir}')
     else:
         ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-        base_dir = os.path.join(_OUTPUT_DIR, f'comparison_{ts}')
+        prefix   = 'comparison_whatif' if args.whatif else 'comparison'
+        base_dir = os.path.join(_OUTPUT_DIR, f'{prefix}_{ts}')
         os.makedirs(base_dir, exist_ok=True)
 
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
@@ -682,37 +818,24 @@ def main():
 
     n_store = len(STORE_CONFIGS)
     n_ff    = len(FULFILLMENT_CONFIGS)
-    n_strats  = len(STRATEGIES)
     workers = args.workers or 1
     log.info(
         f'Execution plan: {len(pairs)} pair(s) × ({n_store} store + up to {n_ff} fulfillment) '
         f'config(s), swept independently per channel  |  flat pool workers={workers}'
     )
 
-    # Top-level run manifest: a schema index of this run — see sim_manifest.
-    write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
-    log.info(f'Wrote run_manifest.json ({len(pairs)} inv × {n_store} store + {n_ff} ff cfg × {n_strats} strat)')
+    # What-if MODE: sweep the layout × zoning matrix (whatif_config.py) over ONE frozen
+    # inventory + batch stream.  Each cell is its own scenario subtree, run via _run_scenario.
+    if args.whatif:
+        _run_whatif_matrix(base_dir, pairs, log, resume=bool(args.resume))
+        return
+
+    # ── single-config run: manifest + shared-asset build + flat pool (all in _run_scenario) ──
     # Per-regime warehouse sizing assembled from CONFIG (shared with run_analysis's rebuild).
     regime_sizing = regime_sizing_from_config()
-
-    # ── flat ProcessPoolExecutor: every (pair,config,strategy) unit shares one pool ──
-    shared_by_pair = {}
-    for label, inv_db, aff_db in pairs:
-        log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
-        shared_by_pair[label] = build_shared_assets(
-            inv_db, aff_db, log,
-            max_skus=g['max_skus'], regime_sizing=regime_sizing,
-            keyframe_interval=g['keyframe_interval'],
-            warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
-        )
-    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
-                      max_tasks_per_child=args.max_tasks_per_child,
-                      skip_completed=bool(args.resume))
-
-    # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
-    # batches (e.g. an arm whose placement left no stock so every batch is skipped),
-    # so a blank DB is discovered NOW, not halfway through downstream analysis.
-    _warn_blank_arms(base_dir, log)
+    _run_scenario(base_dir, pairs, regime_sizing, workers, log,
+                  skip_completed=bool(args.resume),
+                  max_tasks_per_child=args.max_tasks_per_child)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × ({n_store} store + {n_ff} ff) config(s) simulations complete.'
              f'  Root: {base_dir}'

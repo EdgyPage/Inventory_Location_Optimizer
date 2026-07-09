@@ -6,7 +6,7 @@ every cell against the reference cell.  Emits whatif_delta.csv + a labor-saving-
 scatter (one point per cell×channel×arm) and a median summary — tracking BOTH axes, since for
 fulfillment the throughput gain is the interesting lever (total labor is cart-swap-dominated).
 
-    python Optimization/run_whatif_delta.py <comparison_whatif_...> --reference base
+    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config
 """
 from __future__ import annotations
 
@@ -61,9 +61,17 @@ def _scan(cell_dir: str) -> dict:
 def main():
     ap = argparse.ArgumentParser(description='Diff what-if scenarios vs a reference cell.')
     ap.add_argument('base_dir')
-    ap.add_argument('--reference', default='k1_off',
-                    help="reference cell to diff against (default the no-split/no-zoning 'k1_off')")
+    ap.add_argument('--reference', default=None,
+                    help="reference cell to diff against (default: WHATIF['reference'] from "
+                         "whatif_config.py, else 'k1_off')")
     args = ap.parse_args()
+    if args.reference is None:
+        # Single source of truth: the sweep's reference cell lives in whatif_config.
+        try:
+            from Optimization.whatif_config import WHATIF
+            args.reference = WHATIF.get('reference', 'k1_off')
+        except Exception:
+            args.reference = 'k1_off'
 
     cells = [d for d in sorted(os.listdir(args.base_dir))
              if os.path.isdir(os.path.join(args.base_dir, d)) and not d.startswith('_')]
