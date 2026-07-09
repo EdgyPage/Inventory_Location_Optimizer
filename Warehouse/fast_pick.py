@@ -77,6 +77,11 @@ def _simulate_picker_deferred(
         total_bins  = len(task.path)
         total_items = sum(task.items.values())
         bins_done   = 0
+        # Travel decomposition — kept byte-for-byte in lockstep with Pick.py._simulate_picker
+        # (guarded by test_placement_fastpath_equivalence).  Phase flips at the first picked
+        # stop: before = aisle ENTRY (non_pick), after = INTER-PICK (pick).
+        first_pick_seen = False
+        acc_px = acc_py = acc_npx = acc_npy = 0.0
 
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_start',
@@ -86,9 +91,14 @@ def _simulate_picker_deferred(
         ))
 
         for bin_ in task.path:
-            t += (abs(bin_.x_phys - x) * x_pace
-                  + abs(bin_.y_phys - y) * y_pace)
+            seg_x = abs(bin_.x_phys - x) * x_pace
+            seg_y = abs(bin_.y_phys - y) * y_pace
+            t += seg_x + seg_y
             x, y = bin_.x_phys, bin_.y_phys
+            if first_pick_seen:
+                acc_px += seg_x; acc_py += seg_y
+            else:
+                acc_npx += seg_x; acc_npy += seg_y
 
             bid      = id(bin_)
             snap_qty = local_qty.get(bid, bin_snap.get(bid, 0))
@@ -108,7 +118,11 @@ def _simulate_picker_deferred(
                 aisle_id=task.aisle_id, location=bin_.location,
                 bins_completed=bins_done, total_bins=total_bins,
                 items_picked=session_items, total_items=total_items,
+                pick_travel_x=acc_px, pick_travel_y=acc_py,
+                non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
             ))
+            acc_px = acc_py = acc_npx = acc_npy = 0.0
+            first_pick_seen = True
 
             # Swap consumes its own time; advancing `t` before emitting the event makes the gap
             # ending at cart_swap carry the swap seconds → attributed to travel (see Pick.py).
@@ -121,6 +135,7 @@ def _simulate_picker_deferred(
                     aisle_id=task.aisle_id, location=bin_.location,
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
+                    cart_move=cfg.cart_swap_coef,
                 ))
                 cart_remaining = cart_cap
 
@@ -144,6 +159,8 @@ def _simulate_picker_deferred(
             aisle_id=task.aisle_id,
             bins_completed=bins_done, total_bins=total_bins,
             items_picked=session_items, total_items=total_items,
+            pick_travel_x=acc_px, pick_travel_y=acc_py,
+            non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
         ))
 
     events.append(PickEvent(

@@ -648,6 +648,11 @@ def extract_picker_events(
             total_bins     = e.total_bins,
             items_picked   = e.items_picked,
             total_items    = e.total_items,
+            pick_travel_x     = getattr(e, 'pick_travel_x', 0.0),
+            pick_travel_y     = getattr(e, 'pick_travel_y', 0.0),
+            non_pick_travel_x = getattr(e, 'non_pick_travel_x', 0.0),
+            non_pick_travel_y = getattr(e, 'non_pick_travel_y', 0.0),
+            cart_move         = getattr(e, 'cart_move', 0.0),
         ))
     return records
 
@@ -684,6 +689,38 @@ def task_time_breakdown(events: list) -> tuple[float, float, float]:
                         other += gap
             prev = e
     return travel, handling, other
+
+
+def task_travel_breakdown(events: list) -> tuple[float, float, float]:
+    """Sibling of task_time_breakdown that reads the EXPLICIT per-event travel decomposition
+    stamped by the sim, returning (pick_travel, non_pick_travel, cart_move) in seconds.
+
+      pick_travel     = Σ (pick_travel_x + pick_travel_y)      — inter-pick within-aisle sweep
+      non_pick_travel = Σ (non_pick_travel_x + non_pick_travel_y)  — aisle entry (+ one-way exit)
+      cart_move       = Σ cart_move                            — cart-swap seconds (non-pick)
+
+    So total travel = pick_travel + non_pick_travel + cart_move, matching the `travel` bucket of
+    task_time_breakdown (which folds cart into travel).  Also exposes the x/y split via
+    task_travel_axes().  Works on PickEvent objects or PickerEventRecord rows.  Unlike the
+    gap-based task_time_breakdown, this is exact even across skipped (no-event) bins because the
+    sim folds their travel into the next stamped event."""
+    pick = nonpick = cart = 0.0
+    for e in events:
+        pick    += getattr(e, 'pick_travel_x', 0.0) + getattr(e, 'pick_travel_y', 0.0)
+        nonpick += getattr(e, 'non_pick_travel_x', 0.0) + getattr(e, 'non_pick_travel_y', 0.0)
+        cart    += getattr(e, 'cart_move', 0.0)
+    return pick, nonpick, cart
+
+
+def task_travel_axes(events: list) -> tuple[float, float]:
+    """The x-vs-y split of POSITIONAL travel (excludes non-axis cart_move), in seconds:
+    (travel_x, travel_y) = (Σ pick_x+nonpick_x, Σ pick_y+nonpick_y).  Evidence for the
+    'x drives fulfillment / y drives store' thesis."""
+    tx = ty = 0.0
+    for e in events:
+        tx += getattr(e, 'pick_travel_x', 0.0) + getattr(e, 'non_pick_travel_x', 0.0)
+        ty += getattr(e, 'pick_travel_y', 0.0) + getattr(e, 'non_pick_travel_y', 0.0)
+    return tx, ty
 
 
 def extract_picks(events: list, batch_id: int, run_id: int = 0) -> list[PickRecord]:

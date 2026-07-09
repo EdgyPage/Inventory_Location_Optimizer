@@ -59,6 +59,18 @@ class PickEvent:
     total_bins: int                     = 0
     items_picked: int                   = 0
     total_items: int                    = 0
+    # ── travel decomposition (seconds accrued since the previous event, stamped in place) ──
+    # Every second the sim advances `time` lands in exactly one field so the split reconciles:
+    #   pick_travel_{x,y}     = INTER-PICK travel (bin→bin between picks), by axis
+    #   non_pick_travel_{x,y} = aisle ENTRY (+ one-way EXIT) travel, by axis
+    #   cart_move             = cart-swap seconds (non-pick, non-axis)
+    # Derived views: pick_travel = px+py;  non_pick_travel = npx+npy+cart_move;
+    #                travel_x = px+npx;  travel_y = py+npy;  task_travel = all five.
+    pick_travel_x: float                = 0.0
+    pick_travel_y: float                = 0.0
+    non_pick_travel_x: float            = 0.0
+    non_pick_travel_y: float            = 0.0
+    cart_move: float                    = 0.0
 
     def __lt__(self, other: PickEvent) -> bool:
         return self.time < other.time
@@ -249,6 +261,12 @@ class PickSimulation(_ProgressAPIMixin):
             total_bins  = len(task.path)
             total_items = sum(task.items.values())
             bins_done   = 0
+            # Travel decomposition (reset per task).  The phase flips at the first picked stop:
+            # travel BEFORE it is aisle ENTRY (non_pick); travel AFTER is INTER-PICK (pick).
+            # Segments to skipped (empty / not-needed) bins accumulate in the pending buffer and
+            # are flushed onto the next emitted event, so no second is lost.
+            first_pick_seen = False
+            acc_px = acc_py = acc_npx = acc_npy = 0.0
 
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_start',
@@ -259,10 +277,16 @@ class PickSimulation(_ProgressAPIMixin):
 
             for bin_ in task.path:
                 # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
-                travel = (abs(bin_.x_phys - x) * x_pace
-                          + abs(bin_.y_phys - y) * y_pace)
-                time += travel
+                # Split per axis for the decomposition; `time` still advances by the identical
+                # sum (seg_x + seg_y) so total task duration is byte-for-byte unchanged.
+                seg_x = abs(bin_.x_phys - x) * x_pace
+                seg_y = abs(bin_.y_phys - y) * y_pace
+                time += seg_x + seg_y
                 x, y = bin_.x_phys, bin_.y_phys
+                if first_pick_seen:
+                    acc_px += seg_x; acc_py += seg_y      # inter-pick sweep
+                else:
+                    acc_npx += seg_x; acc_npy += seg_y    # aisle entry
 
                 if bin_.storage is None:
                     continue
@@ -276,7 +300,11 @@ class PickSimulation(_ProgressAPIMixin):
                     aisle_id=task.aisle_id, location=bin_.location,
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
+                    pick_travel_x=acc_px, pick_travel_y=acc_py,
+                    non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
                 ))
+                acc_px = acc_py = acc_npx = acc_npy = 0.0
+                first_pick_seen = True
 
                 # ── cart swap ────────────────────────────────────────────────
                 # The swap consumes its own time (return the full cart, fetch an empty one).
@@ -292,6 +320,7 @@ class PickSimulation(_ProgressAPIMixin):
                         aisle_id=task.aisle_id, location=bin_.location,
                         bins_completed=bins_done, total_bins=total_bins,
                         items_picked=session_items, total_items=total_items,
+                        cart_move=cfg.cart_swap_coef,
                     ))
                     carts_used   += 1
                     cart_remaining = cart_cap
@@ -321,11 +350,15 @@ class PickSimulation(_ProgressAPIMixin):
                     if has_manager:
                         empties.append(bin_)
 
+            # Flush any trailing travel (to skipped bins after the last pick) so the split
+            # reconciles exactly with task duration; two-way has no explicit exit segment.
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_end',
                 aisle_id=task.aisle_id,
                 bins_completed=bins_done, total_bins=total_bins,
                 items_picked=session_items, total_items=total_items,
+                pick_travel_x=acc_px, pick_travel_y=acc_py,
+                non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
             ))
 
         events.append(PickEvent(
