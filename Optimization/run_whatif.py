@@ -11,13 +11,15 @@ Each cell writes its own scenario subtree `comparison_whatif_<ts>/<cell>/<pair>/
 so `run_analysis <cell>` and the scenario-delta comparator work per scenario.  Reuses the entire
 run_simulation inner pipeline (build_shared_assets → _run_workers_flat), and is RESUMABLE.
 
-    # 3 k-values × 3 loss-values × {off, abc} over both regimes, 100 batches, 20 workers:
-    python Optimization/run_whatif.py --k 1,2,3 --loss 0,0.10,0.15 --zoning off,abc \
-        --n-batches 100 --workers 20
-    # resume a long run that was interrupted:
-    python Optimization/run_whatif.py --resume comparison_whatif_20260709_...  --workers 20
+    # run from the repo root as a module (so the Optimization package imports resolve).
+    # all assignment fns × {off, 2-band, 3-band zoning} × split-in-two at {0%, 10%} loss, both regimes:
+    python -m Optimization.run_whatif --k 1,2 --loss 0,0.10 --zoning off,abc2,abc3 \
+        --arms all --n-batches 100 --workers 20
+    # resume a long run that was interrupted (reuses the frozen inventory, skips finished cells/arms):
+    python -m Optimization.run_whatif --resume comparison_whatif_20260709_... --arms all \
+        --k 1,2 --loss 0,0.10 --zoning off,abc2,abc3 --workers 20
     # compare:
-    python Optimization/run_whatif_delta.py <comparison_whatif_...> --reference k1_off
+    python -m Optimization.run_whatif_delta <comparison_whatif_...> --reference k1_off
 """
 from __future__ import annotations
 
@@ -37,7 +39,12 @@ ARMS_DEFAULT = ('fifo', 'rank_labor', 'comp')   # the what-if compares LAYOUTS, 
 
 
 def _zoning(mode: str) -> dict:
-    if mode == 'abc':
+    """Zoning cell spec.  off | abc2 (2-band hot/cold) | abc3 == abc (3-band A/B/C) | equal.
+    Manual mass thresholds (hot band = SKUs holding the top X% of demand mass; aisles then
+    allocated by band footprint so the hot band is a small aisle fraction)."""
+    if mode == 'abc2':
+        return {'enabled': True, 'mode': 'abc', 'n_bands': 2, 'abc': {'mass_thresholds': [0.7]}}
+    if mode in ('abc', 'abc3'):
         return {'enabled': True, 'mode': 'abc', 'n_bands': 3, 'abc': {'mass_thresholds': [0.7, 0.9]}}
     if mode == 'equal':
         return {'enabled': True, 'mode': 'equal', 'n_bands': 3}
@@ -83,8 +90,9 @@ def main():
     ap.add_argument('--profiles-dir', default=rs._DEFAULT_PROFILES_DIR)
     ap.add_argument('--k', default='1,2', help='comma list of aisle-split segment counts (1=no split)')
     ap.add_argument('--loss', default='0,0.15', help='comma list of capacity_loss fractions (k>1 only)')
-    ap.add_argument('--zoning', default='off,abc', help='comma list of zoning modes: off|abc|equal')
-    ap.add_argument('--arms', default=','.join(ARMS_DEFAULT), help='comma list of restock arms to sweep')
+    ap.add_argument('--zoning', default='off,abc', help='comma list of zoning modes: off|abc2|abc3(=abc)|equal')
+    ap.add_argument('--arms', default=','.join(ARMS_DEFAULT),
+                    help="comma list of restock arms to sweep, or 'all' for the full assignment-function suite")
     ap.add_argument('--n-batches', type=int, default=100)
     ap.add_argument('--max-skus', type=int, default=None)
     ap.add_argument('--workers', type=int, default=20)
@@ -96,7 +104,8 @@ def main():
 
     cells = _build_cells(_cells_arg(args.k, int), _cells_arg(args.loss, float), _cells_arg(args.zoning, str))
     reference = next((c[0] for c in cells if c[1] is None and not c[2]['enabled']), cells[0][0])
-    arms = tuple(_cells_arg(args.arms, str))
+    # --arms all ⇒ None = the FULL restock suite (all 17 assignment fns × uni/opt = 34 arms, _norsl).
+    arms = None if args.arms.strip().lower() == 'all' else tuple(_cells_arg(args.arms, str))
 
     g = CONFIG['global']
     g['n_batches'] = args.n_batches
@@ -108,7 +117,7 @@ def main():
     if args.s_min_bins is not None:
         CONFIG['channels']['store']['sizing']['min_bins'] = args.s_min_bins
     for ch in CHANNELS:
-        strategies.CHANNEL_RESTOCKS[ch] = arms
+        strategies.CHANNEL_RESTOCKS[ch] = arms   # None ⇒ full assignment-function suite
         CONFIG['channels'][ch]['restocks'] = strategies.restocks_for(ch)
 
     if args.resume:
@@ -120,8 +129,8 @@ def main():
         base_dir = os.path.join(rs._OUTPUT_DIR, f'comparison_whatif_{ts}')
         os.makedirs(base_dir, exist_ok=True)
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
-    log.info(f'What-if matrix → {base_dir}  ({len(cells)} cells, reference={reference}, arms={arms}, '
-             f'n_batches={args.n_batches}, resume={bool(args.resume)})')
+    log.info(f'What-if matrix → {base_dir}  ({len(cells)} cells, reference={reference}, '
+             f'arms={"all" if arms is None else arms}, n_batches={args.n_batches}, resume={bool(args.resume)})')
     log.info('  cells: ' + ', '.join(c[0] for c in cells))
 
     pairs = rs.find_latest_db_pairs(args.profiles_dir)
