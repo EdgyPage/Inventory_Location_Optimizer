@@ -43,16 +43,25 @@ def build_shared_assets(
     regime_sizing     : dict | None = None,
     keyframe_interval : int = 5,
     warehouse_db_path : str | None = None,
+    frozen_inventory_db : str | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
 
     Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the
     60-type layout satisfying that constraint).
+
+    frozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and
+    DO NOT re-sample — every scenario/cell shares one frozen sampled inventory, so the batch
+    fingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.
+    The warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the
+    sampled inventory is held fixed.  None ⇒ current behavior (byte-identical).
     """
-    log.info(f'  Loading inventory  : {inventory_db}'
+    _src_db = frozen_inventory_db or inventory_db
+    log.info(f'  Loading inventory  : {_src_db}'
+             + ('  (frozen)' if frozen_inventory_db else '')
              + (f'  (limit {max_skus:,} SKUs)' if max_skus else ''))
     t0        = time.perf_counter()
-    inventory = load_inventory_from_db(inventory_db, limit=max_skus)
+    inventory = load_inventory_from_db(_src_db, limit=max_skus)
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} orders  ({time.perf_counter()-t0:.2f}s)')
 
@@ -81,15 +90,18 @@ def build_shared_assets(
         composition  = composition,
         regime_sizing= regime_sizing,
         # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
-        # maps, so skip the expensive inventory re-stock in that path.
-        sample       = warehouse_db_path is not None,
+        # maps, so skip the expensive inventory re-stock in that path.  A frozen inventory is
+        # already sampled, so we only need the SHAPE (sample=False) and keep the frozen orders.
+        sample       = warehouse_db_path is not None and frozen_inventory_db is None,
         rng          = random.Random(SEED_WORLD + 1),
         log          = log,
     )
-    if plan.sampled:                 # empty when sample=False (analysis path)
+    if plan.sampled:                 # empty when sample=False (analysis / frozen path)
         inventory.orders = plan.sampled
     n_skus             = len(inventory.orders)
-    sku_allowlist      = plan.sku_allowlist
+    # Frozen inventory is already the sampled set ⇒ every SKU is stocked (allowlist = all).
+    sku_allowlist      = ({c.sku for c in inventory.orders} if frozen_inventory_db
+                          else plan.sku_allowlist)
     warehouse_cfg      = plan.warehouse_cfg
     total_aisles       = plan.total_aisles
     total_bins         = plan.total_bins
@@ -101,7 +113,7 @@ def build_shared_assets(
     total_singleton_needed = sum(n for (h, c, s, u), n
                                  in plan.capacity.items() if u == 'singleton')
     total_units_needed     = sum(
-        len(_vsu(c, c.equilibrium_qty)) for c in plan.sampled)
+        len(_vsu(c, c.equilibrium_qty)) for c in (plan.sampled or inventory.orders))
 
     log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
              + (f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
@@ -150,9 +162,16 @@ def build_shared_assets(
     # original, otherwise they palletize with the default scheme and the queue
     # explodes (tiers the warehouse was sized for never get filled). ───────────
     planned_inv_db: str | None = None
-    if warehouse_db_path is not None:
-        _pair_dir = os.path.dirname(os.path.abspath(warehouse_db_path))
-        os.makedirs(_pair_dir, exist_ok=True)   # dir may not exist yet
+    _pair_dir = (os.path.dirname(os.path.abspath(warehouse_db_path))
+                 if warehouse_db_path is not None else None)
+    if _pair_dir is not None:
+        os.makedirs(_pair_dir, exist_ok=True)   # dir may not exist yet (also used by stats below)
+    if frozen_inventory_db is not None:
+        # Frozen: every cell reuses the SAME already-planned inventory DB so workers load an
+        # identical inventory ⇒ identical batch fingerprint across layout cells.
+        planned_inv_db = frozen_inventory_db
+        log.info(f'  Planned inventory -> {planned_inv_db}  (frozen, shared across cells)')
+    elif warehouse_db_path is not None:
         planned_inv_db = os.path.join(_pair_dir, 'planned_inventory.db')
         if os.path.exists(planned_inv_db):
             os.remove(planned_inv_db)   # rewrite fresh each plan
