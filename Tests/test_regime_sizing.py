@@ -95,3 +95,40 @@ def test_regime_sizing_none_matches_no_regressions():
     orders = [c for c in _mixed_orders() if c.storage_handle_config.handling != 'fulfillment']
     plan = Inventory_Manager.plan_warehouse(orders, rng=random.Random(43), **_COMMON)
     assert plan.total_bins > 0 and plan.total_aisles > 0
+
+
+# ── C-geom: optional fulfillment depth-tiering (per-band aisle geometry) ──────────
+
+def _ff_widths(plan):
+    return {ac.aisle_width for ac in plan.warehouse_cfg.aisle_configs
+            if ac.unit_type == 'fulfillment'}
+
+
+def test_depth_classes_none_is_byte_identical():
+    """depth_classes absent vs explicitly None ⇒ identical plan (the byte-identical default)."""
+    orders = _mixed_orders()
+    p0 = _plan(orders, _base_sizing())                      # no depth_classes key
+    rs = _base_sizing(); rs['fulfillment']['depth_classes'] = None
+    p1 = _plan(orders, rs)
+    assert p0.capacity == p1.capacity
+    assert p0.total_bins == p1.total_bins and p0.total_aisles == p1.total_aisles
+    assert _ff_widths(p0) == _ff_widths(p1) and len(_ff_widths(p0)) == 1
+
+
+def test_depth_classes_emit_multiple_widths_and_leave_store_untouched():
+    """With depth_classes set, ff aisles come in multiple WIDTHS sharing their BinKey, total ff
+    bins stay in the same ballpark, the aisle count grows, and STORE is byte-for-byte unchanged."""
+    orders = _mixed_orders()
+    p0 = _plan(orders, _base_sizing())
+    bs0, bf0 = _bins_by_regime(p0)
+    rs = _base_sizing()
+    rs['fulfillment']['depth_classes'] = [{'columns': 10, 'share': 0.3},
+                                          {'columns': 40, 'share': 0.4},
+                                          {'columns': 100, 'share': 0.3}]
+    p1 = _plan(orders, rs)
+    bs1, bf1 = _bins_by_regime(p1)
+    assert bs1 == bs0, f'store bins changed by ff depth tiering ({bs0} -> {bs1})'
+    assert len(_ff_widths(p0)) == 1 and len(_ff_widths(p1)) > 1, (_ff_widths(p0), _ff_widths(p1))
+    assert 0.5 * bf0 <= bf1 <= 1.5 * bf0, f'ff bins wildly off after split: {bf0} -> {bf1}'
+    assert p1.total_aisles > p0.total_aisles                 # shallow aisles → more of them
+    assert all(n > 0 for (h, c, s, u), n in p1.capacity.items() if u == 'fulfillment')

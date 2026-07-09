@@ -237,8 +237,14 @@ CONFIG = {
             'fill'       : 0.92,
             # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
             # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
+            # depth_classes (optional): split each ff size tier's aisles into shallow/deep
+            # SHAPES sharing one BinKey, so velocity zoning / trip-min can route hot SKUs to
+            # shallow (low-travel) aisles.  Each = {'columns': n, 'share': w}; None = one width
+            # (byte-identical).  e.g. [{'columns':10,'share':0.3},{'columns':40,'share':0.4},
+            #                          {'columns':100,'share':0.3}]
             'sizing'     : {'mode': 'fixed',
                             'distribution': {'ff_small': 0.5, 'ff_medium': 0.3, 'ff_large': 0.2},
+                            'depth_classes': None,
                             'target_bins': None, 'min_bins': None, 'max_bins': None,
                             'max_aisles': None},
         },

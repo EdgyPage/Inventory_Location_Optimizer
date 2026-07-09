@@ -127,6 +127,33 @@ def _apply_caps(buckets, replicas, eff_fn, min_bins, max_bins, max_aisles, log=N
     return total_aisles, total_bins
 
 
+def _ff_depth_split(size: str, target_bins: int, depth_classes: list, ff_h: int):
+    """Split one fulfillment size tier's target bins across DEPTH classes (shallow…deep aisles
+    that share the same BinKey), so a placement wave can route hot SKUs to shallow aisles.
+
+    Each class is {'columns': n, 'share': w}; its aisle_width = n·FULFILLMENT_BIN_WIDTH and it
+    holds ~ (share) of `target_bins` worth of bins.  Returns (classes, total_bins) where
+    classes = [(aisle_width, n_aisles, eff_per_aisle), …].  Preserves total bins (± rounding)
+    while growing the aisle count; guarantees ≥1 aisle per positive-share class so no tier is
+    dropped.  Classes with columns < 1 bin width or non-positive share are skipped."""
+    tier_h    = FF_TIER_HEIGHTS[size]
+    weight_sum = sum(max(0.0, c.get('share', 0.0)) for c in depth_classes) or 1.0
+    classes, total = [], 0
+    for c in depth_classes:
+        cols  = int(c.get('columns', 0))
+        share = max(0.0, float(c.get('share', 0.0)))
+        if cols <= 0 or share <= 0:
+            continue
+        a_w = cols * FULFILLMENT_BIN_WIDTH
+        eff = catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, tier_h, a_w, ff_h)
+        if eff <= 0:
+            continue
+        n = max(1, round((share / weight_sum) * target_bins / eff))
+        classes.append((a_w, n, eff))
+        total += n * eff
+    return classes, total
+
+
 class PlanningMixin:
 
     # ── warehouse planning (pre-instantiation) ────────────────────────────────
@@ -277,8 +304,10 @@ class PlanningMixin:
                             fcfg.get('min_bins'), fcfg.get('max_bins'), fcfg.get('max_aisles'), log)
             fill_for = lambda b: (f_fill if b[3] == FULFILLMENT else s_fill)
 
-        total_aisles = sum(replicas.values())
-        total_bins   = sum(r * _eff(b) for b, r in replicas.items())
+        # Optional fulfillment DEPTH tiering (regime_sizing path only): split each ff size
+        # tier's aisles into shallow/deep shapes.  None/absent ⇒ single-width (byte-identical).
+        ff_depth_classes = ((regime_sizing.get('fulfillment', {}) or {}).get('depth_classes')
+                            if regime_sizing is not None else None)
 
         # Build per-replica AisleConfig list + capacity map.
         aisle_configs: list = []
@@ -287,6 +316,19 @@ class PlanningMixin:
             h, cat, size, unit_type = b
             eff = _eff(b)
             rep = replicas[b]
+            if unit_type == FULFILLMENT and ff_depth_classes:
+                # Split this tier's target bins (rep·eff) across depth classes: aisles of
+                # differing WIDTH (depth) sharing this BinKey, so the placement wave can route
+                # hot SKUs to shallow aisles.  Preserves total bins (± rounding); grows aisles.
+                classes, cap_total = _ff_depth_split(size, rep * eff, ff_depth_classes, ff_h)
+                capacity[b] = cap_total
+                for (a_w, n_aisles, _eff_c) in classes:
+                    for _ in range(n_aisles):
+                        aisle_configs.append(
+                            AisleConfig(h, cat, unit_type, a_w, ff_h, [size], None,
+                                        bin_width=FULFILLMENT_BIN_WIDTH,
+                                        bin_heights={size: FF_TIER_HEIGHTS[size]}))
+                continue
             capacity[b] = rep * eff
             if unit_type == FULFILLMENT:
                 # Fulfillment aisles carry explicit bin geometry + short-shelf dimensions.
@@ -303,6 +345,11 @@ class PlanningMixin:
                 aisle_configs.append(
                     AisleConfig(h, cat, unit_type, a_w, a_h, sizes_arg, None,
                                 bin_width=bin_w, bin_heights=bin_hs))
+
+        # Totals from the ACTUAL emitted configs/capacity (identical to Σrep·eff when no depth
+        # split; correct when a tier was split into differing-width aisles).
+        total_aisles = len(aisle_configs)
+        total_bins   = sum(capacity.values())
 
         # 4: sample SKUs to fill capacity to target_fill.  Skipped when sample=
         # False (e.g. analysis only needs the warehouse shape + aisle maps, not
