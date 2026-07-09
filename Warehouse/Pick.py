@@ -261,6 +261,11 @@ class PickSimulation(_ProgressAPIMixin):
             total_bins  = len(task.path)
             total_items = sum(task.items.values())
             bins_done   = 0
+            # Per-task position reset to the aisle entrance (0,0): each aisle visit starts at the
+            # mouth, so the picker never carries a physically-meaningless cross-aisle offset in
+            # local coordinates.  Travel to the first pick is now the true aisle ENTRY.
+            x = 0.0
+            y = 0.0
             # Travel decomposition (reset per task).  The phase flips at the first picked stop:
             # travel BEFORE it is aisle ENTRY (non_pick); travel AFTER is INTER-PICK (pick).
             # Segments to skipped (empty / not-needed) bins accumulate in the pending buffer and

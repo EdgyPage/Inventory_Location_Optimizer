@@ -77,6 +77,9 @@ def _simulate_picker_deferred(
         total_bins  = len(task.path)
         total_items = sum(task.items.values())
         bins_done   = 0
+        # Per-task position reset to the aisle entrance (lockstep with Pick.py).
+        x = 0.0
+        y = 0.0
         # Travel decomposition — kept byte-for-byte in lockstep with Pick.py._simulate_picker
         # (guarded by test_placement_fastpath_equivalence).  Phase flips at the first picked
         # stop: before = aisle ENTRY (non_pick), after = INTER-PICK (pick).

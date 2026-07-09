@@ -66,3 +66,17 @@ def test_pick_fastpick_decomposition_lockstep():
     assert task_travel_breakdown(ref) == task_travel_breakdown(fast)
     assert task_travel_axes(ref) == task_travel_axes(fast)
     assert abs(max(e.time for e in ref) - max(e.time for e in fast)) < 1e-9
+
+
+def test_per_task_reset_measures_entry_from_entrance():
+    """Per-task reset (B2): each aisle visit starts at the entrance, so task 2's entry is measured
+    from (0,0) — NOT carried over from task 1's last position (the old cross-aisle artifact).
+    Task 1 pick at x=100, task 2 pick at x=30 → entry = 100 + 30 = 130*x_pace (reset), not
+    100 + |30-100| = 170*x_pace (artifact)."""
+    xp = sec_per_inch(4.0)
+    t1 = Task(1, [_bin(100, 0, 1)], {1: 1})
+    t2 = Task(2, [_bin(30, 0, 2)], {2: 1})
+    events = PickSimulation([t1, t2], _cfg()).run()
+    pick, nonpick, cart = task_travel_breakdown(events)
+    assert pick == 0.0 and cart == 0.0          # one pick per task → no inter-pick, no swap
+    assert abs(nonpick - 130 * xp) < 1e-9        # 130 (reset) not 170 (artifact)
