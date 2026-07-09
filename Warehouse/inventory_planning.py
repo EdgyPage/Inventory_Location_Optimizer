@@ -14,7 +14,7 @@ from typing import Any
 
 from Warehouse.Order import Order
 from Warehouse.Aisle_Dimensions import (
-    uniform_aisle_bins, catalog_aisle_bins,
+    uniform_aisle_bins, catalog_aisle_bins, unit_bin_width,
     FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT,
 )
 from Warehouse.Warehouse_Builder import AisleConfig, WarehouseConfig
@@ -152,6 +152,38 @@ def _ff_depth_split(size: str, target_bins: int, depth_classes: list, ff_h: int)
         classes.append((a_w, n, eff))
         total += n * eff
     return classes, total
+
+
+# Hard cap on aisle-split segments per aisle — bounds the aisle-count blow-up since _apply_caps'
+# max_aisles is enforced BEFORE the split (it runs on replicas, not emitted segments).
+MAX_AISLE_SPLIT_K: int = 8
+
+
+def _aisle_split(a_w: int, target_bins: int, eff_fn, bin_width: int,
+                 k, capacity_loss):
+    """Cut an aisle of width `a_w` (holding `target_bins` bins for its bucket) into `k` shorter
+    segments of width ~a_w/k, modeling cross-aisle throughways that consume `capacity_loss` of the
+    bins.  Under one-way lanes, shorter aisles ⇒ less x-traversal.
+
+    Returns (seg_w, n_segments, seg_eff, cap_total) or None (no split ⇒ byte-identical caller path).
+    `eff_fn(width) -> bins-per-segment` (uniform_aisle_bins or catalog_aisle_bins bound to the
+    tier).  k is bounded to ≤ a_w // bin_width (≥1 column/segment) and ≤ MAX_AISLE_SPLIT_K so the
+    emitted aisle count cannot blow up.  Total usable bins ≈ target_bins·(1-capacity_loss) — bins are
+    genuinely SACRIFICED (no compensatory aisles added), so aggressive loss raises fill by design."""
+    loss = float(capacity_loss or 0.0)
+    if not k or int(k) <= 1 or loss >= 1.0:
+        return None
+    max_k = max(1, a_w // bin_width)                 # can't have more segments than bin columns
+    k_eff = min(int(k), max_k, MAX_AISLE_SPLIT_K)
+    if k_eff <= 1:
+        return None
+    seg_w   = a_w // k_eff
+    seg_eff = eff_fn(seg_w)
+    if seg_eff <= 0:
+        return None
+    usable  = target_bins * (1.0 - loss)             # loss applied BEFORE the round
+    n_seg   = max(k_eff, round(usable / seg_eff))    # ≥ k_eff so at least one full split happens
+    return seg_w, n_seg, seg_eff, n_seg * seg_eff
 
 
 class PlanningMixin:
@@ -308,46 +340,70 @@ class PlanningMixin:
         # tier's aisles into shallow/deep shapes.  None/absent ⇒ single-width (byte-identical).
         ff_depth_classes = ((regime_sizing.get('fulfillment', {}) or {}).get('depth_classes')
                             if regime_sizing is not None else None)
+        # Optional AISLE SPLIT per regime: cut each aisle into k shorter segments (throughway
+        # construction) with a capacity loss.  None/{'k':1} ⇒ no split (byte-identical).
+        ff_split    = ((regime_sizing.get('fulfillment', {}) or {}).get('aisle_split')
+                       if regime_sizing is not None else None)
+        store_split = ((regime_sizing.get('store', {}) or {}).get('aisle_split')
+                       if regime_sizing is not None else None)
 
         # Build per-replica AisleConfig list + capacity map.
         aisle_configs: list = []
         capacity: dict[BinKey, int] = {}
+
+        def _emit(h, cat, unit_type, a_w, a_h, sizes_arg, bin_w, bin_hs,
+                  n_aisles, eff_at_aw, eff_fn, bin_width, split) -> int:
+            """Emit `n_aisles` AisleConfigs of width a_w — OR, when `split` is set, cut each into k
+            shorter segments (throughway construction) via _aisle_split.  Returns bins emitted.
+            split=None/{'k':1} ⇒ emits exactly `n_aisles` at a_w ⇒ byte-identical."""
+            sp = _aisle_split(a_w, n_aisles * eff_at_aw, eff_fn, bin_width,
+                              (split or {}).get('k'), (split or {}).get('capacity_loss')) if split else None
+            if sp:
+                seg_w, n_seg, _seg_eff, cap_total = sp
+                for _ in range(n_seg):
+                    aisle_configs.append(AisleConfig(h, cat, unit_type, seg_w, a_h, sizes_arg,
+                                                     None, bin_width=bin_w, bin_heights=bin_hs))
+                return cap_total
+            for _ in range(n_aisles):
+                aisle_configs.append(AisleConfig(h, cat, unit_type, a_w, a_h, sizes_arg,
+                                                 None, bin_width=bin_w, bin_heights=bin_hs))
+            return n_aisles * eff_at_aw
+
         for b in bucket_list:
             h, cat, size, unit_type = b
             eff = _eff(b)
             rep = replicas[b]
+            split = ff_split if unit_type == FULFILLMENT else store_split
             if unit_type == FULFILLMENT and ff_depth_classes:
-                # Split this tier's target bins (rep·eff) across depth classes: aisles of
-                # differing WIDTH (depth) sharing this BinKey, so the placement wave can route
-                # hot SKUs to shallow aisles.  Preserves total bins (± rounding); grows aisles.
-                classes, cap_total = _ff_depth_split(size, rep * eff, ff_depth_classes, ff_h)
-                capacity[b] = cap_total
-                for (a_w, n_aisles, _eff_c) in classes:
-                    for _ in range(n_aisles):
-                        aisle_configs.append(
-                            AisleConfig(h, cat, unit_type, a_w, ff_h, [size], None,
-                                        bin_width=FULFILLMENT_BIN_WIDTH,
-                                        bin_heights={size: FF_TIER_HEIGHTS[size]}))
+                # Split this tier's target bins across depth classes (differing WIDTH aisles sharing
+                # this BinKey); aisle_split, if set, cuts EACH depth-class aisle further.
+                classes, _cap = _ff_depth_split(size, rep * eff, ff_depth_classes, ff_h)
+                eff_fn = lambda w, _s=size: catalog_aisle_bins(FULFILLMENT_BIN_WIDTH,
+                                                               FF_TIER_HEIGHTS[_s], w, ff_h)
+                cap_b = 0
+                for (a_w, n_aisles, eff_c) in classes:
+                    cap_b += _emit(h, cat, unit_type, a_w, ff_h, [size], FULFILLMENT_BIN_WIDTH,
+                                   {size: FF_TIER_HEIGHTS[size]}, n_aisles, eff_c, eff_fn,
+                                   FULFILLMENT_BIN_WIDTH, split)
+                capacity[b] = cap_b
                 continue
-            capacity[b] = rep * eff
             if unit_type == FULFILLMENT:
-                # Fulfillment aisles carry explicit bin geometry + short-shelf dimensions.
-                sizes_arg = [size]
-                a_w, a_h  = ff_w, ff_h
-                bin_w     = FULFILLMENT_BIN_WIDTH
-                bin_hs    = {size: FF_TIER_HEIGHTS[size]}
+                sizes_arg, a_w, a_h = [size], ff_w, ff_h
+                bin_w, bin_hs = FULFILLMENT_BIN_WIDTH, {size: FF_TIER_HEIGHTS[size]}
+                eff_fn = lambda w, _s=size: catalog_aisle_bins(FULFILLMENT_BIN_WIDTH,
+                                                               FF_TIER_HEIGHTS[_s], w, ff_h)
+                bin_width = FULFILLMENT_BIN_WIDTH
             else:
                 sizes_arg = ['singleton'] if unit_type == 'singleton' else [size]
                 a_w, a_h  = aisle_width, aisle_height
-                bin_w     = None
-                bin_hs    = None
-            for _ in range(rep):
-                aisle_configs.append(
-                    AisleConfig(h, cat, unit_type, a_w, a_h, sizes_arg, None,
-                                bin_width=bin_w, bin_heights=bin_hs))
+                bin_w, bin_hs = None, None
+                eff_fn = lambda w, _u=unit_type, _s=size: uniform_aisle_bins(_u, _s, w, aisle_height)
+                bin_width = unit_bin_width(unit_type)
+            capacity[b] = _emit(h, cat, unit_type, a_w, a_h, sizes_arg, bin_w, bin_hs,
+                                rep, eff, eff_fn, bin_width, split)
 
-        # Totals from the ACTUAL emitted configs/capacity (identical to Σrep·eff when no depth
-        # split; correct when a tier was split into differing-width aisles).
+        # Totals from the ACTUAL emitted configs/capacity (identical to Σrep·eff when no split;
+        # correct when a tier was split into differing-width / shorter aisles).
         total_aisles = len(aisle_configs)
         total_bins   = sum(capacity.values())
 

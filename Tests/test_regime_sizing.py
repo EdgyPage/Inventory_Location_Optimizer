@@ -132,3 +132,68 @@ def test_depth_classes_emit_multiple_widths_and_leave_store_untouched():
     assert 0.5 * bf0 <= bf1 <= 1.5 * bf0, f'ff bins wildly off after split: {bf0} -> {bf1}'
     assert p1.total_aisles > p0.total_aisles                 # shallow aisles → more of them
     assert all(n > 0 for (h, c, s, u), n in p1.capacity.items() if u == 'fulfillment')
+
+
+# ── aisle_split: cut aisles into k shorter segments with a capacity loss ──────────
+
+def _configs_by_regime(plan, ff=True):
+    return [ac for ac in plan.warehouse_cfg.aisle_configs
+            if (ac.unit_type == 'fulfillment') == ff]
+
+
+def test_aisle_split_k1_is_byte_identical():
+    orders = _mixed_orders()
+    p0 = _plan(orders, _base_sizing())
+    rs = _base_sizing()
+    rs['fulfillment']['aisle_split'] = {'k': 1}
+    rs['store']['aisle_split'] = {'k': 1}
+    p1 = _plan(orders, rs)
+    assert p0.capacity == p1.capacity
+    assert p0.total_aisles == p1.total_aisles and p0.total_bins == p1.total_bins
+
+
+def test_aisle_split_ff_shortens_and_grows_bins_preserved():
+    orders = _mixed_orders()
+    p0 = _plan(orders, _base_sizing())
+    bs0, bf0 = _bins_by_regime(p0)
+    rs = _base_sizing(); rs['fulfillment']['aisle_split'] = {'k': 2, 'capacity_loss': 0.0}
+    p1 = _plan(orders, rs)
+    bs1, bf1 = _bins_by_regime(p1)
+    assert bs1 == bs0, 'store bins changed by an ff-only aisle split'
+    assert len(_configs_by_regime(p1)) > 1.5 * len(_configs_by_regime(p0)), 'ff aisle count did not ~double'
+    assert 0.9 * bf0 <= bf1 <= 1.1 * bf0, f'ff bins not preserved at loss=0: {bf0} -> {bf1}'
+    assert max(_ff_widths(p1)) < max(_ff_widths(p0)), 'ff aisles not shortened'
+
+
+def test_aisle_split_capacity_loss_drops_bins():
+    # Size the ff warehouse up (min_bins) so per-tier aisle counts are large and the loss is not
+    # dominated by the ≥k-segments rounding floor that matters only at tiny tier counts.
+    orders = _mixed_orders()
+    rs0 = _base_sizing(); rs0['fulfillment']['min_bins'] = 60000
+    rs0['fulfillment']['aisle_split'] = {'k': 2, 'capacity_loss': 0.0}
+    rs1 = _base_sizing(); rs1['fulfillment']['min_bins'] = 60000
+    rs1['fulfillment']['aisle_split'] = {'k': 2, 'capacity_loss': 0.15}
+    _, bf0 = _bins_by_regime(_plan(orders, rs0))
+    _, bf1 = _bins_by_regime(_plan(orders, rs1))
+    assert 0.82 * bf0 <= bf1 <= 0.88 * bf0, f'~15% loss not reflected: {bf0} -> {bf1}'
+
+
+def test_aisle_split_store_branch():
+    orders = _mixed_orders()
+    p0 = _plan(orders, _base_sizing())
+    bs0, bf0 = _bins_by_regime(p0)
+    rs = _base_sizing(); rs['store']['aisle_split'] = {'k': 2, 'capacity_loss': 0.0}
+    p1 = _plan(orders, rs)
+    bs1, bf1 = _bins_by_regime(p1)
+    assert bf1 == bf0, 'fulfillment bins changed by a store-only aisle split'
+    assert len(_configs_by_regime(p1, ff=False)) > 1.5 * len(_configs_by_regime(p0, ff=False))
+
+
+def test_aisle_split_k_bounded():
+    from Warehouse.inventory_planning import MAX_AISLE_SPLIT_K
+    orders = _mixed_orders()
+    ff0 = len(_configs_by_regime(_plan(orders, _base_sizing())))
+    rs = _base_sizing(); rs['fulfillment']['aisle_split'] = {'k': 10_000, 'capacity_loss': 0.0}
+    p = _plan(orders, rs)                                    # must not explode / crash
+    ff1 = len(_configs_by_regime(p))
+    assert ff1 <= ff0 * (MAX_AISLE_SPLIT_K + 1), f'aisle count blew past the k bound: {ff0} -> {ff1}'

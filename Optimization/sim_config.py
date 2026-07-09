@@ -225,11 +225,17 @@ CONFIG = {
             'seed_offset': 0,
             'batch'      : {'mean': 0.15, 'std': 0.05},
             'fill'       : 0.9,
+            # aisle_split (optional): cut each aisle into k shorter segments (~depth/k) with a
+            # capacity_loss modeling throughway construction.  None/{'k':1} = no split
+            # (byte-identical).  e.g. {'k': 2, 'capacity_loss': 0.15}.
             'sizing'     : {'mode': 'demand', 'min_bins': None, 'max_bins': None,
-                            'max_aisles': None, 'composition': None},
+                            'max_aisles': None, 'composition': None, 'aisle_split': None},
             # Velocity zoning: restrict each unit's viable aisles to its velocity band
             # ("like-with-like"), composing with every arm.  enabled=False = byte-identical.
-            'velocity_zoning': {'enabled': False, 'n_bands': 3},
+            # mode 'equal' (default, equal-count bands) | 'abc' (manual A/B/C by demand-mass
+            # thresholds; aisles allocated by band footprint so the hot band is a small fraction).
+            'velocity_zoning': {'enabled': False, 'n_bands': 3, 'mode': 'equal',
+                                'abc': {'mass_thresholds': [0.7, 0.9]}},
         },
         'fulfillment': {
             'regime'     : FULFILLMENT,
@@ -247,14 +253,17 @@ CONFIG = {
             # shallow (low-travel) aisles.  Each = {'columns': n, 'share': w}; None = one width
             # (byte-identical).  e.g. [{'columns':10,'share':0.3},{'columns':40,'share':0.4},
             #                          {'columns':100,'share':0.3}]
+            # aisle_split (optional): cut each aisle into k shorter segments with a capacity_loss
+            # (throughway construction).  None/{'k':1} = byte-identical.  e.g. {'k':2,'capacity_loss':0.15}.
             'sizing'     : {'mode': 'fixed',
                             'distribution': {'ff_small': 0.5, 'ff_medium': 0.3, 'ff_large': 0.2},
-                            'depth_classes': None,
+                            'depth_classes': None, 'aisle_split': None,
                             'target_bins': None, 'min_bins': None, 'max_bins': None,
                             'max_aisles': None},
             # Velocity zoning is the fulfillment experiment axis (default off = byte-identical);
-            # pairs with depth_classes so hot SKUs cluster into shallow aisles.
-            'velocity_zoning': {'enabled': False, 'n_bands': 3},
+            # pairs with depth_classes/aisle_split so hot SKUs cluster into shallow aisles.
+            'velocity_zoning': {'enabled': False, 'n_bands': 3, 'mode': 'equal',
+                                'abc': {'mass_thresholds': [0.7, 0.9]}},
         },
     },
 }
