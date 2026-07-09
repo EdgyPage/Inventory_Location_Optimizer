@@ -225,6 +225,9 @@ CONFIG = {
             'fill'       : 0.9,
             'sizing'     : {'mode': 'demand', 'min_bins': None, 'max_bins': None,
                             'max_aisles': None, 'composition': None},
+            # Velocity zoning: restrict each unit's viable aisles to its velocity band
+            # ("like-with-like"), composing with every arm.  enabled=False = byte-identical.
+            'velocity_zoning': {'enabled': False, 'n_bands': 3},
         },
         'fulfillment': {
             'regime'     : FULFILLMENT,
@@ -247,6 +250,9 @@ CONFIG = {
                             'depth_classes': None,
                             'target_bins': None, 'min_bins': None, 'max_bins': None,
                             'max_aisles': None},
+            # Velocity zoning is the fulfillment experiment axis (default off = byte-identical);
+            # pairs with depth_classes so hot SKUs cluster into shallow aisles.
+            'velocity_zoning': {'enabled': False, 'n_bands': 3},
         },
     },
 }

@@ -239,6 +239,13 @@ def _run_strategy_worker(args: dict) -> dict:
     mgr = Inventory_Manager(warehouse, affinity=None)
     mgr._seed = seed_world   # keys the reorder-qty noise (deterministic, off the global stream)
 
+    # Velocity zoning (per-channel; default off ⇒ byte-identical): band the SKUs by velocity and
+    # the aisles by geometry BEFORE any stocking, so _candidates routes hot SKUs to shallow aisles.
+    _zcfg = args.get('velocity_zoning') or {}
+    if _zcfg.get('enabled'):
+        mgr.configure_zoning(True, int(_zcfg.get('n_bands', 3)), inventory.orders)
+        log.info(f'  velocity zoning ON  (n_bands={mgr._zoning_bands})')
+
     def _arm_aisle_state() -> None:
         """Rebuild per-aisle affinity + demand/labor state from the placed bins."""
         if strat.needs_affinity:

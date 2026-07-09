@@ -313,6 +313,7 @@ def _prepare_channel_run(
         batch_cfg           = ch_batch_cfg,
         channel_regime      = ch_regime,      # worker filters inventory to this regime
         channel_name        = ch.name,
+        velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )
     strategy_args = [{**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
