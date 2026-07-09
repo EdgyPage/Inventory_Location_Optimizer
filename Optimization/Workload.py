@@ -37,6 +37,10 @@ class WorkloadParams:
     # policies that estimate expected cart-swap cost. Default = standard store cart.
     cart_capacity: int      = StoreCart.capacity()
     height_brackets: tuple  = field(default_factory=lambda: _DEFAULT_HEIGHT_BRACKETS)
+    # One-way lanes (mirrors PickConfig.one_way): aisle depth drives x-travel via entry+exit
+    # traversal.  False (default) = today's two-way model.  Read by the analytical mirror and
+    # the one-way-gated scorers.
+    one_way: bool           = False
     # In a MIXED (multi-channel) warehouse: {regime: WorkloadParams} for per-regime cost
     # routing.  Rides on the primary WorkloadParams so the assignment builders resolve the
     # right regime's cost without signature churn.  None ⇒ single-regime (store), unchanged.
@@ -56,6 +60,7 @@ class WorkloadParams:
             cart_swap_coef   = cfg.cart_swap_coef,    # type: ignore[attr-defined]
             cart_capacity    = getattr(cfg, 'cart', StoreCart).capacity(),
             height_brackets  = getattr(cfg, 'height_brackets', _DEFAULT_HEIGHT_BRACKETS),
+            one_way          = getattr(cfg, 'one_way', False),
         )
 
 

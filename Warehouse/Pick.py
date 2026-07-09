@@ -37,6 +37,10 @@ class PickConfig:
     cart: type[StorageCart] = StoreCart
     # (upper_y_phys, handling_multiplier) brackets — scales the per-unit handling by height
     height_brackets: tuple  = field(default_factory=lambda: DEFAULT_HEIGHT_BRACKETS)
+    # One-way lanes: the picker enters an aisle at the mouth and must traverse to the far end
+    # to exit, so aisle DEPTH (not within-aisle span) drives x-travel.  False (default) = today's
+    # two-way model (no explicit exit).  Consumed by the shared aisle_traverse_cost helper.
+    one_way: bool           = False
 
 
 # ── events ───────────────────────────────────────────────────────────────────

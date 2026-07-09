@@ -97,3 +97,32 @@ def travel_cost(x_phys: float, y_phys: float,
     are in inches.  Hot inner loops inline this with a precomputed sec_per_inch() pace to
     avoid the per-bin division; everywhere else, call this."""
     return x_phys * sec_per_inch(x_speed) + y_phys * sec_per_inch(y_speed)
+
+
+def aisle_traverse_cost(first_x: float, first_y: float,
+                        last_x: float, last_y: float,
+                        aisle_length: float,
+                        x_pace: float, y_pace: float,
+                        one_way: bool,
+                        entrance_x: float = 0.0) -> tuple[float, float, float, float]:
+    """Non-pick aisle-traversal time (s) for ONE aisle visit, split into ENTRY and EXIT
+    per axis — the single definition shared by the sim (Pick / fast_pick), the analytical
+    workload (Workload), and the travel decomposition so they can never drift.
+
+    ENTRY = aisle entrance → first pick:
+        entry_x = |first_x - entrance_x| * x_pace ;  entry_y = first_y * y_pace  (raise from ground)
+    EXIT  = last pick → aisle far end (one-way lane only), descend to ground:
+        exit_x  = |aisle_length - last_x| * x_pace ;  exit_y = last_y * y_pace
+    TWO-WAY (default): no exit — the picker leaves the way it came, reproducing today's model.
+
+    `x_pace`/`y_pace` are per-inch paces (sec_per_inch of the regime's speed).  Returns
+    (entry_x, entry_y, exit_x, exit_y) in seconds; sum them for the total non-pick travel."""
+    entry_x = abs(first_x - entrance_x) * x_pace
+    entry_y = first_y * y_pace
+    if one_way:
+        exit_x = abs(aisle_length - last_x) * x_pace
+        exit_y = last_y * y_pace
+    else:
+        exit_x = 0.0
+        exit_y = 0.0
+    return entry_x, entry_y, exit_x, exit_y
