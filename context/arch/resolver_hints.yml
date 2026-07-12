@@ -1,0 +1,20 @@
+# resolver_hints.yml — the ONE dynamic-dispatch layer static AST cannot see.
+#
+# Every OTHER dynamic layer in this repo resolves statically in extract.py:
+#   - mixin methods (Inventory_Manager bases)      -> MRO pass (calls edges)
+#   - string registries (RELOADERS/STRATEGIES/...) -> `ref` edges (function-as-value)
+#   - ProcessPool submit(_run_strategy_worker)     -> `ref` edge (function-as-argument)
+#
+# Only the placement closures are invisible: a strategy stores an anonymous closure on
+# `mgr.placement.place_one` / `.place_wave` (a Placement value object), so the callee name
+# never appears at the dispatch site.  The manager's drain methods below invoke those
+# closures; the closures are the nested `place_one`/`place_wave` defs built by the
+# `build_*` factories in Assignment_Functions.py.  Each anchor is {name, file} — the
+# extractor resolves it to every real node with that name in that file (verified: an
+# unresolved anchor is reported by --write and fails verify_architecture).
+version: 1
+dispatch:
+  - src: {name: _stock_per_unit, file: Warehouse/Inventory_Management.py}   # Inventory_Manager._stock_per_unit -> self.placement.place_one(...)
+    dst: {name: place_one,        file: Warehouse/Assignment_Functions.py}
+  - src: {name: _stock_ranked,   file: Warehouse/Inventory_Management.py}    # Inventory_Manager._stock_ranked -> self.placement.place_wave(...)
+    dst: {name: place_wave,       file: Warehouse/Assignment_Functions.py}

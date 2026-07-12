@@ -1,0 +1,100 @@
+# architecture.yml — curated design INTENT for the warehouse simulator.
+#
+# The DERIVED truth is context/arch/graph.json (regenerated from source by
+# context/arch/extract.py).  This file asserts CLAIMS against that graph, checked by
+# context/arch/verify_architecture.py (gated in the suite by Tests/test_architecture_sync.py):
+#   - SCOPE    (intent ⊆ reality): every `backbone` edge below must exist in graph.json.
+#   - BOUNDARY (reality ⊆ policy): no import edge in graph.json may cross a `forbid` pair.
+#   - anchors: every {name,file,kind} here is checked to exist by verify_context.check_symbol.
+# Anchors are exact code identifiers (never paraphrased); NO line numbers anywhere.
+version: 1
+
+# --- Layers: every source file maps to exactly one layer (longest `match` wins; explicit
+#     `members` override; `except` carves sub-trees out).  Used for BOUNDARY + the catalog.
+layers:
+  - {name: leaf,           members: [Warehouse/physical.py]}          # dependency-free primitive
+  - {name: warehouse_core, match: "Warehouse/",
+     except: ["Warehouse/generation/", "Warehouse/physical.py"]}      # the domain engine
+  - {name: generation,     match: "Warehouse/generation/"}            # data-gen CLIs
+  - {name: optimization,   match: "Optimization/",
+     except: ["Optimization/Performance_Evaluations/", "Optimization/gpu/"]}   # run harness
+  - {name: evaluations,    match: "Optimization/Performance_Evaluations/"}     # analysis/plots
+  - {name: gpu,            match: "Optimization/gpu/"}                # optional GPU accelerators
+  - {name: diagnostics,    match: "Diagnostics/"}
+  - {name: visualization,  match: "Visualization/"}
+  - {name: scripts,        match: "scripts/"}
+  - {name: docs,           match: "docs/"}
+  - {name: tests,          match: "Tests/"}                           # catalog-only (not in the graph)
+
+# --- Boundaries: import invariants the domain must uphold.  Each is currently satisfied
+#     (verified against graph.json); a new import that violates one fails the suite.
+boundaries:
+  - {forbid: [warehouse_core, optimization], why: "domain engine must not import the run harness"}
+  - {forbid: [warehouse_core, evaluations],  why: "domain engine must not import analysis/plotting"}
+  - {forbid: [warehouse_core, generation],   why: "domain engine must not depend on data-gen CLIs"}
+  - {forbid: [warehouse_core, diagnostics],  why: "domain engine must not import diagnostics"}
+  - {forbid: [warehouse_core, visualization],why: "domain engine must not import the viewer"}
+  - {forbid: [warehouse_core, gpu],          why: "core stays CPU-only; GPU is an optional add-on"}
+  - {forbid: [leaf, "*"],                    why: "physical.py is a dependency-free leaf"}
+
+# --- Backbone: the caller->callee edges that define the system's call structure.  SCOPE
+#     asserts each exists in graph.json (via = edge kind: calls | ref | dispatch).
+#     `coverage: static-only` marks edges the empirical coverage test must NOT expect to run
+#     (e.g. the ProcessPool spawn, which coverage_e2e bypasses by design).
+backbone:
+  # simulation entry -> scenario -> shared assets -> warehouse sizing
+  - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}, via: calls}
+  - {src: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function},
+     dst: {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}, via: calls}
+  # scenario -> per-channel prep -> batches
+  - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
+  # spawn boundary: worker passed to the pool as a value (never coverage-measured)
+  - {src: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
+     via: ref, coverage: static-only}
+  # worker body -> batch load + pick simulation
+  - {src: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
+     dst: {name: load_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
+  - {src: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
+     dst: {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}, via: calls}
+  # placement dispatch (the closures behind mgr.placement) — supplied by resolver_hints.yml
+  - {src: {name: _stock_per_unit, file: Warehouse/Inventory_Management.py, kind: function},
+     dst: {name: place_one, file: Warehouse/Assignment_Functions.py, kind: function}, via: dispatch}
+  - {src: {name: _stock_ranked, file: Warehouse/Inventory_Management.py, kind: function},
+     dst: {name: place_wave, file: Warehouse/Assignment_Functions.py, kind: function}, via: dispatch}
+  # capacity-reloader registry membership
+  - {src: {name: RELOADERS, file: Warehouse/Capacity_Reloader.py, kind: const},
+     dst: {name: rebalance_reloader, file: Warehouse/Capacity_Reloader.py, kind: function}, via: ref}
+  # what-if matrix reuses the scenario runner per cell
+  - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  # analysis pipeline
+  - {src: {name: main, file: Optimization/run_analysis.py, kind: function},
+     dst: {name: run_analysis, file: Optimization/run_analysis.py, kind: function}, via: calls}
+  - {src: {name: run_analysis, file: Optimization/run_analysis.py, kind: function},
+     dst: {name: _config_jobs, file: Optimization/run_analysis.py, kind: function}, via: calls}
+  - {src: {name: run_analysis, file: Optimization/run_analysis.py, kind: function},
+     dst: {name: _aggregate_jobs, file: Optimization/run_analysis.py, kind: function}, via: calls}
+
+# --- Hotpaths: functions asserted to actually EXECUTE under the in-process end-to-end
+#     driver (Tests/bench/coverage_e2e.py :: main).  Checked empirically by
+#     Tests/test_architecture_coverage.py.  The first is the sentinel (called directly by
+#     the driver) so a no-op driver fails loudly rather than passing vacuously.
+hotpaths:
+  - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}  # sentinel
+  - {name: build_shared_assets,  file: Optimization/sim_assets.py, kind: function}
+  - {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}
+  - {name: _finalize_config_run, file: Optimization/run_simulation.py, kind: function}
+  - {name: plan_warehouse,       file: Warehouse/inventory_planning.py, kind: function}
+  - {name: ensure_batches,       file: Optimization/batch_precompute.py, kind: function}
+  - {name: run_analysis,         file: Optimization/run_analysis.py, kind: function}

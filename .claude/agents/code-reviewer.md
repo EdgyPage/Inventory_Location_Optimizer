@@ -46,6 +46,12 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
 ## Reuse / simplification / efficiency (secondary)
 Dead code; redundant recomputation in hot pick/assignment loops; needless O(n²); special-cases that
 could fold into an existing code path.
+- **Architecture boundaries**: consult `context/architecture.yml` `boundaries` before approving a new
+  cross-layer import. A new `import` that would make the domain engine (`Warehouse/`) depend on the run
+  harness (`Optimization/`), analysis, generation, diagnostics, viz, or GPU — or that gives the
+  dependency-free leaf `Warehouse/physical.py` an in-repo import — is a layering violation (Critical);
+  `Tests/test_architecture_sync.py` will fail on it. For dead-code / coupling smells, cross-reference
+  `context/arch/INEFFICIENCY.md` (orphan public functions, new import cycles, high fan-in/out).
 
 ## Verify before asserting a bug
 Read the real code paths; where cheap, run the relevant suite and say whether you did:

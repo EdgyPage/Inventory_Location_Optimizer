@@ -4,3 +4,10 @@ mkdocs-material
 mkdocs-glightbox        # click-to-zoom lightbox for result images
 mkdocs-macros-plugin    # inject run parameters/formulas from committed JSON (docs/macros.py)
 pyyaml                  # docs/macros.py reads per-experiment experiment.yml (ships with mkdocs; pinned explicitly)
+
+# Architecture-graph verification extras (context/arch/): the call-graph verifier + file
+# catalog need pyyaml (above); the renderer uses networkx; the empirical hot-path coverage
+# test (Tests/test_architecture_coverage.py) needs coverage.  All optional — the tests
+# importorskip these, so their absence skips rather than fails.
+networkx                # context/arch/render.py — cycle / fan-in-out inefficiency analysis
+coverage                # Tests/test_architecture_coverage.py — empirical hotpath execution

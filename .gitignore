@@ -86,9 +86,12 @@ target/
 # Profiler log files
 Tests/logs/*.log
 
-# Claude Code — ignore local settings/state, but track shared project agents
+# Claude Code — ignore local settings/state, but track shared project agents +
+# the shared project settings (permissions + the architecture-doc Stop hook).
+# settings.local.json stays ignored (per-machine state).
 .claude/*
 !.claude/agents/
+!.claude/settings.json
 
 # IPython
 profile_default/
