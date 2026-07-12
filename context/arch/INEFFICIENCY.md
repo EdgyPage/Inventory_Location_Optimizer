@@ -7,8 +7,8 @@ Heuristics over `graph.json` to surface design smells. Not all are bugs; they ar
 
 - Optimization/Performance_Evaluations/core/discovery.py → Optimization/Performance_Evaluations/__init__.py → Optimization/Performance_Evaluations/core/discovery.py
 - Optimization/sim_config.py → Optimization/channels.py → Optimization/sim_config.py
-- Warehouse/Aisle_Storage.py → Warehouse/Storage_Primitive.py → Warehouse/Aisle_Storage.py
-- Warehouse/Aisle_Storage.py → Warehouse/Aisle_Dimensions.py → Warehouse/Storage_Primitive.py → Warehouse/Aisle_Storage.py
+- Warehouse/Storage_Primitive.py → Warehouse/Aisle_Storage.py → Warehouse/Storage_Primitive.py
+- Warehouse/Aisle_Dimensions.py → Warehouse/Storage_Primitive.py → Warehouse/Aisle_Storage.py → Warehouse/Aisle_Dimensions.py
 
 ## Highest fan-out functions (call many callees)
 

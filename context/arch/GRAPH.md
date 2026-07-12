@@ -31,31 +31,31 @@ graph LR
 
 ## Backbone call structure
 
-The curated caller→callee edges from `context/architecture.yml` (solid = calls, dashed = ref, dotted = dispatch).
+The curated caller-to-callee edges from `context/architecture.yml` (solid = calls, dotted = ref, thick = dispatch).
 
 ```mermaid
 graph LR
-  nmain_Optimization_run_simulation_py["main<br/><small>run_simulation.py</small>"]
-  n_run_scenario_Optimization_run_simulation_py["_run_scenario<br/><small>run_simulation.py</small>"]
-  nbuild_shared_assets_Optimization_sim_assets_py["build_shared_assets<br/><small>sim_assets.py</small>"]
-  nplan_warehouse_Warehouse_inventory_planning_py["plan_warehouse<br/><small>inventory_planning.py</small>"]
-  n_run_workers_flat_Optimization_run_simulation_py["_run_workers_flat<br/><small>run_simulation.py</small>"]
-  n_prepare_channel_run_Optimization_run_simulation_py["_prepare_channel_run<br/><small>run_simulation.py</small>"]
-  nensure_batches_Optimization_batch_precompute_py["ensure_batches<br/><small>batch_precompute.py</small>"]
-  n_run_strategy_worker_Optimization_strategy_runner_py["_run_strategy_worker<br/><small>strategy_runner.py</small>"]
-  nload_batches_Optimization_batch_precompute_py["load_batches<br/><small>batch_precompute.py</small>"]
-  nDeferredPickSimulation_Warehouse_fast_pick_py["DeferredPickSimulation<br/><small>fast_pick.py</small>"]
-  n_stock_per_unit_Warehouse_Inventory_Management_py["_stock_per_unit<br/><small>Inventory_Management.py</small>"]
-  nplace_one_Warehouse_Assignment_Functions_py["place_one<br/><small>Assignment_Functions.py</small>"]
-  n_stock_ranked_Warehouse_Inventory_Management_py["_stock_ranked<br/><small>Inventory_Management.py</small>"]
-  nplace_wave_Warehouse_Assignment_Functions_py["place_wave<br/><small>Assignment_Functions.py</small>"]
-  nRELOADERS_Warehouse_Capacity_Reloader_py["RELOADERS<br/><small>Capacity_Reloader.py</small>"]
-  nrebalance_reloader_Warehouse_Capacity_Reloader_py["rebalance_reloader<br/><small>Capacity_Reloader.py</small>"]
-  n_run_whatif_matrix_Optimization_run_simulation_py["_run_whatif_matrix<br/><small>run_simulation.py</small>"]
-  nmain_Optimization_run_analysis_py["main<br/><small>run_analysis.py</small>"]
-  nrun_analysis_Optimization_run_analysis_py["run_analysis<br/><small>run_analysis.py</small>"]
-  n_config_jobs_Optimization_run_analysis_py["_config_jobs<br/><small>run_analysis.py</small>"]
-  n_aggregate_jobs_Optimization_run_analysis_py["_aggregate_jobs<br/><small>run_analysis.py</small>"]
+  nmain_Optimization_run_simulation_py["main<br/>run_simulation.py"]
+  n_run_scenario_Optimization_run_simulation_py["_run_scenario<br/>run_simulation.py"]
+  nbuild_shared_assets_Optimization_sim_assets_py["build_shared_assets<br/>sim_assets.py"]
+  nplan_warehouse_Warehouse_inventory_planning_py["plan_warehouse<br/>inventory_planning.py"]
+  n_run_workers_flat_Optimization_run_simulation_py["_run_workers_flat<br/>run_simulation.py"]
+  n_prepare_channel_run_Optimization_run_simulation_py["_prepare_channel_run<br/>run_simulation.py"]
+  nensure_batches_Optimization_batch_precompute_py["ensure_batches<br/>batch_precompute.py"]
+  n_run_strategy_worker_Optimization_strategy_runner_py["_run_strategy_worker<br/>strategy_runner.py"]
+  nload_batches_Optimization_batch_precompute_py["load_batches<br/>batch_precompute.py"]
+  nDeferredPickSimulation_Warehouse_fast_pick_py["DeferredPickSimulation<br/>fast_pick.py"]
+  n_stock_per_unit_Warehouse_Inventory_Management_py["_stock_per_unit<br/>Inventory_Management.py"]
+  nplace_one_Warehouse_Assignment_Functions_py["place_one<br/>Assignment_Functions.py"]
+  n_stock_ranked_Warehouse_Inventory_Management_py["_stock_ranked<br/>Inventory_Management.py"]
+  nplace_wave_Warehouse_Assignment_Functions_py["place_wave<br/>Assignment_Functions.py"]
+  nRELOADERS_Warehouse_Capacity_Reloader_py["RELOADERS<br/>Capacity_Reloader.py"]
+  nrebalance_reloader_Warehouse_Capacity_Reloader_py["rebalance_reloader<br/>Capacity_Reloader.py"]
+  n_run_whatif_matrix_Optimization_run_simulation_py["_run_whatif_matrix<br/>run_simulation.py"]
+  nmain_Optimization_run_analysis_py["main<br/>run_analysis.py"]
+  nrun_analysis_Optimization_run_analysis_py["run_analysis<br/>run_analysis.py"]
+  n_config_jobs_Optimization_run_analysis_py["_config_jobs<br/>run_analysis.py"]
+  n_aggregate_jobs_Optimization_run_analysis_py["_aggregate_jobs<br/>run_analysis.py"]
   nmain_Optimization_run_simulation_py --> n_run_scenario_Optimization_run_simulation_py
   n_run_scenario_Optimization_run_simulation_py --> nbuild_shared_assets_Optimization_sim_assets_py
   nbuild_shared_assets_Optimization_sim_assets_py --> nplan_warehouse_Warehouse_inventory_planning_py
@@ -65,8 +65,8 @@ graph LR
   n_run_workers_flat_Optimization_run_simulation_py -.-> n_run_strategy_worker_Optimization_strategy_runner_py
   n_run_strategy_worker_Optimization_strategy_runner_py --> nload_batches_Optimization_batch_precompute_py
   n_run_strategy_worker_Optimization_strategy_runner_py --> nDeferredPickSimulation_Warehouse_fast_pick_py
-  n_stock_per_unit_Warehouse_Inventory_Management_py -..-> nplace_one_Warehouse_Assignment_Functions_py
-  n_stock_ranked_Warehouse_Inventory_Management_py -..-> nplace_wave_Warehouse_Assignment_Functions_py
+  n_stock_per_unit_Warehouse_Inventory_Management_py ==> nplace_one_Warehouse_Assignment_Functions_py
+  n_stock_ranked_Warehouse_Inventory_Management_py ==> nplace_wave_Warehouse_Assignment_Functions_py
   nRELOADERS_Warehouse_Capacity_Reloader_py -.-> nrebalance_reloader_Warehouse_Capacity_Reloader_py
   nmain_Optimization_run_simulation_py --> n_run_whatif_matrix_Optimization_run_simulation_py
   n_run_whatif_matrix_Optimization_run_simulation_py --> n_run_scenario_Optimization_run_simulation_py

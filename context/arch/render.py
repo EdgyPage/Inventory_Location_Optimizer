@@ -86,8 +86,8 @@ def render_graph_md(graph, arch) -> str:
 
     # curated backbone (function-level call structure)
     out += ['', '## Backbone call structure', '',
-            'The curated caller→callee edges from `context/architecture.yml` '
-            '(solid = calls, dashed = ref, dotted = dispatch).', '',
+            'The curated caller-to-callee edges from `context/architecture.yml` '
+            '(solid = calls, dotted = ref, thick = dispatch).', '',
             '```mermaid', 'graph LR']
     seen = set()
     for e in arch.get('backbone', []):
@@ -95,9 +95,9 @@ def render_graph_md(graph, arch) -> str:
             key = f"{anchor['name']}@{anchor['file']}"
             if key not in seen:
                 seen.add(key)
-                label = f"{anchor['name']}<br/><small>{os.path.basename(anchor['file'])}</small>"
+                label = f"{anchor['name']}<br/>{os.path.basename(anchor['file'])}"
                 out.append(f'  {_mid(key)}["{label}"]')
-    arrow = {'calls': '-->', 'ref': '-.->', 'dispatch': '-..->'}
+    arrow = {'calls': '-->', 'ref': '-.->', 'dispatch': '==>'}
     for e in arch.get('backbone', []):
         s = _mid(f"{e['src']['name']}@{e['src']['file']}")
         d = _mid(f"{e['dst']['name']}@{e['dst']['file']}")
