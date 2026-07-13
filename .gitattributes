@@ -13,3 +13,6 @@ context/arch/graph.json         text eol=lf
 context/arch/nodes.json         text eol=lf
 context/arch/site_manifest.json text eol=lf
 context/files.yml               text eol=lf
+# Vendored minified lib — treat as binary (exact bytes preserved, never EOL-converted).
+context/arch/site_assets/cytoscape.min.js   -text
+docs/architecture/assets/cytoscape.min.js   -text
