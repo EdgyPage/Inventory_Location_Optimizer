@@ -81,3 +81,11 @@ def test_merge_is_idempotent():
         committed = fh.read()
     rebuilt = ex.dump_catalog(ex.build_catalog(yaml.safe_load(committed)))
     assert rebuilt == committed, 'catalog stale — run: python context/arch/extract.py --catalog-merge'
+
+
+def test_no_todo_or_empty_purposes():
+    """Every catalogued file has a real one-line purpose (no TODO/empty placeholders)."""
+    with open(os.path.join(_ROOT, 'context', 'files.yml'), encoding='utf-8') as fh:
+        cat = yaml.safe_load(fh)
+    bad = [k for k, e in cat['files'].items() if str(e.get('purpose', '')).strip() in ('', 'TODO')]
+    assert not bad, f'{len(bad)} files still have a TODO/empty purpose: {bad[:10]}'

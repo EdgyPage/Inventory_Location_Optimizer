@@ -260,6 +260,27 @@ def _source_href(node) -> str:
 
 
 # --- per-node page -----------------------------------------------------------------------
+def _breadcrumb(ix, nid, loc) -> str:
+    """`layer › file › [EnclosingClass ›] name` — a clickable 'where am I' trail. Every link
+    targets an existing page (layers.html / file page / class node page), so it is
+    dead-link-safe, and it is derived from sorted graph data, so it is deterministic."""
+    n = ix.by_id[nid]
+    file = n['file']
+    parts = [f'<a href="{loc.page("layers.html")}">{esc(ix.layer_of(file))}</a>']
+    if n['kind'] == 'module':
+        parts.append(f'<span class="here"><code>{esc(file)}</code></span>')
+    else:
+        parts.append(f'<a href="{loc.file(_mid(file))}"><code>{esc(file)}</code></a>')
+        qual = nid.split('::', 1)[1] if '::' in nid else ''
+        if '.' in qual:
+            parent_id = f'{file}::{qual.rsplit(".", 1)[0]}'
+            p = ix.by_id.get(parent_id)
+            if p and p['kind'] == 'class':
+                parts.append(f'<a href="{loc.node(ix.slugOf[parent_id])}"><code>{esc(p["name"])}</code></a>')
+        parts.append(f'<span class="here"><code>{esc(n["name"])}</code></span>')
+    return '<nav class="crumbs">' + ' <span class="sep">›</span> '.join(parts) + '</nav>'
+
+
 def render_node_page(ix, nid) -> str:
     loc = L('nodes')
     n = ix.by_id[nid]
@@ -268,7 +289,8 @@ def render_node_page(ix, nid) -> str:
     layer = ix.layer_of(file)
     file_slug = _mid(file)
 
-    head = (f'<h1><span class="kind kind-{kind}">{kind}</span> <code>{esc(name)}</code></h1>\n'
+    head = (f'{_breadcrumb(ix, nid, loc)}\n'
+            f'<h1><span class="kind kind-{kind}">{kind}</span> <code>{esc(name)}</code></h1>\n'
             f'<p class="meta">layer <span class="chip">{esc(layer)}</span> · file '
             f'<a href="{loc.file(file_slug)}"><code>{esc(file)}</code></a></p>\n'
             f'{_badges(ix.flags.get(nid, []))}')
@@ -393,7 +415,7 @@ def render_index(ix) -> str:
               'function render(){var v=q.value.toLowerCase().trim();r.innerHTML="";if(!v)return;'
               'var hits=ns.filter(function(p){return p[1].name.toLowerCase().indexOf(v)>=0;}).slice(0,50);'
               'hits.forEach(function(p){var li=document.createElement("li");'
-              'li.innerHTML="<a href=\\"nodes/"+p[1].slug+".html\\"><code>"+p[1].name+"</code></a> <span class=\\"dim\\">"+p[1].file+"</span>";'
+              'li.innerHTML="<a href=\\"nodes/"+p[1].slug+".html\\"><code>"+p[1].name+"</code></a> <span class=\\"dim\\">"+p[1].kind+" · "+p[1].file+"</span>";'
               'r.appendChild(li);});}q.addEventListener("input",render);})();</script>')
     body = (f'<h1>ILO code map</h1>\n'
             '<p class="meta">A verified, offline-capable map of every module, class, function, '
@@ -476,12 +498,16 @@ def render_inefficiency(ix) -> str:
 def render_explorer(ix) -> str:
     loc = L('root')
     body = ('<div class="explorer">\n'
-            '  <div id="ego" class="ego-stage" data-focus=""></div>\n'
+            '  <aside id="ego-tree" class="tree" aria-label="code tree"></aside>\n'
+            '  <div class="ego-main">\n'
+            '    <nav id="ego-crumbs" class="crumbs"></nav>\n'
+            '    <div id="ego" class="ego-stage" data-focus=""></div>\n'
+            '  </div>\n'
             '  <aside class="ego-side">\n'
-            '    <input id="ego-search" placeholder="search node…" autocomplete="off">\n'
+            '    <input id="ego-search" class="filter" placeholder="search…" autocomplete="off">\n'
             '    <ul id="ego-results"></ul>\n'
-            '    <div id="ego-detail"><p class="ego-hint">Search or open a node to explore its '
-            'callers &amp; callees. Click a ring node to re-center; double-click to open its page.</p></div>\n'
+            '    <div id="ego-detail"><p class="ego-hint">Search, pick a node in the tree, or click a '
+            'graph node to explore its callers &amp; callees. The tree and breadcrumb show where you are.</p></div>\n'
             '  </aside>\n'
             '</div>\n'
             f'<script src="{loc.asset("graph.js")}"></script>\n'

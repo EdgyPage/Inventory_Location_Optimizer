@@ -10,11 +10,15 @@
 </header>
 <main>
 <div class="explorer">
-  <div id="ego" class="ego-stage" data-focus=""></div>
+  <aside id="ego-tree" class="tree" aria-label="code tree"></aside>
+  <div class="ego-main">
+    <nav id="ego-crumbs" class="crumbs"></nav>
+    <div id="ego" class="ego-stage" data-focus=""></div>
+  </div>
   <aside class="ego-side">
-    <input id="ego-search" placeholder="search node…" autocomplete="off">
+    <input id="ego-search" class="filter" placeholder="search…" autocomplete="off">
     <ul id="ego-results"></ul>
-    <div id="ego-detail"><p class="ego-hint">Search or open a node to explore its callers &amp; callees. Click a ring node to re-center; double-click to open its page.</p></div>
+    <div id="ego-detail"><p class="ego-hint">Search, pick a node in the tree, or click a graph node to explore its callers &amp; callees. The tree and breadcrumb show where you are.</p></div>
   </aside>
 </div>
 <script src="assets/graph.js"></script>
