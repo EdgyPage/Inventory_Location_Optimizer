@@ -70,6 +70,7 @@ exclude_docs: |
 
 nav:
   - Home: index.md
+  - Code map: code-graph.md
   - Future experiment discussion: future-experiments.md
   - Experiment 3:
       - Overview: experiments/experiment-3/index.md
