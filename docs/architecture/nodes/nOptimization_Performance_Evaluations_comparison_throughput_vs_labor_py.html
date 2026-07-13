@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.comparison.throughput_vs_labor · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py" data-id="Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py">
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.comparison.throughput_vs_labor</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py.html"><code>Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.comparison.throughput_vs_labor</code></pre>
+<section class="doc">compare.throughput_labor — does throughput follow total labor?  (no rerun, no DB touch)
+
+Two scatter panels, one point per strategy arm, built entirely from the per-arm series
+scalars that already live in series.json (ss_prod_hours, ss_thr, ss_dur):
+
+  * Panel A: x = ss_prod_hours (total task labor, the minimized objective, lower=better)
+             y = ss_thr        (throughput = items / makespan, higher=better)
+             marker size ∝ ss_dur (makespan).  The best corner is UP-LEFT.
+  * Panel B: x = ss_dur (makespan)  vs  y = ss_thr — the mechanistic link.
+
+The point is to SHOW that throughput does NOT track total labor: because the picker
+scheduler is static round-robin by aisle with no load balancing (Warehouse/Pick.py), a
+placement that lowers Σ task labor can pile work onto the busiest picker, raising makespan
+and lowering throughput (throughput ≈ items/makespan).  So throughput tracks 1/makespan
+(Panel B, tight) — not total labor (Panel A, a scattered cloud).  The Spearman ρ in each
+title quantifies it.  Writes compare/throughput_vs_labor.png.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py___f.html"><code>_f</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</span></li><li><a href="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py___panel.html"><code>_panel</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</span></li><li><a href="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py___rho.html"><code>_rho</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</span></li><li><a href="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py___sizes.html"><code>_sizes</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</span></li><li><a href="nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_comparison_throughput_vs_labor_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

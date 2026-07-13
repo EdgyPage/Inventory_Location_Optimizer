@@ -625,6 +625,17 @@ files:
       - {name: "test_def_span_resolution", file: "Tests/test_architecture_coverage.py", kind: "function"}
       - {name: "test_hotpaths_execute_under_e2e_driver", file: "Tests/test_architecture_coverage.py", kind: "function"}
     notes: ""
+  "Tests/test_architecture_html.py":
+    purpose: "test_architecture_html.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_currency_manifest_matches_fresh_build", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_integrity_committed_tree_matches_manifest", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_completeness_every_node_and_file_has_a_page", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_no_dead_internal_links", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_build_is_deterministic", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_slugs_case_insensitively_unique", file: "Tests/test_architecture_html.py", kind: "function"}
+    notes: ""
   "Tests/test_architecture_render.py":
     purpose: "test_architecture_render.py"
     layer: "tests"

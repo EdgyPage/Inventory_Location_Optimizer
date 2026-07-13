@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>generate_affinity · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_generate_affinity_py__generate_affinity" data-id="Warehouse/generation/generate_affinity.py::generate_affinity">
+<h1><span class="kind kind-function">function</span> <code>generate_affinity</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_affinity_py.html"><code>Warehouse/generation/generate_affinity.py</code></a></p>
+
+<pre class="sig"><code>def generate_affinity(group_skus: dict[str, list[int]], sku_demand: dict[int, tuple[float, float]], min_lift: float, max_lift: float, noise_std: float, top_k: int, candidate_k: int, rng: random.Random, conn: sqlite3.Connection, cluster_size: int=_CLUSTER_SIZE_DEFAULT, batch_size: int=500000) -&gt; dict</code></pre>
+<section class="doc">Generate latent-cluster top-K affinity pairs and insert to the DB.
+
+Within each group, SKUs are partitioned into random clusters (independent of
+demand); each SKU&#x27;s top-k same-cluster partners are stored with a random
+association strength in (min_lift, max_lift].  Both (i→j) and (j→i) are inserted
+with the same lift; INSERT OR IGNORE skips pairs already stored.
+
+Returns per-group statistics for stats.json and plots.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_affinity_py__generate_run.html"><code>generate_run</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_affinity_py__generate_affinity">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_affinity.py#:~:text=def%20generate_affinity">Source ↗</a></p>
+</article>
+</main>
+</body></html>

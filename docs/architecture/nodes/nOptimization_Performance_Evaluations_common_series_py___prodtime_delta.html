@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_prodtime_delta · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_series_py___prodtime_delta" data-id="Optimization/Performance_Evaluations/common/series.py::_prodtime_delta">
+<h1><span class="kind kind-function">function</span> <code>_prodtime_delta</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_series_py.html"><code>Optimization/Performance_Evaluations/common/series.py</code></a></p>
+
+<pre class="sig"><code>def _prodtime_delta(S, key, base_key)</code></pre>
+<section class="doc">Per-batch and cumulative % improvement of production time (Σ task time / batch =
+&#x27;prod_hours&#x27;) for `key` vs `base_key`, aligned by task_batch id.
+
+Returns (batches, per_batch_pct, cum_pct) as np arrays; positive = faster than baseline:
+  per_batch_pct = (base − strat)/base · 100   per shared batch
+  cum_pct       = Σ(base − strat) / Σ base · 100  (running task-time saved ÷ running
+                  baseline total — the honest cumulative measure, not a mean of percents)
+Empty arrays if either series is missing.  Uses the same smoothed prod_hours as the other
+over-time graphs; a raw per-batch variant could read the unsmoothed tsum instead.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_comparison_delta_by_batch_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/delta_by_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_comparison_delta_over_time_py___delta_line.html"><code>_delta_line</code></a> <span class="dim">Optimization/Performance_Evaluations/comparison/delta_over_time.py</span></li><li><a href="nOptimization_Performance_Evaluations_per_strategy_delta_by_batch_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_per_strategy_delta_over_time_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/per_strategy/delta_over_time.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_series_py___prodtime_delta">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/series.py#:~:text=def%20_prodtime_delta">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.gpu.gpu_auction · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_gpu_gpu_auction_py" data-id="Optimization/gpu/gpu_auction.py">
+<h1><span class="kind kind-module">module</span> <code>Optimization.gpu.gpu_auction</code></h1>
+<p class="meta">layer <span class="chip">gpu</span> · file <a href="../files/nOptimization_gpu_gpu_auction_py.html"><code>Optimization/gpu/gpu_auction.py</code></a></p>
+
+<pre class="sig"><code>Optimization.gpu.gpu_auction</code></pre>
+<section class="doc">gpu_auction.py — parallel (Jacobi) auction solver for the placement linear-assignment problem.
+
+PROTOTYPE (no production wiring).  Models one placement wave as a linear assignment of U units to
+B&gt;=U bins minimising total cost, and solves it with Bertsekas&#x27; auction algorithm in parallel form:
+all unassigned units bid at once for their best bin; a contested bin keeps the highest bidder and
+RAISES ITS PRICE; displaced units re-bid against the new prices.  Prices only ever rise and the total
+rise is bounded, so it terminates — resolving bin clashes WITHOUT the eviction cascade a naive
+parallel swap would create.  The bid step is a row-wise top-2 over the U x B cost matrix, which is the
+GPU-parallel reduction we want.
+
+What&#x27;s here:
+  * build_static_cost(...)  — the exact bilinear placement cost `f_s*(M_b*(intercept+v_s) + D_b)`
+    (same form as inventory_optimal.py&#x27;s scipy LAP); a pure U x B matrix.
+  * auction_assign(...)     — numpy + torch backends, tiled top-2 (peak memory bounded by tile, not
+    B), eps-scaling, deterministic index tie-breaks.  Returns assign[U] (bin per unit) + prices.
+  * greedy_assign(...)      — sequential argmin-and-consume baseline (the structure the production
+    greedy uses) for a quality reference.
+  * auction_place_wave(...) — folds the path-dependent AFFINITY reward in via a few-round fixed point
+    (solve -&gt; update aisle memberships -&gt; re-solve), the linear relaxation of the quadratic objective.
+
+The auction MINIMISES total cost optimally (within U*eps); it is a *replacement* for the sequential
+greedy (re-baselined), not a bit-for-bit mimic.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(14)</span></h2><ul><li><a href="nOptimization_gpu_gpu_auction_py___TILE_BINS.html"><code>_TILE_BINS</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py___auction_phase_numpy.html"><code>_auction_phase_numpy</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py___auction_phase_torch.html"><code>_auction_phase_torch</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py___top2_numpy.html"><code>_top2_numpy</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py___top2_torch.html"><code>_top2_torch</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__affinity_correction.html"><code>affinity_correction</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__assignment_cost.html"><code>assignment_cost</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__auction_assign.html"><code>auction_assign</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__auction_assign_numpy.html"><code>auction_assign_numpy</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__auction_assign_torch.html"><code>auction_assign_torch</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__auction_place_wave.html"><code>auction_place_wave</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__build_static_cost.html"><code>build_static_cost</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__greedy_assign.html"><code>greedy_assign</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li><li><a href="nOptimization_gpu_gpu_auction_py__wave_objective.html"><code>wave_objective</code></a> <span class="dim">Optimization/gpu/gpu_auction.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_gpu_gpu_auction_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/gpu/gpu_auction.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

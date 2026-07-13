@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostics.trace_lifecycle · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_trace_lifecycle_py" data-id="Diagnostics/trace_lifecycle.py">
+<h1><span class="kind kind-module">module</span> <code>Diagnostics.trace_lifecycle</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_trace_lifecycle_py.html"><code>Diagnostics/trace_lifecycle.py</code></a></p>
+
+<pre class="sig"><code>Diagnostics.trace_lifecycle</code></pre>
+<section class="doc">trace_lifecycle.py — instrumented simulation lifecycle tracer.
+
+Runs a small simulation for one or more strategies and records, per batch, the
+lifecycle of inventory units:
+
+    intake -&gt; units placed -&gt; stuck-in-queue -&gt; picked -&gt; emptied -&gt; reclaimed
+
+plus per-aisle / per-bucket fill, queue depth, and per-function call timings.
+The manager&#x27;s lifecycle methods are wrapped on the instance (no edits to
+Warehouse/ or Optimization/ source — same approach as Tests/bench/profile_lifecycle.py).
+
+The default compares a uniform-stocked strategy (fills to the target ~85%) against
+a policy-stocked one (which can leave units stuck in the queue -&gt; lower fill),
+reproducing the &quot;some warehouses start at ~70% vs ~85%&quot; discrepancy.
+
+Output: Diagnostics/out/trace_&lt;strategy&gt;.json (one per strategy) plus manifest.json.
+Open the dashboard with:
+
+    cd Diagnostics &amp;&amp; python -m http.server 8009
+    # then browse http://localhost:8009/static/
+
+Usage
+-----
+    python Diagnostics/trace_lifecycle.py
+    python Diagnostics/trace_lifecycle.py --strategies uni_fifo_norsl,opt_map_norsl
+    python Diagnostics/trace_lifecycle.py --skus 3000 --batches 40 --pickers 10
+    python Diagnostics/trace_lifecycle.py --list      # print available strategy keys</section>
+<section class="rel"><h2>Imports <span class="count">(8)</span></h2><ul><li><a href="nOptimization_Workload_py.html"><code>Optimization.Workload</code></a> <span class="dim">Optimization/Workload.py</span></li><li><a href="nOptimization_strategies_py.html"><code>Optimization.strategies</code></a> <span class="dim">Optimization/strategies.py</span></li><li><a href="nWarehouse_Aisle_Storage_py.html"><code>Warehouse.Aisle_Storage</code></a> <span class="dim">Warehouse/Aisle_Storage.py</span></li><li><a href="nWarehouse_Inventory_Builder_py.html"><code>Warehouse.Inventory_Builder</code></a> <span class="dim">Warehouse/Inventory_Builder.py</span></li><li><a href="nWarehouse_Inventory_Management_py.html"><code>Warehouse.Inventory_Management</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Pick_py.html"><code>Warehouse.Pick</code></a> <span class="dim">Warehouse/Pick.py</span></li><li><a href="nWarehouse_Warehouse_Builder_py.html"><code>Warehouse.Warehouse_Builder</code></a> <span class="dim">Warehouse/Warehouse_Builder.py</span></li><li><a href="nWarehouse_Workload_Builder_py.html"><code>Warehouse.Workload_Builder</code></a> <span class="dim">Warehouse/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(21)</span></h2><ul><li><a href="nDiagnostics_trace_lifecycle_py__Tracer.html"><code>Tracer</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___GRID_COLS.html"><code>_GRID_COLS</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___HANDLINGS.html"><code>_HANDLINGS</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___OUT_DIR.html"><code>_OUT_DIR</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__Tracer___init__.html"><code>__init__</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___aisle_bucket.html"><code>_aisle_bucket</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___install_hooks__apply_picks_batch.html"><code>_apply_picks_batch</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy__arm.html"><code>_arm</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___install_hooks__execute_placement.html"><code>_execute_placement</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___fill_snapshot.html"><code>_fill_snapshot</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___fn_trace.html"><code>_fn_trace</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___install_hooks.html"><code>_install_hooks</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___install_hooks__reclaim_empty_bins.html"><code>_reclaim_empty_bins</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___set_equilibrium.html"><code>_set_equilibrium</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___warehouse_layout.html"><code>_warehouse_layout</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py___install_hooks_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__Tracer_reset.html"><code>reset</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_trace_lifecycle_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/trace_lifecycle.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

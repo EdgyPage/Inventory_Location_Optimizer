@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_prepare_channel_run · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_simulation_py___prepare_channel_run" data-id="Optimization/run_simulation.py::_prepare_channel_run">
+<h1><span class="kind kind-function">function</span> <code>_prepare_channel_run</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
+<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _prepare_channel_run(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1) -&gt; tuple[list, list]</code></pre>
+<section class="doc">Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
+run_ids, build strategy_args for the flat ProcessPoolExecutor.
+
+Store and fulfillment sweep their own config sets independently, so a run drives a single
+channel.  ``mixed`` is True when the catalog holds more than one regime — the run then
+filters inventory to ``channel.regime``, draws its own batch stream, and writes a
+``&lt;config&gt;/&lt;channel&gt;/`` subtree.  A store-only catalog (``mixed`` False) collapses to the
+legacy ``&lt;config&gt;/`` layout + shared precomputed batch stream (byte-identical).
+
+Returns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set — the caller
+injects it before submission.</section>
+<section class="rel"><h2>Callees <span class="count">(11)</span></h2><ul><li><a href="nOptimization_Picking_Data_py__create_run.html"><code>create_run</code></a> <span class="dim">Optimization/Picking_Data.py</span></li><li><a href="nOptimization_Picking_Data_py__init_run_db.html"><code>init_run_db</code></a> <span class="dim">Optimization/Picking_Data.py</span></li><li><a href="nOptimization_Workload_py__WorkloadParams_from_pick_config.html"><code>from_pick_config</code></a> <span class="dim">Optimization/Workload.py</span></li><li><a href="nOptimization_batch_precompute_py__ensure_batches.html"><code>ensure_batches</code></a> <span class="dim">Optimization/batch_precompute.py</span></li><li><a href="nOptimization_sim_config_py___checkpoint_every.html"><code>_checkpoint_every</code></a> <span class="dim">Optimization/sim_config.py</span></li><li><a href="nOptimization_sim_config_py___config_name.html"><code>_config_name</code></a> <span class="dim">Optimization/sim_config.py</span></li><li><a href="nOptimization_sim_manifest_py___load_resume.html"><code>_load_resume</code></a> <span class="dim">Optimization/sim_manifest.py</span></li><li><a href="nOptimization_sim_manifest_py___save_resume.html"><code>_save_resume</code></a> <span class="dim">Optimization/sim_manifest.py</span></li><li><a href="nOptimization_strategies_py__strategies_for.html"><code>strategies_for</code></a> <span class="dim">Optimization/strategies.py</span></li><li><a href="nOptimization_strategy_runner_py__load_worker_checkpoint.html"><code>load_worker_checkpoint</code></a> <span class="dim">Optimization/strategy_runner.py</span></li><li><a href="nWarehouse_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___run_workers_flat.html"><code>_run_workers_flat</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___prepare_channel_run">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_prepare_channel_run">Source ↗</a></p>
+</article>
+</main>
+</body></html>

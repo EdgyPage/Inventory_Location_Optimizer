@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_pick_time · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_Pick_py___pick_time" data-id="Warehouse/Pick.py::_pick_time">
+<h1><span class="kind kind-function">function</span> <code>_pick_time</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_Pick_py.html"><code>Warehouse/Pick.py</code></a></p>
+
+<pre class="sig"><code>def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int, y_phys: float=0.0) -&gt; float</code></pre>
+<section class="doc">Log-linear model for the at-location HANDLING time to pick `quantity` units of an order.
+
+weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
+raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
+zero-volume order is physically impossible and indicates bad data.
+
+y_phys is the bin&#x27;s physical height; the height bracket factor scales the ENTIRE
+at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
+handling (equipment is slower at everything up high), i.e. M(y)·(intercept + qty·var).
+y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
+
+The cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term — the sim loops
+charge it as its own timed step at the swap and the decomposition attributes it to travel.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/cost_model.py</span></li><li><a href="nWarehouse_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/cost_model.py</span></li><li><a href="nWarehouse_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_Pick_py__PickSimulation__simulate_picker.html"><code>_simulate_picker</code></a> <span class="dim">Warehouse/Pick.py</span></li><li><a href="nWarehouse_fast_pick_py___simulate_picker_deferred.html"><code>_simulate_picker_deferred</code></a> <span class="dim">Warehouse/fast_pick.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Pick_py___pick_time">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Pick.py#:~:text=def%20_pick_time">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scripts.new_experiment · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_new_experiment_py" data-id="scripts/new_experiment.py">
+<h1><span class="kind kind-module">module</span> <code>scripts.new_experiment</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_new_experiment_py.html"><code>scripts/new_experiment.py</code></a></p>
+
+<pre class="sig"><code>scripts.new_experiment</code></pre>
+<section class="doc">Scaffold a new docs experiment from the template.
+
+Copies docs/experiments/_template/ -&gt; docs/experiments/&lt;name&gt;/, turning
+experiment.yml.example into a starter experiment.yml. With --source it then runs the
+ingest to auto-fill experiment.yml (from the run&#x27;s run_manifest.json) and pull the files.
+
+    python scripts/new_experiment.py --name experiment-2
+    python scripts/new_experiment.py --name experiment-2 --source &quot;D:/.../comparison_20260801_120000&quot;
+
+Then: edit experiment.yml (title, short keys, winners), add the nav block it prints to
+mkdocs.yml, and `mkdocs serve`.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nscripts_new_experiment_py___EXPERIMENTS.html"><code>_EXPERIMENTS</code></a> <span class="dim">scripts/new_experiment.py</span></li><li><a href="nscripts_new_experiment_py___REPO.html"><code>_REPO</code></a> <span class="dim">scripts/new_experiment.py</span></li><li><a href="nscripts_new_experiment_py___TEMPLATE.html"><code>_TEMPLATE</code></a> <span class="dim">scripts/new_experiment.py</span></li><li><a href="nscripts_new_experiment_py___nav_block.html"><code>_nav_block</code></a> <span class="dim">scripts/new_experiment.py</span></li><li><a href="nscripts_new_experiment_py__main.html"><code>main</code></a> <span class="dim">scripts/new_experiment.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_new_experiment_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/new_experiment.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

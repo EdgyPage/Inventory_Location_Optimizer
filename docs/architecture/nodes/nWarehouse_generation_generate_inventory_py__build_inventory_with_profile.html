@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>build_inventory_with_profile · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_generate_inventory_py__build_inventory_with_profile" data-id="Warehouse/generation/generate_inventory.py::build_inventory_with_profile">
+<h1><span class="kind kind-function">function</span> <code>build_inventory_with_profile</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def build_inventory_with_profile(num_skus: int, handling_splits: list[float], category_splits: list[float], singleton_fraction: float, dim_spec: dict, weight_spec: dict, seed: int, equilibrium_coverage_batches: float=EQUILIBRIUM_COVERAGE_BATCHES, reorder_safety_batches: float=REORDER_SAFETY_BATCHES, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN) -&gt; Inventory</code></pre>
+<section class="doc">Build an Inventory using the equilibrium inventory model.
+
+Bypasses Order.__init__ so any distribution can be used.
+Order.next_sku is reset to 1 at the start of this function.
+
+Per-SKU attributes (all stored in DB):
+  expected_batch_demand = freq × qty_rate
+  equilibrium_qty   = max(1, round(coverage_batches × expected_batch_demand))
+                      Target steady-state inventory; warehouse sized for this.
+  reorder_point     = max(1, min(eq-1, round(expected × (lead_time_mean + safety_batches))))
+                      Classic ROP = demand during lead time + safety stock.
+                      Scales with actual demand: popular items reorder sooner
+                      (higher absolute threshold), slow movers reorder later.
+  lead_time_mean    = mean batches before a placed order arrives.
+                      0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
+                      when lead_time_mean_batches &gt; 0, else fixed at 0.
+  supply_cv         = coefficient of variation for received quantity.
+                      0.0 = perfect; 0.1 → &quot;ordered 50, got 45&quot;.
+                      Per-SKU value drawn from HalfNormal(supply_cv_mean).
+
+At runtime: ideal = equilibrium_qty - current_qty; received = max(1, round(N(ideal, ideal*supply_cv))).</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_Demand_py__Demand_from_rates.html"><code>from_rates</code></a> <span class="dim">Warehouse/Demand.py</span></li><li><a href="nWarehouse_Inventory_Builder_py__Inventory.html"><code>Inventory</code></a> <span class="dim">Warehouse/Inventory_Builder.py</span></li><li><a href="nWarehouse_Order_py__StorageHandleConfig.html"><code>StorageHandleConfig</code></a> <span class="dim">Warehouse/Order.py</span></li><li><a href="nWarehouse_Storage_Primitive_py__Storage_Type.html"><code>Storage_Type</code></a> <span class="dim">Warehouse/Storage_Primitive.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__sample_dim.html"><code>sample_dim</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__sample_weight.html"><code>sample_weight</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__generate_run.html"><code>generate_run</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_inventory_py__build_inventory_with_profile">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py#:~:text=def%20build_inventory_with_profile">Source ↗</a></p>
+</article>
+</main>
+</body></html>

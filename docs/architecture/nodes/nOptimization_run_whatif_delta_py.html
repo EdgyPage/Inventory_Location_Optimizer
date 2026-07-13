@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.run_whatif_delta · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_whatif_delta_py" data-id="Optimization/run_whatif_delta.py">
+<h1><span class="kind kind-module">module</span> <code>Optimization.run_whatif_delta</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_delta_py.html"><code>Optimization/run_whatif_delta.py</code></a></p>
+
+<pre class="sig"><code>Optimization.run_whatif_delta</code></pre>
+<section class="doc">run_whatif_delta.py — compare what-if scenarios against a reference cell.
+
+Reads the steady-state ss_prod_hours (total labor) and ss_thr (throughput) straight from each
+scenario&#x27;s sim_*.db (no run_analysis needed), keyed by (pair, pick-config, channel, arm), and diffs
+every cell against the reference cell.  Emits whatif_delta.csv + a labor-saving-vs-throughput-gain
+scatter (one point per cell×channel×arm) and a median summary — tracking BOTH axes, since for
+fulfillment the throughput gain is the interesting lever (total labor is cart-swap-dominated).
+
+    python -m Optimization.run_whatif_delta &lt;comparison_whatif_...&gt;   # --reference defaults from config</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_whatif_config_py.html"><code>Optimization.whatif_config</code></a> <span class="dim">Optimization/whatif_config.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py__WIN.html"><code>WIN</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___metrics.html"><code>_metrics</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___scan.html"><code>_scan</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_delta_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_delta.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
