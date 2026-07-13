@@ -5,8 +5,8 @@ Ordered FIRST in the preset so it lands before downstream readers, but every con
 that needs the curves calls ctx.series() directly (so there is no hard ordering)."""
 import os
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.series import _dump_series
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.series import _dump_series
 
 
 @evaluation(key='config.series', label='series.json (trajectories + ss scalars)',

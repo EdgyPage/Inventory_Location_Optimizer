@@ -1,0 +1,48 @@
+# Experiment 2 manifest — single source of truth for this experiment's docs.
+# Manifest mode (docs/macros.py): pages call macros with a short inventory key, e.g.
+# setup_table('lt0'); the run id, inventory ids, configs, and figure lists resolve here so
+# pages never hard-code a long run id. See docs/authoring.md and docs/experiments/ingest.py.
+
+title: "Experiment 2 — store vs fulfillment, two independent warehouses"
+
+# The analysis run folder (the sub-folder under images/ that staging fills).
+run: comparison_20260706_174353
+
+catalogue: catalogue          # folder under images/ holding the inventory distribution plots
+baseline: uni_fifo_norsl      # the FIFO baseline every arm is measured against
+winners: [rank_labor, comp]   # store champion (Rank_labor) + fulfillment champion (Compact)
+
+# Short key -> full inventory id (the run's pair label) + a human label.
+# Both variants share one seed-42, 130,000-SKU catalogue; they differ only in lead time.
+inventories:
+  lt0:    { id: mixed_20260706_011309__mixed_realistic_lt0,       label: "lt0 — immediate replenishment" }
+  ltrand: { id: mixed_20260706_011309__mixed_realistic_ltrand0-5, label: "ltrand0-5 — lead time 0–5 batches" }
+
+# Pick-time calibrations. In Experiment 2 each calibration is an independent warehouse
+# channel: two store calibrations (StoreCart) and two fulfillment calibrations (FulfillmentCart).
+# height_brackets: rows of [upper_y_phys_inches | null, multiplier].
+configs:
+  - { name: store,                        label: "store · base ergonomics (StoreCart)",           height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+  - { name: store_high_weight,            label: "store · weight penalty ↑ (w² handling)",        height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+  - { name: ful_calibrated,               label: "fulfillment · base (FulfillmentCart)",          height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+  - { name: ful_calibrated_fast_walkers,  label: "fulfillment · fast walkers (x-speed ↑)",        height_brackets: [[96, 1.0], [240, 1.2], [null, 1.4]] }
+
+# Curated figure filenames the pages render (staging copies these, flattened per config).
+figures:
+  top3:
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from cost_model import travel_cost
+from Warehouse.cost_model import travel_cost
 
 
 # ── named target selectors: which occupied pallets to evict, per aisle ───────

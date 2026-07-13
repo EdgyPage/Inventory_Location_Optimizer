@@ -5,10 +5,10 @@ import os
 
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _grid, _stitle
-from Performance_Evaluations.common.series import _prodtime_delta
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _grid, _stitle
+from Optimization.Performance_Evaluations.common.series import _prodtime_delta
 
 
 @evaluation(key='per_strategy.delta_by_batch',

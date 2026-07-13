@@ -1,15 +1,16 @@
 import math
 import random
 from collections import namedtuple
-from Demand import Demand, poisson_sample
-from cost_model import handle_var as _handle_var
+from Warehouse.Demand import Demand, poisson_sample
+from Warehouse.cost_model import handle_var as _handle_var, per_pick as _per_pick
+from Warehouse.physical import PALLET_FOOTPRINT
 
 # Named tuple combining a order's handling type and storage category.
 # Replaces the pattern `handling, category = order.storage_type` throughout
 # the codebase with the more self-documenting `order.storage_handle_config`.
 StorageHandleConfig = namedtuple('StorageHandleConfig', ['handling', 'category'])
 
-_MAX_DIM: int = 48  # mirrors Storage_Size.available_sizes_heights['extra_large']
+_MAX_DIM: int = PALLET_FOOTPRINT   # = Storage_Size.available_sizes_heights['extra_large']
 _MIN_DIM: int = 3
 
 
@@ -160,5 +161,5 @@ class Order:
         self.handle_var = _handle_var(self.weight, self.volume(),
                                       pick_weight_coef, pick_volume_coef,
                                       pick_weight_fn, pick_volume_fn)
-        self.labor_cost = pick_intercept + self.handle_var
+        self.labor_cost = _per_pick(1.0, pick_intercept, self.handle_var)
         return self.labor_cost

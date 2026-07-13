@@ -5,10 +5,10 @@ import os
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _assign_color_map, _ir_style_map, legend_right
-from Performance_Evaluations.comparison import overtime_metrics
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _assign_color_map, _ir_style_map, legend_right
+from Optimization.Performance_Evaluations.comparison import overtime_metrics
 
 
 def _overlay_metric(strategies, S, m, title, path):

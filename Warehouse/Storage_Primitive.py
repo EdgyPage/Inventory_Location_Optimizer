@@ -5,11 +5,12 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from typing import TYPE_CHECKING, TypeVar
 
-from Order import Order
-from regime import regime_of, FULFILLMENT
+from Warehouse.Order import Order
+from Warehouse.physical import PALLET_FOOTPRINT, COMPACT_FOOTPRINT
+from Warehouse.regime import regime_of, FULFILLMENT
 
 if TYPE_CHECKING:
-    from Aisle_Storage import Aisle
+    from Warehouse.Aisle_Storage import Aisle
 
 T = TypeVar('T', bound='StorageUnit')
 
@@ -19,12 +20,12 @@ class Storage_Size:
         'small': 12,
         'medium': 24,
         'large': 36,
-        'extra_large': 48
+        'extra_large': PALLET_FOOTPRINT,
     }
 
     def __init__(self) -> None:
-        self.max_length: int = 48
-        self.max_width: int = 48
+        self.max_length: int = PALLET_FOOTPRINT
+        self.max_width: int = PALLET_FOOTPRINT
         self.max_height: int = self.available_sizes_heights["extra_large"]
 
 
@@ -155,8 +156,8 @@ class Pallet(StorageUnit):
     narrower footprints while inheriting the same size-tier logic and gaining
     a valid storage_size attribute from _fit().
     """
-    max_length:    int = 48
-    max_width:     int = 48
+    max_length:    int = PALLET_FOOTPRINT
+    max_width:     int = PALLET_FOOTPRINT
     unit_category: str = 'pallet'
 
     def __init__(self, order: Order, quantity: int) -> None:
@@ -183,13 +184,13 @@ class Singleton(Pallet):
     is always 'singleton' — one bucket per (handling, category), distinct from
     all pallet size tiers and never None so DB NOT NULL constraints are satisfied.
     """
-    max_width:     int = 16
-    max_length:    int = 16
+    max_width:     int = COMPACT_FOOTPRINT
+    max_length:    int = COMPACT_FOOTPRINT
     unit_category: str = 'singleton'
 
     def _fit(self, order: Order) -> None:
         """Validate fit in 16×16 footprint; set dimensions without size-tier logic."""
-        _BIN_H = 48  # SINGLETON_BIN_HEIGHT — avoids circular import from Aisle_Dimensions
+        _BIN_H = PALLET_FOOTPRINT  # SINGLETON_BIN_HEIGHT — avoids circular import from Aisle_Dimensions
         res = _singleton_fit_dims(order.height, order.width, order.length,
                                   self.quantity, self.max_width, self.max_length, _BIN_H)
         if res is None:
@@ -214,8 +215,8 @@ class FulfillmentBin(Pallet):
 
     Geometry here is a PLACEHOLDER until the fulfillment inventory profile is calibrated.
     """
-    max_width:     int = 16
-    max_length:    int = 16
+    max_width:     int = COMPACT_FOOTPRINT
+    max_length:    int = COMPACT_FOOTPRINT
     unit_category: str = 'fulfillment'
     # Ascending (name, height) size tiers — small, for a ~6 ft shelf.
     TIERS: tuple = (('ff_small', 6), ('ff_medium', 12), ('ff_large', 18))

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plan_warehouse · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_planning_py__PlanningMixin_plan_warehouse" data-id="Warehouse/inventory_planning.py::PlanningMixin.plan_warehouse">
+<h1><span class="kind kind-function">function</span> <code>plan_warehouse</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_inventory_planning_py.html"><code>Warehouse/inventory_planning.py</code></a></p>
+<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@classmethod
+def plan_warehouse(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=0.85, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, rng: random.Random | None=None, log: Any=None) -&gt; &#x27;WarehousePlan&#x27;</code></pre>
+<section class="doc">Size a warehouse to fit *orders* under the given constraints.
+
+1. Enumerate the full bucket set (every handling×category gets 4 pallet
+   size tiers + 1 singleton) — the structural floor that guarantees
+   every SKU has a place.
+2. Replica per bucket either from demand (default,
+   max(1, ceil(demand/(eff·target_fill)))) or from an explicit
+   *composition* basis vector (bins ∝ weight).
+3. Scale up to &gt;= min_bins, then down to &lt;= max_bins/max_aisles (never
+   below 1 replica/bucket; min_bins wins if it conflicts with max).
+4. Sample SKUs to fill the resulting capacity to target_fill.
+
+composition: optional factored basis vector of *bin* ratios — a dict with
+any of the keys &#x27;handling&#x27;, &#x27;category&#x27;, &#x27;size&#x27;, &#x27;unit&#x27;, each mapping a
+value to a relative weight (missing values default to 1.0).  The per-bucket
+weight is the product of the matching dimension weights; bins are allocated
+proportionally.  Total scale comes from min_bins (or demand if min_bins is
+unset).  Example:
+    {&#x27;unit&#x27;: {&#x27;pallet&#x27;: 0.7, &#x27;singleton&#x27;: 0.3},
+     &#x27;size&#x27;: {&#x27;small&#x27;: 0.1, &#x27;medium&#x27;: 0.2, &#x27;large&#x27;: 0.3, &#x27;extra_large&#x27;: 0.4}}
+
+regime_sizing: optional PER-REGIME sizing that overrides the single
+min_bins/max_bins/max_aisles/target_fill/composition scalars — a dict
+{&#x27;store&#x27;: {...}, &#x27;fulfillment&#x27;: {...}} where each sub-dict may carry
+&#x27;mode&#x27; (&#x27;demand&#x27; | &#x27;fixed&#x27;), &#x27;min_bins&#x27;, &#x27;max_bins&#x27;, &#x27;max_aisles&#x27;, &#x27;fill&#x27;,
+&#x27;composition&#x27;, and (fulfillment &#x27;fixed&#x27; mode) a tier &#x27;distribution&#x27;
+{ff_small/ff_medium/ff_large: weight} + &#x27;target_bins&#x27;.  When None (the
+default), the warehouse is sized globally exactly as before — every direct
+caller / test is unaffected.  When given, store and fulfillment are sized
+and capped INDEPENDENTLY (store demand-driven by default; fulfillment a
+fixed tier distribution scaled to target_bins/min/max), each with its own
+fill headroom.</section>
+<section class="rel"><h2>Callees <span class="count">(14)</span></h2><ul><li><a href="nWarehouse_Aisle_Dimensions_py__catalog_aisle_bins.html"><code>catalog_aisle_bins</code></a> <span class="dim">Warehouse/Aisle_Dimensions.py</span></li><li><a href="nWarehouse_Aisle_Dimensions_py__uniform_aisle_bins.html"><code>uniform_aisle_bins</code></a> <span class="dim">Warehouse/Aisle_Dimensions.py</span></li><li><a href="nWarehouse_Aisle_Dimensions_py__unit_bin_width.html"><code>unit_bin_width</code></a> <span class="dim">Warehouse/Aisle_Dimensions.py</span></li><li><a href="nWarehouse_Storage_Primitive_py__viable_storage_units.html"><code>viable_storage_units</code></a> <span class="dim">Warehouse/Storage_Primitive.py</span></li><li><a href="nWarehouse_Warehouse_Builder_py__WarehouseConfig.html"><code>WarehouseConfig</code></a> <span class="dim">Warehouse/Warehouse_Builder.py</span></li><li><a href="nWarehouse_inventory_common_py__WarehousePlan.html"><code>WarehousePlan</code></a> <span class="dim">Warehouse/inventory_common.py</span></li><li><a href="nWarehouse_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory_common.py</span></li><li><a href="nWarehouse_inventory_planning_py___apply_caps.html"><code>_apply_caps</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_planning_py___comp_weight.html"><code>_comp_weight</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_planning_py___demand_replicas.html"><code>_demand_replicas</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_planning_py___demand_total.html"><code>_demand_total</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_planning_py___ff_depth_split.html"><code>_ff_depth_split</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_planning_py___ratio_replicas.html"><code>_ratio_replicas</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li><li><a href="nWarehouse_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/sim_assets.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_planning_py__PlanningMixin_plan_warehouse">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory_planning.py#:~:text=def%20plan_warehouse">Source ↗</a></p>
+</article>
+</main>
+</body></html>

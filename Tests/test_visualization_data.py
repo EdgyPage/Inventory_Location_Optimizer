@@ -20,10 +20,11 @@ import tempfile
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
+if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
+    sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
-from Picking_Data import (
+
+from Optimization.Picking_Data import (
     init_run_db, create_run, find_run, run_identity,
     save_batch_stats, load_batch_stats, BatchStats,
     init_keyframe_db, save_bin_keyframe, keyframe_db_path,
@@ -31,7 +32,7 @@ from Picking_Data import (
     save_bin_scores, load_bin_scores, save_sku_scores, load_sku_scores,
     save_aisle_metrics, load_aisle_metrics, AisleMetricRecord,
 )
-from Warehouse_Data import (init_warehouse_db, save_aisle_layout,
+from Optimization.Warehouse_Data import (init_warehouse_db, save_aisle_layout,
                             compute_warehouse_fingerprint)
 
 _PASS = 0

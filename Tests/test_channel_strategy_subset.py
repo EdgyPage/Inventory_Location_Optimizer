@@ -18,20 +18,19 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from regime import regime_of, STORE, FULFILLMENT
-from Storage_Primitive import viable_storage_units
-from Inventory_Management import Inventory_Manager, Placement
-from Warehouse_Builder import Warehouse_Builder
-from Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Affinity_Store import AffinityStore
-from Workload import WorkloadParams
-from Assignment_Functions import build_cluster_maximizing_assignment_fn
-from strategies import STRATEGIES, strategies_for
-from channels import build_channels
-from Pick import PickConfig
+
+from Warehouse.regime import regime_of, STORE, FULFILLMENT
+from Warehouse.Storage_Primitive import viable_storage_units
+from Warehouse.Inventory_Management import Inventory_Manager, Placement
+from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.Affinity_Store import AffinityStore
+from Optimization.Workload import WorkloadParams
+from Warehouse.Assignment_Functions import build_cluster_maximizing_assignment_fn
+from Optimization.strategies import STRATEGIES, strategies_for
+from Optimization.channels import build_channels
+from Warehouse.Pick import PickConfig
 
 # Reuse the mixed-catalog helpers from the sibling channel test.
 from test_fulfillment_channels import _mixed_inventory, _ff_order, _plan

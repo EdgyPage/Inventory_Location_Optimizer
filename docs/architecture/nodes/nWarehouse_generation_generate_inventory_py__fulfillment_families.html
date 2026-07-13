@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fulfillment_families · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_generate_inventory_py__fulfillment_families" data-id="Warehouse/generation/generate_inventory.py::fulfillment_families">
+<h1><span class="kind kind-function">function</span> <code>fulfillment_families</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a></p>
+
+<pre class="sig"><code>def fulfillment_families(total_share: float, *, cube_fraction: float=0.3, weight_spec: dict | None=None, dim_low: int=3, dim_high: int=16, cube_sizes: tuple=(4, 6, 8), freq_spec: dict | None=None, qty_spec: dict | None=None) -&gt; list[&#x27;Family&#x27;]</code></pre>
+<section class="doc">A fulfillment sub-catalog summing to *total_share*: a RECTANGULAR family (independent L/W/H,
+each triangular over [dim_low, dim_high]) plus a small-CUBE family.  Both are tagged
+handling_override=&#x27;fulfillment&#x27; so the planner routes them to fulfillment bins, and both draw
+weight from *weight_spec* (default: right-skewed, mode ~2.5, max 10).
+
+cube_fraction is the cube share of the fulfillment SKUs (default 0.3 ⇒ rectangles preferred).
+dim_high is capped at 16 so every SKU fits the 16×16×18 FulfillmentBin envelope (footprint 16,
+tallest tier 18).  Returns [rect_family, cube_family]; omit either when its share rounds to 0.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__Family.html"><code>Family</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__fulfillment_family.html"><code>fulfillment_family</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_mixed_profile_py___build_plan.html"><code>_build_plan</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_inventory_py__fulfillment_families">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py#:~:text=def%20fulfillment_families">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -6,11 +6,11 @@ import os
 
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS, legend_right
-from Performance_Evaluations.common.series import _select_top
-from Performance_Evaluations.comparison import overtime_metrics, top_tag
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS, legend_right
+from Optimization.Performance_Evaluations.common.series import _select_top
+from Optimization.Performance_Evaluations.comparison import overtime_metrics, top_tag
 
 
 def _top_metric(strategies, S, top_n, m, title, baseline, path, top_by='global'):

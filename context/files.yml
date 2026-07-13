@@ -1,0 +1,1311 @@
+# files.yml -- the repo file catalog (GENERATED skeleton; purpose/notes are
+# HUMAN-OWNED -- edit them here).  layer/key_symbols are refreshed from the code by
+# `python context/arch/extract.py --catalog-merge`, which never touches purpose/notes.
+# Rendered into the HTML file map (docs/architecture/catalog.html + per-file pages).
+# Completeness is enforced by verify_architecture.
+version: 1
+files:
+  "Diagnostics/bucket_fill.py":
+    purpose: "read-only diagnostic for the queue-blowup / sub-target-fill bug."
+    layer: "diagnostics"
+    key_symbols:
+      - {name: "sizing_view", file: "Diagnostics/bucket_fill.py", kind: "function"}
+      - {name: "runtime_view", file: "Diagnostics/bucket_fill.py", kind: "function"}
+      - {name: "main", file: "Diagnostics/bucket_fill.py", kind: "function"}
+    notes: ""
+  "Diagnostics/replay_run.py":
+    purpose: "export a real simulation run's persisted DBs to a dashboard trace."
+    layer: "diagnostics"
+    key_symbols:
+      - {name: "read_layout", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "occupied_from_aisle_metrics", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "occupied_from_bin_inventory", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "build_batches", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "replay_sim_db", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "discover_sim_dbs", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "main", file: "Diagnostics/replay_run.py", kind: "function"}
+    notes: ""
+  "Diagnostics/trace_lifecycle.py":
+    purpose: "instrumented simulation lifecycle tracer."
+    layer: "diagnostics"
+    key_symbols:
+      - {name: "Tracer", file: "Diagnostics/trace_lifecycle.py", kind: "class"}
+      - {name: "trace_strategy", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
+      - {name: "main", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/aggregate/cross_profile.py":
+    purpose: "cross-profile roll-up for one pick-config: the same faceted/overlay/"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/cross_profile.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py":
+    purpose: "cross-profile significance suite (strategies paired"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render_stats", file: "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py", kind: "function"}
+      - {name: "render_stats_by_initial", file: "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/breakdown/travel_handling.py":
+    purpose: "stacked travel-vs-handling picker-time bar per strategy,"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/breakdown/travel_handling.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/common/frames.py":
+    purpose: "DataFrame builders + steady-state series alignment (verbatim from the monoliths)."
+    layer: "evaluations"
+    key_symbols: []
+    notes: ""
+  "Optimization/Performance_Evaluations/common/io.py":
+    purpose: "Figure-save + fresh-directory helpers (deduped from the two retired monoliths)."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "set_footer", file: "Optimization/Performance_Evaluations/common/io.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/common/series.py":
+    purpose: "Per-strategy time-series construction, the series.json dump, top-N selection, and the"
+    layer: "evaluations"
+    key_symbols: []
+    notes: ""
+  "Optimization/Performance_Evaluations/common/stats_core.py":
+    purpose: "Statistical machinery for the significance suite (verbatim from the retired"
+    layer: "evaluations"
+    key_symbols: []
+    notes: ""
+  "Optimization/Performance_Evaluations/common/style.py":
+    purpose: "Styling + layout helpers shared across graphs (verbatim from the retired monoliths)."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "legend_right", file: "Optimization/Performance_Evaluations/common/style.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/delta_bars.py":
+    purpose: "throughput \u0394% and duration-improvement% vs the baseline strategy."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/delta_bars.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/delta_by_batch.py":
+    purpose: "per-batch production-time improvement (%) vs the FIFO baseline,"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/delta_by_batch.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/delta_over_time.py":
+    purpose: "production-time (\u03a3 task time / batch) improvement vs the FIFO"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/delta_over_time.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/faceted.py":
+    purpose: "over-time trajectories faceted by (initial \u00d7 reslot), colored by"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/faceted.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/overlay.py":
+    purpose: "all strategies overlaid on one axis per over-time metric: color ="
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/overlay.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py":
+    purpose: "horizontal stacked picking%/traveling% bar per strategy"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/series.py":
+    purpose: "write series.json (per-strategy trajectories + steady-state scalars +"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/series.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/summary_csv.py":
+    purpose: "per-strategy mean/median/std summary tables for headline batch"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/summary_csv.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/task_box.py":
+    purpose: "box plot of steady-state task durations, one box per strategy"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/task_box.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py":
+    purpose: "does throughput follow total labor?  (no rerun, no DB touch)"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/top_metric.py":
+    purpose: "overlay only the top-N strategies (global, or top-N within each"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/top_metric.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py":
+    purpose: "how the best runs compare to the FIFO/random baseline."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/core/context.py":
+    purpose: "the per-config (and per-aggregate-group) data hub."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "EvalContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
+      - {name: "AggregateContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
+    notes: ""
+  "Optimization/Performance_Evaluations/core/discovery.py":
+    purpose: "Auto-discovery: import every submodule so @evaluation decorators fire."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "import_all", file: "Optimization/Performance_Evaluations/core/discovery.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/core/registry.py":
+    purpose: "The Evaluation descriptor + @evaluation decorator + module-level registry."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "Evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "class"}
+      - {name: "evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/driver.py":
+    purpose: "scope dispatch + output-dir preparation for the registry."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "prepare_config_dirs", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "prepare_aggregate_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "resolve_params", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_config", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_aggregate", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_one", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "config_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "aggregate_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py":
+    purpose: "one panel per strategy: per-batch production-time \u0394% vs the"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py":
+    purpose: "one panel per strategy: cumulative % production-time saved"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/metric_grids.py":
+    purpose: "five rectangular grids (one panel per strategy): batch"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/metric_grids.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/panels.py":
+    purpose: "Shared per-strategy panel painters (verbatim from the retired Comparison_Plots"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "panel_duration", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+      - {name: "panel_eff", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+      - {name: "panel_churn", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+      - {name: "panel_taskdur", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+      - {name: "panel_task_overtime", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/report_bars.py":
+    purpose: "production-time-first per-run rollups + the raw long-format"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/report_bars.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/scorecards.py":
+    purpose: "one 3-panel image per strategy (batch duration \u00b7 Sigma f*D \u00b7"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/scorecards.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/per_strategy/summary_bars.py":
+    purpose: "single rectangular summary: mean batch duration, mean"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/summary_bars.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/presets.py":
+    purpose: "the manifest that decides which graphs run and with what params."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "PRESETS", file: "Optimization/Performance_Evaluations/presets.py", kind: "const"}
+    notes: ""
+  "Optimization/Performance_Evaluations/stats/config_suite.py":
+    purpose: "per-config significance suite (strategies paired by"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render_suite", file: "Optimization/Performance_Evaluations/stats/config_suite.py", kind: "function"}
+      - {name: "render_by_initial", file: "Optimization/Performance_Evaluations/stats/config_suite.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/stats/plots.py":
+    purpose: "The four significance-suite plot primitives (verbatim from the retired Stats_Analysis):"
+    layer: "evaluations"
+    key_symbols: []
+    notes: ""
+  "Optimization/Picking_Data.py":
+    purpose: "TODO"
+    layer: "optimization"
+    key_symbols:
+      - {name: "PickRecord", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "AisleMetricRecord", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "BatchStats", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "TaskStats", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "BinInventoryRecord", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "PickerEventRecord", file: "Optimization/Picking_Data.py", kind: "class"}
+      - {name: "load_picks_csv", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_picks_csv", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_picks_db", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_picks_db", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "init_run_db", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "create_run", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "find_run", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "run_identity", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "keyframe_db_path", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "init_keyframe_db", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_keyframe", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_batch_stats", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_batch_stats", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_reorder_queue", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_reorder_queue", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_scores", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_scores", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_sku_scores", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_sku_scores", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_task_stats", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_task_stats", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_picker_events", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_picks", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_picker_events", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_inventory", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_inventory", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "save_aisle_metrics", file: "Optimization/Picking_Data.py", kind: "function"}
+      - {name: "load_aisle_metrics", file: "Optimization/Picking_Data.py", kind: "function"}
+    notes: ""
+  "Optimization/Simulation_Analytics.py":
+    purpose: "per-batch and per-task statistics from PickSimulation events."
+    layer: "optimization"
+    key_symbols:
+      - {name: "sum_lift", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "avg_concurrent_pickers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "picker_time_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "expected_task_labor", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_batch_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_task_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "flag_batch_outliers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "flag_task_outliers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "build_placed_affinity", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "snapshot_aisle_metrics", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "build_pre_snapshot", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "snapshot_bin_inventory", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_picker_events", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_time_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_travel_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_travel_axes", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_picks", file: "Optimization/Simulation_Analytics.py", kind: "function"}
+    notes: ""
+  "Optimization/Warehouse_Data.py":
+    purpose: "SQLite persistence for warehouse sizing stats and aisle distributions."
+    layer: "optimization"
+    key_symbols:
+      - {name: "compute_warehouse_fingerprint", file: "Optimization/Warehouse_Data.py", kind: "function"}
+      - {name: "init_warehouse_db", file: "Optimization/Warehouse_Data.py", kind: "function"}
+      - {name: "save_aisle_layout", file: "Optimization/Warehouse_Data.py", kind: "function"}
+      - {name: "save_warehouse_stats", file: "Optimization/Warehouse_Data.py", kind: "function"}
+    notes: ""
+  "Optimization/Workload.py":
+    purpose: "TODO"
+    layer: "optimization"
+    key_symbols:
+      - {name: "WorkloadParams", file: "Optimization/Workload.py", kind: "class"}
+      - {name: "aisle_workload_components", file: "Optimization/Workload.py", kind: "function"}
+      - {name: "aisle_workload", file: "Optimization/Workload.py", kind: "function"}
+    notes: ""
+  "Optimization/batch_precompute.py":
+    purpose: "compute each warehouse family's batch sequence ONCE and share it."
+    layer: "optimization"
+    key_symbols:
+      - {name: "batch_fingerprint", file: "Optimization/batch_precompute.py", kind: "function"}
+      - {name: "precompute_batches", file: "Optimization/batch_precompute.py", kind: "function"}
+      - {name: "write_batches", file: "Optimization/batch_precompute.py", kind: "function"}
+      - {name: "load_batches", file: "Optimization/batch_precompute.py", kind: "function"}
+      - {name: "ensure_batches", file: "Optimization/batch_precompute.py", kind: "function"}
+    notes: ""
+  "Optimization/channels.py":
+    purpose: "the Channel abstraction: one operation over a shared warehouse."
+    layer: "optimization"
+    key_symbols:
+      - {name: "PickerProfile", file: "Optimization/channels.py", kind: "class"}
+      - {name: "Channel", file: "Optimization/channels.py", kind: "class"}
+      - {name: "fulfillment_pick_config", file: "Optimization/channels.py", kind: "function"}
+      - {name: "make_channel", file: "Optimization/channels.py", kind: "function"}
+      - {name: "FF_BATCH_SEED_OFFSET", file: "Optimization/channels.py", kind: "const"}
+      - {name: "build_channels", file: "Optimization/channels.py", kind: "function"}
+      - {name: "wp_by_regime", file: "Optimization/channels.py", kind: "function"}
+    notes: ""
+  "Optimization/gpu/gpu_auction.py":
+    purpose: "parallel (Jacobi) auction solver for the placement linear-assignment problem."
+    layer: "gpu"
+    key_symbols:
+      - {name: "build_static_cost", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "assignment_cost", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "greedy_assign", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "auction_assign_numpy", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "auction_assign_torch", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "auction_assign", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "wave_objective", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "affinity_correction", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+      - {name: "auction_place_wave", file: "Optimization/gpu/gpu_auction.py", kind: "function"}
+    notes: ""
+  "Optimization/gpu/gpu_broker.py":
+    purpose: "one process, one CUDA context: the shared GPU server for placement argmin."
+    layer: "gpu"
+    key_symbols:
+      - {name: "SHUTDOWN", file: "Optimization/gpu/gpu_broker.py", kind: "const"}
+      - {name: "gpu_argmin_torch", file: "Optimization/gpu/gpu_broker.py", kind: "function"}
+      - {name: "compute_budget", file: "Optimization/gpu/gpu_broker.py", kind: "function"}
+      - {name: "broker_main", file: "Optimization/gpu/gpu_broker.py", kind: "function"}
+      - {name: "start_broker", file: "Optimization/gpu/gpu_broker.py", kind: "function"}
+      - {name: "stop_broker", file: "Optimization/gpu/gpu_broker.py", kind: "function"}
+    notes: ""
+  "Optimization/gpu/gpu_client.py":
+    purpose: "worker-side GPU offload shim + the shared tiled cost-matrix kernel."
+    layer: "gpu"
+    key_symbols:
+      - {name: "DEFAULT_TILE_BINS", file: "Optimization/gpu/gpu_client.py", kind: "const"}
+      - {name: "estimate_bytes", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+      - {name: "cpu_argmin", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+      - {name: "GpuClient", file: "Optimization/gpu/gpu_client.py", kind: "class"}
+      - {name: "set_client", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+      - {name: "get_client", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+      - {name: "placement_argmin", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+    notes: ""
+  "Optimization/run_analysis.py":
+    purpose: "registry-driven graph generator for completed simulation runs."
+    layer: "optimization"
+    key_symbols:
+      - {name: "run_analysis", file: "Optimization/run_analysis.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_analysis.py", kind: "function"}
+    notes: ""
+  "Optimization/run_channel_rollup.py":
+    purpose: "combine per-channel best plans into a whole-warehouse saving."
+    layer: "optimization"
+    key_symbols:
+      - {name: "rollup", file: "Optimization/run_channel_rollup.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_channel_rollup.py", kind: "function"}
+    notes: ""
+  "Optimization/run_simulation.py":
+    purpose: "Warehouse assignment strategy simulation runner."
+    layer: "optimization"
+    key_symbols:
+      - {name: "main", file: "Optimization/run_simulation.py", kind: "function"}
+    notes: ""
+  "Optimization/run_whatif_delta.py":
+    purpose: "compare what-if scenarios against a reference cell."
+    layer: "optimization"
+    key_symbols:
+      - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
+      - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
+    notes: ""
+  "Optimization/runlayout.py":
+    purpose: "single owner of the on-disk run-tree layout."
+    layer: "optimization"
+    key_symbols:
+      - {name: "discover_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
+      - {name: "find_latest_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
+      - {name: "ChannelRun", file: "Optimization/runlayout.py", kind: "class"}
+      - {name: "iter_channel_runs", file: "Optimization/runlayout.py", kind: "function"}
+      - {name: "iter_sim_dbs", file: "Optimization/runlayout.py", kind: "function"}
+    notes: ""
+  "Optimization/sim_assets.py":
+    purpose: "per-pair shared-asset construction for a run."
+    layer: "optimization"
+    key_symbols:
+      - {name: "build_shared_assets", file: "Optimization/sim_assets.py", kind: "function"}
+    notes: ""
+  "Optimization/sim_config.py":
+    purpose: "the run's single source of tunable truth."
+    layer: "optimization"
+    key_symbols:
+      - {name: "REGRESSION_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "STORE_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "FULFILLMENT_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "CONFIG", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "SEED_WORLD", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "SEED_BATCHES", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "K_PICKERS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "STORE_RESTOCKS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "regime_sizing_from_config", file: "Optimization/sim_config.py", kind: "function"}
+    notes: ""
+  "Optimization/sim_manifest.py":
+    purpose: "run bookkeeping artifacts."
+    layer: "optimization"
+    key_symbols:
+      - {name: "write_run_manifest", file: "Optimization/sim_manifest.py", kind: "function"}
+    notes: ""
+  "Optimization/strategies.py":
+    purpose: "data-driven registry of placement (assignment) strategies."
+    layer: "optimization"
+    key_symbols:
+      - {name: "StrategyContext", file: "Optimization/strategies.py", kind: "class"}
+      - {name: "Strategy", file: "Optimization/strategies.py", kind: "class"}
+      - {name: "strategies_for", file: "Optimization/strategies.py", kind: "function"}
+      - {name: "restocks_for", file: "Optimization/strategies.py", kind: "function"}
+    notes: ""
+  "Optimization/strategy_runner.py":
+    purpose: "concurrent strategy worker for run_simulation.py."
+    layer: "optimization"
+    key_symbols:
+      - {name: "save_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
+      - {name: "load_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
+    notes: ""
+  "Optimization/whatif_config.py":
+    purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
+    layer: "optimization"
+    key_symbols:
+      - {name: "WHATIF", file: "Optimization/whatif_config.py", kind: "const"}
+    notes: ""
+  "Tests/bench/bench_ranked_assign.py":
+    purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
+    layer: "tests"
+    key_symbols: []
+    notes: ""
+  "Tests/bench/bench_sample_to_capacity.py":
+    purpose: "perf benchmark for warehouse planning."
+    layer: "tests"
+    key_symbols: []
+    notes: ""
+  "Tests/bench/bench_sections.py":
+    purpose: "Amdahl baseline: where wall-time actually goes per batch, parsed from"
+    layer: "tests"
+    key_symbols:
+      - {name: "parse", file: "Tests/bench/bench_sections.py", kind: "function"}
+      - {name: "section_shares", file: "Tests/bench/bench_sections.py", kind: "function"}
+      - {name: "run", file: "Tests/bench/bench_sections.py", kind: "function"}
+    notes: ""
+  "Tests/bench/coverage_e2e.py":
+    purpose: "single-process full-pipeline exerciser (refactor safety net)."
+    layer: "tests"
+    key_symbols:
+      - {name: "has_profile_data", file: "Tests/bench/coverage_e2e.py", kind: "function"}
+      - {name: "main", file: "Tests/bench/coverage_e2e.py", kind: "function"}
+    notes: ""
+  "Tests/bench/perf_simulation.py":
+    purpose: "end-to-end simulation performance benchmark."
+    layer: "tests"
+    key_symbols:
+      - {name: "run_benchmark", file: "Tests/bench/perf_simulation.py", kind: "function"}
+    notes: ""
+  "Tests/bench/profile_lifecycle.py":
+    purpose: "fine-grained lifecycle profiler for the batch simulation."
+    layer: "tests"
+    key_symbols:
+      - {name: "run_wall_profile", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
+      - {name: "run_cprofile", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
+      - {name: "run_cprofile_raw", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
+      - {name: "main", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/conftest.py":
+    purpose: "single sys.path bootstrap for the whole suite."
+    layer: "tests"
+    key_symbols: []
+    notes: ""
+  "Tests/gpu/bench_gpu_all.py":
+    purpose: "run the full CPU-vs-GPU benchmark suite (sampling / placement / picksim),"
+    layer: "tests"
+    key_symbols:
+      - {name: "main", file: "Tests/gpu/bench_gpu_all.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_auction.py":
+    purpose: "measured go/no-go for a GPU auction placement solver (prototype)."
+    layer: "tests"
+    key_symbols:
+      - {name: "main", file: "Tests/gpu/bench_gpu_auction.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_common.py":
+    purpose: "shared harness for the CPU-vs-GPU microbenchmarks."
+    layer: "tests"
+    key_symbols:
+      - {name: "backends", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "describe_backends", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "sync_cupy", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "sync_torch", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "bench", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "median_ms", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "to_numpy", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "equiv", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "set_overlap", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "record", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+      - {name: "print_table", file: "Tests/gpu/bench_gpu_common.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_concurrency.py":
+    purpose: "does ONE shared GPU broker keep up with many CPU workers?"
+    layer: "tests"
+    key_symbols:
+      - {name: "main", file: "Tests/gpu/bench_gpu_concurrency.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_picksim.py":
+    purpose: "CPU vs GPU for the pick-sim per-pick compute (fast_pick), the"
+    layer: "tests"
+    key_symbols:
+      - {name: "run", file: "Tests/gpu/bench_gpu_picksim.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_placement.py":
+    purpose: "CPU vs GPU for the placement COST MATRIX, the parallel part of the"
+    layer: "tests"
+    key_symbols:
+      - {name: "run", file: "Tests/gpu/bench_gpu_placement.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/bench_gpu_sampling.py":
+    purpose: "CPU vs GPU for the batch sampler (_lift_weighted_sample), the"
+    layer: "tests"
+    key_symbols:
+      - {name: "run", file: "Tests/gpu/bench_gpu_sampling.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/test_gpu_auction.py":
+    purpose: "correctness of the parallel auction placement solver (prototype)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_auction_matches_scipy_optimal", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_auction_feasible_and_complete", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_auction_deterministic", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_auction_beats_or_ties_greedy", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_torch_matches_numpy_cost", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_torch_tiling_matches_untiled", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+      - {name: "test_affinity_fixed_point_converges_and_helps", file: "Tests/gpu/test_gpu_auction.py", kind: "function"}
+    notes: ""
+  "Tests/gpu/test_gpu_governor.py":
+    purpose: "the GPU broker/governor's correctness + crash-safety contract."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_estimate_bytes_tile_bounded_and_monotonic", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+      - {name: "test_cpu_argmin_matches_bruteforce_with_tiling", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+      - {name: "test_placement_argmin_no_client_falls_back_to_cpu", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+      - {name: "test_client_over_budget_returns_none", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+      - {name: "test_gpu_argmin_matches_cpu", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+      - {name: "test_broker_roundtrip_and_overbudget_fallback", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
+    notes: ""
+  "Tests/test_affinity_lift_invariant.py":
+    purpose: "test_affinity_lift_invariant.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_delta_lift_idxs_is_excess_over_independence", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_sum_lift_subtracts_nnz", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_demand_weighted_delta_lift_weights_excess_by_freq", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_seed_equals_incremental_rebuild", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
+    notes: ""
+  "Tests/test_archgraph_extract.py":
+    purpose: "test_archgraph_extract.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_graph_non_empty_and_deterministic", file: "Tests/test_archgraph_extract.py", kind: "function"}
+      - {name: "test_committed_graph_is_current", file: "Tests/test_archgraph_extract.py", kind: "function"}
+      - {name: "test_key_backbone_edges_present", file: "Tests/test_archgraph_extract.py", kind: "function"}
+    notes: ""
+  "Tests/test_archgraph_nodes.py":
+    purpose: "test_archgraph_nodes.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_nodes_detail_non_empty_and_deterministic", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_keys_equal_graph_node_ids", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_committed_nodes_is_current", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_check_nodes_subprocess_clean", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_detail_payloads_are_real", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_nodes_json_does_not_perturb_graph_json", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+    notes: ""
+  "Tests/test_architecture_coverage.py":
+    purpose: "test_architecture_coverage.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_def_span_resolution", file: "Tests/test_architecture_coverage.py", kind: "function"}
+      - {name: "test_hotpaths_execute_under_e2e_driver", file: "Tests/test_architecture_coverage.py", kind: "function"}
+    notes: ""
+  "Tests/test_architecture_html.py":
+    purpose: "test_architecture_html.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_currency_manifest_matches_fresh_build", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_integrity_committed_tree_matches_manifest", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_completeness_every_node_and_file_has_a_page", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_no_dead_internal_links", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_build_is_deterministic", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_slugs_case_insensitively_unique", file: "Tests/test_architecture_html.py", kind: "function"}
+    notes: ""
+  "Tests/test_architecture_sync.py":
+    purpose: "test_architecture_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_architecture_matches_code", file: "Tests/test_architecture_sync.py", kind: "function"}
+      - {name: "test_scope_detects_missing_edge", file: "Tests/test_architecture_sync.py", kind: "function"}
+      - {name: "test_boundary_detects_forbidden_edge", file: "Tests/test_architecture_sync.py", kind: "function"}
+      - {name: "test_wildcard_boundary_and_layer_mapping", file: "Tests/test_architecture_sync.py", kind: "function"}
+    notes: ""
+  "Tests/test_assignment_and_labor.py":
+    purpose: "test_assignment_and_labor.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_labor_cost_matches_pick_time_qty1", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_expected_popularity_and_labor", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_total_labor_cost_is_qty_times_labor", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_reorder_propagates_labor_cost", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_labor_is_travel_aware", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_popularity_balances_demand", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_random_disperses_across_aisles", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_height_multiplier_brackets", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_pick_time_height_scaling", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_aisle_workload_matches_pick_time_with_height", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_labor_height_vs_travel_tradeoff", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_minlabor_picks_golden_zone_and_front_bin", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_maxlabor_picks_high_far_bin", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_minlabor_compacts_codemanded_into_one_aisle", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_workload_components_handling_matches_pick_time", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_expected_task_labor_objective_and_split", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_task_time_breakdown_charges_cart_swap_to_travel", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_sim_cart_swap_seconds_land_in_travel_not_handling", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_workloadparams_cart_capacity_from_pick_config", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_cartlabor_disperses_only_when_cart_is_small", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_cartlabor_registered", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optimal_work_is_a_floor_below_uniform", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_build_optimal_map_basis_is_quantity_free", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optmap_placement_is_score_matched_not_greedy", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optmap_capped_saves_prime_spots", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_cohesion_pulls_codemanded_into_one_aisle", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_anchors_at_favored_location_then_compacts", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_rank_caps_prime_like_map_rank", file: "Tests/test_assignment_and_labor.py", kind: "function"}
+    notes: ""
+  "Tests/test_assignment_functions.py":
+    purpose: "the composable, named assignment-function layer."
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/test_assignment_functions.py", kind: "function"}
+      - {name: "test_registries_and_names", file: "Tests/test_assignment_functions.py", kind: "function"}
+      - {name: "test_composed_scorer_placement", file: "Tests/test_assignment_functions.py", kind: "function"}
+      - {name: "test_co_demand_compaction_expansion", file: "Tests/test_assignment_functions.py", kind: "function"}
+    notes: ""
+  "Tests/test_batch_precompute.py":
+    purpose: "the HARD GATE for the batch-precompute dedup."
+    layer: "tests"
+    key_symbols:
+      - {name: "SEED_B", file: "Tests/test_batch_precompute.py", kind: "const"}
+      - {name: "N", file: "Tests/test_batch_precompute.py", kind: "const"}
+      - {name: "test_precompute_matches_naive", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_precompute_matches_naive_with_allowlist", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_serial_equals_parallel", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_reproducible", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_fingerprint_distinguishes_families_and_blocks_cross_load", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_affinity_change_changes_fingerprint", file: "Tests/test_batch_precompute.py", kind: "function"}
+      - {name: "test_ensure_batches_roundtrip_and_reuse", file: "Tests/test_batch_precompute.py", kind: "function"}
+    notes: ""
+  "Tests/test_batch_precompute_e2e.py":
+    purpose: "full-pipeline proof that the batch-precompute dedup feeds each arm"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_e2e_worker_consumes_identical_batches", file: "Tests/test_batch_precompute_e2e.py", kind: "function"}
+    notes: ""
+  "Tests/test_bell_freq_profile.py":
+    purpose: "test_bell_freq_profile.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_bell_plan_differs_from_baseline_only_in_freq_spec", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_store_freq_specs_have_exact_normals", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_ff_freq_is_equal_weight_three_normal_mixture", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_sampled_frequencies_respect_clamp", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_sampled_means_track_targets_and_preserve_ordering", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_build_is_reproducible_and_seed_sensitive", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/test_bell_freq_profile.py", kind: "function"}
+    notes: ""
+  "Tests/test_channel_runner_smoke.py":
+    purpose: "mixed-catalog fan-out through the REAL run_simulation wiring."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_mixed_fanout_writes_per_channel_dbs", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_mixed_analysis_replicates_per_channel", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
+    notes: ""
+  "Tests/test_channel_strategy_subset.py":
+    purpose: "test_channel_strategy_subset.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_strategies_for_none_is_full_grid", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_strategies_for_store_subset", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_every_strategy_has_a_restock_key", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_build_channels_store_restocks_scopes_store_only", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_build_channels_default_restocks_is_full_suite", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_mixed_stocking_never_trips_the_guard", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_guard_rejects_a_forced_cross_regime_placement", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_opt_cohesion_stock_places_fulfillment_units", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
+    notes: ""
+  "Tests/test_context_sync.py":
+    purpose: "test_context_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_context_matches_code", file: "Tests/test_context_sync.py", kind: "function"}
+    notes: ""
+  "Tests/test_equilibrium_reorder.py":
+    purpose: "test_equilibrium_reorder.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_profile_attributes", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_profile_equilibrium_formula", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_db_roundtrip", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_refill", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_no_overstock", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_immediate_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_deferred_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_deferred_blocks_duplicate_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_position_counts_queued_units", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_qty_uses_position", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_equilibrium_qty_helper", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_fill_stability", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_zero_is_exact", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_produces_variance", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_floor_prevents_zero", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_in_profile_and_db", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
+    notes: ""
+  "Tests/test_files_catalog_sync.py":
+    purpose: "test_files_catalog_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_catalog_matches_tree", file: "Tests/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_catalog_covers_every_in_scope_file", file: "Tests/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_merge_preserves_notes_and_prunes_deleted", file: "Tests/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_merge_is_idempotent", file: "Tests/test_files_catalog_sync.py", kind: "function"}
+    notes: ""
+  "Tests/test_fulfillment_channels.py":
+    purpose: "test_fulfillment_channels.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_regime_of_across_entity_kinds", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_fulfillment_bin_tiers_and_fit", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_viable_storage_units_routing", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_plan_warehouse_mixed_has_both_regimes_no_junk", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_plan_warehouse_store_only_has_no_fulfillment", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_mixed_stocking_regime_isolation_and_ff_geometry", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_candidates_regime_isolation", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_travel_cost_bakes_by_regime", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_travel_cost_single_regime_unchanged", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_labor_cost", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_fulfillment_bin_height_multiplier_is_one", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_channels_module", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_channel_cart_type", file: "Tests/test_fulfillment_channels.py", kind: "function"}
+    notes: ""
+  "Tests/test_fulfillment_inventory.py":
+    purpose: "the fulfillment sub-catalog generator."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_triangular_weight_bounded_and_skewed", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_triangular_weight_reproducible", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_default_ff_weight_spec_is_triangular", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_shares_split_by_cube_fraction", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_all_cubes_or_all_rects_edge_fractions", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_rect_family_mostly_noncubes_cube_family_all_cubes", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_every_ff_sku_fits_a_fulfillment_bin", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
+    notes: ""
+  "Tests/test_index_equivalence.py":
+    purpose: "Regression tests for the aisle_index fast path and its coupling guard."
+    layer: "tests"
+    key_symbols:
+      - {name: "assets", file: "Tests/test_index_equivalence.py", kind: "function"}
+      - {name: "test_cluster_index_matches_scan", file: "Tests/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_raises_when_armed_with_scan_fn", file: "Tests/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_raises_when_index_fn_without_arming", file: "Tests/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_silent_when_consistent", file: "Tests/test_index_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/test_mixed_catalog_channels.py":
+    purpose: "test_mixed_catalog_channels.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_mixed_catalog_build_and_db_roundtrip", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
+      - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
+      - {name: "test_per_channel_batches_and_simulation", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
+    notes: ""
+  "Tests/test_palletizing.py":
+    purpose: "Verify that initial orders go through the palletizing"
+    layer: "tests"
+    key_symbols:
+      - {name: "ok", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "fail", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "check", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "section", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "test_viable_storage_units_direct", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "test_enqueue_routes_through_palletizer", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "test_equilibrium_qty_and_no_reorder_flag", file: "Tests/test_palletizing.py", kind: "function"}
+      - {name: "test_originals_stored_correctly", file: "Tests/test_palletizing.py", kind: "function"}
+    notes: ""
+  "Tests/test_placement_fastpath_equivalence.py":
+    purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_closest_abs_matches_bruteforce", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_take_closest_is_min_abs", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_take_ge_semantics", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_min_max_and_no_double_take", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_delta_lift_from_row_matches_demand_weighted", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_cluster_map_choose_aisle_matches_reference", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "map_assets", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_map_wave_matches_per_unit_scan", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_map_queue_stays_bounded", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/test_placement_lifecycle.py":
+    purpose: "Verify every state dict is updated correctly at"
+    layer: "tests"
+    key_symbols:
+      - {name: "ok", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "fail", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "section", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "check", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_initial_placement", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_pick_depletion", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_bin_reclaim", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_reorder_trigger", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_load_aware_reorder", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_no_duplicate_reorder", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_end_to_end_mini_sim", file: "Tests/test_placement_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/test_regime_sizing.py":
+    purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_store_cap_leaves_fulfillment_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_fulfillment_cap_leaves_store_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_ff_fixed_distribution_honors_ratio_and_scale", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_regime_sizing_none_matches_no_regressions", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_depth_classes_none_is_byte_identical", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_depth_classes_emit_multiple_widths_and_leave_store_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_k1_is_byte_identical", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_ff_shortens_and_grows_bins_preserved", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_capacity_loss_drops_bins", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_store_branch", file: "Tests/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_k_bounded", file: "Tests/test_regime_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/test_reorder_queue.py":
+    purpose: "test_reorder_queue.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "SEED", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "N_SKUS", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "N_PICKERS", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "BATCH_MEAN_FRAC", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "STABLE_WINDOW", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "MIN_FILL", file: "Tests/test_reorder_queue.py", kind: "const"}
+      - {name: "check", file: "Tests/test_reorder_queue.py", kind: "function"}
+      - {name: "run", file: "Tests/test_reorder_queue.py", kind: "function"}
+    notes: ""
+  "Tests/test_rng_determinism.py":
+    purpose: "test_rng_determinism.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_batch_rng_immune_to_global_stream", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_batch_rng_immune_to_global_stream_with_affinity", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_two_arms_see_identical_batch_sequence", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_different_batch_seeds_differ", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_batch_default_rng_uses_global_and_is_reproducible", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_poisson_sample_rng_is_deterministic_and_isolated", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_poisson_sample_default_uses_global", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_demand_sample_rng_isolated", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_reproducible_by_seed", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_immune_to_global_stream", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_varies_with_seed", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_cv_zero_is_exact_ideal", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_grows_with_lead", file: "Tests/test_rng_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/test_travel_decomposition.py":
+    purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_entry_vs_interpick_classification", file: "Tests/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_decomposition_reconciles_with_duration", file: "Tests/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_pick_fastpick_decomposition_lockstep", file: "Tests/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_one_way_total_x_per_visit_equals_aisle_width", file: "Tests/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_two_way_has_no_exit_segment", file: "Tests/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_per_task_reset_measures_entry_from_entrance", file: "Tests/test_travel_decomposition.py", kind: "function"}
+    notes: ""
+  "Tests/test_velocity_zoning.py":
+    purpose: "Velocity zoning (C): a per-regime candidate-layer toggle that restricts a unit's viable bins"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_configure_zoning_bands_hot_to_shallow", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_routes_to_matching_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_spills_when_band_empty", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_group_key_off_is_binkey_on_is_binkey_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_apportion_floor_sum_and_hot_is_small", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_abc_bands_hot_band_is_small", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_cold_upgrades_when_cold_full", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_hot_downgrades_to_next_colder", file: "Tests/test_velocity_zoning.py", kind: "function"}
+    notes: ""
+  "Tests/test_visualization_data.py":
+    purpose: "test_visualization_data.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_run_params_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_stats_start_end_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_stats_queue_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_reorder_queue_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_bin_scores_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_sku_scores_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_aisle_metrics_pickload_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_run_identity_and_find_run", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_aisle_layout_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_keyframe_db_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "test_reconstruction_query", file: "Tests/test_visualization_data.py", kind: "function"}
+    notes: ""
+  "Tests/test_warehouse_sizing.py":
+    purpose: "test_warehouse_sizing.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_bucket_requirements_track_size_tier", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_every_bucket_has_an_aisle", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_every_sku_is_placeable", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_uncapped_holds_full_demand", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_capped_under_capacity", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_below_floor_clamps", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_min_bins_floor", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_min_bins_overrides_max_bins", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_composition_basis_vector", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_sampling_respects_bucket_capacity", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_cross_tier_fill", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_resample_scales_eq_reorder", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_restock_no_queue_growth", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_partial_placement_drains_incrementally", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_unit_split_rescue", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_planned_inventory_roundtrip_no_queue", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_uniform_aisle_trip_min_assignment", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_assign_extremal_order", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_optimal_layout_minimizes_sigma_fd", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_requeue_bin", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_capacity_reloader_variants", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_cluster_assignment_max_min", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_affinity_sampler_correlates_and_guards", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_init_lift_state_populates_aisle_sets", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_incremental_sigma_fd_matches_full", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_min_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_max_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+    notes: ""
+  "Visualization/db_reader.py":
+    purpose: "read-only reconstruction of a finished run for the replay viewer."
+    layer: "visualization"
+    key_symbols:
+      - {name: "RunRef", file: "Visualization/db_reader.py", kind: "class"}
+      - {name: "discover_runs", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "run_summaries", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "read_geometry", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "reconstruct_batch", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "reconstruct_overview", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "reconstruct_aisle", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "bin_scores", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "sku_scores", file: "Visualization/db_reader.py", kind: "function"}
+    notes: ""
+  "Visualization/server.py":
+    purpose: "DB-backed replay & compare viewer."
+    layer: "visualization"
+    key_symbols:
+      - {name: "index", file: "Visualization/server.py", kind: "function"}
+      - {name: "static_files", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_runs", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_geometry", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_batch", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_overview", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_aisle", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_scores", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_sku_scores", file: "Visualization/server.py", kind: "function"}
+    notes: ""
+  "Visualization/sim_setup.py":
+    purpose: "TODO"
+    layer: "visualization"
+    key_symbols:
+      - {name: "build_simulation", file: "Visualization/sim_setup.py", kind: "function"}
+    notes: ""
+  "Warehouse/Affinity_Store.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "AffinityStore", file: "Warehouse/Affinity_Store.py", kind: "class"}
+    notes: ""
+  "Warehouse/Aisle_Dimensions.py":
+    purpose: "physical dimension helpers for warehouse aisle layout."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "aisle_width_for", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "aisle_height_for", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "unit_bin_width", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "bins_along_x", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "bins_along_y", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "uniform_aisle_bins", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+      - {name: "catalog_aisle_bins", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
+    notes: ""
+  "Warehouse/Aisle_Storage.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Aisle", file: "Warehouse/Aisle_Storage.py", kind: "class"}
+    notes: ""
+  "Warehouse/Assignment_Functions.py":
+    purpose: "placement (assignment) functions."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "build_load_minimizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_load_maximizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_co_demand_placement", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maximizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_uniform_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_popularity_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_labor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_cartlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maxlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_optmap_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_optmap_wave_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "build_cluster_map_placement", file: "Warehouse/Assignment_Functions.py", kind: "function"}
+      - {name: "ASSIGNMENT_BUILDERS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
+      - {name: "RANKED_BUILDERS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
+      - {name: "SCORER_NEEDS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
+    notes: ""
+  "Warehouse/Capacity_Reloader.py":
+    purpose: "bounded re-slot via evict-and-requeue."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "demote_unpopular", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "promote_popular", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "rebalance", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "Capacity_Reloader", file: "Warehouse/Capacity_Reloader.py", kind: "class"}
+      - {name: "promote_popular_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "demote_unpopular_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "rebalance_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
+      - {name: "RELOADERS", file: "Warehouse/Capacity_Reloader.py", kind: "const"}
+    notes: ""
+  "Warehouse/Demand.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "poisson_sample", file: "Warehouse/Demand.py", kind: "function"}
+      - {name: "Demand", file: "Warehouse/Demand.py", kind: "class"}
+    notes: ""
+  "Warehouse/Inventory_Builder.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "InventoryConfig", file: "Warehouse/Inventory_Builder.py", kind: "class"}
+      - {name: "Inventory", file: "Warehouse/Inventory_Builder.py", kind: "class"}
+      - {name: "Inventory_Builder", file: "Warehouse/Inventory_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/Inventory_Management.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Inventory_Manager", file: "Warehouse/Inventory_Management.py", kind: "class"}
+    notes: ""
+  "Warehouse/Order.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Order", file: "Warehouse/Order.py", kind: "class"}
+    notes: ""
+  "Warehouse/Pick.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "PickConfig", file: "Warehouse/Pick.py", kind: "class"}
+      - {name: "PickEvent", file: "Warehouse/Pick.py", kind: "class"}
+      - {name: "PickerProgress", file: "Warehouse/Pick.py", kind: "class"}
+      - {name: "PickSimulation", file: "Warehouse/Pick.py", kind: "class"}
+    notes: ""
+  "Warehouse/Storage_Primitive.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "T", file: "Warehouse/Storage_Primitive.py", kind: "const"}
+      - {name: "Storage_Size", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "Storage_Type", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "StorageUnit", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "Pallet", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "Singleton", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "FulfillmentBin", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "viable_storage_units", file: "Warehouse/Storage_Primitive.py", kind: "function"}
+      - {name: "StorageCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "StoreCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+      - {name: "FulfillmentCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
+    notes: ""
+  "Warehouse/Warehouse_Builder.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "AisleConfig", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
+      - {name: "WarehouseConfig", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
+      - {name: "Warehouse", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
+      - {name: "Warehouse_Builder", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/Workload_Builder.py":
+    purpose: "TODO"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "BatchConfig", file: "Warehouse/Workload_Builder.py", kind: "class"}
+      - {name: "Batch", file: "Warehouse/Workload_Builder.py", kind: "class"}
+      - {name: "Task", file: "Warehouse/Workload_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/cost_model.py":
+    purpose: "single source of truth for the pick-cost primitives."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "height_multiplier", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "TRANSFORMS", file: "Warehouse/cost_model.py", kind: "const"}
+      - {name: "resolve_transform", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "handle_var", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "per_pick", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "sec_per_inch", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "travel_cost", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "aisle_traverse_cost", file: "Warehouse/cost_model.py", kind: "function"}
+    notes: ""
+  "Warehouse/fast_pick.py":
+    purpose: "Two-phase deferred-mutation pick simulation."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "DeferredPickSimulation", file: "Warehouse/fast_pick.py", kind: "class"}
+    notes: ""
+  "Warehouse/generation/generate_affinity.py":
+    purpose: "Generate a demand-weighted sparse affinity matrix from an inventory DB."
+    layer: "generation"
+    key_symbols:
+      - {name: "load_affinity_from_db", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "iter_affinity_from_db", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "estimate", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "print_estimate", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "generate_affinity", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "compute_stats", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "plot_lift_histogram", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "plot_lift_by_group", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "plot_activity_vs_lift", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "plot_degree_distribution", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "plot_cumulative_lift", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "generate_run", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "main", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+    notes: ""
+  "Warehouse/generation/generate_inventory.py":
+    purpose: "Generate an Inventory with configurable dimension and weight distributions and"
+    layer: "generation"
+    key_symbols:
+      - {name: "DEFAULT_DIM_SPEC", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "DEFAULT_WEIGHT_SPEC", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "DEFAULT_FREQ_SPEC", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "DEFAULT_QTY_SPEC", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "sample_rate", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "sample_dim", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "sample_weight", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "Family", file: "Warehouse/generation/generate_inventory.py", kind: "class"}
+      - {name: "fulfillment_family", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "DEFAULT_FF_WEIGHT_SPEC", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "fulfillment_families", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "build_inventory_from_plan", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "build_inventory_with_profile", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "save_inventory_to_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "load_inventory_from_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "compute_stats", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_group_sizes", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_dimensions", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_weight", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_demand", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_equilibrium_qty", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_volume_vs_weight", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_singleton_split", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_dim_kde_overlay", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_creation_plan", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "plot_fulfillment_distributions", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "generate_run", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "main", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+    notes: ""
+  "Warehouse/generation/generate_mixed_profile.py":
+    purpose: "Generate ONE realistic mixed inventory (per-category SKU families with multimodal,"
+    layer: "generation"
+    key_symbols:
+      - {name: "CREATION_PLAN", file: "Warehouse/generation/generate_mixed_profile.py", kind: "const"}
+      - {name: "BELL_STORE_FREQ", file: "Warehouse/generation/generate_mixed_profile.py", kind: "const"}
+      - {name: "BELL_FF_FREQ", file: "Warehouse/generation/generate_mixed_profile.py", kind: "const"}
+      - {name: "BELL_CREATION_PLAN", file: "Warehouse/generation/generate_mixed_profile.py", kind: "const"}
+      - {name: "main", file: "Warehouse/generation/generate_mixed_profile.py", kind: "function"}
+    notes: ""
+  "Warehouse/generation/generate_profile_suite.py":
+    purpose: "Run generate_inventory + generate_affinity for a suite of order profiles."
+    layer: "generation"
+    key_symbols:
+      - {name: "CARTON_PROFILES", file: "Warehouse/generation/generate_profile_suite.py", kind: "const"}
+      - {name: "PROFILE_MAP", file: "Warehouse/generation/generate_profile_suite.py", kind: "const"}
+      - {name: "plot_cross_profile_overlay", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
+      - {name: "plot_profile_stats_table", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
+      - {name: "main", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
+    notes: ""
+  "Warehouse/inventory_common.py":
+    purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Placement", file: "Warehouse/inventory_common.py", kind: "class"}
+      - {name: "LoadParams", file: "Warehouse/inventory_common.py", kind: "class"}
+      - {name: "WarehousePlan", file: "Warehouse/inventory_common.py", kind: "class"}
+      - {name: "tier_ranks_for", file: "Warehouse/inventory_common.py", kind: "function"}
+      - {name: "binkey_of", file: "Warehouse/inventory_common.py", kind: "function"}
+    notes: ""
+  "Warehouse/inventory_optimal.py":
+    purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "OptimalLayoutMixin", file: "Warehouse/inventory_optimal.py", kind: "class"}
+    notes: ""
+  "Warehouse/inventory_planning.py":
+    purpose: "warehouse sizing/sampling (pre-instantiation)."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "PlanningMixin", file: "Warehouse/inventory_planning.py", kind: "class"}
+    notes: ""
+  "Warehouse/inventory_reorder.py":
+    purpose: "churn counters, reload primitive, pick notifications, and"
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "ReorderMixin", file: "Warehouse/inventory_reorder.py", kind: "class"}
+    notes: ""
+  "Warehouse/physical.py":
+    purpose: "the two physical footprint constants (zero-dependency leaf)."
+    layer: "leaf"
+    key_symbols: []
+    notes: ""
+  "Warehouse/regime.py":
+    purpose: "storage-regime identity (store vs fulfillment)."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "regime_of", file: "Warehouse/regime.py", kind: "function"}
+    notes: ""
+  "docs/experiments/ingest.py":
+    purpose: "Pull a simulation run's curated files into a docs experiment folder."
+    layer: "docs"
+    key_symbols:
+      - {name: "DEFAULT_TOP3", file: "docs/experiments/ingest.py", kind: "const"}
+      - {name: "DEFAULT_FULL_SUITE", file: "docs/experiments/ingest.py", kind: "const"}
+      - {name: "DEFAULT_INVENTORY_PLOTS", file: "docs/experiments/ingest.py", kind: "const"}
+      - {name: "main", file: "docs/experiments/ingest.py", kind: "function"}
+    notes: ""
+  "docs/macros.py":
+    purpose: "mkdocs-macros helpers: inject run parameters and formulas into the docs."
+    layer: "docs"
+    key_symbols:
+      - {name: "define_env", file: "docs/macros.py", kind: "function"}
+    notes: ""
+  "scripts/new_experiment.py":
+    purpose: "Scaffold a new docs experiment from the template."
+    layer: "scripts"
+    key_symbols:
+      - {name: "main", file: "scripts/new_experiment.py", kind: "function"}
+    notes: ""

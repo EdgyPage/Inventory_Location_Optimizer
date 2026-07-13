@@ -33,8 +33,11 @@ import os
 import sys
 from collections import defaultdict
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_channel_rollup.py <dir>); `-m` form needs none.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 
 def _is_num(x) -> bool:
@@ -43,11 +46,12 @@ def _is_num(x) -> bool:
 
 def _find_series(base_dir: str) -> list[tuple[str, str]]:
     """(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run."""
+    from Optimization.runlayout import iter_channel_runs
     out = []
-    for root, _dirs, files in os.walk(base_dir):
-        if 'sim_meta.json' in files and 'series.json' in files:
-            out.append((os.path.join(root, 'sim_meta.json'),
-                        os.path.join(root, 'series.json')))
+    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
+        sp = os.path.join(run.path, 'series.json')
+        if os.path.exists(sp):
+            out.append((os.path.join(run.path, 'sim_meta.json'), sp))
     return sorted(out)
 
 

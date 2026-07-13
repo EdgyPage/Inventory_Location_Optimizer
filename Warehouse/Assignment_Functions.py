@@ -8,20 +8,204 @@ to the manager.  The shared constants/types they need (BinKey, Placement, _SIZE_
 """
 from __future__ import annotations
 
+import bisect
 import math
 import random
 from collections import deque
 from typing import Any
 
-from Affinity_Store import AffinityStore
-from cost_model import height_multiplier, sec_per_inch
-from Inventory_Management import (
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.cost_model import height_multiplier, per_pick, sec_per_inch
+from Warehouse.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
 )
 
 
+# ── sorted-by-pref placement helpers (map / cluster_map fast path) ─────────────
+# `mgr._bin_pref[id(b)]` (per-bin preferred score) and `mgr._map_target[sku]` are
+# CONSTANT during a reorder wave, so the map family's "free bin whose pref is closest
+# to target" query becomes an O(log B) bisect on a per-wave sorted snapshot instead of
+# an O(B) scan per unit.
+
+def _closest_abs(prefs: list[float], target: float) -> float:
+    """min |p - target| over the ascending `prefs` via bisect neighbours (O(log n)).
+    Returns the identical value as `min(abs(p - target) for p in prefs)`; +inf if empty."""
+    if not prefs:
+        return math.inf
+    i = bisect.bisect_left(prefs, target)
+    best = math.inf
+    if i < len(prefs):
+        best = prefs[i] - target
+    if i > 0:
+        best = min(best, target - prefs[i - 1])
+    return best
+
+
+class _PrefPool:
+    """A wave-local pool of candidate bins sorted by `pref`, with O(log) closest-to-target
+    queries and O(α) consumption (a bin taken by one unit is invisible to later queries).
+
+    Sort key is geometry-derived and process-reproducible: (pref, aisle_id, x_phys, y_phys)
+    — never id(bin), whose value is not reproducible across processes.  Consumption uses a
+    union-find "next/prev alive" so no tombstones are ever re-scanned.
+    """
+
+    __slots__ = ('prefs', 'bins', '_nxt', '_prv', '_alive')
+
+    def __init__(self, bins, pref):
+        keyed = sorted(
+            ((pref.get(id(b), 0.0), b.location[0], b.x_phys, b.y_phys, b) for b in bins),
+            key=lambda k: k[:4])
+        self.prefs = [k[0] for k in keyed]
+        self.bins  = [k[4] for k in keyed]
+        n = len(keyed)
+        self._nxt   = list(range(n + 1))   # _nxt[i] = first alive index >= i (sentinel n)
+        self._prv   = list(range(-1, n))   # _prv[i+1] = last alive index <= i (sentinel -1)
+        self._alive = [True] * n
+
+    def __len__(self):
+        return sum(self._alive)
+
+    def _find_nxt(self, i: int) -> int:
+        nxt = self._nxt
+        root = i
+        while root < len(self._alive) and not self._alive[root]:
+            root = nxt[root]
+        while i != root:                    # path-compress
+            nxt_i = nxt[i]
+            nxt[i] = root
+            i = nxt_i
+        return root
+
+    def _find_prv(self, i: int) -> int:
+        prv = self._prv
+        root = i
+        while root >= 0 and not self._alive[root]:
+            root = prv[root + 1]
+        while i != root and i >= 0:          # path-compress (prv indexed by i+1)
+            nxt_i = prv[i + 1]
+            prv[i + 1] = root
+            i = nxt_i
+        return root
+
+    def _take(self, i: int):
+        """Mark index i dead, splice it out of both alive-chains, return its bin."""
+        self._alive[i] = False
+        self._nxt[i] = i + 1                 # subsequent _find_nxt(i) skips forward
+        self._prv[i + 1] = i - 1             # subsequent _find_prv(i) skips backward
+        return self.bins[i]
+
+    def take_closest(self, target: float):
+        """Take & return the alive bin with min |pref - target| (tie -> lower pref); None if empty."""
+        p = bisect.bisect_left(self.prefs, target)
+        r = self._find_nxt(p)
+        l = self._find_prv(p - 1)
+        cand = None
+        if l >= 0:
+            cand = l
+        if r < len(self._alive):
+            if cand is None or (target - self.prefs[l]) > (self.prefs[r] - target):
+                cand = r                     # strictly-nearer right; tie keeps left (lower pref)
+        return self._take(cand) if cand is not None else None
+
+    def take_ge(self, target: float):
+        """Take the alive bin with the smallest pref >= target (map_rank cap); if none qualify,
+        fall back to the alive bin with the largest pref (least-prime).  None if empty."""
+        p = bisect.bisect_left(self.prefs, target)
+        r = self._find_nxt(p)
+        if r < len(self._alive):
+            return self._take(r)
+        l = self._find_prv(len(self._alive) - 1)
+        return self._take(l) if l >= 0 else None
+
+    def take_min(self):
+        r = self._find_nxt(0)
+        return self._take(r) if r < len(self._alive) else None
+
+    def take_max(self):
+        l = self._find_prv(len(self._alive) - 1)
+        return self._take(l) if l >= 0 else None
+
+
+# ── affinity CSR-row hoist (cohesion fast path) ───────────────────────────────
+# `_demand_weighted_delta_lift` re-slices the SKU's CSR row on every aisle.  Build the
+# row ONCE per unit as a plain dict and intersect with each aisle's idx-set in pure
+# Python — same value, no per-aisle numpy element iteration.
+
+def _affinity_row(affinity, sku):
+    """{partner_idx: lift} for `sku`, or None when the SKU has no stored partners.
+    One numpy CSR slice per call (hoist to once per unit, then reuse across aisles)."""
+    m = affinity._matrix
+    if m is None or sku not in affinity._sku_to_idx:
+        return None
+    i = affinity._sku_to_idx[sku]
+    start = int(m.indptr[i])
+    end   = int(m.indptr[i + 1])
+    if start == end:
+        return None
+    return {int(ci): float(d) for ci, d in zip(m.indices[start:end], m.data[start:end])}
+
+
+def _delta_lift_from_row(row, member_idx_set, freq_by_idx) -> float:
+    """Σ (lift - 1)·f_i over partners i in `member_idx_set`, from a pre-built `row`
+    ({idx: lift}).  Identical value to _demand_weighted_delta_lift, no CSR slice."""
+    if not row or not member_idx_set:
+        return 0.0
+    # Iterate the smaller side; row (nnz partners) is usually << aisle members.
+    if len(row) <= len(member_idx_set):
+        return sum((lift - 1.0) * freq_by_idx.get(ci, 0.0)
+                   for ci, lift in row.items() if ci in member_idx_set)
+    return sum((row[ci] - 1.0) * freq_by_idx.get(ci, 0.0)
+               for ci in member_idx_set if ci in row)
+
+
 # ── load-aware assignment functions ───────────────────────────────────────────
+
+def _D_map(cands, x_pace, y_pace) -> dict[int, float]:
+    """id(bin) → travel-time D map.  The identical dict-comprehension sat at every
+    ranked-impl site; ONE helper so the formula can't drift.  Paces are s/inch
+    (sec_per_inch of the ft/s speeds); expression shape preserved exactly."""
+    return {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+
+
+
+def _aisle_index_for_unit(aisle_index, unit, minimize: bool):
+    """(best_D, best_bin_map) — one extremal-D representative bin per aisle for *unit*,
+    read from the manager's pre-sorted secondary index (the fast-path twin of
+    Inventory_Manager._candidates; this identical block used to sit inline at 3 sites).
+
+    Resolves the unit's BinKey tier exactly as _candidates does: singleton -> its one
+    bucket; tiered families (pallet / fulfillment) -> the smallest non-empty tier >= the
+    unit's own, via the unit's OWN size table (fulfillment sizes are ff_*, absent from the
+    pallet _SIZE_RANKS — a pallet-only lookup would silently drop every fulfillment unit).
+    minimize picks each aisle deque's min-D head, else its max-D tail (sorted ascending).
+    Returns ({}, {}) when no tier has bins.
+    """
+    shc       = unit.order.storage_handle_config
+    unit_type = unit.unit_category
+    if unit_type == 'singleton':
+        by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+    else:
+        ranks, sizes_desc = tier_ranks_for(unit_type)
+        min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
+        by_aisle = None
+        for size in reversed(sizes_desc):
+            if ranks[size] >= min_rank:
+                by = aisle_index.get((shc.handling, shc.category, size, unit_type))
+                if by and any(by.values()):
+                    by_aisle = by
+                    break
+    best_D: dict[int, float] = {}
+    best_bin_map: dict[int, Any] = {}
+    if by_aisle:
+        for aid, lst in by_aisle.items():
+            if lst:
+                b = lst[0] if minimize else lst[-1]
+                best_D[aid]       = b._D
+                best_bin_map[aid] = b
+    return best_D, best_bin_map
+
 
 def _aisle_extremal_bins(
     candidates: list[Any],
@@ -58,7 +242,7 @@ def _aisle_extremal_bins(
     return best_D, best_bin
 
 
-def build_load_minimizing_assignment_fn(
+def _build_load_assignment_fn(
     params         : LoadParams,
     affinity       : AffinityStore,
     wp             : Any,
@@ -66,22 +250,31 @@ def build_load_minimizing_assignment_fn(
     aisle_lift_sum : dict[int, float],
     aisle_idx_sets : dict[int, set[int]],
     aisle_index    : dict | None = None,
+    *,
+    maximize       : bool = False,
 ) -> AssignmentFn:
-    """Build an AssignmentFn that greedily minimises the L2 norm of predicted
-    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
+    """Shared core for the load-minimising/maximising AssignmentFns (they differed only
+    in extremum direction + the min-only early-termination prune).
+
+    Greedily extremises the L2 norm of predicted aisle loads
+    L_a = W + λ*(W/k)^γ * lift_sum.
 
     Dual-optimisation algorithm
     ---------------------------
-    1. Reduce candidates to one bin per aisle (minimum-D bin) — exact by
+    1. Reduce candidates to one bin per aisle (extremal-D bin) — exact by
        monotonicity of delta_l2 in D within a fixed aisle.
-    2. Sort the O(N_aisles) representatives by D ascending.
-    3. Evaluate aisles in D order with LAZY CSR queries (delta_lift computed
+    2. Sort the O(N_aisles) representatives by D (ascending when minimising;
+       descending when maximising — largest travel cost first has the highest
+       potential delta_l2).
+    3. Evaluate aisles in that order with LAZY CSR queries (delta_lift computed
        only when the aisle is actually reached, not upfront for all aisles).
-    4. Early termination: once the best score has delta_l2 = 0 (no affinity
-       partners in the winning aisle), any remaining aisle with D ≥ best_old_L
-       cannot improve — old_L ≥ D ≥ best_old_L and delta_l2 ≥ 0 = best_delta_l2.
-       With sparse top-20 affinity most aisles have delta_lift = 0, so the
-       termination typically fires after the first few aisles.
+    4. Early termination (MINIMISING ONLY): once the best score has delta_l2 = 0
+       (no affinity partners in the winning aisle), any remaining aisle with
+       D ≥ best_old_L cannot improve — old_L ≥ D ≥ best_old_L and
+       delta_l2 ≥ 0 = best_delta_l2.  With sparse top-20 affinity most aisles
+       have delta_lift = 0, so the termination typically fires after the first
+       few aisles.  No such prune exists when maximising: a low-D aisle can
+       still win on very high affinity lift.
     """
     lam    = params.lambda_
     k      = params.k
@@ -95,57 +288,35 @@ def build_load_minimizing_assignment_fn(
     def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
         sku = unit.order.sku
 
-        # Step 1: one representative bin per aisle (min-D).
+        # Step 1: one representative bin per aisle (extremal-D).
         # Fast path: derive BinKey from unit, read directly from pre-sorted index.
         # Fallback: scan candidates list (used only when aisle_index is None).
         if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[0]  # sorted ascending — first is min-D
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=not maximize)
             if not best_D:
                 return None
         else:
             if not candidates:
                 return None
-            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=True)
+            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed,
+                                                        minimize=not maximize)
 
-        # Step 2: sort aisles by ascending min-D — O(N_aisles log N_aisles)
-        sorted_aids = sorted(best_D, key=best_D.__getitem__)
+        # Step 2: sort aisles by D — O(N_aisles log N_aisles)
+        sorted_aids = sorted(best_D, key=best_D.__getitem__, reverse=maximize)
 
+        _inf = float('-inf') if maximize else float('inf')
         best_bin        : Any | None          = None
         best_aid        : int                 = -1
-        best_score      : tuple[float, float] = (float('inf'), float('inf'))
+        best_score      : tuple[float, float] = (_inf, _inf)
         best_delta_lift : float               = 0.0
 
-        # Step 3+4: lazy CSR queries + early termination
+        # Step 3+4: lazy CSR queries (+ min-only early termination)
         for aid in sorted_aids:
             D = best_D[aid]
 
-            # Early termination: best has delta_l2=0; remaining D ≥ best old_L
-            # means score ≥ (0, D) ≥ (0, best_old_L) = best — prune the rest.
-            if best_score[0] == 0.0 and D >= best_score[1]:
+            if not maximize and best_score[0] == 0.0 and D >= best_score[1]:
+                # best has delta_l2=0; remaining D ≥ best old_L means
+                # score ≥ (0, D) ≥ (0, best_old_L) = best — prune the rest.
                 break
 
             ls = aisle_lift_sum[aid]
@@ -159,7 +330,7 @@ def build_load_minimizing_assignment_fn(
             delta_l2 = new_L * new_L - old_L * old_L
             score    = (delta_l2, old_L)
 
-            if score < best_score:
+            if (score > best_score) if maximize else (score < best_score):
                 best_score      = score
                 best_bin        = best_bin_map[aid]
                 best_aid        = aid
@@ -184,111 +355,20 @@ def build_load_minimizing_assignment_fn(
     return assign
 
 
-def build_load_maximizing_assignment_fn(
-    params         : LoadParams,
-    affinity       : AffinityStore,
-    wp             : Any,
-    aisle_sku_sets : dict[int, set[int]],
-    aisle_lift_sum : dict[int, float],
-    aisle_idx_sets : dict[int, set[int]],
-    aisle_index    : dict | None = None,
-) -> AssignmentFn:
-    """Build an AssignmentFn that greedily maximises the L2 norm of predicted
-    aisle loads  L_a = W + λ*(W/k)^γ * lift_sum.
+def build_load_minimizing_assignment_fn(params, affinity, wp, aisle_sku_sets,
+                                        aisle_lift_sum, aisle_idx_sets,
+                                        aisle_index=None) -> AssignmentFn:
+    """Greedily MINIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn)."""
+    return _build_load_assignment_fn(params, affinity, wp, aisle_sku_sets, aisle_lift_sum,
+                                     aisle_idx_sets, aisle_index, maximize=False)
 
-    Same dual-optimisation structure as the minimising variant:
-    one bin per aisle (min-D) + aisles sorted by D descending (largest
-    travel cost first — highest potential delta_l2) + lazy CSR queries.
-    No early termination for maximising: a low-D aisle can still win if it
-    has very high affinity lift, so the sorted order does not guarantee
-    pruning.  The one-bin-per-aisle reduction still eliminates O(N_bins)
-    evaluations, leaving O(N_aisles) CSR queries.
-    """
-    lam    = params.lambda_
-    k      = params.k
-    gam    = params.gamma
-    x_speed = wp.x_speed
-    y_speed = wp.y_speed
 
-    def _L(D: float, ls: float) -> float:
-        return D + lam * (D / k) ** gam * ls
-
-    def assign(unit: Any, candidates: list[Any] | None) -> Any | None:
-        sku = unit.order.sku
-
-        # One representative bin per aisle (max-D) — exact by monotonicity.
-        # Fast path: derive BinKey from unit, read from pre-sorted index.
-        # Fallback: scan candidates list (used only when aisle_index is None).
-        if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[-1]  # sorted ascending — last is max-D
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
-            if not best_D:
-                return None
-        else:
-            if not candidates:
-                return None
-            best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=False)
-
-        # Sort descending: high-D aisles have the largest potential delta_l2
-        sorted_aids = sorted(best_D, key=best_D.__getitem__, reverse=True)
-
-        best_bin        : Any | None          = None
-        best_aid        : int                 = -1
-        best_score      : tuple[float, float] = (float('-inf'), float('-inf'))
-        best_delta_lift : float               = 0.0
-
-        for aid in sorted_aids:
-            D  = best_D[aid]
-            ls = aisle_lift_sum[aid]
-            dl = (0.0 if sku in aisle_sku_sets[aid]
-                  else 2.0 * affinity.delta_lift_idxs(sku, aisle_idx_sets[aid]))
-            old_L    = _L(D, ls)
-            new_L    = _L(D, ls + dl)
-            delta_l2 = new_L * new_L - old_L * old_L
-            score    = (delta_l2, old_L)
-
-            if score > best_score:
-                best_score      = score
-                best_bin        = best_bin_map[aid]
-                best_aid        = aid
-                best_delta_lift = dl
-
-        if best_bin is None:
-            return None
-
-        if sku not in aisle_sku_sets[best_aid]:
-            aisle_lift_sum[best_aid] += best_delta_lift
-            aisle_sku_sets[best_aid].add(sku)
-            idx = affinity._sku_to_idx.get(sku)
-            if idx is not None:
-                aisle_idx_sets[best_aid].add(idx)
-        return best_bin
-
-    assign.uses_aisle_index = aisle_index is not None
-    return assign
+def build_load_maximizing_assignment_fn(params, affinity, wp, aisle_sku_sets,
+                                        aisle_lift_sum, aisle_idx_sets,
+                                        aisle_index=None) -> AssignmentFn:
+    """Greedily MAXIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn)."""
+    return _build_load_assignment_fn(params, affinity, wp, aisle_sku_sets, aisle_lift_sum,
+                                     aisle_idx_sets, aisle_index, maximize=True)
 
 
 # ── trip-cost assignment functions ────────────────────────────────────────────
@@ -305,21 +385,11 @@ def _demand_weighted_delta_lift(
     Same CSR row-slice as delta_lift_idxs but weights each partner's association
     ABOVE independence (lift − 1; lift = 1 ⇒ 0) by its demand frequency, so common
     strongly-associated partners dominate over rare or near-independent ones.
-    """
-    if not member_idx_set or affinity._matrix is None or sku not in affinity._sku_to_idx:
-        return 0.0
-    i     = affinity._sku_to_idx[sku]
-    start = int(affinity._matrix.indptr[i])
-    end   = int(affinity._matrix.indptr[i + 1])
-    if start == end:
-        return 0.0
-    col_indices = affinity._matrix.indices[start:end]
-    data        = affinity._matrix.data[start:end]
-    return float(sum(
-        (d - 1.0) * freq_by_idx.get(int(ci), 0.0)
-        for ci, d in zip(col_indices, data)
-        if ci in member_idx_set
-    ))
+
+    Delegates to the row helpers so the cold path (place_one, sort keys, tests) and the
+    hoisted hot path (_delta_lift_from_row with a pre-built row) share ONE arithmetic
+    path — bit-identical, both promoting the CSR float to Python float before the sum."""
+    return _delta_lift_from_row(_affinity_row(affinity, sku), member_idx_set, freq_by_idx)
 
 
 # ── shared aisle-scoring core (decoupled; reused by travel + cohesion) ────────
@@ -404,31 +474,7 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
 
         # Step 1: one representative bin per aisle (extremal-D).
         if aisle_index is not None:
-            shc       = unit.order.storage_handle_config
-            unit_type = unit.unit_category
-            if unit_type == 'singleton':
-                by_aisle = aisle_index.get((shc.handling, shc.category, 'singleton', 'singleton'))
-            else:
-                # Use the unit's OWN size table (fulfillment sizes are ff_*, absent from
-                # the pallet _SIZE_RANKS); a pallet-only lookup never matches ff BinKeys in
-                # aisle_index, silently dropping every fulfillment unit.  Mirrors _candidates.
-                ranks, sizes_desc = tier_ranks_for(unit_type)
-                min_rank = ranks.get(unit.storage_size, 0) if unit.storage_size else 0
-                by_aisle = None
-                for size in reversed(sizes_desc):
-                    if ranks[size] >= min_rank:
-                        by = aisle_index.get((shc.handling, shc.category, size, unit_type))
-                        if by and any(by.values()):
-                            by_aisle = by
-                            break
-            best_D: dict[int, float] = {}
-            best_bin_map: dict[int, Any] = {}
-            if by_aisle:
-                for aid, lst in by_aisle.items():
-                    if lst:
-                        b = lst[0] if bin_minimize else lst[-1]
-                        best_D[aid]       = b._D
-                        best_bin_map[aid] = b
+            best_D, best_bin_map = _aisle_index_for_unit(aisle_index, unit, minimize=bin_minimize)
             if not best_D:
                 return None
         else:
@@ -436,10 +482,12 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
                 return None
             best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
 
+        row = _affinity_row(affinity, sku)     # hoist the CSR slice: once per unit, not per aisle
+
         def score_of(aid):
             D = best_D[aid]
             co = (0.0 if sku in aisle_sku_sets[aid]
-                  else _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx))
+                  else _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx))
             if score_kind == 'travel':
                 primary = f_s * D - beta * co
                 secondary = aisle_demand_sum[aid] + f_s * q_s
@@ -575,7 +623,7 @@ def _ranked_assign_impl(
     # out by popping the head — equivalent to picking the extremal-D available bin
     # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of  = _D_map(cands, x_pace, y_pace)
     by_aisle: dict[int, deque] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -690,7 +738,7 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         return result
 
     cands = candidates_fn(sorted_units[0])
-    D_of  = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of  = _D_map(cands, x_pace, y_pace)
     by_aisle: dict[int, list] = {}
     for b in cands:
         by_aisle.setdefault(b.location[0], []).append(b)
@@ -706,11 +754,12 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
+        row = _affinity_row(affinity, sku)        # hoist the CSR slice: once per unit, not per aisle
 
         # aisle: most (compact) / least (expand) lift to members; tie-break toward the
         # front (compact) / back (expand) bay by the aisle's lowest-D representative.
         def aisle_key(aid):
-            mass = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
+            mass = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
             d0   = D_of[id(by_aisle[aid][0])]
             return (mass, -d0) if compact else (mass, d0)
         best_aid = (max if compact else min)(live, key=aisle_key)
@@ -753,9 +802,10 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
         sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
+        row = _affinity_row(affinity, sku)        # hoist the CSR slice: once per unit, not per aisle
 
         def aisle_key(aid):
-            mass = _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[aid], freq_by_idx)
+            mass = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
             d0   = min(x_pace * b.x_phys + y_pace * b.y_phys for b in by_aisle[aid])
             return (mass, -d0) if compact else (mass, d0)
         best_aid = (max if compact else min)(by_aisle, key=aisle_key)
@@ -968,7 +1018,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         cart_coef = wp.cart_swap_coef
         cap_raw   = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
 
-    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of = _D_map(cands, x_pace, y_pace)
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
     by_aisle: dict[int, dict] = {}
@@ -998,7 +1048,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = dq[0]
-            cost = m * (intercept + var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -1150,7 +1200,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     def _better(a, b):                       # is a a better (more extreme) score than b?
         return a > b if maximize else a < b
 
-    D_of = {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+    D_of = _D_map(cands, x_pace, y_pace)
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
     for b in cands:
@@ -1170,7 +1220,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = m * (intercept + var) + D_of[id(_rep(dq))]
+            cost = per_pick(m, intercept, var) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -1244,7 +1294,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = m * (intercept + var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
@@ -1353,6 +1403,33 @@ def build_optmap_fn(mgr, capped=False):
     return place_one
 
 
+def build_optmap_wave_fn(mgr, capped=False):
+    """Ranked-wave twin of build_optmap_fn: the SAME per-unit objective (argmin |pref−target|,
+    or capped nearest-with-pref≥target), but the O(B) scan is amortized — one ``_PrefPool`` sort
+    over the group's candidates per wave, then an O(log B) bisect per unit.  Units are served in
+    QUEUE ORDER (no priority re-sort) so placement matches the per-unit ``place_one`` path except
+    on exact pref ties.  A None (pool exhausted) falls to the per-unit straggler path, which
+    re-fetches candidates and spills up tiers exactly as today."""
+    def place_wave(units, candidates_fn):
+        result: list = []
+        if not units:
+            return result
+        pool   = _PrefPool(candidates_fn(units[0]), mgr._bin_pref)   # one BinKey tier per wave
+        target = mgr._map_target
+        for unit in units:
+            tgt = target.get(unit.order.sku)
+            if tgt is None:                       # unknown SKU: don't waste a prime bin
+                b = pool.take_max() if capped else pool.take_min()
+            elif capped:                          # nearest with pref ≥ target (else least-prime)
+                b = pool.take_ge(tgt)
+            else:                                 # symmetric closest match
+                b = pool.take_closest(tgt)
+            result.append((unit, b))
+        return result
+    place_wave.name = 'optmap_rank' if capped else 'optmap'
+    return place_wave
+
+
 # ── cluster_map: map-favored cluster anchoring + intra-aisle compaction ────────
 #
 # Mixes `map` (each SKU has a favored location: the optimal-map preferred score
@@ -1394,14 +1471,25 @@ def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
     return min(lst, key=cost)
 
 
-def _cluster_map_choose_aisle(by_aisle, affinity, sku, aisle_idx_sets, freq_by_idx, pref, target):
-    """Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap."""
+def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target):
+    """Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap.
+
+    Same argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is
+    replaced by an O(log) ``_closest_abs`` bisect on the aisle's pre-sorted ``prefs_by_aisle`` and
+    is evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift
+    → no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit)."""
     live = [aid for aid, lst in by_aisle.items() if lst]
     if not live:
         return None
-    return max(live, key=lambda a: (
-        _demand_weighted_delta_lift(affinity, sku, aisle_idx_sets[a], freq_by_idx),
-        -_aisle_anchor_gap(by_aisle[a], pref, target)))
+    lifts = {a: _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx) for a in live}
+    best  = max(lifts.values())
+    tied  = [a for a in live if lifts[a] == best]
+    if len(tied) == 1:
+        return tied[0]
+    # tie-break: min anchor gap.  target None ⇒ gap = min pref = prefs[0] (ascending list).
+    if target is None:
+        return min(tied, key=lambda a: prefs_by_aisle[a][0])
+    return min(tied, key=lambda a: _closest_abs(prefs_by_aisle[a], target))
 
 
 def _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
@@ -1426,17 +1514,34 @@ def build_cluster_map_placement(mgr, affinity, wp,
     _require_demand(freq_by_idx, name, 'freq_by_idx (the cohesion weight)')
     x_pace = sec_per_inch(wp.x_speed)
 
-    def _place(sku, by_aisle, f_s, q_s):
-        """Shared aisle+bin choice; mutates the chosen aisle's bin list + aisle state."""
+    pref = mgr._bin_pref
+
+    def _group(candidates):
+        """Group candidate bins by aisle + build each aisle's ascending pref list (for the
+        O(log) anchor bisect).  The pref list is kept in multiset-sync with by_aisle on removal."""
+        by_aisle: dict[int, list] = {}
+        for b in candidates:
+            by_aisle.setdefault(b.location[0], []).append(b)
+        prefs_by_aisle = {aid: sorted(pref.get(id(b), 0.0) for b in lst)
+                          for aid, lst in by_aisle.items()}
+        return by_aisle, prefs_by_aisle
+
+    def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s):
+        """Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state."""
         target = mgr._map_target.get(sku)
-        aid = _cluster_map_choose_aisle(by_aisle, affinity, sku, aisle_idx_sets,
-                                        freq_by_idx, mgr._bin_pref, target)
+        row    = _affinity_row(affinity, sku)             # hoist the CSR slice: once per unit
+        aid = _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row,
+                                        aisle_idx_sets, freq_by_idx, target)
         if aid is None:
             return None
         _mass, cx = _demand_weighted_partner_centroid(
             affinity, sku, aisle_member_pos[aid], freq_by_idx)
-        chosen = _cluster_map_pick_bin(by_aisle[aid], mgr._bin_pref, target, cx, x_pace, capped)
+        chosen = _cluster_map_pick_bin(by_aisle[aid], pref, target, cx, x_pace, capped)
         by_aisle[aid].remove(chosen)
+        plst = prefs_by_aisle[aid]                        # drop the chosen bin's pref (multiset-sync)
+        k = bisect.bisect_left(plst, pref.get(id(chosen), 0.0))
+        if k < len(plst) and plst[k] == pref.get(id(chosen), 0.0):
+            del plst[k]
         _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
                             affinity, aid, sku, f_s, q_s, chosen.x_phys)
         return chosen
@@ -1444,11 +1549,10 @@ def build_cluster_map_placement(mgr, affinity, wp,
     def place_one(unit, candidates):
         if not candidates:
             return None
-        by_aisle: dict[int, list] = {}
-        for b in candidates:
-            by_aisle.setdefault(b.location[0], []).append(b)
+        by_aisle, prefs_by_aisle = _group(candidates)
         c = unit.order
-        return _place(c.sku, by_aisle, freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))
+        return _place(c.sku, by_aisle, prefs_by_aisle,
+                      freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))
 
     def place_wave(units, candidates_fn):
         all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
@@ -1462,12 +1566,10 @@ def build_cluster_map_placement(mgr, affinity, wp,
         result: list = []
         if not sorted_units:
             return result
-        by_aisle: dict[int, list] = {}
-        for b in candidates_fn(sorted_units[0]):          # one BinKey tier, constant for the wave
-            by_aisle.setdefault(b.location[0], []).append(b)
+        by_aisle, prefs_by_aisle = _group(candidates_fn(sorted_units[0]))   # one tier, once per wave
         for unit in sorted_units:
             c = unit.order
-            result.append((unit, _place(c.sku, by_aisle,
+            result.append((unit, _place(c.sku, by_aisle, prefs_by_aisle,
                                         freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))))
         return result
 

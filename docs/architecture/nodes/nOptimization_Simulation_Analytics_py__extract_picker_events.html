@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>extract_picker_events · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Simulation_Analytics_py__extract_picker_events" data-id="Optimization/Simulation_Analytics.py::extract_picker_events">
+<h1><span class="kind kind-function">function</span> <code>extract_picker_events</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_Simulation_Analytics_py.html"><code>Optimization/Simulation_Analytics.py</code></a></p>
+
+<pre class="sig"><code>def extract_picker_events(events: list, batch_id: int, run_id: int=0) -&gt; list</code></pre>
+<section class="doc">Convert a PickSimulation event list into PickerEventRecord rows for DB storage.
+
+Every event is stored verbatim so the full picker timeline can be replayed
+from SQL.  Location (bayX, bayY) is populated for arrive / cart_swap / pick
+events; it is NULL for task_start, task_end, and done events.
+
+Visualization query — state of all pickers at sim-time t in batch b:
+
+    SELECT picker_id, aisle_id, bayX, bayY, event_type, items_picked
+    FROM   picker_events
+    WHERE  run_id = ? AND batch_id = ? AND time &lt;= ?
+    GROUP  BY picker_id
+    HAVING time = MAX(time)
+    ORDER  BY picker_id;</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Picking_Data_py__PickerEventRecord.html"><code>PickerEventRecord</code></a> <span class="dim">Optimization/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Simulation_Analytics_py__extract_picker_events">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Simulation_Analytics.py#:~:text=def%20extract_picker_events">Source ↗</a></p>
+</article>
+</main>
+</body></html>

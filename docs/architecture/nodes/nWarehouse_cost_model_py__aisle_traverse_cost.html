@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aisle_traverse_cost · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_cost_model_py__aisle_traverse_cost" data-id="Warehouse/cost_model.py::aisle_traverse_cost">
+<h1><span class="kind kind-function">function</span> <code>aisle_traverse_cost</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_cost_model_py.html"><code>Warehouse/cost_model.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def aisle_traverse_cost(first_x: float, first_y: float, last_x: float, last_y: float, aisle_length: float, x_pace: float, y_pace: float, one_way: bool, entrance_x: float=0.0) -&gt; tuple[float, float, float, float]</code></pre>
+<section class="doc">Non-pick aisle-traversal time (s) for ONE aisle visit, split into ENTRY and EXIT
+per axis — the single definition shared by the sim (Pick / fast_pick), the analytical
+workload (Workload), and the travel decomposition so they can never drift.
+
+ENTRY = aisle entrance → first pick:
+    entry_x = |first_x - entrance_x| * x_pace ;  entry_y = first_y * y_pace  (raise from ground)
+EXIT  = last pick → aisle far end (one-way lane only), descend to ground:
+    exit_x  = |aisle_length - last_x| * x_pace ;  exit_y = last_y * y_pace
+TWO-WAY (default): no exit — the picker leaves the way it came, reproducing today&#x27;s model.
+
+`x_pace`/`y_pace` are per-inch paces (sec_per_inch of the regime&#x27;s speed).  Returns
+(entry_x, entry_y, exit_x, exit_y) in seconds; sum them for the total non-pick travel.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_cost_model_py__aisle_traverse_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/cost_model.py#:~:text=def%20aisle_traverse_cost">Source ↗</a></p>
+</article>
+</main>
+</body></html>

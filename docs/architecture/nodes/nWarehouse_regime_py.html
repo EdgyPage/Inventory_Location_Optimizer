@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.regime · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_regime_py" data-id="Warehouse/regime.py">
+<h1><span class="kind kind-module">module</span> <code>Warehouse.regime</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_regime_py.html"><code>Warehouse/regime.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.regime</code></pre>
+<section class="doc">regime.py — storage-regime identity (store vs fulfillment).
+
+A *regime* is a self-contained ``(handling, storage_type)`` family with its own bin
+catalog, batch stream, and picker cost.  Fulfillment items/bins/aisles are tagged with
+the ``&#x27;fulfillment&#x27;`` handling + storage_type (+ ``unit_category``); everything else is
+``&#x27;store&#x27;``.  ``regime_of`` duck-types over Orders, StorageUnits, Bins, and Aisles so every
+layer (Warehouse primitives, planner, placement, cost routing, runner, analysis) can key
+on the SAME single-valued regime without importing warehouse internals — this module has
+no dependencies, so it never introduces an import cycle.
+
+The single-valued-per-entity property is what keeps the per-regime cost routing cheap:
+each bin&#x27;s ``_D`` and each order&#x27;s ``labor_cost`` is one value, computed with that entity&#x27;s
+regime parameters, not a per-regime dict.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(9)</span></h2><ul><li><a href="nOptimization_batch_precompute_py.html"><code>Optimization.batch_precompute</code></a> <span class="dim">Optimization/batch_precompute.py</span></li><li><a href="nOptimization_channels_py.html"><code>Optimization.channels</code></a> <span class="dim">Optimization/channels.py</span></li><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_sim_config_py.html"><code>Optimization.sim_config</code></a> <span class="dim">Optimization/sim_config.py</span></li><li><a href="nOptimization_strategy_runner_py.html"><code>Optimization.strategy_runner</code></a> <span class="dim">Optimization/strategy_runner.py</span></li><li><a href="nWarehouse_Inventory_Management_py.html"><code>Warehouse.Inventory_Management</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Storage_Primitive_py.html"><code>Warehouse.Storage_Primitive</code></a> <span class="dim">Warehouse/Storage_Primitive.py</span></li><li><a href="nWarehouse_inventory_common_py.html"><code>Warehouse.inventory_common</code></a> <span class="dim">Warehouse/inventory_common.py</span></li><li><a href="nWarehouse_inventory_planning_py.html"><code>Warehouse.inventory_planning</code></a> <span class="dim">Warehouse/inventory_planning.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/regime.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_regime_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/regime.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

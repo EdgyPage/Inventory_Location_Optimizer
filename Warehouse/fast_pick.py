@@ -27,13 +27,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from Pick import PickConfig, PickEvent, PickerProgress, _pick_time
-from Storage_Primitive import StoreCart
-from Workload_Builder import Task
-from cost_model import sec_per_inch
+from Warehouse.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin
+from Warehouse.Storage_Primitive import StoreCart
+from Warehouse.Workload_Builder import Task
+from Warehouse.cost_model import sec_per_inch
 
 if TYPE_CHECKING:
-    from Inventory_Management import Inventory_Manager
+    from Warehouse.Inventory_Management import Inventory_Manager
 
 _CART_CAPACITY: int = StoreCart.capacity()   # default (store) cart volume; see PickConfig.cart
 
@@ -77,6 +77,14 @@ def _simulate_picker_deferred(
         total_bins  = len(task.path)
         total_items = sum(task.items.values())
         bins_done   = 0
+        # Per-task position reset to the aisle entrance (lockstep with Pick.py).
+        x = 0.0
+        y = 0.0
+        # Travel decomposition — kept byte-for-byte in lockstep with Pick.py._simulate_picker
+        # (guarded by test_placement_fastpath_equivalence).  Phase flips at the first picked
+        # stop: before = aisle ENTRY (non_pick), after = INTER-PICK (pick).
+        first_pick_seen = False
+        acc_px = acc_py = acc_npx = acc_npy = 0.0
 
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_start',
@@ -86,9 +94,14 @@ def _simulate_picker_deferred(
         ))
 
         for bin_ in task.path:
-            t += (abs(bin_.x_phys - x) * x_pace
-                  + abs(bin_.y_phys - y) * y_pace)
+            seg_x = abs(bin_.x_phys - x) * x_pace
+            seg_y = abs(bin_.y_phys - y) * y_pace
+            t += seg_x + seg_y
             x, y = bin_.x_phys, bin_.y_phys
+            if first_pick_seen:
+                acc_px += seg_x; acc_py += seg_y
+            else:
+                acc_npx += seg_x; acc_npy += seg_y
 
             bid      = id(bin_)
             snap_qty = local_qty.get(bid, bin_snap.get(bid, 0))
@@ -108,7 +121,11 @@ def _simulate_picker_deferred(
                 aisle_id=task.aisle_id, location=bin_.location,
                 bins_completed=bins_done, total_bins=total_bins,
                 items_picked=session_items, total_items=total_items,
+                pick_travel_x=acc_px, pick_travel_y=acc_py,
+                non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
             ))
+            acc_px = acc_py = acc_npx = acc_npy = 0.0
+            first_pick_seen = True
 
             # Swap consumes its own time; advancing `t` before emitting the event makes the gap
             # ending at cart_swap carry the swap seconds → attributed to travel (see Pick.py).
@@ -121,6 +138,7 @@ def _simulate_picker_deferred(
                     aisle_id=task.aisle_id, location=bin_.location,
                     bins_completed=bins_done, total_bins=total_bins,
                     items_picked=session_items, total_items=total_items,
+                    cart_move=cfg.cart_swap_coef,
                 ))
                 cart_remaining = cart_cap
 
@@ -139,11 +157,23 @@ def _simulate_picker_deferred(
 
             mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty))
 
+        # One-way lane EXIT (lockstep with Pick.py): traverse to the aisle far end + descend.
+        if cfg.one_way and task.path:
+            L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
+            if L is None:
+                L = max((b.x_phys for b in task.path), default=0.0)
+            exit_x = abs(L - x) * x_pace
+            exit_y = y * y_pace
+            t      += exit_x + exit_y
+            acc_npx += exit_x; acc_npy += exit_y
+
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_end',
             aisle_id=task.aisle_id,
             bins_completed=bins_done, total_bins=total_bins,
             items_picked=session_items, total_items=total_items,
+            pick_travel_x=acc_px, pick_travel_y=acc_py,
+            non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
         ))
 
     events.append(PickEvent(
@@ -153,7 +183,7 @@ def _simulate_picker_deferred(
     return events, mutations
 
 
-class DeferredPickSimulation:
+class DeferredPickSimulation(_ProgressAPIMixin):
     """Two-phase pick simulation with the same interface as PickSimulation.
 
     After run() completes, .phase1_time and .phase2_time hold wall-clock
@@ -237,46 +267,3 @@ class DeferredPickSimulation:
         return all_events
 
     # ── same progress API as PickSimulation ───────────────────────────────────
-
-    def progress_at(self, t: float) -> list[PickerProgress]:
-        if self._events is None:
-            raise RuntimeError('Call run() before progress_at()')
-        return [self._state_at(pid, t) for pid in range(self._config.num_pickers)]
-
-    def step_table(self, step: float = 1.0) -> list[list[PickerProgress]]:
-        if self._events is None:
-            raise RuntimeError('Call run() before step_table()')
-        max_time  = max((e.time for e in self._events), default=0.0)
-        snapshots = []
-        t = 0.0
-        while t <= max_time:
-            snapshots.append(self.progress_at(t))
-            t = round(t + step, 10)
-        return snapshots
-
-    def _state_at(self, picker_id: int, t: float) -> PickerProgress:
-        picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]
-        past = [e for e in picker_events if e.time <= t]
-        if not past:
-            return PickerProgress(t, picker_id, 'idle', None, 0, 0, 0, 0, 1, 0.0)
-        last       = past[-1]
-        carts_used = sum(1 for e in past if e.event_type == 'cart_swap') + 1
-        if last.event_type == 'done':
-            return PickerProgress(
-                t, picker_id, 'idle', None,
-                last.bins_completed, last.total_bins,
-                last.items_picked, last.total_items,
-                carts_used, 1.0,
-            )
-        status = {
-            'task_start': 'traveling', 'arrive': 'picking',
-            'cart_swap': 'cart_swap', 'pick': 'traveling', 'task_end': 'traveling',
-        }.get(last.event_type, 'idle')
-        return PickerProgress(
-            time=t, picker_id=picker_id, status=status,
-            task_aisle_id=last.aisle_id,
-            bins_completed=last.bins_completed, total_bins=last.total_bins,
-            items_picked=last.items_picked, total_items=last.total_items,
-            carts_used=carts_used,
-            progress=last.bins_completed / (last.total_bins or 1),
-        )

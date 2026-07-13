@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization___init___py" data-id="Optimization/__init__.py">
+<h1><span class="kind kind-module">module</span> <code>Optimization</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization___init___py.html"><code>Optimization/__init__.py</code></a></p>
+
+<pre class="sig"><code>Optimization</code></pre>
+<section class="doc">Optimization — the run harness as a package.
+
+Simulation runner (run_simulation / strategy_runner), analysis
+(run_analysis + Performance_Evaluations), channel rollup, and the SQLite
+persistence layers.  Import style is package-absolute
+(``from Optimization import channels``); the repo root must be on sys.path —
+entry scripts self-bootstrap, pytest gets it from Tests/conftest.py.
+
+Deliberately side-effect-free: no imports here (Performance_Evaluations keeps
+its own deliberate registry side effects in ITS __init__, fired only when the
+analysis package itself is imported).</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

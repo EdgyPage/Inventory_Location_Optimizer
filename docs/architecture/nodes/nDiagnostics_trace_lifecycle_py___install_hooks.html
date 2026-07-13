@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_install_hooks · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_trace_lifecycle_py___install_hooks" data-id="Diagnostics/trace_lifecycle.py::_install_hooks">
+<h1><span class="kind kind-function">function</span> <code>_install_hooks</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_trace_lifecycle_py.html"><code>Diagnostics/trace_lifecycle.py</code></a></p>
+
+<pre class="sig"><code>def _install_hooks(mgr: Inventory_Manager, tr: Tracer) -&gt; None</code></pre>
+<section class="doc">Wrap manager lifecycle methods on the instance to feed the tracer.
+
+Only manager-level methods are wrapped (never reassigned by strategy build),
+so a strategy swapping mgr.placement does not detach the hooks.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_trace_lifecycle_py___install_hooks">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/trace_lifecycle.py#:~:text=def%20_install_hooks">Source ↗</a></p>
+</article>
+</main>
+</body></html>

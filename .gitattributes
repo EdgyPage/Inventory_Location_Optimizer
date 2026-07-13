@@ -1,3 +1,18 @@
 *.ipynb filter=nbstripout
 *.zpln filter=nbstripout
 *.ipynb diff=ipynb
+
+# Architecture layer — byte-pinned, machine-generated artifacts. Force LF on every
+# platform (regardless of core.autocrlf) so the byte-exact verifiers hold on a fresh
+# checkout: the site integrity test hashes docs/architecture/** as binary, and the
+# generator reads site_assets/** as binary. graph.json/nodes.json/site_manifest.json are
+# byte-compared by their --check tests.
+docs/architecture/**            text eol=lf
+context/arch/site_assets/**     text eol=lf
+context/arch/graph.json         text eol=lf
+context/arch/nodes.json         text eol=lf
+context/arch/site_manifest.json text eol=lf
+context/files.yml               text eol=lf
+# Vendored minified lib — treat as binary (exact bytes preserved, never EOL-converted).
+context/arch/site_assets/cytoscape.min.js   -text
+docs/architecture/assets/cytoscape.min.js   -text

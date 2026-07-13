@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.generation.generate_mixed_profile · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_generate_mixed_profile_py" data-id="Warehouse/generation/generate_mixed_profile.py">
+<h1><span class="kind kind-module">module</span> <code>Warehouse.generation.generate_mixed_profile</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_mixed_profile_py.html"><code>Warehouse/generation/generate_mixed_profile.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.generation.generate_mixed_profile</code></pre>
+<section class="doc">Generate ONE realistic mixed inventory (per-category SKU families with multimodal,
+per-dimension distributions) + its affinity matrix, written in the leaf layout that
+run_simulation&#x27;s discover_db_pairs consumes.
+
+Families = the 6 categories, each with its own multimodal length/width/height/weight
+specs and a per-family conveyable/non-conveyable propensity (aggregate ~0.75/0.25).
+Dimensions are sampled INDEPENDENTLY per axis; every stored number is a grounded
+integer &gt;= 1, capped (enforced in Order.build).  Initial stock is the equilibrium
+point loaded by the sim; reorder is the JIT &quot;day-before-runout&quot; rule
+    reorder_point = ceil(expected * (lead_time + 1))
+with lead_time a deterministic per-dataset knob (e.g. 0 vs 1 -&gt; two datasets).
+
+Output layout
+-------------
+&lt;PROFILE_INPUT_DIR&gt;/&lt;run_name&gt;/&lt;profile_name&gt;/
+    inventory/  inventory.db, params.json, stats.json, plots/
+    affinity/   affinity.db,  params.json, stats.json, plots/
+
+Usage
+-----
+python generate_mixed_profile.py --estimate
+python generate_mixed_profile.py --num-skus 3000 --lead-time 1 --name smoke
+python generate_mixed_profile.py --num-skus 76500 --lead-time 0   # JIT, immediate
+python generate_mixed_profile.py --num-skus 76500 --lead-time 1   # JIT, 1-batch transit</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_generation_generate_affinity_py.html"><code>Warehouse.generation.generate_affinity</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py.html"><code>Warehouse.generation.generate_inventory</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(18)</span></h2><ul><li><a href="nWarehouse_generation_generate_mixed_profile_py__BELL_CREATION_PLAN.html"><code>BELL_CREATION_PLAN</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py__BELL_FF_FREQ.html"><code>BELL_FF_FREQ</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py__BELL_STORE_FREQ.html"><code>BELL_STORE_FREQ</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py__CREATION_PLAN.html"><code>CREATION_PLAN</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___DEFAULT_PROFILES_DIR.html"><code>_DEFAULT_PROFILES_DIR</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___HERE.html"><code>_HERE</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___WH.html"><code>_WH</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___build_plan.html"><code>_build_plan</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___clean_path.html"><code>_clean_path</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___expected_conveyable_fraction.html"><code>_expected_conveyable_fraction</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___ff_weight_spec.html"><code>_ff_weight_spec</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___load_env.html"><code>_load_env</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___mix.html"><code>_mix</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___norm.html"><code>_norm</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___parse_lead_spec.html"><code>_parse_lead_spec</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py___tri.html"><code>_tri</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py__main.html"><code>main</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_mixed_profile_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_mixed_profile.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,62 @@
+# Experiment 3 manifest — single source of truth for this experiment's docs.
+# Manifest mode (docs/macros.py): pages call macros with a short inventory key, e.g.
+# setup_table('bell_lt0'); the run id, inventory ids, configs, and figure lists resolve here
+# so pages never hard-code a long run id. See docs/authoring.md and docs/experiments/ingest.py.
+
+title: "Experiment 3 — bell-shaped demand, full assignment-function sweep"
+
+# The analysis run folder (the sub-folder under images/ that ingest.py fills).
+run: comparison_20260708_081149
+
+catalogue: catalogue          # folder under images/ holding the inventory distribution plots
+baseline: uni_fifo_norsl      # the FIFO baseline every arm is measured against
+winners: [rank_cartlabor, rank_labor, comp]   # store champions (Rank_cartlabor ≈ Rank_labor) + fulfillment champion (Compact)
+
+# Short key -> full inventory id (the run's pair label) + a human label.
+# Both variants share one seed-42, 150,000-SKU bell catalogue; they differ only in lead time.
+inventories:
+  bell_lt0:
+    id: mixed_20260708_075953__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260708_075953__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+# Pick-time calibrations. As in Experiment 2 each calibration is an independent warehouse
+# channel: two store calibrations (StoreCart) and two fulfillment calibrations (FulfillmentCart).
+# height_brackets: rows of [upper_y_phys_inches | null, multiplier].
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: store_high_weight
+    label: "store · weight penalty ↑ (w² handling)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: []
+  - name: ful_calibrated_fast_walkers
+    label: "fulfillment · fast walkers (x-speed ↑)"
+    height_brackets: []
+
+# Curated figure filenames the pages render (ingest pulls these, searching the run tree).
+figures:
+  top3:
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png

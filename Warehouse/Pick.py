@@ -4,14 +4,14 @@ import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from Storage_Primitive import StorageCart, StoreCart
-from Workload_Builder import Task
+from Warehouse.Storage_Primitive import StorageCart, StoreCart
+from Warehouse.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
-from cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, sec_per_inch
+from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch
 
 if TYPE_CHECKING:
-    from Inventory_Management import Inventory_Manager
+    from Warehouse.Inventory_Management import Inventory_Manager
 
 _CART_CAPACITY: int = StoreCart.capacity()   # default (store) cart volume; see PickConfig.cart
 
@@ -37,6 +37,10 @@ class PickConfig:
     cart: type[StorageCart] = StoreCart
     # (upper_y_phys, handling_multiplier) brackets — scales the per-unit handling by height
     height_brackets: tuple  = field(default_factory=lambda: DEFAULT_HEIGHT_BRACKETS)
+    # One-way lanes: the picker enters an aisle at the mouth and must traverse to the far end
+    # to exit, so aisle DEPTH (not within-aisle span) drives x-travel.  False (default) = today's
+    # two-way model (no explicit exit).  Consumed by the shared aisle_traverse_cost helper.
+    one_way: bool           = False
 
 
 # ── events ───────────────────────────────────────────────────────────────────
@@ -55,6 +59,18 @@ class PickEvent:
     total_bins: int                     = 0
     items_picked: int                   = 0
     total_items: int                    = 0
+    # ── travel decomposition (seconds accrued since the previous event, stamped in place) ──
+    # Every second the sim advances `time` lands in exactly one field so the split reconciles:
+    #   pick_travel_{x,y}     = INTER-PICK travel (bin→bin between picks), by axis
+    #   non_pick_travel_{x,y} = aisle ENTRY (+ one-way EXIT) travel, by axis
+    #   cart_move             = cart-swap seconds (non-pick, non-axis)
+    # Derived views: pick_travel = px+py;  non_pick_travel = npx+npy+cart_move;
+    #                travel_x = px+npx;  travel_y = py+npy;  task_travel = all five.
+    pick_travel_x: float                = 0.0
+    pick_travel_y: float                = 0.0
+    non_pick_travel_x: float            = 0.0
+    non_pick_travel_y: float            = 0.0
+    cart_move: float                    = 0.0
 
     def __lt__(self, other: PickEvent) -> bool:
         return self.time < other.time
@@ -108,47 +124,20 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     hmult = height_multiplier(cfg.height_brackets, y_phys)
     var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef,
                        cfg.pick_weight_fn, cfg.pick_volume_fn)
-    return hmult * (cfg.pick_intercept + var * quantity)
+    return per_pick(hmult, cfg.pick_intercept, var, quantity)
 
 
 # ── simulation ───────────────────────────────────────────────────────────────
 
-class PickSimulation:
-    """Simulate multiple pickers processing a set of Tasks in aisle order.
+class _ProgressAPIMixin:
+    """Post-run progress inspection shared by BOTH pick simulations.
 
-    Tasks are sorted by aisle_id and distributed to pickers round-robin so that
-    each picker works through their assigned aisles in order.
+    progress_at/step_table/_state_at were verbatim duplicates in PickSimulation
+    and DeferredPickSimulation (cosmetic drift only).  They read nothing but
+    self._events (set by run()) and self._config.num_pickers, so one mixin
+    serves both.  NOT part of the numeric sim path - the picker loops stay
+    deliberately separate (deferred-mutation contract).
     """
-
-    def __init__(
-        self,
-        tasks  : list[Task],
-        config : PickConfig,
-        manager: Inventory_Manager | None = None,
-    ) -> None:
-        sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
-        self._picker_tasks: list[list[Task]] = [[] for _ in range(config.num_pickers)]
-        for i, task in enumerate(sorted_tasks):
-            self._picker_tasks[i % config.num_pickers].append(task)
-        self._config  = config
-        self._manager = manager
-        self._events: list[PickEvent] | None = None
-
-    def run(self) -> list[PickEvent]:
-        """Simulate all pickers and return all events sorted by time."""
-        all_events: list[PickEvent] = []
-        all_picks: list[tuple[int, int]] = []
-        all_empties: list = []
-        for picker_id, tasks in enumerate(self._picker_tasks):
-            all_events.extend(
-                self._simulate_picker(picker_id, tasks, all_picks, all_empties)
-            )
-        all_events.sort()
-        self._events = all_events
-        if self._manager is not None:
-            self._manager._apply_picks_batch(all_picks, all_empties)
-        return all_events
-
     def progress_at(self, t: float) -> list[PickerProgress]:
         """State of every picker at time t. run() must be called first."""
         if self._events is None:
@@ -168,116 +157,6 @@ class PickSimulation:
         return snapshots
 
     # ── picker simulation ────────────────────────────────────────────────────
-
-    def _simulate_picker(
-        self, picker_id: int, tasks: list[Task],
-        picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
-    ) -> list[PickEvent]:
-        cfg = self._config
-        events: list[PickEvent] = []
-        time: float = 0.0
-        x: float = 0.0   # physical X position (starts at aisle entrance)
-        y: float = 0.0   # physical Y position
-        cart_cap: int = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
-        cart_remaining: int = cart_cap
-        carts_used: int = 1
-        session_items: int = 0   # cumulative items picked across all tasks
-        has_manager: bool = self._manager is not None
-        # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
-        x_pace: float = sec_per_inch(cfg.x_speed)
-        y_pace: float = sec_per_inch(cfg.y_speed)
-
-        for task in tasks:
-            total_bins  = len(task.path)
-            total_items = sum(task.items.values())
-            bins_done   = 0
-
-            events.append(PickEvent(
-                time=time, picker_id=picker_id, event_type='task_start',
-                aisle_id=task.aisle_id,
-                bins_completed=0, total_bins=total_bins,
-                items_picked=session_items, total_items=total_items,
-            ))
-
-            for bin_ in task.path:
-                # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
-                travel = (abs(bin_.x_phys - x) * x_pace
-                          + abs(bin_.y_phys - y) * y_pace)
-                time += travel
-                x, y = bin_.x_phys, bin_.y_phys
-
-                if bin_.storage is None:
-                    continue
-                order  = bin_.storage.order
-                qty     = task.items.get(order.sku, 0)
-                if qty == 0:
-                    continue
-
-                events.append(PickEvent(
-                    time=time, picker_id=picker_id, event_type='arrive',
-                    aisle_id=task.aisle_id, location=bin_.location,
-                    bins_completed=bins_done, total_bins=total_bins,
-                    items_picked=session_items, total_items=total_items,
-                ))
-
-                # ── cart swap ────────────────────────────────────────────────
-                # The swap consumes its own time (return the full cart, fetch an empty one).
-                # Advancing `time` first, then emitting the event, makes the gap ending at the
-                # cart_swap event carry the swap seconds — which the decomposition charges to
-                # travel (a route/depot cost), not handling.
-                needed_vol   = order.volume() * qty
-                cart_swapped = needed_vol > cart_remaining
-                if cart_swapped:
-                    time += cfg.cart_swap_coef
-                    events.append(PickEvent(
-                        time=time, picker_id=picker_id, event_type='cart_swap',
-                        aisle_id=task.aisle_id, location=bin_.location,
-                        bins_completed=bins_done, total_bins=total_bins,
-                        items_picked=session_items, total_items=total_items,
-                    ))
-                    carts_used   += 1
-                    cart_remaining = cart_cap
-
-                # ── pick (handling only; cart swap charged above) ────────────
-                pt = _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
-                time          += pt
-                cart_remaining = max(0, cart_remaining - needed_vol)
-                bins_done      += 1
-                session_items  += qty
-
-                events.append(PickEvent(
-                    time=time, picker_id=picker_id, event_type='pick',
-                    aisle_id=task.aisle_id, sku=order.sku, quantity=qty,
-                    location=bin_.location,
-                    bins_completed=bins_done, total_bins=total_bins,
-                    items_picked=session_items, total_items=total_items,
-                ))
-
-                # Deplete the bin; accumulate notifications for batch
-                # application after the simulation ends (before check_reorders).
-                bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
-                if has_manager:
-                    picks.append((order.sku, qty))
-                if bin_.storage.quantity == 0:
-                    bin_.storage = None
-                    if has_manager:
-                        empties.append(bin_)
-
-            events.append(PickEvent(
-                time=time, picker_id=picker_id, event_type='task_end',
-                aisle_id=task.aisle_id,
-                bins_completed=bins_done, total_bins=total_bins,
-                items_picked=session_items, total_items=total_items,
-            ))
-
-        events.append(PickEvent(
-            time=time, picker_id=picker_id, event_type='done',
-            items_picked=session_items, total_items=session_items,
-        ))
-        return events
-
-    # ── progress derivation ──────────────────────────────────────────────────
-
 
     def _state_at(self, picker_id: int, t: float) -> PickerProgress:
         picker_events = [e for e in (self._events or []) if e.picker_id == picker_id]
@@ -321,3 +200,189 @@ class PickSimulation:
             carts_used=carts_used,
             progress=progress,
         )
+
+
+
+class PickSimulation(_ProgressAPIMixin):
+    """Simulate multiple pickers processing a set of Tasks in aisle order.
+
+    Tasks are sorted by aisle_id and distributed to pickers round-robin so that
+    each picker works through their assigned aisles in order.
+    """
+
+    def __init__(
+        self,
+        tasks  : list[Task],
+        config : PickConfig,
+        manager: Inventory_Manager | None = None,
+    ) -> None:
+        sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
+        self._picker_tasks: list[list[Task]] = [[] for _ in range(config.num_pickers)]
+        for i, task in enumerate(sorted_tasks):
+            self._picker_tasks[i % config.num_pickers].append(task)
+        self._config  = config
+        self._manager = manager
+        self._events: list[PickEvent] | None = None
+
+    def run(self) -> list[PickEvent]:
+        """Simulate all pickers and return all events sorted by time."""
+        all_events: list[PickEvent] = []
+        all_picks: list[tuple[int, int]] = []
+        all_empties: list = []
+        for picker_id, tasks in enumerate(self._picker_tasks):
+            all_events.extend(
+                self._simulate_picker(picker_id, tasks, all_picks, all_empties)
+            )
+        all_events.sort()
+        self._events = all_events
+        if self._manager is not None:
+            self._manager._apply_picks_batch(all_picks, all_empties)
+        return all_events
+
+    def _simulate_picker(
+        self, picker_id: int, tasks: list[Task],
+        picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
+    ) -> list[PickEvent]:
+        cfg = self._config
+        events: list[PickEvent] = []
+        time: float = 0.0
+        x: float = 0.0   # physical X position (starts at aisle entrance)
+        y: float = 0.0   # physical Y position
+        cart_cap: int = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
+        cart_remaining: int = cart_cap
+        carts_used: int = 1
+        session_items: int = 0   # cumulative items picked across all tasks
+        has_manager: bool = self._manager is not None
+        # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
+        x_pace: float = sec_per_inch(cfg.x_speed)
+        y_pace: float = sec_per_inch(cfg.y_speed)
+
+        for task in tasks:
+            total_bins  = len(task.path)
+            total_items = sum(task.items.values())
+            bins_done   = 0
+            # Per-task position reset to the aisle entrance (0,0): each aisle visit starts at the
+            # mouth, so the picker never carries a physically-meaningless cross-aisle offset in
+            # local coordinates.  Travel to the first pick is now the true aisle ENTRY.
+            x = 0.0
+            y = 0.0
+            # Travel decomposition (reset per task).  The phase flips at the first picked stop:
+            # travel BEFORE it is aisle ENTRY (non_pick); travel AFTER is INTER-PICK (pick).
+            # Segments to skipped (empty / not-needed) bins accumulate in the pending buffer and
+            # are flushed onto the next emitted event, so no second is lost.
+            first_pick_seen = False
+            acc_px = acc_py = acc_npx = acc_npy = 0.0
+
+            events.append(PickEvent(
+                time=time, picker_id=picker_id, event_type='task_start',
+                aisle_id=task.aisle_id,
+                bins_completed=0, total_bins=total_bins,
+                items_picked=session_items, total_items=total_items,
+            ))
+
+            for bin_ in task.path:
+                # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
+                # Split per axis for the decomposition; `time` still advances by the identical
+                # sum (seg_x + seg_y) so total task duration is byte-for-byte unchanged.
+                seg_x = abs(bin_.x_phys - x) * x_pace
+                seg_y = abs(bin_.y_phys - y) * y_pace
+                time += seg_x + seg_y
+                x, y = bin_.x_phys, bin_.y_phys
+                if first_pick_seen:
+                    acc_px += seg_x; acc_py += seg_y      # inter-pick sweep
+                else:
+                    acc_npx += seg_x; acc_npy += seg_y    # aisle entry
+
+                if bin_.storage is None:
+                    continue
+                order  = bin_.storage.order
+                qty     = task.items.get(order.sku, 0)
+                if qty == 0:
+                    continue
+
+                events.append(PickEvent(
+                    time=time, picker_id=picker_id, event_type='arrive',
+                    aisle_id=task.aisle_id, location=bin_.location,
+                    bins_completed=bins_done, total_bins=total_bins,
+                    items_picked=session_items, total_items=total_items,
+                    pick_travel_x=acc_px, pick_travel_y=acc_py,
+                    non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
+                ))
+                acc_px = acc_py = acc_npx = acc_npy = 0.0
+                first_pick_seen = True
+
+                # ── cart swap ────────────────────────────────────────────────
+                # The swap consumes its own time (return the full cart, fetch an empty one).
+                # Advancing `time` first, then emitting the event, makes the gap ending at the
+                # cart_swap event carry the swap seconds — which the decomposition charges to
+                # travel (a route/depot cost), not handling.
+                needed_vol   = order.volume() * qty
+                cart_swapped = needed_vol > cart_remaining
+                if cart_swapped:
+                    time += cfg.cart_swap_coef
+                    events.append(PickEvent(
+                        time=time, picker_id=picker_id, event_type='cart_swap',
+                        aisle_id=task.aisle_id, location=bin_.location,
+                        bins_completed=bins_done, total_bins=total_bins,
+                        items_picked=session_items, total_items=total_items,
+                        cart_move=cfg.cart_swap_coef,
+                    ))
+                    carts_used   += 1
+                    cart_remaining = cart_cap
+
+                # ── pick (handling only; cart swap charged above) ────────────
+                pt = _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
+                time          += pt
+                cart_remaining = max(0, cart_remaining - needed_vol)
+                bins_done      += 1
+                session_items  += qty
+
+                events.append(PickEvent(
+                    time=time, picker_id=picker_id, event_type='pick',
+                    aisle_id=task.aisle_id, sku=order.sku, quantity=qty,
+                    location=bin_.location,
+                    bins_completed=bins_done, total_bins=total_bins,
+                    items_picked=session_items, total_items=total_items,
+                ))
+
+                # Deplete the bin; accumulate notifications for batch
+                # application after the simulation ends (before check_reorders).
+                bin_.storage.quantity = max(0, bin_.storage.quantity - qty)
+                if has_manager:
+                    picks.append((order.sku, qty))
+                if bin_.storage.quantity == 0:
+                    bin_.storage = None
+                    if has_manager:
+                        empties.append(bin_)
+
+            # One-way lane EXIT: the picker must traverse to the aisle far end (aisle_width) to
+            # leave, then descend to the ground, so aisle DEPTH (not within-aisle span) drives
+            # x-travel.  Charged to non_pick.  Two-way (default) has no exit segment.
+            if cfg.one_way and task.path:
+                L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
+                if L is None:
+                    L = max((b.x_phys for b in task.path), default=0.0)
+                exit_x = abs(L - x) * x_pace
+                exit_y = y * y_pace
+                time   += exit_x + exit_y
+                acc_npx += exit_x; acc_npy += exit_y
+
+            # Flush any trailing travel (skipped bins after the last pick, plus the one-way exit)
+            # so the split reconciles exactly with task duration.
+            events.append(PickEvent(
+                time=time, picker_id=picker_id, event_type='task_end',
+                aisle_id=task.aisle_id,
+                bins_completed=bins_done, total_bins=total_bins,
+                items_picked=session_items, total_items=total_items,
+                pick_travel_x=acc_px, pick_travel_y=acc_py,
+                non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
+            ))
+
+        events.append(PickEvent(
+            time=time, picker_id=picker_id, event_type='done',
+            items_picked=session_items, total_items=session_items,
+        ))
+        return events
+
+    # ── progress derivation ──────────────────────────────────────────────────
+

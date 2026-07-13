@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>build_ranked_minlabor_fn · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_Assignment_Functions_py__build_ranked_minlabor_fn" data-id="Warehouse/Assignment_Functions.py::build_ranked_minlabor_fn">
+<h1><span class="kind kind-function">function</span> <code>build_ranked_minlabor_fn</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_Assignment_Functions_py.html"><code>Warehouse/Assignment_Functions.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def build_ranked_minlabor_fn(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, aisle_member_pos: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)</code></pre>
+<section class="doc">Greedy minimiser of expected task labor (see _ranked_minlabor_impl): golden-zone
+height + effort-to-front + affinity compaction fused into one marginal-cost score.
+The opposite of build_ranked_labor_fn (which BALANCES aisle load).  `beta` is λ, the
+affinity-reward weight that converts lift·freq into the labor (time) units of the score.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Assignment_Functions_py___require_affinity.html"><code>_require_affinity</code></a> <span class="dim">Warehouse/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_strategies_py___build_rank_minlabor.html"><code>_build_rank_minlabor</code></a> <span class="dim">Optimization/strategies.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Assignment_Functions_py__build_ranked_minlabor_fn">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py#:~:text=def%20build_ranked_minlabor_fn">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -15,16 +15,15 @@ from collections import defaultdict
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, 'Warehouse'))
-sys.path.insert(0, os.path.join(_ROOT, 'Optimization'))
 
-from Order import Order
-from cost_model import sec_per_inch
-from Pick import (PickConfig, PickSimulation, PickEvent, _pick_time,
+
+from Warehouse.Order import Order
+from Warehouse.cost_model import sec_per_inch
+from Warehouse.Pick import (PickConfig, PickSimulation, PickEvent, _pick_time,
                   height_multiplier, DEFAULT_HEIGHT_BRACKETS)
-from Storage_Primitive import viable_storage_units, FulfillmentCart
-from Workload_Builder import Task
-from Assignment_Functions import (
+from Warehouse.Storage_Primitive import viable_storage_units, FulfillmentCart
+from Warehouse.Workload_Builder import Task
+from Warehouse.Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_popularity_fn,
     build_ranked_uniform_assignment_fn,
@@ -33,8 +32,8 @@ from Assignment_Functions import (
     build_optmap_fn,
     build_cluster_map_placement,
 )
-from Workload import WorkloadParams, aisle_workload, aisle_workload_components
-from Simulation_Analytics import expected_task_labor, task_time_breakdown
+from Optimization.Workload import WorkloadParams, aisle_workload, aisle_workload_components
+from Optimization.Simulation_Analytics import expected_task_labor, task_time_breakdown
 
 
 def _cfg() -> PickConfig:
@@ -392,8 +391,8 @@ def test_sim_cart_swap_seconds_land_in_travel_not_handling():
 
 def test_workloadparams_cart_capacity_from_pick_config():
     """WorkloadParams carries the regime's cart volume, so the placement cart term can read it."""
-    from Pick import PickConfig
-    from Storage_Primitive import FulfillmentCart
+    from Warehouse.Pick import PickConfig
+    from Warehouse.Storage_Primitive import FulfillmentCart
     assert WorkloadParams().cart_capacity == 125_000
     assert WorkloadParams.from_pick_config(PickConfig()).cart_capacity == 125_000
     assert WorkloadParams.from_pick_config(PickConfig(cart=FulfillmentCart)).cart_capacity == 25_000
@@ -403,7 +402,7 @@ def _cartlabor_place(cap, cart_on):
     """Place two high-volume SKUs given a cheap aisle A (D=0) and an expensive aisle B (D=100).
     A is strictly cheaper so plain rank_labor co-locates both in A; the cart term should push
     the 2nd SKU to B once A's expected volume (2*50=100) overflows the cart.  Returns {sku: aid}."""
-    from Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
+    from Warehouse.Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
     affinity = types.SimpleNamespace(_sku_to_idx={}, _matrix=None)
     wp = WorkloadParams(x_speed=1.0, y_speed=2.0, pick_intercept=0.0,
                         cart_swap_coef=1000.0, cart_capacity=cap)
@@ -442,7 +441,7 @@ def test_rank_cartlabor_disperses_only_when_cart_is_small():
 
 
 def test_rank_cartlabor_registered():
-    from strategies import STRATEGY_BY_KEY, strategies_for
+    from Optimization.strategies import STRATEGY_BY_KEY, strategies_for
     assert 'uni_rank_cartlabor_norsl' in STRATEGY_BY_KEY
     keys = {s.key for s in strategies_for(('rank_cartlabor',))}
     assert {'uni_rank_cartlabor_norsl', 'opt_rank_cartlabor_norsl'} <= keys
@@ -452,9 +451,9 @@ def test_rank_cartlabor_registered():
 
 def _mk_wh_mgr(seed=0):
     """Small two-aisle warehouse + manager (mirrors test_placement_lifecycle)."""
-    from Aisle_Storage import Aisle
-    from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-    from Inventory_Management import Inventory_Manager
+    from Warehouse.Aisle_Storage import Aisle
+    from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+    from Warehouse.Inventory_Management import Inventory_Manager
     Aisle.next_aisle_id = 1
     random.seed(seed)
     W, H = 5 * 48, 4 * 48
@@ -469,8 +468,8 @@ def _mk_wh_mgr(seed=0):
 
 
 def _mk_carton(sku, f=0.8, q=3.0, weight=5, dims=(8, 8, 6), eq=12):
-    from Order import StorageHandleConfig
-    from Demand import Demand
+    from Warehouse.Order import StorageHandleConfig
+    from Warehouse.Demand import Demand
     c = object.__new__(Order)
     c._sku = sku
     c.storage_type = ('conveyable', 'food')

@@ -13,7 +13,7 @@ import pkgutil
 
 
 def import_all() -> None:
-    import Performance_Evaluations as pkg
+    from Optimization import Performance_Evaluations as pkg
     for mod in pkgutil.walk_packages(pkg.__path__, prefix=pkg.__name__ + '.'):
         # skip self to avoid a redundant re-import of this module during the walk
         if mod.name.endswith('.core.discovery'):

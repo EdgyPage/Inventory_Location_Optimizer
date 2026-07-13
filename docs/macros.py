@@ -198,8 +198,13 @@ def define_env(env):
     }
 
     def _fmt_brackets(cfg):
-        """Human-legible M(y) brackets for a calibration, e.g. '×1.0 (y<96″) · …'."""
-        (e1, m1), (e2, m2), (_, m3) = _hbrackets(cfg)
+        """Human-legible M(y) brackets for a calibration, e.g. '×1.0 (y<96″) · …'.
+        Configs with no height brackets (e.g. the fulfillment channel, whose short bins
+        never reach a higher tier) render as flat ×1."""
+        hb = _hbrackets(cfg)
+        if not hb:
+            return "— (flat ×1, no height scaling)"
+        (e1, m1), (e2, m2), (_, m3) = hb
         return (f"×{_num(m1)} (y&lt;{e1}″) · ×{_num(m2)} ({e1}–{e2}″) · "
                 f"×{_num(m3)} (&gt;{e2}″)")
 

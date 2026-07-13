@@ -1,8 +1,8 @@
 import random
 from collections import defaultdict
 from dataclasses import dataclass
-from Order import Order
-from Storage_Primitive import Storage_Type, Singleton
+from Warehouse.Order import Order
+from Warehouse.Storage_Primitive import Storage_Type, Singleton
 
 AffMatrix = dict[tuple[int, int], float]
 

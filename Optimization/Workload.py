@@ -1,12 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 # Single source of truth for the cost primitives (Warehouse/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
-from cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from cost_model import height_multiplier as _height_mult, handle_var, sec_per_inch
-from Storage_Primitive import StoreCart   # default cart for the capacity field
+from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
+from Warehouse.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch
+from Warehouse.Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
 @dataclass
@@ -37,6 +37,10 @@ class WorkloadParams:
     # policies that estimate expected cart-swap cost. Default = standard store cart.
     cart_capacity: int      = StoreCart.capacity()
     height_brackets: tuple  = field(default_factory=lambda: _DEFAULT_HEIGHT_BRACKETS)
+    # One-way lanes (mirrors PickConfig.one_way): aisle depth drives x-travel via entry+exit
+    # traversal.  False (default) = today's two-way model.  Read by the analytical mirror and
+    # the one-way-gated scorers.
+    one_way: bool           = False
     # In a MIXED (multi-channel) warehouse: {regime: WorkloadParams} for per-regime cost
     # routing.  Rides on the primary WorkloadParams so the assignment builders resolve the
     # right regime's cost without signature churn.  None ⇒ single-regime (store), unchanged.
@@ -56,6 +60,7 @@ class WorkloadParams:
             cart_swap_coef   = cfg.cart_swap_coef,    # type: ignore[attr-defined]
             cart_capacity    = getattr(cfg, 'cart', StoreCart).capacity(),
             height_brackets  = getattr(cfg, 'height_brackets', _DEFAULT_HEIGHT_BRACKETS),
+            one_way          = getattr(cfg, 'one_way', False),
         )
 
 
@@ -93,11 +98,11 @@ def aisle_workload_components(
         weight, volume, qty = line[0], line[1], line[2]
         y_phys = line[3] if len(line) > 3 else 0.0
         hmult = _height_mult(params.height_brackets, y_phys)
-        # height scales the ENTIRE at-location pick: M·(intercept + qty·var) (mirrors _pick_time)
-        P += hmult * (params.pick_intercept
-                      + qty * handle_var(weight, volume,
-                                         params.pick_weight_coef, params.pick_volume_coef,
-                                         params.pick_weight_fn, params.pick_volume_fn))
+        # height scales the ENTIRE at-location pick: per_pick = M·(intercept + qty·var)
+        P += per_pick(hmult, params.pick_intercept,
+                      handle_var(weight, volume,
+                                 params.pick_weight_coef, params.pick_volume_coef,
+                                 params.pick_weight_fn, params.pick_volume_fn), qty)
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C
 

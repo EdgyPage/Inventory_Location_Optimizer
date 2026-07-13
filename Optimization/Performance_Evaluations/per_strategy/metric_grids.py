@@ -5,10 +5,10 @@ import os
 
 import matplotlib.pyplot as plt
 
-from Performance_Evaluations.core.registry import evaluation
-from Performance_Evaluations.common.io import _save_close
-from Performance_Evaluations.common.style import _grid, _stitle
-from Performance_Evaluations.per_strategy.panels import (
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.style import _grid, _stitle
+from Optimization.Performance_Evaluations.per_strategy.panels import (
     panel_duration, panel_eff, panel_churn, panel_taskdur, panel_task_overtime,
 )
 

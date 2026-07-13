@@ -17,7 +17,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from Assignment_Functions import (
+from Warehouse.Assignment_Functions import (
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
     build_ranked_minimizing_assignment_fn,
@@ -30,6 +30,7 @@ from Assignment_Functions import (
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
+    build_optmap_wave_fn,
     build_cluster_map_placement,
     build_cluster_maximizing_assignment_fn,
     build_cluster_minimizing_assignment_fn,
@@ -37,7 +38,7 @@ from Assignment_Functions import (
     _score_expected_popularity,
     _score_expected_labor,
 )
-from Inventory_Management import Placement, _uniform_assignment
+from Warehouse.Inventory_Management import Placement, _uniform_assignment
 
 
 @dataclass
@@ -176,7 +177,9 @@ def _build_map(mgr, ctx: StrategyContext) -> None:
     # — each unit goes to the free bin whose pref is closest to its SKU's target, so
     # reorders reload toward the optimum instead of grabbing whatever bin is free.
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
-    mgr.placement = Placement('optmap', build_optmap_fn(mgr))
+    # place_one stays the spill fallback; the wave amortizes the closest-pref scan
+    # (O(B log B) sort + O(log B)/unit) over each reorder group.  See build_optmap_wave_fn.
+    mgr.placement = Placement('optmap', build_optmap_fn(mgr), build_optmap_wave_fn(mgr))
 
 
 def _build_map_rank(mgr, ctx: StrategyContext) -> None:
@@ -184,7 +187,8 @@ def _build_map_rank(mgr, ctx: StrategyContext) -> None:
     # more prime than its optimal rank — prime spots are saved for higher-ranked SKUs that
     # future orders bring (rank-relative, non-greedy).  See build_optmap_fn(capped=True).
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
-    mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True))
+    mgr.placement = Placement('optmap_rank', build_optmap_fn(mgr, capped=True),
+                              build_optmap_wave_fn(mgr, capped=True))
 
 
 def _build_cluster_map(mgr, ctx: StrategyContext) -> None:
@@ -372,12 +376,13 @@ def strategies_for(restocks) -> list[Strategy]:
 # Which restock (assignment-function) subset each channel sweeps.  Lives HERE — the
 # strategies setup file that owns the `restock` keys — so the runner has no special-case
 # strategy constants.  None ⇒ the full assignment-function suite.
-#   store       : fifo (baseline) vs rank_labor (historic winner) vs rank_cartlabor
-#                 (cart-swap-aware; confirms the big store cart barely moves the plan).
-#   fulfillment : the full sweep, so the small-cart channel is compared across every fn.
+#   store       : full sweep — every assignment function is compared on the big-cart channel.
+#   fulfillment : full sweep — every assignment function is compared on the small-cart channel.
+# To re-restrict a channel to a curated subset, set its value to a tuple of restock keys,
+# e.g. store: ('fifo', 'rank_labor', 'rank_cartlabor').
 CHANNEL_RESTOCKS: dict[str, tuple[str, ...] | None] = {
-    'store'      : ('fifo', 'rank_labor', 'rank_cartlabor'),
-    'fulfillment': None,
+    'store'      : None,   # full assignment-function suite
+    'fulfillment': None,   # full assignment-function suite
 }
 
 

@@ -29,15 +29,10 @@ sum_lift(skus, affinity)
 """
 from __future__ import annotations
 
-import os
-import sys
-
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Warehouse'))
-
-from Picking_Data import BatchStats, TaskStats, PickRecord
-from Workload import WorkloadParams, aisle_workload, aisle_workload_components
+from Optimization.Picking_Data import BatchStats, TaskStats, PickRecord
+from Optimization.Workload import WorkloadParams, aisle_workload, aisle_workload_components
 
 
 # (sku_i, sku_j) -> lift; symmetric dict.  Only the fallback for non-AffinityStore
@@ -467,7 +462,7 @@ def snapshot_aisle_metrics(
     will have non-zero values.  Strategy A produces no rows here by design —
     it has no structured placement state to track.
     """
-    from Picking_Data import AisleMetricRecord
+    from Optimization.Picking_Data import AisleMetricRecord
 
     aisle_sku_sets    = manager._aisle_sku_sets
     aisle_sku_counts  = manager._aisle_sku_counts
@@ -510,7 +505,7 @@ def build_pre_snapshot(manager) -> dict:
     Only non-empty bins are captured; empty bins are implicitly quantity=0
     and are not written to the DB.
     """
-    from Storage_Primitive import Singleton
+    from Warehouse.Storage_Primitive import Singleton
     snap = {}
     for bin_ in manager._unavailable.values():
         if bin_.storage is None:
@@ -567,8 +562,8 @@ def snapshot_bin_inventory(
         SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t
         FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)
     """
-    from Picking_Data import BinInventoryRecord
-    from Storage_Primitive import Singleton
+    from Optimization.Picking_Data import BinInventoryRecord
+    from Warehouse.Storage_Primitive import Singleton
 
     records = []
 
@@ -633,7 +628,7 @@ def extract_picker_events(
         HAVING time = MAX(time)
         ORDER  BY picker_id;
     """
-    from Picking_Data import PickerEventRecord
+    from Optimization.Picking_Data import PickerEventRecord
 
     records = []
     for e in events:
@@ -653,6 +648,11 @@ def extract_picker_events(
             total_bins     = e.total_bins,
             items_picked   = e.items_picked,
             total_items    = e.total_items,
+            pick_travel_x     = getattr(e, 'pick_travel_x', 0.0),
+            pick_travel_y     = getattr(e, 'pick_travel_y', 0.0),
+            non_pick_travel_x = getattr(e, 'non_pick_travel_x', 0.0),
+            non_pick_travel_y = getattr(e, 'non_pick_travel_y', 0.0),
+            cart_move         = getattr(e, 'cart_move', 0.0),
         ))
     return records
 
@@ -689,6 +689,38 @@ def task_time_breakdown(events: list) -> tuple[float, float, float]:
                         other += gap
             prev = e
     return travel, handling, other
+
+
+def task_travel_breakdown(events: list) -> tuple[float, float, float]:
+    """Sibling of task_time_breakdown that reads the EXPLICIT per-event travel decomposition
+    stamped by the sim, returning (pick_travel, non_pick_travel, cart_move) in seconds.
+
+      pick_travel     = Σ (pick_travel_x + pick_travel_y)      — inter-pick within-aisle sweep
+      non_pick_travel = Σ (non_pick_travel_x + non_pick_travel_y)  — aisle entry (+ one-way exit)
+      cart_move       = Σ cart_move                            — cart-swap seconds (non-pick)
+
+    So total travel = pick_travel + non_pick_travel + cart_move, matching the `travel` bucket of
+    task_time_breakdown (which folds cart into travel).  Also exposes the x/y split via
+    task_travel_axes().  Works on PickEvent objects or PickerEventRecord rows.  Unlike the
+    gap-based task_time_breakdown, this is exact even across skipped (no-event) bins because the
+    sim folds their travel into the next stamped event."""
+    pick = nonpick = cart = 0.0
+    for e in events:
+        pick    += getattr(e, 'pick_travel_x', 0.0) + getattr(e, 'pick_travel_y', 0.0)
+        nonpick += getattr(e, 'non_pick_travel_x', 0.0) + getattr(e, 'non_pick_travel_y', 0.0)
+        cart    += getattr(e, 'cart_move', 0.0)
+    return pick, nonpick, cart
+
+
+def task_travel_axes(events: list) -> tuple[float, float]:
+    """The x-vs-y split of POSITIONAL travel (excludes non-axis cart_move), in seconds:
+    (travel_x, travel_y) = (Σ pick_x+nonpick_x, Σ pick_y+nonpick_y).  Evidence for the
+    'x drives fulfillment / y drives store' thesis."""
+    tx = ty = 0.0
+    for e in events:
+        tx += getattr(e, 'pick_travel_x', 0.0) + getattr(e, 'non_pick_travel_x', 0.0)
+        ty += getattr(e, 'pick_travel_y', 0.0) + getattr(e, 'non_pick_travel_y', 0.0)
+    return tx, ty
 
 
 def extract_picks(events: list, batch_id: int, run_id: int = 0) -> list[PickRecord]:

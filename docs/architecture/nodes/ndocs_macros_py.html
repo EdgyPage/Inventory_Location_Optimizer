@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>docs.macros · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="ndocs_macros_py" data-id="docs/macros.py">
+<h1><span class="kind kind-module">module</span> <code>docs.macros</code></h1>
+<p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_macros_py.html"><code>docs/macros.py</code></a></p>
+
+<pre class="sig"><code>docs.macros</code></pre>
+<section class="doc">mkdocs-macros helpers: inject run parameters and formulas into the docs.
+
+Values are pulled from JSON snapshots committed per experiment under
+``docs/experiments/&lt;exp&gt;/`` (raw run outputs live on an external drive, gitignored;
+CI only has the repo). Each ``config.json`` sits next to its run&#x27;s images under
+``images/&lt;run&gt;/&lt;inv&gt;/&lt;cfg&gt;/``; inventory ``params.json`` under ``data/&lt;inv&gt;/``.
+
+Two modes, decided per page by its experiment folder:
+  * **manifest mode** — the experiment has an ``experiment.yml`` (single source of
+    truth for its run id, inventory keys→ids, configs, figures). Pages call macros with
+    a short inventory key, e.g. ``setup_table(&#x27;lt0&#x27;)``; run/config/figures resolve from
+    the manifest. This is how new experiments (2+) are authored. See the ingest script
+    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.
+  * **legacy mode** — no ``experiment.yml`` (Experiment 1). Pages pass explicit
+    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.
+
+Formula *shapes* are fixed here from the code that defines them
+(``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);
+only the *numbers* come from JSON, so pages never hard-code a value twice.
+
+Exception: ``assignment_formulas`` transcribes the top-3 assignment-function
+*equations* directly from ``Warehouse/Assignment_Functions.py`` /
+``Warehouse/inventory_optimal.py``. Those objectives are not (yet) emitted to any
+JSON/DB snapshot, so — unlike every other macro here — there is no programmatic
+source to read. A future refactor should expose each builder&#x27;s objective (e.g. a
+``formula`` field on the builder or a small registry) so this macro can read it like
+the others; until then the shapes are maintained by hand against the code.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(32)</span></h2><ul><li><a href="ndocs_macros_py___CACHE.html"><code>_CACHE</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__cfg_list.html"><code>_cfg_list</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__exp_dir.html"><code>_exp_dir</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__figs.html"><code>_figs</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__fmt_brackets.html"><code>_fmt_brackets</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__fmt_fn.html"><code>_fmt_fn</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__fmt_fn_tex.html"><code>_fmt_fn_tex</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__fmt_spec.html"><code>_fmt_spec</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__fmt_weight.html"><code>_fmt_weight</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__hbrackets.html"><code>_hbrackets</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__inv1.html"><code>_inv1</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__load_cfg.html"><code>_load_cfg</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__load_json.html"><code>_load_json</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__load_params.html"><code>_load_params</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__load_yaml.html"><code>_load_yaml</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__manifest.html"><code>_manifest</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__num.html"><code>_num</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__ri.html"><code>_ri</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env__ric.html"><code>_ric</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_assignment_formulas.html"><code>assignment_formulas</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env.html"><code>define_env</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_experiment.html"><code>experiment</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_full_suite_section.html"><code>full_suite_section</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_inv_distribution_table.html"><code>inv_distribution_table</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_inv_lead_time.html"><code>inv_lead_time</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_inv_params.html"><code>inv_params</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_pick_calibration_table.html"><code>pick_calibration_table</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_pick_time_formula.html"><code>pick_time_formula</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_reorder_formula.html"><code>reorder_formula</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_run_config.html"><code>run_config</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_run_section.html"><code>run_section</code></a> <span class="dim">docs/macros.py</span></li><li><a href="ndocs_macros_py__define_env_setup_table.html"><code>setup_table</code></a> <span class="dim">docs/macros.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

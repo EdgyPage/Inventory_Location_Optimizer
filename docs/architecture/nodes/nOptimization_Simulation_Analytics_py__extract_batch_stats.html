@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>extract_batch_stats · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Simulation_Analytics_py__extract_batch_stats" data-id="Optimization/Simulation_Analytics.py::extract_batch_stats">
+<h1><span class="kind kind-function">function</span> <code>extract_batch_stats</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_Simulation_Analytics_py.html"><code>Optimization/Simulation_Analytics.py</code></a></p>
+
+<pre class="sig"><code>def extract_batch_stats(events: list, batch_id: int, k_pickers: int, run_id: int=0) -&gt; BatchStats</code></pre>
+<section class="doc">Summarise one PickSimulation.run() result into a BatchStats record.
+
+duration      : max done-event time across all pickers
+num_tasks     : unique aisles that received a task_start
+total_items   : sum of items_picked from each picker&#x27;s done event
+avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
+picking/traveling pct  : aggregate fractions (see picker_time_breakdown)</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Picking_Data_py__BatchStats.html"><code>BatchStats</code></a> <span class="dim">Optimization/Picking_Data.py</span></li><li><a href="nOptimization_Simulation_Analytics_py___group_events_by_picker.html"><code>_group_events_by_picker</code></a> <span class="dim">Optimization/Simulation_Analytics.py</span></li><li><a href="nOptimization_Simulation_Analytics_py___picker_time_breakdown_grouped.html"><code>_picker_time_breakdown_grouped</code></a> <span class="dim">Optimization/Simulation_Analytics.py</span></li><li><a href="nOptimization_Simulation_Analytics_py__avg_concurrent_pickers.html"><code>avg_concurrent_pickers</code></a> <span class="dim">Optimization/Simulation_Analytics.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Simulation_Analytics_py__extract_batch_stats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Simulation_Analytics.py#:~:text=def%20extract_batch_stats">Source ↗</a></p>
+</article>
+</main>
+</body></html>

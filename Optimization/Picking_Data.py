@@ -97,6 +97,13 @@ class PickerEventRecord:
     total_bins:     int
     items_picked:   int
     total_items:    int
+    # Travel decomposition (seconds; see Warehouse/Pick.PickEvent).  Defaulted so legacy
+    # DBs lacking these columns still construct.
+    pick_travel_x:     float = 0.0
+    pick_travel_y:     float = 0.0
+    non_pick_travel_x: float = 0.0
+    non_pick_travel_y: float = 0.0
+    cart_move:         float = 0.0
 
 
 # ── PickRecord columns ────────────────────────────────────────────────────────
@@ -259,7 +266,12 @@ _CREATE_PICKER_EVENTS = """
         bins_completed INTEGER NOT NULL DEFAULT 0,
         total_bins     INTEGER NOT NULL DEFAULT 0,
         items_picked   INTEGER NOT NULL DEFAULT 0,
-        total_items    INTEGER NOT NULL DEFAULT 0
+        total_items    INTEGER NOT NULL DEFAULT 0,
+        pick_travel_x     REAL NOT NULL DEFAULT 0,
+        pick_travel_y     REAL NOT NULL DEFAULT 0,
+        non_pick_travel_x REAL NOT NULL DEFAULT 0,
+        non_pick_travel_y REAL NOT NULL DEFAULT 0,
+        cart_move         REAL NOT NULL DEFAULT 0
     )
 """
 
@@ -891,12 +903,15 @@ def save_picker_events(path: str, run_id: int, records: list) -> None:
         con.executemany(
             'INSERT INTO picker_events '
             '(run_id,batch_id,picker_id,time,event_type,aisle_id,bayX,bayY,'
-            'sku,quantity,bins_completed,total_bins,items_picked,total_items) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'sku,quantity,bins_completed,total_bins,items_picked,total_items,'
+            'pick_travel_x,pick_travel_y,non_pick_travel_x,non_pick_travel_y,cart_move) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
                  r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
-                 r.bins_completed, r.total_bins, r.items_picked, r.total_items)
+                 r.bins_completed, r.total_bins, r.items_picked, r.total_items,
+                 r.pick_travel_x, r.pick_travel_y, r.non_pick_travel_x,
+                 r.non_pick_travel_y, r.cart_move)
                 for r in records
             ],
         )
@@ -944,6 +959,11 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
                 'ORDER BY picker_id, time',
                 (run_id, batch_id),
             ).fetchall()
+        # Travel-decomposition columns are recent; a legacy DB lacks them, so read defensively
+        # (sqlite3.Row raises on a missing key) and fall back to 0.0.
+        cols = set(rows[0].keys()) if rows else set()
+        def _g(row, col):
+            return row[col] if col in cols else 0.0
         return [
             PickerEventRecord(
                 run_id         = row['run_id'],
@@ -960,6 +980,11 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
                 total_bins     = row['total_bins'],
                 items_picked   = row['items_picked'],
                 total_items    = row['total_items'],
+                pick_travel_x     = _g(row, 'pick_travel_x'),
+                pick_travel_y     = _g(row, 'pick_travel_y'),
+                non_pick_travel_x = _g(row, 'non_pick_travel_x'),
+                non_pick_travel_y = _g(row, 'non_pick_travel_y'),
+                cart_move         = _g(row, 'cart_move'),
             )
             for row in rows
         ]

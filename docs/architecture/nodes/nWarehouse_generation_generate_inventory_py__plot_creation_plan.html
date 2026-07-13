@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plot_creation_plan · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_generate_inventory_py__plot_creation_plan" data-id="Warehouse/generation/generate_inventory.py::plot_creation_plan">
+<h1><span class="kind kind-function">function</span> <code>plot_creation_plan</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a></p>
+
+<pre class="sig"><code>def plot_creation_plan(df: pd.DataFrame, plan_lookup: dict, out_dir: str, title_suffix: str=&#x27;&#x27;) -&gt; None</code></pre>
+<section class="doc">Render a graph for EVERY creation_plan row plus an aggregate-by-handling view.
+
+df         : order dataframe (handling, category, length/width/height/weight,
+             relative_frequency, demand_qty_rate).
+plan_lookup: {(handling, storage_type, parameter): (distribution, params_str)} —
+             the creation_plan rows, used to annotate each subplot.
+
+Output (out_dir):
+  param_&lt;parameter&gt;.png   — grid (rows=category × cols=handling): the realized
+                            histogram for each (handling, category, parameter) row,
+                            titled with that row&#x27;s distribution family + params.
+  aggregate_by_handling.png — conveyable vs non-conveyable overlaid per parameter,
+                            + overall handling counts + per-category handling share.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py___save_close.html"><code>_save_close</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__generate_run.html"><code>generate_run</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_inventory_py__plot_creation_plan">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py#:~:text=def%20plot_creation_plan">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -17,6 +17,12 @@ recurring finding: not every "optimization" wins; some make total picking time *
 Each experiment is self-contained — its own definitions, inventory, strategy catalogue,
 results, and glossary — so a later sweep can change the setup without disturbing earlier ones.
 
+- **[Experiment 2](experiments/experiment-2/index.md)** — two **independent warehouses**: a
+  **store** channel and a **fulfillment** channel, stocked from one shared `mixed_realistic`
+  catalogue (130,000 SKUs). Two different champions emerge — **Rank_labor** for stores,
+  **Compact** for fulfillment. Start at its **Overview**, which links to the simulation lifecycle,
+  inventory baselines, the assignment-function catalogue, the highlights, the full-suite
+  competition, and the glossary.
 - **[Experiment 1](experiments/experiment-1/index.md)** — the first sweep: the
   `mixed_realistic` catalogue (100,000 SKUs) across two replenishment lead-time variants and
   four pick-time calibrations. Start at its **Overview**, which links to the simulation

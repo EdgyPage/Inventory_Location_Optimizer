@@ -1,6 +1,6 @@
 from __future__ import annotations
-from Storage_Primitive import StorageUnit
-from Aisle_Dimensions import (
+from Warehouse.Storage_Primitive import StorageUnit
+from Warehouse.Aisle_Dimensions import (
     PALLET_WIDTH, SINGLETON_WIDTH, PALLET_HEIGHT_MAX,
     SINGLETON_BIN_HEIGHT, SIZE_HEIGHTS, unit_bin_width, bins_along_x, bins_along_y,
 )

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.gpu.gpu_client · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_gpu_gpu_client_py" data-id="Optimization/gpu/gpu_client.py">
+<h1><span class="kind kind-module">module</span> <code>Optimization.gpu.gpu_client</code></h1>
+<p class="meta">layer <span class="chip">gpu</span> · file <a href="../files/nOptimization_gpu_gpu_client_py.html"><code>Optimization/gpu/gpu_client.py</code></a></p>
+
+<pre class="sig"><code>Optimization.gpu.gpu_client</code></pre>
+<section class="doc">gpu_client.py — worker-side GPU offload shim + the shared tiled cost-matrix kernel.
+
+The placement drain scores, for a wave of U queued units over C candidate bins of one BinKey,
+the static marginal cost  cost[u,b] = v[u]*M[b] + (M[b]*intercept + D[b])  and takes argmin over
+bins per unit.  This module owns:
+
+  * `estimate_bytes(U, C, tile)` — the allocation calculator (admission + startup ceiling).
+  * `cpu_argmin(...)`           — the numpy CPU reference / fallback (tiled; bounded memory).
+  * `GpuClient` / `placement_argmin(...)` — offload to the broker; returns None ⇒ caller does CPU.
+
+`placement_argmin` NEVER raises and NEVER blocks indefinitely: a missing/over-budget/timed-out/
+errored broker yields None so the worker silently runs the CPU path — an unattended run can&#x27;t
+crash on GPU trouble.  The broker (gpu_broker.py) reuses the same tiling math on the GPU.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(13)</span></h2><ul><li><a href="nOptimization_gpu_gpu_client_py__DEFAULT_TILE_BINS.html"><code>DEFAULT_TILE_BINS</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__GpuClient.html"><code>GpuClient</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py___CLIENT.html"><code>_CLIENT</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py___ITEMSIZE.html"><code>_ITEMSIZE</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py___TEMP_FACTOR.html"><code>_TEMP_FACTOR</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__GpuClient___init__.html"><code>__init__</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py___argmin_tiled.html"><code>_argmin_tiled</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__cpu_argmin.html"><code>cpu_argmin</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__estimate_bytes.html"><code>estimate_bytes</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__get_client.html"><code>get_client</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__GpuClient_placement_argmin.html"><code>placement_argmin</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__placement_argmin.html"><code>placement_argmin</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li><li><a href="nOptimization_gpu_gpu_client_py__set_client.html"><code>set_client</code></a> <span class="dim">Optimization/gpu/gpu_client.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_gpu_gpu_client_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/gpu/gpu_client.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

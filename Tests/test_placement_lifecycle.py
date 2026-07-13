@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_placement_lifecycle.py — Verify every state dict is updated correctly at
 each stage of the SKU lifecycle: initial stock, pick depletion, reorder trigger,
 and reorder placement.
@@ -19,27 +19,29 @@ import random
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(_HERE), 'Warehouse'))
-sys.path.insert(0, os.path.join(os.path.dirname(_HERE), 'Optimization'))
+_ROOT = os.path.dirname(_HERE)
+if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
+    sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
+
 
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from Aisle_Storage import Aisle
-from Affinity_Store import AffinityStore
-from Order import Order
-from Demand import Demand
-from Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Assignment_Functions import (
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.Order import Order
+from Warehouse.Demand import Demand
+from Warehouse.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
 )
-from Pick import PickConfig, PickSimulation
-from Storage_Primitive import Pallet, Singleton, viable_storage_units
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Workload_Builder import Batch, BatchConfig, Task
-from Workload import WorkloadParams
+from Warehouse.Pick import PickConfig, PickSimulation
+from Warehouse.Storage_Primitive import Pallet, Singleton, viable_storage_units
+from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Optimization.Workload import WorkloadParams
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 _GREEN  = '\033[92m'
@@ -121,7 +123,7 @@ def _make_carton(sku: int, stock_qty: int = 35,
                  handling: str = 'conveyable',
                  category: str = 'food') -> Order:
     """Create a Order directly (no DB) with known dimensions and stock_qty."""
-    from Order import StorageHandleConfig
+    from Warehouse.Order import StorageHandleConfig
     c                        = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = (handling, category)

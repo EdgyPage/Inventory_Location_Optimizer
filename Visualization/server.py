@@ -21,7 +21,13 @@ import argparse
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(__file__))
+# ── path setup: repo root (package imports inside db_reader) + this dir (the
+#    bare sibling `import db_reader` when Flask reloads outside direct-run mode).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_HERE)
+for _p in (_REPO_ROOT, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from flask import Flask, jsonify, request, send_from_directory, abort
 
 import db_reader as R

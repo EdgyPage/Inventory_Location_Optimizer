@@ -46,7 +46,7 @@ python generate_inventory.py --help
 
 Callable API (used by generate_profile_suite.py)
 -----------------------------------------
-from generate_inventory import generate_run, load_inventory_from_db
+from Warehouse.generation.generate_inventory import generate_run, load_inventory_from_db
 run_dir  = generate_run(name='default', num_skus=76500, seed=42, out_dir='...')
 inventory = load_inventory_from_db(run_dir + '/inventory.db')
 """
@@ -73,13 +73,17 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — domain imports + output dirs
-sys.path.insert(0, _WH)
+_WH   = os.path.dirname(_HERE)           # parent Warehouse/ — output dirs
+# repo root on sys.path so package imports resolve when run as a script
+# (python Warehouse/generation/generate_inventory.py ...).
+_REPO_ROOT = os.path.dirname(_WH)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
-from Order import Order, StorageHandleConfig
-from Demand import Demand
-from Inventory_Builder import Inventory
-from Storage_Primitive import Storage_Type
+from Warehouse.Order import Order, StorageHandleConfig
+from Warehouse.Demand import Demand
+from Warehouse.Inventory_Builder import Inventory
+from Warehouse.Storage_Primitive import Storage_Type
 
 _DEFAULT_OUT_DIR  = os.path.join(_WH, 'generated', 'inventories')
 _HANDLINGS        = ['conveyable', 'non-conveyable']

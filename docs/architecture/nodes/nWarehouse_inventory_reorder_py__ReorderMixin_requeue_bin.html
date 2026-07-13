@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>requeue_bin · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_reorder_py__ReorderMixin_requeue_bin" data-id="Warehouse/inventory_reorder.py::ReorderMixin.requeue_bin">
+<h1><span class="kind kind-function">function</span> <code>requeue_bin</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_inventory_reorder_py.html"><code>Warehouse/inventory_reorder.py</code></a></p>
+
+<pre class="sig"><code>def requeue_bin(self, bin_: &#x27;Aisle.Bin&#x27;) -&gt; None</code></pre>
+<section class="doc">Evict a placed unit back into the reorder queue and reclaim its bin —
+the inverse of _execute_placement.
+
+The unit&#x27;s quantity moves from on-hand to on-order (queued), so inventory
+POSITION is unchanged (no spurious reorder fires).  The freed bin returns to
+the available index and the ranked drain re-places the queued unit in its
+proper priority slot.  Bumps the reload churn counter.  No-op on an empty bin.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_reorder_py__ReorderMixin__drop_sku_from_aisle.html"><code>_drop_sku_from_aisle</code></a> <span class="dim">Warehouse/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Capacity_Reloader_py__Capacity_Reloader_reload.html"><code>reload</code></a> <span class="dim">Warehouse/Capacity_Reloader.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_reorder_py__ReorderMixin_requeue_bin">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory_reorder.py#:~:text=def%20requeue_bin">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -2,28 +2,46 @@ import bisect
 from collections import defaultdict, deque
 from typing import Any
 
-from Order import Order
-from Warehouse_Builder import Warehouse
-from Aisle_Storage import Aisle
-from Storage_Primitive import (
+from Warehouse.Order import Order
+from Warehouse.Warehouse_Builder import Warehouse
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Storage_Primitive import (
     StorageUnit, Singleton, Pallet, FulfillmentBin,
     viable_storage_units, _max_qty_fits as _sq_max,
 )
-from Affinity_Store import AffinityStore
-from cost_model import sec_per_inch
-from regime import FULFILLMENT, regime_of
+from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.cost_model import sec_per_inch
+from Warehouse.regime import FULFILLMENT, regime_of
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
-from inventory_common import (
+from Warehouse.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
-    BinKey, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
-    _equilibrium_qty, _max_qty_fitting_pallet_size, _max_qty_fitting_ff_size,
+    BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for, UNIT_CLASSES,
+    _equilibrium_qty, _max_qty_fitting_size,
     _uniform_assignment, _wp_for,
 )
-from inventory_planning import PlanningMixin
-from inventory_optimal import OptimalLayoutMixin
-from inventory_reorder import ReorderMixin
+from Warehouse.inventory_planning import PlanningMixin
+from Warehouse.inventory_optimal import OptimalLayoutMixin
+from Warehouse.inventory_reorder import ReorderMixin
+
+
+def _apportion(m: int, weights: list, n: int) -> list:
+    """Allocate `m` aisles across `n` bands proportional to `weights`, with a floor of 1 per band
+    when `m >= n` (so every band is reachable for the zone-filter spill).  When `m < n`, the first
+    `m` (hottest) bands get 1 each and the rest 0 (spill covers the empties).  Largest-remainder."""
+    if m <= 0:
+        return [0] * n
+    if m < n:
+        return [1 if j < m else 0 for j in range(n)]
+    extra = m - n                                   # after giving 1 per band
+    wsum  = sum(weights) or 1
+    raw   = [w / wsum * extra for w in weights]
+    add   = [int(x) for x in raw]
+    order = sorted(range(n), key=lambda j: -(raw[j] - int(raw[j])))
+    for i in range(extra - sum(add)):
+        add[order[i % n]] += 1
+    return [1 + add[j] for j in range(n)]
 
 
 class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
@@ -49,6 +67,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Populated by init_travel_costs(); maintained by _index_add/_index_remove thereafter.
         self._aisle_index: dict[BinKey, dict[int, list[Aisle.Bin]]] = defaultdict(lambda: defaultdict(list))
         self._travel_costs_ready: bool = False
+
+        # ── velocity zoning (ABC "like-with-like") — a composable candidate-layer toggle ──
+        # When enabled, _candidates restricts a unit's viable bins to its VELOCITY BAND and
+        # _stock_ranked sub-groups the wave by band, so every arm places within the band.
+        # OFF (default) = identity pass-through ⇒ byte-identical (protects FIFO's random.choice).
+        self._zoning_enabled: bool = False
+        self._zoning_bands: int = 3
+        self._sku_band: dict[int, int] = {}     # sku -> velocity band (0 = hottest)
+        self._aisle_band: dict[int, int] = {}   # aisle_id -> geometry band (0 = shallowest/nearest)
 
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
@@ -368,7 +395,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     # ── index maintenance ────────────────────────────────────────────────────
 
     def _key(self, bin_: Aisle.Bin) -> BinKey:
-        return (bin_.handling_type, bin_.storage_type, bin_.storage_size, bin_.unit_type)
+        return binkey_of(bin_)
 
     def _index_add(self, bin_: Aisle.Bin) -> None:
         key = self._key(bin_)
@@ -397,9 +424,118 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             if i < len(aisle_lst):
                 del aisle_lst[i]
 
+    # ── velocity zoning setup ────────────────────────────────────────────────
+
+    def configure_zoning(self, enabled: bool, n_bands: int = 3, orders: Any = None,
+                         *, mode: str = 'equal', abc: dict | None = None) -> None:
+        """Enable/disable velocity zoning and precompute the band maps (once, before stocking).
+
+        mode='equal' (default): SKUs and aisles sliced into n_bands EQUAL-COUNT groups (hottest /
+        shallowest = band 0).  mode='abc': SKUs banded by cumulative demand-MASS thresholds
+        (abc['mass_thresholds'], manual A/B/C), and aisles allocated per BinKey PROPORTIONAL to each
+        band's SKU footprint — so the hot A-band is a SMALL aisle fraction and the cold C-band is
+        many rarely-visited aisles (batches skip them).  Disabled ⇒ maps cleared (byte-identical).
+        """
+        self._zoning_enabled = bool(enabled)
+        self._zoning_bands = max(1, int(n_bands))
+        self._sku_band = {}
+        self._aisle_band = {}
+        if not self._zoning_enabled:
+            return
+        n = self._zoning_bands
+        if mode == 'abc' and orders is not None:
+            self._build_abc_bands(orders, n, abc)
+            return
+        # ── equal-count (default; byte-identical) ─────────────────────────────
+        # SKU velocity band (global; hottest = band 0).
+        if orders is not None:
+            vel = {c.sku: (c.demand.relative_frequency * c.demand.quantity_rate) for c in orders}
+            skus = sorted(vel, key=lambda s: -vel[s])
+            m = len(skus)
+            for i, s in enumerate(skus):
+                self._sku_band[s] = min(n - 1, i * n // m) if m else 0
+        # Aisle geometry band per BinKey (shallowest/nearest = band 0).
+        by_key: dict = defaultdict(list)
+        for aisle in self.warehouse.aisles:
+            if not aisle.bins:
+                continue
+            by_key[binkey_of(aisle.bins[0])].append(aisle)
+        for _key, aisles in by_key.items():
+            aisles.sort(key=lambda a: (getattr(a, 'aisle_width', 0), a.aisle_id))
+            m = len(aisles)
+            for i, a in enumerate(aisles):
+                self._aisle_band[a.aisle_id] = min(n - 1, i * n // m) if m else 0
+
+    def _build_abc_bands(self, orders: Any, n: int, abc: dict | None) -> None:
+        """Manual A/B/C bands: SKUs cut at cumulative demand-mass thresholds; aisles allocated per
+        BinKey by each band's SKU footprint (few hot SKUs ⇒ few hot aisles)."""
+        cuts = list((abc or {}).get('mass_thresholds') or [])
+        # SKU band = # of mass thresholds the cumulative (hottest-first) mass has passed.
+        vel = {c.sku: (c.demand.relative_frequency * c.demand.quantity_rate) for c in orders}
+        total = sum(vel.values()) or 1.0
+        cum = 0.0
+        for s in sorted(vel, key=lambda k: -vel[k]):
+            cum += vel[s] / total
+            self._sku_band[s] = min(n - 1, bisect.bisect_left(cuts, cum))
+        # Per-band footprint = global SKU count (hot band has few SKUs → few aisles).
+        band_counts: dict = {}
+        for band in self._sku_band.values():
+            band_counts[band] = band_counts.get(band, 0) + 1
+        weights = [band_counts.get(j, 0) for j in range(n)]
+        # Aisle allocation per BinKey (shallowest = band 0), floor of 1 per band when m ≥ n so the
+        # _zone_filter spill contract holds; when m < n some bands are empty and spill covers them.
+        by_key: dict = defaultdict(list)
+        for aisle in self.warehouse.aisles:
+            if not aisle.bins:
+                continue
+            by_key[binkey_of(aisle.bins[0])].append(aisle)
+        for _key, aisles in by_key.items():
+            aisles.sort(key=lambda a: (getattr(a, 'aisle_width', 0), a.aisle_id))
+            counts = _apportion(len(aisles), weights, n)
+            idx = 0
+            for band, cnt in enumerate(counts):
+                for _ in range(cnt):
+                    self._aisle_band[aisles[idx].aisle_id] = band
+                    idx += 1
+
+    def _band_of_unit(self, unit: StorageUnit) -> int:
+        return self._sku_band.get(unit.order.sku, 0)
+
+    def _zone_filter(self, unit: StorageUnit, bins: list) -> list:
+        """Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:
+        a hot item whose band is full drops to the next available (colder) aisle; a cold item whose
+        band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty."""
+        target = self._band_of_unit(unit)
+        by_band: dict = defaultdict(list)
+        for b in bins:
+            by_band[self._aisle_band.get(b.location[0], 0)].append(b)
+        for band in range(target, self._zoning_bands):    # colder-first (downgrade to next hotness)
+            if by_band.get(band):
+                return by_band[band]
+        for band in range(target - 1, -1, -1):            # then hotter (upgrade) until placed
+            if by_band.get(band):
+                return by_band[band]
+        return bins
+
+    def _group_key(self, unit: StorageUnit):
+        """Ranked-wave grouping key.  With zoning, sub-group by (BinKey, band) so each sub-wave
+        is a single band (the once-per-wave candidate fetch is then band-correct); OFF ⇒ BinKey
+        only (byte-identical)."""
+        if self._zoning_enabled:
+            return (binkey_of(unit), self._band_of_unit(unit))
+        return binkey_of(unit)
+
     # ── placement ───────────────────────────────────────────────────────────
 
     def _candidates(self, unit: StorageUnit) -> list[Aisle.Bin]:
+        """Viable bins for *unit* (smallest fitting tier), optionally restricted to the unit's
+        velocity band when zoning is on.  OFF ⇒ returns the raw list object unchanged."""
+        bins = self._candidates_raw(unit)
+        if self._zoning_enabled and bins:
+            return self._zone_filter(unit, bins)
+        return bins
+
+    def _candidates_raw(self, unit: StorageUnit) -> list[Aisle.Bin]:
         """Return available bins for *unit*, scoped to the SMALLEST fitting tier.
 
         A pallet of size S fits in a bin of size S or larger.  We return the
@@ -415,7 +551,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         shc       = unit.order.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' | 'singleton' | 'fulfillment'
         if unit_type == 'singleton':
-            bins = self._index.get((shc.handling, shc.category, 'singleton', 'singleton'))
+            bins = self._index.get(binkey_of(unit))       # (h, c, 'singleton', 'singleton')
             return bins or []
         # Pallet and fulfillment are both size-tiered: return the smallest non-empty tier
         # >= the unit's own tier, spilling up.  tier_ranks_for() selects the pallet vs
@@ -471,8 +607,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             counts[sku] = counts.get(sku, 0) + 1
         self._reorder_placements += 1
         if self._sigma_freq is not None:
-            self._sigma_fd += (self._sigma_freq.get(sku, 0.0)
-                               * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
+            self._sigma_fd += self._sigma_delta(sku, bin_)
+
+    def _sigma_delta(self, sku: int, bin_: Aisle.Bin) -> float:
+        """f_s · D(bin) increment for the incremental Σ f·D tracker.
+
+        The ONE shared expression behind every += / -= on _sigma_fd (placement adds,
+        eviction/depletion subtracts) — kept as a method so the formula can't drift
+        between the three sites.  Callers guard on ``self._sigma_freq is not None``.
+        """
+        return (self._sigma_freq.get(sku, 0.0)
+                * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
     def _stock(self) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
@@ -536,12 +681,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
                 # ── rescue 1: repack into a smaller size tier (pallet OR fulfillment) ──
                 # Both are size-tiered; tier_ranks_for() + the unit class select the family.
-                if unit.unit_category in ('pallet', FULFILLMENT) and unit.storage_size is not None:
+                if unit.unit_category in UNIT_CLASSES and unit.storage_size is not None:
                     utype        = unit.unit_category
-                    ranks, sizes_desc = tier_ranks_for(utype)
-                    unit_cls     = FulfillmentBin if utype == FULFILLMENT else Pallet
-                    max_qty_for  = (_max_qty_fitting_ff_size if utype == FULFILLMENT
-                                    else _max_qty_fitting_pallet_size)
+                    unit_cls, ranks, sizes_desc = UNIT_CLASSES[utype]
                     current_rank = ranks.get(unit.storage_size, 99)
                     for size in sizes_desc:
                         if ranks[size] >= current_rank:
@@ -550,7 +692,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                             (shc.handling, shc.category, size, utype))
                         if not avail:
                             continue
-                        max_q = max_qty_for(order, size)
+                        max_q = _max_qty_fitting_size(order, size, utype)
                         if max_q <= 0:
                             continue
                         remaining  = unit.quantity
@@ -612,15 +754,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if not self._stock_queue:
             return
 
-        # Snapshot queue and group by BinKey
+        # Snapshot queue and group by BinKey (or (BinKey, velocity band) when zoning is on, so
+        # each sub-wave is a single band and the once-per-wave candidate fetch is band-correct).
         groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
         while self._stock_queue:
             unit = self._stock_queue.popleft()
-            shc  = unit.order.storage_handle_config
-            key  = (shc.handling, shc.category, unit.storage_size, unit.unit_category)
-            groups[key].append(unit)
+            groups[self._group_key(unit)].append(unit)
 
-        for _key, units in groups.items():
+        # With zoning ON, process band sub-groups HOTTEST-FIRST (band 0 before 1 …) so hot items
+        # claim their aisles before colder items can upgrade-spill into them (priority: place hot
+        # first).  Group key is then (BinKey, band); OFF ⇒ insertion order (byte-identical).
+        group_items = (sorted(groups.items(), key=lambda kv: kv[0][1])
+                       if self._zoning_enabled else groups.items())
+        for _key, units in group_items:
             # Ranked assignments — high pick-effort units claim the best bins first.
             assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
             for unit, bin_ in assignments:

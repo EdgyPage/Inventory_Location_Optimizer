@@ -1,0 +1,85 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's/SimpleNamespace\\(frequency=/SimpleNamespace\\(relative_frequency=/g' Tests/test_warehouse_sizing.py Tests/bench_ranked_assign.py Tests/test_assignment_and_labor.py)",
+      "Bash(sed -i 's/demand\\\\.frequency/demand.relative_frequency/g' Tests/test_reorder_queue.py)",
+      "Bash(python -m pytest test_rng_determinism.py test_index_equivalence.py test_reorder_queue.py test_placement_lifecycle.py test_palletizing.py test_assignment_and_labor.py -q)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'Warehouse/generation'\\); sys.path.insert\\(0,'Warehouse'\\); import generate_affinity; print\\('generate_affinity imports OK'\\)\")",
+      "Bash(python -m pytest test_rng_determinism.py test_index_equivalence.py test_reorder_queue.py test_placement_lifecycle.py test_palletizing.py test_assignment_and_labor.py test_equilibrium_reorder.py -q)",
+      "Bash(PYTHONIOENCODING=utf-8 python Diagnostics/trace_lifecycle.py --strategies uni_fifo_norsl,opt_rank_minlabor_norsl --batches 10 --skus 1500)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git reset *)",
+      "Bash(git read-tree *)",
+      "Bash(grep -viE \"mkdocs 2.0|material for mkdocs|underlying framework|plugins will|theme overrides|migration path|contribution model|unlicensed|full analysis|blog/2026|^ *│|will introduce|^ *$\")",
+      "Bash(grep -nE 'co\\\\\\\\_|per\\\\\\\\_inch|\\\\\\\\\\\\\\\\_' docs/experiments/experiment-1/glossary.md)",
+      "Bash(grep -oE '.{15}\\(co\\\\\\\\_occur|sec\\\\\\\\_per\\\\\\\\_inch\\).{5}' site/experiments/experiment-1/glossary/index.html)",
+      "Bash(python -)",
+      "Read(//c/Users/myfir/AppData/Local/Programs/Python/Python311/Lib/site-packages/mkdocs_macros/**)",
+      "Bash(python -m pytest Tests/test_assignment_and_labor.py Tests/test_assignment_functions.py Tests/test_warehouse_sizing.py Tests/test_index_equivalence.py Tests/test_placement_lifecycle.py Tests/test_reorder_queue.py Tests/test_palletizing.py Tests/test_equilibrium_reorder.py Tests/test_affinity_lift_invariant.py Tests/test_rng_determinism.py -q)",
+      "Bash(python -m pytest Tests/test_assignment_and_labor.py Tests/test_assignment_functions.py Tests/test_warehouse_sizing.py Tests/test_index_equivalence.py Tests/test_placement_lifecycle.py Tests/test_reorder_queue.py Tests/test_palletizing.py Tests/test_equilibrium_reorder.py -q)",
+      "Bash(python -m pytest Tests/test_warehouse_sizing.py Tests/test_placement_lifecycle.py Tests/test_reorder_queue.py Tests/test_index_equivalence.py Tests/test_palletizing.py Tests/test_equilibrium_reorder.py Tests/test_assignment_and_labor.py Tests/test_assignment_functions.py -q)",
+      "Bash(python -m pytest Tests/test_assignment_and_labor.py Tests/test_assignment_functions.py Tests/test_warehouse_sizing.py Tests/test_index_equivalence.py Tests/test_placement_lifecycle.py Tests/test_reorder_queue.py Tests/test_palletizing.py Tests/test_equilibrium_reorder.py Tests/test_affinity_lift_invariant.py Tests/test_rng_determinism.py Tests/test_batch_precompute.py -q)",
+      "Bash(python -m pytest Tests/test_fulfillment_channels.py -q)",
+      "Bash(python -m pytest Tests/ -q -p no:cacheprovider --ignore=Tests/test_gpu_auction.py --ignore=Tests/test_gpu_governor.py -k \"not gpu\")",
+      "Bash(git -C \"c:/Users/myfir/Repos/Git/Inventory_Location_Optimizer\" status --short)",
+      "Bash(git -C \"c:/Users/myfir/Repos/Git/Inventory_Location_Optimizer\" branch --show-current)",
+      "Bash(python -m pytest Tests/test_mixed_catalog_channels.py -q)",
+      "Bash(python -m pytest Tests/test_batch_precompute_e2e.py Tests/test_visualization_data.py Tests/test_warehouse_sizing.py Tests/test_fulfillment_channels.py Tests/test_mixed_catalog_channels.py Tests/test_reorder_queue.py -q)",
+      "Bash(python -m pytest Tests/ -q -p no:cacheprovider -k \"not gpu\")",
+      "Bash(python -m pytest Tests/test_batch_precompute_e2e.py Tests/test_batch_precompute.py Tests/test_visualization_data.py Tests/test_fulfillment_channels.py Tests/test_mixed_catalog_channels.py Tests/test_rng_determinism.py -q)",
+      "Bash(python -m pytest Tests/test_channel_runner_smoke.py -q)",
+      "Bash(grep -viE \"\\(os|sys|json|math|time|argparse|random|sqlite3|collections|dataclasses|datetime|typing|pathlib|csv\\)$\")",
+      "Bash(python \"C:/Users/myfir/AppData/Local/Temp/claude/c--Users-myfir-Repos-Git-Inventory-Location-Optimizer/49b1dcd0-98e3-44f0-98bb-1a59de429667/scratchpad/fix_runners.py\")",
+      "Bash(python -m compileall -q Warehouse Optimization Tests Diagnostics Visualization scripts)",
+      "Bash(echo \"compileall done \\(exit $?\\)\")",
+      "Bash(python \"C:/Users/myfir/AppData/Local/Temp/claude/c--Users-myfir-Repos-Git-Inventory-Location-Optimizer/49b1dcd0-98e3-44f0-98bb-1a59de429667/scratchpad/rewrite_notebooks.py\")",
+      "Bash(python -c \"import json,pathlib; [json.loads\\(p.read_text\\(encoding='utf-8'\\)\\) for p in pathlib.Path\\('notebooks'\\).glob\\('*.ipynb'\\)]; print\\('all notebooks valid JSON'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python Optimization/run_simulation.py --help)",
+      "Bash(python Optimization/run_analysis.py --help)",
+      "Bash(python Optimization/run_channel_rollup.py --help)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'.'\\); sys.path.insert\\(0,'Visualization'\\); import db_reader\")",
+      "Bash(git commit -q -m 'refactor: consolidate run-tree discovery into Optimization/runlayout.py *)",
+      "Bash(python -m compileall -q Warehouse)",
+      "Bash(git commit -q -m 'refactor: add binkey_of\\(\\)/_D_map\\(\\)/_sigma_delta\\(\\) helpers; deduplicate call sites *)",
+      "Bash(git commit -q -m 'refactor: single-source physical footprint constants \\(Warehouse/physical.py\\) *)",
+      "Bash(python -m compileall -q Optimization)",
+      "Bash(git commit -q -m 'refactor: fold fulfillment walker cost into CONFIG \\(single source of truth\\) *)",
+      "Bash(python -m compileall -q Warehouse Optimization)",
+      "Bash(git commit -q -m 'refactor: cost_model.per_pick\\(\\) replaces 7 inline M*\\(intercept+qty*var\\) mirrors *)",
+      "Bash(git commit -q -m 'refactor: extract _aisle_index_for_unit\\(\\) tier-spill helper \\(3 verbatim sites\\) *)",
+      "Bash(python context/arch/extract.py --write)",
+      "Bash(rm -f context/files.yml)",
+      "Bash(python context/arch/extract.py --catalog-stub --quiet)",
+      "Bash(python context/arch/verify_architecture.py)",
+      "Bash(python context/arch/render.py)",
+      "Bash(python context/arch/extract.py --catalog-merge --quiet)",
+      "Bash(python context/arch/render.py --quiet)",
+      "Bash(python context/arch/verify_architecture.py --quiet)",
+      "Bash(echo \"verifier: $?\")",
+      "Bash(python context/arch/hook_check.py)",
+      "Bash(echo \"hook exit \\(clean\\): $?\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('.claude/settings.json',encoding='utf-8'\\)\\); print\\('settings.json valid; hooks:', list\\(d.get\\('hooks',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(echo \"verifier with drift \\(expect 1\\): $?\")",
+      "Bash(rm -f Optimization/_drift_probe.py)",
+      "Bash(echo \"verifier after cleanup \\(expect 0\\): $?\")",
+      "Bash(python -m compileall -q Tests/bench/coverage_e2e.py)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python context/arch/hook_check.py"
+          }
+        ]
+      }
+    ]
+  }
+}

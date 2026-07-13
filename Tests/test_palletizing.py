@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_palletizing.py — Verify that initial orders go through the palletizing
 function (viable_storage_units) and that the correct StorageUnit type and
 storage_size are assigned to each placed bin.
@@ -24,18 +24,20 @@ import sys
 import itertools
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(_HERE), 'Warehouse'))
-sys.path.insert(0, os.path.join(os.path.dirname(_HERE), 'Optimization'))
+_ROOT = os.path.dirname(_HERE)
+if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
+    sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
-from Aisle_Storage import Aisle
-from Order import Order
-from Demand import Demand
-from Inventory_Management import Inventory_Manager
-from Storage_Primitive import (
+
+from Warehouse.Aisle_Storage import Aisle
+from Warehouse.Order import Order
+from Warehouse.Demand import Demand
+from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.Storage_Primitive import (
     Pallet, Singleton, Storage_Size,
     viable_storage_units, _can_fit,
 )
-from Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 
 # ── output helpers ────────────────────────────────────────────────────────────
 _passed = 0
@@ -63,7 +65,7 @@ def _carton(sku: int, length: int, width: int, height: int,
             equilibrium_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Order:
-    from Order import StorageHandleConfig
+    from Warehouse.Order import StorageHandleConfig
     c                        = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = (handling, category)

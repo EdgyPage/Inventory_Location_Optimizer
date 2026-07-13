@@ -1,0 +1,163 @@
+# context/artifacts.yml — every artifact the pipeline reads/writes: its path pattern,
+# writer + readers (function@file anchors), and schema (sqlite tables verified against
+# CREATE TABLE statements in schema_file; json/csv fields are documentation).
+# Verified per commit by context/verify_context.py.
+version: 1
+artifacts:
+
+  # ── generation outputs (upstream inputs to simulation) ─────────────────────────
+  inventory_db:
+    path_pattern: "<profiles>/<run>/<profile>/inventory/inventory.db"
+    format: sqlite
+    writer: {function: save_inventory_to_db, file: Warehouse/generation/generate_inventory.py}
+    readers:
+      - {function: load_inventory_from_db, file: Warehouse/generation/generate_inventory.py}
+      - {function: build_shared_assets, file: Optimization/sim_assets.py}
+    match: "inventory.db"
+    schema_file: Warehouse/generation/generate_inventory.py
+    tables: [cartons, run_metadata, creation_plan]
+
+  affinity_db:
+    path_pattern: "<profiles>/<run>/<profile>/affinity/affinity.db"
+    format: sqlite
+    writer: {function: generate_run, file: Warehouse/generation/generate_affinity.py}
+    readers:
+      - {function: AffinityStore, file: Warehouse/Affinity_Store.py}
+    match: "affinity.db"
+    schema_file: Warehouse/generation/generate_affinity.py
+    tables: [affinity, run_metadata]
+
+  # ── simulation outputs ──────────────────────────────────────────────────────────
+  run_manifest:
+    path_pattern: "comparison_<ts>/run_manifest.json"
+    format: json
+    writer: {function: write_run_manifest, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: main, file: docs/experiments/ingest.py}
+    match: "run_manifest.json"
+    fields: [run, inventories, configs, store_configs, fulfillment_configs, strategies, baseline]
+
+  warehouse_db:
+    path_pattern: "comparison_<ts>/<pair>/warehouse.db"
+    format: sqlite
+    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    readers:
+      - {function: discover_runs, file: Visualization/db_reader.py}
+    # the filename literal lives in the CALLER (run_simulation composes the path);
+    # the writer's tripwire is its parameter name.
+    match: "warehouse_db_path"
+    schema_file: Optimization/Warehouse_Data.py
+    tables: [warehouse_stats, aisle_type_stats]
+
+  planned_inventory_db:
+    path_pattern: "comparison_<ts>/<pair>/planned_inventory.db"
+    format: sqlite
+    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    readers:
+      - {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+    match: "planned_inventory.db"
+    schema_file: Warehouse/generation/generate_inventory.py
+    tables: [cartons]
+
+  config_json:
+    path_pattern: "comparison_<ts>/<pair>/<config>/config.json"
+    format: json
+    writer: {function: _prepare_channel_run, file: Optimization/run_simulation.py}
+    readers:
+      - {function: define_env, file: docs/macros.py}
+    match: "config.json"
+    fields: [name, pick_weight_coef, pick_volume_coef, pick_weight_fn, pick_volume_fn,
+             pick_intercept, cart_swap_coef, cart, cart_capacity, x_speed, y_speed,
+             num_pickers, load_lambda, load_k, load_gamma, total_aisles, total_bins,
+             n_skus, total_units, bin_slack_pct, batch_mean_frac, n_batches,
+             seed_world, seed_batches, avg_equilibrium_qty, avg_reorder_point,
+             avg_lead_time_mean, avg_supply_cv, height_brackets]
+
+  batches_cache:
+    path_pattern: "comparison_<ts>/<pair>/_batches_<fp16>.pkl"
+    format: pickle
+    writer: {function: write_batches, file: Optimization/batch_precompute.py}
+    readers:
+      - {function: load_batches, file: Optimization/batch_precompute.py}
+    match: "_batches_"
+    fields: [fingerprint, n, batches]
+
+  resume_pkl:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/resume.pkl"
+    format: pickle
+    writer: {function: _save_resume, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: _load_resume, file: Optimization/sim_manifest.py}
+    match: "resume.pkl"
+    fields: [run_ids, next_batch]
+
+  checkpoint_pkl:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
+    format: pickle
+    writer: {function: save_worker_checkpoint, file: Optimization/strategy_runner.py}
+    readers:
+      - {function: load_worker_checkpoint, file: Optimization/strategy_runner.py}
+    match: "_ckpt_"
+    fields: [next_batch_id]
+
+  sim_db:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
+    format: sqlite
+    writer: {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+    readers:
+      - {function: EvalContext, file: Optimization/Performance_Evaluations/core/context.py}
+      - {function: iter_sim_dbs, file: Optimization/runlayout.py}
+      - {function: discover_runs, file: Visualization/db_reader.py}
+    match: "sim_"
+    schema_file: Optimization/Picking_Data.py
+    tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
+             bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
+
+  keyframes_db:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
+    format: sqlite
+    writer: {function: save_bin_keyframe, file: Optimization/Picking_Data.py}
+    readers:
+      - {function: discover_runs, file: Visualization/db_reader.py}
+    match: "keyframes.db"
+    schema_file: Optimization/Picking_Data.py
+    tables: [bin_keyframe]
+
+  sim_meta:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_meta.json"
+    format: json
+    writer: {function: _finalize_config_run, file: Optimization/run_simulation.py}
+    readers:
+      - {function: _config_jobs, file: Optimization/run_analysis.py}
+      - {function: _find_series, file: Optimization/run_channel_rollup.py}
+      - {function: main, file: docs/experiments/ingest.py}
+    match: "sim_meta.json"
+    fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
+             optimal_work, inv_db, aff_db]
+
+  # ── analysis outputs ────────────────────────────────────────────────────────────
+  series_json:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/series.json"
+    format: json
+    writer: {function: _dump_series, file: Optimization/Performance_Evaluations/common/series.py}
+    readers:
+      - {function: _aggregate_jobs, file: Optimization/run_analysis.py}
+      - {function: rollup, file: Optimization/run_channel_rollup.py}
+    match: "series.json"
+    fields: [strategies, extra]
+
+  analysis_pngs:
+    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats}/**.png + comparison_<ts>/_aggregate/<cfg>/**.png"
+    format: png
+    writer: {function: prepare_config_dirs, file: Optimization/Performance_Evaluations/driver.py}
+    readers:
+      - {function: main, file: docs/experiments/ingest.py}
+    match: "per_strategy"
+
+  channel_rollup_csv:
+    path_pattern: "comparison_<ts>/channel_rollup.csv + channel_rollup_summary.csv"
+    format: csv
+    writer: {function: rollup, file: Optimization/run_channel_rollup.py}
+    readers: []
+    match: "channel_rollup"
+    fields: [inventory, config, channel, plan, saving_abs, saving_pct, is_baseline, is_best]

@@ -8,9 +8,9 @@ evaluation only writes its own files (stats/aggregate graphs wipe their own priv
 """
 import os
 
-from Performance_Evaluations.core.registry import EVAL_BY_KEY
-from Performance_Evaluations.common import io
-from Performance_Evaluations.common.io import _fresh_dir
+from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+from Optimization.Performance_Evaluations.common import io
+from Optimization.Performance_Evaluations.common.io import _fresh_dir
 
 _CONFIG_SCOPES = ('per_strategy', 'config')
 
