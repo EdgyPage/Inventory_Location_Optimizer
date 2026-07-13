@@ -607,6 +607,17 @@ files:
       - {name: "test_committed_graph_is_current", file: "Tests/test_archgraph_extract.py", kind: "function"}
       - {name: "test_key_backbone_edges_present", file: "Tests/test_archgraph_extract.py", kind: "function"}
     notes: ""
+  "Tests/test_archgraph_nodes.py":
+    purpose: "test_archgraph_nodes.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_nodes_detail_non_empty_and_deterministic", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_keys_equal_graph_node_ids", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_committed_nodes_is_current", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_check_nodes_subprocess_clean", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_detail_payloads_are_real", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_nodes_json_does_not_perturb_graph_json", file: "Tests/test_archgraph_nodes.py", kind: "function"}
+    notes: ""
   "Tests/test_architecture_coverage.py":
     purpose: "test_architecture_coverage.py"
     layer: "tests"

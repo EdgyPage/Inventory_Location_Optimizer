@@ -36,6 +36,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))          # context/arch
 _ROOT = os.path.dirname(os.path.dirname(_HERE))             # repo root
 _GRAPH_PATH = os.path.join(_HERE, 'graph.json')
+_NODES_PATH = os.path.join(_HERE, 'nodes.json')
 _HINTS_PATH = os.path.join(_HERE, 'resolver_hints.yml')
 
 # Product source roots for the call/import graph.  Tests/ is intentionally excluded from
@@ -463,6 +464,99 @@ def dumps(graph: dict) -> str:
 
 
 # =========================================================================================
+# Node detail (context/arch/nodes.json) — signatures + docstrings for the HTML pages.
+#
+# A SIBLING artifact, never a widening of graph.json (three tests byte-pin graph.json).
+# Keys are exactly the graph node ids (same qualname/scope logic as _Collector), so the
+# HTML generator can left-join detail onto graph nodes.  ast.unparse gives deterministic,
+# normalized signature text (note: formatting can differ across Python versions — regen
+# with the repo's pinned interpreter).
+# =========================================================================================
+
+def _clip(text: str, n: int = 200) -> str:
+    text = ' '.join(text.split())
+    return text if len(text) <= n else text[:n - 3] + '...'
+
+
+class _DetailCollector(ast.NodeVisitor):
+    """Second detail pass mirroring _Collector's emit points → {id: {sig, doc, decorators}}."""
+
+    def __init__(self, relpath: str) -> None:
+        self.relpath = relpath
+        self.detail: dict[str, dict] = {}
+        self._scope: list[str] = []
+
+    def _put(self, name: str, entry: dict) -> None:
+        qual = '.'.join(self._scope + [name]) if self._scope else name
+        self.detail.setdefault(_node_id(self.relpath, qual), entry)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        parts = [ast.unparse(b) for b in node.bases] + [ast.unparse(k) for k in node.keywords]
+        self._put(node.name, {
+            'kind': 'class',
+            'signature': ('(' + ', '.join(parts) + ')') if parts else '',
+            'doc': ast.get_docstring(node),
+            'decorators': [ast.unparse(d) for d in node.decorator_list],
+        })
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+
+    def _visit_func(self, node) -> None:
+        sig = '(' + ast.unparse(node.args) + ')'
+        if node.returns is not None:
+            sig += ' -> ' + ast.unparse(node.returns)
+        self._put(node.name, {
+            'kind': 'function',
+            'signature': sig,
+            'doc': ast.get_docstring(node),
+            'decorators': [ast.unparse(d) for d in node.decorator_list],
+            'is_async': isinstance(node, ast.AsyncFunctionDef),
+        })
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+
+    visit_FunctionDef = _visit_func
+    visit_AsyncFunctionDef = _visit_func
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        if not self._scope:
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    self._put(tgt.id, {
+                        'kind': 'const',
+                        'signature': None,
+                        'doc': None,
+                        'decorators': [],
+                        'value_preview': _clip(ast.unparse(node.value)),
+                    })
+        self.generic_visit(node)
+
+
+def build_nodes_detail() -> dict:
+    """Detail payload for every graph node id — reuses the ASTs retained by _build_indexes."""
+    files = discover_files(GRAPH_ROOTS, include_init=True)
+    _indexes, _nodes, trees = _build_indexes(files)
+    detail: dict[str, dict] = {}
+    for relpath in files:
+        tree = trees[relpath]
+        col = _DetailCollector(relpath)
+        col.visit(tree)
+        col.detail.setdefault(relpath, {
+            'kind': 'module', 'signature': None,
+            'doc': ast.get_docstring(tree), 'decorators': [],
+        })
+        for nid, d in col.detail.items():
+            detail.setdefault(nid, d)
+    return {'version': 1, 'nodes': detail}
+
+
+def dumps_nodes(detail: dict) -> str:
+    return json.dumps(detail, sort_keys=True, indent=2, ensure_ascii=True) + '\n'
+
+
+# =========================================================================================
 # File catalog (context/files.yml) — a human+agent index of every source + test file.
 # =========================================================================================
 
@@ -602,6 +696,10 @@ def main() -> int:
                     help='seed/refresh context/files.yml (preserves existing purpose/notes)')
     ap.add_argument('--catalog-merge', action='store_true',
                     help='refresh context/files.yml note-preservingly (add new, drop deleted)')
+    ap.add_argument('--write-nodes', action='store_true',
+                    help='regenerate context/arch/nodes.json (signatures + docstrings)')
+    ap.add_argument('--check-nodes', action='store_true',
+                    help='assert nodes.json matches code (exit 1 on drift)')
     ap.add_argument('--quiet', action='store_true')
     args = ap.parse_args()
 
@@ -609,6 +707,27 @@ def main() -> int:
         cat = write_catalog(merge=True)
         if not args.quiet:
             print(f'files.yml written — {len(cat["files"])} entries.')
+        return 0
+
+    if args.write_nodes or args.check_nodes:
+        detail = build_nodes_detail()
+        text = dumps_nodes(detail)
+        if args.write_nodes:
+            with open(_NODES_PATH, 'w', encoding='utf-8', newline='\n') as fh:
+                fh.write(text)
+            if not args.quiet:
+                print(f'nodes.json written — {len(detail["nodes"])} node details.')
+            return 0
+        if not os.path.isfile(_NODES_PATH):
+            print('nodes.json missing — run: python context/arch/extract.py --write-nodes')
+            return 1
+        committed = open(_NODES_PATH, encoding='utf-8').read()
+        if committed != text:
+            print('nodes.json DRIFT — signatures/docstrings no longer match the code.')
+            print('  regenerate with: python context/arch/extract.py --write-nodes')
+            return 1
+        if not args.quiet:
+            print(f'nodes.json OK — {len(detail["nodes"])} node details.')
         return 0
 
     graph = build_graph()
