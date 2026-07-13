@@ -1,7 +1,8 @@
 # files.yml -- the repo file catalog (GENERATED skeleton; purpose/notes are
 # HUMAN-OWNED -- edit them here).  layer/key_symbols are refreshed from the code by
 # `python context/arch/extract.py --catalog-merge`, which never touches purpose/notes.
-# Rendered to context/FILEMAP.md.  Completeness is enforced by verify_architecture.
+# Rendered into the HTML file map (docs/architecture/catalog.html + per-file pages).
+# Completeness is enforced by verify_architecture.
 version: 1
 files:
   "Diagnostics/bucket_fill.py":
@@ -635,15 +636,6 @@ files:
       - {name: "test_no_dead_internal_links", file: "Tests/test_architecture_html.py", kind: "function"}
       - {name: "test_build_is_deterministic", file: "Tests/test_architecture_html.py", kind: "function"}
       - {name: "test_slugs_case_insensitively_unique", file: "Tests/test_architecture_html.py", kind: "function"}
-    notes: ""
-  "Tests/test_architecture_render.py":
-    purpose: "test_architecture_render.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_graph_md_has_mermaid_and_backbone", file: "Tests/test_architecture_render.py", kind: "function"}
-      - {name: "test_inefficiency_md_has_sections", file: "Tests/test_architecture_render.py", kind: "function"}
-      - {name: "test_filemap_md_groups_by_layer", file: "Tests/test_architecture_render.py", kind: "function"}
-      - {name: "test_committed_render_outputs_exist", file: "Tests/test_architecture_render.py", kind: "function"}
     notes: ""
   "Tests/test_architecture_sync.py":
     purpose: "test_architecture_sync.py"

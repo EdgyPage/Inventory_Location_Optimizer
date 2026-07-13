@@ -24,19 +24,22 @@ def _load(path: str, name: str):
 
 
 def main() -> int:
+    drift = False
     try:
         va = _load(os.path.join(_HERE, 'verify_architecture.py'), 'verify_architecture')
-        rc = va.verify(quiet=True)
+        drift = va.verify(quiet=True) != 0
+        vs = _load(os.path.join(_HERE, 'verify_site.py'), 'verify_site')
+        drift = drift or bool(vs.verify(fast=True))     # fast: no rebuild, just integrity
     except SystemExit:            # pyyaml missing etc. — stay silent, never nag/block
         return 0
     except Exception:             # never let the hook error out a turn
         return 0
-    if rc != 0:
-        print('[architecture] context/arch spec drift detected — run the '
-              'architecture-maintainer agent to resync (or: '
-              'python context/arch/extract.py --write && '
+    if drift:
+        print('[architecture] spec/graph/site drift detected — run the architecture-maintainer '
+              'agent to resync (or: python context/arch/extract.py --write && '
               'python context/arch/extract.py --catalog-merge && '
-              'python context/arch/render.py).')
+              'python context/arch/extract.py --write-nodes && '
+              'python context/arch/render_html.py --build).')
     return 0
 
 

@@ -658,7 +658,8 @@ def dump_catalog(cat: dict) -> str:
     lines = ['# files.yml -- the repo file catalog (GENERATED skeleton; purpose/notes are',
              '# HUMAN-OWNED -- edit them here).  layer/key_symbols are refreshed from the code by',
              '# `python context/arch/extract.py --catalog-merge`, which never touches purpose/notes.',
-             '# Rendered to context/FILEMAP.md.  Completeness is enforced by verify_architecture.',
+             '# Rendered into the HTML file map (docs/architecture/catalog.html + per-file pages).',
+             '# Completeness is enforced by verify_architecture.',
              'version: 1', 'files:']
     for relpath in sorted(cat.get('files', {})):
         e = cat['files'][relpath]

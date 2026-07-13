@@ -17,9 +17,9 @@ these files incrementally after commits.
 | `flows/analysis.yml` | channel-run discovery → @evaluation registry (PNGs + series.json) → _aggregate → channel rollup |
 | `artifacts.yml` | every artifact: path pattern, writer, readers, schema (sqlite tables / json fields) |
 | `architecture.yml` | curated INTENT: layers, import `boundaries`, `backbone` caller→callee edges, `hotpaths` |
-| `arch/graph.json` | DERIVED truth: the call/import graph extracted from source (regenerable) |
-| `files.yml` → `FILEMAP.md` | the file catalog: every source + test file's purpose, layer, key symbols, notes |
-| `arch/GRAPH.md`, `arch/INEFFICIENCY.md` | rendered Mermaid call graph + inefficiency signals (cycles, fan-in/out, coupling) |
+| `arch/graph.json` + `arch/nodes.json` | DERIVED truth: the call/import graph + per-node signatures/docstrings, extracted from source (regenerable) |
+| `files.yml` | the file catalog: every source + test file's purpose, layer, key symbols, notes |
+| `docs/architecture/**` | the generated static HTML code-map suite (per-node/-file pages, ego-graph explorer, layer/catalog/inefficiency hubs); `arch/site_manifest.json` pins it |
 
 ## Architecture layer (context/arch/ + architecture.yml + files.yml)
 
@@ -36,9 +36,13 @@ once). The empirical `Tests/test_architecture_coverage.py` asserts declared `hot
 actually execute under `Tests/bench/coverage_e2e.py::main`. Four dynamic-dispatch layers are
 resolved without false edges: mixin methods (MRO pass), string registries + the ProcessPool
 spawn (`ref` edges), and the placement closures (the one curated `arch/resolver_hints.yml`).
-Regenerate with `extract.py --write` + `extract.py --catalog-merge` + `render.py`; the
-`architecture-maintainer` agent does this and bumps `arch-synced-commit`. `--catalog-merge`
-preserves human-owned `purpose`/`notes` by construction.
+Regenerate IN ORDER: `extract.py --write` → `extract.py --catalog-merge` →
+`extract.py --write-nodes` → `render_html.py --build` (the catalog feeds the site, so it is
+built last). `context/arch/verify_site.py` gates the generated HTML (currency + integrity +
+dead-links); `--fast` (integrity only) runs in the Stop hook. The `architecture-maintainer`
+agent runs the chain, both verifiers, and bumps `arch-synced-commit`. `--catalog-merge`
+preserves human-owned `purpose`/`notes` by construction. The suite is published on the
+MkDocs site at `/architecture/` (wrapper page `docs/code-graph.md`).
 
 ## Schema (v1)
 

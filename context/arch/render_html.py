@@ -529,11 +529,22 @@ def manifest_of(files: dict) -> dict:
 def build_site(out_dir: str = _SITE_DIR) -> dict:
     ix = _load_index()
     files = render_all_files(ix)
+    wanted = set(files)
     for rel, data in sorted(files.items()):
         path = os.path.join(out_dir, *rel.split('/'))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb') as fh:
             fh.write(data)
+    # prune stale files (renamed/deleted nodes or catalog entries leave no orphan pages)
+    if os.path.isdir(out_dir):
+        for dirpath, _dirs, names in os.walk(out_dir, topdown=False):
+            for n in names:
+                ap = os.path.join(dirpath, n)
+                rel = os.path.relpath(ap, out_dir).replace(os.sep, '/')
+                if rel not in wanted:
+                    os.remove(ap)
+            if not os.listdir(dirpath) and os.path.abspath(dirpath) != os.path.abspath(out_dir):
+                os.rmdir(dirpath)
     return manifest_of(files)
 
 

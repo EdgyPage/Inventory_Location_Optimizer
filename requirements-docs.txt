@@ -9,5 +9,5 @@ pyyaml                  # docs/macros.py reads per-experiment experiment.yml (sh
 # catalog need pyyaml (above); the renderer uses networkx; the empirical hot-path coverage
 # test (Tests/test_architecture_coverage.py) needs coverage.  All optional — the tests
 # importorskip these, so their absence skips rather than fails.
-networkx                # context/arch/render.py — cycle / fan-in-out inefficiency analysis
+networkx                # context/arch/render_html.py — import-cycle detection for the code map
 coverage                # Tests/test_architecture_coverage.py — empirical hotpath execution
