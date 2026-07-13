@@ -133,3 +133,36 @@ def test_slugs_case_insensitively_unique():
     ix = rh._load_index()
     lowered = [s.lower() for s in ix.slugOf.values()]
     assert len(set(lowered)) == len(lowered), 'slug collision (case-insensitive)'
+
+
+# --- orientation: breadcrumbs on node pages + explorer navigation UI ----------------------
+
+def test_every_node_page_has_a_breadcrumb():
+    rh, files = _build_once()
+    missing = [k for k in files if k.startswith('nodes/') and b'class="crumbs"' not in files[k]]
+    assert not missing, f'{len(missing)} node pages lack a breadcrumb, e.g. {missing[:3]}'
+
+
+def test_breadcrumb_helper_semantics():
+    rh = _load_rh()
+    ix = rh._load_index()
+    loc = rh.L('nodes')
+    # a nested method: layer -> file page -> enclosing class -> name
+    nested = rh._breadcrumb(ix, 'Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit', loc)
+    assert 'href="../layers.html"' in nested or 'layers.html' in nested
+    assert 'files/' + rh._mid('Warehouse/Inventory_Management.py') + '.html' in nested
+    assert 'Inventory_Manager' in nested and '_stock_per_unit' in nested
+    # a top-level function: no class crumb
+    top = rh._breadcrumb(ix, 'Optimization/sim_assets.py::build_shared_assets', loc)
+    assert 'files/' in top and 'build_shared_assets' in top
+    assert 'Inventory_Manager' not in top
+    # a module: the file itself is the 'here' crumb
+    mod = rh._breadcrumb(ix, 'Optimization/sim_assets.py', loc)
+    assert 'class="here"' in mod and 'sim_assets.py' in mod
+
+
+def test_explorer_has_tree_and_breadcrumb_containers():
+    rh, files = _build_once()
+    ex = files['explorer.html'].decode('utf-8')
+    assert 'id="ego-tree"' in ex, 'explorer missing the code-tree navigator container'
+    assert 'id="ego-crumbs"' in ex, 'explorer missing the breadcrumb stripe'

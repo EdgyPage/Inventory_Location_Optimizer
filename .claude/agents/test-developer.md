@@ -48,3 +48,10 @@ You write pytest tests for Inventory_Location_Optimizer. New tests MUST match re
 Run `python -m pytest Tests/<newfile>.py -q` to green, then the golden suite near what you touched
 (e.g. `python -m pytest Tests/test_fulfillment_channels.py Tests/test_warehouse_sizing.py -q`, or full
 `python -m pytest Tests/ -q -k "not gpu"` for broad changes). Report what you added + exact commands/results.
+
+A NEW `Tests/*.py` becomes an entry in the architecture file catalog (`Tests/` is in scope). If
+`test_files_catalog_sync.py` / `test_architecture_html.py` fail on your new file, resync the layer:
+`python context/arch/extract.py --catalog-merge` → fill the new file's one-line `purpose` in
+`context/files.yml` (no `TODO`) → `python context/arch/render_html.py --build`; or hand it to the
+architecture-maintainer. (Adding a *test function* to an existing file also refreshes that file's
+`key_symbols` — same resync.)

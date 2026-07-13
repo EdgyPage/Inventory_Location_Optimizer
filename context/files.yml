@@ -249,7 +249,7 @@ files:
     key_symbols: []
     notes: ""
   "Optimization/Picking_Data.py":
-    purpose: "TODO"
+    purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
     layer: "optimization"
     key_symbols:
       - {name: "PickRecord", file: "Optimization/Picking_Data.py", kind: "class"}
@@ -319,7 +319,7 @@ files:
       - {name: "save_warehouse_stats", file: "Optimization/Warehouse_Data.py", kind: "function"}
     notes: ""
   "Optimization/Workload.py":
-    purpose: "TODO"
+    purpose: "analytical per-aisle workload (W) model (WorkloadParams + aisle_workload) mirroring the sim's pick-cost primitives."
     layer: "optimization"
     key_symbols:
       - {name: "WorkloadParams", file: "Optimization/Workload.py", kind: "class"}
@@ -636,6 +636,9 @@ files:
       - {name: "test_no_dead_internal_links", file: "Tests/test_architecture_html.py", kind: "function"}
       - {name: "test_build_is_deterministic", file: "Tests/test_architecture_html.py", kind: "function"}
       - {name: "test_slugs_case_insensitively_unique", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_every_node_page_has_a_breadcrumb", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_breadcrumb_helper_semantics", file: "Tests/test_architecture_html.py", kind: "function"}
+      - {name: "test_explorer_has_tree_and_breadcrumb_containers", file: "Tests/test_architecture_html.py", kind: "function"}
     notes: ""
   "Tests/test_architecture_sync.py":
     purpose: "test_architecture_sync.py"
@@ -779,6 +782,7 @@ files:
       - {name: "test_catalog_covers_every_in_scope_file", file: "Tests/test_files_catalog_sync.py", kind: "function"}
       - {name: "test_merge_preserves_notes_and_prunes_deleted", file: "Tests/test_files_catalog_sync.py", kind: "function"}
       - {name: "test_merge_is_idempotent", file: "Tests/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_no_todo_or_empty_purposes", file: "Tests/test_files_catalog_sync.py", kind: "function"}
     notes: ""
   "Tests/test_fulfillment_channels.py":
     purpose: "test_fulfillment_channels.py"
@@ -1025,13 +1029,13 @@ files:
       - {name: "api_sku_scores", file: "Visualization/server.py", kind: "function"}
     notes: ""
   "Visualization/sim_setup.py":
-    purpose: "TODO"
+    purpose: "builds the demo warehouse + inventory + PickSimulation scene the visualization server renders."
     layer: "visualization"
     key_symbols:
       - {name: "build_simulation", file: "Visualization/sim_setup.py", kind: "function"}
     notes: ""
   "Warehouse/Affinity_Store.py":
-    purpose: "TODO"
+    purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."
     layer: "warehouse_core"
     key_symbols:
       - {name: "AffinityStore", file: "Warehouse/Affinity_Store.py", kind: "class"}
@@ -1049,7 +1053,7 @@ files:
       - {name: "catalog_aisle_bins", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
     notes: ""
   "Warehouse/Aisle_Storage.py":
-    purpose: "TODO"
+    purpose: "the Aisle storage model: an aisle and its physical Bins (grid location, centre geometry, occupancy)."
     layer: "warehouse_core"
     key_symbols:
       - {name: "Aisle", file: "Warehouse/Aisle_Storage.py", kind: "class"}
@@ -1091,14 +1095,14 @@ files:
       - {name: "RELOADERS", file: "Warehouse/Capacity_Reloader.py", kind: "const"}
     notes: ""
   "Warehouse/Demand.py":
-    purpose: "TODO"
+    purpose: "per-SKU demand model (relative pick frequency + quantity rate) with Knuth-Poisson quantity sampling."
     layer: "warehouse_core"
     key_symbols:
       - {name: "poisson_sample", file: "Warehouse/Demand.py", kind: "function"}
       - {name: "Demand", file: "Warehouse/Demand.py", kind: "class"}
     notes: ""
   "Warehouse/Inventory_Builder.py":
-    purpose: "TODO"
+    purpose: "builds the SKU catalog: InventoryConfig + Inventory (within-group affinity matrix) via Inventory_Builder."
     layer: "warehouse_core"
     key_symbols:
       - {name: "InventoryConfig", file: "Warehouse/Inventory_Builder.py", kind: "class"}
@@ -1106,19 +1110,19 @@ files:
       - {name: "Inventory_Builder", file: "Warehouse/Inventory_Builder.py", kind: "class"}
     notes: ""
   "Warehouse/Inventory_Management.py":
-    purpose: "TODO"
+    purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."
     layer: "warehouse_core"
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/Inventory_Management.py", kind: "class"}
     notes: ""
   "Warehouse/Order.py":
-    purpose: "TODO"
+    purpose: "the Order (SKU) model: sampled physical dims/weight, per-unit labor cost, and demand attributes."
     layer: "warehouse_core"
     key_symbols:
       - {name: "Order", file: "Warehouse/Order.py", kind: "class"}
     notes: ""
   "Warehouse/Pick.py":
-    purpose: "TODO"
+    purpose: "the pick-simulation core: PickConfig + PickEvent/PickerProgress + PickSimulation over batched tasks."
     layer: "warehouse_core"
     key_symbols:
       - {name: "PickConfig", file: "Warehouse/Pick.py", kind: "class"}
@@ -1127,7 +1131,7 @@ files:
       - {name: "PickSimulation", file: "Warehouse/Pick.py", kind: "class"}
     notes: ""
   "Warehouse/Storage_Primitive.py":
-    purpose: "TODO"
+    purpose: "storage-unit primitives: size/type taxonomy, Pallet/Singleton/FulfillmentBin units and carts, cached fit/packing."
     layer: "warehouse_core"
     key_symbols:
       - {name: "T", file: "Warehouse/Storage_Primitive.py", kind: "const"}
@@ -1143,7 +1147,7 @@ files:
       - {name: "FulfillmentCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
     notes: ""
   "Warehouse/Warehouse_Builder.py":
-    purpose: "TODO"
+    purpose: "the Warehouse model + builder: AisleConfig/WarehouseConfig specs assembled into a Warehouse of aisles and bins."
     layer: "warehouse_core"
     key_symbols:
       - {name: "AisleConfig", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
@@ -1152,7 +1156,7 @@ files:
       - {name: "Warehouse_Builder", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
     notes: ""
   "Warehouse/Workload_Builder.py":
-    purpose: "TODO"
+    purpose: "the workload/batch builder: samples affinity- and demand-weighted picking Batches of Tasks."
     layer: "warehouse_core"
     key_symbols:
       - {name: "BatchConfig", file: "Warehouse/Workload_Builder.py", kind: "class"}

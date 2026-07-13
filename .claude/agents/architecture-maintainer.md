@@ -24,6 +24,13 @@ contract and must exit 0 when you finish. Anchors are exact `{name,file,kind}` i
    - `python context/arch/extract.py --catalog-merge` → adds entries for NEW source/test
      files (`purpose: TODO`, seeded from the module docstring), DROPS entries for deleted
      files, and refreshes each entry's mechanical `layer`/`key_symbols`.
+   - FILL every new `purpose: TODO` in `context/files.yml` NOW (before building the site — the
+     catalog feeds the site). Read the file and write a real one-line purpose in the terse,
+     present-tense style of the existing entries (base it on the file's top-level
+     functions/classes, not a guess). **Never leave a `TODO` or empty purpose** —
+     `Tests/test_files_catalog_sync.py::test_no_todo_or_empty_purposes` fails on any of them.
+     Flag any low-confidence purpose in your report, but still write your best grounded line.
+     (`--catalog-merge` preserves existing human-owned `purpose`/`notes` — only new entries are TODO.)
    - `python context/arch/extract.py --write-nodes` → refreshes `context/arch/nodes.json`
      (signatures + docstrings for the HTML pages).
    - `python context/arch/render_html.py --build` → regenerates the whole `docs/architecture/`
@@ -41,8 +48,9 @@ contract and must exit 0 when you finish. Anchors are exact `{name,file,kind}` i
    - The placement dispatch is the ONLY hand-maintained edge set — `context/arch/resolver_hints.yml`.
      Touch it only if `mgr.placement.place_one/place_wave` dispatch or the `build_*` factories move.
 5. CATALOG prose is HUMAN-OWNED. `--catalog-merge` preserves existing `purpose`/`notes` by
-   construction — do NOT overwrite them. You MAY fill a new entry's `purpose: TODO` when the diff
-   makes the file's role obvious; otherwise leave it `TODO` and flag it in your report.
+   construction — do NOT overwrite an existing one. You DO write the `purpose` for every NEW
+   entry (step 3) — the no-TODO invariant means new files must not ship with a `TODO`. `notes`
+   stay empty unless you have a durable observation to record.
 6. NEVER invent an anchor: before writing any `name@file` pair, Grep-confirm `def NAME` /
    `class NAME` / `NAME =` exists in that file.
 7. Run BOTH gates until each exits 0: `python context/arch/verify_architecture.py` (graph/spec/
@@ -50,16 +58,20 @@ contract and must exit 0 when you finish. Anchors are exact `{name,file,kind}` i
    dead-links). A failure NOT attributable to the diff range (a pre-existing boundary violation,
    stale graph) is reported as pre-existing drift — do not paper over it silently.
 8. Update `arch-synced-commit:` in `context/INDEX.md` to `git rev-parse HEAD`.
-9. Report: commits covered; graph node/edge delta; catalog entries added/removed and any
-   remaining `TODO` purposes; backbone/boundary edits; any inefficiency signals worth surfacing
-   from `docs/architecture/inefficiency.html` (new import cycles, high fan-in/out, cross-layer
-   coupling); both verifiers' status.
+9. Report: commits covered; graph node/edge delta; catalog entries added/removed and the
+   `purpose` you wrote for each new file (flag any you're unsure of); backbone/boundary edits;
+   any inefficiency signals worth surfacing from `docs/architecture/inefficiency.html` (new
+   import cycles, high fan-in/out, cross-layer coupling); both verifiers' status.
 
 ## Rules
 - Edit YAML surgically: preserve key order and comments; never reformat untouched blocks.
 - The DERIVED artifacts (`graph.json`, `nodes.json`, `site_manifest.json`, and the whole
   `docs/architecture/` HTML tree) are generated — regenerate them with the commands above; do not
-  hand-edit them.
+  hand-edit them. The site's look/behaviour lives in HAND-AUTHORED sources
+  `context/arch/site_assets/*` (`arch.css`, `explorer.js`, `ego_svg.js`, vendored `cytoscape.min.js`)
+  and the `render_*` functions in `render_html.py`; a routine code-structure sync does NOT touch
+  these — the tree navigator, breadcrumbs and search derive from the graph at build time and
+  update themselves. Only edit an authored asset when changing the UI itself, then `--build`.
 - `boundaries` are architectural invariants. Report a new violation prominently (it usually means
   the domain engine started importing the harness) — do not "fix" it by deleting the rule.
 - A new import cycle or a spike in cross-layer coupling (see `docs/architecture/inefficiency.html`)

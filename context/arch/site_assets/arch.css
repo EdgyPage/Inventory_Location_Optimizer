@@ -149,17 +149,21 @@ table.tbl tr:hover td { background: var(--surface); }
 .hub a.card:hover { border-color: var(--accent); text-decoration: none; }
 .hub .card h3 { color: var(--accent); font-size: 15px; margin-bottom: 4px; }
 
-/* explorer */
-.explorer { display: grid; grid-template-columns: 1fr 320px; gap: 0; height: calc(100vh - 52px); }
-.ego-stage { position: relative; overflow: hidden; background: var(--bg); }
+/* explorer — 3 columns: code tree | graph (+breadcrumb) | search/detail */
+.explorer { display: grid; grid-template-columns: 260px 1fr 320px; gap: 0; height: calc(100vh - 52px); }
+.ego-main { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.ego-stage { position: relative; overflow: hidden; background: var(--bg); flex: 1; }
 .ego-stage svg { width: 100%; height: 100%; display: block; }
 .ego-side { border-left: 1px solid var(--border); background: var(--surface); padding: 12px;
   overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .ego-side input { background: var(--surface2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 6px 10px; font: inherit; }
-#ego-results { list-style: none; max-height: 220px; overflow-y: auto; display: grid; gap: 2px; }
+#ego-results { list-style: none; max-height: 46vh; overflow-y: auto; display: grid; gap: 1px; }
 #ego-results li a { display: block; padding: 3px 6px; border-radius: 4px; font-size: 13px; }
-#ego-results li a:hover { background: var(--surface2); text-decoration: none; }
+#ego-results li a:hover, #ego-results li a.active { background: var(--surface2); text-decoration: none; }
+#ego-results .grp { color: var(--muted); font-size: 11px; padding: 6px 6px 2px; position: sticky; top: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+#ego-results .k { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-left: 6px; }
 #ego-detail { border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; }
 #ego-detail h3 { font-size: 14px; margin-bottom: 6px; word-break: break-word; }
 .ego-node { cursor: pointer; }
@@ -167,7 +171,33 @@ table.tbl tr:hover td { background: var(--surface); }
 .ego-edge { stroke: var(--border); fill: none; }
 .ego-hint { color: var(--muted); font-size: 12px; }
 
+/* breadcrumb ('you are here' trail) — on explorer stripe + every node page */
+.crumbs { font-size: 12.5px; padding: 7px 12px; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 4px 2px; background: var(--surface); border-bottom: 1px solid var(--border); min-height: 32px; }
+.crumbs a { color: var(--muted); } .crumbs a:hover { color: var(--accent); }
+.crumbs .sep { color: var(--border); margin: 0 2px; }
+.crumbs .here code { color: var(--text); }
+main .crumbs { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+
+/* code-tree navigator */
+.tree { background: var(--surface); border-right: 1px solid var(--border); overflow: auto;
+  padding: 8px 4px; font-size: 13px; user-select: none; }
+.tree-row { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px;
+  cursor: pointer; white-space: nowrap; }
+.tree-row:hover { background: var(--surface2); }
+.tree-row.here { background: var(--surface2); outline: 1px solid var(--accent); }
+.tree-row.here > .t-name { color: var(--accent); font-weight: 600; }
+.tree-tw { width: 12px; display: inline-block; color: var(--muted); flex: none; }
+.tree-ic { width: 12px; display: inline-block; text-align: center; flex: none; }
+.tree-row.dir .t-name { color: var(--text); }
+.tree-row.file .t-name { color: var(--text); }
+.tree-row.kf .t-name { color: var(--kind-function); }
+.tree-row.kc .t-name { color: var(--kind-class); }
+.tree-row.kn .t-name { color: var(--kind-const); }
+.t-name { overflow: hidden; text-overflow: ellipsis; }
+
 @media (max-width: 720px) {
   .explorer { grid-template-columns: 1fr; height: auto; }
-  .ego-stage { height: 60vh; }
+  .tree { max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .ego-stage { height: 55vh; }
 }
