@@ -4816,6 +4816,16 @@
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager.__init__"
     },
     {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._band_of_unit",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager._band_pick"
+    },
+    {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._spill_bands",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager._band_pick"
+    },
+    {
       "dst": "Warehouse/Inventory_Management.py::_apportion",
       "kind": "calls",
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager._build_abc_bands"
@@ -4906,7 +4916,17 @@
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
     {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._band_pick",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit"
+    },
+    {
       "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._candidates",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit"
+    },
+    {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._candidates_raw",
       "kind": "calls",
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
@@ -4966,7 +4986,17 @@
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager._zone_filter"
     },
     {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._spill_bands",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager._zone_filter"
+    },
+    {
       "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._build_abc_bands",
+      "kind": "calls",
+      "src": "Warehouse/Inventory_Management.py::Inventory_Manager.configure_zoning"
+    },
+    {
+      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager._build_band_index",
       "kind": "calls",
       "src": "Warehouse/Inventory_Management.py::Inventory_Manager.configure_zoning"
     },
@@ -12277,10 +12307,26 @@
     },
     {
       "file": "Warehouse/Inventory_Management.py",
+      "id": "Warehouse/Inventory_Management.py::Inventory_Manager._band_pick",
+      "kind": "function",
+      "module": "Warehouse/Inventory_Management.py",
+      "name": "_band_pick",
+      "public": false
+    },
+    {
+      "file": "Warehouse/Inventory_Management.py",
       "id": "Warehouse/Inventory_Management.py::Inventory_Manager._build_abc_bands",
       "kind": "function",
       "module": "Warehouse/Inventory_Management.py",
       "name": "_build_abc_bands",
+      "public": false
+    },
+    {
+      "file": "Warehouse/Inventory_Management.py",
+      "id": "Warehouse/Inventory_Management.py::Inventory_Manager._build_band_index",
+      "kind": "function",
+      "module": "Warehouse/Inventory_Management.py",
+      "name": "_build_band_index",
       "public": false
     },
     {
@@ -12345,6 +12391,14 @@
       "kind": "function",
       "module": "Warehouse/Inventory_Management.py",
       "name": "_sigma_delta",
+      "public": false
+    },
+    {
+      "file": "Warehouse/Inventory_Management.py",
+      "id": "Warehouse/Inventory_Management.py::Inventory_Manager._spill_bands",
+      "kind": "function",
+      "module": "Warehouse/Inventory_Management.py",
+      "name": "_spill_bands",
       "public": false
     },
     {
@@ -15121,6 +15175,38 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "setup_table",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "whatif_matrix",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix.lab",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "lab",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix.pct",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "pct",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix.thr",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "thr",
       "public": true
     },
     {

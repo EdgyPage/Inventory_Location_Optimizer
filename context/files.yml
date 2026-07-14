@@ -949,6 +949,10 @@ files:
       - {name: "test_abc_bands_hot_band_is_small", file: "Tests/test_velocity_zoning.py", kind: "function"}
       - {name: "test_zone_filter_cold_upgrades_when_cold_full", file: "Tests/test_velocity_zoning.py", kind: "function"}
       - {name: "test_zone_filter_hot_downgrades_to_next_colder", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_pick_matches_zone_filter_set", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_index_consistent_after_add_remove", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_pick_spills_through_index", file: "Tests/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_stock_per_unit_zoning_routes_each_unit_to_its_target_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
     notes: ""
   "Tests/test_visualization_data.py":
     purpose: "test_visualization_data.py"

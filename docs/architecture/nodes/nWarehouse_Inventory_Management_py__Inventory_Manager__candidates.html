@@ -16,7 +16,8 @@
 
 <pre class="sig"><code>def _candidates(self, unit: StorageUnit) -&gt; list[Aisle.Bin]</code></pre>
 <section class="doc">Viable bins for *unit* (smallest fitting tier), optionally restricted to the unit&#x27;s
-velocity band when zoning is on.  OFF ⇒ returns the raw list object unchanged.</section>
+velocity band when zoning is on.  OFF ⇒ returns the raw list object unchanged.  Used by the
+ranked wave (once per wave); the per-unit path uses _band_pick directly for O(#bands).</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__candidates_raw.html"><code>_candidates_raw</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__zone_filter.html"><code>_zone_filter</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Inventory_Management_py__Inventory_Manager__candidates">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Inventory_Management.py#:~:text=def%20_candidates">Source ↗</a></p>
 </article>

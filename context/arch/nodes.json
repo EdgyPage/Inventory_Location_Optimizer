@@ -5207,6 +5207,13 @@
       "kind": "function",
       "signature": "(self, unit: StorageUnit) -> int"
     },
+    "Warehouse/Inventory_Management.py::Inventory_Manager._band_pick": {
+      "decorators": [],
+      "doc": "O(#bands) equivalent of _zone_filter via the maintained per-band sub-index: the first\nnon-empty band bucket in spill order.  `key` is the tier BinKey from _candidates_raw; the\ncaller guarantees the tier is non-empty, so some bucket is non-empty (the fallback to the\nraw tier list is unreachable defensive cover).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, key) -> list"
+    },
     "Warehouse/Inventory_Management.py::Inventory_Manager._build_abc_bands": {
       "decorators": [],
       "doc": "Manual A/B/C bands: SKUs cut at cumulative demand-mass thresholds; aisles allocated per\nBinKey by each band's SKU footprint (few hot SKUs \u21d2 few hot aisles).",
@@ -5214,19 +5221,26 @@
       "kind": "function",
       "signature": "(self, orders: Any, n: int, abc: dict | None) -> None"
     },
+    "Warehouse/Inventory_Management.py::Inventory_Manager._build_band_index": {
+      "decorators": [],
+      "doc": "Partition each free-bin tier list into per-band buckets, once, after the band maps are\nset.  Anchors the O(#bands) `_band_pick` fast path; maintained incrementally thereafter by\n`_index_add`/`_index_remove`.  Re-derives `_band_pos` from scratch, so it is correct\nregardless of whether bins were registered before or after zoning was enabled.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
     "Warehouse/Inventory_Management.py::Inventory_Manager._candidates": {
       "decorators": [],
-      "doc": "Viable bins for *unit* (smallest fitting tier), optionally restricted to the unit's\nvelocity band when zoning is on.  OFF \u21d2 returns the raw list object unchanged.",
+      "doc": "Viable bins for *unit* (smallest fitting tier), optionally restricted to the unit's\nvelocity band when zoning is on.  OFF \u21d2 returns the raw list object unchanged.  Used by the\nranked wave (once per wave); the per-unit path uses _band_pick directly for O(#bands).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit: StorageUnit) -> list[Aisle.Bin]"
     },
     "Warehouse/Inventory_Management.py::Inventory_Manager._candidates_raw": {
       "decorators": [],
-      "doc": "Return available bins for *unit*, scoped to the SMALLEST fitting tier.\n\nA pallet of size S fits in a bin of size S or larger.  We return the\nsmallest non-empty tier \u2265 S (the unit's own tier first), spilling UP to\nlarger tiers only when the exact tier is full.  This is both physically\nsensible (don't waste an extra_large bin on a small pallet) and keeps\nper-tier demand mapped to per-tier capacity, which is how the warehouse\nis sized \u2014 preventing small units from starving large-tier bins.\n\nReturning a single tier keeps the candidate list small (one index\nbucket) regardless of warehouse size.",
+      "doc": "Return ``(tier_key, bins)``: the SMALLEST fitting tier's BinKey and its free-bin list\n(the live ``self._index`` object), or ``(None, [])`` when no fitting tier has a free bin.\nThe key lets the per-unit path index the per-band sub-index without re-deriving the tier.\n\nA pallet of size S fits in a bin of size S or larger.  We return the\nsmallest non-empty tier \u2265 S (the unit's own tier first), spilling UP to\nlarger tiers only when the exact tier is full.  This is both physically\nsensible (don't waste an extra_large bin on a small pallet) and keeps\nper-tier demand mapped to per-tier capacity, which is how the warehouse\nis sized \u2014 preventing small units from starving large-tier bins.\n\nReturning a single tier keeps the candidate list small (one index\nbucket) regardless of warehouse size.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, unit: StorageUnit) -> list[Aisle.Bin]"
+      "signature": "(self, unit: StorageUnit) -> tuple"
     },
     "Warehouse/Inventory_Management.py::Inventory_Manager._execute_placement": {
       "decorators": [],
@@ -5270,6 +5284,13 @@
       "kind": "function",
       "signature": "(self, sku: int, bin_: Aisle.Bin) -> float"
     },
+    "Warehouse/Inventory_Management.py::Inventory_Manager._spill_bands": {
+      "decorators": [],
+      "doc": "Band visit order for zoning spill: the unit's band, then COLDER (downgrade to the next\nhotness), then HOTTER (upgrade) \u2014 the single source shared by _zone_filter and _band_pick.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, target: int)"
+    },
     "Warehouse/Inventory_Management.py::Inventory_Manager._stock": {
       "decorators": [],
       "doc": "Dispatch the queued wave to the placement policy: a ranked wave if the\npolicy carries a ``place_wave``, otherwise the per-unit path.  Single entry\nused by enqueue/enqueue_all (initial stock) and check_reorders (reorders).\n\nRuns the coupling guard first \u2014 even on an empty queue \u2014 so an armed/fn\nmismatch fails loudly before any placement: when travel costs are armed,\ncandidates is passed as None and place_one MUST read mgr._aisle_index instead;\na mismatch (index armed but fn scans, or vice-versa) silently returns None for\nevery placement.",
@@ -5293,7 +5314,7 @@
     },
     "Warehouse/Inventory_Management.py::Inventory_Manager._zone_filter": {
       "decorators": [],
-      "doc": "Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:\na hot item whose band is full drops to the next available (colder) aisle; a cold item whose\nband is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.",
+      "doc": "Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:\na hot item whose band is full drops to the next available (colder) aisle; a cold item whose\nband is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.\n\nThe O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit\ntests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit: StorageUnit, bins: list) -> list"
@@ -7756,6 +7777,36 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.whatif_matrix": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.\n\nOne row per matrix cell, per-channel **median** \u0394labor / \u0394throughput vs the reference\ncell (generated from whatif_delta.csv by the run's post-processing). Only a WHAT-IF\nexperiment has this JSON; ordinary single-run experiments never call this macro. Numbers\nlive in the committed JSON, so the page holds only prose.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "docs/macros.py::define_env.whatif_matrix.lab": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch)"
+    },
+    "docs/macros.py::define_env.whatif_matrix.pct": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(v)"
+    },
+    "docs/macros.py::define_env.whatif_matrix.thr": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch)"
     },
     "scripts/new_experiment.py": {
       "decorators": [],

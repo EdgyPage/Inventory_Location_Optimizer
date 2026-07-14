@@ -14,8 +14,10 @@
 <h1><span class="kind kind-function">function</span> <code>_candidates_raw</code></h1>
 <p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_Inventory_Management_py.html"><code>Warehouse/Inventory_Management.py</code></a></p>
 
-<pre class="sig"><code>def _candidates_raw(self, unit: StorageUnit) -&gt; list[Aisle.Bin]</code></pre>
-<section class="doc">Return available bins for *unit*, scoped to the SMALLEST fitting tier.
+<pre class="sig"><code>def _candidates_raw(self, unit: StorageUnit) -&gt; tuple</code></pre>
+<section class="doc">Return ``(tier_key, bins)``: the SMALLEST fitting tier&#x27;s BinKey and its free-bin list
+(the live ``self._index`` object), or ``(None, [])`` when no fitting tier has a free bin.
+The key lets the per-unit path index the per-band sub-index without re-deriving the tier.
 
 A pallet of size S fits in a bin of size S or larger.  We return the
 smallest non-empty tier ≥ S (the unit&#x27;s own tier first), spilling UP to
@@ -26,7 +28,7 @@ is sized — preventing small units from starving large-tier bins.
 
 Returning a single tier keeps the candidate list small (one index
 bucket) regardless of warehouse size.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_common_py__binkey_of.html"><code>binkey_of</code></a> <span class="dim">Warehouse/inventory_common.py</span></li><li><a href="nWarehouse_inventory_common_py__tier_ranks_for.html"><code>tier_ranks_for</code></a> <span class="dim">Warehouse/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__candidates.html"><code>_candidates</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_common_py__binkey_of.html"><code>binkey_of</code></a> <span class="dim">Warehouse/inventory_common.py</span></li><li><a href="nWarehouse_inventory_common_py__tier_ranks_for.html"><code>tier_ranks_for</code></a> <span class="dim">Warehouse/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__candidates.html"><code>_candidates</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Inventory_Management_py__Inventory_Manager__candidates_raw">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Inventory_Management.py#:~:text=def%20_candidates_raw">Source ↗</a></p>
 </article>
 </main>
