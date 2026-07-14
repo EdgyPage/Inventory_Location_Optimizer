@@ -14,16 +14,18 @@
 <h1><span class="kind kind-function">function</span> <code>_run_workers_flat</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def _run_workers_flat(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False) -&gt; None</code></pre>
-<section class="doc">Flat ProcessPoolExecutor pool — zero idle time between A/B/C barriers.
+<pre class="sig"><code>def _run_workers_flat(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str=&#x27;strategy&#x27;) -&gt; None</code></pre>
+<section class="doc">Flat ProcessPoolExecutor pool with automatic crash-recovery.
 
-All (pair, config, strategy) work units are submitted to a single shared
-pool.  A free worker immediately picks up the next unit regardless of
-which pair or config it belongs to.  When all 3 strategies for a
-(pair, config) complete, sim_meta.json is written.
+All (pair, config, channel, strategy) units share one pool.  A worker that raises is
+isolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the
+unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group&#x27;s
+sim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm
+keeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker
+deaths + pool rebuilds don&#x27;t touch shared logging.
 
 Graph generation is decoupled: run run_analysis.py &lt;base_dir&gt; afterwards.</section>
-<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nOptimization_run_simulation_py___channel_runs_for.html"><code>_channel_runs_for</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_run_simulation_py___finalize_config_run.html"><code>_finalize_config_run</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_run_simulation_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_sim_config_py___config_name.html"><code>_config_name</code></a> <span class="dim">Optimization/sim_config.py</span></li><li><a href="nOptimization_sim_manifest_py___resume_path.html"><code>_resume_path</code></a> <span class="dim">Optimization/sim_manifest.py</span></li><li><a href="nOptimization_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___run_scenario.html"><code>_run_scenario</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___supervise.html"><code>_supervise</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___run_scenario.html"><code>_run_scenario</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___run_workers_flat">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_run_workers_flat">Source ↗</a></p>
 </article>
 </main>

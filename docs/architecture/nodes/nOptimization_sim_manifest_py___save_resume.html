@@ -17,7 +17,8 @@
 <pre class="sig"><code>def _save_resume(run_dir: str, run_ids: dict, starts: dict) -&gt; None</code></pre>
 <section class="doc">Persist per-strategy batch counters and run IDs for crash recovery.
 
-run_ids and starts are keyed by strategy key (e.g. &#x27;uniform&#x27;, &#x27;trip_min&#x27;).</section>
+run_ids and starts are keyed by strategy key (e.g. &#x27;uniform&#x27;, &#x27;trip_min&#x27;).
+Written atomically (tmp + os.replace) so a crash mid-write can&#x27;t corrupt resume state.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_sim_manifest_py___resume_path.html"><code>_resume_path</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_sim_manifest_py___save_resume">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/sim_manifest.py#:~:text=def%20_save_resume">Source ↗</a></p>
 </article>

@@ -464,6 +464,7 @@ files:
     key_symbols:
       - {name: "save_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
+      - {name: "reset_strategy_db", file: "Optimization/strategy_runner.py", kind: "function"}
     notes: ""
   "Optimization/whatif_config.py":
     purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
@@ -691,6 +692,14 @@ files:
       - {name: "test_composed_scorer_placement", file: "Tests/test_assignment_functions.py", kind: "function"}
       - {name: "test_co_demand_compaction_expansion", file: "Tests/test_assignment_functions.py", kind: "function"}
     notes: ""
+  "Tests/test_atomic_checkpoint.py":
+    purpose: "locks atomic worker-checkpoint writes + reset_strategy_db discarding a partial arm's DB/keyframe/checkpoint for strategy-level resume."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_checkpoint_atomic_roundtrip", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_strategy_db_removes_all_outputs", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_is_a_noop_when_nothing_exists", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+    notes: ""
   "Tests/test_batch_precompute.py":
     purpose: "the HARD GATE for the batch-precompute dedup."
     layer: "tests"
@@ -751,6 +760,15 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_context_matches_code", file: "Tests/test_context_sync.py", kind: "function"}
+    notes: ""
+  "Tests/test_crash_recovery.py":
+    purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_finalize_gate_skips_group_with_a_failed_arm", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_plan_strategy_start_all_branches", file: "Tests/test_crash_recovery.py", kind: "function"}
     notes: ""
   "Tests/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
@@ -925,6 +943,15 @@ files:
       - {name: "test_reorder_qty_cv_zero_is_exact_ideal", file: "Tests/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/test_rng_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/test_run_spec_roundtrip.py":
+    purpose: "locks run_spec.json write/load round-trip + _apply_run_spec overlay (saved spec base, explicit flag overrides) for zero-param --resume."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_write_load_roundtrip", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_overlays_saved_spec", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_injects_resolved_store_composition", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
     notes: ""
   "Tests/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"

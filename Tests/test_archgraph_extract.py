@@ -55,8 +55,9 @@ def test_key_backbone_edges_present():
         return any(s.endswith(src_suffix) and d.endswith(dst_suffix) and k == kind
                    for (s, d, k) in edges)
 
-    # the ProcessPool spawn edge (function passed as a value) — resolved as `ref`
-    assert has('run_simulation.py::_run_workers_flat',
+    # the ProcessPool spawn edge (function passed as a value) — resolved as `ref`.
+    # The submit lives in _run_pool (the crash-recovery supervisor's inner pool lifetime).
+    assert has('run_simulation.py::_run_pool',
                'strategy_runner.py::_run_strategy_worker', 'ref')
     # a mixin method call resolved via the Inventory_Manager MRO / class-qualified call
     assert has('sim_assets.py::build_shared_assets',

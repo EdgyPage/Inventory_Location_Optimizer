@@ -39,9 +39,12 @@ steps:
     functions:
       - {name: discover_db_pairs, file: Optimization/runlayout.py, kind: function}
       - {name: find_latest_db_pairs, file: Optimization/runlayout.py, kind: function}
+      - {name: _write_run_spec, file: Optimization/sim_manifest.py, kind: function}
+      - {name: _load_run_spec, file: Optimization/sim_manifest.py, kind: function}
+      - {name: _apply_run_spec, file: Optimization/run_simulation.py, kind: function}
     reads: [inventory_db, affinity_db]
-    writes: [run_manifest]
-    guards: [Tests/test_batch_precompute_e2e.py]
+    writes: [run_manifest, run_spec]
+    guards: [Tests/test_batch_precompute_e2e.py, Tests/test_run_spec_roundtrip.py]
     next: [build_shared_assets]
 
   - id: build_shared_assets
@@ -67,6 +70,7 @@ steps:
     functions:
       - {name: _channel_runs_for, file: Optimization/run_simulation.py, kind: function}
       - {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}
+      - {name: _plan_strategy_start, file: Optimization/run_simulation.py, kind: function}
       - {name: make_channel, file: Optimization/channels.py, kind: function}
       - {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}
       - {name: batch_fingerprint, file: Optimization/batch_precompute.py, kind: function}
@@ -79,20 +83,25 @@ steps:
 
   - id: run_workers
     summary: >
-      One flat spawn-mode ProcessPoolExecutor over every (pair, config, channel,
-      strategy) unit. Each worker loads the planned inventory (regime-filtered for its
-      channel), precomputes per-SKU labor, rebuilds the warehouse from the shared seed,
-      stocks it via its strategy, then runs the batch loop (reorders -> pick simulation
-      -> stats extraction -> checkpointed saves).
+      One flat spawn-mode ProcessPoolExecutor over every (pair, config, channel, strategy)
+      unit, wrapped by a crash-recovery supervisor: a hard worker death that breaks the pool
+      triggers a rebuild + resubmit of the unfinished units (each resuming from its on-disk
+      checkpoint) up to --max-retries, then quarantines any still-failing unit. Each worker
+      loads the planned inventory (regime-filtered), rebuilds the warehouse, stocks it via its
+      strategy, then runs the batch loop (reorders -> pick simulation -> stats -> checkpointed
+      saves).
     functions:
       - {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function}
+      - {name: _supervise, file: Optimization/run_simulation.py, kind: function}
+      - {name: _build_work_units, file: Optimization/run_simulation.py, kind: function}
+      - {name: _run_pool, file: Optimization/run_simulation.py, kind: function}
       - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}
       - {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}
       - {name: per_pick, file: Warehouse/cost_model.py, kind: function}
       - {name: load_batches, file: Optimization/batch_precompute.py, kind: function}
     reads: [planned_inventory_db, affinity_db, batches_cache]
     writes: [sim_db, keyframes_db, checkpoint_pkl]
-    guards: [Tests/test_index_equivalence.py, Tests/test_rng_determinism.py, Tests/test_batch_precompute_e2e.py]
+    guards: [Tests/test_index_equivalence.py, Tests/test_rng_determinism.py, Tests/test_batch_precompute_e2e.py, Tests/test_crash_recovery.py]
     next: [finalize]
 
   - id: finalize

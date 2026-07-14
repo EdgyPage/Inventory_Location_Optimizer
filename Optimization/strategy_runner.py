@@ -64,9 +64,13 @@ from Warehouse.cost_model import sec_per_inch, height_multiplier
 # ── checkpoint helpers ────────────────────────────────────────────────────────
 
 def save_worker_checkpoint(run_dir: str, strategy: str, next_batch_id: int) -> None:
+    # Atomic: write to a temp file then os.replace, so a crash mid-write can never leave a
+    # truncated checkpoint that would mis-resume (mirrors batch_precompute.write_batches).
     path = os.path.join(run_dir, f'_ckpt_{strategy}.pkl')
-    with open(path, 'wb') as f:
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'wb') as f:
         pickle.dump({'next_batch_id': next_batch_id}, f)
+    os.replace(tmp, path)
 
 
 def load_worker_checkpoint(run_dir: str, strategy: str) -> int:
@@ -75,6 +79,19 @@ def load_worker_checkpoint(run_dir: str, strategy: str) -> int:
         return 0
     with open(path, 'rb') as f:
         return pickle.load(f).get('next_batch_id', 0)
+
+
+def reset_strategy_db(run_dir: str, db_path: str, strategy: str) -> None:
+    """Discard a partially-run strategy's outputs so it restarts bit-identically from batch 0
+    (strategy-level resume granularity).  Removes its sim_<key>.db, that db's keyframe sibling,
+    and its checkpoint.  Runs in the PARENT before any worker reopens the file (Windows-safe)."""
+    for p in (db_path, keyframe_db_path(db_path),
+              os.path.join(run_dir, f'_ckpt_{strategy}.pkl')):
+        try:
+            if os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass
 
 
 def _cleanup_checkpoints(run_dir: str) -> None:
@@ -542,6 +559,14 @@ def _run_strategy_worker(args: dict) -> dict:
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
         save_reorder_queue(db_path, run_id, pq)
+
+    # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
+    # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
+    # flushed above but the marker didn't advance.  Pin it to n_batches so a later --resume of
+    # a not-yet-finalized group treats this arm as done (empty loop) instead of re-INSERTing
+    # its tail rows.  Idempotent when the marker already reached n_batches.
+    if n_batches > start_i:
+        save_worker_checkpoint(run_dir, strategy, n_batches)
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped

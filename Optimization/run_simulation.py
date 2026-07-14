@@ -13,6 +13,7 @@ Modes:
 
 import argparse
 import concurrent.futures
+from concurrent.futures.process import BrokenProcessPool
 import json
 import logging
 import logging.handlers
@@ -47,6 +48,7 @@ from Optimization.sim_config import (            # noqa: F401
 from Optimization.sim_assets import build_shared_assets                    # noqa: F401
 from Optimization.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
+    _write_run_spec, _load_run_spec, _run_spec_path,
 )
 
 
@@ -60,7 +62,7 @@ from Optimization.Workload import WorkloadParams
 from Warehouse.regime import STORE, FULFILLMENT
 
 from Optimization.strategy_runner import (
-    load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints,
+    load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints, reset_strategy_db,
 )
 from Optimization.batch_precompute import ensure_batches
 
@@ -73,6 +75,35 @@ from Optimization.batch_precompute import ensure_batches
 from Optimization.runlayout import discover_db_pairs, find_latest_db_pairs, iter_sim_dbs  # noqa: F401,E402
 
 
+def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
+                         granularity, prev_id, prev_start, is_resume, log):
+    """Decide (run_id, start_batch) for one strategy, honoring resume granularity.
+
+    - Fresh run / a strategy new on resume → init DB + create_run, start 0.
+    - Resumed done arm (checkpoint ≥ n_batches) → reuse run_id, start n_batches (empty loop).
+    - Resumed PARTIAL arm (0 < ckpt < n_batches):
+        strategy granularity → reset the arm's DB + fresh run_id, start 0 (bit-identical to an
+                               uncrashed run — no un-replayed physical state);
+        batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn).
+    """
+    if not is_resume or prev_id is None:
+        init_run_db(db_path)
+        return create_run(db_path, s.run_type, run_params,
+                          identity={**identity, 'strategy_key': s.key}), 0
+    ckpt = load_worker_checkpoint(ch_run_dir, s.key) or prev_start
+    if 0 < ckpt < n_batches:
+        if granularity == 'strategy':
+            reset_strategy_db(ch_run_dir, db_path, s.key)
+            init_run_db(db_path)
+            log.info(f'  [{s.key}] strategy-level reset -> batch 0 (bit-identical)')
+            return create_run(db_path, s.run_type, run_params,
+                              identity={**identity, 'strategy_key': s.key}), 0
+        log.warning(f'  [{s.key}] batch-level resume @ {ckpt}: NOT bit-identical to an uncrashed '
+                    f'run (un-replayed physical state). Use --resume-granularity strategy for '
+                    f'exact cross-arm comparability.')
+    return prev_id, ckpt
+
+
 def _prepare_channel_run(
     channel,                 # channels.Channel — its picker carries this run's cost + pool
     cfg     : dict,
@@ -81,6 +112,7 @@ def _prepare_channel_run(
     pair_dir: str,
     log     : logging.Logger,
     workers : int = 1,
+    resume_granularity: str = 'strategy',
 ) -> tuple[list, list]:
     """Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
     run_ids, build strategy_args for the flat ProcessPoolExecutor.
@@ -265,30 +297,27 @@ def _prepare_channel_run(
     log.info(f'  [{ch.name}] Optimal Sigma f*D = {ch_optimal_sigma_fd:,.1f}  '
              f'W* floor = {ch_optimal_work:,.1f}')
 
-    resume = _load_resume(ch_run_dir)
+    _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
+    _identity = dict(
+        pair_label            = _pair_label,
+        config_label          = name,
+        warehouse_fingerprint = shared.get('warehouse_fingerprint'),
+        inventory_label       = _pair_label,
+        channel               = ch.name,
+    )
+    resume      = _load_resume(ch_run_dir)
+    prev_ids    = resume['run_ids'] if resume else {}
+    prev_starts = resume.get('next_batch', {}) if resume else {}
+    run_ids, starts = {}, {}
+    for s in ch_strategies:
+        run_ids[s.key], starts[s.key] = _plan_strategy_start(
+            ch_run_dir, s, n_batches, ch_db_path[s.key], ch_run_params, _identity,
+            resume_granularity, prev_ids.get(s.key), prev_starts.get(s.key, 0),
+            resume is not None, log)
     if resume:
-        run_ids = resume['run_ids']
-        prev    = resume.get('next_batch', {})
-        starts  = {s.key: (load_worker_checkpoint(ch_run_dir, s.key) or prev.get(s.key, 0))
-                   for s in ch_strategies}
         log.info(f'  Resuming [{ch.name}]  '
                  + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
     else:
-        run_ids = {}
-        _pair_label = os.path.basename(pair_dir.rstrip('/\\'))
-        _identity = dict(
-            pair_label            = _pair_label,
-            config_label          = name,
-            warehouse_fingerprint = shared.get('warehouse_fingerprint'),
-            inventory_label       = _pair_label,
-            channel               = ch.name,
-        )
-        for s in ch_strategies:
-            init_run_db(ch_db_path[s.key])
-            run_ids[s.key] = create_run(
-                ch_db_path[s.key], s.run_type, ch_run_params,
-                identity={**_identity, 'strategy_key': s.key})
-        starts = {s.key: 0 for s in ch_strategies}
         log.info(f'  New run [{ch.name}]  '
                  + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
     _save_resume(ch_run_dir, run_ids, starts)
@@ -437,6 +466,146 @@ def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
     return blank
 
 
+def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
+                      skip_completed, resume_granularity):
+    """(Re-)prepare all work units from on-disk state.
+
+    Returns (work_units, meta):
+      work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).
+      meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is
+                   finalized only when EVERY member uid succeeds (see _run_pool) — so a crashed
+                   arm never finalizes its group, keeping resume.pkl and staying resumable.
+    Re-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.
+    """
+    work_units, meta = [], {}
+    for label, inv_db, aff_db in pairs:
+        pair_dir = os.path.join(base_dir, label)
+        shared   = shared_by_pair[label]
+        # Store & fulfillment sweep independent config sets — a union of channel-runs.
+        mixed, channel_runs = _channel_runs_for(shared['inventory'])
+        for ch, cfg in channel_runs:
+            cfg_name = _config_name(cfg)
+            # Outputs live at <cfg>/<channel>/ (mixed) or <cfg>/ (store-only); the skip guard
+            # keys on that exact dir.  A finalized channel-run (sim_meta.json present AND
+            # resume.pkl removed) is skipped so resume never recomputes complete work.
+            ch_run_dir = os.path.join(pair_dir, cfg_name, ch.name) if mixed \
+                         else os.path.join(pair_dir, cfg_name)
+            if skip_completed and os.path.exists(os.path.join(ch_run_dir, 'sim_meta.json')) \
+                    and not os.path.exists(_resume_path(ch_run_dir)):
+                log.info(f'  [{label}/{cfg_name}/{ch.name}] already complete — skipping (resume)')
+                continue
+            try:
+                strategy_args, sim_skeletons = _prepare_channel_run(
+                    ch, cfg, mixed, shared, pair_dir, log, workers=max_workers,
+                    resume_granularity=resume_granularity)
+                for sa in strategy_args:
+                    sa['log_queue'] = log_queue
+                    uid = (label, cfg_name, sa.get('channel_key', ''), sa['strategy'])
+                    work_units.append((uid, sa))
+                for sk in sim_skeletons:
+                    gk = (label, cfg_name, sk.get('channel', ''))
+                    members = frozenset((*gk, s['key']) for s in sk['strategies'])
+                    meta[gk] = {'sim_skeleton': sk, 'members': members}
+            except Exception as exc:
+                log.error(f'  [{label}/{cfg_name}/{ch.name}] prepare FAILED: {exc}', exc_info=True)
+    return work_units, meta
+
+
+def _finalize_ready_groups(meta, done_uids, finalized, log):
+    """Finalize every group whose members have ALL succeeded and isn't finalized yet."""
+    for gk, m in meta.items():
+        if gk not in finalized and m['members'] <= done_uids:
+            try:
+                _finalize_config_run(m['sim_skeleton'])
+                finalized.add(gk)
+                log.info(f'  [{"/".join(x for x in gk if x)}] sim_meta.json written')
+            except Exception as exc:
+                log.error(f'  [{gk}] finalize FAILED: {exc}', exc_info=True)
+
+
+def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized):
+    """One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns
+    (failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once
+    ALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the
+    rest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated."""
+    failed_uids, broke = set(), False
+    with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers, max_tasks_per_child=recycle) as pool:
+        futures = {pool.submit(_run_strategy_worker, sa): uid for uid, sa in remaining}
+        for fut in concurrent.futures.as_completed(futures):
+            uid = futures[fut]
+            gk  = uid[:3]
+            _tag = '/'.join(x for x in gk if x) + f'/{uid[3]}'
+            try:
+                res = fut.result()
+                log.info(f'  [{_tag}] done  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
+                done_uids.add(uid)
+            except BrokenProcessPool:
+                broke = True
+                log.error('  [supervisor] worker pool BROKEN (hard worker death) — abandoning '
+                          'this pool; unfinished units will be rebuilt + resubmitted')
+                break
+            except Exception as exc:
+                log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
+                failed_uids.add(uid)
+                continue
+            gk_meta = meta.get(gk)
+            if gk_meta and gk not in finalized and gk_meta['members'] <= done_uids:
+                try:
+                    _finalize_config_run(gk_meta['sim_skeleton'])
+                    finalized.add(gk)
+                    log.info(f'  [{"/".join(x for x in gk if x)}] sim_meta.json written')
+                except Exception as exc:
+                    log.error(f'  [{gk}] finalize FAILED: {exc}', exc_info=True)
+    return failed_uids, broke
+
+
+def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
+               max_tasks_per_child, skip_completed, max_retries, resume_granularity):
+    """Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the
+    unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary
+    per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine
+    + continue: never abort the run, never infinite-loop; unrecovered units keep their resume
+    state and are reported with a resume command.  max_tasks_per_child recycles workers so RSS
+    is reclaimed between jobs (a clean recycle is NOT a broken pool)."""
+    recycle = max_tasks_per_child if max_tasks_per_child and max_tasks_per_child > 0 else None
+    done_uids, finalized = set(), set()
+    work_units, meta = [], {}
+    for attempt in range(max_retries + 1):
+        work_units, meta = _build_work_units(
+            pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
+            skip_completed=(skip_completed or attempt > 0),
+            resume_granularity=resume_granularity)
+        remaining = [(uid, sa) for uid, sa in work_units if uid not in done_uids]
+        if not remaining:
+            break
+        total = len(remaining)
+        for idx, (uid, sa) in enumerate(remaining, start=1):
+            sa['job_index'], sa['job_total'] = idx, total
+            sa['job_tag'] = '/'.join(x for x in uid[:3] if x) + f'/{uid[3]}'
+        if attempt:
+            log.warning(f'  [supervisor] retry {attempt}/{max_retries}: '
+                        f'rebuild pool + resubmit {total} unit(s)')
+        log.info(f'  Flat pool: {total} job(s) -> ProcessPoolExecutor({max_workers}, '
+                 f'max_tasks_per_child={recycle})')
+        _failed, broke = _run_pool(remaining, meta, max_workers, recycle,
+                                   log, done_uids, finalized)
+        if not broke:
+            break            # pool completed; residual failures are deterministic → quarantine
+    _finalize_ready_groups(meta, done_uids, finalized, log)   # safety sweep (rare finalize retry)
+    all_uids = {uid for uid, _ in work_units} | done_uids
+    unfinished = sorted(all_uids - done_uids)
+    if unfinished:
+        bar = '!' * 72
+        log.error(bar)
+        log.error(f'  {len(unfinished)}/{len(all_uids)} unit(s) UNRECOVERED after {max_retries} '
+                  f'retr{"y" if max_retries == 1 else "ies"}. Resume state left intact.')
+        for uid in unfinished:
+            log.error('    ' + '/'.join(x for x in uid if x))
+        log.error(f'  Resume with:  python Optimization/run_simulation.py --resume {base_dir}')
+        log.error(bar)
+
+
 def _run_workers_flat(
     pairs              : list,
     base_dir           : str,
@@ -445,116 +614,31 @@ def _run_workers_flat(
     log                : logging.Logger,
     max_tasks_per_child: int | None = 1,
     skip_completed     : bool = False,
+    max_retries        : int = 2,
+    resume_granularity : str = 'strategy',
 ) -> None:
-    """Flat ProcessPoolExecutor pool — zero idle time between A/B/C barriers.
+    """Flat ProcessPoolExecutor pool with automatic crash-recovery.
 
-    All (pair, config, strategy) work units are submitted to a single shared
-    pool.  A free worker immediately picks up the next unit regardless of
-    which pair or config it belongs to.  When all 3 strategies for a
-    (pair, config) complete, sim_meta.json is written.
+    All (pair, config, channel, strategy) units share one pool.  A worker that raises is
+    isolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the
+    unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's
+    sim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm
+    keeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker
+    deaths + pool rebuilds don't touch shared logging.
 
     Graph generation is decoupled: run run_analysis.py <base_dir> afterwards.
     """
     mp_manager = multiprocessing.Manager()
     log_queue  = mp_manager.Queue(-1)
     listener   = logging.handlers.QueueListener(
-        log_queue, *log.handlers, respect_handler_level=True
-    )
+        log_queue, *log.handlers, respect_handler_level=True)
     listener.start()
     log.info('  Log listener started')
-
     try:
-        # ── pre-init: build all work units in (pair, config) order ───────────
-        work_units: list[tuple[tuple, dict]] = []   # ((label, cfg_name), args_dict)
-        meta: dict[tuple, dict] = {}                # key → {sim_skeleton, remaining}
-
-        for label, inv_db, aff_db in pairs:
-            pair_dir = os.path.join(base_dir, label)
-            shared   = shared_by_pair[label]
-
-            # Store and fulfillment sweep their own config sets independently — a UNION of
-            # channel-runs (store configs → store channel; fulfillment configs → fulfillment
-            # channel, only when the catalog is mixed).  See _channel_runs_for.
-            mixed, channel_runs = _channel_runs_for(shared['inventory'])
-            for ch, cfg in channel_runs:
-                cfg_name = _config_name(cfg)
-                # A channel-run's outputs live at <cfg>/<channel>/ (mixed catalog) or <cfg>/
-                # (store-only).  The skip guard must key on that exact dir — sim_meta.json and
-                # resume.pkl land there, not at the config level.
-                ch_run_dir = os.path.join(pair_dir, cfg_name, ch.name) if mixed \
-                             else os.path.join(pair_dir, cfg_name)
-                # On resume, a channel-run that finalized has written sim_meta.json and had its
-                # resume marker removed (_finalize_config_run).  Skip it so resume never
-                # recomputes already-complete work — _prepare_channel_run would otherwise see no
-                # resume.pkl and restart it from batch 0.
-                if skip_completed and os.path.exists(os.path.join(ch_run_dir, 'sim_meta.json')) \
-                        and not os.path.exists(_resume_path(ch_run_dir)):
-                    log.info(f'  [{label}/{cfg_name}/{ch.name}] already complete — skipping (resume)')
-                    continue
-                try:
-                    strategy_args, sim_skeletons = _prepare_channel_run(
-                        ch, cfg, mixed, shared, pair_dir, log, workers=max_workers)
-                    for sa in strategy_args:
-                        sa['log_queue'] = log_queue   # inject shared queue
-                        ck = (label, cfg_name, sa.get('channel_key', ''))
-                        work_units.append((ck, sa))
-                    # One completion group per (pair, config, channel): all of THAT channel's
-                    # strategies must finish before its sim_meta.json is written.  Channels may
-                    # run different-sized subsets (e.g. store: fifo+rank_labor vs fulfillment:
-                    # full suite), so count the skeleton's own strategies, not the global grid.
-                    for sk in sim_skeletons:
-                        ck = (label, cfg_name, sk.get('channel', ''))
-                        meta[ck] = {'sim_skeleton': sk, 'remaining': len(sk['strategies'])}
-                except Exception as exc:
-                    log.error(f'  [{label}/{cfg_name}/{ch.name}] prepare FAILED: {exc}',
-                              exc_info=True)
-
-        # Assign a 1-based job index + identity tag to each work unit so every
-        # worker log line can show which job of the flat list is progressing.
-        total_jobs = len(work_units)
-        for idx, (key, sa) in enumerate(work_units, start=1):
-            _label, _cfg_name, _ch = key
-            sa['job_index'] = idx
-            sa['job_total'] = total_jobs
-            _pfx = f'{_label}/{_cfg_name}/{_ch}' if _ch else f'{_label}/{_cfg_name}'
-            sa['job_tag']   = f'{_pfx}/{sa["strategy"]}'
-
-        # max_tasks_per_child recycles each worker process after this many jobs so
-        # the OS reclaims its full RSS between simulations.  CPython rarely returns
-        # freed arenas to the OS, so without recycling each long-lived worker's RSS
-        # ratchets to its high-water mark and pins memory at 95%+, swap-thrashing
-        # every worker's DB writes.  None = never recycle (legacy behaviour).
-        recycle = max_tasks_per_child if max_tasks_per_child and max_tasks_per_child > 0 else None
-        log.info(f'  Flat pool: {total_jobs} jobs'
-                 f' -> ProcessPoolExecutor({max_workers}, '
-                 f'max_tasks_per_child={recycle})')
-
-        # ── execute ───────────────────────────────────────────────────────────
-        with concurrent.futures.ProcessPoolExecutor(
-                max_workers=max_workers, max_tasks_per_child=recycle) as pool:
-            futures = {
-                pool.submit(_run_strategy_worker, args): key
-                for key, args in work_units
-            }
-            for fut in concurrent.futures.as_completed(futures):
-                key = futures[fut]
-                label, cfg_name, ch_key = key
-                _tag = f'{label}/{cfg_name}/{ch_key}' if ch_key else f'{label}/{cfg_name}'
-                try:
-                    res = fut.result()
-                    log.info(f'  [{_tag}] strategy-{res["strategy"]} done'
-                             f'  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
-                except Exception as exc:
-                    log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
-
-                if key in meta:
-                    meta[key]['remaining'] -= 1
-                    if meta[key]['remaining'] <= 0:
-                        try:
-                            _finalize_config_run(meta[key]['sim_skeleton'])
-                            log.info(f'  [{_tag}] sim_meta.json written')
-                        except Exception as exc:
-                            log.error(f'  [{_tag}] finalize FAILED: {exc}', exc_info=True)
+        _supervise(pairs, base_dir, shared_by_pair, max_workers, log,
+                   log_queue=log_queue, max_tasks_per_child=max_tasks_per_child,
+                   skip_completed=skip_completed, max_retries=max_retries,
+                   resume_granularity=resume_granularity)
     finally:
         listener.stop()
         mp_manager.shutdown()
@@ -567,7 +651,8 @@ def _run_workers_flat(
 # lives in exactly one place.  frozen_by_pair maps label -> an already-planned
 # inventory DB to reshape from (what-if freeze); None per label ⇒ sample fresh.
 def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
-                  frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1):
+                  frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1,
+                  max_retries=2, resume_granularity='strategy'):
     write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
     g = CONFIG['global']
     shared_by_pair = {}
@@ -582,7 +667,8 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
         )
     _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
                       max_tasks_per_child=max_tasks_per_child,
-                      skip_completed=skip_completed)
+                      skip_completed=skip_completed,
+                      max_retries=max_retries, resume_granularity=resume_granularity)
     # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
     # batches so a blank DB is discovered NOW, not halfway through downstream analysis.
     _warn_blank_arms(base_dir, log)
@@ -635,7 +721,8 @@ def _cell_complete(scenario_base: str, pairs: list) -> bool:
                for label, _i, _a in pairs)
 
 
-def _run_whatif_matrix(base_dir, pairs, log, resume=False):
+def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
+                       resume_granularity='strategy'):
     """Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory
     once (tightest cell), then reshape + simulate it for every cell."""
     from Optimization.whatif_config import WHATIF
@@ -683,7 +770,8 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False):
         _apply_cell(aisle_split, zoning)
         os.makedirs(scenario_base, exist_ok=True)
         _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
-                      frozen_by_pair=frozen, skip_completed=resume)
+                      frozen_by_pair=frozen, skip_completed=resume,
+                      max_retries=max_retries, resume_granularity=resume_granularity)
 
     log.info(f'\nWhat-if matrix complete → {base_dir}')
     log.info(f'  Per-cell graphs: python run_analysis.py {base_dir}\\<cell>')
@@ -691,6 +779,26 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False):
 
 
 # ── entry point ────────────────────────────────────────────────────────────────
+
+def _apply_run_spec(args, spec, explicit):
+    """Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the
+    user explicitly typed on the resume command overrides it (with a warning).  Returns
+    (store_composition_override, notes) — the resolved store composition is injected directly so
+    a since-deleted --s-composition file can't break resume."""
+    notes = []
+    for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
+              'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif',
+              'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
+              'max_retries', 'resume_granularity'):
+        if f not in spec:
+            continue
+        if f in explicit:
+            if getattr(args, f) != spec[f]:
+                notes.append(f'  run_spec override: {f} {spec[f]!r} -> {getattr(args, f)!r} (explicit flag wins)')
+        else:
+            setattr(args, f, spec[f])
+    return spec.get('s_composition'), notes
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -748,9 +856,42 @@ def main():
                              'defined in Optimization/whatif_config.py over ONE frozen inventory + '
                              'batch stream (apples-to-apples layout comparison). Shares this whole CLI; '
                              'output goes to comparison_whatif_<ts>/<cell>/…. Compare with run_whatif_delta.')
+    parser.add_argument('--max-retries', type=int, default=2, metavar='N',
+                        help='On a hard worker death (segfault/OOM) that breaks the pool, rebuild '
+                             'the pool and resubmit the unfinished units up to N times before '
+                             'quarantining them (default 2). Ordinary per-unit errors are not retried.')
+    parser.add_argument('--resume-granularity', choices=('strategy', 'batch'), default='strategy',
+                        help="On recovery, how to resume a partially-run strategy: 'strategy' "
+                             '(default) restarts it from batch 0 (bit-identical to an uncrashed run, '
+                             "comparison-safe); 'batch' continues from its last checkpoint (faster, "
+                             'but NOT bit-identical — un-replayed cumulative physical state).')
     args = parser.parse_args()
+    # Flags the user explicitly typed (used so a saved run_spec is the base but an explicit
+    # flag on a resume command still wins).
+    explicit = {d for d in vars(args) if getattr(args, d) != parser.get_default(d)}
 
-    # ── apply CLI overrides onto CONFIG (the single source of truth) ─────────────
+    # Resolve base_dir FIRST, then on --resume load + apply the saved run_spec BEFORE the
+    # CONFIG-override block, so a bare `--resume DIR` reconstructs the run with zero retyped
+    # flags (and no find_latest_db_pairs drift — see the pairs block below).
+    spec, _spec_store_comp, _spec_notes = None, None, []
+    if args.resume:
+        base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
+        if not os.path.isdir(base_dir):
+            sys.exit(f'Resume directory not found: {base_dir}')
+        spec = _load_run_spec(base_dir)
+        if spec:
+            _spec_store_comp, _spec_notes = _apply_run_spec(args, spec, explicit)
+        else:
+            _spec_notes = ['  no run_spec.json in resume dir (pre-recovery run) — resuming with '
+                           'code defaults + retyped flags; re-supply the original run-shaping flags '
+                           'to avoid warehouse/inventory/batch-count drift']
+    else:
+        ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
+        prefix   = 'comparison_whatif' if args.whatif else 'comparison'
+        base_dir = os.path.join(_OUTPUT_DIR, f'{prefix}_{ts}')
+        os.makedirs(base_dir, exist_ok=True)
+
+    # ── apply CLI overrides onto CONFIG (the single source of truth; reconciled w/ run_spec) ──
     g = CONFIG['global']
     if args.n_batches:
         g['n_batches'] = args.n_batches
@@ -766,6 +907,8 @@ def main():
                 _store_comp = json.load(_cf)
         else:
             _store_comp = json.loads(args.s_composition)
+    if args.resume and spec is not None:      # resume: use the saved RESOLVED composition
+        _store_comp = _spec_store_comp
 
     _ss = CONFIG['channels']['store']['sizing']
     _ss.update(max_aisles=args.s_max_aisles, max_bins=args.s_max_bins,
@@ -774,22 +917,24 @@ def main():
     _fs.update(max_aisles=args.ff_max_aisles, max_bins=args.ff_max_bins,
                min_bins=args.ff_min_bins)
 
-    if args.resume:
-        base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
-        if not os.path.isdir(base_dir):
-            sys.exit(f'Resume directory not found: {base_dir}')
-    else:
-        ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-        prefix   = 'comparison_whatif' if args.whatif else 'comparison'
-        base_dir = os.path.join(_OUTPUT_DIR, f'{prefix}_{ts}')
-        os.makedirs(base_dir, exist_ok=True)
-
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
+    for _n in _spec_notes:
+        log.warning(_n)
+    if args.resume and spec:
+        log.info('  Resuming from run_spec.json — run-shaping params reconstructed; no retyped flags needed')
     log.info(f'Output directory : {base_dir}')
     log.info(f'Profiles dir     : {args.profiles_dir}')
     log.info(f'Mode             : {"all profiles" if args.all_profiles else "latest profile only"}')
 
-    if args.all_profiles:
+    # On resume, use the pairs PINNED in run_spec.json — never re-discover (a newer profile
+    # would silently swap the inventory out from under a resumed run).
+    if args.resume and spec and spec.get('pairs'):
+        pairs = [tuple(p) for p in spec['pairs']]
+        log.info(f'  Using {len(pairs)} inventory pair(s) pinned in run_spec.json (no re-discovery)')
+        for _lbl, _inv, _aff in pairs:
+            if not (os.path.exists(_inv) and os.path.exists(_aff)):
+                log.warning(f'    run_spec pair path missing for {_lbl}: {_inv} | {_aff}')
+    elif args.all_profiles:
         pairs = discover_db_pairs(args.profiles_dir)
     else:
         pairs = find_latest_db_pairs(args.profiles_dir)
@@ -816,6 +961,23 @@ def main():
         log.info(f'    inv : {inv_db}')
         log.info(f'    aff : {aff_db}')
 
+    # Persist the fully-resolved run spec (argv + resolved run-shaping params + pinned pairs)
+    # for a NEW run, so a later crash resumes with `--resume DIR` and nothing retyped.
+    if not args.resume:
+        _write_run_spec(base_dir, {
+            'argv'         : sys.argv,
+            'n_batches'    : g['n_batches'],  'max_skus'    : g['max_skus'],
+            's_max_aisles' : args.s_max_aisles, 's_max_bins' : args.s_max_bins, 's_min_bins': args.s_min_bins,
+            'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
+            's_composition': _store_comp,
+            'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif,
+            'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
+            'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
+            'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
+            'pairs'        : [list(p) for p in pairs],
+        })
+        log.info('  Wrote run_spec.json — zero-param `--resume` enabled')
+
     n_store = len(STORE_CONFIGS)
     n_ff    = len(FULFILLMENT_CONFIGS)
     workers = args.workers or 1
@@ -827,7 +989,8 @@ def main():
     # What-if MODE: sweep the layout × zoning matrix (whatif_config.py) over ONE frozen
     # inventory + batch stream.  Each cell is its own scenario subtree, run via _run_scenario.
     if args.whatif:
-        _run_whatif_matrix(base_dir, pairs, log, resume=bool(args.resume))
+        _run_whatif_matrix(base_dir, pairs, log, resume=bool(args.resume),
+                           max_retries=args.max_retries, resume_granularity=args.resume_granularity)
         return
 
     # ── single-config run: manifest + shared-asset build + flat pool (all in _run_scenario) ──
@@ -835,7 +998,8 @@ def main():
     regime_sizing = regime_sizing_from_config()
     _run_scenario(base_dir, pairs, regime_sizing, workers, log,
                   skip_completed=bool(args.resume),
-                  max_tasks_per_child=args.max_tasks_per_child)
+                  max_tasks_per_child=args.max_tasks_per_child,
+                  max_retries=args.max_retries, resume_granularity=args.resume_granularity)
 
     log.info(f'\nAll {len(pairs)} dataset(s) × ({n_store} store + {n_ff} ff) config(s) simulations complete.'
              f'  Root: {base_dir}'

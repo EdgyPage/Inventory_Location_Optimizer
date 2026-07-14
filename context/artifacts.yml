@@ -37,6 +37,19 @@ artifacts:
     match: "run_manifest.json"
     fields: [run, inventories, configs, store_configs, fulfillment_configs, strategies, baseline]
 
+  run_spec:
+    # The fully-resolved run invocation (argv + resolved run-shaping params + pinned inventory
+    # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
+    path_pattern: "comparison_<ts>/run_spec.json"
+    format: json
+    writer: {function: _write_run_spec, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: _load_run_spec, file: Optimization/sim_manifest.py}
+    match: "run_spec.json"
+    fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
+             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, profiles_dir,
+             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+
   warehouse_db:
     path_pattern: "comparison_<ts>/<pair>/warehouse.db"
     format: sqlite
