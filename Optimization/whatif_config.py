@@ -11,24 +11,37 @@ Cells are the combinatorial product schedulers × zoning × ks × losses (loss c
 k == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added
 only when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.
 
-CURRENT SCENARIO — picker-scheduler A/B: hold the layout fixed (no split, no zoning) and sweep the
-task→picker scheduler `round_robin` vs `lpt` across the full assignment-function suite, to measure the
-throughput (makespan) gain of load-balancing at unchanged total labor.  To sweep layout too, re-add
-values to `ks`/`losses`/`zoning`.
+CURRENT SCENARIO — picker-scheduler A/B with NO ABC aisle splitting and NO ABC velocity zoning: hold
+the layout fixed (whole aisles, no A/B/C banding) and sweep the task→picker scheduler `round_robin`
+(naive static i%num_pickers) vs `lpt` (makespan-MINIMIZING load balancer) across the full
+assignment-function suite — measuring the throughput (batch-makespan) gain of load-balancing at
+unchanged task makespan (total labor).  The ABC aisle-split and ABC velocity-zoning axes are preserved
+below as commented-out lines; uncomment them to sweep layout too.
 """
 
 WHATIF = {
-    'ks':     [1],               # aisle_split segment counts (1 = no split); fixed to isolate scheduler
-    'losses': [0.0],             # capacity_loss fractions per cut, applied ONLY when k > 1
-    'zoning': [                  # (cell-name-suffix, velocity_zoning spec); off to isolate scheduler
+    # ── ABC aisle splitting: OFF (k=1 = whole aisle, no A/B/C segmentation) ───────────────
+    'ks':     [1],               # aisle_split segment counts; 1 = no split (ABC splitting OFF)
+    'losses': [0.0],             # capacity_loss per cut; applies ONLY when k > 1
+    # 'ks':     [1, 2, 3],       # ← ABC aisle splitting ON: 1 = whole aisle, 2/3 = segments per aisle
+    # 'losses': [0.0, 0.1],      # ← capacity lost per cut when k > 1
+
+    # ── ABC velocity zoning: OFF ─────────────────────────────────────────────────────────
+    'zoning': [                  # (cell-name-suffix, velocity_zoning spec)
         ('off', {'enabled': False}),
+        # ('abc', {'enabled': True, 'n_bands': 3, 'mode': 'abc',   # ← ABC A/B/C demand-mass banding
+        #          'abc': {'mass_thresholds': [0.7, 0.9]}}),
     ],
-    # Task→picker scheduler axis: 'round_robin' (legacy i%num_pickers) vs 'lpt' (load-balance
-    # makespan).  A single value = no name suffix (byte-identical to no axis); >1 value sweeps it.
+
+    # ── Picker-scheduler axis (the ACTIVE sweep): naive vs minimizing ─────────────────────
+    # 'round_robin' = the naive static scheduler (legacy i%num_pickers, no load balancing);
+    # 'lpt'         = the makespan-MINIMIZING scheduler (heavy-first least-loaded load balancer).
+    # >1 value adds a `_rr`/`_lpt` cell-name suffix; a single value = no suffix.
     'schedulers': ['round_robin', 'lpt'],
+
     # Assignment-function (restock) arms to sweep in every cell.  'all' = the full suite
     # (CHANNEL_RESTOCKS = None); a list/tuple of restock keys = a subset; None = leave
     # strategies.CHANNEL_RESTOCKS exactly as already committed (don't override it here).
     'arms': 'all',
-    'reference': 'k1_off_rr',    # round-robin baseline; run_whatif_delta diffs k1_off_lpt against it
+    'reference': 'k1_off_rr',    # naive (round_robin) baseline; run_whatif_delta diffs k1_off_lpt vs it
 }
