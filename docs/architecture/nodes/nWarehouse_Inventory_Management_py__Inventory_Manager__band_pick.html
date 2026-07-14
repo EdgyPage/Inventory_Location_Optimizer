@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_band_pick · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_Inventory_Management_py__Inventory_Manager__band_pick" data-id="Warehouse/Inventory_Management.py::Inventory_Manager._band_pick">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_Inventory_Management_py.html"><code>Warehouse/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_band_pick</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_band_pick</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_Inventory_Management_py.html"><code>Warehouse/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>def _band_pick(self, unit: StorageUnit, key) -&gt; list</code></pre>
+<section class="doc">O(#bands) equivalent of _zone_filter via the maintained per-band sub-index: the first
+non-empty band bucket in spill order.  `key` is the tier BinKey from _candidates_raw; the
+caller guarantees the tier is non-empty, so some bucket is non-empty (the fallback to the
+raw tier list is unreachable defensive cover).</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__band_of_unit.html"><code>_band_of_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__spill_bands.html"><code>_spill_bands</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Inventory_Management_py__Inventory_Manager__band_pick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Inventory_Management.py#:~:text=def%20_band_pick">Source ↗</a></p>
+</article>
+</main>
+</body></html>

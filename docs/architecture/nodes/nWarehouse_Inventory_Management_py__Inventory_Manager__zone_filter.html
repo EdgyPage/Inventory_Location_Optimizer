@@ -17,8 +17,11 @@
 <pre class="sig"><code>def _zone_filter(self, unit: StorageUnit, bins: list) -&gt; list</code></pre>
 <section class="doc">Restrict *bins* to the unit&#x27;s velocity band, spilling COLDER-first then HOTTER-fallback:
 a hot item whose band is full drops to the next available (colder) aisle; a cold item whose
-band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__band_of_unit.html"><code>_band_of_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__candidates.html"><code>_candidates</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
+band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.
+
+The O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit
+tests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__band_of_unit.html"><code>_band_of_unit</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__spill_bands.html"><code>_spill_bands</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_Inventory_Management_py__Inventory_Manager__candidates.html"><code>_candidates</code></a> <span class="dim">Warehouse/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_Inventory_Management_py__Inventory_Manager__zone_filter">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Inventory_Management.py#:~:text=def%20_zone_filter">Source ↗</a></p>
 </article>
 </main>

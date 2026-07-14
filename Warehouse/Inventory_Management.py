@@ -76,6 +76,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._zoning_bands: int = 3
         self._sku_band: dict[int, int] = {}     # sku -> velocity band (0 = hottest)
         self._aisle_band: dict[int, int] = {}   # aisle_id -> geometry band (0 = shallowest/nearest)
+        # Per-(tier BinKey, band) free-bin sub-index: the O(#bands) fast path _stock_per_unit uses
+        # under zoning so FIFO's candidate fetch is O(#bands) instead of O(free bins in the tier).
+        # Built in configure_zoning, maintained in _index_add/_index_remove; empty when zoning is off.
+        self._band_index: dict[BinKey, list[list[Aisle.Bin]]] = {}
+        self._band_pos: dict[int, int] = {}     # id(bin) -> position in its band bucket
 
         # Keyed by id(bin) for O(1) removal when bins are reclaimed.
         self._unavailable: dict[int, Aisle.Bin] = {}
@@ -402,6 +407,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         lst = self._index[key]
         self._bin_index_pos[id(bin_)] = len(lst)
         lst.append(bin_)
+        if self._zoning_enabled:
+            # Mirror the add into the per-band sub-index (see _band_index / _band_pick).
+            bucket = self._band_index[key][self._aisle_band.get(bin_.location[0], 0)]
+            self._band_pos[id(bin_)] = len(bucket)
+            bucket.append(bin_)
         if self._travel_costs_ready:
             aisle_lst = self._aisle_index[key][bin_.location[0]]
             bisect.insort(aisle_lst, bin_, key=lambda b: b._D)
@@ -416,6 +426,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         lst.pop()
         if last is not bin_:
             self._bin_index_pos[id(last)] = pos
+        if self._zoning_enabled:
+            # Same swap-remove on the per-band sub-index; the moved element shares the band bucket.
+            bucket = self._band_index[key][self._aisle_band.get(bin_.location[0], 0)]
+            bpos   = self._band_pos.pop(id(bin_))
+            blast  = bucket[-1]
+            bucket[bpos] = blast
+            bucket.pop()
+            if blast is not bin_:
+                self._band_pos[id(blast)] = bpos
         if self._travel_costs_ready:
             aisle_lst = self._aisle_index[key][bin_.location[0]]
             i = bisect.bisect_left(aisle_lst, bin_._D, key=lambda b: b._D)
@@ -440,11 +459,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._zoning_bands = max(1, int(n_bands))
         self._sku_band = {}
         self._aisle_band = {}
+        self._band_index = {}      # rebuilt below when enabled; empty (unused) when off
+        self._band_pos = {}
         if not self._zoning_enabled:
             return
         n = self._zoning_bands
         if mode == 'abc' and orders is not None:
             self._build_abc_bands(orders, n, abc)
+            self._build_band_index()
             return
         # ── equal-count (default; byte-identical) ─────────────────────────────
         # SKU velocity band (global; hottest = band 0).
@@ -465,6 +487,22 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             m = len(aisles)
             for i, a in enumerate(aisles):
                 self._aisle_band[a.aisle_id] = min(n - 1, i * n // m) if m else 0
+        self._build_band_index()
+
+    def _build_band_index(self) -> None:
+        """Partition each free-bin tier list into per-band buckets, once, after the band maps are
+        set.  Anchors the O(#bands) `_band_pick` fast path; maintained incrementally thereafter by
+        `_index_add`/`_index_remove`.  Re-derives `_band_pos` from scratch, so it is correct
+        regardless of whether bins were registered before or after zoning was enabled."""
+        n = self._zoning_bands
+        self._band_index = defaultdict(lambda: [[] for _ in range(n)])
+        self._band_pos = {}
+        for key, lst in self._index.items():
+            buckets = self._band_index[key]
+            for b in lst:
+                band = self._aisle_band.get(b.location[0], 0)
+                self._band_pos[id(b)] = len(buckets[band])
+                buckets[band].append(b)
 
     def _build_abc_bands(self, orders: Any, n: int, abc: dict | None) -> None:
         """Manual A/B/C bands: SKUs cut at cumulative demand-mass thresholds; aisles allocated per
@@ -501,21 +539,38 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     def _band_of_unit(self, unit: StorageUnit) -> int:
         return self._sku_band.get(unit.order.sku, 0)
 
+    def _spill_bands(self, target: int):
+        """Band visit order for zoning spill: the unit's band, then COLDER (downgrade to the next
+        hotness), then HOTTER (upgrade) — the single source shared by _zone_filter and _band_pick."""
+        yield from range(target, self._zoning_bands)      # colder-first
+        yield from range(target - 1, -1, -1)              # then hotter
+
     def _zone_filter(self, unit: StorageUnit, bins: list) -> list:
         """Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:
         a hot item whose band is full drops to the next available (colder) aisle; a cold item whose
-        band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty."""
+        band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.
+
+        The O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit
+        tests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index."""
         target = self._band_of_unit(unit)
         by_band: dict = defaultdict(list)
         for b in bins:
             by_band[self._aisle_band.get(b.location[0], 0)].append(b)
-        for band in range(target, self._zoning_bands):    # colder-first (downgrade to next hotness)
-            if by_band.get(band):
-                return by_band[band]
-        for band in range(target - 1, -1, -1):            # then hotter (upgrade) until placed
+        for band in self._spill_bands(target):
             if by_band.get(band):
                 return by_band[band]
         return bins
+
+    def _band_pick(self, unit: StorageUnit, key) -> list:
+        """O(#bands) equivalent of _zone_filter via the maintained per-band sub-index: the first
+        non-empty band bucket in spill order.  `key` is the tier BinKey from _candidates_raw; the
+        caller guarantees the tier is non-empty, so some bucket is non-empty (the fallback to the
+        raw tier list is unreachable defensive cover)."""
+        buckets = self._band_index[key]
+        for band in self._spill_bands(self._band_of_unit(unit)):
+            if buckets[band]:
+                return buckets[band]
+        return self._index.get(key, [])
 
     def _group_key(self, unit: StorageUnit):
         """Ranked-wave grouping key.  With zoning, sub-group by (BinKey, band) so each sub-wave
@@ -529,14 +584,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     def _candidates(self, unit: StorageUnit) -> list[Aisle.Bin]:
         """Viable bins for *unit* (smallest fitting tier), optionally restricted to the unit's
-        velocity band when zoning is on.  OFF ⇒ returns the raw list object unchanged."""
-        bins = self._candidates_raw(unit)
+        velocity band when zoning is on.  OFF ⇒ returns the raw list object unchanged.  Used by the
+        ranked wave (once per wave); the per-unit path uses _band_pick directly for O(#bands)."""
+        _key, bins = self._candidates_raw(unit)
         if self._zoning_enabled and bins:
             return self._zone_filter(unit, bins)
         return bins
 
-    def _candidates_raw(self, unit: StorageUnit) -> list[Aisle.Bin]:
-        """Return available bins for *unit*, scoped to the SMALLEST fitting tier.
+    def _candidates_raw(self, unit: StorageUnit) -> tuple:
+        """Return ``(tier_key, bins)``: the SMALLEST fitting tier's BinKey and its free-bin list
+        (the live ``self._index`` object), or ``(None, [])`` when no fitting tier has a free bin.
+        The key lets the per-unit path index the per-band sub-index without re-deriving the tier.
 
         A pallet of size S fits in a bin of size S or larger.  We return the
         smallest non-empty tier ≥ S (the unit's own tier first), spilling UP to
@@ -551,8 +609,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         shc       = unit.order.storage_handle_config
         unit_type = unit.unit_category                    # 'pallet' | 'singleton' | 'fulfillment'
         if unit_type == 'singleton':
-            bins = self._index.get(binkey_of(unit))       # (h, c, 'singleton', 'singleton')
-            return bins or []
+            key  = binkey_of(unit)                         # (h, c, 'singleton', 'singleton')
+            bins = self._index.get(key)
+            return (key, bins) if bins else (None, [])
         # Pallet and fulfillment are both size-tiered: return the smallest non-empty tier
         # >= the unit's own tier, spilling up.  tier_ranks_for() selects the pallet vs
         # fulfillment tier table so one code path serves both bin families.
@@ -561,10 +620,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Ascending tier order (smallest → largest): smallest fitting tier first.
         for size in reversed(sizes_desc):
             if ranks[size] >= min_rank:
-                bins = self._index.get((shc.handling, shc.category, size, unit_type))
+                key  = (shc.handling, shc.category, size, unit_type)
+                bins = self._index.get(key)
                 if bins:
-                    return bins
-        return []
+                    return (key, bins)
+        return (None, [])
 
     def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
         """Commit one unit→bin placement and update all manager state dicts."""
@@ -662,9 +722,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             sku    = order.sku
 
             # B/C: aisle_index is active — assign derives BinKey from unit directly.
-            # A: uniform assignment needs a real candidates list.
-            candidates = (None if self._travel_costs_ready
-                          else self._candidates(unit))
+            # A: uniform assignment needs a real candidates list.  Under zoning, take the O(#bands)
+            # _band_pick fast path (same in-band candidate SET as _zone_filter, off the maintained
+            # sub-index) instead of the O(free-bins) partition — this per-unit path is what made
+            # zoned FIFO O(placements x free-bins).  OFF ⇒ unchanged (_candidates) ⇒ byte-identical.
+            if self._travel_costs_ready:
+                candidates = None
+            elif self._zoning_enabled:
+                key, bins  = self._candidates_raw(unit)
+                candidates = self._band_pick(unit, key) if bins else bins
+            else:
+                candidates = self._candidates(unit)
             bin_       = self.placement.place_one(unit, candidates)
 
             if bin_ is not None:
