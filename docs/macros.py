@@ -256,6 +256,45 @@ def define_env(env):
         return "\n".join(lines)
 
     @env.macro
+    def whatif_matrix():
+        """Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.
+
+        One row per matrix cell, per-channel **median** Δlabor / Δthroughput vs the reference
+        cell (generated from whatif_delta.csv by the run's post-processing). Only a WHAT-IF
+        experiment has this JSON; ordinary single-run experiments never call this macro. Numbers
+        live in the committed JSON, so the page holds only prose."""
+        d = _load_json(f"{_exp_dir()}/data/whatif_delta.json")
+
+        def pct(v):
+            return f"{v:+.1f}%"
+
+        def thr(ch):   # throughput is the headline metric — bold it
+            return f"**{pct(ch['dthr']['med'])}**" if ch else "—"
+
+        def lab(ch):
+            return pct(ch["dlabor"]["med"]) if ch else "—"
+
+        lines = [
+            "| Cell | Layout | Zoning | Store Δthr | Store Δlabor | Fulf Δthr | Fulf Δlabor |",
+            "|------|--------|--------|-----------:|------------:|----------:|-----------:|",
+        ]
+        for c in d["cells"]:
+            s = c["by_channel"].get("store")
+            f = c["by_channel"].get("fulfillment")
+            lines.append(
+                f"| `{c['name']}` | {c['layout']} | {c['zoning_label']} "
+                f"| {thr(s)} | {lab(s)} | {thr(f)} | {lab(f)} |"
+            )
+        ref = d.get("reference", "baseline")
+        cap = (
+            f"\n<small>Steady-state medians vs the `{ref}` baseline (no split, no zoning), "
+            f"last-50-batch window; {d.get('arms')} arms × 4 pick-configs × "
+            f"{len(d.get('pairs', []))} inventories per cell. "
+            f"**+ = better** (more throughput / less labor).</small>"
+        )
+        return "\n".join(lines) + "\n" + cap
+
+    @env.macro
     def pick_time_formula(*args):
         """Pick-time cost model (LaTeX) with this config's calibrated coefficients.
         Matches Warehouse/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""

@@ -1,0 +1,77 @@
+# Experiment 4 manifest — single source of truth for this experiment's docs.
+# This is a WHAT-IF experiment: one frozen inventory + batch stream simulated across a 9-cell
+# aisle-reconstruction × velocity-zoning matrix. The headline is the CROSS-CELL delta (rendered by
+# the whatif_matrix() macro from data/whatif_delta.json). The per-config figures below are the two
+# spotlight cells only — the winner (k2_l0_off) and the baseline (k1_off) — ingested from their own
+# standard comparison subtrees. See docs/authoring.md and docs/experiments/ingest.py.
+
+title: "Experiment 4 — aisle-split × velocity-zoning what-if"
+
+# Primary run folder = the WINNER cell (its config.json drives setup_table / run_section).
+# The baseline cell k1_off is ingested too and referenced via legacy-mode macro calls.
+run: k2_l0_off
+
+catalogue: catalogue          # folder under images/ holding the (shared) inventory distribution plots
+baseline: uni_fifo_norsl      # the FIFO baseline every arm is measured against, within each cell
+
+# The "winner" here is the LAYOUT (k2_l0_off), not an arm; these are the arms that gain most from
+# the split on the store channel (fulfillment champion is Expand).
+winners: [map_rank, cmin, map]
+
+# What-if matrix summary (prose reference; the numbers render from data/whatif_delta.json).
+whatif:
+  source_run: comparison_whatif_20260709_015101
+  reference: k1_off           # the cell every other cell is diffed against
+  scatter: whatif_delta.png   # the labor-vs-throughput scatter (one point per cell × channel × arm)
+  winner: k2_l0_off           # split-in-two, no capacity loss, no zoning
+  cells: 9
+  arms: 34
+  n_batches: 100
+
+# Short key -> full inventory id (the run's pair label) + a human label.
+# The SAME seed-42 150k-SKU bell catalogue as Experiment 3; the two variants differ only in lead time.
+inventories:
+  bell_lt0:
+    id: mixed_20260708_075953__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260708_075953__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+# Pick-time calibrations — each an independent warehouse channel: two store (StoreCart) + two
+# fulfillment (FulfillmentCart). height_brackets: rows of [upper_y_phys_inches | null, multiplier].
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: store_high_weight
+    label: "store · weight penalty ↑ (w² handling)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: []
+  - name: ful_calibrated_fast_walkers
+    label: "fulfillment · fast walkers (x-speed ↑)"
+    height_brackets: []
+
+# Curated figure filenames the pages render (ingest pulls these, searching each cell's run tree).
+figures:
+  top3:
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png

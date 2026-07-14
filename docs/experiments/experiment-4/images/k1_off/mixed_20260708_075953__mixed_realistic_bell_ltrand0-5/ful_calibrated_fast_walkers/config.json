@@ -1,0 +1,44 @@
+{
+  "name": "ful_calibrated_fast_walkers",
+  "pick_weight_coef": 0.7,
+  "pick_volume_coef": 0.09,
+  "pick_weight_fn": "log",
+  "pick_volume_fn": "log",
+  "pick_intercept": 10,
+  "cart_swap_coef": 240,
+  "cart": "FulfillmentCart",
+  "cart_capacity": 25000,
+  "x_speed": 4,
+  "y_speed": 4,
+  "num_pickers": 20,
+  "load_lambda": 1.1,
+  "load_k": 1.0,
+  "load_gamma": 1.5,
+  "total_aisles": 312,
+  "total_bins": 323150,
+  "n_skus": 124801,
+  "total_units": 281155,
+  "bin_slack_pct": 14.94,
+  "batch_mean_frac": 0.2,
+  "n_batches": 100,
+  "seed_world": 42,
+  "seed_batches": 1001337,
+  "avg_equilibrium_qty": 6.0,
+  "avg_reorder_point": 2.36,
+  "avg_lead_time_mean": 2.498,
+  "avg_supply_cv": 0.075,
+  "height_brackets": [
+    [
+      96.0,
+      1.0
+    ],
+    [
+      240.0,
+      1.2
+    ],
+    [
+      null,
+      1.4
+    ]
+  ]
+}
