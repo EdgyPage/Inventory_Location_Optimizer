@@ -24,11 +24,13 @@ from Optimization.Performance_Evaluations.common.frames import _metric_series
 from Optimization.Performance_Evaluations.stats.plots import _stars
 
 # steady-state scalars for the overview bars: (label, ss_field, lower_is_better)
+# All four success metrics: task makespan (a) & batch makespan (b), and the throughput off each.
 _BAR_METRICS = [
-    ('Total task time', 'ss_prod_hours', True),
-    ('Makespan',        'ss_dur',        True),
-    ('Throughput',      'ss_thr',        False),
-    ('Layout total f*D', 'ss_sigma',     True),
+    ('Task makespan',        'ss_prod_hours', True),    # Σ task time = total labor (a)
+    ('Batch makespan',       'ss_dur',        True),    # parallel wall-clock (b)
+    ('Thr / batch makespan', 'ss_thr',        False),   # items / batch makespan (d)
+    ('Thr / task makespan',  'ss_thr_task',   False),   # items / task makespan  (c)
+    ('Layout total f*D',     'ss_sigma',      True),
 ]
 
 

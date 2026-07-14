@@ -2151,16 +2151,6 @@
       "src": "Optimization/Simulation_Analytics.py::extract_task_stats"
     },
     {
-      "dst": "Optimization/Picking_Data.py::BatchStats",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::flag_batch_outliers"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::TaskStats",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::flag_task_outliers"
-    },
-    {
       "dst": "Optimization/Simulation_Analytics.py::_group_events_by_picker",
       "kind": "calls",
       "src": "Optimization/Simulation_Analytics.py::picker_time_breakdown"
@@ -10147,6 +10137,14 @@
       "public": true
     },
     {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::main._pct",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_pct",
+      "public": false
+    },
+    {
       "file": "Optimization/runlayout.py",
       "id": "Optimization/runlayout.py",
       "kind": "module",
@@ -15409,6 +15407,14 @@
       "module": "docs/macros.py",
       "name": "whatif_matrix",
       "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix._med",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_med",
+      "public": false
     },
     {
       "file": "docs/macros.py",

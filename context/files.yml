@@ -700,6 +700,17 @@ files:
       - {name: "test_reset_strategy_db_removes_all_outputs", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
       - {name: "test_reset_is_a_noop_when_nothing_exists", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
     notes: ""
+  "Tests/test_batch_metrics.py":
+    purpose: "the three new columns (task_makespan, thr_task, thr_batch) and the"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_task_makespan_equals_sum_task_durations", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_throughput_definitions", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_zero_guards", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_legacy_db_without_columns_loads", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_flag_batch_outliers_preserves_new_metrics", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_bdf_thr_task_nan_when_task_makespan_absent", file: "Tests/test_batch_metrics.py", kind: "function"}
+    notes: ""
   "Tests/test_batch_precompute.py":
     purpose: "the HARD GATE for the batch-precompute dedup."
     layer: "tests"

@@ -600,7 +600,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('makespan', 'ss_dur', True), ('throughput', 'ss_thr', False), ('task_mean_duration', 'ss_task_mean', True), ('productivity_hours', 'ss_prod_hours', True)]"
+      "value_preview": "[('makespan', 'ss_dur', True), ('throughput', 'ss_thr', False), ('throughput_task', 'ss_thr_task', False), ('task_mean_duration', 'ss_task_mean', True), ('productivity_hours', 'ss_prod_hours', True)]"
     },
     "Optimization/Performance_Evaluations/common/stats_core.py::_METRICS": {
       "decorators": [],
@@ -1010,7 +1010,7 @@
     },
     "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py": {
       "decorators": [],
-      "doc": "compare.throughput_labor \u2014 does throughput follow total labor?  (no rerun, no DB touch)\n\nTwo scatter panels, one point per strategy arm, built entirely from the per-arm series\nscalars that already live in series.json (ss_prod_hours, ss_thr, ss_dur):\n\n  * Panel A: x = ss_prod_hours (total task labor, the minimized objective, lower=better)\n             y = ss_thr        (throughput = items / makespan, higher=better)\n             marker size \u221d ss_dur (makespan).  The best corner is UP-LEFT.\n  * Panel B: x = ss_dur (makespan)  vs  y = ss_thr \u2014 the mechanistic link.\n\nThe point is to SHOW that throughput does NOT track total labor: because the picker\nscheduler is static round-robin by aisle with no load balancing (Warehouse/Pick.py), a\nplacement that lowers \u03a3 task labor can pile work onto the busiest picker, raising makespan\nand lowering throughput (throughput \u2248 items/makespan).  So throughput tracks 1/makespan\n(Panel B, tight) \u2014 not total labor (Panel A, a scattered cloud).  The Spearman \u03c1 in each\ntitle quantifies it.  Writes compare/throughput_vs_labor.png.",
+      "doc": "compare.throughput_labor \u2014 the four success metrics on one figure  (no rerun, no DB touch)\n\nThree scatter panels, one point per strategy arm, built from the per-arm series scalars in\nseries.json.  Vocabulary: TASK makespan = ss_prod_hours = \u03a3 task time = total labor (the serial\nmakespan a lone picker would incur); BATCH makespan = ss_dur = last-picker finish (parallel\nwall-clock).  The two throughputs are items \u00f7 each makespan:\n  * ss_thr      = items / batch makespan  (metric d)\n  * ss_thr_task = items / task makespan   (metric c)\n\n  * Panel A: x = task makespan (ss_prod_hours, lower=better)  vs  y = throughput / batch makespan\n             (ss_thr).  Marker size \u221d batch makespan (ss_dur).  Best corner is UP-LEFT.\n  * Panel B: x = batch makespan (ss_dur)  vs  y = throughput / batch makespan \u2014 the mechanistic link.\n  * Panel C: x = throughput / task makespan (ss_thr_task)  vs  y = throughput / batch makespan\n             (ss_thr).  Separates the two win types: a pure SCHEDULING win (batch makespan \u2193 at flat\n             task makespan) moves a point straight UP; a LABOR win (less task time per item) moves it\n             RIGHT.  \"A throughput win at flat task makespan is still a win\" = vertical travel here.\n\nThe thesis stays: throughput does NOT track task makespan (total labor) \u2014 a placement that lowers \u03a3\ntask labor can pile work onto the busiest picker, raising batch makespan and lowering throughput.  So\nthroughput tracks 1/batch-makespan (Panel B, tight) \u2014 not task makespan (Panel A, a scattered cloud).\nThe Spearman \u03c1 in each title quantifies it.  Writes compare/throughput_vs_labor.png.",
       "kind": "module",
       "signature": null
     },
@@ -1084,7 +1084,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('Total task time', 'ss_prod_hours', True), ('Makespan', 'ss_dur', True), ('Throughput', 'ss_thr', False), ('Layout total f*D', 'ss_sigma', True)]"
+      "value_preview": "[('Task makespan', 'ss_prod_hours', True), ('Batch makespan', 'ss_dur', True), ('Thr / batch makespan', 'ss_thr', False), ('Thr / task makespan', 'ss_thr_task', False), ('Layout total f*D', 'ss_sig..."
     },
     "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart": {
       "decorators": [],
@@ -2246,7 +2246,7 @@
     },
     "Optimization/Simulation_Analytics.py::extract_batch_stats": {
       "decorators": [],
-      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : max done-event time across all pickers\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see picker_time_breakdown)",
+      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see picker_time_breakdown)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
@@ -3176,7 +3176,7 @@
     },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],
-      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the steady-state ss_prod_hours (total labor) and ss_thr (throughput) straight from each\nscenario's sim_*.db (no run_analysis needed), keyed by (pair, pick-config, channel, arm), and diffs\nevery cell against the reference cell.  Emits whatif_delta.csv + a labor-saving-vs-throughput-gain\nscatter (one point per cell\u00d7channel\u00d7arm) and a median summary \u2014 tracking BOTH axes, since for\nfulfillment the throughput gain is the interesting lever (total labor is cart-swap-dominated).\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
+      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per\ncell\u00d7channel\u00d7arm) and a median summary.  This is what makes a scheduling win legible: LPT should show\n\u0394batch-makespan \u2193 and \u0394throughput/batch \u2191 while \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
       "kind": "module",
       "signature": null
     },
@@ -3189,7 +3189,7 @@
     },
     "Optimization/run_whatif_delta.py::_metrics": {
       "decorators": [],
-      "doc": null,
+      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
@@ -3207,6 +3207,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "()"
+    },
+    "Optimization/run_whatif_delta.py::main._pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
     },
     "Optimization/runlayout.py": {
       "decorators": [],
@@ -7887,10 +7894,17 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.\n\nOne row per matrix cell, per-channel **median** \u0394labor / \u0394throughput vs the reference\ncell (generated from whatif_delta.csv by the run's post-processing). Only a WHAT-IF\nexperiment has this JSON; ordinary single-run experiments never call this macro. Numbers\nlive in the committed JSON, so the page holds only prose.",
+      "doc": "Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.\n\nOne row per matrix cell, per-channel **median** \u0394(task makespan = labor) and\n\u0394(throughput / batch makespan) vs the reference cell (generated from whatif_delta.csv by the\nrun's post-processing). Only a WHAT-IF experiment has this JSON; ordinary single-run\nexperiments never call this macro. Numbers live in the committed JSON, so the page holds only\nprose.  Key-tolerant: prefers the four-metric keys (dthr_batch/dtask_ms/dbatch_ms/dthr_task)\nand falls back to the legacy dthr/dlabor so older experiment JSON still renders.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
+    },
+    "docs/macros.py::define_env.whatif_matrix._med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch, *keys)"
     },
     "docs/macros.py::define_env.whatif_matrix.lab": {
       "decorators": [],

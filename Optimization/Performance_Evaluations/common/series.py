@@ -54,11 +54,21 @@ def _build_series(strategies, df_b, df_t):
         lo   = maxb - _WIN + 1                        # steady-state window (unchanged)
         ssb  = bd[bd['batch_id'] >= lo]
         sst  = t[t['batch_id'] >= lo] if not t.empty else t
+        # throughput / task makespan (metric c) = items ÷ Σ task time, per batch, meaned over the
+        # ss window.  ss_thr above is throughput / BATCH makespan (metric d).  Robust to legacy DBs
+        # (derives task makespan from the task frame, not the new batch column).
+        if len(sst):
+            tm_by_b     = sst.groupby('batch_id')['duration'].sum()
+            it_by_b     = ssb.set_index('batch_id')['total_items'].reindex(tm_by_b.index)
+            ss_thr_task = float((it_by_b / tm_by_b.where(tm_by_b > 0)).mean())
+        else:
+            ss_thr_task = float('nan')
         S[s['key']] = dict(
             batch=batch, thr=thr, sigma_fd=sigma,
             task_batch=tb, task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(ssb['completion_rate'].mean()),
+            ss_thr_task=ss_thr_task,
             ss_dur=float(ssb['duration'].mean()),
             ss_sigma=float(ssb['sigma_fd'].mean()),
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
@@ -185,11 +195,16 @@ def _aggregate_series(profile_series_list):
         sigma = _avg_norm(items, 'sigma_fd',    'ss_sigma')
         thr_ratio = [d['ss_thr'] / b['ss_thr'] for d, b in items if b.get('ss_thr')]
         dur_ratio = [d['ss_dur'] / b['ss_dur'] for d, b in items if b.get('ss_dur')]
+        _fin = lambda x: x is not None and not (isinstance(x, float) and math.isnan(x))
+        thr_task_ratio = [d['ss_thr_task'] / b['ss_thr_task'] for d, b in items
+                          if b.get('ss_thr_task') and _fin(b.get('ss_thr_task'))
+                          and _fin(d.get('ss_thr_task'))]
         agg_S[key] = dict(
             batch=np.arange(len(thr)), thr=thr, sigma_fd=sigma,
             task_batch=np.arange(len(tmed)), task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(np.mean(thr_ratio)) if thr_ratio else float('nan'),
+            ss_thr_task=float(np.mean(thr_task_ratio)) if thr_task_ratio else float('nan'),
             ss_dur=float(np.mean(dur_ratio)) if dur_ratio else float('nan'),
             picking_pct=float(np.mean([d['picking_pct']   for d, _ in items])),
             traveling_pct=float(np.mean([d['traveling_pct'] for d, _ in items])),

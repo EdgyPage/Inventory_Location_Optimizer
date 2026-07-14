@@ -18,10 +18,12 @@
 def whatif_matrix()</code></pre>
 <section class="doc">Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.
 
-One row per matrix cell, per-channel **median** Δlabor / Δthroughput vs the reference
-cell (generated from whatif_delta.csv by the run&#x27;s post-processing). Only a WHAT-IF
-experiment has this JSON; ordinary single-run experiments never call this macro. Numbers
-live in the committed JSON, so the page holds only prose.</section>
+One row per matrix cell, per-channel **median** Δ(task makespan = labor) and
+Δ(throughput / batch makespan) vs the reference cell (generated from whatif_delta.csv by the
+run&#x27;s post-processing). Only a WHAT-IF experiment has this JSON; ordinary single-run
+experiments never call this macro. Numbers live in the committed JSON, so the page holds only
+prose.  Key-tolerant: prefers the four-metric keys (dthr_batch/dtask_ms/dbatch_ms/dthr_task)
+and falls back to the legacy dthr/dlabor so older experiment JSON still renders.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_whatif_matrix">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20whatif_matrix">Source ↗</a></p>
 </article>

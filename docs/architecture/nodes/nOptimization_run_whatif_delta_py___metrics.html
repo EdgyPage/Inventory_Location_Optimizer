@@ -15,7 +15,14 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_delta_py.html"><code>Optimization/run_whatif_delta.py</code></a></p>
 
 <pre class="sig"><code>def _metrics(db: str)</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">Steady-state means (last WIN batches) of the four success metrics from batch_stats:
+
+    task_ms   = task makespan  = Σ task time = total labor        (metric a)
+    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)
+    thr_batch = items / batch makespan                            (metric d)
+    thr_task  = items / task makespan                             (metric c)
+
+New runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py___scan.html"><code>_scan</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_delta_py___metrics">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_delta.py#:~:text=def%20_metrics">Source ↗</a></p>
 </article>
