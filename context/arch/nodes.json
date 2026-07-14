@@ -3027,12 +3027,19 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "Optimization/run_simulation.py::_SCHED_SHORT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': 'rr', 'lpt': 'lpt'}"
+    },
     "Optimization/run_simulation.py::_apply_cell": {
       "decorators": [],
-      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning on every channel.",
+      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.",
       "is_async": false,
       "kind": "function",
-      "signature": "(aisle_split, zoning) -> None"
+      "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
     },
     "Optimization/run_simulation.py::_apply_run_spec": {
       "decorators": [],
@@ -3043,7 +3050,7 @@
     },
     "Optimization/run_simulation.py::_build_cells": {
       "decorators": [],
-      "doc": "Combinatorial (zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec), \u2026];\nthe (k=1, off) cell is the natural reference.",
+      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), \u2026];\nthe (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to\n['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`\nsuffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.",
       "is_async": false,
       "kind": "function",
       "signature": "(spec)"
@@ -3825,7 +3832,7 @@
     },
     "Optimization/whatif_config.py": {
       "decorators": [],
-      "doc": "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning\nmatrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nlayout (aisle_split) and velocity zoning \u2014 an apples-to-apples layout comparison.\n\nCells are the combinatorial product ks \u00d7 losses \u00d7 zoning (loss collapses to 0 when k == 1), named\n`k{k}[_l{loss%}]_{zone-name}`; the (k=1, off) cell `k1_off` is the natural reference.",
+      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B: hold the layout fixed (no split, no zoning) and sweep the\ntask\u2192picker scheduler `round_robin` vs `lpt` across the full assignment-function suite, to measure the\nthroughput (makespan) gain of load-balancing at unchanged total labor.  To sweep layout too, re-add\nvalues to `ks`/`losses`/`zoning`.",
       "kind": "module",
       "signature": null
     },
@@ -3834,7 +3841,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'ks': [1, 2], 'losses': [0.0, 0.1], 'zoning': [('off', {'enabled': False}), ('abc2', {'enabled': True, 'mode': 'abc', 'n_bands': 2, 'abc': {'mass_thresholds': [0.6]}}), ('abc3', {'enabled': True, ..."
+      "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
     },
     "Visualization/db_reader.py": {
       "decorators": [],

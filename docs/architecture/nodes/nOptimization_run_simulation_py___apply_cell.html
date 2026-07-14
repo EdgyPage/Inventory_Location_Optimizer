@@ -14,8 +14,10 @@
 <h1><span class="kind kind-function">function</span> <code>_apply_cell</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
 
-<pre class="sig"><code>def _apply_cell(aisle_split, zoning) -&gt; None</code></pre>
-<section class="doc">Mutate CONFIG for one cell: same aisle_split + velocity_zoning on every channel.</section>
+<pre class="sig"><code>def _apply_cell(aisle_split, zoning, scheduler=&#x27;round_robin&#x27;) -&gt; None</code></pre>
+<section class="doc">Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every
+channel.  The scheduler is a pick-config field (like one_way), so set it on each channel&#x27;s
+pick-config dicts.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___apply_cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_apply_cell">Source ↗</a></p>
 </article>

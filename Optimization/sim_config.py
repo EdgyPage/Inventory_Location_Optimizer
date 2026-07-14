@@ -106,19 +106,7 @@ REGRESSION_CONFIGS = [
         'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
         'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
     },
-    {
-        'name'            : 'store_high_weight',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.58,
-        'pick_weight_fn'  : 'pow:2.0',
-        'pick_volume_coef': 0.7,
-        'pick_volume_fn'  : 'log:2',
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 3,    # ft/s
-        'y_speed'         : 2,    # ft/s
-        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
-    },
+    # Only the base `store` calibration runs.  Weight/height variants kept commented as a menu.
 #    {
 #        'name'            : 'store_high_weight_high_height',
 #        'pick_intercept'  : 15,
@@ -179,21 +167,7 @@ FULFILLMENT_CONFIGS = [
         'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
         # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     },
-    {
-        'name'            : 'ful_calibrated_fast_walkers',
-        'pick_intercept'  : 10,
-        'pick_weight_coef': 0.7,
-        'pick_weight_fn'  : 'log',
-        'pick_volume_coef': 0.09,
-        'pick_volume_fn'  : 'log',
-        'cart_swap_coef'  : 240,
-        'cart'            : 'FulfillmentCart',
-        'x_speed'         : 4,    # ft/s
-        'y_speed'         : 4,    # ft/s
-        'one_way'         : True, # one-way lanes (see travel model)
-        'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
-        # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
-    },
+    # Only the base `ful_calibrated` walker calibration runs (fast-walker variant removed).
 ]
 
 

@@ -679,28 +679,42 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
 # everything below is the driver that consumes it.  The matrix reshapes ONE frozen
 # inventory across every cell, so cells differ only in layout + zoning.
 
+_SCHED_SHORT = {'round_robin': 'rr', 'lpt': 'lpt'}
+
+
 def _build_cells(spec):
-    """Combinatorial (zoning × k × capacity_loss) cells from a WHATIF spec.  k=1 = no
-    split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec), …];
-    the (k=1, off) cell is the natural reference."""
+    """Combinatorial (scheduler × zoning × k × capacity_loss) cells from a WHATIF spec.  k=1 = no
+    split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), …];
+    the (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to
+    ['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`
+    suffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning."""
+    scheds = spec.get('schedulers', ['round_robin'])
+    multi_sched = len(scheds) > 1
     cells, seen = [], set()
-    for zname, zspec in spec['zoning']:
-        for k in spec['ks']:
-            for loss in (spec['losses'] if k > 1 else [0.0]):
-                split = None if k <= 1 else {'k': k, 'capacity_loss': loss}
-                name = f'k{k}' + ('' if k <= 1 else f'_l{int(round(loss * 100))}') + f'_{zname}'
-                if name in seen:
-                    continue
-                seen.add(name)
-                cells.append((name, split, dict(zspec)))
+    for sched in scheds:
+        for zname, zspec in spec['zoning']:
+            for k in spec['ks']:
+                for loss in (spec['losses'] if k > 1 else [0.0]):
+                    split = None if k <= 1 else {'k': k, 'capacity_loss': loss}
+                    name = f'k{k}' + ('' if k <= 1 else f'_l{int(round(loss * 100))}') + f'_{zname}'
+                    if multi_sched:
+                        name += f'_{_SCHED_SHORT.get(sched, sched)}'
+                    if name in seen:
+                        continue
+                    seen.add(name)
+                    cells.append((name, split, dict(zspec), sched))
     return cells
 
 
-def _apply_cell(aisle_split, zoning) -> None:
-    """Mutate CONFIG for one cell: same aisle_split + velocity_zoning on every channel."""
+def _apply_cell(aisle_split, zoning, scheduler='round_robin') -> None:
+    """Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every
+    channel.  The scheduler is a pick-config field (like one_way), so set it on each channel's
+    pick-config dicts."""
     for ch in CONFIG['channels']:
         CONFIG['channels'][ch]['sizing']['aisle_split'] = aisle_split
         CONFIG['channels'][ch]['velocity_zoning'] = dict(zoning)
+        for cfg in CONFIG['channels'][ch]['configs']:
+            cfg['scheduler'] = scheduler
 
 
 def _tightest_split(cells):
@@ -727,8 +741,8 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
     once (tightest cell), then reshape + simulate it for every cell."""
     from Optimization.whatif_config import WHATIF
     cells = _build_cells(WHATIF)
-    reference = next((c[0] for c in cells if c[1] is None and not c[2].get('enabled')),
-                     cells[0][0])
+    reference = next((c[0] for c in cells if c[1] is None and not c[2].get('enabled')
+                      and c[3] == 'round_robin'), cells[0][0])
     # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
     # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
     # snapshotted at import, so refresh it too.
@@ -743,7 +757,8 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
     log.info('  cells: ' + ', '.join(c[0] for c in cells))
 
     # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair ────
-    _apply_cell(_tightest_split(cells), {'enabled': False})
+    # (the scheduler is task→picker, not placement, so it doesn't affect the frozen layout).
+    _apply_cell(_tightest_split(cells), {'enabled': False}, 'round_robin')
     g = CONFIG['global']
     frozen: dict = {}
     for label, inv_db, aff_db in pairs:
@@ -760,14 +775,14 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
         frozen[label] = shared['planned_inv_db']
 
     # ── 2. Each cell: reshape the warehouse from the FROZEN inventory + simulate ──
-    for name, aisle_split, zoning in cells:
+    for name, aisle_split, zoning, sched in cells:
         scenario_base = os.path.join(base_dir, name)
         if resume and _cell_complete(scenario_base, pairs):
             log.info(f'  SKIP cell {name} (already complete)')
             continue
         zdesc = zoning.get('mode', 'off') if zoning.get('enabled') else 'off'
-        log.info(f'\n{"#"*64}\n  CELL {name}  split={aisle_split}  zoning={zdesc}\n{"#"*64}')
-        _apply_cell(aisle_split, zoning)
+        log.info(f'\n{"#"*64}\n  CELL {name}  split={aisle_split}  zoning={zdesc}  scheduler={sched}\n{"#"*64}')
+        _apply_cell(aisle_split, zoning, sched)
         os.makedirs(scenario_base, exist_ok=True)
         _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
                       frozen_by_pair=frozen, skip_completed=resume,
