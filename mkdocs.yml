@@ -72,6 +72,14 @@ nav:
   - Home: index.md
   - Code map: code-graph.md
   - Future experiment discussion: future-experiments.md
+  - Experiment 4:
+      - Overview: experiments/experiment-4/index.md
+      - Simulation lifecycle: experiments/experiment-4/comparison-overview.md
+      - Formula reference: experiments/experiment-4/formula-reference.md
+      - Comparison: experiments/experiment-4/comparison.md
+      - Full results: experiments/experiment-4/full-results.md
+      - Inventory distributions: experiments/experiment-4/inventory.md
+      - Glossary: experiments/experiment-4/glossary.md
   - Experiment 3:
       - Overview: experiments/experiment-3/index.md
       - Simulation lifecycle: experiments/experiment-3/comparison-overview.md

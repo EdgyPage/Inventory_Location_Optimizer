@@ -1,0 +1,322 @@
+{
+  "reference": "k1_off",
+  "reference_label": "no split \u00b7 no zoning (baseline layout)",
+  "n_batches": 100,
+  "arms": 34,
+  "pairs": [
+    "mixed_20260708_075953__mixed_realistic_bell_lt0",
+    "mixed_20260708_075953__mixed_realistic_bell_ltrand0-5"
+  ],
+  "channels": [
+    "store",
+    "fulfillment"
+  ],
+  "total_rows": 2176,
+  "metric": "steady-state medians over the last 50 batches, vs the k1_off reference cell",
+  "cells": [
+    {
+      "name": "k2_l0_off",
+      "k": 2,
+      "capacity_loss": 0.0,
+      "zoning": "off",
+      "zoning_label": "off",
+      "layout": "split \u00d72",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": 0.4,
+            "min": -1.0,
+            "max": 1.7
+          },
+          "dthr": {
+            "med": 11.1,
+            "min": 1.0,
+            "max": 20.6
+          },
+          "n": 136,
+          "pos_thr": 136
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": -0.0,
+            "min": -0.1,
+            "max": 0.1
+          },
+          "dthr": {
+            "med": 5.9,
+            "min": 0.2,
+            "max": 8.6
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    },
+    {
+      "name": "k2_l10_off",
+      "k": 2,
+      "capacity_loss": 0.1,
+      "zoning": "off",
+      "zoning_label": "off",
+      "layout": "split \u00d72 \u00b7 10% loss",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": 0.3,
+            "min": -2.6,
+            "max": 2.0
+          },
+          "dthr": {
+            "med": 10.3,
+            "min": -1.4,
+            "max": 21.5
+          },
+          "n": 136,
+          "pos_thr": 134
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": 0.7,
+            "min": 0.3,
+            "max": 1.7
+          },
+          "dthr": {
+            "med": 3.7,
+            "min": 0.6,
+            "max": 10.8
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    },
+    {
+      "name": "k1_abc2",
+      "k": 1,
+      "capacity_loss": 0.0,
+      "zoning": "abc2",
+      "zoning_label": "2-band",
+      "layout": "no split",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": -0.4,
+            "min": -4.6,
+            "max": 1.2
+          },
+          "dthr": {
+            "med": -10.7,
+            "min": -18.3,
+            "max": 15.0
+          },
+          "n": 136,
+          "pos_thr": 37
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": -0.0,
+            "min": -0.2,
+            "max": 0.0
+          },
+          "dthr": {
+            "med": -0.2,
+            "min": -2.4,
+            "max": 10.0
+          },
+          "n": 136,
+          "pos_thr": 54
+        }
+      }
+    },
+    {
+      "name": "k1_abc3",
+      "k": 1,
+      "capacity_loss": 0.0,
+      "zoning": "abc3",
+      "zoning_label": "3-band",
+      "layout": "no split",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": -0.8,
+            "min": -4.8,
+            "max": 2.2
+          },
+          "dthr": {
+            "med": -11.2,
+            "min": -19.5,
+            "max": 19.5
+          },
+          "n": 136,
+          "pos_thr": 38
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": -0.0,
+            "min": -0.2,
+            "max": 0.0
+          },
+          "dthr": {
+            "med": -0.2,
+            "min": -2.1,
+            "max": 13.7
+          },
+          "n": 136,
+          "pos_thr": 59
+        }
+      }
+    },
+    {
+      "name": "k2_l0_abc2",
+      "k": 2,
+      "capacity_loss": 0.0,
+      "zoning": "abc2",
+      "zoning_label": "2-band",
+      "layout": "split \u00d72",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": 0.0,
+            "min": -4.6,
+            "max": 1.9
+          },
+          "dthr": {
+            "med": 1.6,
+            "min": -4.8,
+            "max": 23.3
+          },
+          "n": 136,
+          "pos_thr": 89
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": -0.0,
+            "min": -0.1,
+            "max": 0.0
+          },
+          "dthr": {
+            "med": 5.6,
+            "min": 1.5,
+            "max": 15.0
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    },
+    {
+      "name": "k2_l0_abc3",
+      "k": 2,
+      "capacity_loss": 0.0,
+      "zoning": "abc3",
+      "zoning_label": "3-band",
+      "layout": "split \u00d72",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": -0.2,
+            "min": -4.5,
+            "max": 3.1
+          },
+          "dthr": {
+            "med": 1.6,
+            "min": -7.4,
+            "max": 33.9
+          },
+          "n": 136,
+          "pos_thr": 88
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": -0.0,
+            "min": -0.2,
+            "max": 0.1
+          },
+          "dthr": {
+            "med": 5.4,
+            "min": 1.6,
+            "max": 19.0
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    },
+    {
+      "name": "k2_l10_abc2",
+      "k": 2,
+      "capacity_loss": 0.1,
+      "zoning": "abc2",
+      "zoning_label": "2-band",
+      "layout": "split \u00d72 \u00b7 10% loss",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": 0.2,
+            "min": -4.1,
+            "max": 3.3
+          },
+          "dthr": {
+            "med": 2.8,
+            "min": -8.4,
+            "max": 29.4
+          },
+          "n": 136,
+          "pos_thr": 98
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": 0.6,
+            "min": 0.2,
+            "max": 1.7
+          },
+          "dthr": {
+            "med": 4.2,
+            "min": 1.4,
+            "max": 14.2
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    },
+    {
+      "name": "k2_l10_abc3",
+      "k": 2,
+      "capacity_loss": 0.1,
+      "zoning": "abc3",
+      "zoning_label": "3-band",
+      "layout": "split \u00d72 \u00b7 10% loss",
+      "by_channel": {
+        "store": {
+          "dlabor": {
+            "med": -0.1,
+            "min": -4.3,
+            "max": 4.1
+          },
+          "dthr": {
+            "med": 2.0,
+            "min": -10.4,
+            "max": 33.6
+          },
+          "n": 136,
+          "pos_thr": 90
+        },
+        "fulfillment": {
+          "dlabor": {
+            "med": 0.5,
+            "min": 0.2,
+            "max": 1.7
+          },
+          "dthr": {
+            "med": 4.6,
+            "min": 0.7,
+            "max": 20.3
+          },
+          "n": 136,
+          "pos_thr": 136
+        }
+      }
+    }
+  ]
+}
