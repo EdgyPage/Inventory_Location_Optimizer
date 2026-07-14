@@ -5728,6 +5728,27 @@
       "kind": "function",
       "signature": "(cfg: PickConfig, weight: int, volume: int, quantity: int, y_phys: float=0.0) -> float"
     },
+    "Warehouse/Pick.py::_task_static": {
+      "decorators": [],
+      "doc": "A task's assignment-INDEPENDENT time (travel + handling, NO cart) plus its ordered pick-volume\nsequence \u2014 the inputs the LPT scheduler balances.  Replicates PickSimulation._simulate_picker's\nper-task arithmetic exactly (position resets to (0,0) each aisle; one-way exit to the far end);\nthe cart term is session-persistent so it is added separately via count_cart_swaps.  Kept in\nlockstep with the sim by the scheduler\u2194sim self-consistency test.\n\nNOTE: it reads the UNCAPPED ``task.items[sku]``, matching PickSimulation; fast_pick's deferred\nloop can cap a pick at the snapshot stock under cross-picker contention, so predicted==realized is\nexact for PickSimulation and for the normal disjoint well-stocked aisles, but can differ for a bin\nunder-stocked relative to demand under DeferredPickSimulation.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(task: Task, cfg: PickConfig, x_pace: float, y_pace: float) -> tuple[float, list]"
+    },
+    "Warehouse/Pick.py::assign_tasks": {
+      "decorators": [],
+      "doc": "Partition aisle-Tasks across ``cfg.num_pickers`` pickers.  ``sorted_tasks`` MUST be aisle_id\nsorted (the sim processes each picker's tasks in that order).  The SINGLE task\u2192picker assignment\nused by both PickSimulation and fast_pick, so they cannot drift.\n\n- ``'round_robin'`` (default): ``i % num_pickers`` \u2014 byte-identical to the legacy scheduler.\n- ``'lpt'``: LPT \u2014 visit tasks **heaviest-first** and append each to the **least-loaded** picker.\n  Both use a per-task cost ``est(t) = (travel+handling) + swap_coef \u00b7 task_volume / cart_cap`` \u2014\n  a *continuous* cart proxy that is monotone in volume, so it can't be fooled by the cart\n  step-function the way an exact-but-myopic greedy is (a light task looking free on a\n  cart-favourable picker).  Heaviest-first + least-loaded is a standard makespan heuristic \u2014 but\n  note it is NOT a guaranteed bound on the *realized* step-function makespan and can, on adverse\n  inputs, do no better than round-robin; it never yields an invalid partition and total work is\n  unchanged, so results stay correct regardless.  Each picker's tasks are then kept in aisle_id\n  order \u2014 exactly the order the sim picks them \u2014 so the **realized** makespan (and the cart swaps\n  that dominate it) is computed exactly by the shared next-fit; only the *balancing decisions* use\n  the smooth proxy.  Runs once per batch in ``__init__`` at O(total_picks + tasks\u00b7pickers).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sorted_tasks: list, cfg: PickConfig) -> list"
+    },
+    "Warehouse/Pick.py::count_cart_swaps": {
+      "decorators": [],
+      "doc": "Next-fit cart swaps for an ORDERED sequence of pick volumes, starting from ``cart_remaining``.\nReturns ``(swaps, new_remaining)``.  Uses the same ``cart_step`` primitive the sim runs per pick,\nso this reproduces exactly what the sim charges for those picks.\n\nThis is the **exact-makespan predictor** \u2014 a partition's realized cart cost, computable up front.\nThe LPT scheduler does NOT balance on this; it balances a cheaper continuous proxy (see\n``assign_tasks``).  This is the oracle the scheduler\u2194sim self-consistency test checks the sim\nagainst, plus a reusable helper for scoring a partition's exact makespan.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pick_volumes, cart_remaining: float, cart_cap: float) -> tuple[int, float]"
+    },
     "Warehouse/Storage_Primitive.py": {
       "decorators": [],
       "doc": null,
@@ -6195,6 +6216,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(first_x: float, first_y: float, last_x: float, last_y: float, aisle_length: float, x_pace: float, y_pace: float, one_way: bool, entrance_x: float=0.0) -> tuple[float, float, float, float]"
+    },
+    "Warehouse/cost_model.py::cart_step": {
+      "decorators": [],
+      "doc": "One next-fit cart step for a single pick of volume ``needed_vol`` against a cart with\n``cart_remaining`` free volume (capacity ``cart_cap``).  Returns ``(swapped, new_remaining)``.\n\nA **swap** fires when the pick doesn't fit the current cart; the cart is then refilled to full\nbefore the pick is loaded.  This is the SINGLE source of the cart next-fit, shared by the sim's\nper-pick loop (``Pick`` / ``fast_pick``) and the scheduler's makespan predictor\n(``count_cart_swaps``), so the two can never drift \u2014 which is what makes the LPT scheduler's\npredicted makespan equal the sim's realized makespan.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(needed_vol: float, cart_remaining: float, cart_cap: float) -> tuple[bool, float]"
     },
     "Warehouse/cost_model.py::handle_var": {
       "decorators": [],

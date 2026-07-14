@@ -27,10 +27,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from Warehouse.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin
+from Warehouse.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin, assign_tasks
 from Warehouse.Storage_Primitive import StoreCart
 from Warehouse.Workload_Builder import Task
-from Warehouse.cost_model import sec_per_inch
+from Warehouse.cost_model import sec_per_inch, cart_step
 
 if TYPE_CHECKING:
     from Warehouse.Inventory_Management import Inventory_Manager
@@ -130,7 +130,8 @@ def _simulate_picker_deferred(
             # Swap consumes its own time; advancing `t` before emitting the event makes the gap
             # ending at cart_swap carry the swap seconds → attributed to travel (see Pick.py).
             needed_vol   = order.volume() * qty
-            cart_swapped = needed_vol > cart_remaining
+            # Shared next-fit primitive — lockstep with Pick.py and the LPT scheduler's predictor.
+            cart_swapped, cart_remaining = cart_step(needed_vol, cart_remaining, cart_cap)
             if cart_swapped:
                 t += cfg.cart_swap_coef
                 events.append(PickEvent(
@@ -140,10 +141,8 @@ def _simulate_picker_deferred(
                     items_picked=session_items, total_items=total_items,
                     cart_move=cfg.cart_swap_coef,
                 ))
-                cart_remaining = cart_cap
 
             t             += _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
-            cart_remaining  = max(0, cart_remaining - needed_vol)
             bins_done      += 1
             session_items  += qty
 
@@ -198,10 +197,7 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         manager: Inventory_Manager | None = None,
     ) -> None:
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
-        n = config.num_pickers
-        self._picker_tasks: list[list[Task]] = [[] for _ in range(n)]
-        for i, task in enumerate(sorted_tasks):
-            self._picker_tasks[i % n].append(task)
+        self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)   # shared with Pick
         self._config   = config
         self._manager  = manager
         self._events: list[PickEvent] | None = None

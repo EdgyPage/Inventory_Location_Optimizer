@@ -953,6 +953,17 @@ files:
       - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
       - {name: "test_apply_injects_resolved_store_composition", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
     notes: ""
+  "Tests/test_scheduler.py":
+    purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_round_robin_is_the_legacy_partition", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_keeps_aisle_id_order_and_covers_all_tasks", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_predicted_makespan_equals_realized", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/test_scheduler.py", kind: "function"}
+    notes: ""
   "Tests/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
     layer: "tests"
@@ -1159,6 +1170,8 @@ files:
       - {name: "PickConfig", file: "Warehouse/Pick.py", kind: "class"}
       - {name: "PickEvent", file: "Warehouse/Pick.py", kind: "class"}
       - {name: "PickerProgress", file: "Warehouse/Pick.py", kind: "class"}
+      - {name: "count_cart_swaps", file: "Warehouse/Pick.py", kind: "function"}
+      - {name: "assign_tasks", file: "Warehouse/Pick.py", kind: "function"}
       - {name: "PickSimulation", file: "Warehouse/Pick.py", kind: "class"}
     notes: ""
   "Warehouse/Storage_Primitive.py":
@@ -1206,6 +1219,7 @@ files:
       - {name: "sec_per_inch", file: "Warehouse/cost_model.py", kind: "function"}
       - {name: "travel_cost", file: "Warehouse/cost_model.py", kind: "function"}
       - {name: "aisle_traverse_cost", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "cart_step", file: "Warehouse/cost_model.py", kind: "function"}
     notes: ""
   "Warehouse/fast_pick.py":
     purpose: "Two-phase deferred-mutation pick simulation."

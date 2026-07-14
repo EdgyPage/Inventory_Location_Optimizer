@@ -348,4 +348,5 @@ def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> P
         cart             = _CART_TYPES.get(cfg['cart'], default_cart) if 'cart' in cfg else default_cart,
         height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
         one_way          = cfg.get('one_way',          False),   # one-way lanes; default off = today
+        scheduler        = cfg.get('scheduler',        'round_robin'),  # 'lpt' load-balances makespan
     )

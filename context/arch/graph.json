@@ -5206,12 +5206,22 @@
       "src": "Warehouse/Pick.py"
     },
     {
+      "dst": "Warehouse/Pick.py::assign_tasks",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::PickSimulation.__init__"
+    },
+    {
       "dst": "Warehouse/Pick.py::PickEvent",
       "kind": "calls",
       "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
     },
     {
       "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
       "kind": "calls",
       "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
     },
@@ -5254,6 +5264,26 @@
       "dst": "Warehouse/cost_model.py::per_pick",
       "kind": "calls",
       "src": "Warehouse/Pick.py::_pick_time"
+    },
+    {
+      "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::_task_static"
+    },
+    {
+      "dst": "Warehouse/Pick.py::_task_static",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::assign_tasks"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::sec_per_inch",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::assign_tasks"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::count_cart_swaps"
     },
     {
       "dst": "Warehouse/Aisle_Storage.py",
@@ -5471,6 +5501,11 @@
       "src": "Warehouse/fast_pick.py"
     },
     {
+      "dst": "Warehouse/Pick.py::assign_tasks",
+      "kind": "calls",
+      "src": "Warehouse/fast_pick.py::DeferredPickSimulation.__init__"
+    },
+    {
       "dst": "Warehouse/fast_pick.py::_simulate_picker_deferred",
       "kind": "ref",
       "src": "Warehouse/fast_pick.py::DeferredPickSimulation.run"
@@ -5492,6 +5527,11 @@
     },
     {
       "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/fast_pick.py::_simulate_picker_deferred"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
       "kind": "calls",
       "src": "Warehouse/fast_pick.py::_simulate_picker_deferred"
     },
@@ -12939,6 +12979,30 @@
       "public": false
     },
     {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::_task_static",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "_task_static",
+      "public": false
+    },
+    {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::assign_tasks",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "assign_tasks",
+      "public": true
+    },
+    {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::count_cart_swaps",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "count_cart_swaps",
+      "public": true
+    },
+    {
       "file": "Warehouse/Storage_Primitive.py",
       "id": "Warehouse/Storage_Primitive.py",
       "kind": "module",
@@ -13456,6 +13520,14 @@
       "kind": "function",
       "module": "Warehouse/cost_model.py",
       "name": "aisle_traverse_cost",
+      "public": true
+    },
+    {
+      "file": "Warehouse/cost_model.py",
+      "id": "Warehouse/cost_model.py::cart_step",
+      "kind": "function",
+      "module": "Warehouse/cost_model.py",
+      "name": "cart_step",
       "public": true
     },
     {

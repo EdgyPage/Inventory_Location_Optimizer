@@ -126,3 +126,18 @@ def aisle_traverse_cost(first_x: float, first_y: float,
         exit_x = 0.0
         exit_y = 0.0
     return entry_x, entry_y, exit_x, exit_y
+
+
+def cart_step(needed_vol: float, cart_remaining: float, cart_cap: float) -> tuple[bool, float]:
+    """One next-fit cart step for a single pick of volume ``needed_vol`` against a cart with
+    ``cart_remaining`` free volume (capacity ``cart_cap``).  Returns ``(swapped, new_remaining)``.
+
+    A **swap** fires when the pick doesn't fit the current cart; the cart is then refilled to full
+    before the pick is loaded.  This is the SINGLE source of the cart next-fit, shared by the sim's
+    per-pick loop (``Pick`` / ``fast_pick``) and the scheduler's makespan predictor
+    (``count_cart_swaps``), so the two can never drift — which is what makes the LPT scheduler's
+    predicted makespan equal the sim's realized makespan."""
+    swapped = needed_vol > cart_remaining
+    if swapped:
+        cart_remaining = cart_cap
+    return swapped, max(0, cart_remaining - needed_vol)
