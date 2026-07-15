@@ -1,0 +1,59 @@
+{
+  "reference": "k1_off_rr",
+  "reference_label": "round_robin scheduler (baseline)",
+  "n_batches": 100,
+  "arms": 34,
+  "pairs": [
+    "mixed_20260708_075953__mixed_realistic_bell_lt0",
+    "mixed_20260708_075953__mixed_realistic_bell_ltrand0-5"
+  ],
+  "channels": [
+    "fulfillment",
+    "store"
+  ],
+  "metric": "steady-state medians over the last 50 batches vs the k1_off_rr reference cell",
+  "labor_baseline": "fifo",
+  "hours_note": "modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock",
+  "cells": [
+    {
+      "name": "k1_off_lpt",
+      "k": 1,
+      "capacity_loss": 0.0,
+      "zoning": "off",
+      "zoning_label": "off",
+      "layout": "no split \u00b7 lpt scheduler",
+      "by_channel": {
+        "store": {
+          "dtask_ms": {
+            "med": 0.0012237723734040038,
+            "min": -0.10454675082165295,
+            "max": 0.11398692703312044
+          },
+          "dthr_batch": {
+            "med": 19.60216728866021,
+            "min": 12.324063446120748,
+            "max": 47.05363611247618
+          },
+          "n": 68,
+          "pos_thr": 68,
+          "labor_hours_med": 209.90036822618654
+        },
+        "fulfillment": {
+          "dtask_ms": {
+            "med": -0.0006021078844025265,
+            "min": -0.029257753931141484,
+            "max": 0.053959895846662984
+          },
+          "dthr_batch": {
+            "med": 5.443568604882348,
+            "min": 4.244557018224316,
+            "max": 29.948154394484703
+          },
+          "n": 68,
+          "pos_thr": 68,
+          "labor_hours_med": 20.479532992026904
+        }
+      }
+    }
+  ]
+}

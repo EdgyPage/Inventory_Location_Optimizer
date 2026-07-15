@@ -1,0 +1,73 @@
+# Experiment 5 manifest — single source of truth for this experiment's docs.
+# This is a WHAT-IF experiment: one frozen inventory + batch stream simulated across a
+# picker-SCHEDULER A/B — round-robin (reference cell k1_off_rr) vs LPT load-balancing
+# (winner cell k1_off_lpt), layout & zoning pinned off. The headline is the CROSS-CELL delta
+# (rendered by whatif_matrix() from data/whatif_delta.json) plus the four labor-HOURS charts
+# from Optimization/run_whatif_labor.py. The per-config figures below are the two spotlight
+# cells — the LPT winner (k1_off_lpt) and the round-robin baseline (k1_off_rr) — ingested from
+# their own standard comparison subtrees. See docs/authoring.md and docs/experiments/ingest.py.
+
+title: "Experiment 5 — picker-scheduler × assignment throughput & labor"
+
+# Primary run folder = the WINNER cell (its config.json drives setup_table / run_section).
+# The round-robin baseline cell k1_off_rr is ingested too and referenced via legacy-mode calls.
+run: k1_off_lpt
+
+catalogue: catalogue          # folder under images/ holding the (shared) inventory distribution plots
+baseline: uni_fifo_norsl      # the FIFO baseline every assignment arm is measured against, within each cell
+
+# The "winner" here is the SCHEDULER (LPT); these arms are the store's biggest labor-hours savers
+# (the assignment-function lever), which also carry the throughput uplift the LPT scheduler adds.
+winners: [rank_labor, rank_cartlabor, map]
+
+# What-if matrix summary (prose reference; the numbers render from data/whatif_delta.json).
+whatif:
+  source_run: comparison_whatif_20260714_075435
+  reference: k1_off_rr        # the round-robin cell every other cell is diffed against
+  scatter: whatif_labor_throughput_scatter.png   # throughput vs labor-hours, scheduler hue
+  winner: k1_off_lpt          # LPT load-balancing scheduler, no split, no zoning
+  cells: 2
+  arms: 34
+  n_batches: 100
+
+# Short key -> full inventory id (the run's pair label) + a human label.
+# The SAME seed-42 150k-SKU bell catalogue as Experiment 4; the two variants differ only in lead time.
+inventories:
+  bell_lt0:
+    id: mixed_20260708_075953__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260708_075953__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+# Pick-time calibrations — one store (StoreCart) + one fulfillment (FulfillmentCart) channel.
+# height_brackets: rows of [upper_y_phys_inches | null, multiplier].
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: []
+
+# Curated figure filenames the pages render (ingest pulls these, searching each cell's run tree).
+figures:
+  top3:
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png

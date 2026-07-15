@@ -412,6 +412,13 @@ files:
       - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
       - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
     notes: ""
+  "Optimization/run_whatif_labor.py":
+    purpose: "Cross-cell what-if analysis in modeled labor-HOURS \u2014 converts batch_stats ms to hours (\u03a3 task_makespan/3.6e6), adds the picker-scheduler axis decoded from the cell-name suffix (rr/lpt) and labor-hours-saved-vs-FIFO, emitting whatif_labor.csv/json plus throughput-vs-labor, labor-saved, batch-hours rr-vs-lpt, and scheduler-uplift charts."
+    layer: "optimization"
+    key_symbols:
+      - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
+    notes: ""
   "Optimization/runlayout.py":
     purpose: "single owner of the on-disk run-tree layout."
     layer: "optimization"
@@ -1052,6 +1059,17 @@ files:
       - {name: "test_incremental_sigma_fd_matches_full", file: "Tests/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_batch_min_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_batch_max_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/test_whatif_labor.py":
+    purpose: "Locks run_whatif_labor.py \u2014 ms\u2192modeled-hours conversion, scheduler/arm-name parsing, labor-hours-saved-vs-FIFO math, and the whatif_matrix-shaped JSON, all on a synthetic two-cell sqlite tree."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_hours_ms_to_modeled_hours", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scheduler_of", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_parse_arm", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_pct_sign", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scan_labor_key_and_merge", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_main_labor_saved_and_json", file: "Tests/test_whatif_labor.py", kind: "function"}
     notes: ""
   "Visualization/db_reader.py":
     purpose: "read-only reconstruction of a finished run for the replay viewer."

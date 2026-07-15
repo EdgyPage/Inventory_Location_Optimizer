@@ -3215,6 +3215,131 @@
       "kind": "function",
       "signature": "(a, b, higher_better)"
     },
+    "Optimization/run_whatif_labor.py": {
+      "decorators": [],
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (_scan-style glob + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_whatif_labor.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/run_whatif_labor.py::_HOURS_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'rr': 'round_robin', 'lpt': 'lpt'}"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED_COLOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': '#4c78a8', 'lpt': '#f58518'}"
+    },
+    "Optimization/run_whatif_labor.py::_agg": {
+      "decorators": [],
+      "doc": "Aggregate `field` over rows grouped by keyfn: how in {'sum','mean'}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, keyfn, field, how)"
+    },
+    "Optimization/run_whatif_labor.py::_batch_hours_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_channels": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/run_whatif_labor.py::_hours": {
+      "decorators": [],
+      "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str)"
+    },
+    "Optimization/run_whatif_labor.py::_labor_saved_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, baseline, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/run_whatif_labor.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor', 'norsl'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/run_whatif_labor.py::_pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero/NaN.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
+    },
+    "Optimization/run_whatif_labor.py::_scan_labor": {
+      "decorators": [],
+      "doc": "{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str) -> dict"
+    },
+    "Optimization/run_whatif_labor.py::_scheduler_of": {
+      "decorators": [],
+      "doc": "'k1_off_lpt' -> 'lpt'; 'k1_off_rr' -> 'round_robin' (the swept scheduler is the cell suffix).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: str) -> str"
+    },
+    "Optimization/run_whatif_labor.py::_throughput_scatter": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_uplift_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(uplift, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
     "Optimization/runlayout.py": {
       "decorators": [],
       "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",

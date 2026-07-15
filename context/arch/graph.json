@@ -3016,6 +3016,116 @@
       "src": "Optimization/run_whatif_delta.py::main"
     },
     {
+      "dst": "Optimization/run_whatif_delta.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::main",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/whatif_config.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_labor_saved_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_labor_saved_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_metrics",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_hours",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_throughput_scatter"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_throughput_scatter"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_batch_hours_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_labor_saved_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_med",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_parse_arm",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_pct",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scan_labor",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_throughput_scatter",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_uplift_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
       "dst": "Optimization/runlayout.py::_profile_pairs",
       "kind": "calls",
       "src": "Optimization/runlayout.py::discover_db_pairs"
@@ -10143,6 +10253,150 @@
       "module": "Optimization/run_whatif_delta.py",
       "name": "_pct",
       "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py",
+      "kind": "module",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "Optimization.run_whatif_labor",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::MS_PER_HOUR",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "MS_PER_HOUR",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_HOURS_NOTE",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_HOURS_NOTE",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_SCHED",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_SCHED",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_SCHED_COLOR",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_SCHED_COLOR",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_agg",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_batch_hours_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_batch_hours_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_channels",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_hours",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_hours",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_labor_saved_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_labor_saved_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_med",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_med",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_parse_arm",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_parse_arm",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_pct",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_pct",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_scan_labor",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_scan_labor",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_scheduler_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_throughput_scatter",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_throughput_scatter",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_uplift_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_uplift_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::main",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "main",
+      "public": true
     },
     {
       "file": "Optimization/runlayout.py",
