@@ -215,19 +215,14 @@ def _uplift_bars(uplift, out_path):
     plt.close(fig)
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('base_dir')
-    ap.add_argument('--baseline', default='fifo',
-                    help="assignment fn to measure labor-hours-saved against (default 'fifo')")
-    ap.add_argument('--baseline-initial', default='match', choices=('match', 'uni', 'opt'),
-                    help="baseline arm's initial placement: 'match' compares opt-vs-opt / uni-vs-uni "
-                         "(isolates the assignment fn); 'uni'/'opt' pins it (default 'match')")
-    ap.add_argument('--reference', default=None,
-                    help="scheduler reference cell (default WHATIF['reference'], else 'k1_off_rr')")
-    ap.add_argument('--pairs', default='sum', choices=('sum', 'median'),
-                    help='how to blend the two catalogs for hours (sum = additive workload; default sum)')
-    args = ap.parse_args()
+def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None):
+    """Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +
+    the four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process
+    (no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits
+    the CSV/JSON (its cross-cell deltas are empty)."""
+    import types
+    args = types.SimpleNamespace(base_dir=base_dir, baseline=baseline,
+                                 baseline_initial=baseline_initial, reference=reference, pairs=pairs)
     if args.reference is None:
         try:
             from Optimization.whatif_config import WHATIF
@@ -356,6 +351,24 @@ def main():
         ups = [uplift[(ch, a)] for _c, a in uplift if _c == ch and uplift[(ch, a)] == uplift[(ch, a)]]
         print(f'  {ch:12}  best labor-saver vs {args.baseline}: {best[0]} ({best[1]:+.1f} h)  '
               f'median LPT throughput uplift: {_med(ups):+.1f}%')
+    return csv_path
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('base_dir')
+    ap.add_argument('--baseline', default='fifo',
+                    help="assignment fn to measure labor-hours-saved against (default 'fifo')")
+    ap.add_argument('--baseline-initial', default='match', choices=('match', 'uni', 'opt'),
+                    help="baseline arm's initial placement: 'match' compares opt-vs-opt / uni-vs-uni "
+                         "(isolates the assignment fn); 'uni'/'opt' pins it (default 'match')")
+    ap.add_argument('--reference', default=None,
+                    help="scheduler reference cell (default WHATIF['reference'], else 'k1_off_rr')")
+    ap.add_argument('--pairs', default='sum', choices=('sum', 'median'),
+                    help='how to blend the two catalogs for hours (sum = additive workload; default sum)')
+    args = ap.parse_args()
+    run(args.base_dir, baseline=args.baseline, baseline_initial=args.baseline_initial,
+        reference=args.reference, pairs=args.pairs)
 
 
 if __name__ == '__main__':

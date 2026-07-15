@@ -735,46 +735,51 @@ def _cell_complete(scenario_base: str, pairs: list) -> bool:
                for label, _i, _a in pairs)
 
 
-def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
+def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
                        resume_granularity='strategy'):
-    """Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory
-    once (tightest cell), then reshape + simulate it for every cell."""
-    from Optimization.whatif_config import WHATIF
-    cells = _build_cells(WHATIF)
+    """Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a
+    plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
+    (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze
+    and samples fresh — bit-identical to the old flat run, just nested under its cell dir.  Returns
+    {'cells': [names], 'reference': name}."""
+    cells = _build_cells(spec)
     reference = next((c[0] for c in cells if c[1] is None and not c[2].get('enabled')
-                      and c[3] == 'round_robin'), cells[0][0])
+                      and c[3] == 'round_robin'), spec.get('reference') or cells[0][0])
     # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
     # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
     # snapshotted at import, so refresh it too.
-    if WHATIF.get('arms') is not None:
-        arms = None if str(WHATIF['arms']).lower() == 'all' else tuple(WHATIF['arms'])
+    if spec.get('arms') is not None:
+        arms = None if str(spec['arms']).lower() == 'all' else tuple(spec['arms'])
         for ch in CONFIG['channels']:
             strategies.CHANNEL_RESTOCKS[ch] = arms
             CONFIG['channels'][ch]['restocks'] = strategies.restocks_for(ch)
 
-    log.info(f'What-if matrix → {base_dir}  ({len(cells)} cells, reference={reference}, '
-             f'arms={WHATIF.get("arms")!r}, resume={resume})')
+    log.info(f'Cell matrix → {base_dir}  ({len(cells)} cell(s), reference={reference}, '
+             f'arms={spec.get("arms")!r}, resume={resume})')
     log.info('  cells: ' + ', '.join(c[0] for c in cells))
 
-    # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair ────
-    # (the scheduler is task→picker, not placement, so it doesn't affect the frozen layout).
-    _apply_cell(_tightest_split(cells), {'enabled': False}, 'round_robin')
+    # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair — MULTI-cell only ──
+    # (the scheduler is task→picker, not placement, so it doesn't affect the frozen layout).  A
+    # single-cell run has nothing to share, so it samples fresh (frozen=None).
     g = CONFIG['global']
-    frozen: dict = {}
-    for label, inv_db, aff_db in pairs:
-        frozen_db = os.path.join(base_dir, '_frozen', label, 'planned_inventory.db')
-        if resume and os.path.exists(frozen_db):
-            frozen[label] = frozen_db
-            log.info(f'  reusing frozen inventory[{label}]')
-            continue
-        log.info(f'\n{"="*64}\n  FREEZE inventory (tightest cell): {label}\n{"="*64}')
-        shared = build_shared_assets(
-            inv_db, aff_db, log, max_skus=g['max_skus'],
-            regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
-            warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
-        frozen[label] = shared['planned_inv_db']
+    frozen: dict | None = None
+    if len(cells) > 1:
+        _apply_cell(_tightest_split(cells), {'enabled': False}, 'round_robin')
+        frozen = {}
+        for label, inv_db, aff_db in pairs:
+            frozen_db = os.path.join(base_dir, '_frozen', label, 'planned_inventory.db')
+            if resume and os.path.exists(frozen_db):
+                frozen[label] = frozen_db
+                log.info(f'  reusing frozen inventory[{label}]')
+                continue
+            log.info(f'\n{"="*64}\n  FREEZE inventory (tightest cell): {label}\n{"="*64}')
+            shared = build_shared_assets(
+                inv_db, aff_db, log, max_skus=g['max_skus'],
+                regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
+                warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
+            frozen[label] = shared['planned_inv_db']
 
-    # ── 2. Each cell: reshape the warehouse from the FROZEN inventory + simulate ──
+    # ── 2. Each cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate ──
     for name, aisle_split, zoning, sched in cells:
         scenario_base = os.path.join(base_dir, name)
         if resume and _cell_complete(scenario_base, pairs):
@@ -788,9 +793,8 @@ def _run_whatif_matrix(base_dir, pairs, log, resume=False, max_retries=2,
                       frozen_by_pair=frozen, skip_completed=resume,
                       max_retries=max_retries, resume_granularity=resume_granularity)
 
-    log.info(f'\nWhat-if matrix complete → {base_dir}')
-    log.info(f'  Per-cell graphs: python run_analysis.py {base_dir}\\<cell>')
-    log.info(f'  Compare:         python -m Optimization.run_whatif_delta {base_dir} --reference {reference}')
+    log.info(f'\nCell matrix complete → {base_dir}')
+    return {'cells': [c[0] for c in cells], 'reference': reference}
 
 
 # ── entry point ────────────────────────────────────────────────────────────────
@@ -802,7 +806,7 @@ def _apply_run_spec(args, spec, explicit):
     a since-deleted --s-composition file can't break resume."""
     notes = []
     for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
-              'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif',
+              'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
               'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
               'max_retries', 'resume_granularity'):
         if f not in spec:
@@ -866,11 +870,18 @@ def main():
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
+    parser.add_argument('--spec', default='single',
+                        help='Cell-matrix spec to run (see whatif_config.SPECS). EVERY run is a cell '
+                             "matrix: 'single' (default) = one cell k1_off (a plain run, nested under "
+                             "its cell dir); 'scheduler_ab' = the round_robin vs lpt sweep. Output: "
+                             'comparison[_whatif]_<ts>/<cell>/<pair>/<config>[/<channel>]/…')
     parser.add_argument('--whatif', action='store_true',
-                        help='What-if MODE: sweep the aisle-reconstruction × velocity-zoning matrix '
-                             'defined in Optimization/whatif_config.py over ONE frozen inventory + '
-                             'batch stream (apples-to-apples layout comparison). Shares this whole CLI; '
-                             'output goes to comparison_whatif_<ts>/<cell>/…. Compare with run_whatif_delta.')
+                        help='DEPRECATED alias for `--spec scheduler_ab` (the picker-scheduler A/B).')
+    parser.add_argument('--no-analyze', action='store_true',
+                        help='Skip the in-process analysis pass (per-cell graphs + cross-cell what-if '
+                             'summaries) that otherwise runs automatically after the simulation.')
+    parser.add_argument('--analysis-workers', type=int, default=None, metavar='N',
+                        help='Pool size for the post-sim analysis pass (default: same as --workers).')
     parser.add_argument('--max-retries', type=int, default=2, metavar='N',
                         help='On a hard worker death (segfault/OOM) that breaks the pool, rebuild '
                              'the pool and resubmit the unfinished units up to N times before '
@@ -888,6 +899,16 @@ def main():
     # Resolve base_dir FIRST, then on --resume load + apply the saved run_spec BEFORE the
     # CONFIG-override block, so a bare `--resume DIR` reconstructs the run with zero retyped
     # flags (and no find_latest_db_pairs drift — see the pairs block below).
+    from Optimization.whatif_config import get_spec, SPECS
+
+    def _resolve_spec():
+        """Selected cell-matrix (name, dict).  --whatif is the deprecated alias for scheduler_ab."""
+        name = 'scheduler_ab' if args.whatif else args.spec
+        try:
+            return name, get_spec(name)
+        except KeyError:
+            sys.exit(f'unknown --spec {name!r}; choices: {sorted(SPECS)}')
+
     spec, _spec_store_comp, _spec_notes = None, None, []
     if args.resume:
         base_dir = args.resume if os.path.isabs(args.resume) else os.path.join(_OUTPUT_DIR, args.resume)
@@ -900,9 +921,12 @@ def main():
             _spec_notes = ['  no run_spec.json in resume dir (pre-recovery run) — resuming with '
                            'code defaults + retyped flags; re-supply the original run-shaping flags '
                            'to avoid warehouse/inventory/batch-count drift']
+        spec_name, spec_dict = _resolve_spec()          # after run_spec overlay (restores --spec)
     else:
+        spec_name, spec_dict = _resolve_spec()
+        n_cells  = len(_build_cells(spec_dict))          # >1 cell ⇒ a what-if sweep dir name
         ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-        prefix   = 'comparison_whatif' if args.whatif else 'comparison'
+        prefix   = 'comparison_whatif' if n_cells > 1 else 'comparison'
         base_dir = os.path.join(_OUTPUT_DIR, f'{prefix}_{ts}')
         os.makedirs(base_dir, exist_ok=True)
 
@@ -985,7 +1009,7 @@ def main():
             's_max_aisles' : args.s_max_aisles, 's_max_bins' : args.s_max_bins, 's_min_bins': args.s_min_bins,
             'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
             's_composition': _store_comp,
-            'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif,
+            'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
@@ -1001,24 +1025,21 @@ def main():
         f'config(s), swept independently per channel  |  flat pool workers={workers}'
     )
 
-    # What-if MODE: sweep the layout × zoning matrix (whatif_config.py) over ONE frozen
-    # inventory + batch stream.  Each cell is its own scenario subtree, run via _run_scenario.
-    if args.whatif:
-        _run_whatif_matrix(base_dir, pairs, log, resume=bool(args.resume),
-                           max_retries=args.max_retries, resume_granularity=args.resume_granularity)
-        return
+    # EVERY run is a cell matrix (whatif_config.SPECS): a plain run is the single cell k1_off; a
+    # sweep spec is >1 cell.  One driver, one tree — each cell is its own scenario subtree.
+    log.info(f'Spec: {spec_name}')
+    info = _run_whatif_matrix(base_dir, pairs, log, spec_dict, resume=bool(args.resume),
+                              max_retries=args.max_retries, resume_granularity=args.resume_granularity)
 
-    # ── single-config run: manifest + shared-asset build + flat pool (all in _run_scenario) ──
-    # Per-regime warehouse sizing assembled from CONFIG (shared with run_analysis's rebuild).
-    regime_sizing = regime_sizing_from_config()
-    _run_scenario(base_dir, pairs, regime_sizing, workers, log,
-                  skip_completed=bool(args.resume),
-                  max_tasks_per_child=args.max_tasks_per_child,
-                  max_retries=args.max_retries, resume_granularity=args.resume_granularity)
+    # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──
+    if not args.no_analyze:
+        from Optimization.analyze_run import analyze_run
+        analyze_run(base_dir, log, cells=info['cells'],
+                    workers=(args.analysis_workers or workers), reference=info['reference'])
 
-    log.info(f'\nAll {len(pairs)} dataset(s) × ({n_store} store + {n_ff} ff) config(s) simulations complete.'
-             f'  Root: {base_dir}'
-             f'\n  Run graphs: python run_analysis.py {base_dir}')
+    log.info(f'\nAll simulations complete.  Root: {base_dir}'
+             + ('' if not args.no_analyze else
+                f'\n  Analyze with: python -m Optimization.analyze_run {base_dir}'))
 
 
 if __name__ == '__main__':

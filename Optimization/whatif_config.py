@@ -32,3 +32,25 @@ WHATIF = {
     'arms': 'all',
     'reference': 'k1_off_rr',    # round-robin baseline; run_whatif_delta diffs k1_off_lpt against it
 }
+
+
+# ── spec registry ────────────────────────────────────────────────────────────────
+# Every run is a CELL matrix; a plain run is the single-cell spec ``single`` (cell ``k1_off``).
+# ``run_simulation --spec <name>`` selects one.  This lightweight dict registry is the Phase-1
+# seam; a later phase promotes it to a self-registering package like Performance_Evaluations.
+SPECS = {
+    # Plain run: one cell, no split/zoning, round-robin scheduler.  arms=None ⇒ leave
+    # strategies.CHANNEL_RESTOCKS exactly as committed (the normal per-channel subset), so a
+    # `--spec single` run is the old flat run nested under a single `k1_off` cell.
+    'single': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off',
+    },
+    # The committed picker-scheduler A/B sweep (round_robin vs lpt over the full arm suite).
+    'scheduler_ab': WHATIF,
+}
+
+
+def get_spec(name):
+    """Return the cell-matrix spec dict for a registered name (KeyError if unknown)."""
+    return SPECS[name]

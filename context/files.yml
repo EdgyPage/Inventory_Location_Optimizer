@@ -326,6 +326,13 @@ files:
       - {name: "aisle_workload_components", file: "Optimization/Workload.py", kind: "function"}
       - {name: "aisle_workload", file: "Optimization/Workload.py", kind: "function"}
     notes: ""
+  "Optimization/analyze_run.py":
+    purpose: "Post-sim analysis hub \u2014 analyze_run() iterates every cell of a run (per-cell registry graphs + whole-warehouse rollup) then the cross-cell what-if summaries; run_simulation calls it in-process so one command runs sim + analysis, and `python -m Optimization.analyze_run` re-analyzes a finished run."
+    layer: "optimization"
+    key_symbols:
+      - {name: "analyze_run", file: "Optimization/analyze_run.py", kind: "function"}
+      - {name: "main", file: "Optimization/analyze_run.py", kind: "function"}
+    notes: ""
   "Optimization/batch_precompute.py":
     purpose: "compute each warehouse family's batch sequence ONCE and share it."
     layer: "optimization"
@@ -410,6 +417,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
+      - {name: "run", file: "Optimization/run_whatif_delta.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
     notes: ""
   "Optimization/run_whatif_labor.py":
@@ -417,6 +425,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
     notes: ""
   "Optimization/runlayout.py":
@@ -425,6 +434,7 @@ files:
     key_symbols:
       - {name: "discover_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
       - {name: "find_latest_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
+      - {name: "cells", file: "Optimization/runlayout.py", kind: "function"}
       - {name: "ChannelRun", file: "Optimization/runlayout.py", kind: "class"}
       - {name: "iter_channel_runs", file: "Optimization/runlayout.py", kind: "function"}
       - {name: "iter_sim_dbs", file: "Optimization/runlayout.py", kind: "function"}
@@ -478,6 +488,8 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "WHATIF", file: "Optimization/whatif_config.py", kind: "const"}
+      - {name: "SPECS", file: "Optimization/whatif_config.py", kind: "const"}
+      - {name: "get_spec", file: "Optimization/whatif_config.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
@@ -970,6 +982,18 @@ files:
       - {name: "test_apply_overlays_saved_spec", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
       - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
       - {name: "test_apply_injects_resolved_store_composition", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+    notes: ""
+  "Tests/test_run_unification.py":
+    purpose: "Locks the every-run-is-a-cell-matrix unification \u2014 runlayout.cells() enumeration (unified + legacy-flat trees) and the spec registry's single\u2192k1_off / scheduler_ab\u2192rr+lpt cell mapping."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_cells_unified_multicell", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_single", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_legacy_flat_is_one_implicit_cell", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_empty_dir", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_single_spec_is_one_k1_off_cell", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_scheduler_ab_spec_is_rr_vs_lpt", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_get_spec_unknown_raises", file: "Tests/test_run_unification.py", kind: "function"}
     notes: ""
   "Tests/test_scheduler.py":
     purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"

@@ -2226,6 +2226,86 @@
       "src": "Optimization/Workload.py::aisle_workload_components"
     },
     {
+      "dst": "Optimization/analyze_run.py::main",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/run_analysis.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/run_channel_rollup.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/runlayout.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/sim_config.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/whatif_config.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
+      "dst": "Optimization/analyze_run.py::_step",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::run_analysis",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_channel_rollup.py::rollup",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::run",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::run",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/runlayout.py::cells",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/analyze_run.py::analyze_run",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::main"
+    },
+    {
+      "dst": "Optimization/sim_config.py::_setup_logging",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::main"
+    },
+    {
       "dst": "Warehouse/Affinity_Store.py",
       "kind": "imports",
       "src": "Optimization/batch_precompute.py"
@@ -2671,6 +2751,11 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Optimization/analyze_run.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
       "dst": "Optimization/batch_precompute.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -2951,12 +3036,17 @@
       "src": "Optimization/run_simulation.py::_warn_blank_arms"
     },
     {
+      "dst": "Optimization/analyze_run.py::analyze_run",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/run_simulation.py::_apply_run_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
     {
-      "dst": "Optimization/run_simulation.py::_run_scenario",
+      "dst": "Optimization/run_simulation.py::_build_cells",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -2981,11 +3071,6 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
-      "dst": "Optimization/sim_config.py::regime_sizing_from_config",
-      "kind": "calls",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
       "dst": "Optimization/sim_manifest.py::_load_run_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -2994,6 +3079,11 @@
       "dst": "Optimization/sim_manifest.py::_write_run_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/whatif_config.py::get_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main._resolve_spec"
     },
     {
       "dst": "Optimization/run_whatif_delta.py::main",
@@ -3011,9 +3101,19 @@
       "src": "Optimization/run_whatif_delta.py::_scan"
     },
     {
-      "dst": "Optimization/run_whatif_delta.py::_scan",
+      "dst": "Optimization/run_whatif_delta.py::run",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_pct",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_scan",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::run"
     },
     {
       "dst": "Optimization/run_whatif_delta.py",
@@ -3071,59 +3171,69 @@
       "src": "Optimization/run_whatif_labor.py::_throughput_scatter"
     },
     {
-      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "dst": "Optimization/run_whatif_labor.py::run",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_batch_hours_bars",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_channels",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_labor_saved_bars",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_med",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_parse_arm",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_pct",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_scan_labor",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_scheduler_of",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_throughput_scatter",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_uplift_bars",
       "kind": "calls",
-      "src": "Optimization/run_whatif_labor.py::main"
+      "src": "Optimization/run_whatif_labor.py::run"
+    },
+    {
+      "dst": "Optimization/runlayout.py::iter_sim_dbs",
+      "kind": "calls",
+      "src": "Optimization/runlayout.py::cells"
     },
     {
       "dst": "Optimization/runlayout.py::_profile_pairs",
@@ -9367,6 +9477,38 @@
       "public": true
     },
     {
+      "file": "Optimization/analyze_run.py",
+      "id": "Optimization/analyze_run.py",
+      "kind": "module",
+      "module": "Optimization/analyze_run.py",
+      "name": "Optimization.analyze_run",
+      "public": true
+    },
+    {
+      "file": "Optimization/analyze_run.py",
+      "id": "Optimization/analyze_run.py::_step",
+      "kind": "function",
+      "module": "Optimization/analyze_run.py",
+      "name": "_step",
+      "public": false
+    },
+    {
+      "file": "Optimization/analyze_run.py",
+      "id": "Optimization/analyze_run.py::analyze_run",
+      "kind": "function",
+      "module": "Optimization/analyze_run.py",
+      "name": "analyze_run",
+      "public": true
+    },
+    {
+      "file": "Optimization/analyze_run.py",
+      "id": "Optimization/analyze_run.py::main",
+      "kind": "function",
+      "module": "Optimization/analyze_run.py",
+      "name": "main",
+      "public": true
+    },
+    {
       "file": "Optimization/batch_precompute.py",
       "id": "Optimization/batch_precompute.py",
       "kind": "module",
@@ -10207,6 +10349,14 @@
       "public": true
     },
     {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::main._resolve_spec",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_resolve_spec",
+      "public": false
+    },
+    {
       "file": "Optimization/run_whatif_delta.py",
       "id": "Optimization/run_whatif_delta.py",
       "kind": "module",
@@ -10232,6 +10382,14 @@
     },
     {
       "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_pct",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_pct",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
       "id": "Optimization/run_whatif_delta.py::_scan",
       "kind": "function",
       "module": "Optimization/run_whatif_delta.py",
@@ -10248,11 +10406,11 @@
     },
     {
       "file": "Optimization/run_whatif_delta.py",
-      "id": "Optimization/run_whatif_delta.py::main._pct",
+      "id": "Optimization/run_whatif_delta.py::run",
       "kind": "function",
       "module": "Optimization/run_whatif_delta.py",
-      "name": "_pct",
-      "public": false
+      "name": "run",
+      "public": true
     },
     {
       "file": "Optimization/run_whatif_labor.py",
@@ -10399,6 +10557,14 @@
       "public": true
     },
     {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::run",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "run",
+      "public": true
+    },
+    {
       "file": "Optimization/runlayout.py",
       "id": "Optimization/runlayout.py",
       "kind": "module",
@@ -10437,6 +10603,14 @@
       "module": "Optimization/runlayout.py",
       "name": "_sim_dbs_in",
       "public": false
+    },
+    {
+      "file": "Optimization/runlayout.py",
+      "id": "Optimization/runlayout.py::cells",
+      "kind": "function",
+      "module": "Optimization/runlayout.py",
+      "name": "cells",
+      "public": true
     },
     {
       "file": "Optimization/runlayout.py",
@@ -11120,10 +11294,26 @@
     },
     {
       "file": "Optimization/whatif_config.py",
+      "id": "Optimization/whatif_config.py::SPECS",
+      "kind": "const",
+      "module": "Optimization/whatif_config.py",
+      "name": "SPECS",
+      "public": true
+    },
+    {
+      "file": "Optimization/whatif_config.py",
       "id": "Optimization/whatif_config.py::WHATIF",
       "kind": "const",
       "module": "Optimization/whatif_config.py",
       "name": "WHATIF",
+      "public": true
+    },
+    {
+      "file": "Optimization/whatif_config.py",
+      "id": "Optimization/whatif_config.py::get_spec",
+      "kind": "function",
+      "module": "Optimization/whatif_config.py",
+      "name": "get_spec",
       "public": true
     },
     {

@@ -178,7 +178,7 @@ artifacts:
   whatif_labor_csv:
     path_pattern: "<comparison_whatif_...>/whatif_labor.csv"
     format: csv
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor.csv"
     fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
@@ -187,7 +187,7 @@ artifacts:
   whatif_labor_json:
     path_pattern: "<comparison_whatif_...>/whatif_labor.json"
     format: json
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor.json"
     fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
@@ -196,6 +196,6 @@ artifacts:
   whatif_labor_pngs:
     path_pattern: "<comparison_whatif_...>/{whatif_labor_throughput_scatter,whatif_labor_saved_bars,whatif_batch_hours_rr_vs_lpt,whatif_scheduler_uplift}.png"
     format: png
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor_throughput_scatter"

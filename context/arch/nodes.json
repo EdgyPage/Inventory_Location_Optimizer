@@ -2447,6 +2447,33 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/analyze_run.py": {
+      "decorators": [],
+      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`) at the run root.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/analyze_run.py::_step": {
+      "decorators": [],
+      "doc": "Run one analysis step, isolating failures (DBs are already persisted).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(log, what, fn)"
+    },
+    "Optimization/analyze_run.py::analyze_run": {
+      "decorators": [],
+      "doc": "Analyze every cell of a run, then (for a multi-cell run) the cross-cell what-if summaries.\n\ncells: explicit [cell_name, \u2026] from the driver (avoids re-scanning); else discovered from disk.\nreference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', reference=None, cross_cell=True)"
+    },
+    "Optimization/analyze_run.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None)"
+    },
     "Optimization/batch_precompute.py": {
       "decorators": [],
       "doc": "batch_precompute.py \u2014 compute each warehouse family's batch sequence ONCE and share it.\n\nBatch sampling (`Workload_Builder.Batch`) is a PURE function of (batch_cfg, inventory, affinity,\nseed_batches + i): it weights SKUs by static demand frequency x the immutable affinity-lift CSR and\ndraws from a dedicated per-batch RNG `random.Random(seed_batches + i)`.  Today every strategy arm of a\nwarehouse family re-samples the identical sequence inside its own worker process \u2014 the heavy\nO(k*|inventory|) sampling (the bulk of the per-batch \"build\" section) is paid ~32x for bit-identical\nresults.  This module computes the sequence ONCE (optionally in parallel chunks) so every arm of the\nfamily reads it instead, while the genuinely sequential `Task.from_batch` stays per-arm in the loop.\n\nCorrectness rests on two things:\n  * `load_inventory_from_db` selects `ORDER BY sku`, so the candidate order \u2014 which\n    `_lift_weighted_sample` indexes positionally \u2014 is deterministic; loading the SAME db with the SAME\n    limit/allowlist the worker uses reproduces the worker's candidates exactly.\n  * a content FINGERPRINT over exactly the fields a batch consumes (the ordered\n    (sku, relative_frequency, quantity_rate) triples + batch_cfg + seeds + the affinity CSR digest)\n    keys the on-disk list.  Families of different sizes get different fingerprints (so they never share\n    a list), and a worker accepts a file only when its own recomputed fingerprint matches \u2014 never\n    another family's.  On any mismatch/miss the caller falls back to inline sampling (still correct).",
@@ -3134,10 +3161,10 @@
     },
     "Optimization/run_simulation.py::_run_whatif_matrix": {
       "decorators": [],
-      "doc": "Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory\nonce (tightest cell), then reshape + simulate it for every cell.",
+      "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 bit-identical to the old flat run, just nested under its cell dir.  Returns\n{'cells': [names], 'reference': name}.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, log, resume=False, max_retries=2, resume_granularity='strategy')"
+      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy')"
     },
     "Optimization/run_simulation.py::_run_workers_flat": {
       "decorators": [],
@@ -3174,6 +3201,13 @@
       "kind": "function",
       "signature": "()"
     },
+    "Optimization/run_simulation.py::main._resolve_spec": {
+      "decorators": [],
+      "doc": "Selected cell-matrix (name, dict).  --whatif is the deprecated alias for scheduler_ab.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],
       "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per\ncell\u00d7channel\u00d7arm) and a median summary.  This is what makes a scheduling win legible: LPT should show\n\u0394batch-makespan \u2193 and \u0394throughput/batch \u2191 while \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
@@ -3194,6 +3228,13 @@
       "kind": "function",
       "signature": "(db: str)"
     },
+    "Optimization/run_whatif_delta.py::_pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
+    },
     "Optimization/run_whatif_delta.py::_scan": {
       "decorators": [],
       "doc": "{(pair, pickcfg, channel, arm): metrics} for one scenario subtree.",
@@ -3208,12 +3249,12 @@
       "kind": "function",
       "signature": "()"
     },
-    "Optimization/run_whatif_delta.py::main._pct": {
+    "Optimization/run_whatif_delta.py::run": {
       "decorators": [],
-      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "doc": "Engine: diff every cell under base_dir vs the reference cell; write whatif_delta.csv +\nthe labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub\ncalls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op.",
       "is_async": false,
       "kind": "function",
-      "signature": "(a, b, higher_better)"
+      "signature": "(base_dir, reference=None, log=None)"
     },
     "Optimization/run_whatif_labor.py": {
       "decorators": [],
@@ -3340,9 +3381,16 @@
       "kind": "function",
       "signature": "()"
     },
+    "Optimization/run_whatif_labor.py::run": {
+      "decorators": [],
+      "doc": "Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +\nthe four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process\n(no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits\nthe CSV/JSON (its cross-cell deltas are empty).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None)"
+    },
     "Optimization/runlayout.py": {
       "decorators": [],
-      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
+      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is\nitself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/\u2026``), so the\nper-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the\ntop-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore\nrun PER CELL \u2014 pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
       "kind": "module",
       "signature": null
     },
@@ -3376,6 +3424,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run: ChannelRun) -> Iterator[tuple[ChannelRun, str]]"
+    },
+    "Optimization/runlayout.py::cells": {
+      "decorators": [],
+      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``), so a run root's\nimmediate non-``_`` children are cell dirs \u2014 each a self-contained comparison subtree.\nA legacy FLAT run (no cell level \u2014 sim DBs sit directly under ``<base>/<pair>/<config>``)\nis yielded as one implicit cell named after the base dir, so old runs still analyze.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> Iterator[tuple[str, str]]"
     },
     "Optimization/runlayout.py::discover_db_pairs": {
       "decorators": [],
@@ -3968,12 +4023,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/whatif_config.py::SPECS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF}"
+    },
     "Optimization/whatif_config.py::WHATIF": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
+    },
+    "Optimization/whatif_config.py::get_spec": {
+      "decorators": [],
+      "doc": "Return the cell-matrix spec dict for a registered name (KeyError if unknown).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name)"
     },
     "Visualization/db_reader.py": {
       "decorators": [],

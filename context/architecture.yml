@@ -43,8 +43,6 @@ boundaries:
 #     (e.g. the ProcessPool spawn, which coverage_e2e bypasses by design).
 backbone:
   # simulation entry -> scenario -> shared assets -> warehouse sizing
-  - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function}, via: calls}
   - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
      dst: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}, via: calls}
   - {src: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function},
@@ -84,6 +82,9 @@ backbone:
      dst: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function}, via: calls}
   - {src: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  # sim entry -> post-sim analysis hub (in-process, unless --no-analyze)
+  - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: analyze_run, file: Optimization/analyze_run.py, kind: function}, via: calls}
   # analysis pipeline
   - {src: {name: main, file: Optimization/run_analysis.py, kind: function},
      dst: {name: run_analysis, file: Optimization/run_analysis.py, kind: function}, via: calls}
