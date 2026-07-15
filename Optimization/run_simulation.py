@@ -49,6 +49,7 @@ from Optimization.sim_assets import build_shared_assets                    # noq
 from Optimization.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
     _write_run_spec, _load_run_spec, _run_spec_path,
+    write_run_layout, read_run_layout, _run_layout_path,
 )
 
 
@@ -1016,6 +1017,20 @@ def main():
             'pairs'        : [list(p) for p in pairs],
         })
         log.info('  Wrote run_spec.json — zero-param `--resume` enabled')
+
+    # run_layout.json — the unified cell-tree descriptor (cells/reference/configs/pairs), so tools
+    # INFER the tree instead of directory-guessing.  Written for a new run; a resumed LEGACY run
+    # (no descriptor) gains one so it stays analyzable.  cell_tuples/reference match the driver's.
+    cell_tuples = _build_cells(spec_dict)
+    reference   = next((c[0] for c in cell_tuples if c[1] is None and not c[2].get('enabled')
+                        and c[3] == 'round_robin'), spec_dict.get('reference') or cell_tuples[0][0])
+    if (not args.resume) or (read_run_layout(base_dir) is None):
+        write_run_layout(
+            base_dir, spec=spec_name, reference=reference, cells=cell_tuples, pairs=pairs,
+            store_cfgs=STORE_CONFIGS, ff_cfgs=FULFILLMENT_CONFIGS,
+            channels=(['store', 'fulfillment'] if FULFILLMENT_CONFIGS else ['store']),
+            arms=(None if spec_dict.get('arms') in (None, 'all') else list(spec_dict['arms'])),
+            created=datetime.now().isoformat(timespec='seconds'))
 
     n_store = len(STORE_CONFIGS)
     n_ff    = len(FULFILLMENT_CONFIGS)

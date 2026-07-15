@@ -21,6 +21,7 @@ import sys
 
 from Optimization import runlayout, run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor
 from Optimization.sim_config import _OUTPUT_DIR, _setup_logging
+from Optimization.sim_manifest import read_run_layout
 
 
 def _step(log, what, fn):
@@ -57,11 +58,17 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
         cell_names = [n for n, _d in cell_items]
         ref = reference
         if ref is None:
-            try:
-                from Optimization.whatif_config import WHATIF
-                ref = WHATIF.get('reference')
-            except Exception:                                  # noqa: BLE001
-                ref = None
+            # Prefer the run's OWN descriptor reference (correct for re-analyzing an old sweep);
+            # fall back to the currently-committed whatif spec only when there's no descriptor.
+            layout = read_run_layout(base_dir)
+            if layout and layout.get('reference'):
+                ref = layout['reference']
+            else:
+                try:
+                    from Optimization.whatif_config import WHATIF
+                    ref = WHATIF.get('reference')
+                except Exception:                              # noqa: BLE001
+                    ref = None
         log.info(f'  cross-cell what-if summaries (reference={ref})')
         if ref in cell_names:
             _step(log, 'whatif_delta', lambda: run_whatif_delta.run(base_dir, ref, log=log))

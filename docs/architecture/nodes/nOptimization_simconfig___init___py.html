@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig___init___py" data-id="Optimization/simconfig/__init__.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig___init___py.html"><code>Optimization/simconfig/__init__.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>Optimization.simconfig</code></pre>
+<section class="doc">simconfig — self-registering pick-config registry (the sim analogue of the graph suite).
+
+Importing this package fires import_all() so every module under configs/ self-registers its
+pick-config via @pick_config; Optimization/sim_config.py then rebuilds STORE_CONFIGS /
+FULFILLMENT_CONFIGS from the registry (filtering by channel + enabled).  Adding a pick-config =
+drop a module in configs/ — no central edit.  Whatif cell-matrix specs stay in whatif_config.SPECS
+for now; the same registry pattern can absorb them later.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_core_discovery_py.html"><code>Optimization.simconfig.core.discovery</code></a> <span class="dim">Optimization/simconfig/core/discovery.py</span></li><li><a href="nOptimization_simconfig_core_registry_py.html"><code>Optimization.simconfig.core.registry</code></a> <span class="dim">Optimization/simconfig/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_sim_config_py.html"><code>Optimization.sim_config</code></a> <span class="dim">Optimization/sim_config.py</span></li><li><a href="nOptimization_simconfig_core_discovery_py.html"><code>Optimization.simconfig.core.discovery</code></a> <span class="dim">Optimization/simconfig/core/discovery.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

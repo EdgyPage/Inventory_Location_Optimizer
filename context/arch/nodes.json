@@ -3427,7 +3427,7 @@
     },
     "Optimization/runlayout.py::cells": {
       "decorators": [],
-      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``), so a run root's\nimmediate non-``_`` children are cell dirs \u2014 each a self-contained comparison subtree.\nA legacy FLAT run (no cell level \u2014 sim DBs sit directly under ``<base>/<pair>/<config>``)\nis yielded as one implicit cell named after the base dir, so old runs still analyze.",
+      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a\n``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe \u2014\nso a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on\nresume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run\nroot's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the\ncells; a legacy FLAT run (no cell level \u2014 DBs directly under ``<base>/<pair>/<config>``) is\nyielded as one implicit cell named after the base dir.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> Iterator[tuple[str, str]]"
@@ -3505,7 +3505,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[{'name': 'ful_calibrated', 'pick_intercept': 10, 'pick_weight_coef': 0.7, 'pick_weight_fn': 'log', 'pick_volume_coef': 0.09, 'pick_volume_fn': 'log', 'cart_swap_coef': 240, 'cart': 'FulfillmentCar..."
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
     },
     "Optimization/sim_config.py::K_PICKERS": {
       "decorators": [],
@@ -3526,7 +3526,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[{'name': 'store', 'pick_intercept': 15, 'pick_weight_coef': 0.58, 'pick_weight_fn': 'pow:1.5', 'pick_volume_coef': 0.7, 'pick_volume_fn': 'log:2', 'cart_swap_coef': 300, 'x_speed': 3, 'y_speed': 2..."
+      "value_preview": "STORE_CONFIGS"
     },
     "Optimization/sim_config.py::SEED_BATCHES": {
       "decorators": [],
@@ -3547,7 +3547,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "REGRESSION_CONFIGS"
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
     },
     "Optimization/sim_config.py::STORE_RESTOCKS": {
       "decorators": [],
@@ -3555,6 +3555,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "CONFIG['channels']['store']['restocks']"
+    },
+    "Optimization/sim_config.py::_ACTIVE_PICK_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "sorted((s for s in PICK_CONFIGS if s.enabled), key=lambda s: (s.channel, s.order, s.name))"
     },
     "Optimization/sim_config.py::_AISLE_H": {
       "decorators": [],
@@ -3591,13 +3598,6 @@
       "signature": null,
       "value_preview": "_clean_path(os.getenv('PROFILE_INPUT_DIR', os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles'))))"
     },
-    "Optimization/sim_config.py::_FF_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "20"
-    },
     "Optimization/sim_config.py::_HANDLINGS": {
       "decorators": [],
       "doc": null,
@@ -3632,13 +3632,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
-    },
-    "Optimization/sim_config.py::_STORE_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "25"
     },
     "Optimization/sim_config.py::_build_pick_cfg": {
       "decorators": [],
@@ -3716,6 +3709,13 @@
       "kind": "function",
       "signature": "(run_dir: str) -> str"
     },
+    "Optimization/sim_manifest.py::_run_layout_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> str"
+    },
     "Optimization/sim_manifest.py::_run_spec_path": {
       "decorators": [],
       "doc": null,
@@ -3737,6 +3737,20 @@
       "kind": "function",
       "signature": "(base_dir: str, spec: dict) -> None"
     },
+    "Optimization/sim_manifest.py::read_run_layout": {
+      "decorators": [],
+      "doc": "Load <base>/run_layout.json, or None if absent/malformed (legacy runs have no descriptor).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str)"
+    },
+    "Optimization/sim_manifest.py::write_run_layout": {
+      "decorators": [],
+      "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() tuples [(name, split, zoning, scheduler), \u2026]; split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -> None"
+    },
     "Optimization/sim_manifest.py::write_run_manifest": {
       "decorators": [],
       "doc": "Write <base>/run_manifest.json \u2014 a schema index of this run (inventories \u00d7\nconfigs \u00d7 strategies) so the docs ingest can auto-discover what to pull.\nSee docs/experiments/ingest.py.",
@@ -3757,6 +3771,145 @@
       "is_async": false,
       "kind": "function",
       "signature": "(c, channel)"
+    },
+    "Optimization/simconfig/__init__.py": {
+      "decorators": [],
+      "doc": "simconfig \u2014 self-registering pick-config registry (the sim analogue of the graph suite).\n\nImporting this package fires import_all() so every module under configs/ self-registers its\npick-config via @pick_config; Optimization/sim_config.py then rebuilds STORE_CONFIGS /\nFULFILLMENT_CONFIGS from the registry (filtering by channel + enabled).  Adding a pick-config =\ndrop a module in configs/ \u2014 no central edit.  Whatif cell-matrix specs stay in whatif_config.SPECS\nfor now; the same registry pattern can absorb them later.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/__init__.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/ful_calibrated.py": {
+      "decorators": [],
+      "doc": "Fulfillment channel \u2014 base human-walker pick-config (FulfillmentCart, one-way lanes).\n\nThe FIRST/only fulfillment entry is the single source of truth for the default walker cost \u2014\nchannels.fulfillment_pick_config() reads it back via sim_config.FULFILLMENT_CONFIGS[0].  Keep the\nname DISTINCT from any store config name (config.json is written per config dir; a shared name\nwould collide \u2014 see the runner's _prepare_channel_run).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/ful_calibrated.py::ful_calibrated": {
+      "decorators": [
+        "pick_config(name='ful_calibrated', channel='fulfillment', order=0)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store.py": {
+      "decorators": [],
+      "doc": "Store channel \u2014 base ergonomics pick-config (StoreCart). The single active store calibration.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store.py::store": {
+      "decorators": [
+        "pick_config(name='store', channel='store', order=0)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store_high_height.py": {
+      "decorators": [],
+      "doc": "Store variant \u2014 base weight, steeper height brackets (menu entry, not in the active sweep).\nRegistered with enabled=False; flip enabled=True to add it to the store sweep.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store_high_height.py::store_high_height": {
+      "decorators": [
+        "pick_config(name='store_high_height', channel='store', order=11, enabled=False)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store_high_weight_high_height.py": {
+      "decorators": [],
+      "doc": "Store variant \u2014 steeper weight exponent + steeper height brackets (menu entry, not in the\nactive sweep).  Registered with enabled=False so it is discoverable/togglable without running;\nflip enabled=True to add it to the store sweep.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store_high_weight_high_height.py::store_high_weight_high_height": {
+      "decorators": [
+        "pick_config(name='store_high_weight_high_height', channel='store', order=10, enabled=False)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/constants.py": {
+      "decorators": [],
+      "doc": "Leaf constants shared by the pick-config modules AND sim_config.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: the config\nmodules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config\nwould cycle \u2014 sim_config imports the simconfig registry, which import_all()s the config modules.\nsim_config re-imports these so `rs._STORE_PICKERS` / `K_PICKERS` and CONFIG['channels'][*]\n['num_pickers'] keep their single source of truth.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/constants.py::_FF_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "20"
+    },
+    "Optimization/simconfig/constants.py::_STORE_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "25"
+    },
+    "Optimization/simconfig/core/__init__.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/discovery.py": {
+      "decorators": [],
+      "doc": "Auto-discovery: import every simconfig submodule so @pick_config decorators fire.\n\nMirrors Optimization/Performance_Evaluations/core/discovery.py.  Used instead of a hand-maintained\nimport list so dropping a new pick-config file into configs/ registers it with zero edits elsewhere.\n\nCritical for multiprocessing: the package __init__ calls import_all() at import time, so each\nspawned worker that (transitively) imports Optimization.simconfig repopulates the registry in its\nown process before any run.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/discovery.py::import_all": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/simconfig/core/registry.py": {
+      "decorators": [],
+      "doc": "PickConfigSpec descriptor + @pick_config decorator + module-level registry.\n\nMirrors Optimization/Performance_Evaluations/core/registry.py: a frozen dataclass per item, a\nflat list, and a by-key dict, populated by a decorator so a pick-config module self-registers on\nimport.  A pick-config is the plain dict Optimization/sim_config._build_pick_cfg consumes; the spec\nmakes explicit the CHANNEL split (store vs fulfillment) that used to be implicit in WHICH list the\ndict lived in, plus a sweep ``order`` (list order is load-bearing \u2014 it sets config-dir identity and\nsweep order, so it must NOT depend on filesystem walk order) and an ``enabled`` flag so a variant\ncan be kept as a discoverable menu entry without running.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/registry.py::PickConfigSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/core/registry.py::pick_config": {
+      "decorators": [],
+      "doc": "Decorator: register the wrapped zero-arg builder's returned dict as a PickConfigSpec.\n\nReturns the builder unchanged so it stays directly callable/unit-testable.  Raises on a\nduplicate name or an unknown channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, name, channel, order=0, enabled=True)"
+    },
+    "Optimization/simconfig/core/registry.py::pick_config._wrap": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fn)"
     },
     "Optimization/strategies.py": {
       "decorators": [],

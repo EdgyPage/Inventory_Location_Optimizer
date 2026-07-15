@@ -82,13 +82,23 @@ def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
 def cells(base_dir: str) -> Iterator[tuple[str, str]]:
     """Yield (cell_name, cell_dir) for every cell under a run root.
 
-    Every run is a cell matrix (a plain run is the single cell ``k1_off``), so a run root's
-    immediate non-``_`` children are cell dirs — each a self-contained comparison subtree.
-    A legacy FLAT run (no cell level — sim DBs sit directly under ``<base>/<pair>/<config>``)
-    is yielded as one implicit cell named after the base dir, so old runs still analyze.
+    Every run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a
+    ``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe —
+    so a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on
+    resume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run
+    root's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the
+    cells; a legacy FLAT run (no cell level — DBs directly under ``<base>/<pair>/<config>``) is
+    yielded as one implicit cell named after the base dir.
     """
     if not os.path.isdir(base_dir):
         return
+    from Optimization.sim_manifest import read_run_layout
+    layout = read_run_layout(base_dir)
+    if layout and layout.get('cells'):
+        for cell in layout['cells']:
+            yield cell['name'], os.path.join(base_dir, cell['name'])
+        return
+    # ── legacy fallback: no descriptor → infer the cells from the on-disk tree ──
     subs = [d for d in sorted(os.listdir(base_dir))
             if os.path.isdir(os.path.join(base_dir, d)) and not d.startswith('_')]
     found = False

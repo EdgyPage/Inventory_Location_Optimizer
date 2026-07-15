@@ -47,8 +47,24 @@ artifacts:
       - {function: _load_run_spec, file: Optimization/sim_manifest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
-             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, profiles_dir,
+             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
              all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+
+  run_layout:
+    # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
+    # tool can INFER the tree — and analyze a partial/crashed or OLD run — without directory-guessing
+    # or re-importing the (possibly since-changed) whatif spec.  `fields` is verified against the
+    # committed JSON Schema's top-level properties (see schema_file).
+    path_pattern: "comparison_<ts>/run_layout.json"
+    format: json
+    schema_file: Optimization/schemas/run_layout.schema.json
+    writer: {function: write_run_layout, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: cells, file: Optimization/runlayout.py}
+      - {function: analyze_run, file: Optimization/analyze_run.py}
+    match: "run_layout.json"
+    fields: [version, kind, spec, base, created, reference, tree_template, channels, cells,
+             pairs, configs, arms]
 
   warehouse_db:
     path_pattern: "comparison_<ts>/<pair>/warehouse.db"

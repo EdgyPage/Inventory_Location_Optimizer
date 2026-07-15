@@ -51,6 +51,8 @@ from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
 from Warehouse.regime import STORE, FULFILLMENT
 from Optimization.strategies import restocks_for
 from Optimization.channels import FF_BATCH_SEED_OFFSET
+from Optimization.simconfig import PICK_CONFIGS                          # fires the registry import_all()
+from Optimization.simconfig.constants import _STORE_PICKERS, _FF_PICKERS
 
 # ── warehouse geometry (structural; shared by both channels) ────────────────────
 # Physical aisle dimensions: 50 pallet-width columns × 10 extra_large-height levels.
@@ -58,9 +60,9 @@ from Optimization.channels import FF_BATCH_SEED_OFFSET
 _AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
 _AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
 
-# Picker-pool defaults per channel (a pick-config entry may override its own 'num_pickers').
-_STORE_PICKERS = 25
-_FF_PICKERS    = 20
+# Picker-pool defaults per channel live in Optimization/simconfig/constants.py (imported above as
+# _STORE_PICKERS / _FF_PICKERS) so the self-registering pick-config modules can reference them
+# without a circular import.  A pick-config entry may still override its own 'num_pickers'.
 
 
 def _clean_path(val: str) -> str:
@@ -92,83 +94,25 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 # SKU is placeable.  See Warehouse/Inventory_Management.py.
 
 
-REGRESSION_CONFIGS = [
-    {
-        'name'            : 'store',
-        'pick_intercept'  : 15,
-        'pick_weight_coef': 0.58,
-        'pick_weight_fn'  : 'pow:1.5',
-        'pick_volume_coef': 0.7,
-        'pick_volume_fn'  : 'log:2',
-        'cart_swap_coef'  : 300,
-        'x_speed'         : 3,    # ft/s
-        'y_speed'         : 2,    # ft/s
-        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
-        'height_brackets' : ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4)),
-    },
-    # Only the base `store` calibration runs.  Weight/height variants kept commented as a menu.
-#    {
-#        'name'            : 'store_high_weight_high_height',
-#        'pick_intercept'  : 15,
-#        'pick_weight_coef': 0.58,
-#        'pick_weight_fn'  : 'pow:2.0',
-#        'pick_volume_coef': 0.7,
-#        'pick_volume_fn'  : 'log:2',
-#        'cart_swap_coef'  : 300,
-#        'x_speed'         : 3,    # ft/s
-#        'y_speed'         : 2,    # ft/s
-#        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
-#        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
-#    },
-#    {
-#        'name'            : 'store_high_height',
-#        'pick_intercept'  : 15,
-#        'pick_weight_coef': 0.58,
-#        'pick_weight_fn'  : 'pow:1.5',
-#        'pick_volume_coef': 0.7,
-#        'pick_volume_fn'  : 'log:2',
-#        'cart_swap_coef'  : 300,
-#        'x_speed'         : 3,    # ft/s
-#        'y_speed'         : 2,    # ft/s
-#        'num_pickers'     : _STORE_PICKERS,   # machine order-picker pool size
-#        'height_brackets' : ((96.0, 1.0), (240.0, 1.4), (float('inf'), 1.8)),
-#    },
-]
-
-# ── per-channel config sweeps ───────────────────────────────────────────────────
-# Store and fulfillment are INDEPENDENT warehouse sections (see channels.py): each
-# sweeps its OWN set of pick-time regression configs, runs its own restock suite,
-# writes its own DB subtree, and is combined only post-analysis by run_channel_rollup.
-# The sweep is a UNION, not a cross product: a mixed catalog runs len(STORE_CONFIGS)
-# store runs + len(FULFILLMENT_CONFIGS) fulfillment runs (a store-only catalog runs
-# only the store set).  REGRESSION_CONFIGS above IS the store set; STORE_CONFIGS is the
-# preferred name (the alias keeps existing `rs.REGRESSION_CONFIGS` consumers working).
-STORE_CONFIGS = REGRESSION_CONFIGS
-
-# Fulfillment (human-walker) configs.  IDENTICAL dict schema to the store set (every config
-# carries its own 'num_pickers' pool size + optional 'cart').  The FIRST entry is the single
-# source of truth for the default walker cost — channels.fulfillment_pick_config() reads it
-# back (it used to carry its own copy, which drifted).  Keep names DISTINCT from store config
-# names (config.json is written per config dir; a shared name would collide — see the runner's
-# _prepare_channel_run).
-FULFILLMENT_CONFIGS = [
-    {
-        'name'            : 'ful_calibrated',
-        'pick_intercept'  : 10,
-        'pick_weight_coef': 0.7,
-        'pick_weight_fn'  : 'log',
-        'pick_volume_coef': 0.09,
-        'pick_volume_fn'  : 'log',
-        'cart_swap_coef'  : 240,
-        'cart'            : 'FulfillmentCart',
-        'x_speed'         : 2,    # ft/s
-        'y_speed'         : 4,    # ft/s
-        'one_way'         : True, # one-way lanes: aisle DEPTH drives x-travel (see travel model)
-        'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
-        # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
-    },
-    # Only the base `ful_calibrated` walker calibration runs (fast-walker variant removed).
-]
+# ── per-channel config sweeps (rebuilt from the simconfig registry) ─────────────
+# Store and fulfillment are INDEPENDENT warehouse sections (see channels.py): each sweeps its OWN
+# set of pick-time configs, runs its own restock suite, writes its own DB subtree, and is combined
+# only post-analysis by run_channel_rollup.  The sweep is a UNION, not a cross product: a mixed
+# catalog runs len(STORE_CONFIGS) store runs + len(FULFILLMENT_CONFIGS) fulfillment runs.
+#
+# The pick-config DICTS now live as self-registering modules under Optimization/simconfig/configs/
+# (mirroring the graph suite — add a config = drop a module).  Here we rebuild the per-channel lists
+# from the registry, filtered by channel + enabled and ordered by the spec's `order` (LIST ORDER IS
+# LOAD-BEARING — it sets config-dir identity + sweep order, so it must NOT depend on filesystem walk
+# order).  STORE_CONFIGS / FULFILLMENT_CONFIGS / REGRESSION_CONFIGS keep their names (run_simulation
+# re-exports them; CONFIG['channels'][*]['configs'] references them; tests read rs.REGRESSION_CONFIGS)
+# but their VALUES are assembled from the registry.  The commented-out store variants are now
+# enabled=False modules (a discoverable menu); the fast-walker ff variant stays removed.
+_ACTIVE_PICK_CONFIGS = sorted((s for s in PICK_CONFIGS if s.enabled),
+                              key=lambda s: (s.channel, s.order, s.name))
+STORE_CONFIGS       = [s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']
+FULFILLMENT_CONFIGS = [s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']
+REGRESSION_CONFIGS  = STORE_CONFIGS      # legacy alias: REGRESSION_CONFIGS IS the store set
 
 
 # ── nested run configuration (single source of truth) ───────────────────────────

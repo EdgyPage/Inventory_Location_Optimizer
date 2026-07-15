@@ -129,6 +129,24 @@ def check_artifacts(relpath: str) -> set:
             if ssrc is None or not re.search(
                     rf'CREATE TABLE(\s+IF NOT EXISTS)?\s+{re.escape(table)}\b', ssrc):
                 err(f'{where}: table `{table}` has no CREATE TABLE in {schema_file}')
+        # json: if a committed *.schema.json is declared, the artifact's `fields` must equal the
+        # schema's top-level `properties` — teeth that keep artifacts.yml and the JSON Schema in sync
+        # (json `fields` are otherwise documentation-only).
+        sf = art.get('schema_file', '')
+        if sf.endswith('.schema.json'):
+            raw = src_of(sf)
+            if raw is None:
+                err(f'{where}: schema_file missing: {sf}')
+            else:
+                import json as _json
+                try:
+                    props = set((_json.loads(raw).get('properties') or {}).keys())
+                except _json.JSONDecodeError as exc:
+                    err(f'{where}: schema_file not valid JSON ({sf}): {exc}')
+                    props = None
+                fields = set(art.get('fields', []))
+                if props is not None and fields != props:
+                    err(f'{where}: `fields` {sorted(fields)} != schema properties {sorted(props)} in {sf}')
     return set(arts)
 
 

@@ -449,9 +449,9 @@ files:
     purpose: "the run's single source of tunable truth."
     layer: "optimization"
     key_symbols:
-      - {name: "REGRESSION_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
       - {name: "STORE_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
       - {name: "FULFILLMENT_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
+      - {name: "REGRESSION_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
       - {name: "CONFIG", file: "Optimization/sim_config.py", kind: "const"}
       - {name: "SEED_WORLD", file: "Optimization/sim_config.py", kind: "const"}
       - {name: "SEED_BATCHES", file: "Optimization/sim_config.py", kind: "const"}
@@ -464,7 +464,51 @@ files:
     purpose: "run bookkeeping artifacts."
     layer: "optimization"
     key_symbols:
+      - {name: "write_run_layout", file: "Optimization/sim_manifest.py", kind: "function"}
+      - {name: "read_run_layout", file: "Optimization/sim_manifest.py", kind: "function"}
       - {name: "write_run_manifest", file: "Optimization/sim_manifest.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/configs/ful_calibrated.py":
+    purpose: "base human-walker pick-config (FulfillmentCart, one-way lanes)."
+    layer: "optimization"
+    key_symbols:
+      - {name: "ful_calibrated", file: "Optimization/simconfig/configs/ful_calibrated.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/configs/store.py":
+    purpose: "base ergonomics pick-config (StoreCart). The single active store calibration."
+    layer: "optimization"
+    key_symbols:
+      - {name: "store", file: "Optimization/simconfig/configs/store.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/configs/store_high_height.py":
+    purpose: "base weight, steeper height brackets (menu entry, not in the active sweep)."
+    layer: "optimization"
+    key_symbols:
+      - {name: "store_high_height", file: "Optimization/simconfig/configs/store_high_height.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/configs/store_high_weight_high_height.py":
+    purpose: "steeper weight exponent + steeper height brackets (menu entry, not in the"
+    layer: "optimization"
+    key_symbols:
+      - {name: "store_high_weight_high_height", file: "Optimization/simconfig/configs/store_high_weight_high_height.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/constants.py":
+    purpose: "Leaf constants shared by the pick-config modules AND sim_config."
+    layer: "optimization"
+    key_symbols: []
+    notes: ""
+  "Optimization/simconfig/core/discovery.py":
+    purpose: "Auto-discovery: import every simconfig submodule so @pick_config decorators fire."
+    layer: "optimization"
+    key_symbols:
+      - {name: "import_all", file: "Optimization/simconfig/core/discovery.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/core/registry.py":
+    purpose: "PickConfigSpec descriptor + @pick_config decorator + module-level registry."
+    layer: "optimization"
+    key_symbols:
+      - {name: "PickConfigSpec", file: "Optimization/simconfig/core/registry.py", kind: "class"}
+      - {name: "pick_config", file: "Optimization/simconfig/core/registry.py", kind: "function"}
     notes: ""
   "Optimization/strategies.py":
     purpose: "data-driven registry of placement (assignment) strategies."
@@ -974,6 +1018,15 @@ files:
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/test_rng_determinism.py", kind: "function"}
     notes: ""
+  "Tests/test_run_layout.py":
+    purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_roundtrip_and_descriptor_cells", file: "Tests/test_run_layout.py", kind: "function"}
+      - {name: "test_single_kind_inferred", file: "Tests/test_run_layout.py", kind: "function"}
+      - {name: "test_missing_descriptor_is_none", file: "Tests/test_run_layout.py", kind: "function"}
+      - {name: "test_written_keys_are_exactly_schema_properties", file: "Tests/test_run_layout.py", kind: "function"}
+    notes: ""
   "Tests/test_run_spec_roundtrip.py":
     purpose: "locks run_spec.json write/load round-trip + _apply_run_spec overlay (saved spec base, explicit flag overrides) for zero-param --resume."
     layer: "tests"
@@ -1005,6 +1058,16 @@ files:
       - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/test_scheduler.py", kind: "function"}
+    notes: ""
+  "Tests/test_simconfig_registry.py":
+    purpose: "Locks the simconfig registry \u2014 STORE/FULFILLMENT_CONFIGS rebuilt byte-identically from @pick_config modules, ordered, disabled variants excluded, legacy aliases intact."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_active_sweeps_rebuilt_from_registry", file: "Tests/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_pick_config_dicts_byte_identical", file: "Tests/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_disabled_variants_registered_but_excluded", file: "Tests/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_duplicate_name_raises", file: "Tests/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_bad_channel_raises", file: "Tests/test_simconfig_registry.py", kind: "function"}
     notes: ""
   "Tests/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"

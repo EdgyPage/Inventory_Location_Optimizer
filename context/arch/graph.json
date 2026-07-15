@@ -2261,6 +2261,11 @@
       "src": "Optimization/analyze_run.py"
     },
     {
+      "dst": "Optimization/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
       "dst": "Optimization/whatif_config.py",
       "kind": "imports",
       "src": "Optimization/analyze_run.py"
@@ -2292,6 +2297,11 @@
     },
     {
       "dst": "Optimization/runlayout.py::cells",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::analyze_run"
     },
@@ -3081,6 +3091,16 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::write_run_layout",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/whatif_config.py::get_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main._resolve_spec"
@@ -3231,7 +3251,17 @@
       "src": "Optimization/run_whatif_labor.py::run"
     },
     {
+      "dst": "Optimization/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/runlayout.py"
+    },
+    {
       "dst": "Optimization/runlayout.py::iter_sim_dbs",
+      "kind": "calls",
+      "src": "Optimization/runlayout.py::cells"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
       "kind": "calls",
       "src": "Optimization/runlayout.py::cells"
     },
@@ -3386,6 +3416,16 @@
       "src": "Optimization/sim_config.py"
     },
     {
+      "dst": "Optimization/simconfig/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/sim_config.py"
+    },
+    {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/sim_config.py"
+    },
+    {
       "dst": "Optimization/strategies.py",
       "kind": "imports",
       "src": "Optimization/sim_config.py"
@@ -3459,6 +3499,101 @@
       "dst": "Optimization/sim_manifest.py::_run_spec_path",
       "kind": "calls",
       "src": "Optimization/sim_manifest.py::_write_run_spec"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::_run_layout_path",
+      "kind": "calls",
+      "src": "Optimization/sim_manifest.py::read_run_layout"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::_run_layout_path",
+      "kind": "calls",
+      "src": "Optimization/sim_manifest.py::write_run_layout"
+    },
+    {
+      "dst": "Optimization/simconfig/core/discovery.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/__init__.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/discovery.py::import_all",
+      "kind": "calls",
+      "src": "Optimization/simconfig/__init__.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/__init__.py"
+    },
+    {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/ful_calibrated.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/ful_calibrated.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py::pick_config",
+      "kind": "calls",
+      "src": "Optimization/simconfig/configs/ful_calibrated.py::ful_calibrated"
+    },
+    {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py::pick_config",
+      "kind": "calls",
+      "src": "Optimization/simconfig/configs/store.py::store"
+    },
+    {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store_high_height.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store_high_height.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py::pick_config",
+      "kind": "calls",
+      "src": "Optimization/simconfig/configs/store_high_height.py::store_high_height"
+    },
+    {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store_high_weight_high_height.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/configs/store_high_weight_high_height.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py::pick_config",
+      "kind": "calls",
+      "src": "Optimization/simconfig/configs/store_high_weight_high_height.py::store_high_weight_high_height"
+    },
+    {
+      "dst": "Optimization/simconfig/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/core/discovery.py"
+    },
+    {
+      "dst": "Optimization/simconfig/core/registry.py::PickConfigSpec",
+      "kind": "calls",
+      "src": "Optimization/simconfig/core/registry.py::pick_config._wrap"
     },
     {
       "dst": "Optimization/strategies.py::Strategy",
@@ -10758,6 +10893,14 @@
     },
     {
       "file": "Optimization/sim_config.py",
+      "id": "Optimization/sim_config.py::_ACTIVE_PICK_CONFIGS",
+      "kind": "const",
+      "module": "Optimization/sim_config.py",
+      "name": "_ACTIVE_PICK_CONFIGS",
+      "public": false
+    },
+    {
+      "file": "Optimization/sim_config.py",
       "id": "Optimization/sim_config.py::_AISLE_H",
       "kind": "const",
       "module": "Optimization/sim_config.py",
@@ -10798,14 +10941,6 @@
     },
     {
       "file": "Optimization/sim_config.py",
-      "id": "Optimization/sim_config.py::_FF_PICKERS",
-      "kind": "const",
-      "module": "Optimization/sim_config.py",
-      "name": "_FF_PICKERS",
-      "public": false
-    },
-    {
-      "file": "Optimization/sim_config.py",
       "id": "Optimization/sim_config.py::_HANDLINGS",
       "kind": "const",
       "module": "Optimization/sim_config.py",
@@ -10842,14 +10977,6 @@
       "kind": "const",
       "module": "Optimization/sim_config.py",
       "name": "_REPO_ROOT",
-      "public": false
-    },
-    {
-      "file": "Optimization/sim_config.py",
-      "id": "Optimization/sim_config.py::_STORE_PICKERS",
-      "kind": "const",
-      "module": "Optimization/sim_config.py",
-      "name": "_STORE_PICKERS",
       "public": false
     },
     {
@@ -10942,6 +11069,14 @@
     },
     {
       "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::_run_layout_path",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "_run_layout_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
       "id": "Optimization/sim_manifest.py::_run_spec_path",
       "kind": "function",
       "module": "Optimization/sim_manifest.py",
@@ -10966,6 +11101,22 @@
     },
     {
       "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::read_run_layout",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "read_run_layout",
+      "public": true
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::write_run_layout",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "write_run_layout",
+      "public": true
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
       "id": "Optimization/sim_manifest.py::write_run_manifest",
       "kind": "function",
       "module": "Optimization/sim_manifest.py",
@@ -10986,6 +11137,166 @@
       "kind": "function",
       "module": "Optimization/sim_manifest.py",
       "name": "_cfg_json",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/__init__.py",
+      "id": "Optimization/simconfig/__init__.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/__init__.py",
+      "name": "Optimization.simconfig",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/__init__.py",
+      "id": "Optimization/simconfig/configs/__init__.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/configs/__init__.py",
+      "name": "Optimization.simconfig.configs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/ful_calibrated.py",
+      "id": "Optimization/simconfig/configs/ful_calibrated.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/configs/ful_calibrated.py",
+      "name": "Optimization.simconfig.configs.ful_calibrated",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/ful_calibrated.py",
+      "id": "Optimization/simconfig/configs/ful_calibrated.py::ful_calibrated",
+      "kind": "function",
+      "module": "Optimization/simconfig/configs/ful_calibrated.py",
+      "name": "ful_calibrated",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store.py",
+      "id": "Optimization/simconfig/configs/store.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/configs/store.py",
+      "name": "Optimization.simconfig.configs.store",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store.py",
+      "id": "Optimization/simconfig/configs/store.py::store",
+      "kind": "function",
+      "module": "Optimization/simconfig/configs/store.py",
+      "name": "store",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store_high_height.py",
+      "id": "Optimization/simconfig/configs/store_high_height.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/configs/store_high_height.py",
+      "name": "Optimization.simconfig.configs.store_high_height",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store_high_height.py",
+      "id": "Optimization/simconfig/configs/store_high_height.py::store_high_height",
+      "kind": "function",
+      "module": "Optimization/simconfig/configs/store_high_height.py",
+      "name": "store_high_height",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store_high_weight_high_height.py",
+      "id": "Optimization/simconfig/configs/store_high_weight_high_height.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/configs/store_high_weight_high_height.py",
+      "name": "Optimization.simconfig.configs.store_high_weight_high_height",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/configs/store_high_weight_high_height.py",
+      "id": "Optimization/simconfig/configs/store_high_weight_high_height.py::store_high_weight_high_height",
+      "kind": "function",
+      "module": "Optimization/simconfig/configs/store_high_weight_high_height.py",
+      "name": "store_high_weight_high_height",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/constants.py",
+      "id": "Optimization/simconfig/constants.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/constants.py",
+      "name": "Optimization.simconfig.constants",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/constants.py",
+      "id": "Optimization/simconfig/constants.py::_FF_PICKERS",
+      "kind": "const",
+      "module": "Optimization/simconfig/constants.py",
+      "name": "_FF_PICKERS",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/constants.py",
+      "id": "Optimization/simconfig/constants.py::_STORE_PICKERS",
+      "kind": "const",
+      "module": "Optimization/simconfig/constants.py",
+      "name": "_STORE_PICKERS",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/core/__init__.py",
+      "id": "Optimization/simconfig/core/__init__.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/core/__init__.py",
+      "name": "Optimization.simconfig.core",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/discovery.py",
+      "id": "Optimization/simconfig/core/discovery.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/core/discovery.py",
+      "name": "Optimization.simconfig.core.discovery",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/discovery.py",
+      "id": "Optimization/simconfig/core/discovery.py::import_all",
+      "kind": "function",
+      "module": "Optimization/simconfig/core/discovery.py",
+      "name": "import_all",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/registry.py",
+      "id": "Optimization/simconfig/core/registry.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/core/registry.py",
+      "name": "Optimization.simconfig.core.registry",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/registry.py",
+      "id": "Optimization/simconfig/core/registry.py::PickConfigSpec",
+      "kind": "class",
+      "module": "Optimization/simconfig/core/registry.py",
+      "name": "PickConfigSpec",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/registry.py",
+      "id": "Optimization/simconfig/core/registry.py::pick_config",
+      "kind": "function",
+      "module": "Optimization/simconfig/core/registry.py",
+      "name": "pick_config",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/core/registry.py",
+      "id": "Optimization/simconfig/core/registry.py::pick_config._wrap",
+      "kind": "function",
+      "module": "Optimization/simconfig/core/registry.py",
+      "name": "_wrap",
       "public": false
     },
     {
