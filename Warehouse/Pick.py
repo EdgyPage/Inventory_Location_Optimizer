@@ -8,7 +8,7 @@ from Warehouse.Storage_Primitive import StorageCart, StoreCart
 from Warehouse.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
-from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch
+from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step
 
 if TYPE_CHECKING:
     from Warehouse.Inventory_Management import Inventory_Manager
@@ -41,6 +41,10 @@ class PickConfig:
     # to exit, so aisle DEPTH (not within-aisle span) drives x-travel.  False (default) = today's
     # two-way model (no explicit exit).  Consumed by the shared aisle_traverse_cost helper.
     one_way: bool           = False
+    # Task→picker scheduler (see assign_tasks): 'round_robin' (default) = the legacy i%num_pickers,
+    # byte-identical; 'lpt' = load-balance the fixed work to minimise makespan (higher throughput,
+    # unchanged total labor) by minimising the EXACT per-picker load (travel+handling + real cart).
+    scheduler: str          = 'round_robin'
 
 
 # ── events ───────────────────────────────────────────────────────────────────
@@ -202,6 +206,97 @@ class _ProgressAPIMixin:
         )
 
 
+# ── task → picker scheduling ─────────────────────────────────────────────────────
+
+def count_cart_swaps(pick_volumes, cart_remaining: float, cart_cap: float) -> tuple[int, float]:
+    """Next-fit cart swaps for an ORDERED sequence of pick volumes, starting from ``cart_remaining``.
+    Returns ``(swaps, new_remaining)``.  Uses the same ``cart_step`` primitive the sim runs per pick,
+    so this reproduces exactly what the sim charges for those picks.
+
+    This is the **exact-makespan predictor** — a partition's realized cart cost, computable up front.
+    The LPT scheduler does NOT balance on this; it balances a cheaper continuous proxy (see
+    ``assign_tasks``).  This is the oracle the scheduler↔sim self-consistency test checks the sim
+    against, plus a reusable helper for scoring a partition's exact makespan."""
+    swaps = 0
+    for v in pick_volumes:
+        swapped, cart_remaining = cart_step(v, cart_remaining, cart_cap)
+        swaps += swapped
+    return swaps, cart_remaining
+
+
+def _task_static(task: Task, cfg: PickConfig, x_pace: float, y_pace: float) -> tuple[float, list]:
+    """A task's assignment-INDEPENDENT time (travel + handling, NO cart) plus its ordered pick-volume
+    sequence — the inputs the LPT scheduler balances.  Replicates PickSimulation._simulate_picker's
+    per-task arithmetic exactly (position resets to (0,0) each aisle; one-way exit to the far end);
+    the cart term is session-persistent so it is added separately via count_cart_swaps.  Kept in
+    lockstep with the sim by the scheduler↔sim self-consistency test.
+
+    NOTE: it reads the UNCAPPED ``task.items[sku]``, matching PickSimulation; fast_pick's deferred
+    loop can cap a pick at the snapshot stock under cross-picker contention, so predicted==realized is
+    exact for PickSimulation and for the normal disjoint well-stocked aisles, but can differ for a bin
+    under-stocked relative to demand under DeferredPickSimulation."""
+    x = y = 0.0
+    t = 0.0
+    volumes: list = []
+    for bin_ in task.path:
+        t += abs(bin_.x_phys - x) * x_pace + abs(bin_.y_phys - y) * y_pace
+        x, y = bin_.x_phys, bin_.y_phys
+        if bin_.storage is None:
+            continue
+        order = bin_.storage.order
+        qty = task.items.get(order.sku, 0)
+        if qty == 0:
+            continue
+        t += _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
+        volumes.append(order.volume() * qty)
+    if cfg.one_way and task.path:
+        L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
+        if L is None:
+            L = max((b.x_phys for b in task.path), default=0.0)
+        t += abs(L - x) * x_pace + y * y_pace
+    return t, volumes
+
+
+def assign_tasks(sorted_tasks: list, cfg: PickConfig) -> list:
+    """Partition aisle-Tasks across ``cfg.num_pickers`` pickers.  ``sorted_tasks`` MUST be aisle_id
+    sorted (the sim processes each picker's tasks in that order).  The SINGLE task→picker assignment
+    used by both PickSimulation and fast_pick, so they cannot drift.
+
+    - ``'round_robin'`` (default): ``i % num_pickers`` — byte-identical to the legacy scheduler.
+    - ``'lpt'``: LPT — visit tasks **heaviest-first** and append each to the **least-loaded** picker.
+      Both use a per-task cost ``est(t) = (travel+handling) + swap_coef · task_volume / cart_cap`` —
+      a *continuous* cart proxy that is monotone in volume, so it can't be fooled by the cart
+      step-function the way an exact-but-myopic greedy is (a light task looking free on a
+      cart-favourable picker).  Heaviest-first + least-loaded is a standard makespan heuristic — but
+      note it is NOT a guaranteed bound on the *realized* step-function makespan and can, on adverse
+      inputs, do no better than round-robin; it never yields an invalid partition and total work is
+      unchanged, so results stay correct regardless.  Each picker's tasks are then kept in aisle_id
+      order — exactly the order the sim picks them — so the **realized** makespan (and the cart swaps
+      that dominate it) is computed exactly by the shared next-fit; only the *balancing decisions* use
+      the smooth proxy.  Runs once per batch in ``__init__`` at O(total_picks + tasks·pickers)."""
+    n = cfg.num_pickers
+    picker_tasks: list = [[] for _ in range(n)]
+    if getattr(cfg, 'scheduler', 'round_robin') != 'lpt' or n <= 1:
+        for i, task in enumerate(sorted_tasks):
+            picker_tasks[i % n].append(task)
+        return picker_tasks
+    cap = cfg.cart.capacity()
+    coef = cfg.cart_swap_coef
+    x_pace, y_pace = sec_per_inch(cfg.x_speed), sec_per_inch(cfg.y_speed)
+    # Per-task balancing cost: static (travel+handling) + a continuous cart proxy (volume/cap).
+    est = {}
+    for t in sorted_tasks:
+        st, vols = _task_static(t, cfg, x_pace, y_pace)
+        est[id(t)] = st + coef * (sum(vols) / cap if cap else 0.0)
+    load = [0.0] * n
+    for task in sorted(sorted_tasks, key=lambda t: (est[id(t)], t.aisle_id), reverse=True):
+        p = min(range(n), key=lambda i: (load[i], i))   # least-loaded; tie ⇒ lowest picker id
+        load[p] += est[id(task)]
+        picker_tasks[p].append(task)
+    for pt in picker_tasks:                             # sim processes each picker in aisle_id order
+        pt.sort(key=lambda t: t.aisle_id)
+    return picker_tasks
+
 
 class PickSimulation(_ProgressAPIMixin):
     """Simulate multiple pickers processing a set of Tasks in aisle order.
@@ -217,9 +312,7 @@ class PickSimulation(_ProgressAPIMixin):
         manager: Inventory_Manager | None = None,
     ) -> None:
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
-        self._picker_tasks: list[list[Task]] = [[] for _ in range(config.num_pickers)]
-        for i, task in enumerate(sorted_tasks):
-            self._picker_tasks[i % config.num_pickers].append(task)
+        self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)
         self._config  = config
         self._manager = manager
         self._events: list[PickEvent] | None = None
@@ -317,7 +410,10 @@ class PickSimulation(_ProgressAPIMixin):
                 # cart_swap event carry the swap seconds — which the decomposition charges to
                 # travel (a route/depot cost), not handling.
                 needed_vol   = order.volume() * qty
-                cart_swapped = needed_vol > cart_remaining
+                # Shared next-fit primitive (cost_model.cart_step) — the same step the LPT scheduler
+                # replays to predict makespan.  cart_step returns the post-swap, post-decrement
+                # remaining, so the trailing decrement is folded in here (byte-identical).
+                cart_swapped, cart_remaining = cart_step(needed_vol, cart_remaining, cart_cap)
                 if cart_swapped:
                     time += cfg.cart_swap_coef
                     events.append(PickEvent(
@@ -328,12 +424,10 @@ class PickSimulation(_ProgressAPIMixin):
                         cart_move=cfg.cart_swap_coef,
                     ))
                     carts_used   += 1
-                    cart_remaining = cart_cap
 
                 # ── pick (handling only; cart swap charged above) ────────────
                 pt = _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
                 time          += pt
-                cart_remaining = max(0, cart_remaining - needed_vol)
                 bins_done      += 1
                 session_items  += qty
 

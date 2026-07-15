@@ -412,6 +412,13 @@ files:
       - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
       - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
     notes: ""
+  "Optimization/run_whatif_labor.py":
+    purpose: "Cross-cell what-if analysis in modeled labor-HOURS \u2014 converts batch_stats ms to hours (\u03a3 task_makespan/3.6e6), adds the picker-scheduler axis decoded from the cell-name suffix (rr/lpt) and labor-hours-saved-vs-FIFO, emitting whatif_labor.csv/json plus throughput-vs-labor, labor-saved, batch-hours rr-vs-lpt, and scheduler-uplift charts."
+    layer: "optimization"
+    key_symbols:
+      - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
+    notes: ""
   "Optimization/runlayout.py":
     purpose: "single owner of the on-disk run-tree layout."
     layer: "optimization"
@@ -464,6 +471,7 @@ files:
     key_symbols:
       - {name: "save_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
+      - {name: "reset_strategy_db", file: "Optimization/strategy_runner.py", kind: "function"}
     notes: ""
   "Optimization/whatif_config.py":
     purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
@@ -691,6 +699,25 @@ files:
       - {name: "test_composed_scorer_placement", file: "Tests/test_assignment_functions.py", kind: "function"}
       - {name: "test_co_demand_compaction_expansion", file: "Tests/test_assignment_functions.py", kind: "function"}
     notes: ""
+  "Tests/test_atomic_checkpoint.py":
+    purpose: "locks atomic worker-checkpoint writes + reset_strategy_db discarding a partial arm's DB/keyframe/checkpoint for strategy-level resume."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_checkpoint_atomic_roundtrip", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_strategy_db_removes_all_outputs", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_is_a_noop_when_nothing_exists", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+    notes: ""
+  "Tests/test_batch_metrics.py":
+    purpose: "the three new columns (task_makespan, thr_task, thr_batch) and the"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_task_makespan_equals_sum_task_durations", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_throughput_definitions", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_zero_guards", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_legacy_db_without_columns_loads", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_flag_batch_outliers_preserves_new_metrics", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_bdf_thr_task_nan_when_task_makespan_absent", file: "Tests/test_batch_metrics.py", kind: "function"}
+    notes: ""
   "Tests/test_batch_precompute.py":
     purpose: "the HARD GATE for the batch-precompute dedup."
     layer: "tests"
@@ -751,6 +778,15 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_context_matches_code", file: "Tests/test_context_sync.py", kind: "function"}
+    notes: ""
+  "Tests/test_crash_recovery.py":
+    purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_finalize_gate_skips_group_with_a_failed_arm", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_plan_strategy_start_all_branches", file: "Tests/test_crash_recovery.py", kind: "function"}
     notes: ""
   "Tests/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
@@ -926,6 +962,26 @@ files:
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/test_rng_determinism.py", kind: "function"}
     notes: ""
+  "Tests/test_run_spec_roundtrip.py":
+    purpose: "locks run_spec.json write/load round-trip + _apply_run_spec overlay (saved spec base, explicit flag overrides) for zero-param --resume."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_write_load_roundtrip", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_overlays_saved_spec", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_injects_resolved_store_composition", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+    notes: ""
+  "Tests/test_scheduler.py":
+    purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_round_robin_is_the_legacy_partition", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_keeps_aisle_id_order_and_covers_all_tasks", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_predicted_makespan_equals_realized", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/test_scheduler.py", kind: "function"}
+    notes: ""
   "Tests/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
     layer: "tests"
@@ -1003,6 +1059,17 @@ files:
       - {name: "test_incremental_sigma_fd_matches_full", file: "Tests/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_batch_min_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_batch_max_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/test_whatif_labor.py":
+    purpose: "Locks run_whatif_labor.py \u2014 ms\u2192modeled-hours conversion, scheduler/arm-name parsing, labor-hours-saved-vs-FIFO math, and the whatif_matrix-shaped JSON, all on a synthetic two-cell sqlite tree."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_hours_ms_to_modeled_hours", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scheduler_of", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_parse_arm", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_pct_sign", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scan_labor_key_and_merge", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_main_labor_saved_and_json", file: "Tests/test_whatif_labor.py", kind: "function"}
     notes: ""
   "Visualization/db_reader.py":
     purpose: "read-only reconstruction of a finished run for the replay viewer."
@@ -1132,6 +1199,8 @@ files:
       - {name: "PickConfig", file: "Warehouse/Pick.py", kind: "class"}
       - {name: "PickEvent", file: "Warehouse/Pick.py", kind: "class"}
       - {name: "PickerProgress", file: "Warehouse/Pick.py", kind: "class"}
+      - {name: "count_cart_swaps", file: "Warehouse/Pick.py", kind: "function"}
+      - {name: "assign_tasks", file: "Warehouse/Pick.py", kind: "function"}
       - {name: "PickSimulation", file: "Warehouse/Pick.py", kind: "class"}
     notes: ""
   "Warehouse/Storage_Primitive.py":
@@ -1179,6 +1248,7 @@ files:
       - {name: "sec_per_inch", file: "Warehouse/cost_model.py", kind: "function"}
       - {name: "travel_cost", file: "Warehouse/cost_model.py", kind: "function"}
       - {name: "aisle_traverse_cost", file: "Warehouse/cost_model.py", kind: "function"}
+      - {name: "cart_step", file: "Warehouse/cost_model.py", kind: "function"}
     notes: ""
   "Warehouse/fast_pick.py":
     purpose: "Two-phase deferred-mutation pick simulation."

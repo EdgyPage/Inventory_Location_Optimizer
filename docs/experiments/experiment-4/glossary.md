@@ -79,12 +79,26 @@ long-run lever that *feeds* $W$; its theoretical minimum puts the hottest SKUs i
 bins (the rearrangement-inequality bound).
 
 ### Productivity hours (ΣW) { #productivity-hours }
-Total within-aisle picker work per batch (Σ of `W` over the batch's tasks). The metric that
-actually tracks [makespan](#makespan) (r ≈ 0.95).
+Total within-aisle picker work per batch (Σ of the **analytical** workload `W` over the batch's
+tasks). An a-priori proxy that correlates with [task makespan](#task-makespan) (r ≈ 0.95). Distinct
+from the *realized* task makespan below: ΣW is scored from task structure; task makespan is the
+sim's measured Σ task time (`ss_prod_hours` = Σ `task_stats.duration`).
 
-### Makespan { #makespan }
-Wall-clock time to clear all of a batch's picks across the pickers. What the simulation
-ultimately minimises; [productivity hours](#productivity-hours) is its best single-number proxy.
+### Task makespan { #task-makespan }
+**Σ of every task's time in a batch = total labor** — equivalently, the makespan a single picker
+would incur doing all tasks serially (Σ per-picker finish times, since pickers never idle). The
+optimization target; **parallelism-independent** — a scheduler cannot change it.
+
+### Batch makespan { #makespan }
+**Wall-clock time to clear all of a batch's picks across the pickers** = the last picker to finish
+(max done-time). Parallelism-*dependent*: a smarter task→picker schedule lowers it at unchanged task
+makespan. This is what throughput actually tracks (throughput ≈ items / batch makespan).
+
+### Throughput (two flavours) { #throughput }
+Items ÷ a makespan. **Throughput / batch makespan** (`ss_thr` = items / batch makespan) is the
+headline productivity rate and the one that responds to scheduling. **Throughput / task makespan**
+(`ss_thr_task` = items / Σ task time) is the labor-efficiency rate, flat under scheduling. A
+throughput/batch-makespan win at flat task makespan is a genuine (scheduling) win.
 
 ### Churn { #churn }
 Fraction of bins that turn over per batch (~11% here) — the reorder waves the assignment
@@ -193,11 +207,13 @@ quantity_rate`, normalised) has passed. `[0.6, 0.9]` (3-band) puts the SKUs maki
 demand in band A, 60–90% in B, the tail in C; `[0.6]` (2-band) splits hot/cold at 60%.
 
 ### Δ throughput / Δ labor { #delta-metrics }
-The two cross-cell axes. **Δ throughput** = steady-state batches-per-time gain vs `k1_off`
-(**+ = faster**); **Δ labor** = steady-state total task-hours *saving* vs `k1_off`
-(**+ = less work**). They do **not** move together here: the levers change Δ throughput while Δ labor
-stays within ±1%, because this warehouse's labor is **cart-swap-dominated** (~87% of fulfillment
-task time is cart swaps, which no layout change touches).
+The two cross-cell axes. **Δ throughput** = steady-state gain in [throughput / batch
+makespan](#throughput) vs `k1_off` (**+ = faster**); **Δ labor** = steady-state [task
+makespan](#task-makespan) (total task-hours) *saving* vs `k1_off` (**+ = less work**). They do **not**
+move together here: the levers change Δ throughput (via batch makespan) while Δ labor stays within
+±1%, because this warehouse's labor is **cart-swap-dominated** (~87% of fulfillment task time is cart
+swaps, which no layout change touches). The full run also reports Δ batch makespan and Δ throughput /
+task makespan (see `whatif_delta.csv`).
 
 ### Frozen inventory { #frozen-inventory }
 One planned inventory sampled once and **reused by every cell** (loaded rather than re-sampled), so

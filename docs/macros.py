@@ -259,24 +259,34 @@ def define_env(env):
     def whatif_matrix():
         """Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.
 
-        One row per matrix cell, per-channel **median** Δlabor / Δthroughput vs the reference
-        cell (generated from whatif_delta.csv by the run's post-processing). Only a WHAT-IF
-        experiment has this JSON; ordinary single-run experiments never call this macro. Numbers
-        live in the committed JSON, so the page holds only prose."""
+        One row per matrix cell, per-channel **median** Δ(task makespan = labor) and
+        Δ(throughput / batch makespan) vs the reference cell (generated from whatif_delta.csv by the
+        run's post-processing). Only a WHAT-IF experiment has this JSON; ordinary single-run
+        experiments never call this macro. Numbers live in the committed JSON, so the page holds only
+        prose.  Key-tolerant: prefers the four-metric keys (dthr_batch/dtask_ms/dbatch_ms/dthr_task)
+        and falls back to the legacy dthr/dlabor so older experiment JSON still renders."""
         d = _load_json(f"{_exp_dir()}/data/whatif_delta.json")
 
         def pct(v):
             return f"{v:+.1f}%"
 
-        def thr(ch):   # throughput is the headline metric — bold it
-            return f"**{pct(ch['dthr']['med'])}**" if ch else "—"
+        def _med(ch, *keys):   # first present key's median, tolerant of the legacy schema
+            for k in keys:
+                if ch and k in ch and ch[k] is not None:
+                    return ch[k].get("med")
+            return None
 
-        def lab(ch):
-            return pct(ch["dlabor"]["med"]) if ch else "—"
+        def thr(ch):   # throughput / batch makespan — the headline; bold it
+            v = _med(ch, "dthr_batch", "dthr")
+            return f"**{pct(v)}**" if v is not None else "—"
+
+        def lab(ch):   # task makespan (= total labor)
+            v = _med(ch, "dtask_ms", "dlabor")
+            return pct(v) if v is not None else "—"
 
         lines = [
-            "| Cell | Layout | Zoning | Store Δthr | Store Δlabor | Fulf Δthr | Fulf Δlabor |",
-            "|------|--------|--------|-----------:|------------:|----------:|-----------:|",
+            "| Cell | Layout | Zoning | Store Δthr/batch | Store Δtask-ms | Fulf Δthr/batch | Fulf Δtask-ms |",
+            "|------|--------|--------|----------------:|--------------:|---------------:|-------------:|",
         ]
         for c in d["cells"]:
             s = c["by_channel"].get("store")
@@ -287,9 +297,10 @@ def define_env(env):
             )
         ref = d.get("reference", "baseline")
         cap = (
-            f"\n<small>Steady-state medians vs the `{ref}` baseline (no split, no zoning), "
-            f"last-50-batch window; {d.get('arms')} arms × 4 pick-configs × "
-            f"{len(d.get('pairs', []))} inventories per cell. "
+            f"\n<small>Steady-state medians vs the `{ref}` baseline, last-50-batch window; "
+            f"{d.get('arms')} arms × pick-configs × {len(d.get('pairs', []))} inventories per cell. "
+            f"Δthr/batch = throughput ÷ batch makespan; Δtask-ms = task makespan (Σ task time = labor). "
+            f"Batch-makespan and throughput ÷ task-makespan deltas are in whatif_delta.csv. "
             f"**+ = better** (more throughput / less labor).</small>"
         )
         return "\n".join(lines) + "\n" + cap

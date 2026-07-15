@@ -12,7 +12,8 @@ from Optimization.Performance_Evaluations.core.registry import evaluation
 def render(ctx, params):
     strategies = ctx.strategies
     labels = [s['label'] for s in strategies]
-    bcols = ['duration', 'completion_rate', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct']
+    bcols = ['duration', 'task_makespan', 'thr_batch', 'thr_task', 'completion_rate',
+             'avg_concurrent_pickers', 'picking_pct', 'traveling_pct']
     tcols = ['duration', 'W', 'lift_sum', 'num_bins']
     summ_b = pd.concat([ctx.batch_df(s['key'])[bcols].agg(['mean', 'median', 'std']).T
                         for s in strategies], axis=1, keys=labels).round(3)

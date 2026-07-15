@@ -18,10 +18,14 @@ def _save_resume(run_dir: str, run_ids: dict, starts: dict) -> None:
     """Persist per-strategy batch counters and run IDs for crash recovery.
 
     run_ids and starts are keyed by strategy key (e.g. 'uniform', 'trip_min').
+    Written atomically (tmp + os.replace) so a crash mid-write can't corrupt resume state.
     """
     state = {'run_ids': run_ids, 'next_batch': dict(starts)}
-    with open(_resume_path(run_dir), 'wb') as f:
+    path = _resume_path(run_dir)
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'wb') as f:
         pickle.dump(state, f)
+    os.replace(tmp, path)
 
 
 def _load_resume(run_dir: str):
@@ -30,6 +34,32 @@ def _load_resume(run_dir: str):
         return None
     with open(path, 'rb') as f:
         return pickle.load(f)
+
+
+# ── run spec (run_spec.json) — the resolved run invocation, for zero-param --resume ─────
+
+def _run_spec_path(base_dir: str) -> str:
+    return os.path.join(base_dir, 'run_spec.json')
+
+
+def _write_run_spec(base_dir: str, spec: dict) -> None:
+    """Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved
+    inventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a
+    bare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags
+    and no find_latest_db_pairs drift."""
+    path = _run_spec_path(base_dir)
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'w') as f:
+        json.dump(spec, f, indent=2)
+    os.replace(tmp, path)
+
+
+def _load_run_spec(base_dir: str):
+    path = _run_spec_path(base_dir)
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
 
 
 def write_run_manifest(base_dir, pairs, store_cfgs, ff_cfgs, strategies) -> None:

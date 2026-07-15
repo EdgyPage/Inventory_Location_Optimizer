@@ -99,3 +99,15 @@ WHERE  run_id = :R AND batch_id = :B AND time <= :t
 
 Empty bins (no `bin_inventory`/keyframe row) are implicitly qty 0 and drawn from
 `aisle_layout` geometry.
+
+## Known limitation — reslot-source drift between keyframes
+
+Reconstruction is **exact at every keyframe batch** (`B % keyframe_interval == 0`, K=5 by default) and
+exact for within-batch pick depletion. In between keyframes it can be slightly stale on **reslotted
+bins**: when the reloader evicts a unit and leaves the bin empty (`requeue_bin`, which nulls
+`bin_.storage` *before* the per-batch pre-snapshot is taken), no `post_qty=0` `bin_inventory` row is
+written for that source bin — so rolling deltas forward from a keyframe keeps showing its old
+`sku`/`qty` until the next keyframe resets state (a SKU can momentarily appear in both its old and new
+bin). Only aggregate counts survive (`batch_stats.reload_moves`). This is accepted for now; the cheap
+future fix is to emit an eviction delta row (`post_qty=0`) so reconstruction is exact at any K. To get
+exact per-batch state today, run with `keyframe_interval=1` (full snapshot every batch, larger DB).

@@ -49,15 +49,21 @@ backbone:
      dst: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}, via: calls}
   - {src: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function},
      dst: {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}, via: calls}
-  # scenario -> per-channel prep -> batches
+  # scenario -> supervisor -> build units -> per-channel prep -> batches
   - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function}, via: calls}
   - {src: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _supervise, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _supervise, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _build_work_units, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _build_work_units, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}, via: calls}
   - {src: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function},
      dst: {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
-  # spawn boundary: worker passed to the pool as a value (never coverage-measured)
-  - {src: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function},
+  # supervisor -> pool -> spawn boundary (worker passed as a value; never coverage-measured)
+  - {src: {name: _supervise, file: Optimization/run_simulation.py, kind: function},
+     dst: {name: _run_pool, file: Optimization/run_simulation.py, kind: function}, via: calls}
+  - {src: {name: _run_pool, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
   # worker body -> batch load + pick simulation

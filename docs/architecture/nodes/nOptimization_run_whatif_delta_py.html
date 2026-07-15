@@ -17,14 +17,18 @@
 <pre class="sig"><code>Optimization.run_whatif_delta</code></pre>
 <section class="doc">run_whatif_delta.py — compare what-if scenarios against a reference cell.
 
-Reads the steady-state ss_prod_hours (total labor) and ss_thr (throughput) straight from each
-scenario&#x27;s sim_*.db (no run_analysis needed), keyed by (pair, pick-config, channel, arm), and diffs
-every cell against the reference cell.  Emits whatif_delta.csv + a labor-saving-vs-throughput-gain
-scatter (one point per cell×channel×arm) and a median summary — tracking BOTH axes, since for
-fulfillment the throughput gain is the interesting lever (total labor is cart-swap-dominated).
+Reads the four steady-state success metrics straight from each scenario&#x27;s sim_*.db (no run_analysis
+needed), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:
+
+    task makespan  (Σ task time = total labor)          batch makespan (last-picker finish)
+    throughput / task makespan (items / Σ task time)    throughput / batch makespan (items / makespan)
+
+Emits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per
+cell×channel×arm) and a median summary.  This is what makes a scheduling win legible: LPT should show
+Δbatch-makespan ↓ and Δthroughput/batch ↑ while Δtask-makespan (labor) and Δthroughput/task stay ≈flat.
 
     python -m Optimization.run_whatif_delta &lt;comparison_whatif_...&gt;   # --reference defaults from config</section>
-<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_whatif_config_py.html"><code>Optimization.whatif_config</code></a> <span class="dim">Optimization/whatif_config.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py__WIN.html"><code>WIN</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___metrics.html"><code>_metrics</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___scan.html"><code>_scan</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_whatif_config_py.html"><code>Optimization.whatif_config</code></a> <span class="dim">Optimization/whatif_config.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py.html"><code>Optimization.run_whatif_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py__WIN.html"><code>WIN</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___metrics.html"><code>_metrics</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py__main__pct.html"><code>_pct</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___scan.html"><code>_scan</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_delta_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_delta.py">Source ↗</a></p>
 </article>
 </main>

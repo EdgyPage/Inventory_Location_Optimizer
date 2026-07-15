@@ -28,8 +28,9 @@ _METRICS = [
     ('objective_task_labor', 'task_mean', 'W',                True),   # E[task labor] (objective)
     ('objective_total_labor', 'task_sum', 'W',                True),   # Σ analytical task labor
     ('task_mean_duration', 'task_mean', 'duration',           True),
-    ('makespan',           'batch',     'duration',           True),   # wall-time (parallel)
-    ('throughput',         'batch',     'completion_rate',    False),
+    ('makespan',           'batch',     'duration',           True),   # BATCH makespan (parallel wall-clock)
+    ('throughput',         'batch',     'completion_rate',    False),  # throughput / batch makespan (d)
+    ('throughput_task',    'batch',     'thr_task',           False),  # throughput / task makespan  (c)
     ('queue_depth',        'batch',     'queue_depth',        True),   # put-away backlog (honesty)
     ('sigma_fd',           'batch',     'sigma_fd',           True),
     ('picking_pct',        'batch',     'picking_pct',        False),
@@ -38,10 +39,11 @@ _METRICS = [
 
 # cross-profile steady-state scalars (from series.json): (name, ss_field, lower_is_better)
 _AGG_METRICS = [
-    ('makespan',           'ss_dur',        True),
-    ('throughput',         'ss_thr',        False),
+    ('makespan',           'ss_dur',        True),    # BATCH makespan (parallel wall-clock)
+    ('throughput',         'ss_thr',        False),   # throughput / batch makespan (d)
+    ('throughput_task',    'ss_thr_task',   False),   # throughput / task makespan  (c)
     ('task_mean_duration', 'ss_task_mean',  True),
-    ('productivity_hours', 'ss_prod_hours', True),
+    ('productivity_hours', 'ss_prod_hours', True),    # task makespan = Σ task time = total labor (a)
 ]
 
 

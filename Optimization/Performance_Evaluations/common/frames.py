@@ -11,10 +11,20 @@ import pandas as pd
 def _bdf(stats):
     return pd.DataFrame([{
         'batch_id'              : s.batch_id,
-        'duration'              : s.duration,
+        'duration'              : s.duration,        # batch makespan (parallel wall-clock)
         'num_tasks'             : s.num_tasks,
         'total_items'           : s.total_items,
+        # throughput / batch makespan (metric d) — kept as `completion_rate` for the many existing
+        # consumers, and mirrored as `thr_batch` for the four-metric vocabulary.
         'completion_rate'       : s.total_items / s.duration if s.duration > 0 else 0.0,
+        'thr_batch'             : s.total_items / s.duration if s.duration > 0 else 0.0,
+        # task makespan (metric a) = Σ task time = total labor; throughput / task makespan (metric c).
+        # Both NaN (not 0) when task_makespan is unavailable (legacy DBs) so they are excluded from
+        # summaries/stats, not counted as zero labor / zero throughput.
+        'task_makespan'         : (getattr(s, 'task_makespan', 0.0)
+                                   if getattr(s, 'task_makespan', 0.0) > 0 else np.nan),
+        'thr_task'              : (s.total_items / getattr(s, 'task_makespan', 0.0)
+                                   if getattr(s, 'task_makespan', 0.0) > 0 else np.nan),
         'avg_concurrent_pickers': s.avg_concurrent_pickers,
         'picking_pct'           : s.picking_pct   * 100,
         'traveling_pct'         : s.traveling_pct * 100,

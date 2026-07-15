@@ -1,0 +1,44 @@
+{
+  "name": "store",
+  "pick_weight_coef": 0.58,
+  "pick_volume_coef": 0.7,
+  "pick_weight_fn": "pow:1.5",
+  "pick_volume_fn": "log:2",
+  "pick_intercept": 15,
+  "cart_swap_coef": 300,
+  "cart": "StoreCart",
+  "cart_capacity": 125000,
+  "x_speed": 3,
+  "y_speed": 2,
+  "num_pickers": 25,
+  "load_lambda": 1.1,
+  "load_k": 1.0,
+  "load_gamma": 1.5,
+  "total_aisles": 336,
+  "total_bins": 347800,
+  "n_skus": 125332,
+  "total_units": 308190,
+  "bin_slack_pct": 12.85,
+  "batch_mean_frac": 0.15,
+  "n_batches": 100,
+  "seed_world": 42,
+  "seed_batches": 1337,
+  "avg_equilibrium_qty": 6.6,
+  "avg_reorder_point": 1.13,
+  "avg_lead_time_mean": 0.0,
+  "avg_supply_cv": 0.075,
+  "height_brackets": [
+    [
+      96.0,
+      1.0
+    ],
+    [
+      240.0,
+      1.2
+    ],
+    [
+      null,
+      1.4
+    ]
+  ]
+}

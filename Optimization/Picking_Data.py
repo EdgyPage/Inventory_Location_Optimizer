@@ -34,12 +34,16 @@ class AisleMetricRecord:
 class BatchStats:
     run_id: int
     batch_id: int
-    duration: float               # max picker done-time — wall-clock for entire batch
+    duration: float               # BATCH MAKESPAN: max picker done-time — parallel wall-clock
     num_tasks: int                # unique aisles visited
     total_items: int              # items picked across all pickers
     avg_concurrent_pickers: float # time-weighted mean pickers in "picking" state
     picking_pct: float            # fraction of aggregate picker-time spent picking
     traveling_pct: float          # fraction of aggregate picker-time spent traveling
+    # ── success metrics (see extract_batch_stats) ────────────────────────────────
+    task_makespan: float = 0.0    # TASK MAKESPAN: Σ per-picker done-times = total labor (serial)
+    thr_task: float = 0.0         # throughput / task makespan  = total_items / task_makespan
+    thr_batch: float = 0.0        # throughput / batch makespan = total_items / duration
     batch_start_time: float = 0.0 # min picker-event time (batch-relative clock)
     batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
     sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
@@ -217,6 +221,9 @@ _CREATE_BATCH_STATS = """
         duration               REAL    NOT NULL,
         num_tasks              INTEGER NOT NULL,
         total_items            INTEGER NOT NULL,
+        task_makespan          REAL    NOT NULL DEFAULT 0,
+        thr_task               REAL    NOT NULL DEFAULT 0,
+        thr_batch              REAL    NOT NULL DEFAULT 0,
         avg_concurrent_pickers REAL    NOT NULL,
         picking_pct            REAL    NOT NULL,
         traveling_pct          REAL    NOT NULL,
@@ -661,13 +668,15 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
         con.executemany(
             'INSERT INTO batch_stats '
             '(run_id,batch_id,duration,num_tasks,total_items,'
+            'task_makespan,thr_task,thr_batch,'
             'avg_concurrent_pickers,picking_pct,traveling_pct,'
             'batch_start_time,batch_end_time,'
             'sigma_fd,reload_moves,reorder_placements,'
             'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
+                 r.task_makespan, r.thr_task, r.thr_batch,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
                  r.batch_start_time, r.batch_end_time,
                  r.sigma_fd, r.reload_moves, r.reorder_placements,
@@ -697,6 +706,12 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                 avg_concurrent_pickers = row['avg_concurrent_pickers'],
                 picking_pct            = row['picking_pct'],
                 traveling_pct          = row['traveling_pct'],
+                task_makespan          = (row['task_makespan']
+                                          if 'task_makespan' in row.keys() else 0.0),
+                thr_task               = (row['thr_task']
+                                          if 'thr_task' in row.keys() else 0.0),
+                thr_batch              = (row['thr_batch']
+                                          if 'thr_batch' in row.keys() else 0.0),
                 batch_start_time       = (row['batch_start_time']
                                           if 'batch_start_time' in row.keys() else 0.0),
                 batch_end_time         = (row['batch_end_time']

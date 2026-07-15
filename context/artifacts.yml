@@ -37,6 +37,19 @@ artifacts:
     match: "run_manifest.json"
     fields: [run, inventories, configs, store_configs, fulfillment_configs, strategies, baseline]
 
+  run_spec:
+    # The fully-resolved run invocation (argv + resolved run-shaping params + pinned inventory
+    # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
+    path_pattern: "comparison_<ts>/run_spec.json"
+    format: json
+    writer: {function: _write_run_spec, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: _load_run_spec, file: Optimization/sim_manifest.py}
+    match: "run_spec.json"
+    fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
+             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, profiles_dir,
+             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+
   warehouse_db:
     path_pattern: "comparison_<ts>/<pair>/warehouse.db"
     format: sqlite
@@ -161,3 +174,28 @@ artifacts:
     readers: []
     match: "channel_rollup"
     fields: [inventory, config, channel, plan, saving_abs, saving_pct, is_baseline, is_best]
+
+  whatif_labor_csv:
+    path_pattern: "<comparison_whatif_...>/whatif_labor.csv"
+    format: csv
+    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor.csv"
+    fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
+             batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
+
+  whatif_labor_json:
+    path_pattern: "<comparison_whatif_...>/whatif_labor.json"
+    format: json
+    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor.json"
+    fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
+             labor_baseline, hours_note, cells]
+
+  whatif_labor_pngs:
+    path_pattern: "<comparison_whatif_...>/{whatif_labor_throughput_scatter,whatif_labor_saved_bars,whatif_batch_hours_rr_vs_lpt,whatif_scheduler_uplift}.png"
+    format: png
+    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor_throughput_scatter"

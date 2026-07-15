@@ -15,18 +15,24 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_whatif_config_py.html"><code>Optimization/whatif_config.py</code></a></p>
 
 <pre class="sig"><code>Optimization.whatif_config</code></pre>
-<section class="doc">Experiment definition for `run_simulation --whatif`: the aisle-reconstruction × velocity-zoning
-matrix.
+<section class="doc">Experiment definition for `run_simulation --whatif`: an aisle-reconstruction × velocity-zoning ×
+picker-scheduler matrix.
 
 Editing + committing this file is how a what-if sweep is DEFINED — the same way the strategies sweep
 lives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.
 `run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix
 simulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in
-layout (aisle_split) and velocity zoning — an apples-to-apples layout comparison.
+the swept knobs — an apples-to-apples comparison.
 
-Cells are the combinatorial product ks × losses × zoning (loss collapses to 0 when k == 1), named
-`k{k}[_l{loss%}]_{zone-name}`; the (k=1, off) cell `k1_off` is the natural reference.</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_run_whatif_delta_py.html"><code>Optimization.run_whatif_delta</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nOptimization_whatif_config_py__WHATIF.html"><code>WHATIF</code></a> <span class="dim">Optimization/whatif_config.py</span></li></ul></section>
+Cells are the combinatorial product schedulers × zoning × ks × losses (loss collapses to 0 when
+k == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added
+only when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.
+
+CURRENT SCENARIO — picker-scheduler A/B: hold the layout fixed (no split, no zoning) and sweep the
+task→picker scheduler `round_robin` vs `lpt` across the full assignment-function suite, to measure the
+throughput (makespan) gain of load-balancing at unchanged total labor.  To sweep layout too, re-add
+values to `ks`/`losses`/`zoning`.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_run_whatif_delta_py.html"><code>Optimization.run_whatif_delta</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py.html"><code>Optimization.run_whatif_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nOptimization_whatif_config_py__WHATIF.html"><code>WHATIF</code></a> <span class="dim">Optimization/whatif_config.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_whatif_config_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/whatif_config.py">Source ↗</a></p>
 </article>
 </main>

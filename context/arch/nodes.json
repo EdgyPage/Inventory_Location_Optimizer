@@ -600,7 +600,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('makespan', 'ss_dur', True), ('throughput', 'ss_thr', False), ('task_mean_duration', 'ss_task_mean', True), ('productivity_hours', 'ss_prod_hours', True)]"
+      "value_preview": "[('makespan', 'ss_dur', True), ('throughput', 'ss_thr', False), ('throughput_task', 'ss_thr_task', False), ('task_mean_duration', 'ss_task_mean', True), ('productivity_hours', 'ss_prod_hours', True)]"
     },
     "Optimization/Performance_Evaluations/common/stats_core.py::_METRICS": {
       "decorators": [],
@@ -1010,7 +1010,7 @@
     },
     "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py": {
       "decorators": [],
-      "doc": "compare.throughput_labor \u2014 does throughput follow total labor?  (no rerun, no DB touch)\n\nTwo scatter panels, one point per strategy arm, built entirely from the per-arm series\nscalars that already live in series.json (ss_prod_hours, ss_thr, ss_dur):\n\n  * Panel A: x = ss_prod_hours (total task labor, the minimized objective, lower=better)\n             y = ss_thr        (throughput = items / makespan, higher=better)\n             marker size \u221d ss_dur (makespan).  The best corner is UP-LEFT.\n  * Panel B: x = ss_dur (makespan)  vs  y = ss_thr \u2014 the mechanistic link.\n\nThe point is to SHOW that throughput does NOT track total labor: because the picker\nscheduler is static round-robin by aisle with no load balancing (Warehouse/Pick.py), a\nplacement that lowers \u03a3 task labor can pile work onto the busiest picker, raising makespan\nand lowering throughput (throughput \u2248 items/makespan).  So throughput tracks 1/makespan\n(Panel B, tight) \u2014 not total labor (Panel A, a scattered cloud).  The Spearman \u03c1 in each\ntitle quantifies it.  Writes compare/throughput_vs_labor.png.",
+      "doc": "compare.throughput_labor \u2014 the four success metrics on one figure  (no rerun, no DB touch)\n\nThree scatter panels, one point per strategy arm, built from the per-arm series scalars in\nseries.json.  Vocabulary: TASK makespan = ss_prod_hours = \u03a3 task time = total labor (the serial\nmakespan a lone picker would incur); BATCH makespan = ss_dur = last-picker finish (parallel\nwall-clock).  The two throughputs are items \u00f7 each makespan:\n  * ss_thr      = items / batch makespan  (metric d)\n  * ss_thr_task = items / task makespan   (metric c)\n\n  * Panel A: x = task makespan (ss_prod_hours, lower=better)  vs  y = throughput / batch makespan\n             (ss_thr).  Marker size \u221d batch makespan (ss_dur).  Best corner is UP-LEFT.\n  * Panel B: x = batch makespan (ss_dur)  vs  y = throughput / batch makespan \u2014 the mechanistic link.\n  * Panel C: x = throughput / task makespan (ss_thr_task)  vs  y = throughput / batch makespan\n             (ss_thr).  Separates the two win types: a pure SCHEDULING win (batch makespan \u2193 at flat\n             task makespan) moves a point straight UP; a LABOR win (less task time per item) moves it\n             RIGHT.  \"A throughput win at flat task makespan is still a win\" = vertical travel here.\n\nThe thesis stays: throughput does NOT track task makespan (total labor) \u2014 a placement that lowers \u03a3\ntask labor can pile work onto the busiest picker, raising batch makespan and lowering throughput.  So\nthroughput tracks 1/batch-makespan (Panel B, tight) \u2014 not task makespan (Panel A, a scattered cloud).\nThe Spearman \u03c1 in each title quantifies it.  Writes compare/throughput_vs_labor.png.",
       "kind": "module",
       "signature": null
     },
@@ -1084,7 +1084,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('Total task time', 'ss_prod_hours', True), ('Makespan', 'ss_dur', True), ('Throughput', 'ss_thr', False), ('Layout total f*D', 'ss_sigma', True)]"
+      "value_preview": "[('Task makespan', 'ss_prod_hours', True), ('Batch makespan', 'ss_dur', True), ('Thr / batch makespan', 'ss_thr', False), ('Thr / task makespan', 'ss_thr_task', False), ('Layout total f*D', 'ss_sig..."
     },
     "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart": {
       "decorators": [],
@@ -2246,7 +2246,7 @@
     },
     "Optimization/Simulation_Analytics.py::extract_batch_stats": {
       "decorators": [],
-      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : max done-event time across all pickers\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see picker_time_breakdown)",
+      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see picker_time_breakdown)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
@@ -3027,19 +3027,40 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "Optimization/run_simulation.py::_SCHED_SHORT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': 'rr', 'lpt': 'lpt'}"
+    },
     "Optimization/run_simulation.py::_apply_cell": {
       "decorators": [],
-      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning on every channel.",
+      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.",
       "is_async": false,
       "kind": "function",
-      "signature": "(aisle_split, zoning) -> None"
+      "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
+    },
+    "Optimization/run_simulation.py::_apply_run_spec": {
+      "decorators": [],
+      "doc": "Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the\nuser explicitly typed on the resume command overrides it (with a warning).  Returns\n(store_composition_override, notes) \u2014 the resolved store composition is injected directly so\na since-deleted --s-composition file can't break resume.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args, spec, explicit)"
     },
     "Optimization/run_simulation.py::_build_cells": {
       "decorators": [],
-      "doc": "Combinatorial (zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec), \u2026];\nthe (k=1, off) cell is the natural reference.",
+      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), \u2026];\nthe (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to\n['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`\nsuffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.",
       "is_async": false,
       "kind": "function",
       "signature": "(spec)"
+    },
+    "Optimization/run_simulation.py::_build_work_units": {
+      "decorators": [],
+      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity)"
     },
     "Optimization/run_simulation.py::_cell_complete": {
       "decorators": [],
@@ -3062,12 +3083,26 @@
       "kind": "function",
       "signature": "(sim_skeleton: dict) -> dict"
     },
+    "Optimization/run_simulation.py::_finalize_ready_groups": {
+      "decorators": [],
+      "doc": "Finalize every group whose members have ALL succeeded and isn't finalized yet.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(meta, done_uids, finalized, log)"
+    },
+    "Optimization/run_simulation.py::_plan_strategy_start": {
+      "decorators": [],
+      "doc": "Decide (run_id, start_batch) for one strategy, honoring resume granularity.\n\n- Fresh run / a strategy new on resume \u2192 init DB + create_run, start 0.\n- Resumed done arm (checkpoint \u2265 n_batches) \u2192 reuse run_id, start n_batches (empty loop).\n- Resumed PARTIAL arm (0 < ckpt < n_batches):\n    strategy granularity \u2192 reset the arm's DB + fresh run_id, start 0 (bit-identical to an\n                           uncrashed run \u2014 no un-replayed physical state);\n    batch granularity    \u2192 reuse run_id, start = ckpt (fast, but NOT bit-identical \u2014 warn).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log)"
+    },
     "Optimization/run_simulation.py::_prepare_channel_run": {
       "decorators": [],
       "doc": "Pre-initialise ONE channel-run (one config driving one channel): create DBs, get\nrun_ids, build strategy_args for the flat ProcessPoolExecutor.\n\nStore and fulfillment sweep their own config sets independently, so a run drives a single\nchannel.  ``mixed`` is True when the catalog holds more than one regime \u2014 the run then\nfilters inventory to ``channel.regime``, draws its own batch stream, and writes a\n``<config>/<channel>/`` subtree.  A store-only catalog (``mixed`` False) collapses to the\nlegacy ``<config>/`` layout + shared precomputed batch stream (byte-identical).\n\nReturns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set \u2014 the caller\ninjects it before submission.",
       "is_async": false,
       "kind": "function",
-      "signature": "(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1) -> tuple[list, list]"
+      "signature": "(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy') -> tuple[list, list]"
     },
     "Optimization/run_simulation.py::_prepare_channel_run._decomp": {
       "decorators": [],
@@ -3083,26 +3118,40 @@
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
     },
+    "Optimization/run_simulation.py::_run_pool": {
+      "decorators": [],
+      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized)"
+    },
     "Optimization/run_simulation.py::_run_scenario": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1)"
+      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
     },
     "Optimization/run_simulation.py::_run_whatif_matrix": {
       "decorators": [],
       "doc": "Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory\nonce (tightest cell), then reshape + simulate it for every cell.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, log, resume=False)"
+      "signature": "(base_dir, pairs, log, resume=False, max_retries=2, resume_granularity='strategy')"
     },
     "Optimization/run_simulation.py::_run_workers_flat": {
       "decorators": [],
-      "doc": "Flat ProcessPoolExecutor pool \u2014 zero idle time between A/B/C barriers.\n\nAll (pair, config, strategy) work units are submitted to a single shared\npool.  A free worker immediately picks up the next unit regardless of\nwhich pair or config it belongs to.  When all 3 strategies for a\n(pair, config) complete, sim_meta.json is written.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
+      "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False) -> None"
+      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
+    },
+    "Optimization/run_simulation.py::_supervise": {
+      "decorators": [],
+      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity)"
     },
     "Optimization/run_simulation.py::_tightest_split": {
       "decorators": [],
@@ -3127,7 +3176,7 @@
     },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],
-      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the steady-state ss_prod_hours (total labor) and ss_thr (throughput) straight from each\nscenario's sim_*.db (no run_analysis needed), keyed by (pair, pick-config, channel, arm), and diffs\nevery cell against the reference cell.  Emits whatif_delta.csv + a labor-saving-vs-throughput-gain\nscatter (one point per cell\u00d7channel\u00d7arm) and a median summary \u2014 tracking BOTH axes, since for\nfulfillment the throughput gain is the interesting lever (total labor is cart-swap-dominated).\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
+      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per\ncell\u00d7channel\u00d7arm) and a median summary.  This is what makes a scheduling win legible: LPT should show\n\u0394batch-makespan \u2193 and \u0394throughput/batch \u2191 while \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
       "kind": "module",
       "signature": null
     },
@@ -3140,7 +3189,7 @@
     },
     "Optimization/run_whatif_delta.py::_metrics": {
       "decorators": [],
-      "doc": null,
+      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
@@ -3153,6 +3202,138 @@
       "signature": "(cell_dir: str) -> dict"
     },
     "Optimization/run_whatif_delta.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/run_whatif_delta.py::main._pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
+    },
+    "Optimization/run_whatif_labor.py": {
+      "decorators": [],
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (_scan-style glob + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_whatif_labor.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/run_whatif_labor.py::_HOURS_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'rr': 'round_robin', 'lpt': 'lpt'}"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED_COLOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': '#4c78a8', 'lpt': '#f58518'}"
+    },
+    "Optimization/run_whatif_labor.py::_agg": {
+      "decorators": [],
+      "doc": "Aggregate `field` over rows grouped by keyfn: how in {'sum','mean'}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, keyfn, field, how)"
+    },
+    "Optimization/run_whatif_labor.py::_batch_hours_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_channels": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/run_whatif_labor.py::_hours": {
+      "decorators": [],
+      "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str)"
+    },
+    "Optimization/run_whatif_labor.py::_labor_saved_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, baseline, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/run_whatif_labor.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor', 'norsl'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/run_whatif_labor.py::_pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero/NaN.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
+    },
+    "Optimization/run_whatif_labor.py::_scan_labor": {
+      "decorators": [],
+      "doc": "{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str) -> dict"
+    },
+    "Optimization/run_whatif_labor.py::_scheduler_of": {
+      "decorators": [],
+      "doc": "'k1_off_lpt' -> 'lpt'; 'k1_off_rr' -> 'round_robin' (the swept scheduler is the cell suffix).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: str) -> str"
+    },
+    "Optimization/run_whatif_labor.py::_throughput_scatter": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_uplift_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(uplift, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::main": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -3466,6 +3647,13 @@
       "kind": "function",
       "signature": "(run_dir: str)"
     },
+    "Optimization/sim_manifest.py::_load_run_spec": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str)"
+    },
     "Optimization/sim_manifest.py::_resume_path": {
       "decorators": [],
       "doc": null,
@@ -3473,12 +3661,26 @@
       "kind": "function",
       "signature": "(run_dir: str) -> str"
     },
+    "Optimization/sim_manifest.py::_run_spec_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> str"
+    },
     "Optimization/sim_manifest.py::_save_resume": {
       "decorators": [],
-      "doc": "Persist per-strategy batch counters and run IDs for crash recovery.\n\nrun_ids and starts are keyed by strategy key (e.g. 'uniform', 'trip_min').",
+      "doc": "Persist per-strategy batch counters and run IDs for crash recovery.\n\nrun_ids and starts are keyed by strategy key (e.g. 'uniform', 'trip_min').\nWritten atomically (tmp + os.replace) so a crash mid-write can't corrupt resume state.",
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str, run_ids: dict, starts: dict) -> None"
+    },
+    "Optimization/sim_manifest.py::_write_run_spec": {
+      "decorators": [],
+      "doc": "Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved\ninventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a\nbare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags\nand no find_latest_db_pairs drift.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, spec: dict) -> None"
     },
     "Optimization/sim_manifest.py::write_run_manifest": {
       "decorators": [],
@@ -3746,6 +3948,13 @@
       "kind": "function",
       "signature": "(run_dir: str, strategy: str) -> int"
     },
+    "Optimization/strategy_runner.py::reset_strategy_db": {
+      "decorators": [],
+      "doc": "Discard a partially-run strategy's outputs so it restarts bit-identically from batch 0\n(strategy-level resume granularity).  Removes its sim_<key>.db, that db's keyframe sibling,\nand its checkpoint.  Runs in the PARENT before any worker reopens the file (Windows-safe).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, db_path: str, strategy: str) -> None"
+    },
     "Optimization/strategy_runner.py::save_worker_checkpoint": {
       "decorators": [],
       "doc": null,
@@ -3755,7 +3964,7 @@
     },
     "Optimization/whatif_config.py": {
       "decorators": [],
-      "doc": "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning\nmatrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nlayout (aisle_split) and velocity zoning \u2014 an apples-to-apples layout comparison.\n\nCells are the combinatorial product ks \u00d7 losses \u00d7 zoning (loss collapses to 0 when k == 1), named\n`k{k}[_l{loss%}]_{zone-name}`; the (k=1, off) cell `k1_off` is the natural reference.",
+      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B: hold the layout fixed (no split, no zoning) and sweep the\ntask\u2192picker scheduler `round_robin` vs `lpt` across the full assignment-function suite, to measure the\nthroughput (makespan) gain of load-balancing at unchanged total labor.  To sweep layout too, re-add\nvalues to `ks`/`losses`/`zoning`.",
       "kind": "module",
       "signature": null
     },
@@ -3764,7 +3973,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'ks': [1, 2], 'losses': [0.0, 0.1], 'zoning': [('off', {'enabled': False}), ('abc2', {'enabled': True, 'mode': 'abc', 'n_bands': 2, 'abc': {'mass_thresholds': [0.6]}}), ('abc3', {'enabled': True, ..."
+      "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
     },
     "Visualization/db_reader.py": {
       "decorators": [],
@@ -5658,6 +5867,27 @@
       "kind": "function",
       "signature": "(cfg: PickConfig, weight: int, volume: int, quantity: int, y_phys: float=0.0) -> float"
     },
+    "Warehouse/Pick.py::_task_static": {
+      "decorators": [],
+      "doc": "A task's assignment-INDEPENDENT time (travel + handling, NO cart) plus its ordered pick-volume\nsequence \u2014 the inputs the LPT scheduler balances.  Replicates PickSimulation._simulate_picker's\nper-task arithmetic exactly (position resets to (0,0) each aisle; one-way exit to the far end);\nthe cart term is session-persistent so it is added separately via count_cart_swaps.  Kept in\nlockstep with the sim by the scheduler\u2194sim self-consistency test.\n\nNOTE: it reads the UNCAPPED ``task.items[sku]``, matching PickSimulation; fast_pick's deferred\nloop can cap a pick at the snapshot stock under cross-picker contention, so predicted==realized is\nexact for PickSimulation and for the normal disjoint well-stocked aisles, but can differ for a bin\nunder-stocked relative to demand under DeferredPickSimulation.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(task: Task, cfg: PickConfig, x_pace: float, y_pace: float) -> tuple[float, list]"
+    },
+    "Warehouse/Pick.py::assign_tasks": {
+      "decorators": [],
+      "doc": "Partition aisle-Tasks across ``cfg.num_pickers`` pickers.  ``sorted_tasks`` MUST be aisle_id\nsorted (the sim processes each picker's tasks in that order).  The SINGLE task\u2192picker assignment\nused by both PickSimulation and fast_pick, so they cannot drift.\n\n- ``'round_robin'`` (default): ``i % num_pickers`` \u2014 byte-identical to the legacy scheduler.\n- ``'lpt'``: LPT \u2014 visit tasks **heaviest-first** and append each to the **least-loaded** picker.\n  Both use a per-task cost ``est(t) = (travel+handling) + swap_coef \u00b7 task_volume / cart_cap`` \u2014\n  a *continuous* cart proxy that is monotone in volume, so it can't be fooled by the cart\n  step-function the way an exact-but-myopic greedy is (a light task looking free on a\n  cart-favourable picker).  Heaviest-first + least-loaded is a standard makespan heuristic \u2014 but\n  note it is NOT a guaranteed bound on the *realized* step-function makespan and can, on adverse\n  inputs, do no better than round-robin; it never yields an invalid partition and total work is\n  unchanged, so results stay correct regardless.  Each picker's tasks are then kept in aisle_id\n  order \u2014 exactly the order the sim picks them \u2014 so the **realized** makespan (and the cart swaps\n  that dominate it) is computed exactly by the shared next-fit; only the *balancing decisions* use\n  the smooth proxy.  Runs once per batch in ``__init__`` at O(total_picks + tasks\u00b7pickers).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sorted_tasks: list, cfg: PickConfig) -> list"
+    },
+    "Warehouse/Pick.py::count_cart_swaps": {
+      "decorators": [],
+      "doc": "Next-fit cart swaps for an ORDERED sequence of pick volumes, starting from ``cart_remaining``.\nReturns ``(swaps, new_remaining)``.  Uses the same ``cart_step`` primitive the sim runs per pick,\nso this reproduces exactly what the sim charges for those picks.\n\nThis is the **exact-makespan predictor** \u2014 a partition's realized cart cost, computable up front.\nThe LPT scheduler does NOT balance on this; it balances a cheaper continuous proxy (see\n``assign_tasks``).  This is the oracle the scheduler\u2194sim self-consistency test checks the sim\nagainst, plus a reusable helper for scoring a partition's exact makespan.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pick_volumes, cart_remaining: float, cart_cap: float) -> tuple[int, float]"
+    },
     "Warehouse/Storage_Primitive.py": {
       "decorators": [],
       "doc": null,
@@ -6125,6 +6355,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(first_x: float, first_y: float, last_x: float, last_y: float, aisle_length: float, x_pace: float, y_pace: float, one_way: bool, entrance_x: float=0.0) -> tuple[float, float, float, float]"
+    },
+    "Warehouse/cost_model.py::cart_step": {
+      "decorators": [],
+      "doc": "One next-fit cart step for a single pick of volume ``needed_vol`` against a cart with\n``cart_remaining`` free volume (capacity ``cart_cap``).  Returns ``(swapped, new_remaining)``.\n\nA **swap** fires when the pick doesn't fit the current cart; the cart is then refilled to full\nbefore the pick is loaded.  This is the SINGLE source of the cart next-fit, shared by the sim's\nper-pick loop (``Pick`` / ``fast_pick``) and the scheduler's makespan predictor\n(``count_cart_swaps``), so the two can never drift \u2014 which is what makes the LPT scheduler's\npredicted makespan equal the sim's realized makespan.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(needed_vol: float, cart_remaining: float, cart_cap: float) -> tuple[bool, float]"
     },
     "Warehouse/cost_model.py::handle_var": {
       "decorators": [],
@@ -7782,10 +8019,17 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.\n\nOne row per matrix cell, per-channel **median** \u0394labor / \u0394throughput vs the reference\ncell (generated from whatif_delta.csv by the run's post-processing). Only a WHAT-IF\nexperiment has this JSON; ordinary single-run experiments never call this macro. Numbers\nlive in the committed JSON, so the page holds only prose.",
+      "doc": "Cross-cell delta table for a what-if experiment, from data/whatif_delta.json.\n\nOne row per matrix cell, per-channel **median** \u0394(task makespan = labor) and\n\u0394(throughput / batch makespan) vs the reference cell (generated from whatif_delta.csv by the\nrun's post-processing). Only a WHAT-IF experiment has this JSON; ordinary single-run\nexperiments never call this macro. Numbers live in the committed JSON, so the page holds only\nprose.  Key-tolerant: prefers the four-metric keys (dthr_batch/dtask_ms/dbatch_ms/dthr_task)\nand falls back to the legacy dthr/dlabor so older experiment JSON still renders.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
+    },
+    "docs/macros.py::define_env.whatif_matrix._med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch, *keys)"
     },
     "docs/macros.py::define_env.whatif_matrix.lab": {
       "decorators": [],

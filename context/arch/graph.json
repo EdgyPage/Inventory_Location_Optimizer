@@ -2151,16 +2151,6 @@
       "src": "Optimization/Simulation_Analytics.py::extract_task_stats"
     },
     {
-      "dst": "Optimization/Picking_Data.py::BatchStats",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::flag_batch_outliers"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::TaskStats",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::flag_task_outliers"
-    },
-    {
       "dst": "Optimization/Simulation_Analytics.py::_group_events_by_picker",
       "kind": "calls",
       "src": "Optimization/Simulation_Analytics.py::picker_time_breakdown"
@@ -2746,6 +2736,26 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Optimization/run_simulation.py::_channel_runs_for",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_build_work_units"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_prepare_channel_run",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_build_work_units"
+    },
+    {
+      "dst": "Optimization/sim_config.py::_config_name",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_build_work_units"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::_resume_path",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_build_work_units"
+    },
+    {
       "dst": "Optimization/channels.py::make_channel",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_channel_runs_for"
@@ -2771,14 +2781,29 @@
       "src": "Optimization/run_simulation.py::_finalize_config_run"
     },
     {
+      "dst": "Optimization/run_simulation.py::_finalize_config_run",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_finalize_ready_groups"
+    },
+    {
       "dst": "Optimization/Picking_Data.py::create_run",
       "kind": "calls",
-      "src": "Optimization/run_simulation.py::_prepare_channel_run"
+      "src": "Optimization/run_simulation.py::_plan_strategy_start"
     },
     {
       "dst": "Optimization/Picking_Data.py::init_run_db",
       "kind": "calls",
-      "src": "Optimization/run_simulation.py::_prepare_channel_run"
+      "src": "Optimization/run_simulation.py::_plan_strategy_start"
+    },
+    {
+      "dst": "Optimization/strategy_runner.py::load_worker_checkpoint",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_plan_strategy_start"
+    },
+    {
+      "dst": "Optimization/strategy_runner.py::reset_strategy_db",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_plan_strategy_start"
     },
     {
       "dst": "Optimization/Workload.py::WorkloadParams.from_pick_config",
@@ -2787,6 +2812,11 @@
     },
     {
       "dst": "Optimization/batch_precompute.py::ensure_batches",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_plan_strategy_start",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_prepare_channel_run"
     },
@@ -2816,11 +2846,6 @@
       "src": "Optimization/run_simulation.py::_prepare_channel_run"
     },
     {
-      "dst": "Optimization/strategy_runner.py::load_worker_checkpoint",
-      "kind": "calls",
-      "src": "Optimization/run_simulation.py::_prepare_channel_run"
-    },
-    {
       "dst": "Warehouse/regime.py::regime_of",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_prepare_channel_run"
@@ -2829,6 +2854,16 @@
       "dst": "Warehouse/Inventory_Management.py::Inventory_Manager",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_prepare_channel_run._yardsticks"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_finalize_config_run",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_run_pool"
+    },
+    {
+      "dst": "Optimization/strategy_runner.py::_run_strategy_worker",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_run_pool"
     },
     {
       "dst": "Optimization/run_simulation.py::_run_workers_flat",
@@ -2891,39 +2926,34 @@
       "src": "Optimization/run_simulation.py::_run_whatif_matrix"
     },
     {
-      "dst": "Optimization/run_simulation.py::_channel_runs_for",
+      "dst": "Optimization/run_simulation.py::_supervise",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_run_workers_flat"
     },
     {
-      "dst": "Optimization/run_simulation.py::_finalize_config_run",
+      "dst": "Optimization/run_simulation.py::_build_work_units",
       "kind": "calls",
-      "src": "Optimization/run_simulation.py::_run_workers_flat"
+      "src": "Optimization/run_simulation.py::_supervise"
     },
     {
-      "dst": "Optimization/run_simulation.py::_prepare_channel_run",
+      "dst": "Optimization/run_simulation.py::_finalize_ready_groups",
       "kind": "calls",
-      "src": "Optimization/run_simulation.py::_run_workers_flat"
+      "src": "Optimization/run_simulation.py::_supervise"
     },
     {
-      "dst": "Optimization/sim_config.py::_config_name",
+      "dst": "Optimization/run_simulation.py::_run_pool",
       "kind": "calls",
-      "src": "Optimization/run_simulation.py::_run_workers_flat"
-    },
-    {
-      "dst": "Optimization/sim_manifest.py::_resume_path",
-      "kind": "calls",
-      "src": "Optimization/run_simulation.py::_run_workers_flat"
-    },
-    {
-      "dst": "Optimization/strategy_runner.py::_run_strategy_worker",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::_run_workers_flat"
+      "src": "Optimization/run_simulation.py::_supervise"
     },
     {
       "dst": "Optimization/runlayout.py::iter_sim_dbs",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::_warn_blank_arms"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_apply_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
     },
     {
       "dst": "Optimization/run_simulation.py::_run_scenario",
@@ -2956,6 +2986,16 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/sim_manifest.py::_load_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::_write_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py::main",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py"
@@ -2974,6 +3014,116 @@
       "dst": "Optimization/run_whatif_delta.py::_scan",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::main",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/whatif_config.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_labor_saved_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_labor_saved_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_metrics",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_hours",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_throughput_scatter"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_throughput_scatter"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_batch_hours_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_labor_saved_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_med",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_parse_arm",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_pct",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scan_labor",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_throughput_scatter",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_uplift_bars",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
     },
     {
       "dst": "Optimization/runlayout.py::_profile_pairs",
@@ -3186,9 +3336,19 @@
       "src": "Optimization/sim_manifest.py::_load_resume"
     },
     {
+      "dst": "Optimization/sim_manifest.py::_run_spec_path",
+      "kind": "calls",
+      "src": "Optimization/sim_manifest.py::_load_run_spec"
+    },
+    {
       "dst": "Optimization/sim_manifest.py::_resume_path",
       "kind": "calls",
       "src": "Optimization/sim_manifest.py::_save_resume"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::_run_spec_path",
+      "kind": "calls",
+      "src": "Optimization/sim_manifest.py::_write_run_spec"
     },
     {
       "dst": "Optimization/strategies.py::Strategy",
@@ -3764,6 +3924,11 @@
       "dst": "Warehouse/Inventory_Management.py::Inventory_Manager.init_lift_state",
       "kind": "calls",
       "src": "Optimization/strategy_runner.py::_run_strategy_worker._arm_aisle_state"
+    },
+    {
+      "dst": "Optimization/Picking_Data.py::keyframe_db_path",
+      "kind": "calls",
+      "src": "Optimization/strategy_runner.py::reset_strategy_db"
     },
     {
       "dst": "Optimization/Picking_Data.py",
@@ -5141,12 +5306,22 @@
       "src": "Warehouse/Pick.py"
     },
     {
+      "dst": "Warehouse/Pick.py::assign_tasks",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::PickSimulation.__init__"
+    },
+    {
       "dst": "Warehouse/Pick.py::PickEvent",
       "kind": "calls",
       "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
     },
     {
       "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
       "kind": "calls",
       "src": "Warehouse/Pick.py::PickSimulation._simulate_picker"
     },
@@ -5189,6 +5364,26 @@
       "dst": "Warehouse/cost_model.py::per_pick",
       "kind": "calls",
       "src": "Warehouse/Pick.py::_pick_time"
+    },
+    {
+      "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::_task_static"
+    },
+    {
+      "dst": "Warehouse/Pick.py::_task_static",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::assign_tasks"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::sec_per_inch",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::assign_tasks"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
+      "kind": "calls",
+      "src": "Warehouse/Pick.py::count_cart_swaps"
     },
     {
       "dst": "Warehouse/Aisle_Storage.py",
@@ -5406,6 +5601,11 @@
       "src": "Warehouse/fast_pick.py"
     },
     {
+      "dst": "Warehouse/Pick.py::assign_tasks",
+      "kind": "calls",
+      "src": "Warehouse/fast_pick.py::DeferredPickSimulation.__init__"
+    },
+    {
       "dst": "Warehouse/fast_pick.py::_simulate_picker_deferred",
       "kind": "ref",
       "src": "Warehouse/fast_pick.py::DeferredPickSimulation.run"
@@ -5427,6 +5627,11 @@
     },
     {
       "dst": "Warehouse/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/fast_pick.py::_simulate_picker_deferred"
+    },
+    {
+      "dst": "Warehouse/cost_model.py::cart_step",
       "kind": "calls",
       "src": "Warehouse/fast_pick.py::_simulate_picker_deferred"
     },
@@ -9835,6 +10040,14 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_SCHED_SHORT",
+      "kind": "const",
+      "module": "Optimization/run_simulation.py",
+      "name": "_SCHED_SHORT",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::_apply_cell",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
@@ -9843,10 +10056,26 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_apply_run_spec",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_apply_run_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::_build_cells",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
       "name": "_build_cells",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_build_work_units",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_build_work_units",
       "public": false
     },
     {
@@ -9875,6 +10104,22 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_finalize_ready_groups",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_finalize_ready_groups",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_plan_strategy_start",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_plan_strategy_start",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::_prepare_channel_run",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
@@ -9899,6 +10144,14 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_run_pool",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_run_pool",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::_run_scenario",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
@@ -9919,6 +10172,14 @@
       "kind": "function",
       "module": "Optimization/run_simulation.py",
       "name": "_run_workers_flat",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_supervise",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_supervise",
       "public": false
     },
     {
@@ -9982,6 +10243,158 @@
       "id": "Optimization/run_whatif_delta.py::main",
       "kind": "function",
       "module": "Optimization/run_whatif_delta.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::main._pct",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_pct",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py",
+      "kind": "module",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "Optimization.run_whatif_labor",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::MS_PER_HOUR",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "MS_PER_HOUR",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_HOURS_NOTE",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_HOURS_NOTE",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_SCHED",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_SCHED",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_SCHED_COLOR",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_SCHED_COLOR",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_agg",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_agg",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_batch_hours_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_batch_hours_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_channels",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_hours",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_hours",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_labor_saved_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_labor_saved_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_med",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_med",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_parse_arm",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_parse_arm",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_pct",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_pct",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_scan_labor",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_scan_labor",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_scheduler_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_throughput_scatter",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_throughput_scatter",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_uplift_bars",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_uplift_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::main",
+      "kind": "function",
+      "module": "Optimization/run_whatif_labor.py",
       "name": "main",
       "public": true
     },
@@ -10339,6 +10752,14 @@
     },
     {
       "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::_load_run_spec",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "_load_run_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
       "id": "Optimization/sim_manifest.py::_resume_path",
       "kind": "function",
       "module": "Optimization/sim_manifest.py",
@@ -10347,10 +10768,26 @@
     },
     {
       "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::_run_spec_path",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "_run_spec_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
       "id": "Optimization/sim_manifest.py::_save_resume",
       "kind": "function",
       "module": "Optimization/sim_manifest.py",
       "name": "_save_resume",
+      "public": false
+    },
+    {
+      "file": "Optimization/sim_manifest.py",
+      "id": "Optimization/sim_manifest.py::_write_run_spec",
+      "kind": "function",
+      "module": "Optimization/sim_manifest.py",
+      "name": "_write_run_spec",
       "public": false
     },
     {
@@ -10655,6 +11092,14 @@
       "kind": "function",
       "module": "Optimization/strategy_runner.py",
       "name": "load_worker_checkpoint",
+      "public": true
+    },
+    {
+      "file": "Optimization/strategy_runner.py",
+      "id": "Optimization/strategy_runner.py::reset_strategy_db",
+      "kind": "function",
+      "module": "Optimization/strategy_runner.py",
+      "name": "reset_strategy_db",
       "public": true
     },
     {
@@ -12794,6 +13239,30 @@
       "public": false
     },
     {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::_task_static",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "_task_static",
+      "public": false
+    },
+    {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::assign_tasks",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "assign_tasks",
+      "public": true
+    },
+    {
+      "file": "Warehouse/Pick.py",
+      "id": "Warehouse/Pick.py::count_cart_swaps",
+      "kind": "function",
+      "module": "Warehouse/Pick.py",
+      "name": "count_cart_swaps",
+      "public": true
+    },
+    {
       "file": "Warehouse/Storage_Primitive.py",
       "id": "Warehouse/Storage_Primitive.py",
       "kind": "module",
@@ -13311,6 +13780,14 @@
       "kind": "function",
       "module": "Warehouse/cost_model.py",
       "name": "aisle_traverse_cost",
+      "public": true
+    },
+    {
+      "file": "Warehouse/cost_model.py",
+      "id": "Warehouse/cost_model.py::cart_step",
+      "kind": "function",
+      "module": "Warehouse/cost_model.py",
+      "name": "cart_step",
       "public": true
     },
     {
@@ -15184,6 +15661,14 @@
       "module": "docs/macros.py",
       "name": "whatif_matrix",
       "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.whatif_matrix._med",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_med",
+      "public": false
     },
     {
       "file": "docs/macros.py",

@@ -29,6 +29,8 @@ sum_lift(skus, affinity)
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from Optimization.Picking_Data import BatchStats, TaskStats, PickRecord
@@ -211,18 +213,26 @@ def extract_batch_stats(
 ) -> BatchStats:
     """Summarise one PickSimulation.run() result into a BatchStats record.
 
-    duration      : max done-event time across all pickers
+    duration      : BATCH MAKESPAN — max done-event time across all pickers (parallel wall-clock)
+    task_makespan : Σ per-picker done-times = total labor (the serial / single-picker makespan)
     num_tasks     : unique aisles that received a task_start
     total_items   : sum of items_picked from each picker's done event
+    thr_batch     : throughput / batch makespan = total_items / duration
+    thr_task      : throughput / task makespan  = total_items / task_makespan
     avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
     picking/traveling pct  : aggregate fractions (see picker_time_breakdown)
+
+    task_makespan == Σ task_stats.duration by construction: every picker's clock starts at 0 and
+    accrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the
+    sum of its task durations; summing over pickers gives the batch's total task time.
     """
-    # Group once; reuse for total_items and picker_time_breakdown.
+    # Group once; reuse for total_items, task_makespan, and picker_time_breakdown.
     grouped = _group_events_by_picker(events, k_pickers)
 
     duration = 0.0
     num_tasks_set: set = set()
     total_items = 0
+    task_makespan = 0.0
     t_min = float('inf')
     t_max = 0.0
 
@@ -242,7 +252,8 @@ def extract_batch_stats(
 
     for picker_evs in grouped:
         if picker_evs and picker_evs[-1].event_type == 'done':
-            total_items += picker_evs[-1].items_picked
+            total_items   += picker_evs[-1].items_picked
+            task_makespan += picker_evs[-1].time     # this picker's finish = Σ its task durations
 
     conc      = avg_concurrent_pickers(events)
     breakdown = _picker_time_breakdown_grouped(grouped)
@@ -253,6 +264,9 @@ def extract_batch_stats(
         duration               = duration,
         num_tasks              = num_tasks,
         total_items            = total_items,
+        task_makespan          = task_makespan,
+        thr_batch              = total_items / duration      if duration      > 0 else 0.0,
+        thr_task               = total_items / task_makespan if task_makespan > 0 else 0.0,
         avg_concurrent_pickers = conc,
         picking_pct            = breakdown['picking_pct'],
         traveling_pct          = breakdown['traveling_pct'],
@@ -347,19 +361,9 @@ def flag_batch_outliers(
     q1, q3 = float(np.percentile(durations, 25)), float(np.percentile(durations, 75))
     iqr     = q3 - q1
     lo, hi  = q1 - iqr_factor * iqr, q3 + iqr_factor * iqr
-    return [
-        BatchStats(
-            run_id=s.run_id, batch_id=s.batch_id, duration=s.duration,
-            num_tasks=s.num_tasks, total_items=s.total_items,
-            avg_concurrent_pickers=s.avg_concurrent_pickers,
-            picking_pct=s.picking_pct, traveling_pct=s.traveling_pct,
-            batch_start_time=s.batch_start_time, batch_end_time=s.batch_end_time,
-            sigma_fd=s.sigma_fd, reload_moves=s.reload_moves,
-            reorder_placements=s.reorder_placements,
-            is_outlier=bool(d < lo or d > hi),
-        )
-        for s, d in zip(stats, durations)
-    ]
+    # replace() (not a field-by-field rebuild) so every column — incl. task_makespan/thr_task/
+    # thr_batch and the queue_depth family — survives outlier flagging unchanged.
+    return [replace(s, is_outlier=bool(d < lo or d > hi)) for s, d in zip(stats, durations)]
 
 
 def flag_task_outliers(
@@ -373,18 +377,7 @@ def flag_task_outliers(
     q1, q3 = float(np.percentile(durations, 25)), float(np.percentile(durations, 75))
     iqr     = q3 - q1
     lo, hi  = q1 - iqr_factor * iqr, q3 + iqr_factor * iqr
-    return [
-        TaskStats(
-            run_id=s.run_id, batch_id=s.batch_id, aisle_id=s.aisle_id,
-            picker_id=s.picker_id, duration=s.duration,
-            task_start_time=s.task_start_time,
-            task_end_time=s.task_end_time,
-            W=s.W, lift_sum=s.lift_sum, num_bins_visited=s.num_bins_visited,
-            total_items=s.total_items,
-            is_outlier=bool(d < lo or d > hi),
-        )
-        for s, d in zip(stats, durations)
-    ]
+    return [replace(s, is_outlier=bool(d < lo or d > hi)) for s, d in zip(stats, durations)]
 
 
 # ── affinity helpers ──────────────────────────────────────────────────────────

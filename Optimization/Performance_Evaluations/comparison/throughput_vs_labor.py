@@ -1,19 +1,24 @@
-"""compare.throughput_labor — does throughput follow total labor?  (no rerun, no DB touch)
+"""compare.throughput_labor — the four success metrics on one figure  (no rerun, no DB touch)
 
-Two scatter panels, one point per strategy arm, built entirely from the per-arm series
-scalars that already live in series.json (ss_prod_hours, ss_thr, ss_dur):
+Three scatter panels, one point per strategy arm, built from the per-arm series scalars in
+series.json.  Vocabulary: TASK makespan = ss_prod_hours = Σ task time = total labor (the serial
+makespan a lone picker would incur); BATCH makespan = ss_dur = last-picker finish (parallel
+wall-clock).  The two throughputs are items ÷ each makespan:
+  * ss_thr      = items / batch makespan  (metric d)
+  * ss_thr_task = items / task makespan   (metric c)
 
-  * Panel A: x = ss_prod_hours (total task labor, the minimized objective, lower=better)
-             y = ss_thr        (throughput = items / makespan, higher=better)
-             marker size ∝ ss_dur (makespan).  The best corner is UP-LEFT.
-  * Panel B: x = ss_dur (makespan)  vs  y = ss_thr — the mechanistic link.
+  * Panel A: x = task makespan (ss_prod_hours, lower=better)  vs  y = throughput / batch makespan
+             (ss_thr).  Marker size ∝ batch makespan (ss_dur).  Best corner is UP-LEFT.
+  * Panel B: x = batch makespan (ss_dur)  vs  y = throughput / batch makespan — the mechanistic link.
+  * Panel C: x = throughput / task makespan (ss_thr_task)  vs  y = throughput / batch makespan
+             (ss_thr).  Separates the two win types: a pure SCHEDULING win (batch makespan ↓ at flat
+             task makespan) moves a point straight UP; a LABOR win (less task time per item) moves it
+             RIGHT.  "A throughput win at flat task makespan is still a win" = vertical travel here.
 
-The point is to SHOW that throughput does NOT track total labor: because the picker
-scheduler is static round-robin by aisle with no load balancing (Warehouse/Pick.py), a
-placement that lowers Σ task labor can pile work onto the busiest picker, raising makespan
-and lowering throughput (throughput ≈ items/makespan).  So throughput tracks 1/makespan
-(Panel B, tight) — not total labor (Panel A, a scattered cloud).  The Spearman ρ in each
-title quantifies it.  Writes compare/throughput_vs_labor.png.
+The thesis stays: throughput does NOT track task makespan (total labor) — a placement that lowers Σ
+task labor can pile work onto the busiest picker, raising batch makespan and lowering throughput.  So
+throughput tracks 1/batch-makespan (Panel B, tight) — not task makespan (Panel A, a scattered cloud).
+The Spearman ρ in each title quantifies it.  Writes compare/throughput_vs_labor.png.
 """
 import os
 
@@ -82,7 +87,7 @@ def render(ctx, params):
     base = ctx.base
     bd = S.get(base['key']) if base else None
 
-    xs_prod, ys_thr, xs_dur, colors, labels = [], [], [], [], []
+    xs_prod, ys_thr, xs_dur, xs_thr_task, colors, labels = [], [], [], [], [], []
     for s in ctx.strategies:
         d = S.get(s['key'])
         if not d:
@@ -93,36 +98,46 @@ def render(ctx, params):
         xs_prod.append(prod)
         ys_thr.append(thr)
         xs_dur.append(dur)
+        xs_thr_task.append(_f(d.get('ss_thr_task')))
         colors.append(s.get('color') or '#4c72b0')
         labels.append(_stitle(s))
     if len(xs_prod) < 2:
         return
 
-    rho_pl = _rho(xs_prod, ys_thr)   # labor  vs throughput — expected ~0 (non-monotone)
-    rho_dl = _rho(xs_dur, ys_thr)    # makespan vs throughput — expected strongly negative
+    rho_pl = _rho(xs_prod, ys_thr)        # task makespan (labor) vs throughput — expected ~0
+    rho_dl = _rho(xs_dur, ys_thr)         # batch makespan vs throughput — expected strongly negative
+    rho_tt = _rho(xs_thr_task, ys_thr)    # thr/task vs thr/batch — how coupled the two throughputs are
 
     base_a = (_f(bd.get('ss_prod_hours')), _f(bd.get('ss_thr'))) if bd else None
     base_b = (_f(bd.get('ss_dur')), _f(bd.get('ss_thr'))) if bd else None
+    base_c = (_f(bd.get('ss_thr_task')), _f(bd.get('ss_thr'))) if bd else None
 
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(15, 6.2))
+    fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(21, 6.2))
     _panel(a1, xs_prod, ys_thr, colors, labels, base_a,
-           'Total task labor  ss_prod_hours  (lower = better →)',
-           'Throughput  ss_thr = items / makespan  (higher = better)',
-           f'Throughput vs total labor   (Spearman ρ = '
-           f'{rho_pl:.2f})' if np.isfinite(rho_pl) else 'Throughput vs total labor   (ρ n/a)',
+           'Task makespan  ss_prod_hours = Σ task time  (lower = better →)',
+           'Throughput / batch makespan  ss_thr  (higher = better)',
+           f'Throughput vs task makespan (labor)   (Spearman ρ = '
+           f'{rho_pl:.2f})' if np.isfinite(rho_pl) else 'Throughput vs task makespan   (ρ n/a)',
            sizes=_sizes(xs_dur))
     _panel(a2, xs_dur, ys_thr, colors, labels, base_b,
-           'Makespan  ss_dur  (lower = better →)',
-           'Throughput  ss_thr = items / makespan  (higher = better)',
-           f'Throughput vs makespan   (Spearman ρ = '
-           f'{rho_dl:.2f})' if np.isfinite(rho_dl) else 'Throughput vs makespan   (ρ n/a)')
+           'Batch makespan  ss_dur  (lower = better →)',
+           'Throughput / batch makespan  ss_thr  (higher = better)',
+           f'Throughput vs batch makespan   (Spearman ρ = '
+           f'{rho_dl:.2f})' if np.isfinite(rho_dl) else 'Throughput vs batch makespan   (ρ n/a)')
+    _panel(a3, xs_thr_task, ys_thr, colors, labels, base_c,
+           'Throughput / task makespan  ss_thr_task = items / Σ task time  (higher = better →)',
+           'Throughput / batch makespan  ss_thr  (higher = better)',
+           f'The two throughputs — ↑ = scheduling win, → = labor win   (Spearman ρ = '
+           f'{rho_tt:.2f})' if np.isfinite(rho_tt) else 'The two throughputs   (ρ n/a)',
+           sizes=_sizes(xs_dur))
     legend_right(a1, fontsize=8)
     fig.suptitle(
-        f'Does throughput follow total labor?  No — it tracks 1/makespan  [{ctx.title}]\n'
-        f'Panel A cloud (labor⊥throughput) vs Panel B tight inverse (makespan drives throughput). '
-        f'Marker size = makespan.  Scheduler = static round-robin, no load balancing.',
+        f'Four success metrics: throughput tracks 1/batch-makespan, not task makespan  [{ctx.title}]\n'
+        f'A: cloud (task makespan ⊥ throughput).  B: tight inverse (batch makespan drives throughput).  '
+        f'C: vertical travel = a throughput win at flat task-makespan throughput (scheduling).  '
+        f'Marker size = batch makespan.',
         fontsize=11, fontweight='bold')
-    plt.tight_layout(rect=(0, 0, 1, 0.93))
+    plt.tight_layout(rect=(0, 0, 1, 0.92))
     out = os.path.join(ctx.run_dir, 'compare')
     os.makedirs(out, exist_ok=True)
     _save_close(fig, os.path.join(out, 'throughput_vs_labor.png'))
