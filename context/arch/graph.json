@@ -3531,7 +3531,17 @@
       "src": "Optimization/simdriver/supervisor.py::_finalize_ready_groups"
     },
     {
+      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_finalize_ready_groups"
+    },
+    {
       "dst": "Optimization/simdriver/supervisor.py::_finalize_config_run",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
       "kind": "calls",
       "src": "Optimization/simdriver/supervisor.py::_run_pool"
     },
@@ -3552,6 +3562,11 @@
     },
     {
       "dst": "Optimization/simdriver/supervisor.py::_run_pool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_supervise"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
       "kind": "calls",
       "src": "Optimization/simdriver/supervisor.py::_supervise"
     },
@@ -11409,6 +11424,14 @@
       "public": false
     },
     {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::_tag_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "_tag_of",
+      "public": false
+    },
+    {
       "file": "Optimization/simdriver/workunits.py",
       "id": "Optimization/simdriver/workunits.py",
       "kind": "module",
@@ -13654,6 +13677,14 @@
       "kind": "function",
       "module": "Warehouse/Inventory_Management.py",
       "name": "unavailable",
+      "public": true
+    },
+    {
+      "file": "Warehouse/Inventory_Management.py",
+      "id": "Warehouse/Inventory_Management.py::Inventory_Manager.units_ordered",
+      "kind": "function",
+      "module": "Warehouse/Inventory_Management.py",
+      "name": "units_ordered",
       "public": true
     },
     {

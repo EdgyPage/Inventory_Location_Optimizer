@@ -130,6 +130,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # (bumped in _execute_placement).
         self._reload_moves: int       = 0
         self._reorder_placements: int = 0
+        # Units ORDERED this batch (Σ reorder qty entering the lead queue in check_reorders);
+        # reset + accumulated there each batch, read via the units_ordered property.
+        self._units_ordered: int      = 0
 
         # Incremental Sigma f*D tracker — avoids a full occupied-bin scan per batch.
         # None until enable_sigma_fd() binds the freq map + speeds; then maintained
@@ -377,6 +380,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     def in_transit_qty(self) -> int:
         """Total units currently in transit (sum of lead-queue order quantities)."""
         return sum(entry[1] for entry in self._lead_queue)
+
+    @property
+    def units_ordered(self) -> int:
+        """Units ORDERED in the most recent check_reorders() batch (Σ reorder qty).  Distinct from
+        reorder_placements (units PLACED) and in_transit_qty (units still on order)."""
+        return getattr(self, '_units_ordered', 0)
 
     @property
     def assigned_bins(self) -> list[Aisle.Bin]:

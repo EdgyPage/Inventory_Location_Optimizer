@@ -217,10 +217,10 @@ def regime_sizing_from_config() -> dict:
 def _setup_logging(log_path: str) -> logging.Logger:
     log = logging.getLogger('comparison')
     log.setLevel(logging.INFO)
-    # %(name)-14s gives a fixed-width column so A/B/C worker labels align with
-    # the main-process 'comparison' label in the same log file.
+    # %(name)-22s gives a fixed-width column so the '<cell> <strategy>' worker labels align with
+    # the main-process 'comparison' label in the same log file (widened from 14 to fit the cell tag).
     fmt = logging.Formatter(
-        '%(asctime)s  %(name)-14s  %(message)s',
+        '%(asctime)s  %(name)-22s  %(message)s',
         datefmt='%H:%M:%S',
     )
     fh = logging.FileHandler(log_path, encoding='utf-8')

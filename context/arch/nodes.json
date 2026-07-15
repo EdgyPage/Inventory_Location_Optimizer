@@ -3836,7 +3836,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
+      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, cell='', frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
     },
     "Optimization/simdriver/scenario.py::_run_whatif_matrix": {
       "decorators": [],
@@ -3870,28 +3870,35 @@
       "doc": "Finalize every group whose members have ALL succeeded and isn't finalized yet.",
       "is_async": false,
       "kind": "function",
-      "signature": "(meta, done_uids, finalized, log)"
+      "signature": "(meta, done_uids, finalized, log, cell='')"
     },
     "Optimization/simdriver/supervisor.py::_run_pool": {
       "decorators": [],
-      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.",
+      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`\nis prefixed on every per-arm tag so interleaved multi-cell output is attributable.",
       "is_async": false,
       "kind": "function",
-      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized)"
+      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='')"
     },
     "Optimization/simdriver/supervisor.py::_run_workers_flat": {
       "decorators": [],
       "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
+      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str='', max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
     },
     "Optimization/simdriver/supervisor.py::_supervise": {
       "decorators": [],
       "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity)"
+      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='')"
+    },
+    "Optimization/simdriver/supervisor.py::_tag_of": {
+      "decorators": [],
+      "doc": "Standardized per-arm/per-group log tag: [cell/pair/config[/channel][/strategy]].",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, key)"
     },
     "Optimization/simdriver/workunits.py": {
       "decorators": [],
@@ -5891,6 +5898,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list[Aisle.Bin]"
+    },
+    "Warehouse/Inventory_Management.py::Inventory_Manager.units_ordered": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Units ORDERED in the most recent check_reorders() batch (\u03a3 reorder qty).  Distinct from\nreorder_placements (units PLACED) and in_transit_qty (units still on order).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
     },
     "Warehouse/Inventory_Management.py::_apportion": {
       "decorators": [],

@@ -53,23 +53,29 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
             if k in sim_skeleton}
 
 
-def _finalize_ready_groups(meta, done_uids, finalized, log):
+def _tag_of(cell, key):
+    """Standardized per-arm/per-group log tag: [cell/pair/config[/channel][/strategy]]."""
+    return '/'.join(x for x in ((cell,) + tuple(key)) if x)
+
+
+def _finalize_ready_groups(meta, done_uids, finalized, log, cell=''):
     """Finalize every group whose members have ALL succeeded and isn't finalized yet."""
     for gk, m in meta.items():
         if gk not in finalized and m['members'] <= done_uids:
             try:
                 _finalize_config_run(m['sim_skeleton'])
                 finalized.add(gk)
-                log.info(f'  [{"/".join(x for x in gk if x)}] sim_meta.json written')
+                log.info(f'  [{_tag_of(cell, gk)}] sim_meta.json written')
             except Exception as exc:
-                log.error(f'  [{gk}] finalize FAILED: {exc}', exc_info=True)
+                log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
 
 
-def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized):
+def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell=''):
     """One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns
     (failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once
     ALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the
-    rest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated."""
+    rest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`
+    is prefixed on every per-arm tag so interleaved multi-cell output is attributable."""
     failed_uids, broke = set(), False
     with concurrent.futures.ProcessPoolExecutor(
             max_workers=max_workers, max_tasks_per_child=recycle) as pool:
@@ -77,7 +83,7 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized):
         for fut in concurrent.futures.as_completed(futures):
             uid = futures[fut]
             gk  = uid[:3]
-            _tag = '/'.join(x for x in gk if x) + f'/{uid[3]}'
+            _tag = _tag_of(cell, uid)
             try:
                 res = fut.result()
                 log.info(f'  [{_tag}] done  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
@@ -96,14 +102,14 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized):
                 try:
                     _finalize_config_run(gk_meta['sim_skeleton'])
                     finalized.add(gk)
-                    log.info(f'  [{"/".join(x for x in gk if x)}] sim_meta.json written')
+                    log.info(f'  [{_tag_of(cell, gk)}] sim_meta.json written')
                 except Exception as exc:
-                    log.error(f'  [{gk}] finalize FAILED: {exc}', exc_info=True)
+                    log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
     return failed_uids, broke
 
 
 def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
-               max_tasks_per_child, skip_completed, max_retries, resume_granularity):
+               max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell=''):
     """Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the
     unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary
     per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine
@@ -124,17 +130,18 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
         total = len(remaining)
         for idx, (uid, sa) in enumerate(remaining, start=1):
             sa['job_index'], sa['job_total'] = idx, total
-            sa['job_tag'] = '/'.join(x for x in uid[:3] if x) + f'/{uid[3]}'
+            sa['cell'] = cell                       # stamped on every worker line (cell/strategy)
+            sa['job_tag'] = _tag_of(cell, uid)
         if attempt:
             log.warning(f'  [supervisor] retry {attempt}/{max_retries}: '
                         f'rebuild pool + resubmit {total} unit(s)')
-        log.info(f'  Flat pool: {total} job(s) -> ProcessPoolExecutor({max_workers}, '
-                 f'max_tasks_per_child={recycle})')
+        log.info(f'  Flat pool{" [" + cell + "]" if cell else ""}: {total} job(s) -> '
+                 f'ProcessPoolExecutor({max_workers}, max_tasks_per_child={recycle})')
         _failed, broke = _run_pool(remaining, meta, max_workers, recycle,
-                                   log, done_uids, finalized)
+                                   log, done_uids, finalized, cell=cell)
         if not broke:
             break            # pool completed; residual failures are deterministic → quarantine
-    _finalize_ready_groups(meta, done_uids, finalized, log)   # safety sweep (rare finalize retry)
+    _finalize_ready_groups(meta, done_uids, finalized, log, cell=cell)   # safety sweep
     all_uids = {uid for uid, _ in work_units} | done_uids
     unfinished = sorted(all_uids - done_uids)
     if unfinished:
@@ -143,7 +150,7 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
         log.error(f'  {len(unfinished)}/{len(all_uids)} unit(s) UNRECOVERED after {max_retries} '
                   f'retr{"y" if max_retries == 1 else "ies"}. Resume state left intact.')
         for uid in unfinished:
-            log.error('    ' + '/'.join(x for x in uid if x))
+            log.error('    ' + _tag_of(cell, uid))
         log.error(f'  Resume with:  python Optimization/run_simulation.py --resume {base_dir}')
         log.error(bar)
 
@@ -154,6 +161,7 @@ def _run_workers_flat(
     shared_by_pair     : dict,
     max_workers        : int,
     log                : logging.Logger,
+    cell               : str = '',
     max_tasks_per_child: int | None = 1,
     skip_completed     : bool = False,
     max_retries        : int = 2,
@@ -180,7 +188,7 @@ def _run_workers_flat(
         _supervise(pairs, base_dir, shared_by_pair, max_workers, log,
                    log_queue=log_queue, max_tasks_per_child=max_tasks_per_child,
                    skip_completed=skip_completed, max_retries=max_retries,
-                   resume_granularity=resume_granularity)
+                   resume_granularity=resume_granularity, cell=cell)
     finally:
         listener.stop()
         mp_manager.shutdown()

@@ -14,12 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>_run_pool</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized)</code></pre>
+<pre class="sig"><code>def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell=&#x27;&#x27;)</code></pre>
 <section class="doc">One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns
 (failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once
 ALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the
-rest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___finalize_config_run.html"><code>_finalize_config_run</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li><li><a href="nOptimization_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___supervise.html"><code>_supervise</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section>
+rest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`
+is prefixed on every per-arm tag so interleaved multi-cell output is attributable.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___finalize_config_run.html"><code>_finalize_config_run</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li><li><a href="nOptimization_simdriver_supervisor_py___tag_of.html"><code>_tag_of</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li><li><a href="nOptimization_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___supervise.html"><code>_supervise</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_supervisor_py___run_pool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/supervisor.py#:~:text=def%20_run_pool">Source ↗</a></p>
 </article>
 </main>

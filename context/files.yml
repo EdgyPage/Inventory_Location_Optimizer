@@ -1005,6 +1005,14 @@ files:
       - {name: "test_aisle_split_store_branch", file: "Tests/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_k_bounded", file: "Tests/test_regime_sizing.py", kind: "function"}
     notes: ""
+  "Tests/test_reorder_accounting.py":
+    purpose: "test_reorder_accounting.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_units_ordered_tracks_qty_and_resets", file: "Tests/test_reorder_accounting.py", kind: "function"}
+      - {name: "test_units_ordered_sums_across_skus", file: "Tests/test_reorder_accounting.py", kind: "function"}
+      - {name: "test_batch_stats_persists_reorder_counts", file: "Tests/test_reorder_accounting.py", kind: "function"}
+    notes: ""
   "Tests/test_reorder_queue.py":
     purpose: "test_reorder_queue.py"
     layer: "tests"

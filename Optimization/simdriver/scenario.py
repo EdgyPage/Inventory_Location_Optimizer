@@ -58,8 +58,10 @@ def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
 # lives in exactly one place.  frozen_by_pair maps label -> an already-planned
 # inventory DB to reshape from (what-if freeze); None per label ⇒ sample fresh.
 def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
-                  frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1,
+                  cell='', frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1,
                   max_retries=2, resume_granularity='strategy'):
+    # `cell` is the cell name (e.g. k1_off / k1_off_lpt); it's stamped on every per-arm log line
+    # so a multi-cell run's interleaved output is attributable to its cell.
     write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
     g = CONFIG['global']
     shared_by_pair = {}
@@ -72,7 +74,7 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
             warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
             frozen_inventory_db=(frozen_by_pair or {}).get(label),
         )
-    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log,
+    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log, cell=cell,
                       max_tasks_per_child=max_tasks_per_child,
                       skip_completed=skip_completed,
                       max_retries=max_retries, resume_granularity=resume_granularity)
@@ -136,7 +138,7 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
         _apply_cell(aisle_split, zoning, sched)
         os.makedirs(scenario_base, exist_ok=True)
         _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
-                      frozen_by_pair=frozen, skip_completed=resume,
+                      cell=name, frozen_by_pair=frozen, skip_completed=resume,
                       max_retries=max_retries, resume_granularity=resume_granularity)
 
     log.info(f'\nCell matrix complete → {base_dir}')

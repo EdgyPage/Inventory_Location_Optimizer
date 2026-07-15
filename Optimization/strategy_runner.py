@@ -124,9 +124,13 @@ def _run_strategy_worker(args: dict) -> dict:
     job_index = args.get('job_index')
     job_total = args.get('job_total')
     job_tag   = args.get('job_tag')
-    # Flat pool: tag every line with the job index so interleaved output is
-    # distinguishable.  Nested path has no job_index → keep the old name.
-    if job_index is not None:
+    cell      = args.get('cell')
+    # Name the logger so EVERY worker line (the %(name)s column) carries the cell + arm — a
+    # multi-cell run's interleaved output is then attributable to its cell at a glance.  Nested
+    # path (no cell / no job_index) keeps the old name.
+    if cell:
+        log = logging.getLogger(f'{cell} {strategy}')
+    elif job_index is not None:
         log = logging.getLogger(f'j{job_index}/{job_total} {strategy}')
     else:
         log = logging.getLogger(f'worker-{strategy}')
@@ -386,7 +390,9 @@ def _run_strategy_worker(args: dict) -> dict:
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
-    reorders_ckpt  = 0
+    reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
+    units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
+    placed_ckpt        = 0   # units placed this window (P = reorder placements)
     dur_sum_ckpt   = 0.0
     dur_count_ckpt = 0
     p1_sum_ckpt    = 0.0
@@ -414,6 +420,11 @@ def _run_strategy_worker(args: dict) -> dict:
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
+        # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
+        # (mgr.units_ordered), P units placed (batch_rp = reorder placements this batch).
+        batch_uo            = mgr.units_ordered
+        units_ordered_ckpt += batch_uo
+        placed_ckpt        += batch_rp
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         # Replay viewer: snapshot the standing replenishment queues at batch start (after
         # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
@@ -469,7 +480,9 @@ def _run_strategy_worker(args: dict) -> dict:
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
-        bs.reorder_placements = batch_rp
+        bs.reorder_placements = batch_rp                 # units PLACED this batch (P)
+        bs.skus_reordered     = len(triggered)           # SKUs reordered this batch (N)
+        bs.units_ordered      = batch_uo                 # units ORDERED this batch (U)
         # Put-away honesty: standing backlog + in-transit pipeline after this batch's
         # reorder/restock pass (a strategy that defers placement carries a high queue).
         bs.queue_depth        = mgr.queue_depth
@@ -521,7 +534,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  rate={ckpt_rate:.2f}/s ({cum_rate:.2f} cum)'
                 f'  fill={cur_fill:.1%}'
                 f'  q={mgr.queue_depth}'
-                f'  reorders={reorders_ckpt}'
+                f'  reorder={reorders_ckpt}sku {units_ordered_ckpt}u ord {placed_ckpt}u plc'
                 f'  lead_q={mgr.lead_queue_depth}({mgr.in_transit_qty}u)'
                 f'  p1={p1_sum_ckpt:.2f}s ({p1_frac:.0f}%)'
                 f'  p2={p2_sum_ckpt:.2f}s'
@@ -535,7 +548,9 @@ def _run_strategy_worker(args: dict) -> dict:
             )
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
-            reorders_ckpt  = 0
+            reorders_ckpt      = 0
+            units_ordered_ckpt = 0
+            placed_ckpt        = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
             p1_sum_ckpt    = 0.0
