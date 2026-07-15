@@ -79,7 +79,7 @@ def test_supervise_rebuilds_pool_and_resubmits(monkeypatch, tmp_path):
                         lambda *a, **k: (units, dict(meta)))
     n = {'calls': 0}
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell=''):
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
         n['calls'] += 1
         if n['calls'] == 1:
             done_uids.add(uid_a)                 # one arm lands, then the pool breaks
@@ -104,7 +104,7 @@ def test_supervise_quarantines_persistent_failure(monkeypatch, tmp_path):
     monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
                         lambda *a, **k: (units, dict(meta)))
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell=''):
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
         done_uids.add(uid_a)                     # 'a' succeeds; 'b' deterministically fails
         return {uid_b}, False                    # not broke → no retry (deterministic)
     monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)

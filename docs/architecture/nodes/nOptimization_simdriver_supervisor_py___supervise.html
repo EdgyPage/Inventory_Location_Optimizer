@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_supervise</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell=&#x27;&#x27;)</code></pre>
+<pre class="sig"><code>def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell=&#x27;&#x27;, cell_index=1, cell_total=1)</code></pre>
 <section class="doc">Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the
 unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary
 per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine

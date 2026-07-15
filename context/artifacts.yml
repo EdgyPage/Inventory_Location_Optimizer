@@ -164,6 +164,24 @@ artifacts:
     fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
              optimal_work, inv_db, aff_db]
 
+  runtime_metrics_db:
+    path_pattern: "comparison_<ts>/runtime_metrics.db"
+    format: sqlite
+    writer: {function: record_arm, file: Optimization/runtime_metrics.py}
+    readers:
+      - {function: load_rows, file: Optimization/runtime_metrics.py}
+      - {function: run, file: Optimization/run_runtime_graphs.py}
+    match: "runtime_metrics.db"
+    schema_file: Optimization/runtime_metrics.py
+    tables: [runtime]
+
+  runtime_pngs:
+    path_pattern: "comparison_<ts>/_runtime/*.png"
+    format: png
+    writer: {function: run, file: Optimization/run_runtime_graphs.py}
+    readers: []
+    match: "runtime"
+
   # ── analysis outputs ────────────────────────────────────────────────────────────
   series_json:
     path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/series.json"

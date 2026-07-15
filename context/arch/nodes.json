@@ -3034,6 +3034,75 @@
       "kind": "function",
       "signature": "(base_dir: str, log=print) -> dict"
     },
+    "Optimization/run_runtime_graphs.py": {
+      "decorators": [],
+      "doc": "run_runtime_graphs.py \u2014 RUNTIME (compute-cost) graphs from runtime_metrics.db.\n\nCross-cell analysis step (part of the analysis hub): reads ``<run_root>/runtime_metrics.db`` (one row\nper arm, written parent-side by the supervisor) and emits PNGs to ``<run_root>/_runtime/`` ranking the\nslowest arms / assignment-fns / warehouses / cells and \u2014 critically \u2014 a per-SECTION stacked breakdown\nshowing WHERE the wall time goes, so recurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the\nvalid-aisle recompute suspicion) are visible at a glance.\n\nThis is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.\n\n    python -m Optimization.run_runtime_graphs <run_root>",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_runtime_graphs.py::_SECTION_COLORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "plt.cm.tab10.colors"
+    },
+    "Optimization/run_runtime_graphs.py::_by_group": {
+      "decorators": [],
+      "doc": "Mean compute time per group (assignment / warehouse / cell), per channel subplots.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, key, title, out)"
+    },
+    "Optimization/run_runtime_graphs.py::_channels": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/run_runtime_graphs.py::_mean": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/run_runtime_graphs.py::_save": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fig, path)"
+    },
+    "Optimization/run_runtime_graphs.py::_section_breakdown": {
+      "decorators": [],
+      "doc": "Stacked per-SECTION mean time per assignment fn, per channel \u2014 WHERE the time goes.\nA tall `reorder` (or `pre-snapshot`) stack flags the recurring aisle-recompute hot-path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out)"
+    },
+    "Optimization/run_runtime_graphs.py::_slowest_arms": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out, top=25)"
+    },
+    "Optimization/run_runtime_graphs.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None)"
+    },
+    "Optimization/run_runtime_graphs.py::run": {
+      "decorators": [],
+      "doc": "Emit the runtime graphs for a finished run to <run_root>/runtime/.  Returns the out dir\n(or None if there's no runtime_metrics.db).  Importable so the analysis hub calls it in-process.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root, log=None)"
+    },
     "Optimization/run_simulation.py": {
       "decorators": [],
       "doc": "Warehouse assignment strategy simulation runner.\n\nRuns A/B/C strategy workers for each (pair \u00d7 regression-config) combination\nand saves all results to per-strategy SQLite DBs.  Graph generation is a\nseparate step: run_analysis.py <base_dir>.\n\nModes:\n  python run_simulation.py                          # new run, sequential\n  python run_simulation.py --workers 15             # flat pool, no idle\n  python run_simulation.py --resume <base_dir>      # resume a crashed run",
@@ -3326,6 +3395,61 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
+    },
+    "Optimization/runtime_metrics.py": {
+      "decorators": [],
+      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read\nit to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so\nrecurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are\nvisible.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runtime_metrics.py::RUNTIME_DB": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'runtime_metrics.db'"
+    },
+    "Optimization/runtime_metrics.py::SECTIONS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
+    },
+    "Optimization/runtime_metrics.py::_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\nCREATE TABLE IF NOT EXISTS runtime (\\n cell TEXT NOT NULL,\\n pair TEXT NOT NULL,\\n config TEXT NOT NULL,\\n channel TEXT NOT NULL,\\n arm TEXT NOT NULL,\\n initial TEXT NOT NULL,\\n assignment TEXT ..."
+    },
+    "Optimization/runtime_metrics.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/runtime_metrics.py::load_rows": {
+      "decorators": [],
+      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> list[dict]"
+    },
+    "Optimization/runtime_metrics.py::record_arm": {
+      "decorators": [],
+      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
+    },
+    "Optimization/runtime_metrics.py::runtime_db_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> str"
     },
     "Optimization/sim_assets.py": {
       "decorators": [],
@@ -3836,7 +3960,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, cell='', frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
+      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, cell='', cell_index=1, cell_total=1, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
     },
     "Optimization/simdriver/scenario.py::_run_whatif_matrix": {
       "decorators": [],
@@ -3877,21 +4001,21 @@
       "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`\nis prefixed on every per-arm tag so interleaved multi-cell output is attributable.",
       "is_async": false,
       "kind": "function",
-      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='')"
+      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='', run_root=None)"
     },
     "Optimization/simdriver/supervisor.py::_run_workers_flat": {
       "decorators": [],
       "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str='', max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
+      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str='', cell_index: int=1, cell_total: int=1, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
     },
     "Optimization/simdriver/supervisor.py::_supervise": {
       "decorators": [],
       "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='')"
+      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='', cell_index=1, cell_total=1)"
     },
     "Optimization/simdriver/supervisor.py::_tag_of": {
       "decorators": [],

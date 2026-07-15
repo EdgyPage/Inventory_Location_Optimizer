@@ -412,6 +412,10 @@ def _run_strategy_worker(args: dict) -> dict:
     t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
     t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
     t_inv_ckpt     = 0.0   # snapshot_bin_inventory
+    # Whole-arm section totals (never reset) → returned so the PARENT writes the runtime-metrics DB
+    # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
+    # dominance = the recurring valid-aisle recompute suspicion).
+    t_reord_run = t_build_run = t_pre_run = t_sim_run = t_extract_run = t_inv_run = t_save_run = 0.0
     last_dur       = 0.0
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
@@ -553,6 +557,15 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
 
+            # fold this checkpoint window's section times into the whole-arm totals before reset
+            t_reord_run   += t_reord_ckpt
+            t_build_run   += t_build_ckpt
+            t_pre_run     += t_pre_ckpt
+            t_sim_run     += t_sim_ckpt
+            t_extract_run += t_extract_ckpt
+            t_inv_run     += t_inv_ckpt
+            t_save_run    += t_save
+
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
@@ -571,8 +584,16 @@ def _run_strategy_worker(args: dict) -> dict:
             t_inv_ckpt     = 0.0
             t_ckpt         = time.perf_counter()
 
+    # fold the final (unflushed) window's section times into the whole-arm totals
+    t_reord_run   += t_reord_ckpt
+    t_build_run   += t_build_ckpt
+    t_pre_run     += t_pre_ckpt
+    t_sim_run     += t_sim_ckpt
+    t_extract_run += t_extract_ckpt
+    t_inv_run     += t_inv_ckpt
     if pb:
         log.info(f'  Flushing final {len(pb)} batches to DB...')
+        _ts_final = time.perf_counter()
         save_batch_stats(db_path, run_id, pb)
         save_task_stats(db_path, run_id, pt)
         save_picker_events(db_path, run_id, pe)
@@ -580,6 +601,7 @@ def _run_strategy_worker(args: dict) -> dict:
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
         save_reorder_queue(db_path, run_id, pq)
+        t_save_run += time.perf_counter() - _ts_final
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
     # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
@@ -591,6 +613,9 @@ def _run_strategy_worker(args: dict) -> dict:
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped
+    n_bins      = len(warehouse.bins)                      # runtime-metrics: warehouse size proxy
+    regime_bins = denom                                    # this channel's regime bin count
+    n_aisles    = len(getattr(warehouse, 'aisles', []) or [])
     log.info('=' * 60)
     log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
              f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
@@ -613,4 +638,17 @@ def _run_strategy_worker(args: dict) -> dict:
         'done'    : done,
         'skipped' : skipped,
         'last_dur': last_dur,
+        # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
+        #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
+        'n_bins'    : n_bins,
+        'regime_bins': regime_bins,
+        'n_aisles'  : n_aisles,
+        't_reord'   : t_reord_run,
+        't_build'   : t_build_run,
+        't_pre'     : t_pre_run,
+        't_sim'     : t_sim_run,
+        't_extract' : t_extract_run,
+        't_inv'     : t_inv_run,
+        't_save'    : t_save_run,
     }
+

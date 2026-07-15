@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_run_workers_flat</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def _run_workers_flat(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str=&#x27;&#x27;, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str=&#x27;strategy&#x27;) -&gt; None</code></pre>
+<pre class="sig"><code>def _run_workers_flat(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str=&#x27;&#x27;, cell_index: int=1, cell_total: int=1, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str=&#x27;strategy&#x27;) -&gt; None</code></pre>
 <section class="doc">Flat ProcessPoolExecutor pool with automatic crash-recovery.
 
 All (pair, config, channel, strategy) units share one pool.  A worker that raises is

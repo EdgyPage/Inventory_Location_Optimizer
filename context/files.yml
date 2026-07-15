@@ -406,6 +406,13 @@ files:
       - {name: "rollup", file: "Optimization/run_channel_rollup.py", kind: "function"}
       - {name: "main", file: "Optimization/run_channel_rollup.py", kind: "function"}
     notes: ""
+  "Optimization/run_runtime_graphs.py":
+    purpose: "Runtime (compute-cost) graphs from runtime_metrics.db \u2014 ranks slowest arms / assignment-fns / warehouses / cells and a per-section stacked breakdown surfacing hot-paths; part of the analysis hub (analyze_run)."
+    layer: "optimization"
+    key_symbols:
+      - {name: "run", file: "Optimization/run_runtime_graphs.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_runtime_graphs.py", kind: "function"}
+    notes: ""
   "Optimization/run_simulation.py":
     purpose: "Warehouse assignment strategy simulation runner."
     layer: "optimization"
@@ -438,6 +445,16 @@ files:
       - {name: "ChannelRun", file: "Optimization/runlayout.py", kind: "class"}
       - {name: "iter_channel_runs", file: "Optimization/runlayout.py", kind: "function"}
       - {name: "iter_sim_dbs", file: "Optimization/runlayout.py", kind: "function"}
+    notes: ""
+  "Optimization/runtime_metrics.py":
+    purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
+    layer: "optimization"
+    key_symbols:
+      - {name: "RUNTIME_DB", file: "Optimization/runtime_metrics.py", kind: "const"}
+      - {name: "SECTIONS", file: "Optimization/runtime_metrics.py", kind: "const"}
+      - {name: "runtime_db_path", file: "Optimization/runtime_metrics.py", kind: "function"}
+      - {name: "record_arm", file: "Optimization/runtime_metrics.py", kind: "function"}
+      - {name: "load_rows", file: "Optimization/runtime_metrics.py", kind: "function"}
     notes: ""
   "Optimization/sim_assets.py":
     purpose: "per-pair shared-asset construction for a run."
@@ -1075,6 +1092,16 @@ files:
       - {name: "test_single_spec_is_one_k1_off_cell", file: "Tests/test_run_unification.py", kind: "function"}
       - {name: "test_scheduler_ab_spec_is_rr_vs_lpt", file: "Tests/test_run_unification.py", kind: "function"}
       - {name: "test_get_spec_unknown_raises", file: "Tests/test_run_unification.py", kind: "function"}
+    notes: ""
+  "Tests/test_runtime_metrics.py":
+    purpose: "Locks the runtime-metrics DB + graphs \u2014 record_arm/load round-trip, UNIQUE-key overwrite, arm parsing + rate, and the emitted ranked/breakdown PNGs."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_record_and_load_roundtrip", file: "Tests/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_key_is_unique_and_overwrites", file: "Tests/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_load_absent_is_empty", file: "Tests/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_graphs_emitted", file: "Tests/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_graphs_skip_without_db", file: "Tests/test_runtime_metrics.py", kind: "function"}
     notes: ""
   "Tests/test_scheduler.py":
     purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"

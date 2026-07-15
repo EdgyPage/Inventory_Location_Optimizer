@@ -2241,6 +2241,11 @@
       "src": "Optimization/analyze_run.py"
     },
     {
+      "dst": "Optimization/run_runtime_graphs.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py",
       "kind": "imports",
       "src": "Optimization/analyze_run.py"
@@ -2282,6 +2287,11 @@
     },
     {
       "dst": "Optimization/run_channel_rollup.py::rollup",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::run",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::analyze_run"
     },
@@ -2751,6 +2761,86 @@
       "src": "Optimization/run_channel_rollup.py::rollup"
     },
     {
+      "dst": "Optimization/run_runtime_graphs.py::main",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py",
+      "kind": "imports",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
+      "dst": "Optimization/sim_config.py",
+      "kind": "imports",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_by_group"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_mean",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_by_group"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_save",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_by_group"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_section_breakdown"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_mean",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_section_breakdown"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_save",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_section_breakdown"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_save",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_slowest_arms"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::run",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::main"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::runtime_db_path",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::main"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_by_group",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_section_breakdown",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_slowest_arms",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::load_rows",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
       "dst": "Optimization/Picking_Data.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -3089,6 +3179,21 @@
       "dst": "Optimization/runlayout.py::_sim_dbs_in",
       "kind": "calls",
       "src": "Optimization/runlayout.py::iter_sim_dbs"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::runtime_db_path",
+      "kind": "calls",
+      "src": "Optimization/runtime_metrics.py::load_rows"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::_parse_arm",
+      "kind": "calls",
+      "src": "Optimization/runtime_metrics.py::record_arm"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::runtime_db_path",
+      "kind": "calls",
+      "src": "Optimization/runtime_metrics.py::record_arm"
     },
     {
       "dst": "Optimization/Warehouse_Data.py",
@@ -3501,6 +3606,11 @@
       "src": "Optimization/simdriver/scenario.py::_warn_blank_arms"
     },
     {
+      "dst": "Optimization/runtime_metrics.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/supervisor.py"
+    },
+    {
       "dst": "Optimization/sim_manifest.py",
       "kind": "imports",
       "src": "Optimization/simdriver/supervisor.py"
@@ -3534,6 +3644,11 @@
       "dst": "Optimization/simdriver/supervisor.py::_tag_of",
       "kind": "calls",
       "src": "Optimization/simdriver/supervisor.py::_finalize_ready_groups"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py::record_arm",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_run_pool"
     },
     {
       "dst": "Optimization/simdriver/supervisor.py::_finalize_config_run",
@@ -10432,6 +10547,86 @@
       "public": true
     },
     {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py",
+      "kind": "module",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "Optimization.run_runtime_graphs",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_SECTION_COLORS",
+      "kind": "const",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_SECTION_COLORS",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_by_group",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_by_group",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_channels",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_channels",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_mean",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_mean",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_save",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_save",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_section_breakdown",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_section_breakdown",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_slowest_arms",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_slowest_arms",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::main",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::run",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "run",
+      "public": true
+    },
+    {
       "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py",
       "kind": "module",
@@ -10765,6 +10960,70 @@
       "kind": "function",
       "module": "Optimization/runlayout.py",
       "name": "iter_sim_dbs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py",
+      "kind": "module",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "Optimization.runtime_metrics",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::RUNTIME_DB",
+      "kind": "const",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "RUNTIME_DB",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::SECTIONS",
+      "kind": "const",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "SECTIONS",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::_DDL",
+      "kind": "const",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "_DDL",
+      "public": false
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::_parse_arm",
+      "kind": "function",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "_parse_arm",
+      "public": false
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::load_rows",
+      "kind": "function",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "load_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::record_arm",
+      "kind": "function",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "record_arm",
+      "public": true
+    },
+    {
+      "file": "Optimization/runtime_metrics.py",
+      "id": "Optimization/runtime_metrics.py::runtime_db_path",
+      "kind": "function",
+      "module": "Optimization/runtime_metrics.py",
+      "name": "runtime_db_path",
       "public": true
     },
     {

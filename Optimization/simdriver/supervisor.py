@@ -18,6 +18,7 @@ from concurrent.futures.process import BrokenProcessPool
 from Optimization.sim_manifest import _resume_path
 from Optimization.strategy_runner import _cleanup_checkpoints, _run_strategy_worker
 from Optimization.simdriver.workunits import _build_work_units
+from Optimization import runtime_metrics
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:
@@ -70,7 +71,7 @@ def _finalize_ready_groups(meta, done_uids, finalized, log, cell=''):
                 log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
 
 
-def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell=''):
+def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='', run_root=None):
     """One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns
     (failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once
     ALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the
@@ -88,6 +89,11 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                 res = fut.result()
                 log.info(f'  [{_tag}] done  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
                 done_uids.add(uid)
+                if run_root:                         # parent-side runtime-metrics DB (best-effort)
+                    try:
+                        runtime_metrics.record_arm(run_root, cell, uid, res)
+                    except Exception as exc:         # noqa: BLE001 — never let metrics sink a run
+                        log.warning(f'  [{_tag}] runtime-metrics record failed: {exc!r}')
             except BrokenProcessPool:
                 broke = True
                 log.error('  [supervisor] worker pool BROKEN (hard worker death) — abandoning '
@@ -120,6 +126,9 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
     recycle = max_tasks_per_child if max_tasks_per_child and max_tasks_per_child > 0 else None
     done_uids, finalized = set(), set()
     work_units, meta = [], {}
+    # runtime_metrics.db lives at the RUN ROOT (spans every cell): base_dir is this cell's dir, so
+    # the root is its parent when running under a cell (else base_dir itself for a legacy flat run).
+    run_root = os.path.dirname(base_dir) if cell else base_dir
     for attempt in range(max_retries + 1):
         work_units, meta = _build_work_units(
             pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
@@ -147,7 +156,7 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
                  f'(global {gbase + 1}-{gbase + total}/{gtot}) -> '
                  f'ProcessPoolExecutor({max_workers}, max_tasks_per_child={recycle})')
         _failed, broke = _run_pool(remaining, meta, max_workers, recycle,
-                                   log, done_uids, finalized, cell=cell)
+                                   log, done_uids, finalized, cell=cell, run_root=run_root)
         if not broke:
             break            # pool completed; residual failures are deterministic → quarantine
     _finalize_ready_groups(meta, done_uids, finalized, log, cell=cell)   # safety sweep

@@ -19,7 +19,8 @@ import logging
 import os
 import sys
 
-from Optimization import runlayout, run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor
+from Optimization import (runlayout, run_analysis, run_channel_rollup, run_whatif_delta,
+                          run_whatif_labor, run_runtime_graphs)
 from Optimization.sim_config import _OUTPUT_DIR, _setup_logging
 from Optimization.sim_manifest import read_run_layout
 
@@ -75,6 +76,10 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
         else:
             log.warning(f'  skip whatif_delta: reference {ref!r} not among cells {cell_names}')
         _step(log, 'whatif_labor', lambda: run_whatif_labor.run(base_dir, reference=ref, log=log))
+
+    # Runtime (compute-cost) graphs from runtime_metrics.db at the run root — always attempted;
+    # skips gracefully when the DB is absent (e.g. a re-analysis of an old run without it).
+    _step(log, 'runtime_graphs', lambda: run_runtime_graphs.run(base_dir, log=log))
 
 
 def main(argv=None):
