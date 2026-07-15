@@ -68,9 +68,9 @@ steps:
       precompute the channel's batch stream, create per-strategy run DBs, save resume
       state, and emit the strategy work units.
     functions:
-      - {name: _channel_runs_for, file: Optimization/run_simulation.py, kind: function}
-      - {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}
-      - {name: _plan_strategy_start, file: Optimization/run_simulation.py, kind: function}
+      - {name: _channel_runs_for, file: Optimization/simdriver/workunits.py, kind: function}
+      - {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}
+      - {name: _plan_strategy_start, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: make_channel, file: Optimization/channels.py, kind: function}
       - {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}
       - {name: batch_fingerprint, file: Optimization/batch_precompute.py, kind: function}
@@ -91,10 +91,10 @@ steps:
       strategy, then runs the batch loop (reorders -> pick simulation -> stats -> checkpointed
       saves).
     functions:
-      - {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function}
-      - {name: _supervise, file: Optimization/run_simulation.py, kind: function}
-      - {name: _build_work_units, file: Optimization/run_simulation.py, kind: function}
-      - {name: _run_pool, file: Optimization/run_simulation.py, kind: function}
+      - {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}
+      - {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}
       - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}
       - {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}
       - {name: per_pick, file: Warehouse/cost_model.py, kind: function}
@@ -110,8 +110,8 @@ steps:
       checkpoints, write/merge sim_meta.json; then scan every sim DB and warn loudly
       about blank arms (zero recorded batches).
     functions:
-      - {name: _finalize_config_run, file: Optimization/run_simulation.py, kind: function}
-      - {name: _warn_blank_arms, file: Optimization/run_simulation.py, kind: function}
+      - {name: _finalize_config_run, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: _warn_blank_arms, file: Optimization/simdriver/scenario.py, kind: function}
       - {name: iter_sim_dbs, file: Optimization/runlayout.py, kind: function}
       - {name: write_run_manifest, file: Optimization/sim_manifest.py, kind: function}
     reads: [sim_db]

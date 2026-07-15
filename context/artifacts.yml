@@ -91,7 +91,7 @@ artifacts:
   config_json:
     path_pattern: "comparison_<ts>/<pair>/<config>/config.json"
     format: json
-    writer: {function: _prepare_channel_run, file: Optimization/run_simulation.py}
+    writer: {function: _prepare_channel_run, file: Optimization/simdriver/workunits.py}
     readers:
       - {function: define_env, file: docs/macros.py}
     match: "config.json"
@@ -155,7 +155,7 @@ artifacts:
   sim_meta:
     path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_meta.json"
     format: json
-    writer: {function: _finalize_config_run, file: Optimization/run_simulation.py}
+    writer: {function: _finalize_config_run, file: Optimization/simdriver/supervisor.py}
     readers:
       - {function: _config_jobs, file: Optimization/run_analysis.py}
       - {function: _find_series, file: Optimization/run_channel_rollup.py}

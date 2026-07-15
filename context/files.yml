@@ -510,6 +510,26 @@ files:
       - {name: "PickConfigSpec", file: "Optimization/simconfig/core/registry.py", kind: "class"}
       - {name: "pick_config", file: "Optimization/simconfig/core/registry.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/cells.py":
+    purpose: "What-if cell matrix \u2014 build/apply/inspect cells (aisle-split x zoning x scheduler over one frozen inventory); _apply_cell mutates the shared CONFIG in place."
+    layer: "optimization"
+    key_symbols: []
+    notes: ""
+  "Optimization/simdriver/scenario.py":
+    purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
+    layer: "optimization"
+    key_symbols: []
+    notes: ""
+  "Optimization/simdriver/supervisor.py":
+    purpose: "Crash-recovery pool driver + finalize gate \u2014 flat ProcessPoolExecutor lifetime, isolate per-unit failures, rebuild+resubmit on BrokenProcessPool up to max_retries, finalize a group only when every arm succeeded."
+    layer: "optimization"
+    key_symbols: []
+    notes: ""
+  "Optimization/simdriver/workunits.py":
+    purpose: "Plan the per-strategy flat-pool work units \u2014 shared assets + batches + resume-aware start planning + the picklable strategy_args shipped to each worker (parent-process only)."
+    layer: "optimization"
+    key_symbols: []
+    notes: ""
   "Optimization/strategies.py":
     purpose: "data-driven registry of placement (assignment) strategies."
     layer: "optimization"

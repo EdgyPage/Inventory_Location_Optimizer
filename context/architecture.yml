@@ -43,25 +43,25 @@ boundaries:
 #     (e.g. the ProcessPool spawn, which coverage_e2e bypasses by design).
 backbone:
   # simulation entry -> scenario -> shared assets -> warehouse sizing
-  - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
+  - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
      dst: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}, via: calls}
   - {src: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function},
      dst: {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}, via: calls}
   # scenario -> supervisor -> build units -> per-channel prep -> batches
-  - {src: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _run_workers_flat, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _supervise, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _supervise, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _build_work_units, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _build_work_units, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function},
+  - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
+     dst: {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
+  - {src: {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function},
+     dst: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
+  - {src: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function},
+     dst: {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}, via: calls}
+  - {src: {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function},
+     dst: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}, via: calls}
+  - {src: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function},
      dst: {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
   # supervisor -> pool -> spawn boundary (worker passed as a value; never coverage-measured)
-  - {src: {name: _supervise, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _run_pool, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _run_pool, file: Optimization/run_simulation.py, kind: function},
+  - {src: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function},
+     dst: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
+  - {src: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function},
      dst: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
   # worker body -> batch load + pick simulation
@@ -79,9 +79,9 @@ backbone:
      dst: {name: rebalance_reloader, file: Warehouse/Capacity_Reloader.py, kind: function}, via: ref}
   # what-if matrix reuses the scenario runner per cell
   - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function}, via: calls}
-  - {src: {name: _run_whatif_matrix, file: Optimization/run_simulation.py, kind: function},
-     dst: {name: _run_scenario, file: Optimization/run_simulation.py, kind: function}, via: calls}
+     dst: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
+  - {src: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function},
+     dst: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
   # sim entry -> post-sim analysis hub (in-process, unless --no-analyze)
   - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
      dst: {name: analyze_run, file: Optimization/analyze_run.py, kind: function}, via: calls}
@@ -100,8 +100,8 @@ backbone:
 hotpaths:
   - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}  # sentinel
   - {name: build_shared_assets,  file: Optimization/sim_assets.py, kind: function}
-  - {name: _prepare_channel_run, file: Optimization/run_simulation.py, kind: function}
-  - {name: _finalize_config_run, file: Optimization/run_simulation.py, kind: function}
+  - {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}
+  - {name: _finalize_config_run, file: Optimization/simdriver/supervisor.py, kind: function}
   - {name: plan_warehouse,       file: Warehouse/inventory_planning.py, kind: function}
   - {name: ensure_batches,       file: Optimization/batch_precompute.py, kind: function}
   - {name: run_analysis,         file: Optimization/run_analysis.py, kind: function}
