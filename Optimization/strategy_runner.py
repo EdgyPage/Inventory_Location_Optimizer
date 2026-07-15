@@ -162,9 +162,15 @@ def _run_strategy_worker(args: dict) -> dict:
     # stream + output DB.  None ⇒ the whole inventory in one stream (store-only, unchanged).
     channel_regime      = args.get('channel_regime')
 
+    cell_pos = args.get('cell_pos')
+    gjob     = args.get('gjob')
     log.info('=' * 60)
     if job_tag is not None:
-        log.info(f'Job {job_index}/{job_total}  {job_tag}')
+        # per-arm line with LOCAL (this-cell) + GLOBAL (whole-run) progress counters
+        _prog = f'Job {job_index}/{job_total}'
+        if cell_pos:
+            _prog += f'  [cell {cell_pos} · global {gjob}]'
+        log.info(f'{_prog}  {job_tag}')
     log.info(f'Strategy {strategy}  run_id={run_id}  batches {start_i}->{n_batches}')
     log.info(f'  pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  cart={pick_cfg.cart_swap_coef}')

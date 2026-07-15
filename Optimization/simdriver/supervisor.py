@@ -109,7 +109,8 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
 
 
 def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
-               max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell=''):
+               max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='',
+               cell_index=1, cell_total=1):
     """Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the
     unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary
     per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine
@@ -128,14 +129,22 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
         if not remaining:
             break
         total = len(remaining)
+        # GLOBAL run counter: this cell's jobs occupy slots [base+1 .. base+total] of an estimated
+        # cell_total*total whole-run total (arm suite is uniform across cells), so the log shows
+        # overall progress, not just position within the current cell.
+        gbase, gtot = (cell_index - 1) * total, cell_total * total
         for idx, (uid, sa) in enumerate(remaining, start=1):
             sa['job_index'], sa['job_total'] = idx, total
             sa['cell'] = cell                       # stamped on every worker line (cell/strategy)
+            sa['cell_pos'] = f'{cell_index}/{cell_total}'
+            sa['gjob']     = f'{gbase + idx}/{gtot}'     # global job index across all cells
             sa['job_tag'] = _tag_of(cell, uid)
         if attempt:
             log.warning(f'  [supervisor] retry {attempt}/{max_retries}: '
                         f'rebuild pool + resubmit {total} unit(s)')
-        log.info(f'  Flat pool{" [" + cell + "]" if cell else ""}: {total} job(s) -> '
+        log.info(f'  Flat pool [cell {cell_index}/{cell_total}'
+                 f'{": " + cell if cell else ""}]: {total} job(s) '
+                 f'(global {gbase + 1}-{gbase + total}/{gtot}) -> '
                  f'ProcessPoolExecutor({max_workers}, max_tasks_per_child={recycle})')
         _failed, broke = _run_pool(remaining, meta, max_workers, recycle,
                                    log, done_uids, finalized, cell=cell)
@@ -162,6 +171,8 @@ def _run_workers_flat(
     max_workers        : int,
     log                : logging.Logger,
     cell               : str = '',
+    cell_index         : int = 1,
+    cell_total         : int = 1,
     max_tasks_per_child: int | None = 1,
     skip_completed     : bool = False,
     max_retries        : int = 2,
@@ -188,7 +199,8 @@ def _run_workers_flat(
         _supervise(pairs, base_dir, shared_by_pair, max_workers, log,
                    log_queue=log_queue, max_tasks_per_child=max_tasks_per_child,
                    skip_completed=skip_completed, max_retries=max_retries,
-                   resume_granularity=resume_granularity, cell=cell)
+                   resume_granularity=resume_granularity, cell=cell,
+                   cell_index=cell_index, cell_total=cell_total)
     finally:
         listener.stop()
         mp_manager.shutdown()

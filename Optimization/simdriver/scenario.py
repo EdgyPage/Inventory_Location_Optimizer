@@ -58,10 +58,11 @@ def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
 # lives in exactly one place.  frozen_by_pair maps label -> an already-planned
 # inventory DB to reshape from (what-if freeze); None per label ⇒ sample fresh.
 def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
-                  cell='', frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1,
-                  max_retries=2, resume_granularity='strategy'):
-    # `cell` is the cell name (e.g. k1_off / k1_off_lpt); it's stamped on every per-arm log line
-    # so a multi-cell run's interleaved output is attributable to its cell.
+                  cell='', cell_index=1, cell_total=1, frozen_by_pair=None, skip_completed=False,
+                  max_tasks_per_child=1, max_retries=2, resume_granularity='strategy'):
+    # `cell` is the cell name (e.g. k1_off / k1_off_lpt), stamped on every per-arm log line so a
+    # multi-cell run's interleaved output is attributable.  cell_index/cell_total drive the GLOBAL
+    # run counter (progress across the whole matrix, not just within this cell).
     write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
     g = CONFIG['global']
     shared_by_pair = {}
@@ -75,6 +76,7 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
             frozen_inventory_db=(frozen_by_pair or {}).get(label),
         )
     _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log, cell=cell,
+                      cell_index=cell_index, cell_total=cell_total,
                       max_tasks_per_child=max_tasks_per_child,
                       skip_completed=skip_completed,
                       max_retries=max_retries, resume_granularity=resume_granularity)
@@ -128,17 +130,20 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
             frozen[label] = shared['planned_inv_db']
 
     # ── 2. Each cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate ──
-    for name, aisle_split, zoning, sched in cells:
+    n_cells = len(cells)
+    for ci, (name, aisle_split, zoning, sched) in enumerate(cells, start=1):
         scenario_base = os.path.join(base_dir, name)
         if resume and _cell_complete(scenario_base, pairs):
-            log.info(f'  SKIP cell {name} (already complete)')
+            log.info(f'  SKIP cell {ci}/{n_cells} {name} (already complete)')
             continue
         zdesc = zoning.get('mode', 'off') if zoning.get('enabled') else 'off'
-        log.info(f'\n{"#"*64}\n  CELL {name}  split={aisle_split}  zoning={zdesc}  scheduler={sched}\n{"#"*64}')
+        log.info(f'\n{"#"*64}\n  CELL {name}  (cell {ci}/{n_cells})  split={aisle_split}  '
+                 f'zoning={zdesc}  scheduler={sched}\n{"#"*64}')
         _apply_cell(aisle_split, zoning, sched)
         os.makedirs(scenario_base, exist_ok=True)
         _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
-                      cell=name, frozen_by_pair=frozen, skip_completed=resume,
+                      cell=name, cell_index=ci, cell_total=n_cells,
+                      frozen_by_pair=frozen, skip_completed=resume,
                       max_retries=max_retries, resume_granularity=resume_granularity)
 
     log.info(f'\nCell matrix complete → {base_dir}')
