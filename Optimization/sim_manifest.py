@@ -62,6 +62,58 @@ def _load_run_spec(base_dir: str):
         return json.load(f)
 
 
+# ── run layout (run_layout.json) — the unified cell-tree descriptor ─────────────
+
+def _run_layout_path(base_dir: str) -> str:
+    return os.path.join(base_dir, 'run_layout.json')
+
+
+def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs,
+                     channels, arms, created) -> None:
+    """Write <base>/run_layout.json — the descriptor of a run's unified cell tree
+    ``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,
+    reference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed
+    or OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.
+    Atomic (tmp + os.replace), same pattern as _write_run_spec.
+
+    cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
+    {'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.
+    """
+    layout = {
+        'version'      : 1,
+        'kind'         : 'single' if len(cells) <= 1 else 'sweep',
+        'spec'         : spec,
+        'base'         : os.path.basename(base_dir.rstrip('/\\')),
+        'created'      : created,
+        'reference'    : reference,
+        'tree_template': '<pair>/<config>[/<channel>]/sim_<strategy>.db',
+        'channels'     : list(channels),
+        'cells'        : [{'name': name, 'split': split, 'zoning': zoning, 'scheduler': sched}
+                          for (name, split, zoning, sched) in cells],
+        'pairs'        : [label for label, _inv, _aff in pairs],
+        'configs'      : {'store'      : [c['name'] for c in store_cfgs],
+                          'fulfillment': [c['name'] for c in ff_cfgs]},
+        'arms'         : list(arms) if arms is not None else None,
+    }
+    path = _run_layout_path(base_dir)
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'w') as f:
+        json.dump(layout, f, indent=2)
+    os.replace(tmp, path)
+
+
+def read_run_layout(base_dir: str):
+    """Load <base>/run_layout.json, or None if absent/malformed (legacy runs have no descriptor)."""
+    path = _run_layout_path(base_dir)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def write_run_manifest(base_dir, pairs, store_cfgs, ff_cfgs, strategies) -> None:
     """Write <base>/run_manifest.json — a schema index of this run (inventories ×
     configs × strategies) so the docs ingest can auto-discover what to pull.

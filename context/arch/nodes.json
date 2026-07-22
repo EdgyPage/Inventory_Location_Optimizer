@@ -2447,6 +2447,33 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/analyze_run.py": {
+      "decorators": [],
+      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`) at the run root.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/analyze_run.py::_step": {
+      "decorators": [],
+      "doc": "Run one analysis step, isolating failures (DBs are already persisted).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(log, what, fn)"
+    },
+    "Optimization/analyze_run.py::analyze_run": {
+      "decorators": [],
+      "doc": "Analyze every cell of a run, then (for a multi-cell run) the cross-cell what-if summaries.\n\ncells: explicit [cell_name, \u2026] from the driver (avoids re-scanning); else discovered from disk.\nreference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', reference=None, cross_cell=True)"
+    },
+    "Optimization/analyze_run.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None)"
+    },
     "Optimization/batch_precompute.py": {
       "decorators": [],
       "doc": "batch_precompute.py \u2014 compute each warehouse family's batch sequence ONCE and share it.\n\nBatch sampling (`Workload_Builder.Batch`) is a PURE function of (batch_cfg, inventory, affinity,\nseed_batches + i): it weights SKUs by static demand frequency x the immutable affinity-lift CSR and\ndraws from a dedicated per-batch RNG `random.Random(seed_batches + i)`.  Today every strategy arm of a\nwarehouse family re-samples the identical sequence inside its own worker process \u2014 the heavy\nO(k*|inventory|) sampling (the bulk of the per-batch \"build\" section) is paid ~32x for bit-identical\nresults.  This module computes the sequence ONCE (optionally in parallel chunks) so every arm of the\nfamily reads it instead, while the genuinely sequential `Task.from_batch` stays per-arm in the loop.\n\nCorrectness rests on two things:\n  * `load_inventory_from_db` selects `ORDER BY sku`, so the candidate order \u2014 which\n    `_lift_weighted_sample` indexes positionally \u2014 is deterministic; loading the SAME db with the SAME\n    limit/allowlist the worker uses reproduces the worker's candidates exactly.\n  * a content FINGERPRINT over exactly the fields a batch consumes (the ordered\n    (sku, relative_frequency, quantity_rate) triples + batch_cfg + seeds + the affinity CSR digest)\n    keys the on-disk list.  Families of different sizes get different fingerprints (so they never share\n    a list), and a worker accepts a file only when its own recomputed fingerprint matches \u2014 never\n    another family's.  On any mismatch/miss the caller falls back to inline sampling (still correct).",
@@ -3007,6 +3034,75 @@
       "kind": "function",
       "signature": "(base_dir: str, log=print) -> dict"
     },
+    "Optimization/run_runtime_graphs.py": {
+      "decorators": [],
+      "doc": "run_runtime_graphs.py \u2014 RUNTIME (compute-cost) graphs from runtime_metrics.db.\n\nCross-cell analysis step (part of the analysis hub): reads ``<run_root>/runtime_metrics.db`` (one row\nper arm, written parent-side by the supervisor) and emits PNGs to ``<run_root>/_runtime/`` ranking the\nslowest arms / assignment-fns / warehouses / cells and \u2014 critically \u2014 a per-SECTION stacked breakdown\nshowing WHERE the wall time goes, so recurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the\nvalid-aisle recompute suspicion) are visible at a glance.\n\nThis is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.\n\n    python -m Optimization.run_runtime_graphs <run_root>",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_runtime_graphs.py::_SECTION_COLORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "plt.cm.tab10.colors"
+    },
+    "Optimization/run_runtime_graphs.py::_by_group": {
+      "decorators": [],
+      "doc": "Mean compute time per group (assignment / warehouse / cell), per channel subplots.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, key, title, out)"
+    },
+    "Optimization/run_runtime_graphs.py::_channels": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/run_runtime_graphs.py::_mean": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/run_runtime_graphs.py::_save": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fig, path)"
+    },
+    "Optimization/run_runtime_graphs.py::_section_breakdown": {
+      "decorators": [],
+      "doc": "Stacked per-SECTION mean time per assignment fn, per channel \u2014 WHERE the time goes.\nA tall `reorder` (or `pre-snapshot`) stack flags the recurring aisle-recompute hot-path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out)"
+    },
+    "Optimization/run_runtime_graphs.py::_slowest_arms": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out, top=25)"
+    },
+    "Optimization/run_runtime_graphs.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None)"
+    },
+    "Optimization/run_runtime_graphs.py::run": {
+      "decorators": [],
+      "doc": "Emit the runtime graphs for a finished run to <run_root>/runtime/.  Returns the out dir\n(or None if there's no runtime_metrics.db).  Importable so the analysis hub calls it in-process.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root, log=None)"
+    },
     "Optimization/run_simulation.py": {
       "decorators": [],
       "doc": "Warehouse assignment strategy simulation runner.\n\nRuns A/B/C strategy workers for each (pair \u00d7 regression-config) combination\nand saves all results to per-strategy SQLite DBs.  Graph generation is a\nseparate step: run_analysis.py <base_dir>.\n\nModes:\n  python run_simulation.py                          # new run, sequential\n  python run_simulation.py --workers 15             # flat pool, no idle\n  python run_simulation.py --resume <base_dir>      # resume a crashed run",
@@ -3027,20 +3123,6 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
-    "Optimization/run_simulation.py::_SCHED_SHORT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'round_robin': 'rr', 'lpt': 'lpt'}"
-    },
-    "Optimization/run_simulation.py::_apply_cell": {
-      "decorators": [],
-      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
-    },
     "Optimization/run_simulation.py::_apply_run_spec": {
       "decorators": [],
       "doc": "Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the\nuser explicitly typed on the resume command overrides it (with a warning).  Returns\n(store_composition_override, notes) \u2014 the resolved store composition is injected directly so\na since-deleted --s-composition file can't break resume.",
@@ -3048,128 +3130,16 @@
       "kind": "function",
       "signature": "(args, spec, explicit)"
     },
-    "Optimization/run_simulation.py::_build_cells": {
-      "decorators": [],
-      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), \u2026];\nthe (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to\n['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`\nsuffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(spec)"
-    },
-    "Optimization/run_simulation.py::_build_work_units": {
-      "decorators": [],
-      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity)"
-    },
-    "Optimization/run_simulation.py::_cell_complete": {
-      "decorators": [],
-      "doc": "A cell is done when it has \u22651 sim_meta.json per pair (all its configs finalized).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(scenario_base: str, pairs: list) -> bool"
-    },
-    "Optimization/run_simulation.py::_channel_runs_for": {
-      "decorators": [],
-      "doc": "Plan the channel-runs for one catalog.\n\nStore and fulfillment sweep their OWN config sets independently (a UNION, not a cross\nproduct): every STORE_CONFIGS entry drives a store channel-run, and \u2014 only when the\ncatalog is mixed (contains fulfillment units) \u2014 every FULFILLMENT_CONFIGS entry drives a\nfulfillment channel-run.  A store-only catalog yields just the store runs (byte-identical\nto the pre-fulfillment pipeline).\n\nReturns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inventory) -> tuple[bool, list[tuple]]"
-    },
-    "Optimization/run_simulation.py::_finalize_config_run": {
-      "decorators": [],
-      "doc": "Post-completion: remove resume file and write sim_meta.json.\n\nReturns the sim_result dict (subset of sim_skeleton without inv_db/aff_db).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(sim_skeleton: dict) -> dict"
-    },
-    "Optimization/run_simulation.py::_finalize_ready_groups": {
-      "decorators": [],
-      "doc": "Finalize every group whose members have ALL succeeded and isn't finalized yet.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(meta, done_uids, finalized, log)"
-    },
-    "Optimization/run_simulation.py::_plan_strategy_start": {
-      "decorators": [],
-      "doc": "Decide (run_id, start_batch) for one strategy, honoring resume granularity.\n\n- Fresh run / a strategy new on resume \u2192 init DB + create_run, start 0.\n- Resumed done arm (checkpoint \u2265 n_batches) \u2192 reuse run_id, start n_batches (empty loop).\n- Resumed PARTIAL arm (0 < ckpt < n_batches):\n    strategy granularity \u2192 reset the arm's DB + fresh run_id, start 0 (bit-identical to an\n                           uncrashed run \u2014 no un-replayed physical state);\n    batch granularity    \u2192 reuse run_id, start = ckpt (fast, but NOT bit-identical \u2014 warn).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log)"
-    },
-    "Optimization/run_simulation.py::_prepare_channel_run": {
-      "decorators": [],
-      "doc": "Pre-initialise ONE channel-run (one config driving one channel): create DBs, get\nrun_ids, build strategy_args for the flat ProcessPoolExecutor.\n\nStore and fulfillment sweep their own config sets independently, so a run drives a single\nchannel.  ``mixed`` is True when the catalog holds more than one regime \u2014 the run then\nfilters inventory to ``channel.regime``, draws its own batch stream, and writes a\n``<config>/<channel>/`` subtree.  A store-only catalog (``mixed`` False) collapses to the\nlegacy ``<config>/`` layout + shared precomputed batch stream (byte-identical).\n\nReturns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set \u2014 the caller\ninjects it before submission.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy') -> tuple[list, list]"
-    },
-    "Optimization/run_simulation.py::_prepare_channel_run._decomp": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(lbl: str) -> dict"
-    },
-    "Optimization/run_simulation.py::_prepare_channel_run._yardsticks": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(orders_subset, x_speed, y_speed, wp_)"
-    },
-    "Optimization/run_simulation.py::_run_pool": {
-      "decorators": [],
-      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized)"
-    },
-    "Optimization/run_simulation.py::_run_scenario": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
-    },
-    "Optimization/run_simulation.py::_run_whatif_matrix": {
-      "decorators": [],
-      "doc": "Drive the what-if sweep from whatif_config.WHATIF: freeze the sampled inventory\nonce (tightest cell), then reshape + simulate it for every cell.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir, pairs, log, resume=False, max_retries=2, resume_granularity='strategy')"
-    },
-    "Optimization/run_simulation.py::_run_workers_flat": {
-      "decorators": [],
-      "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
-    },
-    "Optimization/run_simulation.py::_supervise": {
-      "decorators": [],
-      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity)"
-    },
-    "Optimization/run_simulation.py::_tightest_split": {
-      "decorators": [],
-      "doc": "The split with the largest capacity_loss (fewest bins).  Freezing the sampled\ninventory to it guarantees every roomier cell can hold it (the frozen inventory\nalways fits).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cells)"
-    },
-    "Optimization/run_simulation.py::_warn_blank_arms": {
-      "decorators": [],
-      "doc": "Scan every sim_*.db under base_dir and log a prominent WARNING for any that\nrecorded zero batches (blank result DB).  Returns the list of blank db paths.\n\nA blank arm means the whole strategy produced no metrics \u2014 almost always a\nplacement/stocking failure (units never binned \u2192 no pick tasks \u2192 all batches\nskipped).  Downstream analysis silently omits such arms, so we flag them here.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str, log: logging.Logger) -> list"
-    },
     "Optimization/run_simulation.py::main": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/run_simulation.py::main._resolve_spec": {
+      "decorators": [],
+      "doc": "Selected cell-matrix (name, dict).  --whatif is the deprecated alias for scheduler_ab.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -3194,6 +3164,13 @@
       "kind": "function",
       "signature": "(db: str)"
     },
+    "Optimization/run_whatif_delta.py::_pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b, higher_better)"
+    },
     "Optimization/run_whatif_delta.py::_scan": {
       "decorators": [],
       "doc": "{(pair, pickcfg, channel, arm): metrics} for one scenario subtree.",
@@ -3208,16 +3185,148 @@
       "kind": "function",
       "signature": "()"
     },
-    "Optimization/run_whatif_delta.py::main._pct": {
+    "Optimization/run_whatif_delta.py::run": {
       "decorators": [],
-      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell.",
+      "doc": "Engine: diff every cell under base_dir vs the reference cell; write whatif_delta.csv +\nthe labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub\ncalls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, reference=None, log=None)"
+    },
+    "Optimization/run_whatif_labor.py": {
+      "decorators": [],
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (_scan-style glob + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_whatif_labor.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/run_whatif_labor.py::_HOURS_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'rr': 'round_robin', 'lpt': 'lpt'}"
+    },
+    "Optimization/run_whatif_labor.py::_SCHED_COLOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': '#4c78a8', 'lpt': '#f58518'}"
+    },
+    "Optimization/run_whatif_labor.py::_agg": {
+      "decorators": [],
+      "doc": "Aggregate `field` over rows grouped by keyfn: how in {'sum','mean'}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, keyfn, field, how)"
+    },
+    "Optimization/run_whatif_labor.py::_batch_hours_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_channels": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/run_whatif_labor.py::_hours": {
+      "decorators": [],
+      "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str)"
+    },
+    "Optimization/run_whatif_labor.py::_labor_saved_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, baseline, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/run_whatif_labor.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor', 'norsl'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/run_whatif_labor.py::_pct": {
+      "decorators": [],
+      "doc": "Signed % change of b vs reference a; + always = better.  NaN on missing/zero/NaN.",
       "is_async": false,
       "kind": "function",
       "signature": "(a, b, higher_better)"
     },
+    "Optimization/run_whatif_labor.py::_scan_labor": {
+      "decorators": [],
+      "doc": "{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str) -> dict"
+    },
+    "Optimization/run_whatif_labor.py::_scheduler_of": {
+      "decorators": [],
+      "doc": "'k1_off_lpt' -> 'lpt'; 'k1_off_rr' -> 'round_robin' (the swept scheduler is the cell suffix).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: str) -> str"
+    },
+    "Optimization/run_whatif_labor.py::_throughput_scatter": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::_uplift_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(uplift, out_path)"
+    },
+    "Optimization/run_whatif_labor.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/run_whatif_labor.py::run": {
+      "decorators": [],
+      "doc": "Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +\nthe four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process\n(no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits\nthe CSV/JSON (its cross-cell deltas are empty).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None)"
+    },
     "Optimization/runlayout.py": {
       "decorators": [],
-      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
+      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is\nitself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/\u2026``), so the\nper-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the\ntop-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore\nrun PER CELL \u2014 pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
       "kind": "module",
       "signature": null
     },
@@ -3252,6 +3361,13 @@
       "kind": "function",
       "signature": "(run: ChannelRun) -> Iterator[tuple[ChannelRun, str]]"
     },
+    "Optimization/runlayout.py::cells": {
+      "decorators": [],
+      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a\n``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe \u2014\nso a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on\nresume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run\nroot's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the\ncells; a legacy FLAT run (no cell level \u2014 DBs directly under ``<base>/<pair>/<config>``) is\nyielded as one implicit cell named after the base dir.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> Iterator[tuple[str, str]]"
+    },
     "Optimization/runlayout.py::discover_db_pairs": {
       "decorators": [],
       "doc": "Scan profiles_dir and return (label, inventory_db, affinity_db) for every valid pair.",
@@ -3279,6 +3395,61 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
+    },
+    "Optimization/runtime_metrics.py": {
+      "decorators": [],
+      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read\nit to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so\nrecurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are\nvisible.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runtime_metrics.py::RUNTIME_DB": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'runtime_metrics.db'"
+    },
+    "Optimization/runtime_metrics.py::SECTIONS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
+    },
+    "Optimization/runtime_metrics.py::_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\nCREATE TABLE IF NOT EXISTS runtime (\\n cell TEXT NOT NULL,\\n pair TEXT NOT NULL,\\n config TEXT NOT NULL,\\n channel TEXT NOT NULL,\\n arm TEXT NOT NULL,\\n initial TEXT NOT NULL,\\n assignment TEXT ..."
+    },
+    "Optimization/runtime_metrics.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/runtime_metrics.py::load_rows": {
+      "decorators": [],
+      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> list[dict]"
+    },
+    "Optimization/runtime_metrics.py::record_arm": {
+      "decorators": [],
+      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
+    },
+    "Optimization/runtime_metrics.py::runtime_db_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> str"
     },
     "Optimization/sim_assets.py": {
       "decorators": [],
@@ -3325,7 +3496,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[{'name': 'ful_calibrated', 'pick_intercept': 10, 'pick_weight_coef': 0.7, 'pick_weight_fn': 'log', 'pick_volume_coef': 0.09, 'pick_volume_fn': 'log', 'cart_swap_coef': 240, 'cart': 'FulfillmentCar..."
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
     },
     "Optimization/sim_config.py::K_PICKERS": {
       "decorators": [],
@@ -3346,7 +3517,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[{'name': 'store', 'pick_intercept': 15, 'pick_weight_coef': 0.58, 'pick_weight_fn': 'pow:1.5', 'pick_volume_coef': 0.7, 'pick_volume_fn': 'log:2', 'cart_swap_coef': 300, 'x_speed': 3, 'y_speed': 2..."
+      "value_preview": "STORE_CONFIGS"
     },
     "Optimization/sim_config.py::SEED_BATCHES": {
       "decorators": [],
@@ -3367,7 +3538,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "REGRESSION_CONFIGS"
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
     },
     "Optimization/sim_config.py::STORE_RESTOCKS": {
       "decorators": [],
@@ -3375,6 +3546,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "CONFIG['channels']['store']['restocks']"
+    },
+    "Optimization/sim_config.py::_ACTIVE_PICK_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "sorted((s for s in PICK_CONFIGS if s.enabled), key=lambda s: (s.channel, s.order, s.name))"
     },
     "Optimization/sim_config.py::_AISLE_H": {
       "decorators": [],
@@ -3411,13 +3589,6 @@
       "signature": null,
       "value_preview": "_clean_path(os.getenv('PROFILE_INPUT_DIR', os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles'))))"
     },
-    "Optimization/sim_config.py::_FF_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "20"
-    },
     "Optimization/sim_config.py::_HANDLINGS": {
       "decorators": [],
       "doc": null,
@@ -3452,13 +3623,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
-    },
-    "Optimization/sim_config.py::_STORE_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "25"
     },
     "Optimization/sim_config.py::_build_pick_cfg": {
       "decorators": [],
@@ -3536,6 +3700,13 @@
       "kind": "function",
       "signature": "(run_dir: str) -> str"
     },
+    "Optimization/sim_manifest.py::_run_layout_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> str"
+    },
     "Optimization/sim_manifest.py::_run_spec_path": {
       "decorators": [],
       "doc": null,
@@ -3557,6 +3728,20 @@
       "kind": "function",
       "signature": "(base_dir: str, spec: dict) -> None"
     },
+    "Optimization/sim_manifest.py::read_run_layout": {
+      "decorators": [],
+      "doc": "Load <base>/run_layout.json, or None if absent/malformed (legacy runs have no descriptor).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str)"
+    },
+    "Optimization/sim_manifest.py::write_run_layout": {
+      "decorators": [],
+      "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() tuples [(name, split, zoning, scheduler), \u2026]; split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -> None"
+    },
     "Optimization/sim_manifest.py::write_run_manifest": {
       "decorators": [],
       "doc": "Write <base>/run_manifest.json \u2014 a schema index of this run (inventories \u00d7\nconfigs \u00d7 strategies) so the docs ingest can auto-discover what to pull.\nSee docs/experiments/ingest.py.",
@@ -3577,6 +3762,315 @@
       "is_async": false,
       "kind": "function",
       "signature": "(c, channel)"
+    },
+    "Optimization/simconfig/__init__.py": {
+      "decorators": [],
+      "doc": "simconfig \u2014 self-registering pick-config registry (the sim analogue of the graph suite).\n\nImporting this package fires import_all() so every module under configs/ self-registers its\npick-config via @pick_config; Optimization/sim_config.py then rebuilds STORE_CONFIGS /\nFULFILLMENT_CONFIGS from the registry (filtering by channel + enabled).  Adding a pick-config =\ndrop a module in configs/ \u2014 no central edit.  Whatif cell-matrix specs stay in whatif_config.SPECS\nfor now; the same registry pattern can absorb them later.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/__init__.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/ful_calibrated.py": {
+      "decorators": [],
+      "doc": "Fulfillment channel \u2014 base human-walker pick-config (FulfillmentCart, one-way lanes).\n\nThe FIRST/only fulfillment entry is the single source of truth for the default walker cost \u2014\nchannels.fulfillment_pick_config() reads it back via sim_config.FULFILLMENT_CONFIGS[0].  Keep the\nname DISTINCT from any store config name (config.json is written per config dir; a shared name\nwould collide \u2014 see the runner's _prepare_channel_run).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/ful_calibrated.py::ful_calibrated": {
+      "decorators": [
+        "pick_config(name='ful_calibrated', channel='fulfillment', order=0)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store.py": {
+      "decorators": [],
+      "doc": "Store channel \u2014 base ergonomics pick-config (StoreCart). The single active store calibration.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store.py::store": {
+      "decorators": [
+        "pick_config(name='store', channel='store', order=0)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store_high_height.py": {
+      "decorators": [],
+      "doc": "Store variant \u2014 base weight, steeper height brackets (menu entry, not in the active sweep).\nRegistered with enabled=False; flip enabled=True to add it to the store sweep.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store_high_height.py::store_high_height": {
+      "decorators": [
+        "pick_config(name='store_high_height', channel='store', order=11, enabled=False)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/configs/store_high_weight_high_height.py": {
+      "decorators": [],
+      "doc": "Store variant \u2014 steeper weight exponent + steeper height brackets (menu entry, not in the\nactive sweep).  Registered with enabled=False so it is discoverable/togglable without running;\nflip enabled=True to add it to the store sweep.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/configs/store_high_weight_high_height.py::store_high_weight_high_height": {
+      "decorators": [
+        "pick_config(name='store_high_weight_high_height', channel='store', order=10, enabled=False)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simconfig/constants.py": {
+      "decorators": [],
+      "doc": "Leaf constants shared by the pick-config modules AND sim_config.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: the config\nmodules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config\nwould cycle \u2014 sim_config imports the simconfig registry, which import_all()s the config modules.\nsim_config re-imports these so `rs._STORE_PICKERS` / `K_PICKERS` and CONFIG['channels'][*]\n['num_pickers'] keep their single source of truth.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/constants.py::_FF_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "20"
+    },
+    "Optimization/simconfig/constants.py::_STORE_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "25"
+    },
+    "Optimization/simconfig/core/__init__.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/discovery.py": {
+      "decorators": [],
+      "doc": "Auto-discovery: import every simconfig submodule so @pick_config decorators fire.\n\nMirrors Optimization/Performance_Evaluations/core/discovery.py.  Used instead of a hand-maintained\nimport list so dropping a new pick-config file into configs/ registers it with zero edits elsewhere.\n\nCritical for multiprocessing: the package __init__ calls import_all() at import time, so each\nspawned worker that (transitively) imports Optimization.simconfig repopulates the registry in its\nown process before any run.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/discovery.py::import_all": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/simconfig/core/registry.py": {
+      "decorators": [],
+      "doc": "PickConfigSpec descriptor + @pick_config decorator + module-level registry.\n\nMirrors Optimization/Performance_Evaluations/core/registry.py: a frozen dataclass per item, a\nflat list, and a by-key dict, populated by a decorator so a pick-config module self-registers on\nimport.  A pick-config is the plain dict Optimization/sim_config._build_pick_cfg consumes; the spec\nmakes explicit the CHANNEL split (store vs fulfillment) that used to be implicit in WHICH list the\ndict lived in, plus a sweep ``order`` (list order is load-bearing \u2014 it sets config-dir identity and\nsweep order, so it must NOT depend on filesystem walk order) and an ``enabled`` flag so a variant\ncan be kept as a discoverable menu entry without running.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/core/registry.py::PickConfigSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/core/registry.py::pick_config": {
+      "decorators": [],
+      "doc": "Decorator: register the wrapped zero-arg builder's returned dict as a PickConfigSpec.\n\nReturns the builder unchanged so it stays directly callable/unit-testable.  Raises on a\nduplicate name or an unknown channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, name, channel, order=0, enabled=True)"
+    },
+    "Optimization/simconfig/core/registry.py::pick_config._wrap": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fn)"
+    },
+    "Optimization/simdriver/__init__.py": {
+      "decorators": [],
+      "doc": "simdriver \u2014 the simulation orchestration driver (cells + work units + supervisor +\nscenario), extracted from run_simulation.py.  run_simulation re-exports these so tests,\nDiagnostics, and the arch graph keep referencing them as rs.<name>.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/cells.py": {
+      "decorators": [],
+      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler over one frozen inventory.\n_apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is\nseen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/cells.py::_SCHED_SHORT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'round_robin': 'rr', 'lpt': 'lpt'}"
+    },
+    "Optimization/simdriver/cells.py::_apply_cell": {
+      "decorators": [],
+      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
+    },
+    "Optimization/simdriver/cells.py::_build_cells": {
+      "decorators": [],
+      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), \u2026];\nthe (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to\n['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`\nsuffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec)"
+    },
+    "Optimization/simdriver/cells.py::_cell_complete": {
+      "decorators": [],
+      "doc": "A cell is done when it has \u22651 sim_meta.json per pair (all its configs finalized).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(scenario_base: str, pairs: list) -> bool"
+    },
+    "Optimization/simdriver/cells.py::_tightest_split": {
+      "decorators": [],
+      "doc": "The split with the largest capacity_loss (fewest bins).  Freezing the sampled\ninventory to it guarantees every roomier cell can hold it (the frozen inventory\nalways fits).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cells)"
+    },
+    "Optimization/simdriver/scenario.py": {
+      "decorators": [],
+      "doc": "simdriver.scenario \u2014 one scenario + the cell-matrix driver.\n\n_run_scenario is the inner pipeline for a SINGLE warehouse cell (manifest + shared\nassets + flat pool + blank-arm check); _run_whatif_matrix loops _build_cells over one\nfrozen inventory so every run is a cell matrix (a plain run is the single cell k1_off).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/scenario.py::_run_scenario": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, cell='', cell_index=1, cell_total=1, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
+    },
+    "Optimization/simdriver/scenario.py::_run_whatif_matrix": {
+      "decorators": [],
+      "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 bit-identical to the old flat run, just nested under its cell dir.  Returns\n{'cells': [names], 'reference': name}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy')"
+    },
+    "Optimization/simdriver/scenario.py::_warn_blank_arms": {
+      "decorators": [],
+      "doc": "Scan every sim_*.db under base_dir and log a prominent WARNING for any that\nrecorded zero batches (blank result DB).  Returns the list of blank db paths.\n\nA blank arm means the whole strategy produced no metrics \u2014 almost always a\nplacement/stocking failure (units never binned \u2192 no pick tasks \u2192 all batches\nskipped).  Downstream analysis silently omits such arms, so we flag them here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, log: logging.Logger) -> list"
+    },
+    "Optimization/simdriver/supervisor.py": {
+      "decorators": [],
+      "doc": "simdriver.supervisor \u2014 the crash-recovery pool driver + finalize gate.\n\nOwns the flat ProcessPoolExecutor lifetime: submit every work unit, isolate ordinary\nper-unit failures, rebuild + resubmit on a BrokenProcessPool (hard worker death) up to\nmax_retries, and finalize a group ONLY when every arm succeeded (so a crashed group\nstays resumable).  _run_strategy_worker is the only pickled callable (imported from\nstrategy_runner, unchanged).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/supervisor.py::_finalize_config_run": {
+      "decorators": [],
+      "doc": "Post-completion: remove resume file and write sim_meta.json.\n\nReturns the sim_result dict (subset of sim_skeleton without inv_db/aff_db).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sim_skeleton: dict) -> dict"
+    },
+    "Optimization/simdriver/supervisor.py::_finalize_ready_groups": {
+      "decorators": [],
+      "doc": "Finalize every group whose members have ALL succeeded and isn't finalized yet.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(meta, done_uids, finalized, log, cell='')"
+    },
+    "Optimization/simdriver/supervisor.py::_run_pool": {
+      "decorators": [],
+      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`\nis prefixed on every per-arm tag so interleaved multi-cell output is attributable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='', run_root=None)"
+    },
+    "Optimization/simdriver/supervisor.py::_run_workers_flat": {
+      "decorators": [],
+      "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str='', cell_index: int=1, cell_total: int=1, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> None"
+    },
+    "Optimization/simdriver/supervisor.py::_supervise": {
+      "decorators": [],
+      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='', cell_index=1, cell_total=1)"
+    },
+    "Optimization/simdriver/supervisor.py::_tag_of": {
+      "decorators": [],
+      "doc": "Standardized per-arm/per-group log tag: [cell/pair/config[/channel][/strategy]].",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, key)"
+    },
+    "Optimization/simdriver/workunits.py": {
+      "decorators": [],
+      "doc": "simdriver.workunits \u2014 plan the per-strategy work units for the flat pool.\n\nBuilds one work unit per (pair, config, channel, strategy) arm: shared assets +\nbatches + resume-aware start planning + the picklable strategy_args dict shipped to\neach worker.  Runs only in the parent process.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/workunits.py::_build_work_units": {
+      "decorators": [],
+      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity)"
+    },
+    "Optimization/simdriver/workunits.py::_channel_runs_for": {
+      "decorators": [],
+      "doc": "Plan the channel-runs for one catalog.\n\nStore and fulfillment sweep their OWN config sets independently (a UNION, not a cross\nproduct): every STORE_CONFIGS entry drives a store channel-run, and \u2014 only when the\ncatalog is mixed (contains fulfillment units) \u2014 every FULFILLMENT_CONFIGS entry drives a\nfulfillment channel-run.  A store-only catalog yields just the store runs (byte-identical\nto the pre-fulfillment pipeline).\n\nReturns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inventory) -> tuple[bool, list[tuple]]"
+    },
+    "Optimization/simdriver/workunits.py::_plan_strategy_start": {
+      "decorators": [],
+      "doc": "Decide (run_id, start_batch) for one strategy, honoring resume granularity.\n\n- Fresh run / a strategy new on resume \u2192 init DB + create_run, start 0.\n- Resumed done arm (checkpoint \u2265 n_batches) \u2192 reuse run_id, start n_batches (empty loop).\n- Resumed PARTIAL arm (0 < ckpt < n_batches):\n    strategy granularity \u2192 reset the arm's DB + fresh run_id, start 0 (bit-identical to an\n                           uncrashed run \u2014 no un-replayed physical state);\n    batch granularity    \u2192 reuse run_id, start = ckpt (fast, but NOT bit-identical \u2014 warn).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log)"
+    },
+    "Optimization/simdriver/workunits.py::_prepare_channel_run": {
+      "decorators": [],
+      "doc": "Pre-initialise ONE channel-run (one config driving one channel): create DBs, get\nrun_ids, build strategy_args for the flat ProcessPoolExecutor.\n\nStore and fulfillment sweep their own config sets independently, so a run drives a single\nchannel.  ``mixed`` is True when the catalog holds more than one regime \u2014 the run then\nfilters inventory to ``channel.regime``, draws its own batch stream, and writes a\n``<config>/<channel>/`` subtree.  A store-only catalog (``mixed`` False) collapses to the\nlegacy ``<config>/`` layout + shared precomputed batch stream (byte-identical).\n\nReturns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set \u2014 the caller\ninjects it before submission.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy') -> tuple[list, list]"
+    },
+    "Optimization/simdriver/workunits.py::_prepare_channel_run._decomp": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lbl: str) -> dict"
+    },
+    "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders_subset, x_speed, y_speed, wp_)"
     },
     "Optimization/strategies.py": {
       "decorators": [],
@@ -3843,12 +4337,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/whatif_config.py::SPECS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF}"
+    },
     "Optimization/whatif_config.py::WHATIF": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
+    },
+    "Optimization/whatif_config.py::get_spec": {
+      "decorators": [],
+      "doc": "Return the cell-matrix spec dict for a registered name (KeyError if unknown).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name)"
     },
     "Visualization/db_reader.py": {
       "decorators": [],
@@ -5514,6 +6022,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list[Aisle.Bin]"
+    },
+    "Warehouse/Inventory_Management.py::Inventory_Manager.units_ordered": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Units ORDERED in the most recent check_reorders() batch (\u03a3 reorder qty).  Distinct from\nreorder_placements (units PLACED) and in_transit_qty (units still on order).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
     },
     "Warehouse/Inventory_Management.py::_apportion": {
       "decorators": [],

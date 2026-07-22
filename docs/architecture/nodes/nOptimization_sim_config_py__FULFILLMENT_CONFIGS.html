@@ -14,7 +14,7 @@
 <h1><span class="kind kind-const">const</span> <code>FULFILLMENT_CONFIGS</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_sim_config_py.html"><code>Optimization/sim_config.py</code></a></p>
 <div class="badges"><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>FULFILLMENT_CONFIGS = [{&#x27;name&#x27;: &#x27;ful_calibrated&#x27;, &#x27;pick_intercept&#x27;: 10, &#x27;pick_weight_coef&#x27;: 0.7, &#x27;pick_weight_fn&#x27;: &#x27;log&#x27;, &#x27;pick_volume_coef&#x27;: 0.09, &#x27;pick_volume_fn&#x27;: &#x27;log&#x27;, &#x27;cart_swap_coef&#x27;: 240, &#x27;cart&#x27;: &#x27;FulfillmentCar...</code></pre>
+<pre class="sig"><code>FULFILLMENT_CONFIGS = [s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == &#x27;fulfillment&#x27;]</code></pre>
 <section class="doc empty">No docstring.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_sim_config_py__FULFILLMENT_CONFIGS">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/sim_config.py#:~:text=FULFILLMENT_CONFIGS">Source ↗</a></p>

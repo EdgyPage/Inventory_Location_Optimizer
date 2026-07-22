@@ -285,6 +285,7 @@ class ReorderMixin:
 
         # ── 2. fire OUP reorders for depleted SKUs → enter the lead queue ────────
         triggered: list[int] = []
+        self._units_ordered = 0          # units ordered THIS batch (Σ reorder qty below)
         for sku in self._depleted_skus:
             if sku not in self._originals:
                 continue
@@ -321,6 +322,7 @@ class ReorderMixin:
             lead = max(0, int(round(getattr(rc, 'lead_time_mean', 0.0))))   # deterministic lead
             self._lead_queue.append([sku, qty, lead])
             self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + qty
+            self._units_ordered += qty
             triggered.append(sku)
         self._depleted_skus.clear()
 

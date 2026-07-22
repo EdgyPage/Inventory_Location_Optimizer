@@ -3,8 +3,14 @@
 Two trees, one vocabulary:
 
   * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db
-  * comparison tree (simulation output): <base>/<pair>/<config>[/<channel>]/{sim_*.db,
+  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,
                                           sim_meta.json, series.json, ...}
+
+Every run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is
+itself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/…``), so the
+per-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the
+top-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore
+run PER CELL — pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.
 
 Every walker that used to re-encode these shapes (run_simulation's pair discovery +
 blank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series
@@ -72,6 +78,38 @@ def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
 
 
 # ── comparison tree (simulation output) ─────────────────────────────────────────
+
+def cells(base_dir: str) -> Iterator[tuple[str, str]]:
+    """Yield (cell_name, cell_dir) for every cell under a run root.
+
+    Every run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a
+    ``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe —
+    so a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on
+    resume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run
+    root's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the
+    cells; a legacy FLAT run (no cell level — DBs directly under ``<base>/<pair>/<config>``) is
+    yielded as one implicit cell named after the base dir.
+    """
+    if not os.path.isdir(base_dir):
+        return
+    from Optimization.sim_manifest import read_run_layout
+    layout = read_run_layout(base_dir)
+    if layout and layout.get('cells'):
+        for cell in layout['cells']:
+            yield cell['name'], os.path.join(base_dir, cell['name'])
+        return
+    # ── legacy fallback: no descriptor → infer the cells from the on-disk tree ──
+    subs = [d for d in sorted(os.listdir(base_dir))
+            if os.path.isdir(os.path.join(base_dir, d)) and not d.startswith('_')]
+    found = False
+    for name in subs:
+        cell_dir = os.path.join(base_dir, name)
+        if next(iter_sim_dbs(cell_dir), None) is not None:   # has a <pair>/<config>/sim_*.db subtree
+            found = True
+            yield name, cell_dir
+    if not found and next(iter_sim_dbs(base_dir), None) is not None:
+        yield os.path.basename(base_dir.rstrip('/\\')), base_dir   # legacy flat = one implicit cell
+
 
 @dataclass(frozen=True)
 class ChannelRun:

@@ -87,37 +87,36 @@ def _scan(cell_dir: str) -> dict:
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser(description='Diff what-if scenarios vs a reference cell.')
-    ap.add_argument('base_dir')
-    ap.add_argument('--reference', default=None,
-                    help="reference cell to diff against (default: WHATIF['reference'] from "
-                         "whatif_config.py, else 'k1_off')")
-    args = ap.parse_args()
-    if args.reference is None:
+def _pct(a, b, higher_better):
+    """Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell."""
+    if a is None or b is None or not a or a != a or b != b:
+        return float('nan')
+    return (b - a) / a * 100 if higher_better else (a - b) / a * 100
+
+
+def run(base_dir, reference=None, log=None):
+    """Engine: diff every cell under base_dir vs the reference cell; write whatif_delta.csv +
+    the labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub
+    calls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op."""
+    _say = log.info if log is not None else print
+    if reference is None:
         # Single source of truth: the sweep's reference cell lives in whatif_config.
         try:
             from Optimization.whatif_config import WHATIF
-            args.reference = WHATIF.get('reference', 'k1_off')
+            reference = WHATIF.get('reference', 'k1_off')
         except Exception:
-            args.reference = 'k1_off'
+            reference = 'k1_off'
 
-    cells = [d for d in sorted(os.listdir(args.base_dir))
-             if os.path.isdir(os.path.join(args.base_dir, d)) and not d.startswith('_')]
-    if args.reference not in cells:
-        raise SystemExit(f'reference cell {args.reference!r} not found in {cells}')
-    scans = {c: _scan(os.path.join(args.base_dir, c)) for c in cells}
-    ref = scans[args.reference]
-
-    def _pct(a, b, higher_better):
-        """Signed % change of b vs reference a; + always = better.  NaN on missing/zero ref/cell."""
-        if a is None or b is None or not a or a != a or b != b:
-            return float('nan')
-        return (b - a) / a * 100 if higher_better else (a - b) / a * 100
+    cell_names = [d for d in sorted(os.listdir(base_dir))
+                  if os.path.isdir(os.path.join(base_dir, d)) and not d.startswith('_')]
+    if reference not in cell_names:
+        raise SystemExit(f'reference cell {reference!r} not found in {cell_names}')
+    scans = {c: _scan(os.path.join(base_dir, c)) for c in cell_names}
+    ref = scans[reference]
 
     rows = []
-    for cell in cells:
-        if cell == args.reference:
+    for cell in cell_names:
+        if cell == reference:
             continue
         for key, m in scans[cell].items():
             r = ref.get(key)
@@ -141,12 +140,12 @@ def main():
             'ref_batch_ms', 'cell_batch_ms', 'd_batch_ms_pct',
             'ref_thr_batch', 'cell_thr_batch', 'd_thr_batch_pct',
             'ref_thr_task', 'cell_thr_task', 'd_thr_task_pct']
-    csv_path = os.path.join(args.base_dir, 'whatif_delta.csv')
+    csv_path = os.path.join(base_dir, 'whatif_delta.csv')
     with open(csv_path, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
-    print(f'wrote {csv_path}  ({len(rows)} rows)')
+    _say(f'wrote {csv_path}  ({len(rows)} rows)')
 
     if rows:
         fig, ax = plt.subplots(figsize=(10, 7))
@@ -166,28 +165,39 @@ def main():
         ax.axvline(0, color='k', lw=0.8)
         ax.set_xlabel('Task-makespan (labor) saving % vs reference (→ better)')
         ax.set_ylabel('Throughput / batch-makespan gain % vs reference (↑ better)')
-        ax.set_title(f'What-if scenarios vs "{args.reference}"  —  point = cell × channel × arm\n'
+        ax.set_title(f'What-if scenarios vs "{reference}"  —  point = cell × channel × arm\n'
                      f'up at flat x = a scheduling win (batch makespan ↓ at flat task makespan)')
         ax.grid(alpha=0.3)
         ax.legend(fontsize=8, title='scenario / channel')
-        png = os.path.join(args.base_dir, 'whatif_delta.png')
+        png = os.path.join(base_dir, 'whatif_delta.png')
         fig.savefig(png, dpi=150, bbox_inches='tight')
         plt.close(fig)
-        print(f'wrote {png}')
+        _say(f'wrote {png}')
 
-        print(f'\nMedian Δ vs "{args.reference}" by cell × channel  '
-              f'(+ = better; task_ms=labor, batch_ms=makespan):')
+        _say(f'\nMedian Δ vs "{reference}" by cell × channel  '
+             f'(+ = better; task_ms=labor, batch_ms=makespan):')
         agg: dict = {}
         for r in rows:
             agg.setdefault((r['cell'], r['channel']), []).append(r)
         _med = lambda vs, k: (statistics.median(v[k] for v in vs if v[k] == v[k])
                               if any(v[k] == v[k] for v in vs) else float('nan'))
         for (cell, ch), vs in sorted(agg.items()):
-            print(f'  {cell:16} {ch:12}  '
-                  f'Δtask_ms={_med(vs, "d_task_ms_pct"):+5.1f}%  '
-                  f'Δbatch_ms={_med(vs, "d_batch_ms_pct"):+5.1f}%  '
-                  f'Δthr/batch={_med(vs, "d_thr_batch_pct"):+6.1f}%  '
-                  f'Δthr/task={_med(vs, "d_thr_task_pct"):+6.1f}%')
+            _say(f'  {cell:16} {ch:12}  '
+                 f'Δtask_ms={_med(vs, "d_task_ms_pct"):+5.1f}%  '
+                 f'Δbatch_ms={_med(vs, "d_batch_ms_pct"):+5.1f}%  '
+                 f'Δthr/batch={_med(vs, "d_thr_batch_pct"):+6.1f}%  '
+                 f'Δthr/task={_med(vs, "d_thr_task_pct"):+6.1f}%')
+    return csv_path
+
+
+def main():
+    ap = argparse.ArgumentParser(description='Diff what-if scenarios vs a reference cell.')
+    ap.add_argument('base_dir')
+    ap.add_argument('--reference', default=None,
+                    help="reference cell to diff against (default: WHATIF['reference'] from "
+                         "whatif_config.py, else 'k1_off')")
+    args = ap.parse_args()
+    run(args.base_dir, args.reference)
 
 
 if __name__ == '__main__':

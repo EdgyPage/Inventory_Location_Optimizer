@@ -75,10 +75,11 @@ def _fake_units(tmp_path):
 def test_supervise_rebuilds_pool_and_resubmits(monkeypatch, tmp_path):
     _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
     units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr(rs, '_build_work_units', lambda *a, **k: (units, dict(meta)))
+    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
+                        lambda *a, **k: (units, dict(meta)))
     n = {'calls': 0}
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized):
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
         n['calls'] += 1
         if n['calls'] == 1:
             done_uids.add(uid_a)                 # one arm lands, then the pool breaks
@@ -87,7 +88,7 @@ def test_supervise_rebuilds_pool_and_resubmits(monkeypatch, tmp_path):
             done_uids.add(uid)
         rs._finalize_ready_groups(meta_, done_uids, finalized, log)
         return set(), False
-    monkeypatch.setattr(rs, '_run_pool', fake_run_pool)
+    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
 
     rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
                   log_queue=None, max_tasks_per_child=1, skip_completed=False,
@@ -100,12 +101,13 @@ def test_supervise_rebuilds_pool_and_resubmits(monkeypatch, tmp_path):
 def test_supervise_quarantines_persistent_failure(monkeypatch, tmp_path):
     _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
     units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr(rs, '_build_work_units', lambda *a, **k: (units, dict(meta)))
+    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
+                        lambda *a, **k: (units, dict(meta)))
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized):
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
         done_uids.add(uid_a)                     # 'a' succeeds; 'b' deterministically fails
         return {uid_b}, False                    # not broke → no retry (deterministic)
-    monkeypatch.setattr(rs, '_run_pool', fake_run_pool)
+    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
     warnings = []
     monkeypatch.setattr(_LOG, 'error', lambda m, *a, **k: warnings.append(m))
 
@@ -124,11 +126,16 @@ def test_supervise_quarantines_persistent_failure(monkeypatch, tmp_path):
 
 def test_plan_strategy_start_all_branches(monkeypatch, tmp_path):
     calls, ckpt = [], {'v': 0}
-    monkeypatch.setattr(rs, 'init_run_db', lambda p: calls.append(('init', p)))
-    monkeypatch.setattr(rs, 'create_run',
+    # _plan_strategy_start now lives in simdriver.workunits and resolves these via that module's
+    # globals — patch there, not on the run_simulation re-export.
+    monkeypatch.setattr('Optimization.simdriver.workunits.init_run_db',
+                        lambda p: calls.append(('init', p)))
+    monkeypatch.setattr('Optimization.simdriver.workunits.create_run',
                         lambda p, rt, params, identity=None: calls.append(('create', p)) or 999)
-    monkeypatch.setattr(rs, 'reset_strategy_db', lambda rd, db, key: calls.append(('reset', key)))
-    monkeypatch.setattr(rs, 'load_worker_checkpoint', lambda rd, key: ckpt['v'])
+    monkeypatch.setattr('Optimization.simdriver.workunits.reset_strategy_db',
+                        lambda rd, db, key: calls.append(('reset', key)))
+    monkeypatch.setattr('Optimization.simdriver.workunits.load_worker_checkpoint',
+                        lambda rd, key: ckpt['v'])
     s = SimpleNamespace(key='uni', run_type='comparison')
 
     def plan(gran, prev_id, is_resume):

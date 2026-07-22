@@ -124,9 +124,13 @@ def _run_strategy_worker(args: dict) -> dict:
     job_index = args.get('job_index')
     job_total = args.get('job_total')
     job_tag   = args.get('job_tag')
-    # Flat pool: tag every line with the job index so interleaved output is
-    # distinguishable.  Nested path has no job_index → keep the old name.
-    if job_index is not None:
+    cell      = args.get('cell')
+    # Name the logger so EVERY worker line (the %(name)s column) carries the cell + arm — a
+    # multi-cell run's interleaved output is then attributable to its cell at a glance.  Nested
+    # path (no cell / no job_index) keeps the old name.
+    if cell:
+        log = logging.getLogger(f'{cell} {strategy}')
+    elif job_index is not None:
         log = logging.getLogger(f'j{job_index}/{job_total} {strategy}')
     else:
         log = logging.getLogger(f'worker-{strategy}')
@@ -158,9 +162,15 @@ def _run_strategy_worker(args: dict) -> dict:
     # stream + output DB.  None ⇒ the whole inventory in one stream (store-only, unchanged).
     channel_regime      = args.get('channel_regime')
 
+    cell_pos = args.get('cell_pos')
+    gjob     = args.get('gjob')
     log.info('=' * 60)
     if job_tag is not None:
-        log.info(f'Job {job_index}/{job_total}  {job_tag}')
+        # per-arm line with LOCAL (this-cell) + GLOBAL (whole-run) progress counters
+        _prog = f'Job {job_index}/{job_total}'
+        if cell_pos:
+            _prog += f'  [cell {cell_pos} · global {gjob}]'
+        log.info(f'{_prog}  {job_tag}')
     log.info(f'Strategy {strategy}  run_id={run_id}  batches {start_i}->{n_batches}')
     log.info(f'  pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  cart={pick_cfg.cart_swap_coef}')
@@ -386,7 +396,9 @@ def _run_strategy_worker(args: dict) -> dict:
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
-    reorders_ckpt  = 0
+    reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
+    units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
+    placed_ckpt        = 0   # units placed this window (P = reorder placements)
     dur_sum_ckpt   = 0.0
     dur_count_ckpt = 0
     p1_sum_ckpt    = 0.0
@@ -400,6 +412,10 @@ def _run_strategy_worker(args: dict) -> dict:
     t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
     t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
     t_inv_ckpt     = 0.0   # snapshot_bin_inventory
+    # Whole-arm section totals (never reset) → returned so the PARENT writes the runtime-metrics DB
+    # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
+    # dominance = the recurring valid-aisle recompute suspicion).
+    t_reord_run = t_build_run = t_pre_run = t_sim_run = t_extract_run = t_inv_run = t_save_run = 0.0
     last_dur       = 0.0
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
@@ -414,6 +430,11 @@ def _run_strategy_worker(args: dict) -> dict:
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
+        # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
+        # (mgr.units_ordered), P units placed (batch_rp = reorder placements this batch).
+        batch_uo            = mgr.units_ordered
+        units_ordered_ckpt += batch_uo
+        placed_ckpt        += batch_rp
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         # Replay viewer: snapshot the standing replenishment queues at batch start (after
         # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
@@ -469,7 +490,9 @@ def _run_strategy_worker(args: dict) -> dict:
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
-        bs.reorder_placements = batch_rp
+        bs.reorder_placements = batch_rp                 # units PLACED this batch (P)
+        bs.skus_reordered     = len(triggered)           # SKUs reordered this batch (N)
+        bs.units_ordered      = batch_uo                 # units ORDERED this batch (U)
         # Put-away honesty: standing backlog + in-transit pipeline after this batch's
         # reorder/restock pass (a strategy that defers placement carries a high queue).
         bs.queue_depth        = mgr.queue_depth
@@ -521,7 +544,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  rate={ckpt_rate:.2f}/s ({cum_rate:.2f} cum)'
                 f'  fill={cur_fill:.1%}'
                 f'  q={mgr.queue_depth}'
-                f'  reorders={reorders_ckpt}'
+                f'  reorder={reorders_ckpt}sku {units_ordered_ckpt}u ord {placed_ckpt}u plc'
                 f'  lead_q={mgr.lead_queue_depth}({mgr.in_transit_qty}u)'
                 f'  p1={p1_sum_ckpt:.2f}s ({p1_frac:.0f}%)'
                 f'  p2={p2_sum_ckpt:.2f}s'
@@ -534,8 +557,19 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
             )
 
+            # fold this checkpoint window's section times into the whole-arm totals before reset
+            t_reord_run   += t_reord_ckpt
+            t_build_run   += t_build_ckpt
+            t_pre_run     += t_pre_ckpt
+            t_sim_run     += t_sim_ckpt
+            t_extract_run += t_extract_ckpt
+            t_inv_run     += t_inv_ckpt
+            t_save_run    += t_save
+
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
-            reorders_ckpt  = 0
+            reorders_ckpt      = 0
+            units_ordered_ckpt = 0
+            placed_ckpt        = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
             p1_sum_ckpt    = 0.0
@@ -550,8 +584,16 @@ def _run_strategy_worker(args: dict) -> dict:
             t_inv_ckpt     = 0.0
             t_ckpt         = time.perf_counter()
 
+    # fold the final (unflushed) window's section times into the whole-arm totals
+    t_reord_run   += t_reord_ckpt
+    t_build_run   += t_build_ckpt
+    t_pre_run     += t_pre_ckpt
+    t_sim_run     += t_sim_ckpt
+    t_extract_run += t_extract_ckpt
+    t_inv_run     += t_inv_ckpt
     if pb:
         log.info(f'  Flushing final {len(pb)} batches to DB...')
+        _ts_final = time.perf_counter()
         save_batch_stats(db_path, run_id, pb)
         save_task_stats(db_path, run_id, pt)
         save_picker_events(db_path, run_id, pe)
@@ -559,6 +601,7 @@ def _run_strategy_worker(args: dict) -> dict:
         save_bin_inventory(db_path, run_id, pi)
         save_aisle_metrics(db_path, run_id, pm)
         save_reorder_queue(db_path, run_id, pq)
+        t_save_run += time.perf_counter() - _ts_final
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
     # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
@@ -570,6 +613,9 @@ def _run_strategy_worker(args: dict) -> dict:
 
     elapsed = time.perf_counter() - t_loop
     done    = n_batches - start_i - skipped
+    n_bins      = len(warehouse.bins)                      # runtime-metrics: warehouse size proxy
+    regime_bins = denom                                    # this channel's regime bin count
+    n_aisles    = len(getattr(warehouse, 'aisles', []) or [])
     log.info('=' * 60)
     log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
              f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
@@ -592,4 +638,17 @@ def _run_strategy_worker(args: dict) -> dict:
         'done'    : done,
         'skipped' : skipped,
         'last_dur': last_dur,
+        # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
+        #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
+        'n_bins'    : n_bins,
+        'regime_bins': regime_bins,
+        'n_aisles'  : n_aisles,
+        't_reord'   : t_reord_run,
+        't_build'   : t_build_run,
+        't_pre'     : t_pre_run,
+        't_sim'     : t_sim_run,
+        't_extract' : t_extract_run,
+        't_inv'     : t_inv_run,
+        't_save'    : t_save_run,
     }
+

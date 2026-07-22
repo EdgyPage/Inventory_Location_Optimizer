@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_run_layout · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_sim_manifest_py__write_run_layout" data-id="Optimization/sim_manifest.py::write_run_layout">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_sim_manifest_py.html"><code>Optimization/sim_manifest.py</code></a> <span class="sep">›</span> <span class="here"><code>write_run_layout</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>write_run_layout</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_sim_manifest_py.html"><code>Optimization/sim_manifest.py</code></a></p>
+
+<pre class="sig"><code>def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -&gt; None</code></pre>
+<section class="doc">Write &lt;base&gt;/run_layout.json — the descriptor of a run&#x27;s unified cell tree
+``&lt;base&gt;/&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/sim_*.db``.  Lets tools INFER the tree (cells,
+reference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed
+or OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.
+Atomic (tmp + os.replace), same pattern as _write_run_spec.
+
+cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
+{&#x27;k&#x27;,&#x27;capacity_loss&#x27;}.  `created` (ISO-8601) is passed in so the caller owns the clock.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_sim_manifest_py___run_layout_path.html"><code>_run_layout_path</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_sim_manifest_py__write_run_layout">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/sim_manifest.py#:~:text=def%20write_run_layout">Source ↗</a></p>
+</article>
+</main>
+</body></html>

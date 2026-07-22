@@ -47,8 +47,24 @@ artifacts:
       - {function: _load_run_spec, file: Optimization/sim_manifest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
-             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, profiles_dir,
+             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
              all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+
+  run_layout:
+    # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
+    # tool can INFER the tree — and analyze a partial/crashed or OLD run — without directory-guessing
+    # or re-importing the (possibly since-changed) whatif spec.  `fields` is verified against the
+    # committed JSON Schema's top-level properties (see schema_file).
+    path_pattern: "comparison_<ts>/run_layout.json"
+    format: json
+    schema_file: Optimization/schemas/run_layout.schema.json
+    writer: {function: write_run_layout, file: Optimization/sim_manifest.py}
+    readers:
+      - {function: cells, file: Optimization/runlayout.py}
+      - {function: analyze_run, file: Optimization/analyze_run.py}
+    match: "run_layout.json"
+    fields: [version, kind, spec, base, created, reference, tree_template, channels, cells,
+             pairs, configs, arms]
 
   warehouse_db:
     path_pattern: "comparison_<ts>/<pair>/warehouse.db"
@@ -75,7 +91,7 @@ artifacts:
   config_json:
     path_pattern: "comparison_<ts>/<pair>/<config>/config.json"
     format: json
-    writer: {function: _prepare_channel_run, file: Optimization/run_simulation.py}
+    writer: {function: _prepare_channel_run, file: Optimization/simdriver/workunits.py}
     readers:
       - {function: define_env, file: docs/macros.py}
     match: "config.json"
@@ -139,7 +155,7 @@ artifacts:
   sim_meta:
     path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_meta.json"
     format: json
-    writer: {function: _finalize_config_run, file: Optimization/run_simulation.py}
+    writer: {function: _finalize_config_run, file: Optimization/simdriver/supervisor.py}
     readers:
       - {function: _config_jobs, file: Optimization/run_analysis.py}
       - {function: _find_series, file: Optimization/run_channel_rollup.py}
@@ -147,6 +163,24 @@ artifacts:
     match: "sim_meta.json"
     fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
              optimal_work, inv_db, aff_db]
+
+  runtime_metrics_db:
+    path_pattern: "comparison_<ts>/runtime_metrics.db"
+    format: sqlite
+    writer: {function: record_arm, file: Optimization/runtime_metrics.py}
+    readers:
+      - {function: load_rows, file: Optimization/runtime_metrics.py}
+      - {function: run, file: Optimization/run_runtime_graphs.py}
+    match: "runtime_metrics.db"
+    schema_file: Optimization/runtime_metrics.py
+    tables: [runtime]
+
+  runtime_pngs:
+    path_pattern: "comparison_<ts>/_runtime/*.png"
+    format: png
+    writer: {function: run, file: Optimization/run_runtime_graphs.py}
+    readers: []
+    match: "runtime"
 
   # ── analysis outputs ────────────────────────────────────────────────────────────
   series_json:
@@ -174,3 +208,28 @@ artifacts:
     readers: []
     match: "channel_rollup"
     fields: [inventory, config, channel, plan, saving_abs, saving_pct, is_baseline, is_best]
+
+  whatif_labor_csv:
+    path_pattern: "<comparison_whatif_...>/whatif_labor.csv"
+    format: csv
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor.csv"
+    fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
+             batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
+
+  whatif_labor_json:
+    path_pattern: "<comparison_whatif_...>/whatif_labor.json"
+    format: json
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor.json"
+    fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
+             labor_baseline, hours_note, cells]
+
+  whatif_labor_pngs:
+    path_pattern: "<comparison_whatif_...>/{whatif_labor_throughput_scatter,whatif_labor_saved_bars,whatif_batch_hours_rr_vs_lpt,whatif_scheduler_uplift}.png"
+    format: png
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
+    readers: []
+    match: "whatif_labor_throughput_scatter"

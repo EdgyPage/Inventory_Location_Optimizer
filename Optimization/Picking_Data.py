@@ -48,7 +48,9 @@ class BatchStats:
     batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
     sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
     reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
-    reorder_placements: int = 0   # reorder unit placements this batch (restock churn)
+    reorder_placements: int = 0   # reorder unit PLACEMENTS this batch (units binned; restock churn)
+    skus_reordered: int = 0       # distinct SKUs reordered this batch (N in the reorder log line)
+    units_ordered: int = 0        # units ORDERED this batch (Σ reorder qty entering the lead queue)
     queue_depth: int = 0          # put-away backlog: storage units packed but not yet binned
     lead_queue_depth: int = 0     # in-transit reorders (records awaiting lead-time arrival)
     in_transit_qty: int = 0       # total items in the lead queue (on-order, not yet arrived)
@@ -232,6 +234,8 @@ _CREATE_BATCH_STATS = """
         sigma_fd               REAL    NOT NULL DEFAULT 0,
         reload_moves           INTEGER NOT NULL DEFAULT 0,
         reorder_placements     INTEGER NOT NULL DEFAULT 0,
+        skus_reordered         INTEGER NOT NULL DEFAULT 0,
+        units_ordered          INTEGER NOT NULL DEFAULT 0,
         queue_depth            INTEGER NOT NULL DEFAULT 0,
         lead_queue_depth       INTEGER NOT NULL DEFAULT 0,
         in_transit_qty         INTEGER NOT NULL DEFAULT 0,
@@ -671,15 +675,15 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
             'task_makespan,thr_task,thr_batch,'
             'avg_concurrent_pickers,picking_pct,traveling_pct,'
             'batch_start_time,batch_end_time,'
-            'sigma_fd,reload_moves,reorder_placements,'
+            'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
             'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
                  r.task_makespan, r.thr_task, r.thr_batch,
                  r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
                  r.batch_start_time, r.batch_end_time,
-                 r.sigma_fd, r.reload_moves, r.reorder_placements,
+                 r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
                  r.queue_depth, r.lead_queue_depth, r.in_transit_qty, int(r.is_outlier))
                 for r in records
             ],
@@ -722,6 +726,10 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                                           if 'reload_moves' in row.keys() else 0),
                 reorder_placements     = (row['reorder_placements']
                                           if 'reorder_placements' in row.keys() else 0),
+                skus_reordered         = (row['skus_reordered']
+                                          if 'skus_reordered' in row.keys() else 0),
+                units_ordered          = (row['units_ordered']
+                                          if 'units_ordered' in row.keys() else 0),
                 queue_depth            = (row['queue_depth']
                                           if 'queue_depth' in row.keys() else 0),
                 lead_queue_depth       = (row['lead_queue_depth']
