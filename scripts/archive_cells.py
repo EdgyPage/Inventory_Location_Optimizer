@@ -295,9 +295,18 @@ def _verify_copy(src: str, dst: str, echo) -> list:
 
 
 def _quick_check(db_path: str) -> str | None:
+    """Integrity-check a copied SQLite file WITHOUT touching the directory it lives in.
+
+    `immutable=1` is load-bearing, not a micro-optimisation. These DBs are written in WAL mode, so
+    a plain read-only open makes SQLite create `-wal` and `-shm` sidecars next to the file. Doing
+    that while verifying an archive adds two files per DB to the destination — 548 extra files for
+    a 274-DB cell — which silently inflated the copy and broke the count check that follows.
+    `immutable=1` promises the file cannot change, so SQLite skips the sidecars entirely.
+    """
     import pathlib
+    uri = pathlib.Path(db_path).as_uri() + '?mode=ro&immutable=1'
     try:
-        con = sqlite3.connect(pathlib.Path(db_path).as_uri() + '?mode=ro', uri=True)
+        con = sqlite3.connect(uri, uri=True)
     except sqlite3.Error as exc:
         return f'cannot open: {exc}'
     try:
@@ -307,6 +316,24 @@ def _quick_check(db_path: str) -> str | None:
         return f'quick_check failed: {exc}'
     finally:
         con.close()
+
+
+def _sweep_sidecars(root: str) -> int:
+    """Remove any -wal/-shm left beside a copied DB. Belt and braces behind immutable=1.
+
+    A stray sidecar is not just clutter: it makes the archived copy differ from the original, and
+    on a later read SQLite would try to recover from a WAL that describes nothing.
+    """
+    removed = 0
+    for dirpath, _d, files in os.walk(root):
+        for fn in files:
+            if fn.endswith(('-wal', '-shm')):
+                try:
+                    os.remove(os.path.join(dirpath, fn))
+                    removed += 1
+                except OSError:
+                    pass
+    return removed
 
 
 def _retry(fn, attempts: int = 5, delay: float = 2.0):
@@ -416,12 +443,24 @@ def archive_cell(rt, cell: str, cold: str, *, dry_run: bool = False, echo=print)
     echo(f'    copied in {(time.time() - t0) / 60:.1f} min')
 
     problems = _verify_copy(src, dst, echo)
+    stray = _sweep_sidecars(dst)
+    if stray:
+        echo(f'    removed {stray} stray WAL/SHM sidecar(s) from the copy')
     if problems:
         res['status'] = 'failed'
         res['problems'] = problems[:10]
         echo(f'    VERIFY FAILED ({len(problems)}) — leaving the original in place')
         for p in problems[:5]:
             echo(f'      {p}')
+        return res
+
+    # Re-measure the destination AFTER verification rather than trusting the pre-copy count of the
+    # source: verification itself can add files, and the junction is about to be compared to this.
+    n_dst, _sz_dst = _tree_stats(dst)
+    if n_dst != n:
+        res['status'] = 'failed'
+        res['error'] = f'copy has {n_dst} files, source had {n} — refusing to swap in a junction'
+        echo(f'    {res["error"]}')
         return res
 
     staged = src + STAGING_SUFFIX

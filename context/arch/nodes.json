@@ -9349,7 +9349,7 @@
     },
     "scripts/archive_cells.py::_quick_check": {
       "decorators": [],
-      "doc": null,
+      "doc": "Integrity-check a copied SQLite file WITHOUT touching the directory it lives in.\n\n`immutable=1` is load-bearing, not a micro-optimisation. These DBs are written in WAL mode, so\na plain read-only open makes SQLite create `-wal` and `-shm` sidecars next to the file. Doing\nthat while verifying an archive adds two files per DB to the destination \u2014 548 extra files for\na 274-DB cell \u2014 which silently inflated the copy and broke the count check that follows.\n`immutable=1` promises the file cannot change, so SQLite skips the sidecars entirely.",
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str) -> str | None"
@@ -9360,6 +9360,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(fn, attempts: int=5, delay: float=2.0)"
+    },
+    "scripts/archive_cells.py::_sweep_sidecars": {
+      "decorators": [],
+      "doc": "Remove any -wal/-shm left beside a copied DB. Belt and braces behind immutable=1.\n\nA stray sidecar is not just clutter: it makes the archived copy differ from the original, and\non a later read SQLite would try to recover from a WAL that describes nothing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(root: str) -> int"
     },
     "scripts/archive_cells.py::_tree_stats": {
       "decorators": [],

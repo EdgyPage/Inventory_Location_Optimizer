@@ -7891,6 +7891,11 @@
       "src": "scripts/archive_cells.py::archive_cell"
     },
     {
+      "dst": "scripts/archive_cells.py::_sweep_sidecars",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_cell"
+    },
+    {
       "dst": "scripts/archive_cells.py::_tree_stats",
       "kind": "calls",
       "src": "scripts/archive_cells.py::archive_cell"
@@ -18649,6 +18654,14 @@
       "kind": "function",
       "module": "scripts/archive_cells.py",
       "name": "_retry",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_sweep_sidecars",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_sweep_sidecars",
       "public": false
     },
     {

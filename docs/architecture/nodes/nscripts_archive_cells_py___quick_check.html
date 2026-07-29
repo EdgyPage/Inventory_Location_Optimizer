@@ -15,7 +15,13 @@
 <p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
 
 <pre class="sig"><code>def _quick_check(db_path: str) -&gt; str | None</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">Integrity-check a copied SQLite file WITHOUT touching the directory it lives in.
+
+`immutable=1` is load-bearing, not a micro-optimisation. These DBs are written in WAL mode, so
+a plain read-only open makes SQLite create `-wal` and `-shm` sidecars next to the file. Doing
+that while verifying an archive adds two files per DB to the destination — 548 extra files for
+a 274-DB cell — which silently inflated the copy and broke the count check that follows.
+`immutable=1` promises the file cannot change, so SQLite skips the sidecars entirely.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nscripts_archive_cells_py___verify_copy.html"><code>_verify_copy</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__archive_keyframes.html"><code>archive_keyframes</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__copy_verified.html"><code>copy_verified</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py___quick_check">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20_quick_check">Source ↗</a></p>
 </article>

@@ -7,12 +7,19 @@ only way to know an artifact landed where the contract says it should is to go a
 does that by reusing the contract machinery itself (`runschema.preflight.observe` / `validate` and
 the resolver) rather than by hand-rolling paths — so it stays correct when the tree shape moves.
 
-Two profiles:
+Three profiles:
+    tiny    the smallest run that still produces every structural feature — for shaking out the
+            chain end to end, not for measuring anything
     smoke   capped SKUs, the fast default for routine reuse
     full    production scale, 10 batches — what you run when the tree shape has changed
 
-Both use the multi-cell what-if spec, because `_frozen/<pair>/` and the six what-if artifacts exist
-ONLY on a multi-cell run; a single-cell run can never exercise those levels.
+All three use the multi-cell what-if spec, because `_frozen/<pair>/` and the six what-if artifacts
+exist ONLY on a multi-cell run; a single-cell run can never exercise those levels.
+
+The last stage archives a completed cell to bulk storage and then re-runs the whole contract
+verification. That is the only meaningful test of the archiver: the point of leaving a junction is
+that nothing downstream can tell the difference, so "did the copy work" is the wrong question and
+"does the same verification still pass" is the right one.
 
 Nothing here writes a machine-local path into a tracked file: results go to stdout or to a path you
 name, and every location is referred to by its .env key.
@@ -40,8 +47,8 @@ _ROOT = os.path.normpath(os.path.join(_HERE, '..', '..'))
 if _ROOT not in sys.path:                      # entry-script bootstrap (see Tests/conftest.py)
     sys.path.insert(0, _ROOT)
 
-WORKER_CAP = 18                                # operator constraint: never exceed this
-STAGES = ('preconditions', 'simulate', 'analyze', 'verify_tree', 'website', 'mkdocs')
+WORKER_CAP = 20                                # operator constraint: never exceed this
+STAGES = ('preconditions', 'simulate', 'analyze', 'verify_tree', 'website', 'mkdocs', 'archive')
 
 # Both profiles run the multi-cell spec. keyframe-interval 5 with 10 batches fires at i=0 and i=5,
 # so `keyframes_db` is guaranteed to exist — a 0 interval would silently drop a declared artifact.
@@ -58,6 +65,16 @@ class Profile:
 
 
 PROFILES = {
+    # The pipeline-shakeout size: every structural feature of a real run (2 cells, both channels,
+    # all 34 arms, the _frozen level, the what-if outputs) at the smallest scale that still produces
+    # them. For troubleshooting the chain end to end, not for measuring anything.
+    'tiny': Profile('tiny', ('--spec', 'scheduler_ab', '--n-batches', '6',
+                             '--keyframe-interval', '3',
+                             '--max-skus', '8000',
+                             '--s-max-bins', '9000', '--ff-max-bins', '12000',
+                             '--max-tasks-per-child', '6'),
+                    timeout_s=3600, free_gb=15, note='pipeline shakeout; target < 20 min'),
+
     # ~13% scale. The first 20k SKUs are ~40% fulfillment (SKU ids interleave the families), so the
     # catalogue stays MIXED and the optional <channel> level still appears. A cap that produced a
     # store-only catalogue would silently stop testing the thing this exists to test.
@@ -689,6 +706,110 @@ def _stage_mkdocs(ctx: _Ctx) -> StageResult:
     return r
 
 
+# ── stage 6: archive a completed cell and prove the tree survives it ────────────────────────
+def _stage_archive(ctx: _Ctx) -> StageResult:
+    """Move one completed cell to bulk storage, then re-verify the whole run through the junction.
+
+    This is the only check that matters for the archiver: the point of leaving a junction is that
+    NOTHING downstream can tell the difference. So the test is not "did the copy succeed" — it is
+    "does the same contract verification that passed before still pass after", with the bytes on a
+    different physical drive.
+    """
+    r = StageResult('archive')
+    ev, msgs = r.evidence, r.messages
+    sys.path.insert(0, os.path.join(_ROOT, 'scripts'))
+    import archive_cells as ac
+    from Optimization import runschema
+
+    cold = ac.cold_root()
+    ev['cold_configured'] = bool(cold)
+    if not cold or not os.path.isdir(cold):
+        r.status = 'skip'
+        msgs.append('COLD_DRIVE not set or not connected')
+        return r
+
+    can_link = ac.supports_reparse(ctx.run_dir)
+    ev['hot_supports_junction'] = can_link
+    mode = 'cell' if can_link else 'keyframes'
+    ev['mode'] = mode
+    msgs.append(f'hot volume {"supports" if can_link else "does NOT support"} junctions -> mode {mode}')
+
+    rt = runschema.resolver_for(ctx.run_dir)
+    before_dbs = len(list(rt.sim_dbs()))
+    # Free space on the VOLUME, not a walk of the tree: after the swap the junction is transparent,
+    # so walking the run directory still sees every file and would report nothing was moved.
+    before_free = shutil.disk_usage(ctx.run_dir).free
+    # First cell not already relocated. Re-running the stage on a run whose cells are all archived
+    # is a no-op, not a failure — otherwise a second invocation reports a problem that isn't one.
+    cells = [n for n, _d in rt.cells()]
+    target = next((c for c in cells if not ac.is_archived(rt.cell_dir(c))), None)
+    ev['already_archived'] = [c for c in cells if ac.is_archived(rt.cell_dir(c))]
+    if target is None:
+        r.status = 'skip'
+        msgs.append(f'every cell is already archived ({len(cells)}) — nothing to do')
+        return r
+
+    t0 = time.time()
+    done = ac.sweep(ctx.run_dir, cold=cold, workers=ctx.workers, analyse=False,
+                    dry_run=False, include_last=True, only=[target], mode=mode,
+                    echo=lambda m: None)
+    ev['archive_result'] = done
+    if not done or done[0].get('status') != 'archived':
+        r.status = 'fail'
+        msgs.append(f'archive did not complete: {done}')
+        return r
+
+    after_free = shutil.disk_usage(ctx.run_dir).free
+    ev['freed_gb'] = round((after_free - before_free) / (1024 ** 3), 2)
+    ev['seconds'] = round(time.time() - t0, 1)
+    msgs.append(f'{target}: {ev["freed_gb"]:.2f} GB moved off the hot drive in {ev["seconds"]:.0f}s')
+
+    # The transparency proof. Re-resolve from scratch — a cached resolver would hide a broken path.
+    rt2 = runschema.resolver_for(ctx.run_dir)
+    after_dbs = len(list(rt2.sim_dbs()))
+    ev['sim_dbs_before'] = before_dbs
+    ev['sim_dbs_after'] = after_dbs
+    if mode == 'cell':
+        if after_dbs != before_dbs:
+            r.status = 'fail'
+            msgs.append(f'sim DBs visible dropped {before_dbs} -> {after_dbs}: the junction is not '
+                        f'transparent, and a resume would re-simulate this cell')
+            return r
+        readable = 0
+        for _c, _cr, db in rt2.sim_dbs(target):
+            if os.path.isfile(db):
+                readable += 1
+        ev['readable_through_junction'] = readable
+        if readable != before_dbs // max(len(cells), 1):
+            msgs.append(f'only {readable} DBs readable through the junction')
+    else:
+        ev['note'] = 'keyframes mode: sim DBs stay in place by design'
+
+    # Re-run the full contract verification against the now-relocated tree.
+    sub = _stage_verify_tree(ctx)
+    ev['verify_after_archive'] = sub.status
+    ev['verify_messages'] = sub.messages[:4]
+    if sub.status != 'pass':
+        r.status = 'fail'
+        msgs.append('contract verification FAILED after archiving — ' + '; '.join(sub.messages[:2]))
+        return r
+
+    msgs.append('contract still verifies with the cell on bulk storage')
+    r.status = 'pass'
+    return r
+
+
+def _tree_gb(root: str) -> float:
+    tot = 0
+    for dirpath, _d, files in os.walk(root):
+        for fn in files:
+            try:
+                tot += os.path.getsize(os.path.join(dirpath, fn))
+            except OSError:
+                pass
+    return tot / (1024 ** 3)
+
+
 # ── driver ──────────────────────────────────────────────────────────────────────────────────
 _STAGE_FNS = {
     'preconditions': _stage_preconditions,
@@ -697,6 +818,7 @@ _STAGE_FNS = {
     'verify_tree': _stage_verify_tree,
     'website': _stage_website,
     'mkdocs': _stage_mkdocs,
+    'archive': _stage_archive,
 }
 
 
@@ -720,7 +842,7 @@ def run(profile: str = 'smoke', *, workers: int = WORKER_CAP, stages=None,
     t0 = time.time()
 
     for name in wanted:
-        if name in ('analyze', 'verify_tree', 'website') and not ctx.run_dir:
+        if name in ('analyze', 'verify_tree', 'website', 'archive') and not ctx.run_dir:
             sr = StageResult(name, status='skip')
             sr.messages.append('no run directory (pass --reuse-run or include the simulate stage)')
             res.stages[name] = sr
