@@ -77,6 +77,45 @@
           {
             "type": "command",
             "command": "python Optimization/runschema/hook_check.py"
+          },
+          {
+            "type": "command",
+            "command": "python context/memory/hook_check.py --stop"
+          },
+          {
+            "type": "command",
+            "command": "python context/guards/hook_check.py --stop"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python context/guards/hook_check.py --pre-write"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python context/memory/hook_check.py --session-start"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python context/memory/hook_check.py --pre-compact"
           }
         ]
       }
