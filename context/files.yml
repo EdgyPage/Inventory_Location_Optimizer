@@ -258,10 +258,6 @@ files:
       - {name: "TaskStats", file: "Optimization/Picking_Data.py", kind: "class"}
       - {name: "BinInventoryRecord", file: "Optimization/Picking_Data.py", kind: "class"}
       - {name: "PickerEventRecord", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "load_picks_csv", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_picks_csv", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_picks_db", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_picks_db", file: "Optimization/Picking_Data.py", kind: "function"}
       - {name: "init_run_db", file: "Optimization/Picking_Data.py", kind: "function"}
       - {name: "create_run", file: "Optimization/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/Picking_Data.py", kind: "function"}
@@ -293,7 +289,6 @@ files:
     key_symbols:
       - {name: "sum_lift", file: "Optimization/Simulation_Analytics.py", kind: "function"}
       - {name: "avg_concurrent_pickers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "picker_time_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
       - {name: "expected_task_labor", file: "Optimization/Simulation_Analytics.py", kind: "function"}
       - {name: "extract_batch_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
       - {name: "extract_task_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
@@ -1347,7 +1342,6 @@ files:
       - {name: "NAV_AXES", file: "Visualization/db_reader.py", kind: "const"}
       - {name: "AXIS_LABELS", file: "Visualization/db_reader.py", kind: "const"}
       - {name: "run_index", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "run_summaries", file: "Visualization/db_reader.py", kind: "function"}
       - {name: "read_geometry", file: "Visualization/db_reader.py", kind: "function"}
       - {name: "reconstruct_batch", file: "Visualization/db_reader.py", kind: "function"}
       - {name: "reconstruct_overview", file: "Visualization/db_reader.py", kind: "function"}
@@ -1369,12 +1363,6 @@ files:
       - {name: "api_aisle", file: "Visualization/server.py", kind: "function"}
       - {name: "api_scores", file: "Visualization/server.py", kind: "function"}
       - {name: "api_sku_scores", file: "Visualization/server.py", kind: "function"}
-    notes: ""
-  "Visualization/sim_setup.py":
-    purpose: "builds the demo warehouse + inventory + PickSimulation scene the visualization server renders."
-    layer: "visualization"
-    key_symbols:
-      - {name: "build_simulation", file: "Visualization/sim_setup.py", kind: "function"}
     notes: ""
   "Warehouse/Affinity_Store.py":
     purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."

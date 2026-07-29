@@ -93,16 +93,6 @@ def resolver_for(base_dir: str) -> RunTree:
     return _resolver_for_contract(base, doc, layout)
 
 
-def resolver_for_new_run(base_dir: str, layout: dict | None = None) -> RunTree:
-    """Resolver for a run being CREATED right now (its descriptor may not be written yet).
-
-    Bound to the store's head — a new run is stamped with the head schema by definition.
-    """
-    from Optimization.runschema import contract
-    doc = contract.build()
-    return _resolver_for_contract(os.path.abspath(base_dir), doc, layout)
-
-
 def resolve_base_dir(name: str) -> str:
     """Resolve a CLI run argument: an absolute path as-is, a bare name against COMPARISON_OUTPUT_DIR.
 

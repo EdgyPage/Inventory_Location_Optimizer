@@ -356,68 +356,10 @@ _CREATE_BIN_INVENTORY_AISLE_IDX = """
 """
 
 
-# ── PickRecord helpers ────────────────────────────────────────────────────────
-
-def _pick_to_row(r: PickRecord) -> dict:
-    return {
-        'sku':           r.sku,
-        'quantity':      r.quantity,
-        'timestamp':     r.timestamp.isoformat(),
-        'aisle_id':      r.location[0],
-        'bayX':          r.location[1],
-        'bayY':          r.location[2],
-        'handling_type': r.handling_type,
-        'category_type': r.category_type,
-    }
-
-
-def _pick_from_row(row: dict) -> PickRecord:
-    return PickRecord(
-        sku           = int(row['sku']),
-        quantity      = int(row['quantity']),
-        timestamp     = datetime.fromisoformat(row['timestamp']),
-        location      = (int(row['aisle_id']), int(row['bayX']), int(row['bayY'])),
-        handling_type = row['handling_type'],
-        category_type = row['category_type'],
-    )
-
-
-# ── PickRecord CSV / SQLite ───────────────────────────────────────────────────
-
-def load_picks_csv(path: str) -> list[PickRecord]:
-    with open(path, newline='') as f:
-        return [_pick_from_row(row) for row in csv.DictReader(f)]
-
-
-def save_picks_csv(records: list[PickRecord], path: str) -> None:
-    with open(path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=_PICK_COLS)
-        writer.writeheader()
-        writer.writerows(_pick_to_row(r) for r in records)
-
-
-def load_picks_db(path: str) -> list[PickRecord]:
-    con = sqlite3.connect(path)
-    con.row_factory = sqlite3.Row
-    try:
-        rows = con.execute('SELECT * FROM picks').fetchall()
-        return [_pick_from_row(dict(row)) for row in rows]
-    finally:
-        con.close()
-
-
-def save_picks_db(records: list[PickRecord], path: str) -> None:
-    con = _open_db(path)
-    try:
-        con.execute(_CREATE_PICKS)
-        con.executemany(
-            'INSERT INTO picks VALUES '
-            '(:sku,:quantity,:timestamp,:aisle_id,:bayX,:bayY,:handling_type,:category_type)',
-            (_pick_to_row(r) for r in records),
-        )
-        con.commit()
-    finally:
-        con.close()
+# NOTE: the standalone PickRecord CSV/SQLite pair (load/save_picks_csv, load/save_picks_db) and
+# their _pick_to_row/_pick_from_row helpers were removed — superseded by `save_picks` below, which
+# is what strategy_runner actually calls.  PickRecord itself is very much alive
+# (Simulation_Analytics.extract_picks builds them; save_picks persists them).
 
 
 # ── Run DB public API ─────────────────────────────────────────────────────────

@@ -5,7 +5,6 @@ Public API
 avg_concurrent_pickers(events)
     Time-weighted average number of pickers simultaneously in "picking" state.
 
-picker_time_breakdown(events, k_pickers)
     Aggregate picking vs traveling fractions across all pickers.
 
 extract_batch_stats(events, batch_id, k_pickers, run_id)
@@ -111,19 +110,6 @@ def _group_events_by_picker(events: list, k_pickers: int) -> list[list]:
     return grouped
 
 
-def picker_time_breakdown(events: list, k_pickers: int) -> dict[str, float]:
-    """Aggregate picking vs traveling fractions across all k_pickers.
-
-    Returns {'picking_pct': ..., 'traveling_pct': ...} where both sum to 1.0.
-    Pickers with no assigned tasks contribute 0 to both numerator and denominator
-    so they don't distort the average.
-
-    Picking time per picker = sum of (pick.time - arrive.time) for each bin.
-    Traveling time = total picker duration - picking time.
-    """
-    return _picker_time_breakdown_grouped(_group_events_by_picker(events, k_pickers))
-
-
 def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
     """Compute picking/traveling breakdown from pre-grouped picker event lists."""
     total_time   = 0.0
@@ -220,13 +206,13 @@ def extract_batch_stats(
     thr_batch     : throughput / batch makespan = total_items / duration
     thr_task      : throughput / task makespan  = total_items / task_makespan
     avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
-    picking/traveling pct  : aggregate fractions (see picker_time_breakdown)
+    picking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)
 
     task_makespan == Σ task_stats.duration by construction: every picker's clock starts at 0 and
     accrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the
     sum of its task durations; summing over pickers gives the batch's total task time.
     """
-    # Group once; reuse for total_items, task_makespan, and picker_time_breakdown.
+    # Group once; reuse for total_items, task_makespan, and the picking/traveling split.
     grouped = _group_events_by_picker(events, k_pickers)
 
     duration = 0.0

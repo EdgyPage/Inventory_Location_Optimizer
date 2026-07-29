@@ -17,11 +17,9 @@ bin_scores(sim_db, warehouse_db, run_id)-> {key: score}   (cached, static layout
 """
 from __future__ import annotations
 
-import math
 import os
 import sqlite3
-import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from functools import lru_cache
 
 # No sys.path bootstrap: imports are package-absolute; the entry script
@@ -30,7 +28,7 @@ from Warehouse.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_B
 from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 
 from Optimization.Picking_Data import (
-    load_reorder_queue, load_bin_scores, load_sku_scores, run_identity,
+    load_reorder_queue, load_bin_scores, load_sku_scores,
 )
 
 _GRID_COLS = 6
@@ -215,10 +213,6 @@ def run_index(base_dir: str) -> dict:
         'runs': [{'id': r.id, 'label': r.label, 'n_batches': r.n_batches, **r.axis_values}
                  for r in runs],
     }
-
-
-def run_summaries(base_dir: str) -> list[dict]:
-    return run_index(base_dir)['runs']
 
 
 # ── geometry ─────────────────────────────────────────────────────────────────────

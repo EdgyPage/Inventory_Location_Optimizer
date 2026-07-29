@@ -1966,11 +1966,6 @@
       "src": "Optimization/Performance_Evaluations/stats/plots.py::_plot_rank"
     },
     {
-      "dst": "Optimization/Picking_Data.py::PickRecord",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::_pick_from_row"
-    },
-    {
       "dst": "Optimization/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/Picking_Data.py::create_run"
@@ -2004,16 +1999,6 @@
       "dst": "Optimization/Picking_Data.py::PickerEventRecord",
       "kind": "calls",
       "src": "Optimization/Picking_Data.py::load_picker_events"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::_pick_from_row",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::load_picks_csv"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::_pick_from_row",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::load_picks_db"
     },
     {
       "dst": "Optimization/Picking_Data.py::TaskStats",
@@ -2054,21 +2039,6 @@
       "dst": "Optimization/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/Picking_Data.py::save_picks"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::_pick_to_row",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::save_picks_csv"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::save_picks_db"
-    },
-    {
-      "dst": "Optimization/Picking_Data.py::_pick_to_row",
-      "kind": "calls",
-      "src": "Optimization/Picking_Data.py::save_picks_db"
     },
     {
       "dst": "Optimization/Picking_Data.py::_open_db",
@@ -2159,16 +2129,6 @@
       "dst": "Optimization/Workload.py::aisle_workload",
       "kind": "calls",
       "src": "Optimization/Simulation_Analytics.py::extract_task_stats"
-    },
-    {
-      "dst": "Optimization/Simulation_Analytics.py::_group_events_by_picker",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::picker_time_breakdown"
-    },
-    {
-      "dst": "Optimization/Simulation_Analytics.py::_picker_time_breakdown_grouped",
-      "kind": "calls",
-      "src": "Optimization/Simulation_Analytics.py::picker_time_breakdown"
     },
     {
       "dst": "Optimization/Picking_Data.py::AisleMetricRecord",
@@ -3359,16 +3319,6 @@
       "dst": "Optimization/sim_manifest.py::read_run_layout",
       "kind": "calls",
       "src": "Optimization/runschema/__init__.py::resolver_for"
-    },
-    {
-      "dst": "Optimization/runschema/__init__.py::_resolver_for_contract",
-      "kind": "calls",
-      "src": "Optimization/runschema/__init__.py::resolver_for_new_run"
-    },
-    {
-      "dst": "Optimization/runschema/contract.py::build",
-      "kind": "calls",
-      "src": "Optimization/runschema/__init__.py::resolver_for_new_run"
     },
     {
       "dst": "Optimization/runschema/contract.py::main",
@@ -5476,11 +5426,6 @@
       "src": "Visualization/db_reader.py::run_index"
     },
     {
-      "dst": "Visualization/db_reader.py::run_index",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::run_summaries"
-    },
-    {
       "dst": "Optimization/Picking_Data.py::load_sku_scores",
       "kind": "calls",
       "src": "Visualization/db_reader.py::sku_scores"
@@ -5574,101 +5519,6 @@
       "dst": "Visualization/server.py::_run_or_404",
       "kind": "calls",
       "src": "Visualization/server.py::api_sku_scores"
-    },
-    {
-      "dst": "Warehouse/Aisle_Storage.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Inventory_Builder.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Inventory_Management.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Order.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Pick.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Warehouse_Builder.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Workload_Builder.py",
-      "kind": "imports",
-      "src": "Visualization/sim_setup.py"
-    },
-    {
-      "dst": "Warehouse/Inventory_Builder.py::InventoryConfig",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Inventory_Builder.py::Inventory_Builder",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Inventory_Management.py::Inventory_Manager.enqueue_all",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Pick.py::PickConfig",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Pick.py::PickSimulation",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Warehouse_Builder.py::AisleConfig",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Warehouse_Builder.py::WarehouseConfig",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Warehouse_Builder.py::Warehouse_Builder",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Workload_Builder.py::Batch",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Workload_Builder.py::BatchConfig",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
-    },
-    {
-      "dst": "Warehouse/Workload_Builder.py::Task.from_batch",
-      "kind": "calls",
-      "src": "Visualization/sim_setup.py::build_simulation"
     },
     {
       "dst": "Warehouse/Inventory_Builder.py",
@@ -10257,22 +10107,6 @@
     },
     {
       "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::_pick_from_row",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "_pick_from_row",
-      "public": false
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::_pick_to_row",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "_pick_to_row",
-      "public": false
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
       "id": "Optimization/Picking_Data.py::create_run",
       "kind": "function",
       "module": "Optimization/Picking_Data.py",
@@ -10361,22 +10195,6 @@
     },
     {
       "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::load_picks_csv",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "load_picks_csv",
-      "public": true
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::load_picks_db",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "load_picks_db",
-      "public": true
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
       "id": "Optimization/Picking_Data.py::load_reorder_queue",
       "kind": "function",
       "module": "Optimization/Picking_Data.py",
@@ -10461,22 +10279,6 @@
       "kind": "function",
       "module": "Optimization/Picking_Data.py",
       "name": "save_picks",
-      "public": true
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::save_picks_csv",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "save_picks_csv",
-      "public": true
-    },
-    {
-      "file": "Optimization/Picking_Data.py",
-      "id": "Optimization/Picking_Data.py::save_picks_db",
-      "kind": "function",
-      "module": "Optimization/Picking_Data.py",
-      "name": "save_picks_db",
       "public": true
     },
     {
@@ -10613,14 +10415,6 @@
       "kind": "function",
       "module": "Optimization/Simulation_Analytics.py",
       "name": "flag_task_outliers",
-      "public": true
-    },
-    {
-      "file": "Optimization/Simulation_Analytics.py",
-      "id": "Optimization/Simulation_Analytics.py::picker_time_breakdown",
-      "kind": "function",
-      "module": "Optimization/Simulation_Analytics.py",
-      "name": "picker_time_breakdown",
       "public": true
     },
     {
@@ -11973,14 +11767,6 @@
       "kind": "function",
       "module": "Optimization/runschema/__init__.py",
       "name": "resolver_for",
-      "public": true
-    },
-    {
-      "file": "Optimization/runschema/__init__.py",
-      "id": "Optimization/runschema/__init__.py::resolver_for_new_run",
-      "kind": "function",
-      "module": "Optimization/runschema/__init__.py",
-      "name": "resolver_for_new_run",
       "public": true
     },
     {
@@ -14105,14 +13891,6 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::run_summaries",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "run_summaries",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
       "id": "Visualization/db_reader.py::sku_scores",
       "kind": "function",
       "module": "Visualization/db_reader.py",
@@ -14261,30 +14039,6 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "static_files",
-      "public": true
-    },
-    {
-      "file": "Visualization/sim_setup.py",
-      "id": "Visualization/sim_setup.py",
-      "kind": "module",
-      "module": "Visualization/sim_setup.py",
-      "name": "Visualization.sim_setup",
-      "public": true
-    },
-    {
-      "file": "Visualization/sim_setup.py",
-      "id": "Visualization/sim_setup.py::_GRID_COLS",
-      "kind": "const",
-      "module": "Visualization/sim_setup.py",
-      "name": "_GRID_COLS",
-      "public": false
-    },
-    {
-      "file": "Visualization/sim_setup.py",
-      "id": "Visualization/sim_setup.py::build_simulation",
-      "kind": "function",
-      "module": "Visualization/sim_setup.py",
-      "name": "build_simulation",
       "public": true
     },
     {

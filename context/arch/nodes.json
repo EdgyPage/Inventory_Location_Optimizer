@@ -1979,20 +1979,6 @@
       "kind": "function",
       "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
     },
-    "Optimization/Picking_Data.py::_pick_from_row": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(row: dict) -> PickRecord"
-    },
-    "Optimization/Picking_Data.py::_pick_to_row": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(r: PickRecord) -> dict"
-    },
     "Optimization/Picking_Data.py::create_run": {
       "decorators": [],
       "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
@@ -2069,20 +2055,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(row, col)"
-    },
-    "Optimization/Picking_Data.py::load_picks_csv": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> list[PickRecord]"
-    },
-    "Optimization/Picking_Data.py::load_picks_db": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> list[PickRecord]"
     },
     "Optimization/Picking_Data.py::load_reorder_queue": {
       "decorators": [],
@@ -2161,20 +2133,6 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list) -> None"
     },
-    "Optimization/Picking_Data.py::save_picks_csv": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(records: list[PickRecord], path: str) -> None"
-    },
-    "Optimization/Picking_Data.py::save_picks_db": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(records: list[PickRecord], path: str) -> None"
-    },
     "Optimization/Picking_Data.py::save_reorder_queue": {
       "decorators": [],
       "doc": "Persist per-batch queue snapshots.  Each record is\n(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two\nare None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units.",
@@ -2198,7 +2156,7 @@
     },
     "Optimization/Simulation_Analytics.py": {
       "decorators": [],
-      "doc": "Simulation_Analytics.py \u2014 per-batch and per-task statistics from PickSimulation events.\n\nPublic API\n----------\navg_concurrent_pickers(events)\n    Time-weighted average number of pickers simultaneously in \"picking\" state.\n\npicker_time_breakdown(events, k_pickers)\n    Aggregate picking vs traveling fractions across all pickers.\n\nextract_batch_stats(events, batch_id, k_pickers, run_id)\n    Summarise one PickSimulation run into a BatchStats record.\n\nextract_task_stats(events, tasks, batch_id, affinity, wp, run_id)\n    Extract per-aisle TaskStats from one PickSimulation run.\n\nflag_batch_outliers(stats, iqr_factor)\n    IQR outlier detection on batch duration.\n\nflag_task_outliers(stats, iqr_factor)\n    IQR outlier detection on task duration.\n\nbuild_placed_affinity(warehouse, inventory, max_per_group)\n    Sparse lift matrix for only the SKUs that have a physical bin.\n\nsum_lift(skus, affinity)\n    Demand-weighted co-occurrence helper for a dict-based lift matrix (AffinityStore\n    objects carry their own faster .sum_lift; this is the dict fallback).",
+      "doc": "Simulation_Analytics.py \u2014 per-batch and per-task statistics from PickSimulation events.\n\nPublic API\n----------\navg_concurrent_pickers(events)\n    Time-weighted average number of pickers simultaneously in \"picking\" state.\n\n    Aggregate picking vs traveling fractions across all pickers.\n\nextract_batch_stats(events, batch_id, k_pickers, run_id)\n    Summarise one PickSimulation run into a BatchStats record.\n\nextract_task_stats(events, tasks, batch_id, affinity, wp, run_id)\n    Extract per-aisle TaskStats from one PickSimulation run.\n\nflag_batch_outliers(stats, iqr_factor)\n    IQR outlier detection on batch duration.\n\nflag_task_outliers(stats, iqr_factor)\n    IQR outlier detection on task duration.\n\nbuild_placed_affinity(warehouse, inventory, max_per_group)\n    Sparse lift matrix for only the SKUs that have a physical bin.\n\nsum_lift(skus, affinity)\n    Demand-weighted co-occurrence helper for a dict-based lift matrix (AffinityStore\n    objects carry their own faster .sum_lift; this is the dict fallback).",
       "kind": "module",
       "signature": null
     },
@@ -2253,7 +2211,7 @@
     },
     "Optimization/Simulation_Analytics.py::extract_batch_stats": {
       "decorators": [],
-      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see picker_time_breakdown)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
+      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
@@ -2292,13 +2250,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(stats: list[TaskStats], iqr_factor: float=1.5) -> list[TaskStats]"
-    },
-    "Optimization/Simulation_Analytics.py::picker_time_breakdown": {
-      "decorators": [],
-      "doc": "Aggregate picking vs traveling fractions across all k_pickers.\n\nReturns {'picking_pct': ..., 'traveling_pct': ...} where both sum to 1.0.\nPickers with no assigned tasks contribute 0 to both numerator and denominator\nso they don't distort the average.\n\nPicking time per picker = sum of (pick.time - arrive.time) for each bin.\nTraveling time = total picker duration - picking time.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, k_pickers: int) -> dict[str, float]"
     },
     "Optimization/Simulation_Analytics.py::snapshot_aisle_metrics": {
       "decorators": [],
@@ -3470,13 +3421,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> RunTree"
-    },
-    "Optimization/runschema/__init__.py::resolver_for_new_run": {
-      "decorators": [],
-      "doc": "Resolver for a run being CREATED right now (its descriptor may not be written yet).\n\nBound to the store's head \u2014 a new run is stamped with the head schema by definition.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str, layout: dict | None=None) -> RunTree"
     },
     "Optimization/runschema/contract.py": {
       "decorators": [],
@@ -5326,13 +5270,6 @@
       "kind": "function",
       "signature": "(base_dir: str) -> dict"
     },
-    "Visualization/db_reader.py::run_summaries": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str) -> list[dict]"
-    },
     "Visualization/db_reader.py::sku_scores": {
       "decorators": [
         "lru_cache(maxsize=64)"
@@ -5486,26 +5423,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(filename)"
-    },
-    "Visualization/sim_setup.py": {
-      "decorators": [],
-      "doc": null,
-      "kind": "module",
-      "signature": null
-    },
-    "Visualization/sim_setup.py::_GRID_COLS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "6"
-    },
-    "Visualization/sim_setup.py::build_simulation": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(seed: int=42) -> dict"
     },
     "Warehouse/Affinity_Store.py": {
       "decorators": [],

@@ -24,7 +24,7 @@ total_items   : sum of items_picked from each picker&#x27;s done event
 thr_batch     : throughput / batch makespan = total_items / duration
 thr_task      : throughput / task makespan  = total_items / task_makespan
 avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
-picking/traveling pct  : aggregate fractions (see picker_time_breakdown)
+picking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)
 
 task_makespan == Σ task_stats.duration by construction: every picker&#x27;s clock starts at 0 and
 accrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the
