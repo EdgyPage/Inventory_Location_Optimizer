@@ -22,14 +22,33 @@ _SEC_RE = re.compile(r'reord=(?P<reord>[\d.]+)s build=(?P<build>[\d.]+)s'
                      r'extr=(?P<extr>[\d.]+)s inv=(?P<inv>[\d.]+)s')
 _DB_RE = re.compile(r'\bdb=([\d.]+)s')
 _BATCH_RE = re.compile(r'Batch\s+(\d+)/')
-_ROOTS = [r'F:\Data\Inventory_Optimizer_Data\Optimization_Outputs',
-          r'H:\Data\Inventory_Optimizer_Data\Optimization_Outputs', os.getcwd()]
 _SECTIONS = ['build', 'reord', 'pre', 'sim', 'extr', 'inv', 'db']
+
+
+def _roots():
+    """Where to look for a comparison run.log, newest wins.
+
+    Reads COMPARISON_OUTPUT_DIR from the environment (sim_config loads .env into it), which is
+    the only place the output drive is recorded on a given machine.  This used to be a pair of
+    hardcoded drive letters; those are machine-local paths and must not live in a tracked file
+    (CLAUDE.md section 5, enforced by context/guards/path_guard.py).
+    """
+    roots = []
+    try:
+        from Optimization.config.sim_config import CONFIG    # noqa: F401 - loads .env as a side effect
+    except Exception:
+        pass
+    for key in ('COMPARISON_OUTPUT_DIR', 'PROFILE_INPUT_DIR'):
+        val = (os.environ.get(key) or '').strip()
+        if val:
+            roots.append(val)
+    roots.append(os.getcwd())
+    return roots
 
 
 def _latest_log():
     logs = []
-    for r in _ROOTS:
+    for r in _roots():
         logs += glob.glob(os.path.join(r, 'comparison_*', 'run.log'))
     return max(logs, key=os.path.getmtime) if logs else None
 
@@ -71,7 +90,8 @@ def section_shares():
 def run():
     log = _latest_log()
     if not log:
-        print('  no comparison run.log found under F:/H:/cwd; skipping section baseline')
+        print('  no comparison run.log found under COMPARISON_OUTPUT_DIR/PROFILE_INPUT_DIR/cwd; '
+              'skipping section baseline')
         return {}
     rows = parse(log)
     if not rows:

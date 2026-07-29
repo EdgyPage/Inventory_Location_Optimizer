@@ -25,9 +25,9 @@ staged too — those used to be hand-copied and hand-renamed.
 
 Usage (run locally — CI has no drive access):
     python docs/experiments/ingest.py --exp experiment-2 \
-        --source "D:/.../comparison_20260801_120000" --gen-manifest --dry-run
-    python docs/experiments/ingest.py --exp experiment-5 --source "D:/.../comparison_whatif_..."
-    python docs/experiments/ingest.py --exp experiment-5 --source "D:/..." --cell k1_off_lpt
+        --source "$COMPARISON_OUTPUT_DIR/comparison_20260801_120000" --gen-manifest --dry-run
+    python docs/experiments/ingest.py --exp experiment-5 --source "$COMPARISON_OUTPUT_DIR/comparison_whatif_..."
+    python docs/experiments/ingest.py --exp experiment-5 --source "$COMPARISON_OUTPUT_DIR/<run>" --cell k1_off_lpt
 
 Nothing here runs at site-build time; it just stages committed snapshots.
 """

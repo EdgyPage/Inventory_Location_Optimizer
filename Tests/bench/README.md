@@ -23,4 +23,7 @@ python -m coverage run Tests/bench/coverage_e2e.py && python -m coverage report
 **Having no importers is normal here** — do not read it as dead code. `perf_simulation`,
 `coverage_e2e` and `bench_sections` do have importers; the other three are pure tools.
 
-**Caveat:** `bench_sections.py` hardcodes `F:`/`H:` result-drive paths.
+**Caveat:** `bench_sections.py` needs a real comparison `run.log` to parse. It looks under
+`COMPARISON_OUTPUT_DIR`, then `PROFILE_INPUT_DIR` (both from `.env`), then the cwd, and skips
+cleanly when none holds one. It used to hardcode two result-drive letters; those were machine-local
+paths in a tracked file — see CLAUDE.md §5 and `context/guards/path_guard.py`.

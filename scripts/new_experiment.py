@@ -5,7 +5,7 @@ experiment.yml.example into a starter experiment.yml. With --source it then runs
 ingest to auto-fill experiment.yml (from the run's run_manifest.json) and pull the files.
 
     python scripts/new_experiment.py --name experiment-2
-    python scripts/new_experiment.py --name experiment-2 --source "D:/.../comparison_20260801_120000"
+    python scripts/new_experiment.py --name experiment-2 --source "$COMPARISON_OUTPUT_DIR/comparison_20260801_120000"
 
 Then: edit experiment.yml (title, short keys, winners), add the nav block it prints to
 mkdocs.yml, and `mkdocs serve`.
