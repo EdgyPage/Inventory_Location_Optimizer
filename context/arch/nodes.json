@@ -8901,7 +8901,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['group_sizes.png', 'demand.png', 'param_frequency.png', 'param_quantity.png', 'equilibrium_qty.png']"
+      "value_preview": "['group_sizes.png', 'demand.png', 'param_relative_frequency.png', 'param_quantity.png', 'equilibrium_qty.png']"
     },
     "docs/experiments/ingest.py::DEFAULT_TOP3": {
       "decorators": [],

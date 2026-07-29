@@ -23,6 +23,12 @@ python -m coverage run Tests/bench/coverage_e2e.py && python -m coverage report
 **Having no importers is normal here** — do not read it as dead code. `perf_simulation`,
 `coverage_e2e` and `bench_sections` do have importers; the other three are pure tools.
 
+`smoketest.py` is the full-pipeline one: it simulates, checks the analysis did not half-fail
+silently, verifies every artifact of the finished run against the run-tree contract, stages the run
+into a throwaway docs experiment, and builds the site strictly. `--profile smoke` is the fast
+default; `--profile full` is production scale. `--stages preconditions` is a ~2 s dry gate, and
+`--reuse-run DIR` re-verifies a run you already have.
+
 **Caveat:** `bench_sections.py` needs a real comparison `run.log` to parse. It looks under
 `COMPARISON_OUTPUT_DIR`, then `PROFILE_INPUT_DIR` (both from `.env`), then the cwd, and skips
 cleanly when none holds one. It used to hardcode two result-drive letters; those were machine-local

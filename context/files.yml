@@ -784,6 +784,19 @@ files:
       - {name: "run_cprofile_raw", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
       - {name: "main", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
     notes: ""
+  "Tests/bench/smoketest.py":
+    purpose: "Hand-run pipeline smoketest: simulate, analyse, verify every artifact of the finished run against the run-tree contract, stage it into a disposable docs experiment, and build the site strictly."
+    layer: "tests"
+    key_symbols:
+      - {name: "WORKER_CAP", file: "Tests/bench/smoketest.py", kind: "const"}
+      - {name: "STAGES", file: "Tests/bench/smoketest.py", kind: "const"}
+      - {name: "Profile", file: "Tests/bench/smoketest.py", kind: "class"}
+      - {name: "PROFILES", file: "Tests/bench/smoketest.py", kind: "const"}
+      - {name: "StageResult", file: "Tests/bench/smoketest.py", kind: "class"}
+      - {name: "SmokeResult", file: "Tests/bench/smoketest.py", kind: "class"}
+      - {name: "run", file: "Tests/bench/smoketest.py", kind: "function"}
+      - {name: "main", file: "Tests/bench/smoketest.py", kind: "function"}
+    notes: ""
   "Tests/conftest.py":
     purpose: "single sys.path bootstrap for the whole suite."
     layer: "tests"
