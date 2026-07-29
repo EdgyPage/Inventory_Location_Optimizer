@@ -17,19 +17,13 @@ Locked-in invariants:
   5. The ``map`` ranked WAVE gives identical aisle-level placement to the per-unit SCAN across a
      full reorder+pick sim, and keeps the reorder queue bounded.
 
-Run:  python -m pytest Tests/test_placement_fastpath_equivalence.py -q
+Run:  python -m pytest Tests/unit/test_placement_fastpath_equivalence.py -q
 """
-import os
 import random
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'Warehouse'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'Optimization'))
-sys.path.insert(0, os.path.dirname(__file__))
-
-from Assignment_Functions import (              # noqa: E402
+from Warehouse.placement.Assignment_Functions import (
     _closest_abs, _PrefPool, _affinity_row, _delta_lift_from_row,
     _aisle_anchor_gap, _cluster_map_choose_aisle, _demand_weighted_delta_lift,
     build_optmap_fn, build_optmap_wave_fn,
@@ -213,11 +207,11 @@ SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES = 42, 1500, 100, 40
 
 def _build_map_mgr(wh_cfg, inventory, wp, ranked):
     """A map manager placing via the ranked WAVE (ranked=True) or the per-unit SCAN."""
-    from Aisle_Storage import Aisle
-    from Inventory_Management import Inventory_Manager, Placement
+    from Warehouse.layout.Aisle_Storage import Aisle
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
     Aisle.next_aisle_id = 1
     random.seed(SEED)
-    from Warehouse_Builder import Warehouse_Builder
+    from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=None)
     # _build_inventory orders carry no reorder_point (1 unit/SKU stock); set it to 0 so a
@@ -251,8 +245,8 @@ def _aisle_sku_state(mgr):
 
 
 def _run_map(wh, mgr, pick_cfg, batch_cfg, inventory):
-    from Pick import PickSimulation
-    from Workload_Builder import Batch, Task
+    from Warehouse.picking.Pick import PickSimulation
+    from Warehouse.picking.Workload_Builder import Batch, Task
     random.seed(SEED + 100)
     max_depth = 0
     base_placements = mgr._reorder_placements       # counts every placement (initial incl.)
@@ -270,9 +264,9 @@ def _run_map(wh, mgr, pick_cfg, batch_cfg, inventory):
 @pytest.fixture(scope='module')
 def map_assets():
     from perf_simulation import _build_inventory, _build_warehouse_cfg
-    from Pick import PickConfig
-    from Workload import WorkloadParams
-    from Workload_Builder import BatchConfig
+    from Warehouse.picking.Pick import PickConfig
+    from Optimization.metrics.Workload import WorkloadParams
+    from Warehouse.picking.Workload_Builder import BatchConfig
     inventory = _build_inventory(N_SKUS, SEED)
     wh_cfg    = _build_warehouse_cfg(N_SKUS, BINS_PER_AISLE)
     pick_cfg  = PickConfig(num_pickers=5, x_speed=1.0, y_speed=0.5,
