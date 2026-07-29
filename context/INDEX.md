@@ -7,7 +7,7 @@ Verifiable documentation of the pipeline's code flow, designed for BOTH humans a
 downstream design programs (the MkDocs results site, Claude Design). Every
 `name @ file` anchor, artifact filename, and DB table named here is asserted to
 exist in the code by `python context/verify_context.py` — which also runs in the
-ordinary suite as `Tests/test_context_sync.py`, so drift fails CI-style rather
+ordinary suite as `Tests/architecture/test_context_sync.py`, so drift fails CI-style rather
 than rotting silently. The `context-maintainer` agent (.claude/agents/) re-syncs
 these files incrementally after commits.
 
@@ -60,7 +60,7 @@ already covers the observed tree it ADOPTS the resulting id and rewrites the dow
 files (`artifacts.yml` patterns, `Visualization/static/schema.json`); when the code moved but
 `schema.py` didn't, it prints the exact `ARTIFACTS` entries to add (`--apply` inserts them).
 `runschema/hook_check.py` is the advisory Stop-hook nag. Gated by
-`Tests/test_runschema_contract.py`.
+`Tests/integration/test_runschema_contract.py`.
 
 ## Architecture layer (context/arch/ + architecture.yml + files.yml)
 
@@ -69,11 +69,11 @@ humans, agents, and a renderer alike. `context/arch/extract.py` walks the source
 stdlib `ast` and emits `arch/graph.json` (nodes = modules/classes/functions/consts as
 `{name,file,kind}` anchors; edges `kind ∈ {calls,imports,ref,dispatch}`). `architecture.yml`
 asserts CLAIMS against it and `context/arch/verify_architecture.py` (gated by
-`Tests/test_architecture_sync.py` + `Tests/test_files_catalog_sync.py`) enforces:
+`Tests/architecture/test_architecture_sync.py` + `Tests/architecture/test_files_catalog_sync.py`) enforces:
 **SCOPE** (every `backbone` edge exists in the graph), **BOUNDARY** (no import crosses a
 `forbid` layer pair), **anchors** (reusing `verify_context.check_symbol`), **up-to-date**
 (graph == a fresh extract), and **CATALOG** (every in-scope `.py` is in `files.yml` exactly
-once). The empirical `Tests/test_architecture_coverage.py` asserts declared `hotpaths`
+once). The empirical `Tests/architecture/test_architecture_coverage.py` asserts declared `hotpaths`
 actually execute under `Tests/bench/coverage_e2e.py::main`. Four dynamic-dispatch layers are
 resolved without false edges: mixin methods (MRO pass), string registries + the ProcessPool
 spawn (`ref` edges), and the placement closures (the one curated `arch/resolver_hints.yml`).

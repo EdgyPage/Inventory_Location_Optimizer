@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests/architecture/test_registry_discovery.py · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="file">
+<h1><code>Tests/architecture/test_registry_discovery.py</code></h1>
+<p class="meta">layer <span class="chip">tests</span></p>
+<p class="purpose">Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss — a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks.</p>
+<section><h2>Key symbols</h2><ul class="rel"><li><code>test_every_declared_evaluation_is_registered</code> <span class="dim">function</span></li><li><code>test_evaluation_package_dirs_are_importable</code> <span class="dim">function</span></li><li><code>test_every_declared_pick_config_is_registered</code> <span class="dim">function</span></li><li><code>test_pick_config_package_dirs_are_importable</code> <span class="dim">function</span></li><li><code>test_registries_are_not_empty</code> <span class="dim">function</span></li></ul></section>
+<section><h2>Nodes in this file <span class="count">(0)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td class='dim' colspan='4'>no graph nodes (test/asset file)</td></tr></table></section>
+
+</article>
+</main>
+</body></html>

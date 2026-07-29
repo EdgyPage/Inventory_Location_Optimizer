@@ -26,7 +26,7 @@ steps:
       - {name: _config_jobs, file: Optimization/run_analysis.py, kind: function}
     reads: [sim_meta]
     writes: []
-    guards: [Tests/test_channel_runner_smoke.py]
+    guards: [Tests/e2e/test_channel_runner_smoke.py]
     next: [config_stage]
 
   - id: config_stage
@@ -44,7 +44,7 @@ steps:
       - {name: load_task_stats, file: Optimization/persistence/Picking_Data.py, kind: function}
     reads: [sim_db, sim_meta]
     writes: [series_json, analysis_pngs]
-    guards: [Tests/test_visualization_data.py]
+    guards: [Tests/integration/test_visualization_data.py]
     next: [aggregate_stage]
 
   - id: aggregate_stage

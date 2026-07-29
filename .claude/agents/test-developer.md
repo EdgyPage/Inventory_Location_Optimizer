@@ -46,7 +46,7 @@ You write pytest tests for Inventory_Location_Optimizer. New tests MUST match re
 
 ## Always finish by verifying
 Run `python -m pytest Tests/<newfile>.py -q` to green, then the golden suite near what you touched
-(e.g. `python -m pytest Tests/test_fulfillment_channels.py Tests/test_warehouse_sizing.py -q`, or full
+(e.g. `python -m pytest Tests/unit/test_fulfillment_channels.py Tests/unit/test_warehouse_sizing.py -q`, or full
 `python -m pytest Tests/ -q -k "not gpu"` for broad changes). Report what you added + exact commands/results.
 
 A NEW `Tests/*.py` becomes an entry in the architecture file catalog (`Tests/` is in scope). If

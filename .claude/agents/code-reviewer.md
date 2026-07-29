@@ -50,7 +50,7 @@ could fold into an existing code path.
   cross-layer import. A new `import` that would make the domain engine (`Warehouse/`) depend on the run
   harness (`Optimization/`), analysis, generation, diagnostics, viz, or GPU — or that gives the
   dependency-free leaf `Warehouse/physical.py` an in-repo import — is a layering violation (Critical);
-  `Tests/test_architecture_sync.py` will fail on it. For dead-code / coupling smells, cross-reference
+  `Tests/architecture/test_architecture_sync.py` will fail on it. For dead-code / coupling smells, cross-reference
   `docs/architecture/inefficiency.html` (orphan public functions, new import cycles, high fan-in/out).
 
 ## Verify before asserting a bug

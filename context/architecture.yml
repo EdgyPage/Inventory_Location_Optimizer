@@ -2,7 +2,7 @@
 #
 # The DERIVED truth is context/arch/graph.json (regenerated from source by
 # context/arch/extract.py).  This file asserts CLAIMS against that graph, checked by
-# context/arch/verify_architecture.py (gated in the suite by Tests/test_architecture_sync.py):
+# context/arch/verify_architecture.py (gated in the suite by Tests/architecture/test_architecture_sync.py):
 #   - SCOPE    (intent ⊆ reality): every `backbone` edge below must exist in graph.json.
 #   - BOUNDARY (reality ⊆ policy): no import edge in graph.json may cross a `forbid` pair.
 #   - anchors: every {name,file,kind} here is checked to exist by verify_context.check_symbol.
@@ -95,7 +95,7 @@ backbone:
 
 # --- Hotpaths: functions asserted to actually EXECUTE under the in-process end-to-end
 #     driver (Tests/bench/coverage_e2e.py :: main).  Checked empirically by
-#     Tests/test_architecture_coverage.py.  The first is the sentinel (called directly by
+#     Tests/architecture/test_architecture_coverage.py.  The first is the sentinel (called directly by
 #     the driver) so a no-op driver fails loudly rather than passing vacuously.
 hotpaths:
   - {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function}  # sentinel

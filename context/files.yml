@@ -631,6 +631,81 @@ files:
     layer: "optimization"
     key_symbols: []
     notes: ""
+  "Tests/architecture/test_archgraph_extract.py":
+    purpose: "test_archgraph_extract.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_graph_non_empty_and_deterministic", file: "Tests/architecture/test_archgraph_extract.py", kind: "function"}
+      - {name: "test_committed_graph_is_current", file: "Tests/architecture/test_archgraph_extract.py", kind: "function"}
+      - {name: "test_key_backbone_edges_present", file: "Tests/architecture/test_archgraph_extract.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_archgraph_nodes.py":
+    purpose: "test_archgraph_nodes.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_nodes_detail_non_empty_and_deterministic", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_keys_equal_graph_node_ids", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_committed_nodes_is_current", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_check_nodes_subprocess_clean", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_detail_payloads_are_real", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+      - {name: "test_nodes_json_does_not_perturb_graph_json", file: "Tests/architecture/test_archgraph_nodes.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_architecture_coverage.py":
+    purpose: "test_architecture_coverage.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_def_span_resolution", file: "Tests/architecture/test_architecture_coverage.py", kind: "function"}
+      - {name: "test_hotpaths_execute_under_e2e_driver", file: "Tests/architecture/test_architecture_coverage.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_architecture_html.py":
+    purpose: "test_architecture_html.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_currency_manifest_matches_fresh_build", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_integrity_committed_tree_matches_manifest", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_completeness_every_node_and_file_has_a_page", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_no_dead_internal_links", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_build_is_deterministic", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_slugs_case_insensitively_unique", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_every_node_page_has_a_breadcrumb", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_breadcrumb_helper_semantics", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+      - {name: "test_explorer_has_tree_and_breadcrumb_containers", file: "Tests/architecture/test_architecture_html.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_architecture_sync.py":
+    purpose: "test_architecture_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_architecture_matches_code", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
+      - {name: "test_scope_detects_missing_edge", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
+      - {name: "test_boundary_detects_forbidden_edge", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
+      - {name: "test_wildcard_boundary_and_layer_mapping", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_context_sync.py":
+    purpose: "test_context_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_context_matches_code", file: "Tests/architecture/test_context_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_files_catalog_sync.py":
+    purpose: "test_files_catalog_sync.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_catalog_matches_tree", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_catalog_covers_every_in_scope_file", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_merge_preserves_notes_and_prunes_deleted", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_merge_is_idempotent", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
+      - {name: "test_no_todo_or_empty_purposes", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_registry_discovery.py":
+    purpose: "Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss \u2014 a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_declared_evaluation_is_registered", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+      - {name: "test_evaluation_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+      - {name: "test_every_declared_pick_config_is_registered", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+      - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+      - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+    notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
     layer: "tests"
@@ -675,6 +750,35 @@ files:
     purpose: "single sys.path bootstrap for the whole suite."
     layer: "tests"
     key_symbols: []
+    notes: ""
+  "Tests/e2e/test_batch_precompute.py":
+    purpose: "the HARD GATE for the batch-precompute dedup."
+    layer: "tests"
+    key_symbols:
+      - {name: "SEED_B", file: "Tests/e2e/test_batch_precompute.py", kind: "const"}
+      - {name: "N", file: "Tests/e2e/test_batch_precompute.py", kind: "const"}
+      - {name: "test_precompute_matches_naive", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_precompute_matches_naive_with_allowlist", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_serial_equals_parallel", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_reproducible", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_fingerprint_distinguishes_families_and_blocks_cross_load", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_affinity_change_changes_fingerprint", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+      - {name: "test_ensure_batches_roundtrip_and_reuse", file: "Tests/e2e/test_batch_precompute.py", kind: "function"}
+    notes: ""
+  "Tests/e2e/test_batch_precompute_e2e.py":
+    purpose: "full-pipeline proof that the batch-precompute dedup feeds each arm"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_e2e_worker_consumes_identical_batches", file: "Tests/e2e/test_batch_precompute_e2e.py", kind: "function"}
+    notes: ""
+  "Tests/e2e/test_channel_runner_smoke.py":
+    purpose: "mixed-catalog fan-out through the REAL run_simulation wiring."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_mixed_fanout_writes_per_channel_dbs", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_mixed_analysis_replicates_per_channel", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
+      - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
     notes: ""
   "Tests/gpu/bench_gpu_all.py":
     purpose: "run the full CPU-vs-GPU benchmark suite (sampling / placement / picksim),"
@@ -751,587 +855,483 @@ files:
       - {name: "test_gpu_argmin_matches_cpu", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
       - {name: "test_broker_roundtrip_and_overbudget_fallback", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
     notes: ""
-  "Tests/test_affinity_lift_invariant.py":
-    purpose: "test_affinity_lift_invariant.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_delta_lift_idxs_is_excess_over_independence", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
-      - {name: "test_sum_lift_subtracts_nnz", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
-      - {name: "test_demand_weighted_delta_lift_weights_excess_by_freq", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
-      - {name: "test_seed_equals_incremental_rebuild", file: "Tests/test_affinity_lift_invariant.py", kind: "function"}
-    notes: ""
-  "Tests/test_archgraph_extract.py":
-    purpose: "test_archgraph_extract.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_graph_non_empty_and_deterministic", file: "Tests/test_archgraph_extract.py", kind: "function"}
-      - {name: "test_committed_graph_is_current", file: "Tests/test_archgraph_extract.py", kind: "function"}
-      - {name: "test_key_backbone_edges_present", file: "Tests/test_archgraph_extract.py", kind: "function"}
-    notes: ""
-  "Tests/test_archgraph_nodes.py":
-    purpose: "test_archgraph_nodes.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_nodes_detail_non_empty_and_deterministic", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-      - {name: "test_keys_equal_graph_node_ids", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-      - {name: "test_committed_nodes_is_current", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-      - {name: "test_check_nodes_subprocess_clean", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-      - {name: "test_detail_payloads_are_real", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-      - {name: "test_nodes_json_does_not_perturb_graph_json", file: "Tests/test_archgraph_nodes.py", kind: "function"}
-    notes: ""
-  "Tests/test_architecture_coverage.py":
-    purpose: "test_architecture_coverage.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_def_span_resolution", file: "Tests/test_architecture_coverage.py", kind: "function"}
-      - {name: "test_hotpaths_execute_under_e2e_driver", file: "Tests/test_architecture_coverage.py", kind: "function"}
-    notes: ""
-  "Tests/test_architecture_html.py":
-    purpose: "test_architecture_html.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_currency_manifest_matches_fresh_build", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_integrity_committed_tree_matches_manifest", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_completeness_every_node_and_file_has_a_page", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_no_dead_internal_links", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_build_is_deterministic", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_slugs_case_insensitively_unique", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_every_node_page_has_a_breadcrumb", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_breadcrumb_helper_semantics", file: "Tests/test_architecture_html.py", kind: "function"}
-      - {name: "test_explorer_has_tree_and_breadcrumb_containers", file: "Tests/test_architecture_html.py", kind: "function"}
-    notes: ""
-  "Tests/test_architecture_sync.py":
-    purpose: "test_architecture_sync.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_architecture_matches_code", file: "Tests/test_architecture_sync.py", kind: "function"}
-      - {name: "test_scope_detects_missing_edge", file: "Tests/test_architecture_sync.py", kind: "function"}
-      - {name: "test_boundary_detects_forbidden_edge", file: "Tests/test_architecture_sync.py", kind: "function"}
-      - {name: "test_wildcard_boundary_and_layer_mapping", file: "Tests/test_architecture_sync.py", kind: "function"}
-    notes: ""
-  "Tests/test_assignment_and_labor.py":
-    purpose: "test_assignment_and_labor.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_labor_cost_matches_pick_time_qty1", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_expected_popularity_and_labor", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_total_labor_cost_is_qty_times_labor", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_reorder_propagates_labor_cost", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_labor_is_travel_aware", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_popularity_balances_demand", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_random_disperses_across_aisles", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_height_multiplier_brackets", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_pick_time_height_scaling", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_aisle_workload_matches_pick_time_with_height", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_labor_height_vs_travel_tradeoff", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_minlabor_picks_golden_zone_and_front_bin", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_maxlabor_picks_high_far_bin", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_minlabor_compacts_codemanded_into_one_aisle", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_workload_components_handling_matches_pick_time", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_expected_task_labor_objective_and_split", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_task_time_breakdown_charges_cart_swap_to_travel", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_sim_cart_swap_seconds_land_in_travel_not_handling", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_workloadparams_cart_capacity_from_pick_config", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_cartlabor_disperses_only_when_cart_is_small", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_rank_cartlabor_registered", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_optimal_work_is_a_floor_below_uniform", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_build_optimal_map_basis_is_quantity_free", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_optmap_placement_is_score_matched_not_greedy", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_optmap_capped_saves_prime_spots", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_cluster_map_cohesion_pulls_codemanded_into_one_aisle", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_cluster_map_anchors_at_favored_location_then_compacts", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-      - {name: "test_cluster_map_rank_caps_prime_like_map_rank", file: "Tests/test_assignment_and_labor.py", kind: "function"}
-    notes: ""
-  "Tests/test_assignment_functions.py":
-    purpose: "the composable, named assignment-function layer."
-    layer: "tests"
-    key_symbols:
-      - {name: "check", file: "Tests/test_assignment_functions.py", kind: "function"}
-      - {name: "test_registries_and_names", file: "Tests/test_assignment_functions.py", kind: "function"}
-      - {name: "test_composed_scorer_placement", file: "Tests/test_assignment_functions.py", kind: "function"}
-      - {name: "test_co_demand_compaction_expansion", file: "Tests/test_assignment_functions.py", kind: "function"}
-    notes: ""
-  "Tests/test_atomic_checkpoint.py":
+  "Tests/integration/test_atomic_checkpoint.py":
     purpose: "locks atomic worker-checkpoint writes + reset_strategy_db discarding a partial arm's DB/keyframe/checkpoint for strategy-level resume."
     layer: "tests"
     key_symbols:
-      - {name: "test_checkpoint_atomic_roundtrip", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
-      - {name: "test_reset_strategy_db_removes_all_outputs", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
-      - {name: "test_reset_is_a_noop_when_nothing_exists", file: "Tests/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_checkpoint_atomic_roundtrip", file: "Tests/integration/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_strategy_db_removes_all_outputs", file: "Tests/integration/test_atomic_checkpoint.py", kind: "function"}
+      - {name: "test_reset_is_a_noop_when_nothing_exists", file: "Tests/integration/test_atomic_checkpoint.py", kind: "function"}
     notes: ""
-  "Tests/test_batch_metrics.py":
+  "Tests/integration/test_batch_metrics.py":
     purpose: "the three new columns (task_makespan, thr_task, thr_batch) and the"
     layer: "tests"
     key_symbols:
-      - {name: "test_task_makespan_equals_sum_task_durations", file: "Tests/test_batch_metrics.py", kind: "function"}
-      - {name: "test_throughput_definitions", file: "Tests/test_batch_metrics.py", kind: "function"}
-      - {name: "test_zero_guards", file: "Tests/test_batch_metrics.py", kind: "function"}
-      - {name: "test_legacy_db_without_columns_loads", file: "Tests/test_batch_metrics.py", kind: "function"}
-      - {name: "test_flag_batch_outliers_preserves_new_metrics", file: "Tests/test_batch_metrics.py", kind: "function"}
-      - {name: "test_bdf_thr_task_nan_when_task_makespan_absent", file: "Tests/test_batch_metrics.py", kind: "function"}
+      - {name: "test_task_makespan_equals_sum_task_durations", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+      - {name: "test_throughput_definitions", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+      - {name: "test_zero_guards", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+      - {name: "test_legacy_db_without_columns_loads", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+      - {name: "test_flag_batch_outliers_preserves_new_metrics", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+      - {name: "test_bdf_thr_task_nan_when_task_makespan_absent", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
     notes: ""
-  "Tests/test_batch_precompute.py":
-    purpose: "the HARD GATE for the batch-precompute dedup."
-    layer: "tests"
-    key_symbols:
-      - {name: "SEED_B", file: "Tests/test_batch_precompute.py", kind: "const"}
-      - {name: "N", file: "Tests/test_batch_precompute.py", kind: "const"}
-      - {name: "test_precompute_matches_naive", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_precompute_matches_naive_with_allowlist", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_serial_equals_parallel", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_reproducible", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_fingerprint_distinguishes_families_and_blocks_cross_load", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_affinity_change_changes_fingerprint", file: "Tests/test_batch_precompute.py", kind: "function"}
-      - {name: "test_ensure_batches_roundtrip_and_reuse", file: "Tests/test_batch_precompute.py", kind: "function"}
-    notes: ""
-  "Tests/test_batch_precompute_e2e.py":
-    purpose: "full-pipeline proof that the batch-precompute dedup feeds each arm"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_e2e_worker_consumes_identical_batches", file: "Tests/test_batch_precompute_e2e.py", kind: "function"}
-    notes: ""
-  "Tests/test_bell_freq_profile.py":
-    purpose: "test_bell_freq_profile.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_bell_plan_differs_from_baseline_only_in_freq_spec", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_bell_store_freq_specs_have_exact_normals", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_bell_ff_freq_is_equal_weight_three_normal_mixture", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_bell_sampled_frequencies_respect_clamp", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_bell_sampled_means_track_targets_and_preserve_ordering", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_bell_build_is_reproducible_and_seed_sensitive", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-      - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/test_bell_freq_profile.py", kind: "function"}
-    notes: ""
-  "Tests/test_channel_runner_smoke.py":
-    purpose: "mixed-catalog fan-out through the REAL run_simulation wiring."
-    layer: "tests"
-    key_symbols:
-      - {name: "test_mixed_fanout_writes_per_channel_dbs", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
-      - {name: "test_mixed_analysis_replicates_per_channel", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
-      - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
-      - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/test_channel_runner_smoke.py", kind: "function"}
-    notes: ""
-  "Tests/test_channel_strategy_subset.py":
-    purpose: "test_channel_strategy_subset.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_strategies_for_none_is_full_grid", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_strategies_for_store_subset", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_every_strategy_has_a_restock_key", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_build_channels_store_restocks_scopes_store_only", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_build_channels_default_restocks_is_full_suite", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_mixed_stocking_never_trips_the_guard", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_guard_rejects_a_forced_cross_regime_placement", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-      - {name: "test_opt_cohesion_stock_places_fulfillment_units", file: "Tests/test_channel_strategy_subset.py", kind: "function"}
-    notes: ""
-  "Tests/test_context_sync.py":
-    purpose: "test_context_sync.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_context_matches_code", file: "Tests/test_context_sync.py", kind: "function"}
-    notes: ""
-  "Tests/test_crash_recovery.py":
+  "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
     layer: "tests"
     key_symbols:
-      - {name: "test_finalize_gate_skips_group_with_a_failed_arm", file: "Tests/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/test_crash_recovery.py", kind: "function"}
-      - {name: "test_plan_strategy_start_all_branches", file: "Tests/test_crash_recovery.py", kind: "function"}
+      - {name: "test_finalize_gate_skips_group_with_a_failed_arm", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_plan_strategy_start_all_branches", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
     notes: ""
-  "Tests/test_equilibrium_reorder.py":
-    purpose: "test_equilibrium_reorder.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "check", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_profile_attributes", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_profile_equilibrium_formula", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_db_roundtrip", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_oup_refill", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_oup_no_overstock", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_immediate_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_deferred_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_deferred_blocks_duplicate_reorder", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_position_counts_queued_units", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_oup_qty_uses_position", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_equilibrium_qty_helper", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_fill_stability", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_supply_cv_zero_is_exact", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_supply_cv_produces_variance", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_supply_cv_floor_prevents_zero", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_supply_cv_in_profile_and_db", file: "Tests/test_equilibrium_reorder.py", kind: "function"}
-    notes: ""
-  "Tests/test_files_catalog_sync.py":
-    purpose: "test_files_catalog_sync.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_catalog_matches_tree", file: "Tests/test_files_catalog_sync.py", kind: "function"}
-      - {name: "test_catalog_covers_every_in_scope_file", file: "Tests/test_files_catalog_sync.py", kind: "function"}
-      - {name: "test_merge_preserves_notes_and_prunes_deleted", file: "Tests/test_files_catalog_sync.py", kind: "function"}
-      - {name: "test_merge_is_idempotent", file: "Tests/test_files_catalog_sync.py", kind: "function"}
-      - {name: "test_no_todo_or_empty_purposes", file: "Tests/test_files_catalog_sync.py", kind: "function"}
-    notes: ""
-  "Tests/test_fulfillment_channels.py":
-    purpose: "test_fulfillment_channels.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_regime_of_across_entity_kinds", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_fulfillment_bin_tiers_and_fit", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_viable_storage_units_routing", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_plan_warehouse_mixed_has_both_regimes_no_junk", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_plan_warehouse_store_only_has_no_fulfillment", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_mixed_stocking_regime_isolation_and_ff_geometry", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_candidates_regime_isolation", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_per_regime_travel_cost_bakes_by_regime", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_per_regime_travel_cost_single_regime_unchanged", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_per_regime_labor_cost", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_fulfillment_bin_height_multiplier_is_one", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_channels_module", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-      - {name: "test_per_channel_cart_type", file: "Tests/test_fulfillment_channels.py", kind: "function"}
-    notes: ""
-  "Tests/test_fulfillment_inventory.py":
-    purpose: "the fulfillment sub-catalog generator."
-    layer: "tests"
-    key_symbols:
-      - {name: "test_triangular_weight_bounded_and_skewed", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_triangular_weight_reproducible", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_default_ff_weight_spec_is_triangular", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_shares_split_by_cube_fraction", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_all_cubes_or_all_rects_edge_fractions", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_rect_family_mostly_noncubes_cube_family_all_cubes", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_every_ff_sku_fits_a_fulfillment_bin", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-      - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/test_fulfillment_inventory.py", kind: "function"}
-    notes: ""
-  "Tests/test_index_equivalence.py":
-    purpose: "Regression tests for the aisle_index fast path and its coupling guard."
-    layer: "tests"
-    key_symbols:
-      - {name: "assets", file: "Tests/test_index_equivalence.py", kind: "function"}
-      - {name: "test_cluster_index_matches_scan", file: "Tests/test_index_equivalence.py", kind: "function"}
-      - {name: "test_guard_raises_when_armed_with_scan_fn", file: "Tests/test_index_equivalence.py", kind: "function"}
-      - {name: "test_guard_raises_when_index_fn_without_arming", file: "Tests/test_index_equivalence.py", kind: "function"}
-      - {name: "test_guard_silent_when_consistent", file: "Tests/test_index_equivalence.py", kind: "function"}
-    notes: ""
-  "Tests/test_mixed_catalog_channels.py":
-    purpose: "test_mixed_catalog_channels.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_mixed_catalog_build_and_db_roundtrip", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
-      - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
-      - {name: "test_per_channel_batches_and_simulation", file: "Tests/test_mixed_catalog_channels.py", kind: "function"}
-    notes: ""
-  "Tests/test_palletizing.py":
-    purpose: "Verify that initial orders go through the palletizing"
-    layer: "tests"
-    key_symbols:
-      - {name: "ok", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "fail", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "check", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "section", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "test_viable_storage_units_direct", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "test_enqueue_routes_through_palletizer", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "test_equilibrium_qty_and_no_reorder_flag", file: "Tests/test_palletizing.py", kind: "function"}
-      - {name: "test_originals_stored_correctly", file: "Tests/test_palletizing.py", kind: "function"}
-    notes: ""
-  "Tests/test_placement_fastpath_equivalence.py":
-    purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."
-    layer: "tests"
-    key_symbols:
-      - {name: "test_closest_abs_matches_bruteforce", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_prefpool_take_closest_is_min_abs", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_prefpool_take_ge_semantics", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_prefpool_min_max_and_no_double_take", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_delta_lift_from_row_matches_demand_weighted", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_cluster_map_choose_aisle_matches_reference", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "map_assets", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_map_wave_matches_per_unit_scan", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-      - {name: "test_map_queue_stays_bounded", file: "Tests/test_placement_fastpath_equivalence.py", kind: "function"}
-    notes: ""
-  "Tests/test_placement_lifecycle.py":
-    purpose: "Verify every state dict is updated correctly at"
-    layer: "tests"
-    key_symbols:
-      - {name: "ok", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "fail", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "section", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "check", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_initial_placement", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_pick_depletion", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_bin_reclaim", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_reorder_trigger", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_load_aware_reorder", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_no_duplicate_reorder", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_end_to_end_mini_sim", file: "Tests/test_placement_lifecycle.py", kind: "function"}
-    notes: ""
-  "Tests/test_regime_sizing.py":
-    purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
-    layer: "tests"
-    key_symbols:
-      - {name: "test_store_cap_leaves_fulfillment_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_fulfillment_cap_leaves_store_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_ff_fixed_distribution_honors_ratio_and_scale", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_regime_sizing_none_matches_no_regressions", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_depth_classes_none_is_byte_identical", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_depth_classes_emit_multiple_widths_and_leave_store_untouched", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_aisle_split_k1_is_byte_identical", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_aisle_split_ff_shortens_and_grows_bins_preserved", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_aisle_split_capacity_loss_drops_bins", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_aisle_split_store_branch", file: "Tests/test_regime_sizing.py", kind: "function"}
-      - {name: "test_aisle_split_k_bounded", file: "Tests/test_regime_sizing.py", kind: "function"}
-    notes: ""
-  "Tests/test_registry_discovery.py":
-    purpose: "Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss \u2014 a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks."
-    layer: "tests"
-    key_symbols:
-      - {name: "test_every_declared_evaluation_is_registered", file: "Tests/test_registry_discovery.py", kind: "function"}
-      - {name: "test_evaluation_package_dirs_are_importable", file: "Tests/test_registry_discovery.py", kind: "function"}
-      - {name: "test_every_declared_pick_config_is_registered", file: "Tests/test_registry_discovery.py", kind: "function"}
-      - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/test_registry_discovery.py", kind: "function"}
-      - {name: "test_registries_are_not_empty", file: "Tests/test_registry_discovery.py", kind: "function"}
-    notes: ""
-  "Tests/test_reorder_accounting.py":
-    purpose: "test_reorder_accounting.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_units_ordered_tracks_qty_and_resets", file: "Tests/test_reorder_accounting.py", kind: "function"}
-      - {name: "test_units_ordered_sums_across_skus", file: "Tests/test_reorder_accounting.py", kind: "function"}
-      - {name: "test_batch_stats_persists_reorder_counts", file: "Tests/test_reorder_accounting.py", kind: "function"}
-    notes: ""
-  "Tests/test_reorder_queue.py":
-    purpose: "test_reorder_queue.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "SEED", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "N_SKUS", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "N_BATCHES", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "N_PICKERS", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "BATCH_MEAN_FRAC", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "STABLE_WINDOW", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "MIN_FILL", file: "Tests/test_reorder_queue.py", kind: "const"}
-      - {name: "check", file: "Tests/test_reorder_queue.py", kind: "function"}
-      - {name: "run", file: "Tests/test_reorder_queue.py", kind: "function"}
-    notes: ""
-  "Tests/test_rng_determinism.py":
-    purpose: "test_rng_determinism.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_batch_rng_immune_to_global_stream", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_batch_rng_immune_to_global_stream_with_affinity", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_two_arms_see_identical_batch_sequence", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_different_batch_seeds_differ", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_batch_default_rng_uses_global_and_is_reproducible", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_poisson_sample_rng_is_deterministic_and_isolated", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_poisson_sample_default_uses_global", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_demand_sample_rng_isolated", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_reproducible_by_seed", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_immune_to_global_stream", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_varies_with_seed", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_cv_zero_is_exact_ideal", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/test_rng_determinism.py", kind: "function"}
-      - {name: "test_reorder_qty_grows_with_lead", file: "Tests/test_rng_determinism.py", kind: "function"}
-    notes: ""
-  "Tests/test_run_layout.py":
+  "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
     layer: "tests"
     key_symbols:
-      - {name: "test_roundtrip_and_descriptor_cells", file: "Tests/test_run_layout.py", kind: "function"}
-      - {name: "test_single_kind_inferred", file: "Tests/test_run_layout.py", kind: "function"}
-      - {name: "test_missing_descriptor_is_none", file: "Tests/test_run_layout.py", kind: "function"}
-      - {name: "test_written_keys_are_exactly_schema_properties", file: "Tests/test_run_layout.py", kind: "function"}
+      - {name: "test_roundtrip_and_descriptor_cells", file: "Tests/integration/test_run_layout.py", kind: "function"}
+      - {name: "test_single_kind_inferred", file: "Tests/integration/test_run_layout.py", kind: "function"}
+      - {name: "test_missing_descriptor_is_none", file: "Tests/integration/test_run_layout.py", kind: "function"}
+      - {name: "test_written_keys_are_exactly_schema_properties", file: "Tests/integration/test_run_layout.py", kind: "function"}
     notes: ""
-  "Tests/test_run_spec_roundtrip.py":
+  "Tests/integration/test_run_spec_roundtrip.py":
     purpose: "locks run_spec.json write/load round-trip + _apply_run_spec overlay (saved spec base, explicit flag overrides) for zero-param --resume."
     layer: "tests"
     key_symbols:
-      - {name: "test_write_load_roundtrip", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
-      - {name: "test_apply_overlays_saved_spec", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
-      - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
-      - {name: "test_apply_injects_resolved_store_composition", file: "Tests/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_write_load_roundtrip", file: "Tests/integration/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_overlays_saved_spec", file: "Tests/integration/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_explicit_flag_overrides_spec_with_note", file: "Tests/integration/test_run_spec_roundtrip.py", kind: "function"}
+      - {name: "test_apply_injects_resolved_store_composition", file: "Tests/integration/test_run_spec_roundtrip.py", kind: "function"}
     notes: ""
-  "Tests/test_run_unification.py":
+  "Tests/integration/test_run_unification.py":
     purpose: "Locks the every-run-is-a-cell-matrix unification \u2014 runlayout.cells() enumeration (unified + legacy-flat trees) and the spec registry's single\u2192k1_off / scheduler_ab\u2192rr+lpt cell mapping."
     layer: "tests"
     key_symbols:
-      - {name: "test_cells_unified_multicell", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_cells_single", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_cells_legacy_flat_is_one_implicit_cell", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_cells_empty_dir", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_single_spec_is_one_k1_off_cell", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_scheduler_ab_spec_is_rr_vs_lpt", file: "Tests/test_run_unification.py", kind: "function"}
-      - {name: "test_get_spec_unknown_raises", file: "Tests/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_unified_multicell", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_single", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_legacy_flat_is_one_implicit_cell", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_cells_empty_dir", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_single_spec_is_one_k1_off_cell", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_scheduler_ab_spec_is_rr_vs_lpt", file: "Tests/integration/test_run_unification.py", kind: "function"}
+      - {name: "test_get_spec_unknown_raises", file: "Tests/integration/test_run_unification.py", kind: "function"}
     notes: ""
-  "Tests/test_runschema_contract.py":
+  "Tests/integration/test_runschema_contract.py":
     purpose: "Locks the content-addressed run-tree contract: the id is deterministic, excludes itself, is invariant under prose edits but sensitive to every hashed field; every stored document re-hashes to its own id and filename; the INDEX head/parent chain resolves; and compatibility is negotiated by feature rather than by comparing numbers \u2014 with positive controls so none of it can pass vacuously."
     layer: "tests"
     key_symbols:
-      - {name: "test_head_matches_the_declaration", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_schema_id_is_deterministic", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_schema_id_excludes_itself", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_store_is_self_consistent", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_stored_document_filename_is_its_short_id", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_contract_declares_every_axis_and_level", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_every_optional_artifact_states_its_condition", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_artifacts_yml_patterns_match_contract", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_shared_artifact_ids_are_not_empty", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_write_run_layout_stamps_the_schema_id", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolver_for_binds_to_the_runs_own_schema", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolver_for_rejects_missing_and_unknown_schema", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolver_refuses_a_contract_needing_an_unknown_feature", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_every_declared_feature_is_supported", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_render_drops_the_optional_channel_segment", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_render_raises_on_a_missing_required_part", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_generalize_is_positional", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_diff_shape_detects_an_added_level", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_diff_shape_detects_a_moved_artifact", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_diff_shape_ignores_prose_edits", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_validate_passes_on_the_declared_shape", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_validate_flags_an_undeclared_path", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_validate_flags_a_required_artifact_missing_from_one_canary", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_validate_accepts_an_optional_artifact_in_one_canary_only", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_source_fingerprint_changes_when_a_shape_source_changes", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_source_fingerprint_ignores_line_ending_churn", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_source_fingerprint_detects_a_deleted_shape_source", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_index_head_and_chain_resolve", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_adopt_is_idempotent_and_chains", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_write_refuses_a_document_whose_id_is_not_its_hash", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolves_via_prefers_the_first_existing_candidate", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_strategy_of_inverts_the_declared_template", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_by_group_replaces_the_hardcoded_whatif_list", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_id_changes_on_group_and_resolves_via_edits", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_axis_reordering_is_reported_not_just_hashed", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_feature_edits_change_the_id", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_head_matches_the_declaration", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_schema_id_is_deterministic", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_schema_id_excludes_itself", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_store_is_self_consistent", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_stored_document_filename_is_its_short_id", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_contract_declares_every_axis_and_level", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_every_optional_artifact_states_its_condition", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_artifacts_yml_patterns_match_contract", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_shared_artifact_ids_are_not_empty", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_write_run_layout_stamps_the_schema_id", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_for_binds_to_the_runs_own_schema", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_for_rejects_missing_and_unknown_schema", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_refuses_a_contract_needing_an_unknown_feature", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_every_declared_feature_is_supported", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_render_drops_the_optional_channel_segment", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_render_raises_on_a_missing_required_part", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_generalize_is_positional", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_diff_shape_detects_an_added_level", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_diff_shape_detects_a_moved_artifact", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_diff_shape_ignores_prose_edits", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_validate_passes_on_the_declared_shape", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_validate_flags_an_undeclared_path", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_validate_flags_a_required_artifact_missing_from_one_canary", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_validate_accepts_an_optional_artifact_in_one_canary_only", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_source_fingerprint_changes_when_a_shape_source_changes", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_source_fingerprint_ignores_line_ending_churn", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_source_fingerprint_detects_a_deleted_shape_source", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_index_head_and_chain_resolve", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_adopt_is_idempotent_and_chains", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_write_refuses_a_document_whose_id_is_not_its_hash", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolves_via_prefers_the_first_existing_candidate", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_strategy_of_inverts_the_declared_template", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_by_group_replaces_the_hardcoded_whatif_list", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_id_changes_on_group_and_resolves_via_edits", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_axis_reordering_is_reported_not_just_hashed", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_feature_edits_change_the_id", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
     notes: ""
-  "Tests/test_runtime_metrics.py":
+  "Tests/integration/test_runtime_metrics.py":
     purpose: "Locks the runtime-metrics DB + graphs \u2014 record_arm/load round-trip, UNIQUE-key overwrite, arm parsing + rate, and the emitted ranked/breakdown PNGs."
     layer: "tests"
     key_symbols:
-      - {name: "test_record_and_load_roundtrip", file: "Tests/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_key_is_unique_and_overwrites", file: "Tests/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_load_absent_is_empty", file: "Tests/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_graphs_emitted", file: "Tests/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_graphs_skip_without_db", file: "Tests/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_record_and_load_roundtrip", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_key_is_unique_and_overwrites", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_load_absent_is_empty", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_graphs_emitted", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_graphs_skip_without_db", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
     notes: ""
-  "Tests/test_scheduler.py":
-    purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_round_robin_is_the_legacy_partition", file: "Tests/test_scheduler.py", kind: "function"}
-      - {name: "test_lpt_keeps_aisle_id_order_and_covers_all_tasks", file: "Tests/test_scheduler.py", kind: "function"}
-      - {name: "test_predicted_makespan_equals_realized", file: "Tests/test_scheduler.py", kind: "function"}
-      - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/test_scheduler.py", kind: "function"}
-      - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/test_scheduler.py", kind: "function"}
-      - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/test_scheduler.py", kind: "function"}
-    notes: ""
-  "Tests/test_simconfig_registry.py":
+  "Tests/integration/test_simconfig_registry.py":
     purpose: "Locks the simconfig registry \u2014 STORE/FULFILLMENT_CONFIGS rebuilt byte-identically from @pick_config modules, ordered, disabled variants excluded, legacy aliases intact."
     layer: "tests"
     key_symbols:
-      - {name: "test_active_sweeps_rebuilt_from_registry", file: "Tests/test_simconfig_registry.py", kind: "function"}
-      - {name: "test_pick_config_dicts_byte_identical", file: "Tests/test_simconfig_registry.py", kind: "function"}
-      - {name: "test_disabled_variants_registered_but_excluded", file: "Tests/test_simconfig_registry.py", kind: "function"}
-      - {name: "test_duplicate_name_raises", file: "Tests/test_simconfig_registry.py", kind: "function"}
-      - {name: "test_bad_channel_raises", file: "Tests/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_active_sweeps_rebuilt_from_registry", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_pick_config_dicts_byte_identical", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_disabled_variants_registered_but_excluded", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_duplicate_name_raises", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_bad_channel_raises", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
     notes: ""
-  "Tests/test_travel_decomposition.py":
-    purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_entry_vs_interpick_classification", file: "Tests/test_travel_decomposition.py", kind: "function"}
-      - {name: "test_decomposition_reconciles_with_duration", file: "Tests/test_travel_decomposition.py", kind: "function"}
-      - {name: "test_pick_fastpick_decomposition_lockstep", file: "Tests/test_travel_decomposition.py", kind: "function"}
-      - {name: "test_one_way_total_x_per_visit_equals_aisle_width", file: "Tests/test_travel_decomposition.py", kind: "function"}
-      - {name: "test_two_way_has_no_exit_segment", file: "Tests/test_travel_decomposition.py", kind: "function"}
-      - {name: "test_per_task_reset_measures_entry_from_entrance", file: "Tests/test_travel_decomposition.py", kind: "function"}
-    notes: ""
-  "Tests/test_velocity_zoning.py":
-    purpose: "Velocity zoning (C): a per-regime candidate-layer toggle that restricts a unit's viable bins"
-    layer: "tests"
-    key_symbols:
-      - {name: "test_configure_zoning_bands_hot_to_shallow", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_zone_filter_routes_to_matching_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_zone_filter_spills_when_band_empty", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_group_key_off_is_binkey_on_is_binkey_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_apportion_floor_sum_and_hot_is_small", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_abc_bands_hot_band_is_small", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_zone_filter_cold_upgrades_when_cold_full", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_zone_filter_hot_downgrades_to_next_colder", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_band_pick_matches_zone_filter_set", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_band_index_consistent_after_add_remove", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_band_pick_spills_through_index", file: "Tests/test_velocity_zoning.py", kind: "function"}
-      - {name: "test_stock_per_unit_zoning_routes_each_unit_to_its_target_band", file: "Tests/test_velocity_zoning.py", kind: "function"}
-    notes: ""
-  "Tests/test_visualization_data.py":
+  "Tests/integration/test_visualization_data.py":
     purpose: "test_visualization_data.py"
     layer: "tests"
     key_symbols:
-      - {name: "check", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_run_params_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_batch_stats_start_end_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_batch_stats_queue_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_reorder_queue_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_bin_scores_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_sku_scores_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_aisle_metrics_pickload_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_run_identity_and_find_run", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_aisle_layout_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_keyframe_db_roundtrip", file: "Tests/test_visualization_data.py", kind: "function"}
-      - {name: "test_reconstruction_query", file: "Tests/test_visualization_data.py", kind: "function"}
+      - {name: "check", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_run_params_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_stats_start_end_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_stats_queue_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_reorder_queue_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_bin_scores_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_sku_scores_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_aisle_metrics_pickload_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_run_identity_and_find_run", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_aisle_layout_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_keyframe_db_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_reconstruction_query", file: "Tests/integration/test_visualization_data.py", kind: "function"}
     notes: ""
-  "Tests/test_warehouse_sizing.py":
-    purpose: "test_warehouse_sizing.py"
-    layer: "tests"
-    key_symbols:
-      - {name: "check", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_bucket_requirements_track_size_tier", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_every_bucket_has_an_aisle", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_every_sku_is_placeable", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_uncapped_holds_full_demand", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_capped_under_capacity", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_below_floor_clamps", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_min_bins_floor", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_min_bins_overrides_max_bins", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_composition_basis_vector", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_sampling_respects_bucket_capacity", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_cross_tier_fill", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_resample_scales_eq_reorder", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_restock_no_queue_growth", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_partial_placement_drains_incrementally", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_unit_split_rescue", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_planned_inventory_roundtrip_no_queue", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_uniform_aisle_trip_min_assignment", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_batch_assign_extremal_order", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_optimal_layout_minimizes_sigma_fd", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_requeue_bin", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_capacity_reloader_variants", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_cluster_assignment_max_min", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_affinity_sampler_correlates_and_guards", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_init_lift_state_populates_aisle_sets", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_incremental_sigma_fd_matches_full", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_batch_min_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_batch_max_incremental_drain", file: "Tests/test_warehouse_sizing.py", kind: "function"}
-    notes: ""
-  "Tests/test_whatif_delta.py":
+  "Tests/integration/test_whatif_delta.py":
     purpose: "Locks run_whatif_delta's cross-cell diff \u2014 in particular that STORE-ONLY runs (no <channel> level) are scanned rather than silently skipped, and that whatif_delta.json is emitted in the shape docs/macros.py:whatif_matrix reads."
     layer: "tests"
     key_symbols:
-      - {name: "test_store_only_run_is_not_skipped", file: "Tests/test_whatif_delta.py", kind: "function"}
-      - {name: "test_mixed_run_keeps_its_channel", file: "Tests/test_whatif_delta.py", kind: "function"}
-      - {name: "test_delta_json_is_written_in_the_shape_the_site_reads", file: "Tests/test_whatif_delta.py", kind: "function"}
-      - {name: "test_reference_defaults_to_the_runs_own_descriptor", file: "Tests/test_whatif_delta.py", kind: "function"}
+      - {name: "test_store_only_run_is_not_skipped", file: "Tests/integration/test_whatif_delta.py", kind: "function"}
+      - {name: "test_mixed_run_keeps_its_channel", file: "Tests/integration/test_whatif_delta.py", kind: "function"}
+      - {name: "test_delta_json_is_written_in_the_shape_the_site_reads", file: "Tests/integration/test_whatif_delta.py", kind: "function"}
+      - {name: "test_reference_defaults_to_the_runs_own_descriptor", file: "Tests/integration/test_whatif_delta.py", kind: "function"}
     notes: ""
-  "Tests/test_whatif_labor.py":
+  "Tests/integration/test_whatif_labor.py":
     purpose: "Locks run_whatif_labor.py \u2014 ms\u2192modeled-hours conversion, scheduler/arm-name parsing, labor-hours-saved-vs-FIFO math, and the whatif_matrix-shaped JSON, all on a synthetic two-cell sqlite tree."
     layer: "tests"
     key_symbols:
-      - {name: "test_hours_ms_to_modeled_hours", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_scheduler_of", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_parse_arm", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_pct_sign", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_scan_labor_key_and_merge", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_scan_labor_finds_store_only_runs", file: "Tests/test_whatif_labor.py", kind: "function"}
-      - {name: "test_main_labor_saved_and_json", file: "Tests/test_whatif_labor.py", kind: "function"}
+      - {name: "test_hours_ms_to_modeled_hours", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scheduler_of", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_parse_arm", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_pct_sign", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scan_labor_key_and_merge", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_scan_labor_finds_store_only_runs", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+      - {name: "test_main_labor_saved_and_json", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_affinity_lift_invariant.py":
+    purpose: "test_affinity_lift_invariant.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_delta_lift_idxs_is_excess_over_independence", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_sum_lift_subtracts_nnz", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_demand_weighted_delta_lift_weights_excess_by_freq", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
+      - {name: "test_seed_equals_incremental_rebuild", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_assignment_and_labor.py":
+    purpose: "test_assignment_and_labor.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_labor_cost_matches_pick_time_qty1", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_expected_popularity_and_labor", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_total_labor_cost_is_qty_times_labor", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_reorder_propagates_labor_cost", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_labor_is_travel_aware", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_popularity_balances_demand", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_random_disperses_across_aisles", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_height_multiplier_brackets", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_pick_time_height_scaling", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_aisle_workload_matches_pick_time_with_height", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_labor_height_vs_travel_tradeoff", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_minlabor_picks_golden_zone_and_front_bin", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_maxlabor_picks_high_far_bin", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_minlabor_compacts_codemanded_into_one_aisle", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_workload_components_handling_matches_pick_time", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_expected_task_labor_objective_and_split", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_task_time_breakdown_charges_cart_swap_to_travel", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_sim_cart_swap_seconds_land_in_travel_not_handling", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_workloadparams_cart_capacity_from_pick_config", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_cartlabor_disperses_only_when_cart_is_small", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_rank_cartlabor_registered", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optimal_work_is_a_floor_below_uniform", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_build_optimal_map_basis_is_quantity_free", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optmap_placement_is_score_matched_not_greedy", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_optmap_capped_saves_prime_spots", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_cohesion_pulls_codemanded_into_one_aisle", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_anchors_at_favored_location_then_compacts", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_rank_caps_prime_like_map_rank", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_assignment_functions.py":
+    purpose: "the composable, named assignment-function layer."
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+      - {name: "test_registries_and_names", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+      - {name: "test_composed_scorer_placement", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+      - {name: "test_co_demand_compaction_expansion", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_bell_freq_profile.py":
+    purpose: "test_bell_freq_profile.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_bell_plan_differs_from_baseline_only_in_freq_spec", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_store_freq_specs_have_exact_normals", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_ff_freq_is_equal_weight_three_normal_mixture", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_sampled_frequencies_respect_clamp", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_sampled_means_track_targets_and_preserve_ordering", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_bell_build_is_reproducible_and_seed_sensitive", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+      - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_channel_strategy_subset.py":
+    purpose: "test_channel_strategy_subset.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_strategies_for_none_is_full_grid", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_strategies_for_store_subset", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_every_strategy_has_a_restock_key", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_build_channels_store_restocks_scopes_store_only", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_build_channels_default_restocks_is_full_suite", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_mixed_stocking_never_trips_the_guard", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_guard_rejects_a_forced_cross_regime_placement", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+      - {name: "test_opt_cohesion_stock_places_fulfillment_units", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_equilibrium_reorder.py":
+    purpose: "test_equilibrium_reorder.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_profile_attributes", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_profile_equilibrium_formula", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_db_roundtrip", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_refill", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_no_overstock", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_immediate_reorder", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_deferred_reorder", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_deferred_blocks_duplicate_reorder", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_position_counts_queued_units", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_oup_qty_uses_position", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_equilibrium_qty_helper", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_fill_stability", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_zero_is_exact", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_produces_variance", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_floor_prevents_zero", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_supply_cv_in_profile_and_db", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_fulfillment_channels.py":
+    purpose: "test_fulfillment_channels.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_regime_of_across_entity_kinds", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_fulfillment_bin_tiers_and_fit", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_viable_storage_units_routing", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_plan_warehouse_mixed_has_both_regimes_no_junk", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_plan_warehouse_store_only_has_no_fulfillment", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_mixed_stocking_regime_isolation_and_ff_geometry", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_candidates_regime_isolation", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_travel_cost_bakes_by_regime", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_travel_cost_single_regime_unchanged", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_regime_labor_cost", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_fulfillment_bin_height_multiplier_is_one", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_channels_module", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_per_channel_cart_type", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_fulfillment_inventory.py":
+    purpose: "the fulfillment sub-catalog generator."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_triangular_weight_bounded_and_skewed", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_triangular_weight_reproducible", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_default_ff_weight_spec_is_triangular", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_shares_split_by_cube_fraction", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_all_cubes_or_all_rects_edge_fractions", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_rect_family_mostly_noncubes_cube_family_all_cubes", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_every_ff_sku_fits_a_fulfillment_bin", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+      - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_index_equivalence.py":
+    purpose: "Regression tests for the aisle_index fast path and its coupling guard."
+    layer: "tests"
+    key_symbols:
+      - {name: "assets", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+      - {name: "test_cluster_index_matches_scan", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_raises_when_armed_with_scan_fn", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_raises_when_index_fn_without_arming", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+      - {name: "test_guard_silent_when_consistent", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_mixed_catalog_channels.py":
+    purpose: "test_mixed_catalog_channels.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_mixed_catalog_build_and_db_roundtrip", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
+      - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
+      - {name: "test_per_channel_batches_and_simulation", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_palletizing.py":
+    purpose: "Verify that initial orders go through the palletizing"
+    layer: "tests"
+    key_symbols:
+      - {name: "ok", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "fail", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "check", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "section", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "test_viable_storage_units_direct", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "test_enqueue_routes_through_palletizer", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "test_equilibrium_qty_and_no_reorder_flag", file: "Tests/unit/test_palletizing.py", kind: "function"}
+      - {name: "test_originals_stored_correctly", file: "Tests/unit/test_palletizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_placement_fastpath_equivalence.py":
+    purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_closest_abs_matches_bruteforce", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_take_closest_is_min_abs", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_take_ge_semantics", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_prefpool_min_max_and_no_double_take", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_delta_lift_from_row_matches_demand_weighted", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_cluster_map_choose_aisle_matches_reference", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "map_assets", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_map_wave_matches_per_unit_scan", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_map_queue_stays_bounded", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_placement_lifecycle.py":
+    purpose: "Verify every state dict is updated correctly at"
+    layer: "tests"
+    key_symbols:
+      - {name: "ok", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "fail", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "section", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "check", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_initial_placement", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_pick_depletion", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_bin_reclaim", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_reorder_trigger", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_load_aware_reorder", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_no_duplicate_reorder", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+      - {name: "test_end_to_end_mini_sim", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_regime_sizing.py":
+    purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_store_cap_leaves_fulfillment_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_fulfillment_cap_leaves_store_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_ff_fixed_distribution_honors_ratio_and_scale", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_regime_sizing_none_matches_no_regressions", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_depth_classes_none_is_byte_identical", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_depth_classes_emit_multiple_widths_and_leave_store_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_k1_is_byte_identical", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_ff_shortens_and_grows_bins_preserved", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_capacity_loss_drops_bins", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_store_branch", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_aisle_split_k_bounded", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_reorder_accounting.py":
+    purpose: "test_reorder_accounting.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_units_ordered_tracks_qty_and_resets", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
+      - {name: "test_units_ordered_sums_across_skus", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
+      - {name: "test_batch_stats_persists_reorder_counts", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_reorder_queue.py":
+    purpose: "test_reorder_queue.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "SEED", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "N_SKUS", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "N_PICKERS", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "BATCH_MEAN_FRAC", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "STABLE_WINDOW", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "MIN_FILL", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "check", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+      - {name: "run", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_rng_determinism.py":
+    purpose: "test_rng_determinism.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_batch_rng_immune_to_global_stream", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_batch_rng_immune_to_global_stream_with_affinity", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_two_arms_see_identical_batch_sequence", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_different_batch_seeds_differ", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_batch_default_rng_uses_global_and_is_reproducible", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_poisson_sample_rng_is_deterministic_and_isolated", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_poisson_sample_default_uses_global", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_demand_sample_rng_isolated", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_reproducible_by_seed", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_immune_to_global_stream", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_varies_with_seed", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_cv_zero_is_exact_ideal", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_reorder_qty_grows_with_lead", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_scheduler.py":
+    purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_round_robin_is_the_legacy_partition", file: "Tests/unit/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_keeps_aisle_id_order_and_covers_all_tasks", file: "Tests/unit/test_scheduler.py", kind: "function"}
+      - {name: "test_predicted_makespan_equals_realized", file: "Tests/unit/test_scheduler.py", kind: "function"}
+      - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/unit/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
+      - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_travel_decomposition.py":
+    purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_entry_vs_interpick_classification", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_decomposition_reconciles_with_duration", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_pick_fastpick_decomposition_lockstep", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_one_way_total_x_per_visit_equals_aisle_width", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_two_way_has_no_exit_segment", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+      - {name: "test_per_task_reset_measures_entry_from_entrance", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_velocity_zoning.py":
+    purpose: "Velocity zoning (C): a per-regime candidate-layer toggle that restricts a unit's viable bins"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_configure_zoning_bands_hot_to_shallow", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_routes_to_matching_band", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_spills_when_band_empty", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_group_key_off_is_binkey_on_is_binkey_band", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_apportion_floor_sum_and_hot_is_small", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_abc_bands_hot_band_is_small", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_cold_upgrades_when_cold_full", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_zone_filter_hot_downgrades_to_next_colder", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_pick_matches_zone_filter_set", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_index_consistent_after_add_remove", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_band_pick_spills_through_index", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+      - {name: "test_stock_per_unit_zoning_routes_each_unit_to_its_target_band", file: "Tests/unit/test_velocity_zoning.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_warehouse_sizing.py":
+    purpose: "test_warehouse_sizing.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "check", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_bucket_requirements_track_size_tier", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_every_bucket_has_an_aisle", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_every_sku_is_placeable", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_uncapped_holds_full_demand", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_capped_under_capacity", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_below_floor_clamps", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_min_bins_floor", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_min_bins_overrides_max_bins", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_composition_basis_vector", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_sampling_respects_bucket_capacity", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_cross_tier_fill", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_resample_scales_eq_reorder", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_restock_no_queue_growth", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_partial_placement_drains_incrementally", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_unit_split_rescue", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_planned_inventory_roundtrip_no_queue", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_uniform_aisle_trip_min_assignment", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_assign_extremal_order", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_optimal_layout_minimizes_sigma_fd", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_requeue_bin", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_capacity_reloader_variants", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_cluster_assignment_max_min", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_affinity_sampler_correlates_and_guards", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_init_lift_state_populates_aisle_sets", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_incremental_sigma_fd_matches_full", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_min_incremental_drain", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_batch_max_incremental_drain", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
     notes: ""
   "Visualization/db_reader.py":
     purpose: "read-only reconstruction of a finished run for the replay viewer."

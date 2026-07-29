@@ -29,7 +29,7 @@ steps:
       - {name: _build_pick_cfg, file: Optimization/config/sim_config.py, kind: function}
     reads: []
     writes: []
-    guards: [Tests/test_channel_runner_smoke.py, Tests/test_regime_sizing.py]
+    guards: [Tests/e2e/test_channel_runner_smoke.py, Tests/unit/test_regime_sizing.py]
     next: [discover_pairs]
 
   - id: discover_pairs
@@ -44,7 +44,7 @@ steps:
       - {name: _apply_run_spec, file: Optimization/run_simulation.py, kind: function}
     reads: [inventory_db, affinity_db]
     writes: [run_manifest, run_spec]
-    guards: [Tests/test_batch_precompute_e2e.py, Tests/test_run_spec_roundtrip.py]
+    guards: [Tests/e2e/test_batch_precompute_e2e.py, Tests/integration/test_run_spec_roundtrip.py]
     next: [build_shared_assets]
 
   - id: build_shared_assets
@@ -58,7 +58,7 @@ steps:
       - {name: compute_warehouse_fingerprint, file: Optimization/persistence/Warehouse_Data.py, kind: function}
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
-    guards: [Tests/test_warehouse_sizing.py, Tests/test_regime_sizing.py]
+    guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py]
     next: [prepare_channel_runs]
 
   - id: prepare_channel_runs
@@ -78,7 +78,7 @@ steps:
       - {name: _save_resume, file: Optimization/runschema/sim_manifest.py, kind: function}
     reads: [planned_inventory_db, affinity_db]
     writes: [config_json, batches_cache, resume_pkl, sim_db]
-    guards: [Tests/test_channel_runner_smoke.py, Tests/test_channel_strategy_subset.py, Tests/test_batch_precompute.py]
+    guards: [Tests/e2e/test_channel_runner_smoke.py, Tests/unit/test_channel_strategy_subset.py, Tests/e2e/test_batch_precompute.py]
     next: [run_workers]
 
   - id: run_workers
@@ -101,7 +101,7 @@ steps:
       - {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}
     reads: [planned_inventory_db, affinity_db, batches_cache]
     writes: [sim_db, keyframes_db, checkpoint_pkl]
-    guards: [Tests/test_index_equivalence.py, Tests/test_rng_determinism.py, Tests/test_batch_precompute_e2e.py, Tests/test_crash_recovery.py]
+    guards: [Tests/unit/test_index_equivalence.py, Tests/unit/test_rng_determinism.py, Tests/e2e/test_batch_precompute_e2e.py, Tests/integration/test_crash_recovery.py]
     next: [finalize]
 
   - id: finalize
@@ -116,5 +116,5 @@ steps:
       - {name: write_run_manifest, file: Optimization/runschema/sim_manifest.py, kind: function}
     reads: [sim_db]
     writes: [sim_meta]
-    guards: [Tests/test_channel_runner_smoke.py]
+    guards: [Tests/e2e/test_channel_runner_smoke.py]
     next: []
