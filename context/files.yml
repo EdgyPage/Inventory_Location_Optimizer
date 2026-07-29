@@ -686,6 +686,18 @@ files:
     key_symbols:
       - {name: "test_context_matches_code", file: "Tests/architecture/test_context_sync.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_docref_guard.py":
+    purpose: "Locks the doc section-reference guard: every '<doc>.md section N' in the repo still resolves, the checker catches renumbered and retitled headings, and CLAUDE.md's numbering stays contiguous."
+    layer: "tests"
+    key_symbols:
+      - {name: "SEC", file: "Tests/architecture/test_docref_guard.py", kind: "const"}
+      - {name: "test_every_section_reference_resolves", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+      - {name: "test_reference_extraction_is_not_vacuous", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+      - {name: "test_catches_a_renumbered_section", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+      - {name: "test_catches_a_retitled_section", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+      - {name: "test_ignores_non_references", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+      - {name: "test_claude_md_sections_are_unique_and_contiguous", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_files_catalog_sync.py":
     purpose: "test_files_catalog_sync.py"
     layer: "tests"

@@ -118,6 +118,14 @@ def _stop() -> int:
         print(f'[paths] {len(hits)} machine-local path(s) in {len(files)} changed file(s): '
               + ', '.join(files[:3]) + (' ...' if len(files) > 3 else '')
               + ' — check: python context/guards/path_guard.py --scan')
+
+    # Section references only break when a heading is renumbered or retitled, so this runs only
+    # when a Markdown file changed -- which is exactly when it can break.
+    if any(p.endswith('.md') for p in changed):
+        docref = _load(os.path.join(_HERE, 'docref_guard.py'), 'docref_guard')
+        if docref.verify(quiet=True) != 0:
+            print('[docref] a "<doc>.md section N" reference no longer resolves — a heading was '
+                  'renumbered or retitled: python context/guards/docref_guard.py --scan')
     return ALLOW
 
 

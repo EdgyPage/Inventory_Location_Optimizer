@@ -7,6 +7,7 @@ into a tracked file at all**, regardless of which layer it belongs to.
 | Module | Enforces |
 |---|---|
 | `path_guard.py` | no machine-local filesystem path reaches a tracked file or a memory |
+| `docref_guard.py` | every `<doc>.md section N` reference still points at a real heading |
 | `hook_check.py` | the hook wiring: blocks the write on `PreToolUse`, nags on `Stop` |
 
 ## Why the path guard exists
@@ -27,6 +28,22 @@ the current username, and session-scoped scratchpad paths.
 ```bash
 python context/guards/path_guard.py --scan            # all tracked files; exit 1 on findings
 python context/guards/path_guard.py --scan PATH ...   # just these
+```
+
+## Why the docref guard exists
+
+Prose across the repo points at numbered sections — "see CLAUDE.md section 5", "CLAUDE.md §2 is
+canonical". Those are anchors exactly like the `name@file` anchors in `context/`, and they rot the
+same silent way: renumber or retitle a heading and every reference still *looks* right, so it
+survives review while sending the reader somewhere wrong. There were 14 of them, spread across
+`.py`, `.md` and the memory mirror, correct only because they had just been checked by hand.
+
+It resolves numbered references against the headings actually present, and word references
+(`§Conventions`) against heading text. A bare filename mention is not a reference and is ignored.
+The `Stop` hook runs it only when a Markdown file changed — which is the only time it can break.
+
+```bash
+python context/guards/docref_guard.py --scan
 ```
 
 ## Two rules this code follows, and must keep following

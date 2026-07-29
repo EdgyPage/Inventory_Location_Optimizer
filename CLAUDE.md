@@ -15,7 +15,7 @@ verified anchors in `context/` — see §7 before adding anything here.
 
 ## 1. Commands that actually work
 
-The seven gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
+The eight gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
 `runschema` CLIs run as modules:
 
 ```bash
@@ -26,6 +26,7 @@ python -m Optimization.runschema.contract  --check    # run-tree schema not stal
 python -m Optimization.runschema.preflight --check    # output tree hasn't moved
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
+python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
 ```
 
 Tests. **There is no pytest config file anywhere** — no `pytest.ini`, no `pyproject.toml`, no
