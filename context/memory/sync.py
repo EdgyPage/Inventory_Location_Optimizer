@@ -174,6 +174,19 @@ def restore(force: bool = False) -> int:
         with open(os.path.join(live, name), 'wb') as fh:
             fh.write(data)
     print(f'[memory] restored {len(mr)} memor(ies) into the live store.')
+
+    # Confirm the restore landed somewhere the locator will actually find, rather than assuming.
+    # The derived slug takes its drive-letter case from os.path.abspath, which upper-cases it on
+    # Windows, while Claude Code uses whatever case the path had when the session started -- the
+    # two sibling project directories on this machine differ exactly that way.  It is harmless on
+    # a case-insensitive filesystem and wrong on any other, so verify instead of trusting it.
+    found, _ = live_store()
+    if found is None or not _memories(found):
+        print('[memory] WARNING: restored to ' + live.replace(os.path.expanduser('~'), '~')
+              + ' but the locator does not resolve it. If Claude Code still shows no memories, '
+                'rename that directory to match the casing of the other project directories in '
+              + projects_dir().replace(os.path.expanduser('~'), '~') + '.')
+        return 1
     return 0
 
 
