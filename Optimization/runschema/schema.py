@@ -170,17 +170,17 @@ ARTIFACTS = {
     'aggregate_by_initial_csv': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'cell',
-        'writer': 'run@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_summary_csv': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_summary.csv',
         'format': 'csv', 'scope': 'cell',
-        'writer': 'run@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_tests_json': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_tests.json',
         'format': 'json', 'scope': 'cell',
-        'writer': 'run@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {
@@ -247,50 +247,50 @@ ARTIFACTS = {
         'format': 'png', 'scope': 'channel_run', 'optional': True,
         'condition': 'presets that run the flat stats suite; BY_INITIAL (the default) writes '
                      'stats_by_initial/ instead.',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'stats_by_initial_pngs': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/**/*.png',
         'format': 'png', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'batches_long_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'per_run_summary_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'summary_batch_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'summary_task_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'stats_summary_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'stats_tests_json': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats/tests.json',
         'format': 'json', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_summary_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_stats_summary_csv': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_tests_json': {
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json',
         'format': 'json', 'scope': 'channel_run',
-        'writer': 'run@Optimization/Performance_Evaluations/stats/config_suite.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
 
     # ── transient per-channel-run state (deleted when the config run finalizes) ──
     'resume_pkl': {

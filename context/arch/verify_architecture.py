@@ -73,6 +73,32 @@ def _layer_of(relpath: str, layers: list[dict]) -> str | None:
     return best
 
 
+def layer_prefix_violations(layers: list[dict], relpaths: list[str] | None = None) -> list[str]:
+    """Every `match` / `except` path prefix must select at least one real file.
+
+    WHY THIS EXISTS: `_layer_of` is a plain `str.startswith`, and a prefix that matches nothing is
+    not an error anywhere else.  So renaming or moving a layer's root directory SILENTLY empties
+    that layer — and any `forbid` boundary naming it becomes vacuously true forever, still green,
+    while enforcing nothing.  A stale `except` is the same trap in reverse: it keeps carving out a
+    subtree that no longer exists, or stops carving out one that moved.
+
+    Only `members:` was previously existence-checked, which covers exactly one path in the file.
+    """
+    if relpaths is None:
+        relpaths = extract.discover_files(extract.CATALOG_ROOTS, include_init=False)
+    msgs: list[str] = []
+    for lyr in layers:
+        name = lyr.get('name', '?')
+        m = lyr.get('match')
+        if m and not any(p.startswith(m) for p in relpaths):
+            msgs.append(f'layer {name}: match prefix {m!r} selects no files '
+                        f'(renamed or deleted? any boundary naming this layer is now vacuous)')
+        for exc in (lyr.get('except') or []):
+            if not any(p.startswith(exc) for p in relpaths):
+                msgs.append(f'layer {name}: except prefix {exc!r} carves out no files (stale?)')
+    return msgs
+
+
 def _anchor(a: dict, where: str) -> None:
     vc.check_symbol(a.get('name', ''), a.get('file', ''), a.get('kind', 'function'), where)
 
@@ -151,11 +177,13 @@ def verify(quiet: bool = False) -> int:
         by_namefile.setdefault((n['name'], n['file']), []).append(n['id'])
     edges = graph.get('edges', [])
 
-    # 3. ANCHORS (layer members, backbone endpoints, hotpaths)
+    # 3. ANCHORS (layer members, layer path prefixes, backbone endpoints, hotpaths)
     for lyr in layers:
         for m in (lyr.get('members') or []):
             if vc.src_of(m) is None:
                 err(f"layer {lyr.get('name')}: member file missing: {m}")
+    for msg in layer_prefix_violations(layers):
+        err(msg)
     for i, e in enumerate(backbone):
         _anchor(e.get('src', {}), f'backbone[{i}].src')
         _anchor(e.get('dst', {}), f'backbone[{i}].dst')

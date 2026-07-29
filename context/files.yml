@@ -1086,6 +1086,16 @@ files:
       - {name: "test_aisle_split_store_branch", file: "Tests/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_k_bounded", file: "Tests/test_regime_sizing.py", kind: "function"}
     notes: ""
+  "Tests/test_registry_discovery.py":
+    purpose: "Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss \u2014 a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_declared_evaluation_is_registered", file: "Tests/test_registry_discovery.py", kind: "function"}
+      - {name: "test_evaluation_package_dirs_are_importable", file: "Tests/test_registry_discovery.py", kind: "function"}
+      - {name: "test_every_declared_pick_config_is_registered", file: "Tests/test_registry_discovery.py", kind: "function"}
+      - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/test_registry_discovery.py", kind: "function"}
+      - {name: "test_registries_are_not_empty", file: "Tests/test_registry_discovery.py", kind: "function"}
+    notes: ""
   "Tests/test_reorder_accounting.py":
     purpose: "test_reorder_accounting.py"
     layer: "tests"
