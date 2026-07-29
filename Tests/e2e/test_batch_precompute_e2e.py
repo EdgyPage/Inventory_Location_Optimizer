@@ -38,9 +38,15 @@ _N_E2E_BATCHES = 6
 
 def _store_only_current_schema(inv_db):
     """True if inv_db is loadable by the current code (has relative_frequency) AND store-only
-    (no fulfillment SKUs).  The precompute dedup is a single-channel/store-only optimization —
-    a fulfillment dataset runs multi-channel and samples inline (no shared batches file), so this
-    e2e only applies to store-only pairs.  Pre-rename DBs (demand_frequency) aren't loadable."""
+    (no fulfillment SKUs).
+
+    Store-only because this e2e asserts ONE shared batches file per pair: a mixed catalogue runs
+    multi-channel and `ensure_batches` produces one cache per channel family, so the single-file
+    assertion would not hold.  (It does still precompute — an earlier version of this docstring
+    claimed a fulfillment dataset samples inline, which is wrong.)
+
+    The relative_frequency probe is a data-vintage check: a catalogue generated before `418d6bf`
+    still has the old `demand_frequency` column and raises in load_inventory_from_db."""
     try:
         c = sqlite3.connect(inv_db)
         cols = [r[1] for r in c.execute('PRAGMA table_info(cartons)')]

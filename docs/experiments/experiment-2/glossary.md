@@ -57,7 +57,8 @@ zone is cheapest).
 
 ### f_s — relative (pick) frequency { #f-s }
 A SKU's pick-selection weight as a **[0,1] relative share** — *not* an absolute pick rate; stored
-as `relative_frequency` (DB column `demand_frequency`). Drives weighted batch sampling, so it shows
+as `relative_frequency` — the same name in the Python model and the `cartons` DB column. Drives
+weighted batch sampling, so it shows
 up in every travel-weighted score: hot SKUs are the ones worth putting up front. Its distribution
 is on [Inventory baselines](inventory.md#relative-frequency-distributions).
 

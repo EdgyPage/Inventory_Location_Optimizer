@@ -42,6 +42,12 @@ It resolves numbered references against the headings actually present, and word 
 (`§Conventions`) against heading text. A bare filename mention is not a reference and is ignored.
 The `Stop` hook runs it only when a Markdown file changed — which is the only time it can break.
 
+**Known gap:** the pattern requires a `<doc>.md` token before the marker, so a document referring to
+its *own* sections (`see §7`) is invisible to the guard. CLAUDE.md carried exactly that — a pointer
+to a §7 that never existed. Rather than widen the pattern (a bare `§7` in prose is far more often
+not a reference), the fix was to remove the intra-document number: say "the last section" and there
+is nothing to rot. Prefer that phrasing over a self-numbered cross-reference.
+
 ```bash
 python context/guards/docref_guard.py --scan
 ```

@@ -3,7 +3,7 @@
 A warehouse-placement simulator: generate a catalogue, place inventory by competing assignment
 functions, simulate picking, compare labour cost. This file holds only what is **cross-cutting and
 non-obvious**. Granular behaviour lives in docstrings, directory membership in package READMEs, and
-verified anchors in `context/` — see §7 before adding anything here.
+verified anchors in `context/` — see the last section before adding anything here.
 
 | Read this | When |
 |---|---|
@@ -89,8 +89,6 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   are conditional: `<channel>/` exists only on a mixed catalogue, `_frozen/<pair>/` only on a
   multi-cell run. Assuming otherwise silently dropped every store-only run from the what-if scanners.
   Use `runschema.resolver_for(base_dir)`; never join path strings.
-- **`relative_frequency` (Python attribute) vs `demand_frequency` (SQLite column).** They refer to
-  the same thing. A whole committed dataset became unloadable over this.
 - **7 legacy `check()`-harness test files print PASS/FAIL but never raise** — they pass under pytest
   while failing. `Tests/unit/test_reorder_queue.py` has zero `def test_` functions at all.
 - **Every `Tests/architecture/*` file does `pytest.importorskip('yaml')`.** Without pyyaml, all eight

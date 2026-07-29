@@ -11,9 +11,12 @@ What the warehouse stores, and how often each thing is asked for.
 
 The dependency chain is a clean line: `Affinity_Store → Inventory_Builder → Order → Demand`.
 
-**Naming trap:** the Python attribute is `relative_frequency`, but the SQLite column is still
-`demand_frequency`. A catalogue DB written before that rename cannot be loaded by current code — a
-whole committed dataset was deleted for exactly this reason.
+**Data vintage, not a naming trap:** `relative_frequency` is the name in *both* the `Demand` model
+and the `cartons` DB column — it was renamed from `demand_frequency` in `418d6bf`, and both sides
+moved together. A catalogue generated before that commit still has the old column and raises
+`sqlite3.OperationalError` in `load_inventory_from_db`; regenerate it rather than patching a shim in.
+A whole committed dataset was deleted for exactly this reason, which is why the failure is worth
+recognising on sight.
 
 **Does NOT belong here:** generating catalogues from scratch (→ `Warehouse/generation/`, which is
 the CLI layer and its own architecture layer).
