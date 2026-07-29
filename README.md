@@ -65,7 +65,7 @@ Equilibrium knobs (module constants): `EQUILIBRIUM_COVERAGE_BATCHES` (=10, targe
 `generate_affinity.py` to produce `affinity.db` (~150–200 MB) — a runnable **profile** is the
 inventory + affinity pair the simulator consumes.
 
-### 2. Adjust strategies — `Optimization/strategies.py`
+### 2. Adjust strategies — `Optimization/config/strategies.py`
 
 Which placement families run is a data-driven registry. Edit the lists near the bottom:
 

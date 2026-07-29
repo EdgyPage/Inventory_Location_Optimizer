@@ -82,7 +82,7 @@
       "scope": "pair",
       "optional": true,
       "condition": "the batch-precompute dedup; absent when a channel samples inline.",
-      "writer": "write_batches@Optimization/batch_precompute.py"
+      "writer": "write_batches@Optimization/simdriver/batch_precompute.py"
     },
     "batches_long_csv": {
       "path": "{cell}/{pair}/{config}/{channel?}/batches_long.csv",
@@ -126,7 +126,7 @@
       "scope": "channel_run",
       "optional": true,
       "condition": "present only while an arm is in flight; removed on finalize.",
-      "writer": "save_worker_checkpoint@Optimization/strategy_runner.py"
+      "writer": "save_worker_checkpoint@Optimization/simdriver/strategy_runner.py"
     },
     "compare_pngs": {
       "path": "{cell}/{pair}/{config}/{channel?}/compare/**/*.png",
@@ -165,7 +165,7 @@
       ],
       "optional": true,
       "condition": "keyframe_interval > 0.",
-      "writer": "save_bin_keyframe@Optimization/Picking_Data.py"
+      "writer": "save_bin_keyframe@Optimization/persistence/Picking_Data.py"
     },
     "per_run_summary_csv": {
       "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv",
@@ -195,7 +195,7 @@
       "scope": "pair",
       "optional": true,
       "condition": "SINGLE-cell runs only \u2014 a multi-cell run shares _frozen/<pair>/planned_inventory.db across cells.",
-      "writer": "build_shared_assets@Optimization/sim_assets.py"
+      "writer": "build_shared_assets@Optimization/simdriver/sim_assets.py"
     },
     "resume_pkl": {
       "path": "{cell}/{pair}/{config}/{channel?}/resume.pkl",
@@ -203,33 +203,33 @@
       "scope": "channel_run",
       "optional": true,
       "condition": "present only while a config run is in flight; removed on finalize.",
-      "writer": "_save_resume@Optimization/sim_manifest.py"
+      "writer": "_save_resume@Optimization/runschema/sim_manifest.py"
     },
     "run_layout": {
       "path": "run_layout.json",
       "format": "json",
       "scope": "run",
-      "writer": "write_run_layout@Optimization/sim_manifest.py",
+      "writer": "write_run_layout@Optimization/runschema/sim_manifest.py",
       "note": "the cell-tree descriptor; carries schema_id, which selects THIS contract."
     },
     "run_log": {
       "path": "run.log",
       "format": "text",
       "scope": "run",
-      "writer": "_setup_logging@Optimization/sim_config.py"
+      "writer": "_setup_logging@Optimization/config/sim_config.py"
     },
     "run_manifest": {
       "path": "{cell}/run_manifest.json",
       "format": "json",
       "scope": "cell",
-      "writer": "write_run_manifest@Optimization/sim_manifest.py",
+      "writer": "write_run_manifest@Optimization/runschema/sim_manifest.py",
       "note": "written PER CELL (_run_scenario receives the cell dir), not at the run root."
     },
     "run_spec": {
       "path": "run_spec.json",
       "format": "json",
       "scope": "run",
-      "writer": "_write_run_spec@Optimization/sim_manifest.py"
+      "writer": "_write_run_spec@Optimization/runschema/sim_manifest.py"
     },
     "runtime_metrics_db": {
       "path": "runtime_metrics.db",
@@ -238,7 +238,7 @@
       "tables": [
         "runtime"
       ],
-      "writer": "record_arm@Optimization/runtime_metrics.py",
+      "writer": "record_arm@Optimization/persistence/runtime_metrics.py",
       "note": "the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path."
     },
     "runtime_pngs": {
@@ -269,7 +269,7 @@
         "bin_scores",
         "sku_scores"
       ],
-      "writer": "_run_strategy_worker@Optimization/strategy_runner.py"
+      "writer": "_run_strategy_worker@Optimization/simdriver/strategy_runner.py"
     },
     "sim_meta": {
       "path": "{cell}/{pair}/{config}/{channel?}/sim_meta.json",
@@ -329,7 +329,7 @@
         "aisle_type_stats",
         "aisle_layout"
       ],
-      "writer": "build_shared_assets@Optimization/sim_assets.py"
+      "writer": "build_shared_assets@Optimization/simdriver/sim_assets.py"
     },
     "whatif_delta_csv": {
       "group": "whatif",

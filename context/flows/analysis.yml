@@ -21,8 +21,8 @@ steps:
       <config>/ for store-only layouts, <config>/<channel>/ for mixed) and group
       them by pair for the shared-asset rebuild.
     functions:
-      - {name: iter_channel_runs, file: Optimization/runlayout.py, kind: function}
-      - {name: ChannelRun, file: Optimization/runlayout.py, kind: class}
+      - {name: iter_channel_runs, file: Optimization/runschema/runlayout.py, kind: function}
+      - {name: ChannelRun, file: Optimization/runschema/runlayout.py, kind: class}
       - {name: _config_jobs, file: Optimization/run_analysis.py, kind: function}
     reads: [sim_meta]
     writes: []
@@ -40,8 +40,8 @@ steps:
       - {name: evaluation, file: Optimization/Performance_Evaluations/core/registry.py, kind: function}
       - {name: PRESETS, file: Optimization/Performance_Evaluations/presets.py, kind: const}
       - {name: _build_series, file: Optimization/Performance_Evaluations/common/series.py, kind: function}
-      - {name: load_batch_stats, file: Optimization/Picking_Data.py, kind: function}
-      - {name: load_task_stats, file: Optimization/Picking_Data.py, kind: function}
+      - {name: load_batch_stats, file: Optimization/persistence/Picking_Data.py, kind: function}
+      - {name: load_task_stats, file: Optimization/persistence/Picking_Data.py, kind: function}
     reads: [sim_db, sim_meta]
     writes: [series_json, analysis_pngs]
     guards: [Tests/test_visualization_data.py]

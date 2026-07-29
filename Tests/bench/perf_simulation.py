@@ -52,7 +52,7 @@ from Warehouse.Pick import PickConfig, PickSimulation
 from Warehouse.Storage_Primitive import Storage_Size
 from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Warehouse.Workload_Builder import Batch, BatchConfig, Task
-from Optimization.Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Optimization.metrics.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 
 def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) -> AffinityStore:
@@ -189,7 +189,7 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_A.enqueue_all(inventory.orders, quantity=1)
 
-    from Optimization.Workload import WorkloadParams
+    from Optimization.metrics.Workload import WorkloadParams
     pick_cfg = PickConfig(
         num_pickers      = n_pickers,
         x_speed      = 1.0,

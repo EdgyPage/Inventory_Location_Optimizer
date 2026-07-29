@@ -9,7 +9,7 @@ from Warehouse.fast_pick import DeferredPickSimulation
 from Warehouse.Storage_Primitive import FulfillmentCart
 from Warehouse.Workload_Builder import Task
 from Warehouse.cost_model import sec_per_inch
-from Optimization.Simulation_Analytics import (
+from Optimization.metrics.Simulation_Analytics import (
     task_time_breakdown, task_travel_breakdown, task_travel_axes)
 
 

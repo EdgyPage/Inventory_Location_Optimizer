@@ -20,7 +20,7 @@ from Warehouse.Aisle_Storage import Aisle
 from Warehouse.Inventory_Management import Inventory_Manager, Placement
 from Warehouse.Assignment_Functions import build_cluster_minimizing_assignment_fn
 from Warehouse.Pick import PickConfig, PickSimulation
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.Warehouse_Builder import Warehouse_Builder
 from Warehouse.Workload_Builder import Batch, BatchConfig, Task
 from perf_simulation import _build_inventory, _build_affinity_store, _build_warehouse_cfg

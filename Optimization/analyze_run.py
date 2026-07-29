@@ -19,10 +19,10 @@ import logging
 import os
 import sys
 
-from Optimization import (runlayout, run_analysis, run_channel_rollup, run_whatif_delta,
-                          run_whatif_labor, run_runtime_graphs)
-from Optimization.sim_config import _OUTPUT_DIR, _setup_logging
-from Optimization.sim_manifest import read_run_layout
+from Optimization import run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor, run_runtime_graphs
+from Optimization.runschema import runlayout
+from Optimization.config.sim_config import _OUTPUT_DIR, _setup_logging
+from Optimization.runschema.sim_manifest import read_run_layout
 
 
 def _step(log, what, fn):
@@ -76,7 +76,7 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
                 ref = layout['reference']
             else:
                 try:
-                    from Optimization.whatif_config import WHATIF
+                    from Optimization.config.whatif_config import WHATIF
                     ref = WHATIF.get('reference')
                 except Exception:                              # noqa: BLE001
                     ref = None

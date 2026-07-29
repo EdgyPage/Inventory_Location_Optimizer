@@ -22,11 +22,11 @@ steps:
       All tunables live in the nested CONFIG dict (global + per-channel sections) with
       the STORE_CONFIGS/FULFILLMENT_CONFIGS pick-time sweeps; CLI flags override.
     functions:
-      - {name: CONFIG, file: Optimization/sim_config.py, kind: const}
-      - {name: STORE_CONFIGS, file: Optimization/sim_config.py, kind: const}
-      - {name: FULFILLMENT_CONFIGS, file: Optimization/sim_config.py, kind: const}
-      - {name: regime_sizing_from_config, file: Optimization/sim_config.py, kind: function}
-      - {name: _build_pick_cfg, file: Optimization/sim_config.py, kind: function}
+      - {name: CONFIG, file: Optimization/config/sim_config.py, kind: const}
+      - {name: STORE_CONFIGS, file: Optimization/config/sim_config.py, kind: const}
+      - {name: FULFILLMENT_CONFIGS, file: Optimization/config/sim_config.py, kind: const}
+      - {name: regime_sizing_from_config, file: Optimization/config/sim_config.py, kind: function}
+      - {name: _build_pick_cfg, file: Optimization/config/sim_config.py, kind: function}
     reads: []
     writes: []
     guards: [Tests/test_channel_runner_smoke.py, Tests/test_regime_sizing.py]
@@ -37,10 +37,10 @@ steps:
       Scan the profiles tree for (label, inventory.db, affinity.db) pairs; default is
       the newest generated profile run only.
     functions:
-      - {name: discover_db_pairs, file: Optimization/runlayout.py, kind: function}
-      - {name: find_latest_db_pairs, file: Optimization/runlayout.py, kind: function}
-      - {name: _write_run_spec, file: Optimization/sim_manifest.py, kind: function}
-      - {name: _load_run_spec, file: Optimization/sim_manifest.py, kind: function}
+      - {name: discover_db_pairs, file: Optimization/runschema/runlayout.py, kind: function}
+      - {name: find_latest_db_pairs, file: Optimization/runschema/runlayout.py, kind: function}
+      - {name: _write_run_spec, file: Optimization/runschema/sim_manifest.py, kind: function}
+      - {name: _load_run_spec, file: Optimization/runschema/sim_manifest.py, kind: function}
       - {name: _apply_run_spec, file: Optimization/run_simulation.py, kind: function}
     reads: [inventory_db, affinity_db]
     writes: [run_manifest, run_spec]
@@ -53,9 +53,9 @@ steps:
       sizing from CONFIG), persist the planned inventory + warehouse stats (rename-proof
       fingerprint), and return the picklable shared dict every worker receives.
     functions:
-      - {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}
+      - {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}
       - {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}
-      - {name: compute_warehouse_fingerprint, file: Optimization/Warehouse_Data.py, kind: function}
+      - {name: compute_warehouse_fingerprint, file: Optimization/persistence/Warehouse_Data.py, kind: function}
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
     guards: [Tests/test_warehouse_sizing.py, Tests/test_regime_sizing.py]
@@ -71,11 +71,11 @@ steps:
       - {name: _channel_runs_for, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: _plan_strategy_start, file: Optimization/simdriver/workunits.py, kind: function}
-      - {name: make_channel, file: Optimization/channels.py, kind: function}
-      - {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}
-      - {name: batch_fingerprint, file: Optimization/batch_precompute.py, kind: function}
-      - {name: create_run, file: Optimization/Picking_Data.py, kind: function}
-      - {name: _save_resume, file: Optimization/sim_manifest.py, kind: function}
+      - {name: make_channel, file: Optimization/config/channels.py, kind: function}
+      - {name: ensure_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}
+      - {name: batch_fingerprint, file: Optimization/simdriver/batch_precompute.py, kind: function}
+      - {name: create_run, file: Optimization/persistence/Picking_Data.py, kind: function}
+      - {name: _save_resume, file: Optimization/runschema/sim_manifest.py, kind: function}
     reads: [planned_inventory_db, affinity_db]
     writes: [config_json, batches_cache, resume_pkl, sim_db]
     guards: [Tests/test_channel_runner_smoke.py, Tests/test_channel_strategy_subset.py, Tests/test_batch_precompute.py]
@@ -95,10 +95,10 @@ steps:
       - {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function}
       - {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}
-      - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}
+      - {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function}
       - {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}
       - {name: per_pick, file: Warehouse/cost_model.py, kind: function}
-      - {name: load_batches, file: Optimization/batch_precompute.py, kind: function}
+      - {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}
     reads: [planned_inventory_db, affinity_db, batches_cache]
     writes: [sim_db, keyframes_db, checkpoint_pkl]
     guards: [Tests/test_index_equivalence.py, Tests/test_rng_determinism.py, Tests/test_batch_precompute_e2e.py, Tests/test_crash_recovery.py]
@@ -112,8 +112,8 @@ steps:
     functions:
       - {name: _finalize_config_run, file: Optimization/simdriver/supervisor.py, kind: function}
       - {name: _warn_blank_arms, file: Optimization/simdriver/scenario.py, kind: function}
-      - {name: iter_sim_dbs, file: Optimization/runlayout.py, kind: function}
-      - {name: write_run_manifest, file: Optimization/sim_manifest.py, kind: function}
+      - {name: iter_sim_dbs, file: Optimization/runschema/runlayout.py, kind: function}
+      - {name: write_run_manifest, file: Optimization/runschema/sim_manifest.py, kind: function}
     reads: [sim_db]
     writes: [sim_meta]
     guards: [Tests/test_channel_runner_smoke.py]

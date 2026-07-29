@@ -8,7 +8,7 @@ initial layout  ×  assignment function  ×  re-slot
    {uni, opt}    ×   {8 families below}  ×  {noRSL, …}   → run-id e.g. opt_tmin_norsl
 ```
 
-defined data-driven in [strategies.py](../../Optimization/strategies.py). For the line-by-line code trace see
+defined data-driven in [strategies.py](../../Optimization/config/strategies.py). For the line-by-line code trace see
 [ASSIGNMENT_FUNCTIONS_TRACE.md](ASSIGNMENT_FUNCTIONS_TRACE.md); for the decay/efficiency math see
 [PERFORMANCE_MODEL.md](PERFORMANCE_MODEL.md). The metric that actually drives makespan is
 **ΣW = total within-aisle picker work per batch** ("productivity hours", r≈0.95 with makespan);

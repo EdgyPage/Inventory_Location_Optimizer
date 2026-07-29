@@ -45,8 +45,8 @@ from Warehouse.Workload_Builder import Batch, Task
 from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Warehouse.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db
-from Optimization.strategies import STRATEGY_BY_KEY, StrategyContext
-from Optimization.Workload import WorkloadParams
+from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
+from Optimization.metrics.Workload import WorkloadParams
 
 Bucket = tuple   # (handling, category, size, unit_type)
 

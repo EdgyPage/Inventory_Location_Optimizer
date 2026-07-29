@@ -59,7 +59,7 @@ def test_merge_preserves_notes_and_prunes_deleted():
     ex = _load_extract()
     with open(os.path.join(_ROOT, 'context', 'files.yml'), encoding='utf-8') as fh:
         cat = yaml.safe_load(fh)
-    victim = 'Optimization/strategy_runner.py'
+    victim = 'Optimization/simdriver/strategy_runner.py'
     assert victim in cat['files']
     cat['files'][victim]['purpose'] = 'SENTINEL purpose — must survive resync'
     cat['files'][victim]['notes'] = 'SENTINEL notes — must survive resync'

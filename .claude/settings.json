@@ -43,7 +43,7 @@
       "Bash(python Optimization/run_analysis.py --help)",
       "Bash(python Optimization/run_channel_rollup.py --help)",
       "Bash(python -c \"import sys; sys.path.insert\\(0,'.'\\); sys.path.insert\\(0,'Visualization'\\); import db_reader\")",
-      "Bash(git commit -q -m 'refactor: consolidate run-tree discovery into Optimization/runlayout.py *)",
+      "Bash(git commit -q -m 'refactor: consolidate run-tree discovery into Optimization/runschema/runlayout.py *)",
       "Bash(python -m compileall -q Warehouse)",
       "Bash(git commit -q -m 'refactor: add binkey_of\\(\\)/_D_map\\(\\)/_sigma_delta\\(\\) helpers; deduplicate call sites *)",
       "Bash(git commit -q -m 'refactor: single-source physical footprint constants \\(Warehouse/physical.py\\) *)",

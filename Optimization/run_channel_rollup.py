@@ -46,7 +46,7 @@ def _is_num(x) -> bool:
 
 def _find_series(base_dir: str) -> list[tuple[str, str]]:
     """(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run."""
-    from Optimization.runlayout import iter_channel_runs
+    from Optimization.runschema.runlayout import iter_channel_runs
     out = []
     for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
         sp = os.path.join(run.path, 'series.json')

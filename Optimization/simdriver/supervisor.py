@@ -15,10 +15,10 @@ import multiprocessing
 import os
 from concurrent.futures.process import BrokenProcessPool
 
-from Optimization.sim_manifest import _resume_path
-from Optimization.strategy_runner import _cleanup_checkpoints, _run_strategy_worker
+from Optimization.runschema.sim_manifest import _resume_path
+from Optimization.simdriver.strategy_runner import _cleanup_checkpoints, _run_strategy_worker
 from Optimization.simdriver.workunits import _build_work_units
-from Optimization import runtime_metrics
+from Optimization.persistence import runtime_metrics
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:

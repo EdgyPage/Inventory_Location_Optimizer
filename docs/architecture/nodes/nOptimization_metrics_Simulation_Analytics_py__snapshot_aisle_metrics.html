@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>snapshot_aisle_metrics · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_Simulation_Analytics_py__snapshot_aisle_metrics" data-id="Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a> <span class="sep">›</span> <span class="here"><code>snapshot_aisle_metrics</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>snapshot_aisle_metrics</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a></p>
+
+<pre class="sig"><code>def snapshot_aisle_metrics(manager: object, batch_id: int, run_id: int=0) -&gt; list</code></pre>
+<section class="doc">Capture the trip-cost equation state for every aisle in the manager.
+
+Call once per batch after check_reorders() and before picks — the same
+moment as build_pre_snapshot() — so the snapshot reflects the current
+warehouse layout after any reorder placements.
+
+Fields captured
+---------------
+n_skus     : len(_aisle_sku_sets[aid])            — unique SKUs in aisle
+n_bins     : sum(_aisle_sku_counts[aid].values())  — occupied bin count
+demand_sum : _aisle_demand_sum[aid]               — Σ f_i * q_i secondary score
+lift_sum   : _aisle_lift_sum[aid]                 — affinity co-location quality
+
+Strategy A note
+---------------
+For uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /
+_aisle_demand_sum are never populated.  Only aisles touched by B/C reorders
+will have non-zero values.  Strategy A produces no rows here by design —
+it has no structured placement state to track.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__AisleMetricRecord.html"><code>AisleMetricRecord</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py__snapshot_aisle_metrics">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20snapshot_aisle_metrics">Source ↗</a></p>
+</article>
+</main>
+</body></html>

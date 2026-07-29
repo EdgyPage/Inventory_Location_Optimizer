@@ -32,8 +32,8 @@ from Warehouse.Assignment_Functions import (
     build_optmap_fn,
     build_cluster_map_placement,
 )
-from Optimization.Workload import WorkloadParams, aisle_workload, aisle_workload_components
-from Optimization.Simulation_Analytics import expected_task_labor, task_time_breakdown
+from Optimization.metrics.Workload import WorkloadParams, aisle_workload, aisle_workload_components
+from Optimization.metrics.Simulation_Analytics import expected_task_labor, task_time_breakdown
 
 
 def _cfg() -> PickConfig:
@@ -441,7 +441,7 @@ def test_rank_cartlabor_disperses_only_when_cart_is_small():
 
 
 def test_rank_cartlabor_registered():
-    from Optimization.strategies import STRATEGY_BY_KEY, strategies_for
+    from Optimization.config.strategies import STRATEGY_BY_KEY, strategies_for
     assert 'uni_rank_cartlabor_norsl' in STRATEGY_BY_KEY
     keys = {s.key for s in strategies_for(('rank_cartlabor',))}
     assert {'uni_rank_cartlabor_norsl', 'opt_rank_cartlabor_norsl'} <= keys

@@ -12,7 +12,7 @@ artifacts:
     writer: {function: save_inventory_to_db, file: Warehouse/generation/generate_inventory.py}
     readers:
       - {function: load_inventory_from_db, file: Warehouse/generation/generate_inventory.py}
-      - {function: build_shared_assets, file: Optimization/sim_assets.py}
+      - {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     match: "inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
     tables: [cartons, run_metadata, creation_plan]
@@ -31,7 +31,7 @@ artifacts:
   run_manifest:
     path_pattern: "comparison_<ts>/<cell>/run_manifest.json"
     format: json
-    writer: {function: write_run_manifest, file: Optimization/sim_manifest.py}
+    writer: {function: write_run_manifest, file: Optimization/runschema/sim_manifest.py}
     readers:
       - {function: main, file: docs/experiments/ingest.py}
     match: "run_manifest.json"
@@ -42,9 +42,9 @@ artifacts:
     # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
     path_pattern: "comparison_<ts>/run_spec.json"
     format: json
-    writer: {function: _write_run_spec, file: Optimization/sim_manifest.py}
+    writer: {function: _write_run_spec, file: Optimization/runschema/sim_manifest.py}
     readers:
-      - {function: _load_run_spec, file: Optimization/sim_manifest.py}
+      - {function: _load_run_spec, file: Optimization/runschema/sim_manifest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
              ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
@@ -58,9 +58,9 @@ artifacts:
     path_pattern: "comparison_<ts>/run_layout.json"
     format: json
     schema_file: Optimization/schemas/run_layout.schema.json
-    writer: {function: write_run_layout, file: Optimization/sim_manifest.py}
+    writer: {function: write_run_layout, file: Optimization/runschema/sim_manifest.py}
     readers:
-      - {function: cells, file: Optimization/runlayout.py}
+      - {function: cells, file: Optimization/runschema/runlayout.py}
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
     fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
@@ -69,21 +69,21 @@ artifacts:
   warehouse_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"
     format: sqlite
-    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    writer: {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     readers:
       - {function: discover_runs, file: Visualization/db_reader.py}
     # the filename literal lives in the CALLER (run_simulation composes the path);
     # the writer's tripwire is its parameter name.
     match: "warehouse_db_path"
-    schema_file: Optimization/Warehouse_Data.py
+    schema_file: Optimization/persistence/Warehouse_Data.py
     tables: [warehouse_stats, aisle_type_stats]
 
   planned_inventory_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/planned_inventory.db"
     format: sqlite
-    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    writer: {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     readers:
-      - {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+      - {function: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py}
     match: "planned_inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
     tables: [cartons]
@@ -105,51 +105,51 @@ artifacts:
   batches_cache:
     path_pattern: "comparison_<ts>/<cell>/<pair>/_batches_*.pkl"
     format: pickle
-    writer: {function: write_batches, file: Optimization/batch_precompute.py}
+    writer: {function: write_batches, file: Optimization/simdriver/batch_precompute.py}
     readers:
-      - {function: load_batches, file: Optimization/batch_precompute.py}
+      - {function: load_batches, file: Optimization/simdriver/batch_precompute.py}
     match: "_batches_"
     fields: [fingerprint, n, batches]
 
   resume_pkl:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/resume.pkl"
     format: pickle
-    writer: {function: _save_resume, file: Optimization/sim_manifest.py}
+    writer: {function: _save_resume, file: Optimization/runschema/sim_manifest.py}
     readers:
-      - {function: _load_resume, file: Optimization/sim_manifest.py}
+      - {function: _load_resume, file: Optimization/runschema/sim_manifest.py}
     match: "resume.pkl"
     fields: [run_ids, next_batch]
 
   checkpoint_pkl:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
     format: pickle
-    writer: {function: save_worker_checkpoint, file: Optimization/strategy_runner.py}
+    writer: {function: save_worker_checkpoint, file: Optimization/simdriver/strategy_runner.py}
     readers:
-      - {function: load_worker_checkpoint, file: Optimization/strategy_runner.py}
+      - {function: load_worker_checkpoint, file: Optimization/simdriver/strategy_runner.py}
     match: "_ckpt_"
     fields: [next_batch_id]
 
   sim_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
     format: sqlite
-    writer: {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+    writer: {function: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py}
     readers:
       - {function: EvalContext, file: Optimization/Performance_Evaluations/core/context.py}
-      - {function: iter_sim_dbs, file: Optimization/runlayout.py}
+      - {function: iter_sim_dbs, file: Optimization/runschema/runlayout.py}
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "sim_"
-    schema_file: Optimization/Picking_Data.py
+    schema_file: Optimization/persistence/Picking_Data.py
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
              bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
 
   keyframes_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
     format: sqlite
-    writer: {function: save_bin_keyframe, file: Optimization/Picking_Data.py}
+    writer: {function: save_bin_keyframe, file: Optimization/persistence/Picking_Data.py}
     readers:
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "keyframes.db"
-    schema_file: Optimization/Picking_Data.py
+    schema_file: Optimization/persistence/Picking_Data.py
     tables: [bin_keyframe]
 
   sim_meta:
@@ -167,12 +167,12 @@ artifacts:
   runtime_metrics_db:
     path_pattern: "comparison_<ts>/runtime_metrics.db"
     format: sqlite
-    writer: {function: record_arm, file: Optimization/runtime_metrics.py}
+    writer: {function: record_arm, file: Optimization/persistence/runtime_metrics.py}
     readers:
-      - {function: load_rows, file: Optimization/runtime_metrics.py}
+      - {function: load_rows, file: Optimization/persistence/runtime_metrics.py}
       - {function: run, file: Optimization/run_runtime_graphs.py}
     match: "runtime_metrics.db"
-    schema_file: Optimization/runtime_metrics.py
+    schema_file: Optimization/persistence/runtime_metrics.py
     tables: [runtime]
 
   runtime_pngs:

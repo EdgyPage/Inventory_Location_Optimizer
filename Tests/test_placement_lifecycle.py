@@ -41,7 +41,7 @@ from Warehouse.Pick import PickConfig, PickSimulation
 from Warehouse.Storage_Primitive import Pallet, Singleton, viable_storage_units
 from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Warehouse.Workload_Builder import Batch, BatchConfig, Task
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 _GREEN  = '\033[92m'

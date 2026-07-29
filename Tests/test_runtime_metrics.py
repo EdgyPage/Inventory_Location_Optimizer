@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from Optimization import runtime_metrics as rm
+from Optimization.persistence import runtime_metrics as rm
 from Optimization import run_runtime_graphs as rg
 
 

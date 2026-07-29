@@ -50,10 +50,10 @@ from Warehouse.Aisle_Storage import Aisle
 from Warehouse.Inventory_Builder import Inventory
 from Warehouse.Inventory_Management import Inventory_Manager
 from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.Workload_Builder import Batch, BatchConfig, Task
 from Warehouse.Pick import PickConfig, PickSimulation
-from Optimization.strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
+from Optimization.config.strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
 
 # Reuse the small-sim builders from the perf harness (no DB needed).
 from perf_simulation import _build_inventory, _build_affinity_store, _CATEGORIES

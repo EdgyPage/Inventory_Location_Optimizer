@@ -358,7 +358,7 @@ def define_env(env):
 
         Sources: `_travel_balanced_impl` / `build_optmap_fn` in
         Warehouse/Assignment_Functions.py; `build_optimal_map` in
-        Warehouse/inventory_optimal.py; registry in Optimization/strategies.py.
+        Warehouse/inventory_optimal.py; registry in Optimization/config/strategies.py.
         """
         return "\n".join([
             "All three share one **per-bin labor primitive** — the expected time to make one "

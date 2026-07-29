@@ -227,7 +227,7 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
         args.reference = rt.layout.get('reference')
     if args.reference is None:
         try:
-            from Optimization.whatif_config import WHATIF
+            from Optimization.config.whatif_config import WHATIF
             args.reference = WHATIF.get('reference', 'k1_off_rr')
         except Exception:
             args.reference = 'k1_off_rr'

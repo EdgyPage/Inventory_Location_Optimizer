@@ -12,8 +12,8 @@ from __future__ import annotations
 import json
 import os
 
-from Optimization.sim_manifest import write_run_layout, read_run_layout
-from Optimization.runlayout import cells
+from Optimization.runschema.sim_manifest import write_run_layout, read_run_layout
+from Optimization.runschema.runlayout import cells
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SCHEMA = os.path.join(_ROOT, 'Optimization', 'schemas', 'run_layout.schema.json')

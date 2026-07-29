@@ -25,7 +25,7 @@ import os
 from types import SimpleNamespace
 
 from Optimization import run_simulation as rs
-from Optimization.sim_manifest import _save_resume, _resume_path
+from Optimization.runschema.sim_manifest import _save_resume, _resume_path
 
 _LOG = logging.getLogger('test_crash_recovery')
 

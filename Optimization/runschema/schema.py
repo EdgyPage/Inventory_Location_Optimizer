@@ -18,7 +18,7 @@ Prose (``note`` / ``condition``) is EXCLUDED from the hash — documenting a lev
 clearly must never mint a new schema.  Anything a path resolver actually depends on is included.
 
 ``runschema.resolver.RunTree`` interprets these tables generically; there is no per-schema Python.
-The walkers themselves stay in ``Optimization/runlayout.py`` (still the single owner of tree
+The walkers themselves stay in ``Optimization/runschema/runlayout.py`` (still the single owner of tree
 traversal); the resolver delegates to them and adds the cell level, the optional-segment handling,
 and the axis inventory the viewer navigates by.
 
@@ -39,7 +39,7 @@ NAME — consume levels positionally against the axis lists in ``run_layout.json
 """
 from __future__ import annotations
 
-from Optimization.runtime_metrics import RUNTIME_DB
+from Optimization.persistence.runtime_metrics import RUNTIME_DB
 
 # ── template vocabulary ─────────────────────────────────────────────────────────
 # What a resolver must be able to interpret to serve THIS declaration.  Replaces a version integer:
@@ -91,17 +91,17 @@ ARTIFACTS = {
     # ── run root ────────────────────────────────────────────────────────────────
     'run_layout': {
         'path': 'run_layout.json', 'format': 'json', 'scope': 'run',
-        'writer': 'write_run_layout@Optimization/sim_manifest.py',
+        'writer': 'write_run_layout@Optimization/runschema/sim_manifest.py',
         'note': 'the cell-tree descriptor; carries schema_id, which selects THIS contract.'},
     'run_spec': {
         'path': 'run_spec.json', 'format': 'json', 'scope': 'run',
-        'writer': '_write_run_spec@Optimization/sim_manifest.py'},
+        'writer': '_write_run_spec@Optimization/runschema/sim_manifest.py'},
     'run_log': {
         'path': 'run.log', 'format': 'text', 'scope': 'run',
-        'writer': '_setup_logging@Optimization/sim_config.py'},
+        'writer': '_setup_logging@Optimization/config/sim_config.py'},
     'runtime_metrics_db': {
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],
-        'writer': 'record_arm@Optimization/runtime_metrics.py',
+        'writer': 'record_arm@Optimization/persistence/runtime_metrics.py',
         'note': 'the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path.'},
     'runtime_pngs': {
         'path': '_runtime/*.png', 'format': 'png', 'scope': 'run',
@@ -150,7 +150,7 @@ ARTIFACTS = {
     # ── per cell ────────────────────────────────────────────────────────────────
     'run_manifest': {
         'path': '{cell}/run_manifest.json', 'format': 'json', 'scope': 'cell',
-        'writer': 'write_run_manifest@Optimization/sim_manifest.py',
+        'writer': 'write_run_manifest@Optimization/runschema/sim_manifest.py',
         'note': 'written PER CELL (_run_scenario receives the cell dir), not at the run root.'},
     'channel_rollup_csv': {
         'path': '{cell}/channel_rollup.csv', 'format': 'csv', 'scope': 'cell',
@@ -186,13 +186,13 @@ ARTIFACTS = {
     'warehouse_db': {
         'path': '{cell}/{pair}/warehouse.db', 'format': 'sqlite', 'scope': 'pair',
         'tables': ['warehouse_stats', 'aisle_type_stats', 'aisle_layout'],
-        'writer': 'build_shared_assets@Optimization/sim_assets.py'},
+        'writer': 'build_shared_assets@Optimization/simdriver/sim_assets.py'},
     'planned_inventory_db': {
         'path': '{cell}/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'pair',
         'optional': True,
         'condition': 'SINGLE-cell runs only — a multi-cell run shares _frozen/<pair>/'
                      'planned_inventory.db across cells.',
-        'writer': 'build_shared_assets@Optimization/sim_assets.py'},
+        'writer': 'build_shared_assets@Optimization/simdriver/sim_assets.py'},
     # The planned inventory REGARDLESS of run shape: frozen first, because build_shared_assets
     # returns the frozen DB verbatim when one was supplied.  Declaring the precedence here is what
     # lets the resolver stay generic — it used to be an os.path.exists branch in Python.
@@ -204,7 +204,7 @@ ARTIFACTS = {
         'path': '{cell}/{pair}/_batches_*.pkl', 'format': 'pickle', 'scope': 'pair',
         'optional': True,
         'condition': 'the batch-precompute dedup; absent when a channel samples inline.',
-        'writer': 'write_batches@Optimization/batch_precompute.py'},
+        'writer': 'write_batches@Optimization/simdriver/batch_precompute.py'},
 
     # ── per config ──────────────────────────────────────────────────────────────
     'config_json': {
@@ -217,12 +217,12 @@ ARTIFACTS = {
         'format': 'sqlite', 'scope': 'channel_run',
         'tables': ['simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
                    'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores'],
-        'writer': '_run_strategy_worker@Optimization/strategy_runner.py'},
+        'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db',
         'format': 'sqlite', 'scope': 'channel_run', 'tables': ['bin_keyframe'],
         'optional': True, 'condition': 'keyframe_interval > 0.',
-        'writer': 'save_bin_keyframe@Optimization/Picking_Data.py'},
+        'writer': 'save_bin_keyframe@Optimization/persistence/Picking_Data.py'},
     'sim_meta': {
         'path': '{cell}/{pair}/{config}/{channel?}/sim_meta.json',
         'format': 'json', 'scope': 'channel_run',
@@ -297,10 +297,10 @@ ARTIFACTS = {
         'path': '{cell}/{pair}/{config}/{channel?}/resume.pkl',
         'format': 'pickle', 'scope': 'channel_run', 'optional': True,
         'condition': 'present only while a config run is in flight; removed on finalize.',
-        'writer': '_save_resume@Optimization/sim_manifest.py'},
+        'writer': '_save_resume@Optimization/runschema/sim_manifest.py'},
     'checkpoint_pkl': {
         'path': '{cell}/{pair}/{config}/{channel?}/_ckpt_{strategy}.pkl',
         'format': 'pickle', 'scope': 'channel_run', 'optional': True,
         'condition': 'present only while an arm is in flight; removed on finalize.',
-        'writer': 'save_worker_checkpoint@Optimization/strategy_runner.py'},
+        'writer': 'save_worker_checkpoint@Optimization/simdriver/strategy_runner.py'},
 }

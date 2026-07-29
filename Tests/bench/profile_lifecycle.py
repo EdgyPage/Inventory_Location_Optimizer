@@ -55,9 +55,9 @@ from Warehouse.Assignment_Functions import (
 )
 from Warehouse.Pick import PickConfig, PickSimulation
 from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.Workload_Builder import Batch, BatchConfig, Task
-from Optimization.Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Optimization.metrics.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 # Reuse setup helpers from the existing benchmark — no duplication, no source changes
 from perf_simulation import (

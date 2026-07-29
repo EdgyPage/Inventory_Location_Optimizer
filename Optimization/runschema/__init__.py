@@ -64,7 +64,7 @@ def resolver_for(base_dir: str) -> RunTree:
     layout is what made every downstream tool drift in the first place.
     """
     from Optimization.runschema import contract
-    from Optimization.sim_manifest import read_run_layout
+    from Optimization.runschema.sim_manifest import read_run_layout
 
     base = os.path.abspath(base_dir)
     if not os.path.isdir(base):
@@ -100,5 +100,5 @@ def resolve_base_dir(name: str) -> str:
     comparison_20260728_120000` behaves the same as the analysis hub instead of only resolving
     relative to the current directory.
     """
-    from Optimization.sim_config import _OUTPUT_DIR
+    from Optimization.config.sim_config import _OUTPUT_DIR
     return os.path.abspath(name if os.path.isabs(name) else os.path.join(_OUTPUT_DIR, name))

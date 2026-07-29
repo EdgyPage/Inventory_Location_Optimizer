@@ -17,7 +17,7 @@ from Warehouse.Order import Order, StorageHandleConfig
 from Warehouse.Demand import Demand
 from Warehouse.Inventory_Management import Inventory_Manager
 from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Optimization.Picking_Data import (
+from Optimization.persistence.Picking_Data import (
     BatchStats, init_run_db, save_batch_stats, load_batch_stats,
 )
 

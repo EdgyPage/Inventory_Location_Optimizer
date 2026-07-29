@@ -35,7 +35,7 @@ import pytest
 from Optimization import runschema
 from Optimization.runschema import contract, preflight, resolver
 from Optimization.runschema import schema as decl
-from Optimization.sim_manifest import write_run_layout, read_run_layout
+from Optimization.runschema.sim_manifest import write_run_layout, read_run_layout
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import os
 
-from Optimization import strategies
-from Optimization.sim_assets import build_shared_assets
-from Optimization.sim_config import (
+from Optimization.config import strategies
+from Optimization.simdriver.sim_assets import build_shared_assets
+from Optimization.config.sim_config import (
     CONFIG, FULFILLMENT_CONFIGS, STORE_CONFIGS, regime_sizing_from_config,
 )
-from Optimization.sim_manifest import write_run_manifest
-from Optimization.strategies import STRATEGIES
-from Optimization.runlayout import iter_sim_dbs
+from Optimization.runschema.sim_manifest import write_run_manifest
+from Optimization.config.strategies import STRATEGIES
+from Optimization.runschema.runlayout import iter_sim_dbs
 from Optimization.simdriver.cells import (
     _apply_cell, _build_cells, _cell_complete, _tightest_split,
 )

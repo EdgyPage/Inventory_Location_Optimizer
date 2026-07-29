@@ -38,7 +38,7 @@ if _REPO_ROOT not in sys.path:
 # re-exported here because tests (rs.CONFIG, rs.REGRESSION_CONFIGS, ...) and
 # Diagnostics/bucket_fill import them from run_simulation.  CONFIG binds the SAME
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
-from Optimization.sim_config import (            # noqa: F401
+from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     SEED_WORLD, SEED_BATCHES, N_BATCHES, K_PICKERS, STORE_RESTOCKS, _INITIAL_FILL,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
@@ -46,8 +46,8 @@ from Optimization.sim_config import (            # noqa: F401
     regime_sizing_from_config, _setup_logging, _checkpoint_every,
     _config_name, _build_pick_cfg, _clean_path, _load_env,
 )
-from Optimization.sim_assets import build_shared_assets                    # noqa: F401
-from Optimization.sim_manifest import (                                    # noqa: F401
+from Optimization.simdriver.sim_assets import build_shared_assets                    # noqa: F401
+from Optimization.runschema.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
     _write_run_spec, _load_run_spec, _run_spec_path,
     write_run_layout, read_run_layout, _run_layout_path,
@@ -55,23 +55,23 @@ from Optimization.sim_manifest import (                                    # noq
 
 
 from Warehouse.Inventory_Management import Inventory_Manager
-from Optimization import strategies                       # noqa: F401  (--whatif arm override)
-from Optimization.strategies import STRATEGIES, strategies_for
+from Optimization.config import strategies                # noqa: F401  (--whatif arm override)
+from Optimization.config.strategies import STRATEGIES, strategies_for
 from Warehouse.Storage_Primitive import StoreCart
 
-from Optimization.Picking_Data import create_run, init_run_db
-from Optimization.Workload import WorkloadParams
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.regime import STORE, FULFILLMENT
 
-from Optimization.strategy_runner import (
+from Optimization.simdriver.strategy_runner import (
     load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints, reset_strategy_db,
 )
-from Optimization.batch_precompute import ensure_batches
+from Optimization.simdriver.batch_precompute import ensure_batches
 
 
 # Directory-layout walkers live in runlayout (single owner of the tree shapes);
 # re-imported here so rs.discover_db_pairs / rs.find_latest_db_pairs keep working.
-from Optimization.runlayout import discover_db_pairs, find_latest_db_pairs, iter_sim_dbs  # noqa: F401,E402
+from Optimization.runschema.runlayout import discover_db_pairs, find_latest_db_pairs, iter_sim_dbs  # noqa: F401,E402
 
 # ── Driver package (Phase 2 extraction) ──────────────────────────────────────────
 # The cell matrix, work-unit builder, crash-recovery supervisor, and scenario driver moved to
@@ -201,7 +201,7 @@ def main():
     # Resolve base_dir FIRST, then on --resume load + apply the saved run_spec BEFORE the
     # CONFIG-override block, so a bare `--resume DIR` reconstructs the run with zero retyped
     # flags (and no find_latest_db_pairs drift — see the pairs block below).
-    from Optimization.whatif_config import get_spec, SPECS
+    from Optimization.config.whatif_config import get_spec, SPECS
 
     def _resolve_spec():
         """Selected cell-matrix (name, dict).  --whatif is the deprecated alias for scheduler_ab."""

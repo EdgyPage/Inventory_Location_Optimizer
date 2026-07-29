@@ -248,79 +248,6 @@ files:
     layer: "evaluations"
     key_symbols: []
     notes: ""
-  "Optimization/Picking_Data.py":
-    purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
-    layer: "optimization"
-    key_symbols:
-      - {name: "PickRecord", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "AisleMetricRecord", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "BatchStats", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "TaskStats", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "BinInventoryRecord", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "PickerEventRecord", file: "Optimization/Picking_Data.py", kind: "class"}
-      - {name: "init_run_db", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "create_run", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "find_run", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "run_identity", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "keyframe_db_path", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "init_keyframe_db", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_bin_keyframe", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_batch_stats", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_batch_stats", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_reorder_queue", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_reorder_queue", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_bin_scores", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_bin_scores", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_sku_scores", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_sku_scores", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_task_stats", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_task_stats", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_picker_events", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_picks", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_picker_events", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_bin_inventory", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_bin_inventory", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "save_aisle_metrics", file: "Optimization/Picking_Data.py", kind: "function"}
-      - {name: "load_aisle_metrics", file: "Optimization/Picking_Data.py", kind: "function"}
-    notes: ""
-  "Optimization/Simulation_Analytics.py":
-    purpose: "per-batch and per-task statistics from PickSimulation events."
-    layer: "optimization"
-    key_symbols:
-      - {name: "sum_lift", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "avg_concurrent_pickers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "expected_task_labor", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "extract_batch_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "extract_task_stats", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "flag_batch_outliers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "flag_task_outliers", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "build_placed_affinity", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "snapshot_aisle_metrics", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "build_pre_snapshot", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "snapshot_bin_inventory", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "extract_picker_events", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "task_time_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "task_travel_breakdown", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "task_travel_axes", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-      - {name: "extract_picks", file: "Optimization/Simulation_Analytics.py", kind: "function"}
-    notes: ""
-  "Optimization/Warehouse_Data.py":
-    purpose: "SQLite persistence for warehouse sizing stats and aisle distributions."
-    layer: "optimization"
-    key_symbols:
-      - {name: "compute_warehouse_fingerprint", file: "Optimization/Warehouse_Data.py", kind: "function"}
-      - {name: "init_warehouse_db", file: "Optimization/Warehouse_Data.py", kind: "function"}
-      - {name: "save_aisle_layout", file: "Optimization/Warehouse_Data.py", kind: "function"}
-      - {name: "save_warehouse_stats", file: "Optimization/Warehouse_Data.py", kind: "function"}
-    notes: ""
-  "Optimization/Workload.py":
-    purpose: "analytical per-aisle workload (W) model (WorkloadParams + aisle_workload) mirroring the sim's pick-cost primitives."
-    layer: "optimization"
-    key_symbols:
-      - {name: "WorkloadParams", file: "Optimization/Workload.py", kind: "class"}
-      - {name: "aisle_workload_components", file: "Optimization/Workload.py", kind: "function"}
-      - {name: "aisle_workload", file: "Optimization/Workload.py", kind: "function"}
-    notes: ""
   "Optimization/analyze_run.py":
     purpose: "Post-sim analysis hub \u2014 analyze_run() iterates every cell of a run (per-cell registry graphs + whole-warehouse rollup) then the cross-cell what-if summaries; run_simulation calls it in-process so one command runs sim + analysis, and `python -m Optimization.analyze_run` re-analyzes a finished run."
     layer: "optimization"
@@ -328,27 +255,49 @@ files:
       - {name: "analyze_run", file: "Optimization/analyze_run.py", kind: "function"}
       - {name: "main", file: "Optimization/analyze_run.py", kind: "function"}
     notes: ""
-  "Optimization/batch_precompute.py":
-    purpose: "compute each warehouse family's batch sequence ONCE and share it."
-    layer: "optimization"
-    key_symbols:
-      - {name: "batch_fingerprint", file: "Optimization/batch_precompute.py", kind: "function"}
-      - {name: "precompute_batches", file: "Optimization/batch_precompute.py", kind: "function"}
-      - {name: "write_batches", file: "Optimization/batch_precompute.py", kind: "function"}
-      - {name: "load_batches", file: "Optimization/batch_precompute.py", kind: "function"}
-      - {name: "ensure_batches", file: "Optimization/batch_precompute.py", kind: "function"}
-    notes: ""
-  "Optimization/channels.py":
+  "Optimization/config/channels.py":
     purpose: "the Channel abstraction: one operation over a shared warehouse."
     layer: "optimization"
     key_symbols:
-      - {name: "PickerProfile", file: "Optimization/channels.py", kind: "class"}
-      - {name: "Channel", file: "Optimization/channels.py", kind: "class"}
-      - {name: "fulfillment_pick_config", file: "Optimization/channels.py", kind: "function"}
-      - {name: "make_channel", file: "Optimization/channels.py", kind: "function"}
-      - {name: "FF_BATCH_SEED_OFFSET", file: "Optimization/channels.py", kind: "const"}
-      - {name: "build_channels", file: "Optimization/channels.py", kind: "function"}
-      - {name: "wp_by_regime", file: "Optimization/channels.py", kind: "function"}
+      - {name: "PickerProfile", file: "Optimization/config/channels.py", kind: "class"}
+      - {name: "Channel", file: "Optimization/config/channels.py", kind: "class"}
+      - {name: "fulfillment_pick_config", file: "Optimization/config/channels.py", kind: "function"}
+      - {name: "make_channel", file: "Optimization/config/channels.py", kind: "function"}
+      - {name: "FF_BATCH_SEED_OFFSET", file: "Optimization/config/channels.py", kind: "const"}
+      - {name: "build_channels", file: "Optimization/config/channels.py", kind: "function"}
+      - {name: "wp_by_regime", file: "Optimization/config/channels.py", kind: "function"}
+    notes: ""
+  "Optimization/config/sim_config.py":
+    purpose: "the run's single source of tunable truth."
+    layer: "optimization"
+    key_symbols:
+      - {name: "STORE_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "FULFILLMENT_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "REGRESSION_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "CONFIG", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "SEED_WORLD", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "SEED_BATCHES", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "K_PICKERS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "STORE_RESTOCKS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
+    notes: ""
+  "Optimization/config/strategies.py":
+    purpose: "data-driven registry of placement (assignment) strategies."
+    layer: "optimization"
+    key_symbols:
+      - {name: "StrategyContext", file: "Optimization/config/strategies.py", kind: "class"}
+      - {name: "Strategy", file: "Optimization/config/strategies.py", kind: "class"}
+      - {name: "strategies_for", file: "Optimization/config/strategies.py", kind: "function"}
+      - {name: "restocks_for", file: "Optimization/config/strategies.py", kind: "function"}
+    notes: ""
+  "Optimization/config/whatif_config.py":
+    purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
+    layer: "optimization"
+    key_symbols:
+      - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "get_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
     notes: ""
   "Optimization/gpu/gpu_auction.py":
     purpose: "parallel (Jacobi) auction solver for the placement linear-assignment problem."
@@ -386,6 +335,89 @@ files:
       - {name: "set_client", file: "Optimization/gpu/gpu_client.py", kind: "function"}
       - {name: "get_client", file: "Optimization/gpu/gpu_client.py", kind: "function"}
       - {name: "placement_argmin", file: "Optimization/gpu/gpu_client.py", kind: "function"}
+    notes: ""
+  "Optimization/metrics/Simulation_Analytics.py":
+    purpose: "per-batch and per-task statistics from PickSimulation events."
+    layer: "optimization"
+    key_symbols:
+      - {name: "sum_lift", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "avg_concurrent_pickers", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "expected_task_labor", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_batch_stats", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_task_stats", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "flag_batch_outliers", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "flag_task_outliers", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "build_placed_affinity", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "snapshot_aisle_metrics", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "build_pre_snapshot", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "snapshot_bin_inventory", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_picker_events", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_time_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_travel_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "task_travel_axes", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "extract_picks", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+    notes: ""
+  "Optimization/metrics/Workload.py":
+    purpose: "analytical per-aisle workload (W) model (WorkloadParams + aisle_workload) mirroring the sim's pick-cost primitives."
+    layer: "optimization"
+    key_symbols:
+      - {name: "WorkloadParams", file: "Optimization/metrics/Workload.py", kind: "class"}
+      - {name: "aisle_workload_components", file: "Optimization/metrics/Workload.py", kind: "function"}
+      - {name: "aisle_workload", file: "Optimization/metrics/Workload.py", kind: "function"}
+    notes: ""
+  "Optimization/persistence/Picking_Data.py":
+    purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
+    layer: "optimization"
+    key_symbols:
+      - {name: "PickRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "AisleMetricRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "BatchStats", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "TaskStats", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "BinInventoryRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "PickerEventRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "init_run_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "run_identity", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "keyframe_db_path", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "init_keyframe_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_keyframe", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_sku_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_sku_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_picks", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+    notes: ""
+  "Optimization/persistence/Warehouse_Data.py":
+    purpose: "SQLite persistence for warehouse sizing stats and aisle distributions."
+    layer: "optimization"
+    key_symbols:
+      - {name: "compute_warehouse_fingerprint", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+      - {name: "init_warehouse_db", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+      - {name: "save_aisle_layout", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+      - {name: "save_warehouse_stats", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+    notes: ""
+  "Optimization/persistence/runtime_metrics.py":
+    purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
+    layer: "optimization"
+    key_symbols:
+      - {name: "RUNTIME_DB", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
+      - {name: "SECTIONS", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
+      - {name: "runtime_db_path", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
+      - {name: "record_arm", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
+      - {name: "load_rows", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
     notes: ""
   "Optimization/run_analysis.py":
     purpose: "registry-driven graph generator for completed simulation runs."
@@ -429,17 +461,6 @@ files:
       - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
-    notes: ""
-  "Optimization/runlayout.py":
-    purpose: "single owner of the on-disk run-tree layout."
-    layer: "optimization"
-    key_symbols:
-      - {name: "discover_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
-      - {name: "find_latest_db_pairs", file: "Optimization/runlayout.py", kind: "function"}
-      - {name: "cells", file: "Optimization/runlayout.py", kind: "function"}
-      - {name: "ChannelRun", file: "Optimization/runlayout.py", kind: "class"}
-      - {name: "iter_channel_runs", file: "Optimization/runlayout.py", kind: "function"}
-      - {name: "iter_sim_dbs", file: "Optimization/runlayout.py", kind: "function"}
     notes: ""
   "Optimization/runschema/contract.py":
     purpose: "Derives, stores and diffs CONTENT-ADDRESSED run-tree contracts: schema_id is the sha256 of the declaration\u2019s own shape (prose and the id itself excluded), documents are immutable and named by that hash, and INDEX.json holds the mutable side \u2014 head pointer, source-change fingerprint and the parent chain that restores the ordering hashes lack."
@@ -494,6 +515,17 @@ files:
       - {name: "render", file: "Optimization/runschema/resolver.py", kind: "function"}
       - {name: "RunTree", file: "Optimization/runschema/resolver.py", kind: "class"}
     notes: ""
+  "Optimization/runschema/runlayout.py":
+    purpose: "single owner of the on-disk run-tree layout."
+    layer: "optimization"
+    key_symbols:
+      - {name: "discover_db_pairs", file: "Optimization/runschema/runlayout.py", kind: "function"}
+      - {name: "find_latest_db_pairs", file: "Optimization/runschema/runlayout.py", kind: "function"}
+      - {name: "cells", file: "Optimization/runschema/runlayout.py", kind: "function"}
+      - {name: "ChannelRun", file: "Optimization/runschema/runlayout.py", kind: "class"}
+      - {name: "iter_channel_runs", file: "Optimization/runschema/runlayout.py", kind: "function"}
+      - {name: "iter_sim_dbs", file: "Optimization/runschema/runlayout.py", kind: "function"}
+    notes: ""
   "Optimization/runschema/schema.py":
     purpose: "THE DECLARATION of the run tree and the only file to edit when the tree changes \u2014 FEATURES (template vocabulary), LEVELS (ordered directory levels, channel optional) and ARTIFACTS (path templates). Carries no version number: its sha256 IS the schema id."
     layer: "optimization"
@@ -505,44 +537,13 @@ files:
       - {name: "AXES", file: "Optimization/runschema/schema.py", kind: "const"}
       - {name: "ARTIFACTS", file: "Optimization/runschema/schema.py", kind: "const"}
     notes: ""
-  "Optimization/runtime_metrics.py":
-    purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
-    layer: "optimization"
-    key_symbols:
-      - {name: "RUNTIME_DB", file: "Optimization/runtime_metrics.py", kind: "const"}
-      - {name: "SECTIONS", file: "Optimization/runtime_metrics.py", kind: "const"}
-      - {name: "runtime_db_path", file: "Optimization/runtime_metrics.py", kind: "function"}
-      - {name: "record_arm", file: "Optimization/runtime_metrics.py", kind: "function"}
-      - {name: "load_rows", file: "Optimization/runtime_metrics.py", kind: "function"}
-    notes: ""
-  "Optimization/sim_assets.py":
-    purpose: "per-pair shared-asset construction for a run."
-    layer: "optimization"
-    key_symbols:
-      - {name: "build_shared_assets", file: "Optimization/sim_assets.py", kind: "function"}
-    notes: ""
-  "Optimization/sim_config.py":
-    purpose: "the run's single source of tunable truth."
-    layer: "optimization"
-    key_symbols:
-      - {name: "STORE_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "FULFILLMENT_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "REGRESSION_CONFIGS", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "CONFIG", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "SEED_WORLD", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "SEED_BATCHES", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "N_BATCHES", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "K_PICKERS", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "STORE_RESTOCKS", file: "Optimization/sim_config.py", kind: "const"}
-      - {name: "regime_sizing_from_config", file: "Optimization/sim_config.py", kind: "function"}
-    notes: ""
-  "Optimization/sim_manifest.py":
+  "Optimization/runschema/sim_manifest.py":
     purpose: "run bookkeeping artifacts."
     layer: "optimization"
     key_symbols:
-      - {name: "write_run_layout", file: "Optimization/sim_manifest.py", kind: "function"}
-      - {name: "read_run_layout", file: "Optimization/sim_manifest.py", kind: "function"}
-      - {name: "write_run_manifest", file: "Optimization/sim_manifest.py", kind: "function"}
+      - {name: "write_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "write_run_manifest", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/configs/ful_calibrated.py":
     purpose: "base human-walker pick-config (FulfillmentCart, one-way lanes)."
@@ -586,6 +587,16 @@ files:
       - {name: "PickConfigSpec", file: "Optimization/simconfig/core/registry.py", kind: "class"}
       - {name: "pick_config", file: "Optimization/simconfig/core/registry.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/batch_precompute.py":
+    purpose: "compute each warehouse family's batch sequence ONCE and share it."
+    layer: "optimization"
+    key_symbols:
+      - {name: "batch_fingerprint", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "precompute_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "write_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "load_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "ensure_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/cells.py":
     purpose: "What-if cell matrix \u2014 build/apply/inspect cells (aisle-split x zoning x scheduler over one frozen inventory); _apply_cell mutates the shared CONFIG in place."
     layer: "optimization"
@@ -596,6 +607,20 @@ files:
     layer: "optimization"
     key_symbols: []
     notes: ""
+  "Optimization/simdriver/sim_assets.py":
+    purpose: "per-pair shared-asset construction for a run."
+    layer: "optimization"
+    key_symbols:
+      - {name: "build_shared_assets", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
+    notes: ""
+  "Optimization/simdriver/strategy_runner.py":
+    purpose: "concurrent strategy worker for run_simulation.py."
+    layer: "optimization"
+    key_symbols:
+      - {name: "save_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
+      - {name: "load_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
+      - {name: "reset_strategy_db", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/supervisor.py":
     purpose: "Crash-recovery pool driver + finalize gate \u2014 flat ProcessPoolExecutor lifetime, isolate per-unit failures, rebuild+resubmit on BrokenProcessPool up to max_retries, finalize a group only when every arm succeeded."
     layer: "optimization"
@@ -605,31 +630,6 @@ files:
     purpose: "Plan the per-strategy flat-pool work units \u2014 shared assets + batches + resume-aware start planning + the picklable strategy_args shipped to each worker (parent-process only)."
     layer: "optimization"
     key_symbols: []
-    notes: ""
-  "Optimization/strategies.py":
-    purpose: "data-driven registry of placement (assignment) strategies."
-    layer: "optimization"
-    key_symbols:
-      - {name: "StrategyContext", file: "Optimization/strategies.py", kind: "class"}
-      - {name: "Strategy", file: "Optimization/strategies.py", kind: "class"}
-      - {name: "strategies_for", file: "Optimization/strategies.py", kind: "function"}
-      - {name: "restocks_for", file: "Optimization/strategies.py", kind: "function"}
-    notes: ""
-  "Optimization/strategy_runner.py":
-    purpose: "concurrent strategy worker for run_simulation.py."
-    layer: "optimization"
-    key_symbols:
-      - {name: "save_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
-      - {name: "load_worker_checkpoint", file: "Optimization/strategy_runner.py", kind: "function"}
-      - {name: "reset_strategy_db", file: "Optimization/strategy_runner.py", kind: "function"}
-    notes: ""
-  "Optimization/whatif_config.py":
-    purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
-    layer: "optimization"
-    key_symbols:
-      - {name: "WHATIF", file: "Optimization/whatif_config.py", kind: "const"}
-      - {name: "SPECS", file: "Optimization/whatif_config.py", kind: "const"}
-      - {name: "get_spec", file: "Optimization/whatif_config.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."

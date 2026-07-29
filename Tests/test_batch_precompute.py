@@ -24,7 +24,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Optimization import batch_precompute as BP                      # noqa: E402  (adds Warehouse to sys.path on import)
+from Optimization.simdriver import batch_precompute as BP            # noqa: E402  (adds Warehouse to sys.path on import)
 from Warehouse.Workload_Builder import Batch, BatchConfig    # noqa: E402
 from Warehouse.Affinity_Store import AffinityStore           # noqa: E402
 from Warehouse.generation.generate_inventory import (        # noqa: E402

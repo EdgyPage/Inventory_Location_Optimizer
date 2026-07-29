@@ -17,7 +17,7 @@ $$W \;=\; D \;+\; P \;+\; C$$
 - **`P`** — *pick* time: `Σ_stops (intercept + weight_coef·ln(w)·q + volume_coef·ln(v)·q)`.
 - **`C`** — *cart* penalty: `cart_swap_coef · max(0, carts−1)`.
 
-`W` is computed by `aisle_workload(...)` (`Optimization/Workload.py`) and recorded
+`W` is computed by `aisle_workload(...)` (`Optimization/metrics/Workload.py`) and recorded
 per task as `TaskStats.W`. It is a **measurement**, not a placement score. The
 placement scores below are assignment‑time objectives, two of which are built on the
 per‑bin travel term `D`.

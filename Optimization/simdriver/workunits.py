@@ -9,21 +9,21 @@ import json
 import logging
 import os
 
-from Optimization.Picking_Data import create_run, init_run_db
-from Optimization.Workload import WorkloadParams
-from Optimization.batch_precompute import ensure_batches
-from Optimization.sim_config import (
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.metrics.Workload import WorkloadParams
+from Optimization.simdriver.batch_precompute import ensure_batches
+from Optimization.config.sim_config import (
     CONFIG, SEED_BATCHES, SEED_WORLD, _CART_TYPES, _build_pick_cfg, _checkpoint_every,
     _config_name,
 )
-from Optimization.sim_manifest import _load_resume, _resume_path, _save_resume
-from Optimization.strategies import strategies_for
-from Optimization.strategy_runner import load_worker_checkpoint, reset_strategy_db
+from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
+from Optimization.config.strategies import strategies_for
+from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
 from Warehouse.Inventory_Management import Inventory_Manager
 from Warehouse.regime import FULFILLMENT
 from Warehouse.Storage_Primitive import StoreCart
 # local (in-function) imports preserved from the originals: dataclasses.replace,
-# Warehouse.regime.regime_of, Optimization.channels.make_channel.
+# Warehouse.regime.regime_of, Optimization.config.channels.make_channel.
 
 
 def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
@@ -329,7 +329,7 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
 
     Returns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.
     """
-    from Optimization.channels import make_channel                         # noqa: E402
+    from Optimization.config.channels import make_channel                         # noqa: E402
     from Warehouse.regime import regime_of                              # noqa: E402
 
     mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)

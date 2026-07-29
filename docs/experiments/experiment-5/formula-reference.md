@@ -46,7 +46,7 @@ height multipliers $M(y)$:
 ## Task labor — handling + travel + cart { #task-labor }
 
 The **realised** time to clear one aisle (the simulation's measurement, from
-[`Optimization/Workload.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Workload.py))
+[`Optimization/metrics/Workload.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Workload.py))
 splits into three parts:
 
 $$W \;=\; \underbrace{\sum_{\text{stops}} M(y)\,(t_0 + q\,h)}_{H\ \text{— handling}}

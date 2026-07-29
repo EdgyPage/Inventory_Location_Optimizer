@@ -44,8 +44,8 @@ boundaries:
 backbone:
   # simulation entry -> scenario -> shared assets -> warehouse sizing
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
-     dst: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function}, via: calls}
-  - {src: {name: build_shared_assets, file: Optimization/sim_assets.py, kind: function},
+     dst: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}, via: calls}
+  - {src: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function},
      dst: {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}, via: calls}
   # scenario -> supervisor -> build units -> per-channel prep -> batches
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
@@ -57,17 +57,17 @@ backbone:
   - {src: {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function},
      dst: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}, via: calls}
   - {src: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function},
-     dst: {name: ensure_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
+     dst: {name: ensure_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
   # supervisor -> pool -> spawn boundary (worker passed as a value; never coverage-measured)
   - {src: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function},
      dst: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
   - {src: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function},
-     dst: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
+     dst: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
   # worker body -> batch load + pick simulation
-  - {src: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
-     dst: {name: load_batches, file: Optimization/batch_precompute.py, kind: function}, via: calls}
-  - {src: {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function},
+  - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
+     dst: {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
+  - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      dst: {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}, via: calls}
   # placement dispatch (the closures behind mgr.placement) — supplied by resolver_hints.yml
   - {src: {name: _stock_per_unit, file: Warehouse/Inventory_Management.py, kind: function},
@@ -98,10 +98,10 @@ backbone:
 #     Tests/test_architecture_coverage.py.  The first is the sentinel (called directly by
 #     the driver) so a no-op driver fails loudly rather than passing vacuously.
 hotpaths:
-  - {name: _run_strategy_worker, file: Optimization/strategy_runner.py, kind: function}  # sentinel
-  - {name: build_shared_assets,  file: Optimization/sim_assets.py, kind: function}
+  - {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function}  # sentinel
+  - {name: build_shared_assets,  file: Optimization/simdriver/sim_assets.py, kind: function}
   - {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}
   - {name: _finalize_config_run, file: Optimization/simdriver/supervisor.py, kind: function}
   - {name: plan_warehouse,       file: Warehouse/inventory_planning.py, kind: function}
-  - {name: ensure_batches,       file: Optimization/batch_precompute.py, kind: function}
+  - {name: ensure_batches,       file: Optimization/simdriver/batch_precompute.py, kind: function}
   - {name: run_analysis,         file: Optimization/run_analysis.py, kind: function}

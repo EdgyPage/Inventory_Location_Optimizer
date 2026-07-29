@@ -175,7 +175,7 @@ def run(base_dir, reference=None, log=None):
         reference = rt.layout.get('reference')
     if reference is None:
         try:
-            from Optimization.whatif_config import WHATIF
+            from Optimization.config.whatif_config import WHATIF
             reference = WHATIF.get('reference', 'k1_off')
         except Exception:
             reference = 'k1_off'

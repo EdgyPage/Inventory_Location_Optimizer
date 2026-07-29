@@ -26,7 +26,7 @@ import sqlite3
 
 from Optimization import run_whatif_labor as rwl
 from Optimization.runschema import resolver_for
-from Optimization.sim_manifest import write_run_layout
+from Optimization.runschema.sim_manifest import write_run_layout
 
 
 def _descriptor(root, cells, channels, reference=None):

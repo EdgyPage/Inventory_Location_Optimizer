@@ -153,11 +153,11 @@ def test_breadcrumb_helper_semantics():
     assert 'files/' + rh._mid('Warehouse/Inventory_Management.py') + '.html' in nested
     assert 'Inventory_Manager' in nested and '_stock_per_unit' in nested
     # a top-level function: no class crumb
-    top = rh._breadcrumb(ix, 'Optimization/sim_assets.py::build_shared_assets', loc)
+    top = rh._breadcrumb(ix, 'Optimization/simdriver/sim_assets.py::build_shared_assets', loc)
     assert 'files/' in top and 'build_shared_assets' in top
     assert 'Inventory_Manager' not in top
     # a module: the file itself is the 'here' crumb
-    mod = rh._breadcrumb(ix, 'Optimization/sim_assets.py', loc)
+    mod = rh._breadcrumb(ix, 'Optimization/simdriver/sim_assets.py', loc)
     assert 'class="here"' in mod and 'sim_assets.py' in mod
 
 

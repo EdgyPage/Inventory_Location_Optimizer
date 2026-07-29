@@ -22,7 +22,7 @@ import json
 import sqlite3
 
 from Optimization import run_whatif_delta as rwd
-from Optimization.sim_manifest import write_run_layout
+from Optimization.runschema.sim_manifest import write_run_layout
 
 
 def _make_db(path, per_batch):

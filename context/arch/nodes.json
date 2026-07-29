@@ -1301,7 +1301,7 @@
     },
     "Optimization/Performance_Evaluations/core/registry.py": {
       "decorators": [],
-      "doc": "The Evaluation descriptor + @evaluation decorator + module-level registry.\n\nMirrors the registry style of Optimization/strategies.py (a dataclass per item, a flat\nlist, and a by-key dict), but populated by a decorator so a graph module self-registers\non import.  A graph's `render(ctx, params)` does the actual plotting; the descriptor\ncarries only the metadata the driver needs to schedule it.",
+      "doc": "The Evaluation descriptor + @evaluation decorator + module-level registry.\n\nMirrors the registry style of Optimization/config/strategies.py (a dataclass per item, a flat\nlist, and a by-key dict), but populated by a decorator so a graph module self-registers\non import.  A graph's `render(ctx, params)` does the actual plotting; the descriptor\ncarries only the metadata the driver needs to schedule it.",
       "kind": "module",
       "signature": null
     },
@@ -1736,669 +1736,6 @@
       "kind": "function",
       "signature": "(p: float) -> str"
     },
-    "Optimization/Picking_Data.py": {
-      "decorators": [],
-      "doc": null,
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Picking_Data.py::AisleMetricRecord": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::BatchStats": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::BinInventoryRecord": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::PickRecord": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::PickerEventRecord": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::TaskStats": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Picking_Data.py::_CREATE_AISLE_METRICS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_metrics (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n n_skus INTEGER NOT NULL DEFA..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_AISLE_METRICS_AISLE_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_am_run_aisle\\n ON aisle_metrics (run_id, aisle_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_AISLE_METRICS_BATCH_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_am_run_batch\\n ON aisle_metrics (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_BATCH_STATS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS batch_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n duration REAL NOT N..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_INVENTORY": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_inventory (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER ..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_INVENTORY_AISLE_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle\\n ON bin_inventory (run_id, batch_id, aisle_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_INVENTORY_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch\\n ON bin_inventory (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_KEYFRAME": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_keyframe (\\n run_id INTEGER NOT NULL,\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n sku INTEGER NO..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_KEYFRAME_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_kf_run_batch ON bin_keyframe (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_SCORES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_scores (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n travel_d R..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_BIN_SCORES_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bs_run ON bin_scores (run_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKER_EVENTS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS picker_events (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n picker_id INTEGER..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKER_EVENTS_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_pe_run_batch\\n ON picker_events (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKER_EVENTS_TIME_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_pe_run_batch_time\\n ON picker_events (run_id, batch_id, time)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS picks (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n picker_id INTEGER NOT NUL..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKS_BATCH_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_batch ON picks (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_PICKS_SKU_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_REORDER_QUEUE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS reorder_queue (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n kind TEXT NOT NULL, -- 'lead' (in-transit) | 'stock' (awa..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_REORDER_QUEUE_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_rq_run_batch ON reorder_queue (run_id, batch_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_RUNS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS simulation_runs (\\n run_id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_type TEXT NOT NULL,\\n created TEXT NOT NULL,\\n strategy_key TEXT, -- identity (rename-proof): same..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_SKU_SCORES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS sku_scores (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n sku INTEGER NOT NULL,\\n map_target REAL, -- optimal-map target pref (map/map_rank only)\\n..."
-    },
-    "Optimization/Picking_Data.py::_CREATE_SKU_SCORES_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_ss_run ON sku_scores (run_id)\\n'"
-    },
-    "Optimization/Picking_Data.py::_CREATE_TASK_STATS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS task_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT..."
-    },
-    "Optimization/Picking_Data.py::_IDENTITY_COLS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "('strategy_key', 'pair_label', 'config_label', 'warehouse_fingerprint', 'inventory_label', 'channel')"
-    },
-    "Optimization/Picking_Data.py::_PICK_COLS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "('sku', 'quantity', 'timestamp', 'aisle_id', 'bayX', 'bayY', 'handling_type', 'category_type')"
-    },
-    "Optimization/Picking_Data.py::_RUN_PARAM_COLS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "('num_pickers', 'x_speed', 'y_speed', 'pick_intercept', 'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef', 'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval', 'optimal_sigma_fd', 'o..."
-    },
-    "Optimization/Picking_Data.py::_open_db": {
-      "decorators": [],
-      "doc": "Open *path* with WAL journal mode and a generous busy timeout.\n\nWAL allows multiple concurrent readers and one writer without blocking\nreaders.  Writers that arrive while another write is in progress wait up\nto *timeout* seconds before raising OperationalError, giving the three\nparallel strategy workers enough headroom to avoid spurious lock errors\nwhen their 100-batch checkpoints happen to coincide.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
-    },
-    "Optimization/Picking_Data.py::create_run": {
-      "decorators": [],
-      "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_type: str, params: dict | None=None, identity: dict | None=None) -> int"
-    },
-    "Optimization/Picking_Data.py::find_run": {
-      "decorators": [],
-      "doc": "Resolve a run_id WITHOUT relying on the file name.\n\nMatches on the stored strategy_key/run_type (which equal the strategy key) so a\nrenamed sim_*.db still resolves; falls back to the first run in the DB.  Returns\nNone if the DB has no runs.  Tolerates the older schema (no strategy_key column).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, strategy_key: str | None=None) -> int | None"
-    },
-    "Optimization/Picking_Data.py::init_keyframe_db": {
-      "decorators": [],
-      "doc": "Create the bin_keyframe table + index if absent.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
-    },
-    "Optimization/Picking_Data.py::init_run_db": {
-      "decorators": [],
-      "doc": "Create all tables and indexes if they don't already exist, and enable WAL mode.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
-    },
-    "Optimization/Picking_Data.py::keyframe_db_path": {
-      "decorators": [],
-      "doc": "Sibling keyframe-DB path for a strategy's run DB (run.db \u2192 run.keyframes.db).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_db_path: str) -> str"
-    },
-    "Optimization/Picking_Data.py::load_aisle_metrics": {
-      "decorators": [],
-      "doc": "Load AisleMetricRecord rows, optionally filtered to one batch or aisle.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
-    },
-    "Optimization/Picking_Data.py::load_batch_stats": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int) -> list[BatchStats]"
-    },
-    "Optimization/Picking_Data.py::load_bin_inventory": {
-      "decorators": [],
-      "doc": "Load BinInventoryRecord rows, optionally filtered to one batch or aisle.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
-    },
-    "Optimization/Picking_Data.py::load_bin_scores": {
-      "decorators": [],
-      "doc": "All per-bin scores for a run; empty list if the table is absent (older runs).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int) -> list[dict]"
-    },
-    "Optimization/Picking_Data.py::load_picker_events": {
-      "decorators": [],
-      "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
-    },
-    "Optimization/Picking_Data.py::load_picker_events._g": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(row, col)"
-    },
-    "Optimization/Picking_Data.py::load_reorder_queue": {
-      "decorators": [],
-      "doc": "Queue contents at the start of one batch.  Empty list if the table is absent\n(older runs predate it) so the viewer degrades gracefully.  Falls back to the\npre-enrichment columns when unit_type/storage_size are missing.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, batch_id: int) -> list[dict]"
-    },
-    "Optimization/Picking_Data.py::load_sku_scores": {
-      "decorators": [],
-      "doc": "All per-SKU scores for a run; empty list if the table is absent (older runs).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int) -> list[dict]"
-    },
-    "Optimization/Picking_Data.py::load_task_stats": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int) -> list[TaskStats]"
-    },
-    "Optimization/Picking_Data.py::run_identity": {
-      "decorators": [],
-      "doc": "Return the stored identity + key params for a run (rename-proof metadata).\nMissing columns (older schema) are simply omitted from the dict.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int) -> dict"
-    },
-    "Optimization/Picking_Data.py::save_aisle_metrics": {
-      "decorators": [],
-      "doc": "Persist per-aisle trip-cost equation state snapshots.\n\nCaptured once per batch after check_reorders() \u2014 reflects the warehouse\nlayout as it evolves under the assignment function.  Strategy A rows carry\nzeros because affinity state is not maintained for uniform placement.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list) -> None"
-    },
-    "Optimization/Picking_Data.py::save_batch_stats": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list[BatchStats]) -> None"
-    },
-    "Optimization/Picking_Data.py::save_bin_inventory": {
-      "decorators": [],
-      "doc": "Persist pre/post batch bin inventory snapshots.\n\nEach record covers one non-empty bin for one batch: pre_qty is the\nquantity after check_reorders() (before picks), post_qty is the\nquantity after all picks are applied.  Bins empty throughout are omitted.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list) -> None"
-    },
-    "Optimization/Picking_Data.py::save_bin_keyframe": {
-      "decorators": [],
-      "doc": "Write one full occupied-bin snapshot (keyframe) for (run_id, batch_id).\n\nrecords: iterable of dicts with keys aisle_id, bayX, bayY, sku, unit_type,\nstorage_size, qty.  INSERT OR REPLACE so re-running a batch overwrites cleanly.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, batch_id: int, records: list) -> None"
-    },
-    "Optimization/Picking_Data.py::save_bin_scores": {
-      "decorators": [],
-      "doc": "Per-bin static scores.  records: (aisle_id, bayX, bayY, travel_d, height_mult,\nlayout_score, map_pref); map_pref None for non-map strategies.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
-    },
-    "Optimization/Picking_Data.py::save_picker_events": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list) -> None"
-    },
-    "Optimization/Picking_Data.py::save_picks": {
-      "decorators": [],
-      "doc": "Persist individual pick events extracted from the picker event stream.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list) -> None"
-    },
-    "Optimization/Picking_Data.py::save_reorder_queue": {
-      "decorators": [],
-      "doc": "Persist per-batch queue snapshots.  Each record is\n(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two\nare None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
-    },
-    "Optimization/Picking_Data.py::save_sku_scores": {
-      "decorators": [],
-      "doc": "Per-SKU placement scores.  records: (sku, map_target, labor_cost, handle_var,\nexpected_popularity, expected_labor, equilibrium_qty, reorder_point, lead_time_mean).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
-    },
-    "Optimization/Picking_Data.py::save_task_stats": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list[TaskStats]) -> None"
-    },
-    "Optimization/Simulation_Analytics.py": {
-      "decorators": [],
-      "doc": "Simulation_Analytics.py \u2014 per-batch and per-task statistics from PickSimulation events.\n\nPublic API\n----------\navg_concurrent_pickers(events)\n    Time-weighted average number of pickers simultaneously in \"picking\" state.\n\n    Aggregate picking vs traveling fractions across all pickers.\n\nextract_batch_stats(events, batch_id, k_pickers, run_id)\n    Summarise one PickSimulation run into a BatchStats record.\n\nextract_task_stats(events, tasks, batch_id, affinity, wp, run_id)\n    Extract per-aisle TaskStats from one PickSimulation run.\n\nflag_batch_outliers(stats, iqr_factor)\n    IQR outlier detection on batch duration.\n\nflag_task_outliers(stats, iqr_factor)\n    IQR outlier detection on task duration.\n\nbuild_placed_affinity(warehouse, inventory, max_per_group)\n    Sparse lift matrix for only the SKUs that have a physical bin.\n\nsum_lift(skus, affinity)\n    Demand-weighted co-occurrence helper for a dict-based lift matrix (AffinityStore\n    objects carry their own faster .sum_lift; this is the dict fallback).",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Simulation_Analytics.py::_group_events_by_picker": {
-      "decorators": [],
-      "doc": "Partition events into per-picker lists in a single O(N) pass.\n\nPick.py generates events in time order within each picker's timeline so\nno sort is needed \u2014 the per-picker lists are already time-ordered.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, k_pickers: int) -> list[list]"
-    },
-    "Optimization/Simulation_Analytics.py::_pick_lines": {
-      "decorators": [],
-      "doc": "(weight, volume, qty, y_phys) per bin stop that has inventory for this task.\ny_phys lets aisle_workload apply the height-bracket handling multiplier.\n\nPrefer the snapshot captured at task build (Task.pick_lines) \u2014 the live path bins are\ndepleted by the sim's pick application before extract_task_stats runs, which would\notherwise drop emptied bins and zero out W.  Falls back to the live read for any task\nobject that predates the snapshot.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(task) -> list[tuple[int, int, int, float]]"
-    },
-    "Optimization/Simulation_Analytics.py::_picker_time_breakdown_grouped": {
-      "decorators": [],
-      "doc": "Compute picking/traveling breakdown from pre-grouped picker event lists.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(grouped: list[list]) -> dict[str, float]"
-    },
-    "Optimization/Simulation_Analytics.py::avg_concurrent_pickers": {
-      "decorators": [],
-      "doc": "Time-weighted average number of pickers simultaneously in 'picking' state.\n\nA picker is \"picking\" from the moment they arrive at a bin (arrive event)\nuntil they finish handling it (pick event).  Cart-swap overhead is folded\ninto that interval because both arrive and pick share the same pick_time span.\n\nAlgorithm\n---------\nBuild a (time, +1/-1) change-list, sort it, then sweep to integrate the\nconcurrent-count curve.  Divide by total simulation span.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list) -> float"
-    },
-    "Optimization/Simulation_Analytics.py::build_placed_affinity": {
-      "decorators": [],
-      "doc": "Build a sparse lift matrix covering only placed SKUs.\n\nCalling inventory.affinity_matrix() on 50 000+ SKUs with 5 lift groups\nof ~10 000 each generates ~250 M pairs \u2014 impractical.  This function caps\neach lift group at max_per_group placed SKUs, yielding a bounded dict\n(5 * C(300,2) * 2 \u2248 450 k entries at the default) while still producing\nnon-zero lift_sums for tasks that contain two or more eligible SKUs.\n\nParameters\n----------\nwarehouse      : built Warehouse object (bins already stocked)\ninventory      : Inventory object whose orders have .sku and .lift_group\nmax_per_group  : SKUs with affinity per lift group; higher \u2192 denser lift\n                 coverage but more memory (~150 MB at 1 000 per group)",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(warehouse, inventory, max_per_group: int=300) -> dict"
-    },
-    "Optimization/Simulation_Analytics.py::build_pre_snapshot": {
-      "decorators": [],
-      "doc": "Capture bin quantities before a batch simulation runs.\n\nCall immediately after check_reorders() and before DeferredPickSimulation.\nReturns a dict keyed by id(bin) holding all data needed to build a\nBinInventoryRecord once the post-simulation quantities are known.\n\nOnly non-empty bins are captured; empty bins are implicitly quantity=0\nand are not written to the DB.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(manager) -> dict"
-    },
-    "Optimization/Simulation_Analytics.py::expected_task_labor": {
-      "decorators": [],
-      "doc": "E[task labor] for a placement, scored ANALYTICALLY from the realised tasks.\n\nThe optimization objective is the expected labor of a randomly-assigned task =\nmean over tasks of W = D + P + C (see Workload.aisle_workload).  Computed straight\nfrom each Task's path/items via the same bracket-aware formula the sim bills, so it\nis independent of sim wall-timing (queue waits, parallelism, reorder starvation).\n\nReturns {'objective': mean W, 'handling': mean P, 'travel': mean (D+C), 'n_tasks': n}.\n'travel' folds the cart-swap term C in with travel D since both are placement/route\neffects rather than per-unit handling; 'handling' is the placement-modulated P term.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(tasks: list, wp: WorkloadParams) -> dict"
-    },
-    "Optimization/Simulation_Analytics.py::extract_batch_stats": {
-      "decorators": [],
-      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
-    },
-    "Optimization/Simulation_Analytics.py::extract_picker_events": {
-      "decorators": [],
-      "doc": "Convert a PickSimulation event list into PickerEventRecord rows for DB storage.\n\nEvery event is stored verbatim so the full picker timeline can be replayed\nfrom SQL.  Location (bayX, bayY) is populated for arrive / cart_swap / pick\nevents; it is NULL for task_start, task_end, and done events.\n\nVisualization query \u2014 state of all pickers at sim-time t in batch b:\n\n    SELECT picker_id, aisle_id, bayX, bayY, event_type, items_picked\n    FROM   picker_events\n    WHERE  run_id = ? AND batch_id = ? AND time <= ?\n    GROUP  BY picker_id\n    HAVING time = MAX(time)\n    ORDER  BY picker_id;",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, batch_id: int, run_id: int=0) -> list"
-    },
-    "Optimization/Simulation_Analytics.py::extract_picks": {
-      "decorators": [],
-      "doc": "Extract one PickRecord per 'pick' event from the picker event stream.\n\nProvides a compact, join-friendly picks table (run_id, batch_id, sku, qty,\nlocation, sim_time) without the full event stream overhead of picker_events.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, batch_id: int, run_id: int=0) -> list[PickRecord]"
-    },
-    "Optimization/Simulation_Analytics.py::extract_task_stats": {
-      "decorators": [],
-      "doc": "Extract per-aisle TaskStats from one PickSimulation.run() result.\n\nduration         : task_end.time - task_start.time for this aisle\nW              : analytical workload via aisle_workload()\nlift_sum         : sum_lift for SKUs present in this task\nnum_bins_visited : bins with at least one pick (task.items membership)\ntotal_items      : sum of quantities across this aisle's SKUs",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list, tasks: list, batch_id: int, affinity, wp: WorkloadParams, run_id: int=0, lift_cache: dict | None=None) -> list[TaskStats]"
-    },
-    "Optimization/Simulation_Analytics.py::flag_batch_outliers": {
-      "decorators": [],
-      "doc": "Return new list with is_outlier set via Tukey IQR fences on duration.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(stats: list[BatchStats], iqr_factor: float=1.5) -> list[BatchStats]"
-    },
-    "Optimization/Simulation_Analytics.py::flag_task_outliers": {
-      "decorators": [],
-      "doc": "Return new list with is_outlier set via Tukey IQR fences on duration.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(stats: list[TaskStats], iqr_factor: float=1.5) -> list[TaskStats]"
-    },
-    "Optimization/Simulation_Analytics.py::snapshot_aisle_metrics": {
-      "decorators": [],
-      "doc": "Capture the trip-cost equation state for every aisle in the manager.\n\nCall once per batch after check_reorders() and before picks \u2014 the same\nmoment as build_pre_snapshot() \u2014 so the snapshot reflects the current\nwarehouse layout after any reorder placements.\n\nFields captured\n---------------\nn_skus     : len(_aisle_sku_sets[aid])            \u2014 unique SKUs in aisle\nn_bins     : sum(_aisle_sku_counts[aid].values())  \u2014 occupied bin count\ndemand_sum : _aisle_demand_sum[aid]               \u2014 \u03a3 f_i * q_i secondary score\nlift_sum   : _aisle_lift_sum[aid]                 \u2014 affinity co-location quality\n\nStrategy A note\n---------------\nFor uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /\n_aisle_demand_sum are never populated.  Only aisles touched by B/C reorders\nwill have non-zero values.  Strategy A produces no rows here by design \u2014\nit has no structured placement state to track.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(manager: object, batch_id: int, run_id: int=0) -> list"
-    },
-    "Optimization/Simulation_Analytics.py::snapshot_bin_inventory": {
-      "decorators": [],
-      "doc": "Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.\n\nCall immediately after DeferredPickSimulation.run() (Phase 2 complete).\n\nCovers three cases:\n  - Picked bins     : were in pre_snap; post_qty < pre_qty \u2014 always recorded.\n  - Untouched bins  : were in pre_snap; post_qty == pre_qty \u2014 only recorded\n                      when full_snapshot=True (first batch only).\n  - Reorder bins    : NOT in pre_snap; newly placed by check_reorders() \u2014\n                      always recorded (they represent a state change).\n\nWriting untouched bins on every batch (~2.4M rows for a large warehouse)\ndominated checkpoint time (~185\u2013308s per 10-batch checkpoint).  Recording\nonly changed bins drops this to ~100K rows/batch while preserving full\nreconstruction: set full_snapshot=True for the first batch of each run to\nestablish a complete baseline, then apply diffs batch-by-batch thereafter.\n\nVisualization query \u2014 inventory of one aisle at sim-time T (mid-batch):\n    WITH pre AS (\n        SELECT aisle_id, bayX, bayY, sku, pre_qty\n        FROM   bin_inventory WHERE run_id=? AND batch_id=?\n    ),\n    picks AS (\n        SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked\n        FROM   picker_events\n        WHERE  run_id=? AND batch_id=? AND aisle_id=? AND event_type='pick'\n          AND  time <= ?\n        GROUP  BY aisle_id, bayX, bayY\n    )\n    SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t\n    FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(manager: object, pre_snap: dict, batch_id: int, run_id: int=0, full_snapshot: bool=False) -> list"
-    },
-    "Optimization/Simulation_Analytics.py::sum_lift": {
-      "decorators": [],
-      "doc": "Sum of pairwise lift over ordered pairs (i, j), i != j, in `skus`.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(skus: list[int], affinity: dict) -> float"
-    },
-    "Optimization/Simulation_Analytics.py::task_time_breakdown": {
-      "decorators": [],
-      "doc": "Decompose picker time into (travel, handling, other) from a picker-event stream.\n\nEach picker's timeline is walked in time order; the gap *ending* at an event is\ncharged by that event's type: a gap ending at 'arrive' is travel (move to a bin),\na gap ending at 'cart_swap' is travel too (return the full cart / fetch an empty one \u2014 a\nroute/depot cost, matching the analytical objective which folds cart into travel), a gap\nending at 'pick' is handling (= _pick_time, at-location only), everything else\n(task_start/end, done) is 'other' (\u22480 / inter-task).  Works on PickEvent objects or\nPickerEventRecord rows (both have .picker_id/.time/.event_type).\ntravel + handling \u2248 \u03a3 task durations (productivity hours).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list) -> tuple[float, float, float]"
-    },
-    "Optimization/Simulation_Analytics.py::task_travel_axes": {
-      "decorators": [],
-      "doc": "The x-vs-y split of POSITIONAL travel (excludes non-axis cart_move), in seconds:\n(travel_x, travel_y) = (\u03a3 pick_x+nonpick_x, \u03a3 pick_y+nonpick_y).  Evidence for the\n'x drives fulfillment / y drives store' thesis.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list) -> tuple[float, float]"
-    },
-    "Optimization/Simulation_Analytics.py::task_travel_breakdown": {
-      "decorators": [],
-      "doc": "Sibling of task_time_breakdown that reads the EXPLICIT per-event travel decomposition\nstamped by the sim, returning (pick_travel, non_pick_travel, cart_move) in seconds.\n\n  pick_travel     = \u03a3 (pick_travel_x + pick_travel_y)      \u2014 inter-pick within-aisle sweep\n  non_pick_travel = \u03a3 (non_pick_travel_x + non_pick_travel_y)  \u2014 aisle entry (+ one-way exit)\n  cart_move       = \u03a3 cart_move                            \u2014 cart-swap seconds (non-pick)\n\nSo total travel = pick_travel + non_pick_travel + cart_move, matching the `travel` bucket of\ntask_time_breakdown (which folds cart into travel).  Also exposes the x/y split via\ntask_travel_axes().  Works on PickEvent objects or PickerEventRecord rows.  Unlike the\ngap-based task_time_breakdown, this is exact even across skipped (no-event) bins because the\nsim folds their travel into the next stamped event.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(events: list) -> tuple[float, float, float]"
-    },
-    "Optimization/Warehouse_Data.py": {
-      "decorators": [],
-      "doc": "Warehouse_Data.py \u2014 SQLite persistence for warehouse sizing stats and aisle distributions.\n\nWritten once per inventory pair (shared across A/B/C strategies) to\npair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Warehouse_Data.py::_CREATE_AISLE_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_at_warehouse_id\\n ON aisle_type_stats (warehouse_id)\\n'"
-    },
-    "Optimization/Warehouse_Data.py::_CREATE_AISLE_LAYOUT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_layout (\\n aisle_id INTEGER PRIMARY KEY,\\n handling_type TEXT NOT NULL,\\n category TEXT NOT NULL,\\n unit_type TEXT NOT NULL,\\n storage_size TEXT NOT NULL,\\n bay..."
-    },
-    "Optimization/Warehouse_Data.py::_CREATE_AISLE_TYPE_STATS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_type_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n warehouse_id INTEGER NOT NULL REFERENCES warehouse_stats(id),\\n handling_type TEXT NOT NULL,\\n category T..."
-    },
-    "Optimization/Warehouse_Data.py::_CREATE_WAREHOUSE_STATS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS warehouse_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n inventory_db TEXT NOT NULL,\\n timestamp TEXT NOT NULL,\\n n_skus INTEGER NOT NULL,\\n n_pallet_units INTEGER..."
-    },
-    "Optimization/Warehouse_Data.py::_open_db": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> sqlite3.Connection"
-    },
-    "Optimization/Warehouse_Data.py::compute_warehouse_fingerprint": {
-      "decorators": [],
-      "doc": "Stable hash of a warehouse's geometry + inventory profile.\n\nRename-proof identity: stored in warehouse_stats and in every sim run row so a run\ncan be matched to its warehouse.db regardless of folder/file names.  Keyed on the\nper-aisle layout (id, handling, category, unit_type, size, bays) which uniquely\nfixes the geometry the picker_events/aisle_ids were recorded against.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aisle_rows: list[dict], inventory_label: str='') -> str"
-    },
-    "Optimization/Warehouse_Data.py::init_warehouse_db": {
-      "decorators": [],
-      "doc": "Create warehouse_stats, aisle_type_stats, and aisle_layout tables.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
-    },
-    "Optimization/Warehouse_Data.py::save_aisle_layout": {
-      "decorators": [],
-      "doc": "Replace aisle_layout with one row per aisle of the built warehouse.\n\nrows: dicts with keys aisle_id, handling_type, category, unit_type,\nstorage_size, bay_x, bay_y.  Rewrite-fresh so it always reflects the latest\nplan/warehouse for this pair.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, rows: list[dict]) -> None"
-    },
-    "Optimization/Warehouse_Data.py::save_warehouse_stats": {
-      "decorators": [],
-      "doc": "Insert one warehouse_stats row + one aisle_type_stats row per aisle type.\n\naisle_rows: list of dicts with keys\n    handling_type, category, unit_type, replica_count, eff_bins_per_aisle,\n    total_bins, size_small_pct, size_medium_pct, size_large_pct, size_xlarge_pct\n\nReturns the warehouse_stats.id of the inserted row.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, inventory_db: str, n_skus: int, n_pallet: int, n_singleton: int, total_aisles: int, total_bins: int, expected_fill: float, target_fill: float, max_aisles: int | None, max_bins: int | None, avg_eq_qty: float, avg_rp: float, aisle_rows: list[dict], warehouse_fingerprint: str | None=None) -> int"
-    },
-    "Optimization/Workload.py": {
-      "decorators": [],
-      "doc": null,
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Workload.py::WorkloadParams": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": "Coefficients that define how physical effort is estimated for one aisle.\n\nMirrors the relevant fields of PickConfig (Warehouse/Pick.py) so the\nOptimization layer can compute W without importing simulation internals.\n\nFields\n------\nx_speed      : horizontal travel speed in ft/s (positions are inches)\ny_speed      : vertical travel speed in ft/s (positions are inches)\npick_intercept   : fixed overhead per P stop\npick_weight_coef : time added per (weight \u00d7 quantity) unit\npick_volume_coef : time added per (volume \u00d7 quantity) unit\ncart_swap_coef   : penalty per additional cart needed beyond the first",
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/Workload.py::WorkloadParams.from_pick_config": {
-      "decorators": [
-        "classmethod"
-      ],
-      "doc": "Build WorkloadParams from a PickConfig instance (duck-typed).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cls, cfg: object) -> WorkloadParams"
-    },
-    "Optimization/Workload.py::aisle_workload": {
-      "decorators": [],
-      "doc": "Estimate W = D + P + C, the total time (workload) for one aisle's picks.\nSee aisle_workload_components for the term definitions.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -> float"
-    },
-    "Optimization/Workload.py::aisle_workload_components": {
-      "decorators": [],
-      "doc": "The (D, P, C) decomposition of one aisle's workload W = D + P + C.\n\n  D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)\n                 (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)\n  P (handling) = \u03a3_stops  height_mult(y) * (intercept + qty\n                                    * (weight_coef*ln(weight) + volume_coef*ln(volume)))\n  C (cart)     = cart_swap_coef * max(0, carts_required - 1)\n\nMirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the\nper-unit weight/volume handling.  Split out so callers can report the\nhandling-vs-travel breakdown of the analytical objective (see expected_task_labor).\n\nParameters\n----------\nx_traversed    : total bayX distance walked in the aisle (from Task)\ny_traversed    : total bayY distance walked in the aisle (from Task)\ncarts_required : number of carts the aisle's picks fill (from Task)\npick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop\nparams         : WorkloadParams coefficients",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -> tuple[float, float, float]"
-    },
     "Optimization/__init__.py": {
       "decorators": [],
       "doc": "Optimization \u2014 the run harness as a package.\n\nSimulation runner (run_simulation / strategy_runner), analysis\n(run_analysis + Performance_Evaluations), channel rollup, and the SQLite\npersistence layers.  Import style is package-absolute\n(``from Optimization import channels``); the repo root must be on sys.path \u2014\nentry scripts self-bootstrap, pytest gets it from Tests/conftest.py.\n\nDeliberately side-effect-free: no imports here (Performance_Evaluations keeps\nits own deliberate registry side effects in ITS __init__, fired only when the\nanalysis package itself is imported).",
@@ -2432,82 +1769,19 @@
       "kind": "function",
       "signature": "(argv=None)"
     },
-    "Optimization/batch_precompute.py": {
+    "Optimization/config/__init__.py": {
       "decorators": [],
-      "doc": "batch_precompute.py \u2014 compute each warehouse family's batch sequence ONCE and share it.\n\nBatch sampling (`Workload_Builder.Batch`) is a PURE function of (batch_cfg, inventory, affinity,\nseed_batches + i): it weights SKUs by static demand frequency x the immutable affinity-lift CSR and\ndraws from a dedicated per-batch RNG `random.Random(seed_batches + i)`.  Today every strategy arm of a\nwarehouse family re-samples the identical sequence inside its own worker process \u2014 the heavy\nO(k*|inventory|) sampling (the bulk of the per-batch \"build\" section) is paid ~32x for bit-identical\nresults.  This module computes the sequence ONCE (optionally in parallel chunks) so every arm of the\nfamily reads it instead, while the genuinely sequential `Task.from_batch` stays per-arm in the loop.\n\nCorrectness rests on two things:\n  * `load_inventory_from_db` selects `ORDER BY sku`, so the candidate order \u2014 which\n    `_lift_weighted_sample` indexes positionally \u2014 is deterministic; loading the SAME db with the SAME\n    limit/allowlist the worker uses reproduces the worker's candidates exactly.\n  * a content FINGERPRINT over exactly the fields a batch consumes (the ordered\n    (sku, relative_frequency, quantity_rate) triples + batch_cfg + seeds + the affinity CSR digest)\n    keys the on-disk list.  Families of different sizes get different fingerprints (so they never share\n    a list), and a worker accepts a file only when its own recomputed fingerprint matches \u2014 never\n    another family's.  On any mismatch/miss the caller falls back to inline sampling (still correct).",
+      "doc": "Optimization.config \u2014 the run's tunable inputs, in one place.\n\nCONFIG (sim_config) is the single source of truth for every knob; `channels` describes the two\nindependent warehouse sections; `strategies` is the assignment-function registry; `whatif_config`\nholds the cell-matrix specs.  See README.md for what does and does not belong here.\n\nsim_config and channels import each other and must stay co-located.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/batch_precompute.py::_MIN_PARALLEL": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "16"
-    },
-    "Optimization/batch_precompute.py::_affinity_digest": {
-      "decorators": [],
-      "doc": "Hash the immutable affinity-lift CSR (the values batch selection multiplies in).  Distinguishes\ndifferent affinity DBs; identical for the same DB loaded twice (parent precompute vs worker).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(affinity) -> str"
-    },
-    "Optimization/batch_precompute.py::_load_worker_inventory": {
-      "decorators": [],
-      "doc": "Load inventory EXACTLY as strategy_runner._run_strategy_worker does (same db, limit,\nallowlist, THEN regime filter) so the candidate list \u2014 and therefore every sampled batch \u2014\nis identical to the worker's.  ``channel_regime`` (store/fulfillment) keeps a mixed-catalog\nchannel's stream regime-pure; None \u21d2 the whole (allowlisted) inventory (store-only).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inv_db: str, max_skus, sku_allowlist, channel_regime=None)"
-    },
-    "Optimization/batch_precompute.py::_sample_range": {
-      "decorators": [],
-      "doc": "Module-level (spawn-picklable) chunk worker: load inv+aff once, sample batches [lo, hi).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo, hi, channel_regime=None)"
-    },
-    "Optimization/batch_precompute.py::batch_fingerprint": {
-      "decorators": [],
-      "doc": "Stable hash over EXACTLY the inputs that determine the batch sequence (order included).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inventory, batch_cfg, seed_batches: int, n_batches: int, affinity) -> str"
-    },
-    "Optimization/batch_precompute.py::ensure_batches": {
-      "decorators": [],
-      "doc": "Compute-or-reuse this family's batch file under out_dir.  Returns (path, fingerprint).\n\nThe file is named by the fingerprint so different families never collide and identical families\n(e.g. configs that don't change inventory) share one file.  Existence \u21d2 reuse (write is atomic);\nthe worker re-verifies the full fingerprint on load.\n\n``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog\nchannel shares ONE list across all its configs (store and fulfillment necessarily get distinct\nfiles: different regime SKUs, seed, and batch fraction all feed the fingerprint).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, log=None, channel_regime=None)"
-    },
-    "Optimization/batch_precompute.py::load_batches": {
-      "decorators": [],
-      "doc": "Return the stored batch list IFF the stored fingerprint matches expected; else None so the\ncaller falls back to inline sampling (never the wrong family's list).\n\nImportError/AttributeError guard: a cache written before a module rename/move (e.g. the\nflat->package conversion) embeds the OLD class paths \u2014 unpicklable now.  Treat it exactly\nlike a corrupt file (fall back inline; delete stale _batches_*.pkl to regain the dedup).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, expected_fingerprint: str) -> list | None"
-    },
-    "Optimization/batch_precompute.py::precompute_batches": {
-      "decorators": [],
-      "doc": "Return the full list of `Batch` objects for i in [0, n_batches).\n\nSerial when workers<=1 or n_batches<_MIN_PARALLEL; otherwise splits the range across a transient\nspawn pool (each chunk loads inv+aff once, then samples its slice).  Result order is always 0..n-1.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, channel_regime=None) -> list"
-    },
-    "Optimization/batch_precompute.py::write_batches": {
-      "decorators": [],
-      "doc": "Persist {fingerprint, batches} atomically (tmp + os.replace) so a half-written file is never\nobserved as complete.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, fingerprint: str, batches: list) -> None"
-    },
-    "Optimization/channels.py": {
+    "Optimization/config/channels.py": {
       "decorators": [],
       "doc": "channels.py \u2014 the Channel abstraction: one operation over a shared warehouse.\n\nA *Channel* bundles the three things that differ between the store and fulfillment\noperations while the pick MECHANICS stay shared:\n\n  * regime      \u2014 which SKU family / bins it uses (BinKey routing; see regime.py)\n  * batch stream \u2014 its own order-generation rate/size (a BatchConfig, built per run once\n                   the channel's SKU-subset size is known) + an independent seed offset\n  * picker pool \u2014 its own worker count + cost regression (a PickerProfile wrapping a\n                   PickConfig)\n\nThe channel list is the single source of truth the runner uses to (a) generate a batch\nstream per channel, (b) simulate each channel with its own picker pool + cost, and (c)\nderive ``WP_BY_REGIME`` for the per-regime cost routing in placement/labor.  Adding a new\noperation later = adding one Channel.\n\nBackward-compatible: a run with a single ``store`` channel reproduces today's behavior\nexactly (one batch stream, one picker pool, one cost, one DB subtree).",
       "kind": "module",
       "signature": null
     },
-    "Optimization/channels.py::Channel": {
+    "Optimization/config/channels.py::Channel": {
       "decorators": [
         "dataclass(frozen=True)"
       ],
@@ -2515,21 +1789,21 @@
       "kind": "class",
       "signature": ""
     },
-    "Optimization/channels.py::Channel.batch_config": {
+    "Optimization/config/channels.py::Channel.batch_config": {
       "decorators": [],
       "doc": "Build this channel's BatchConfig for its SKU-subset size.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, inventory_size: int) -> BatchConfig"
     },
-    "Optimization/channels.py::FF_BATCH_SEED_OFFSET": {
+    "Optimization/config/channels.py::FF_BATCH_SEED_OFFSET": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "1000000"
     },
-    "Optimization/channels.py::PickerProfile": {
+    "Optimization/config/channels.py::PickerProfile": {
       "decorators": [
         "dataclass(frozen=True)"
       ],
@@ -2537,33 +1811,466 @@
       "kind": "class",
       "signature": ""
     },
-    "Optimization/channels.py::build_channels": {
+    "Optimization/config/channels.py::build_channels": {
       "decorators": [],
       "doc": "Assemble the run's channel list.\n\nThe STORE channel's cost is the run's own (swept) PickConfig, so store results are\nunchanged.  The FULFILLMENT channel is appended only when the inventory has fulfillment\nitems (``include_fulfillment``); it uses the walker cost + its own picker pool.\n\n``store_restocks`` restricts the store channel to a subset of restock rules (None \u21d2 full\nsuite); fulfillment always runs the full suite.",
       "is_async": false,
       "kind": "function",
       "signature": "(store_pick_cfg: PickConfig, store_num_pickers: int, *, include_fulfillment: bool, ff_pick_cfg: PickConfig | None=None, ff_num_pickers: int=20, store_restocks: tuple[str, ...] | None=None) -> list[Channel]"
     },
-    "Optimization/channels.py::fulfillment_pick_config": {
+    "Optimization/config/channels.py::fulfillment_pick_config": {
       "decorators": [],
       "doc": "The fulfillment channel's default walker pick-time regression.\n\nA thin reader of ``sim_config.FULFILLMENT_CONFIGS[0]`` \u2014 the SINGLE source of\ntruth for the walker numbers.  (This function used to carry its own copy, which\nsilently diverged once the sweep entries were tuned; folding it onto CONFIG ended\nthe two-sources-of-truth hazard.)  num_pickers stays 1 here \u2014 the PickerProfile\npool size overrides it.  Imported lazily to avoid the sim_config \u2192 channels\nimport cycle (FF_BATCH_SEED_OFFSET lives in this module).",
       "is_async": false,
       "kind": "function",
       "signature": "() -> PickConfig"
     },
-    "Optimization/channels.py::make_channel": {
+    "Optimization/config/channels.py::make_channel": {
       "decorators": [],
       "doc": "Build a single Channel from a picker cost + pool size.\n\nThe one-channel primitive the runner uses to sweep each section's configs\nindependently; build_channels() composes the standard store+fulfillment pair on\ntop of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream\n(store uses 0; fulfillment a large offset so its stream never overlaps store's).\n``batch_mean_fraction``/``batch_std_fraction`` set the channel's batch-stream shape\n(each channel may differ; the runner sources these from CONFIG).",
       "is_async": false,
       "kind": "function",
       "signature": "(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05) -> Channel"
     },
-    "Optimization/channels.py::wp_by_regime": {
+    "Optimization/config/channels.py::wp_by_regime": {
       "decorators": [],
       "doc": "{regime: WorkloadParams} derived from each channel's picker cost \u2014 the map the\nplacement/labor cost routing keys on (attached to the primary WorkloadParams as\n``.by_regime`` so it rides through the assignment builders without signature churn).",
       "is_async": false,
       "kind": "function",
       "signature": "(channels: list[Channel]) -> dict"
+    },
+    "Optimization/config/sim_config.py": {
+      "decorators": [],
+      "doc": "sim_config.py \u2014 the run's single source of tunable truth.\n\nEverything a run can be tuned by lives here: the .env-backed output/profile dirs,\nthe per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested\nCONFIG dict (global + per-channel sections), the derived read-only aliases, and the\nconfig\u2192PickConfig conversion.  run_simulation re-exports the public names so\n`rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)\nkeep working.\n\nCONFIG identity rule: the re-export binds the SAME dict object \u2014 tests mutate\n`rs.CONFIG['global'][...]` in place \u2014 so nobody may ever REBIND CONFIG (or the\nmutation would silently detach from internal readers).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/sim_config.py::CONFIG": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 5, 'max_skus': None}, 'channels': {'store': {'regime': STORE, 'confi..."
+    },
+    "Optimization/config/sim_config.py::FULFILLMENT_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
+    },
+    "Optimization/config/sim_config.py::K_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['channels']['store']['num_pickers']"
+    },
+    "Optimization/config/sim_config.py::N_BATCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['global']['n_batches']"
+    },
+    "Optimization/config/sim_config.py::REGRESSION_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "STORE_CONFIGS"
+    },
+    "Optimization/config/sim_config.py::SEED_BATCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['global']['seed_batches']"
+    },
+    "Optimization/config/sim_config.py::SEED_WORLD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['global']['seed_world']"
+    },
+    "Optimization/config/sim_config.py::STORE_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
+    },
+    "Optimization/config/sim_config.py::STORE_RESTOCKS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['channels']['store']['restocks']"
+    },
+    "Optimization/config/sim_config.py::_ACTIVE_PICK_CONFIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "sorted((s for s in PICK_CONFIGS if s.enabled), key=lambda s: (s.channel, s.order, s.name))"
+    },
+    "Optimization/config/sim_config.py::_AISLE_H": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "aisle_height_for(10)"
+    },
+    "Optimization/config/sim_config.py::_AISLE_W": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "aisle_width_for(50)"
+    },
+    "Optimization/config/sim_config.py::_CART_TYPES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}"
+    },
+    "Optimization/config/sim_config.py::_CATEGORIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']"
+    },
+    "Optimization/config/sim_config.py::_DEFAULT_PROFILES_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_clean_path(os.getenv('PROFILE_INPUT_DIR', os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles'))))"
+    },
+    "Optimization/config/sim_config.py::_HANDLINGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['conveyable', 'non-conveyable']"
+    },
+    "Optimization/config/sim_config.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Optimization/config/sim_config.py::_INITIAL_FILL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "CONFIG['channels']['store']['fill']"
+    },
+    "Optimization/config/sim_config.py::_OUTPUT_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_clean_path(os.getenv('COMPARISON_OUTPUT_DIR', _HERE))"
+    },
+    "Optimization/config/sim_config.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(_HERE, '..', '..'))"
+    },
+    "Optimization/config/sim_config.py::_build_pick_cfg": {
+      "decorators": [],
+      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig"
+    },
+    "Optimization/config/sim_config.py::_checkpoint_every": {
+      "decorators": [],
+      "doc": "Batches between per-strategy checkpoints (floor(n_batches * checkpoint_frac), \u22651) \u2014\nmatches the legacy ``max(1, N_BATCHES // 10)`` cadence at the default 0.1 fraction.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n_batches: int) -> int"
+    },
+    "Optimization/config/sim_config.py::_clean_path": {
+      "decorators": [],
+      "doc": "Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.\n\nApplied after os.getenv so that values set directly in the Windows session\nenvironment (with literal r\"...\" text) are normalised the same way as\nvalues parsed from the .env file.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(val: str) -> str"
+    },
+    "Optimization/config/sim_config.py::_config_name": {
+      "decorators": [],
+      "doc": "A config's directory/identity name (explicit 'name', else a coeff fingerprint).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cfg: dict) -> str"
+    },
+    "Optimization/config/sim_config.py::_load_env": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
+    "Optimization/config/sim_config.py::_setup_logging": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(log_path: str) -> logging.Logger"
+    },
+    "Optimization/config/sim_config.py::regime_sizing_from_config": {
+      "decorators": [],
+      "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +\ncaps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/config/strategies.py": {
+      "decorators": [],
+      "doc": "strategies.py \u2014 data-driven registry of placement (assignment) strategies.\n\nEach Strategy names an assignment policy and knows how to wire it onto an\nInventory_Manager for the reorder phase.  The whole comparison pipeline\n(run_simulation orchestration, strategy_runner worker, run_analysis/Comparison_Plots\nlabels via sim_meta) iterates this list, so adding a strategy is one entry here.\n\nStrategies share the same uniform INITIAL stocking by default (done in the worker\nbefore build() is called) and differ in how reorder waves are placed.  A strategy\nmay override stocking with a `stock` hook (e.g. optimal_reslot stocks at the\npure-global-W optimum) and may enable bounded per-batch re-slotting via `reslot_frac`.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/strategies.py::Strategy": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/config/strategies.py::StrategyContext": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "Everything a strategy's build() may need, assembled by the worker.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/config/strategies.py::_INITIALS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('uni', 'Uni', 'uniform'), ('opt', 'Opt', 'policy')]"
+    },
+    "Optimization/config/strategies.py::_N_STRATEGIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)"
+    },
+    "Optimization/config/strategies.py::_RESLOTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('norsl', 'noRSL', 0.0, 'rebalance')]"
+    },
+    "Optimization/config/strategies.py::_RESLOT_FRAC": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.005"
+    },
+    "Optimization/config/strategies.py::_RESTOCKS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('fifo', 'FIFO', _build_uniform, False, False, False), ('rank_random', 'Rank_random', _build_uniform_trip_min_ranked, True, True, False), ('rank_popularity', 'Rank_popularity', _build_rank_popular..."
+    },
+    "Optimization/config/strategies.py::_build_cluster_map": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_cluster_map_rank": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_compaction": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_expansion": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_map": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_map_rank": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_max_cluster": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_min_cluster": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_rank_cartlabor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_rank_labor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_rank_maxlabor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_rank_minlabor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_rank_popularity": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_trip_max": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_trip_min": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_uniform": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_build_uniform_trip_min_ranked": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
+    "Optimization/config/strategies.py::_hsv_hex": {
+      "decorators": [],
+      "doc": "A distinct-ish hex colour for index i of n (HSV hue sweep).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(i: int, n: int) -> str"
+    },
+    "Optimization/config/strategies.py::_key": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "f'{_ik}_{_rk}_{_sk}'"
+    },
+    "Optimization/config/strategies.py::_stock_optimal": {
+      "decorators": [],
+      "doc": "Place initial stock at the pure-global-W optimal layout (hottest SKUs in the\nlowest-W bins).  Stores nothing on mgr; reorders use the normal placement.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext, inventory) -> None"
+    },
+    "Optimization/config/strategies.py::restocks_for": {
+      "decorators": [],
+      "doc": "The restock-rule subset a channel sweeps (None \u21d2 full suite).  Unknown channel \u21d2\nNone (full suite), so a new channel runs everything until curated here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channel: str) -> tuple[str, ...] | None"
+    },
+    "Optimization/config/strategies.py::strategies_for": {
+      "decorators": [],
+      "doc": "Subset of STRATEGIES whose restock rule is in `restocks` (None \u21d2 all).\n\nLets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)\nwhile another runs the full suite, without perturbing the global grid used elsewhere.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(restocks) -> list[Strategy]"
+    },
+    "Optimization/config/whatif_config.py": {
+      "decorators": [],
+      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B with NO ABC aisle splitting and NO ABC velocity zoning: hold\nthe layout fixed (whole aisles, no A/B/C banding) and sweep the task\u2192picker scheduler `round_robin`\n(naive static i%num_pickers) vs `lpt` (makespan-MINIMIZING load balancer) across the full\nassignment-function suite \u2014 measuring the throughput (batch-makespan) gain of load-balancing at\nunchanged task makespan (total labor).  The ABC aisle-split and ABC velocity-zoning axes are preserved\nbelow as commented-out lines; uncomment them to sweep layout too.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/whatif_config.py::SPECS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF, '_canary_sweep': {'ks':..."
+    },
+    "Optimization/config/whatif_config.py::WHATIF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
+    },
+    "Optimization/config/whatif_config.py::get_spec": {
+      "decorators": [],
+      "doc": "Return the cell-matrix spec dict for a registered name (KeyError if unknown).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name)"
     },
     "Optimization/gpu/__init__.py": {
       "decorators": [],
@@ -2846,6 +2553,736 @@
       "is_async": false,
       "kind": "function",
       "signature": "(client)"
+    },
+    "Optimization/metrics/Simulation_Analytics.py": {
+      "decorators": [],
+      "doc": "Simulation_Analytics.py \u2014 per-batch and per-task statistics from PickSimulation events.\n\nPublic API\n----------\navg_concurrent_pickers(events)\n    Time-weighted average number of pickers simultaneously in \"picking\" state.\n\n    Aggregate picking vs traveling fractions across all pickers.\n\nextract_batch_stats(events, batch_id, k_pickers, run_id)\n    Summarise one PickSimulation run into a BatchStats record.\n\nextract_task_stats(events, tasks, batch_id, affinity, wp, run_id)\n    Extract per-aisle TaskStats from one PickSimulation run.\n\nflag_batch_outliers(stats, iqr_factor)\n    IQR outlier detection on batch duration.\n\nflag_task_outliers(stats, iqr_factor)\n    IQR outlier detection on task duration.\n\nbuild_placed_affinity(warehouse, inventory, max_per_group)\n    Sparse lift matrix for only the SKUs that have a physical bin.\n\nsum_lift(skus, affinity)\n    Demand-weighted co-occurrence helper for a dict-based lift matrix (AffinityStore\n    objects carry their own faster .sum_lift; this is the dict fallback).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/metrics/Simulation_Analytics.py::_group_events_by_picker": {
+      "decorators": [],
+      "doc": "Partition events into per-picker lists in a single O(N) pass.\n\nPick.py generates events in time order within each picker's timeline so\nno sort is needed \u2014 the per-picker lists are already time-ordered.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list, k_pickers: int) -> list[list]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::_pick_lines": {
+      "decorators": [],
+      "doc": "(weight, volume, qty, y_phys) per bin stop that has inventory for this task.\ny_phys lets aisle_workload apply the height-bracket handling multiplier.\n\nPrefer the snapshot captured at task build (Task.pick_lines) \u2014 the live path bins are\ndepleted by the sim's pick application before extract_task_stats runs, which would\notherwise drop emptied bins and zero out W.  Falls back to the live read for any task\nobject that predates the snapshot.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(task) -> list[tuple[int, int, int, float]]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::_picker_time_breakdown_grouped": {
+      "decorators": [],
+      "doc": "Compute picking/traveling breakdown from pre-grouped picker event lists.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(grouped: list[list]) -> dict[str, float]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::avg_concurrent_pickers": {
+      "decorators": [],
+      "doc": "Time-weighted average number of pickers simultaneously in 'picking' state.\n\nA picker is \"picking\" from the moment they arrive at a bin (arrive event)\nuntil they finish handling it (pick event).  Cart-swap overhead is folded\ninto that interval because both arrive and pick share the same pick_time span.\n\nAlgorithm\n---------\nBuild a (time, +1/-1) change-list, sort it, then sweep to integrate the\nconcurrent-count curve.  Divide by total simulation span.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list) -> float"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::build_placed_affinity": {
+      "decorators": [],
+      "doc": "Build a sparse lift matrix covering only placed SKUs.\n\nCalling inventory.affinity_matrix() on 50 000+ SKUs with 5 lift groups\nof ~10 000 each generates ~250 M pairs \u2014 impractical.  This function caps\neach lift group at max_per_group placed SKUs, yielding a bounded dict\n(5 * C(300,2) * 2 \u2248 450 k entries at the default) while still producing\nnon-zero lift_sums for tasks that contain two or more eligible SKUs.\n\nParameters\n----------\nwarehouse      : built Warehouse object (bins already stocked)\ninventory      : Inventory object whose orders have .sku and .lift_group\nmax_per_group  : SKUs with affinity per lift group; higher \u2192 denser lift\n                 coverage but more memory (~150 MB at 1 000 per group)",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(warehouse, inventory, max_per_group: int=300) -> dict"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::build_pre_snapshot": {
+      "decorators": [],
+      "doc": "Capture bin quantities before a batch simulation runs.\n\nCall immediately after check_reorders() and before DeferredPickSimulation.\nReturns a dict keyed by id(bin) holding all data needed to build a\nBinInventoryRecord once the post-simulation quantities are known.\n\nOnly non-empty bins are captured; empty bins are implicitly quantity=0\nand are not written to the DB.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(manager) -> dict"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::expected_task_labor": {
+      "decorators": [],
+      "doc": "E[task labor] for a placement, scored ANALYTICALLY from the realised tasks.\n\nThe optimization objective is the expected labor of a randomly-assigned task =\nmean over tasks of W = D + P + C (see Workload.aisle_workload).  Computed straight\nfrom each Task's path/items via the same bracket-aware formula the sim bills, so it\nis independent of sim wall-timing (queue waits, parallelism, reorder starvation).\n\nReturns {'objective': mean W, 'handling': mean P, 'travel': mean (D+C), 'n_tasks': n}.\n'travel' folds the cart-swap term C in with travel D since both are placement/route\neffects rather than per-unit handling; 'handling' is the placement-modulated P term.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tasks: list, wp: WorkloadParams) -> dict"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats": {
+      "decorators": [],
+      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::extract_picker_events": {
+      "decorators": [],
+      "doc": "Convert a PickSimulation event list into PickerEventRecord rows for DB storage.\n\nEvery event is stored verbatim so the full picker timeline can be replayed\nfrom SQL.  Location (bayX, bayY) is populated for arrive / cart_swap / pick\nevents; it is NULL for task_start, task_end, and done events.\n\nVisualization query \u2014 state of all pickers at sim-time t in batch b:\n\n    SELECT picker_id, aisle_id, bayX, bayY, event_type, items_picked\n    FROM   picker_events\n    WHERE  run_id = ? AND batch_id = ? AND time <= ?\n    GROUP  BY picker_id\n    HAVING time = MAX(time)\n    ORDER  BY picker_id;",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list, batch_id: int, run_id: int=0) -> list"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::extract_picks": {
+      "decorators": [],
+      "doc": "Extract one PickRecord per 'pick' event from the picker event stream.\n\nProvides a compact, join-friendly picks table (run_id, batch_id, sku, qty,\nlocation, sim_time) without the full event stream overhead of picker_events.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list, batch_id: int, run_id: int=0) -> list[PickRecord]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::extract_task_stats": {
+      "decorators": [],
+      "doc": "Extract per-aisle TaskStats from one PickSimulation.run() result.\n\nduration         : task_end.time - task_start.time for this aisle\nW              : analytical workload via aisle_workload()\nlift_sum         : sum_lift for SKUs present in this task\nnum_bins_visited : bins with at least one pick (task.items membership)\ntotal_items      : sum of quantities across this aisle's SKUs",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list, tasks: list, batch_id: int, affinity, wp: WorkloadParams, run_id: int=0, lift_cache: dict | None=None) -> list[TaskStats]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::flag_batch_outliers": {
+      "decorators": [],
+      "doc": "Return new list with is_outlier set via Tukey IQR fences on duration.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(stats: list[BatchStats], iqr_factor: float=1.5) -> list[BatchStats]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::flag_task_outliers": {
+      "decorators": [],
+      "doc": "Return new list with is_outlier set via Tukey IQR fences on duration.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(stats: list[TaskStats], iqr_factor: float=1.5) -> list[TaskStats]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics": {
+      "decorators": [],
+      "doc": "Capture the trip-cost equation state for every aisle in the manager.\n\nCall once per batch after check_reorders() and before picks \u2014 the same\nmoment as build_pre_snapshot() \u2014 so the snapshot reflects the current\nwarehouse layout after any reorder placements.\n\nFields captured\n---------------\nn_skus     : len(_aisle_sku_sets[aid])            \u2014 unique SKUs in aisle\nn_bins     : sum(_aisle_sku_counts[aid].values())  \u2014 occupied bin count\ndemand_sum : _aisle_demand_sum[aid]               \u2014 \u03a3 f_i * q_i secondary score\nlift_sum   : _aisle_lift_sum[aid]                 \u2014 affinity co-location quality\n\nStrategy A note\n---------------\nFor uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /\n_aisle_demand_sum are never populated.  Only aisles touched by B/C reorders\nwill have non-zero values.  Strategy A produces no rows here by design \u2014\nit has no structured placement state to track.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(manager: object, batch_id: int, run_id: int=0) -> list"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::snapshot_bin_inventory": {
+      "decorators": [],
+      "doc": "Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.\n\nCall immediately after DeferredPickSimulation.run() (Phase 2 complete).\n\nCovers three cases:\n  - Picked bins     : were in pre_snap; post_qty < pre_qty \u2014 always recorded.\n  - Untouched bins  : were in pre_snap; post_qty == pre_qty \u2014 only recorded\n                      when full_snapshot=True (first batch only).\n  - Reorder bins    : NOT in pre_snap; newly placed by check_reorders() \u2014\n                      always recorded (they represent a state change).\n\nWriting untouched bins on every batch (~2.4M rows for a large warehouse)\ndominated checkpoint time (~185\u2013308s per 10-batch checkpoint).  Recording\nonly changed bins drops this to ~100K rows/batch while preserving full\nreconstruction: set full_snapshot=True for the first batch of each run to\nestablish a complete baseline, then apply diffs batch-by-batch thereafter.\n\nVisualization query \u2014 inventory of one aisle at sim-time T (mid-batch):\n    WITH pre AS (\n        SELECT aisle_id, bayX, bayY, sku, pre_qty\n        FROM   bin_inventory WHERE run_id=? AND batch_id=?\n    ),\n    picks AS (\n        SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked\n        FROM   picker_events\n        WHERE  run_id=? AND batch_id=? AND aisle_id=? AND event_type='pick'\n          AND  time <= ?\n        GROUP  BY aisle_id, bayX, bayY\n    )\n    SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t\n    FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(manager: object, pre_snap: dict, batch_id: int, run_id: int=0, full_snapshot: bool=False) -> list"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::sum_lift": {
+      "decorators": [],
+      "doc": "Sum of pairwise lift over ordered pairs (i, j), i != j, in `skus`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(skus: list[int], affinity: dict) -> float"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::task_time_breakdown": {
+      "decorators": [],
+      "doc": "Decompose picker time into (travel, handling, other) from a picker-event stream.\n\nEach picker's timeline is walked in time order; the gap *ending* at an event is\ncharged by that event's type: a gap ending at 'arrive' is travel (move to a bin),\na gap ending at 'cart_swap' is travel too (return the full cart / fetch an empty one \u2014 a\nroute/depot cost, matching the analytical objective which folds cart into travel), a gap\nending at 'pick' is handling (= _pick_time, at-location only), everything else\n(task_start/end, done) is 'other' (\u22480 / inter-task).  Works on PickEvent objects or\nPickerEventRecord rows (both have .picker_id/.time/.event_type).\ntravel + handling \u2248 \u03a3 task durations (productivity hours).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list) -> tuple[float, float, float]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::task_travel_axes": {
+      "decorators": [],
+      "doc": "The x-vs-y split of POSITIONAL travel (excludes non-axis cart_move), in seconds:\n(travel_x, travel_y) = (\u03a3 pick_x+nonpick_x, \u03a3 pick_y+nonpick_y).  Evidence for the\n'x drives fulfillment / y drives store' thesis.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list) -> tuple[float, float]"
+    },
+    "Optimization/metrics/Simulation_Analytics.py::task_travel_breakdown": {
+      "decorators": [],
+      "doc": "Sibling of task_time_breakdown that reads the EXPLICIT per-event travel decomposition\nstamped by the sim, returning (pick_travel, non_pick_travel, cart_move) in seconds.\n\n  pick_travel     = \u03a3 (pick_travel_x + pick_travel_y)      \u2014 inter-pick within-aisle sweep\n  non_pick_travel = \u03a3 (non_pick_travel_x + non_pick_travel_y)  \u2014 aisle entry (+ one-way exit)\n  cart_move       = \u03a3 cart_move                            \u2014 cart-swap seconds (non-pick)\n\nSo total travel = pick_travel + non_pick_travel + cart_move, matching the `travel` bucket of\ntask_time_breakdown (which folds cart into travel).  Also exposes the x/y split via\ntask_travel_axes().  Works on PickEvent objects or PickerEventRecord rows.  Unlike the\ngap-based task_time_breakdown, this is exact even across skipped (no-event) bins because the\nsim folds their travel into the next stamped event.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events: list) -> tuple[float, float, float]"
+    },
+    "Optimization/metrics/Workload.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/metrics/Workload.py::WorkloadParams": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "Coefficients that define how physical effort is estimated for one aisle.\n\nMirrors the relevant fields of PickConfig (Warehouse/Pick.py) so the\nOptimization layer can compute W without importing simulation internals.\n\nFields\n------\nx_speed      : horizontal travel speed in ft/s (positions are inches)\ny_speed      : vertical travel speed in ft/s (positions are inches)\npick_intercept   : fixed overhead per P stop\npick_weight_coef : time added per (weight \u00d7 quantity) unit\npick_volume_coef : time added per (volume \u00d7 quantity) unit\ncart_swap_coef   : penalty per additional cart needed beyond the first",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/metrics/Workload.py::WorkloadParams.from_pick_config": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Build WorkloadParams from a PickConfig instance (duck-typed).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, cfg: object) -> WorkloadParams"
+    },
+    "Optimization/metrics/Workload.py::aisle_workload": {
+      "decorators": [],
+      "doc": "Estimate W = D + P + C, the total time (workload) for one aisle's picks.\nSee aisle_workload_components for the term definitions.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -> float"
+    },
+    "Optimization/metrics/Workload.py::aisle_workload_components": {
+      "decorators": [],
+      "doc": "The (D, P, C) decomposition of one aisle's workload W = D + P + C.\n\n  D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)\n                 (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)\n  P (handling) = \u03a3_stops  height_mult(y) * (intercept + qty\n                                    * (weight_coef*ln(weight) + volume_coef*ln(volume)))\n  C (cart)     = cart_swap_coef * max(0, carts_required - 1)\n\nMirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the\nper-unit weight/volume handling.  Split out so callers can report the\nhandling-vs-travel breakdown of the analytical objective (see expected_task_labor).\n\nParameters\n----------\nx_traversed    : total bayX distance walked in the aisle (from Task)\ny_traversed    : total bayY distance walked in the aisle (from Task)\ncarts_required : number of carts the aisle's picks fill (from Task)\npick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop\nparams         : WorkloadParams coefficients",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -> tuple[float, float, float]"
+    },
+    "Optimization/metrics/__init__.py": {
+      "decorators": [],
+      "doc": "Optimization.metrics \u2014 pick-cost and per-batch/per-task statistics over sim events.\n\nSits between the simulation and both consumers (the worker, which records stats, and the analysis\nsuite, which plots them) \u2014 which is why it is here and not under Performance_Evaluations.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/Picking_Data.py": {
+      "decorators": [],
+      "doc": null,
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/Picking_Data.py::AisleMetricRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::BatchStats": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::BinInventoryRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::PickRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::PickerEventRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::TaskStats": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_metrics (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n n_skus INTEGER NOT NULL DEFA..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS_AISLE_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_am_run_aisle\\n ON aisle_metrics (run_id, aisle_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS_BATCH_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_am_run_batch\\n ON aisle_metrics (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BATCH_STATS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS batch_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n duration REAL NOT N..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_inventory (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER ..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_AISLE_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle\\n ON bin_inventory (run_id, batch_id, aisle_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch\\n ON bin_inventory (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_KEYFRAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_keyframe (\\n run_id INTEGER NOT NULL,\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n sku INTEGER NO..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_KEYFRAME_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_kf_run_batch ON bin_keyframe (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_SCORES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_scores (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n travel_d R..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_SCORES_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bs_run ON bin_scores (run_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS picker_events (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n picker_id INTEGER..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_pe_run_batch\\n ON picker_events (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS_TIME_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_pe_run_batch_time\\n ON picker_events (run_id, batch_id, time)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS picks (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n picker_id INTEGER NOT NUL..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKS_BATCH_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_batch ON picks (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PICKS_SKU_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_REORDER_QUEUE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS reorder_queue (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n kind TEXT NOT NULL, -- 'lead' (in-transit) | 'stock' (awa..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_REORDER_QUEUE_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_rq_run_batch ON reorder_queue (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_RUNS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS simulation_runs (\\n run_id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_type TEXT NOT NULL,\\n created TEXT NOT NULL,\\n strategy_key TEXT, -- identity (rename-proof): same..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_SKU_SCORES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS sku_scores (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n sku INTEGER NOT NULL,\\n map_target REAL, -- optimal-map target pref (map/map_rank only)\\n..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_SKU_SCORES_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_ss_run ON sku_scores (run_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_TASK_STATS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS task_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT..."
+    },
+    "Optimization/persistence/Picking_Data.py::_IDENTITY_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('strategy_key', 'pair_label', 'config_label', 'warehouse_fingerprint', 'inventory_label', 'channel')"
+    },
+    "Optimization/persistence/Picking_Data.py::_PICK_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('sku', 'quantity', 'timestamp', 'aisle_id', 'bayX', 'bayY', 'handling_type', 'category_type')"
+    },
+    "Optimization/persistence/Picking_Data.py::_RUN_PARAM_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('num_pickers', 'x_speed', 'y_speed', 'pick_intercept', 'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef', 'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval', 'optimal_sigma_fd', 'o..."
+    },
+    "Optimization/persistence/Picking_Data.py::_open_db": {
+      "decorators": [],
+      "doc": "Open *path* with WAL journal mode and a generous busy timeout.\n\nWAL allows multiple concurrent readers and one writer without blocking\nreaders.  Writers that arrive while another write is in progress wait up\nto *timeout* seconds before raising OperationalError, giving the three\nparallel strategy workers enough headroom to avoid spurious lock errors\nwhen their 100-batch checkpoints happen to coincide.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
+    },
+    "Optimization/persistence/Picking_Data.py::create_run": {
+      "decorators": [],
+      "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_type: str, params: dict | None=None, identity: dict | None=None) -> int"
+    },
+    "Optimization/persistence/Picking_Data.py::find_run": {
+      "decorators": [],
+      "doc": "Resolve a run_id WITHOUT relying on the file name.\n\nMatches on the stored strategy_key/run_type (which equal the strategy key) so a\nrenamed sim_*.db still resolves; falls back to the first run in the DB.  Returns\nNone if the DB has no runs.  Tolerates the older schema (no strategy_key column).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, strategy_key: str | None=None) -> int | None"
+    },
+    "Optimization/persistence/Picking_Data.py::init_keyframe_db": {
+      "decorators": [],
+      "doc": "Create the bin_keyframe table + index if absent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::init_run_db": {
+      "decorators": [],
+      "doc": "Create all tables and indexes if they don't already exist, and enable WAL mode.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::keyframe_db_path": {
+      "decorators": [],
+      "doc": "Sibling keyframe-DB path for a strategy's run DB (run.db \u2192 run.keyframes.db).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_db_path: str) -> str"
+    },
+    "Optimization/persistence/Picking_Data.py::load_aisle_metrics": {
+      "decorators": [],
+      "doc": "Load AisleMetricRecord rows, optionally filtered to one batch or aisle.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
+    },
+    "Optimization/persistence/Picking_Data.py::load_batch_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list[BatchStats]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_bin_inventory": {
+      "decorators": [],
+      "doc": "Load BinInventoryRecord rows, optionally filtered to one batch or aisle.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
+    },
+    "Optimization/persistence/Picking_Data.py::load_bin_scores": {
+      "decorators": [],
+      "doc": "All per-bin scores for a run; empty list if the table is absent (older runs).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list[dict]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_picker_events": {
+      "decorators": [],
+      "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
+    },
+    "Optimization/persistence/Picking_Data.py::load_picker_events._g": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, col)"
+    },
+    "Optimization/persistence/Picking_Data.py::load_reorder_queue": {
+      "decorators": [],
+      "doc": "Queue contents at the start of one batch.  Empty list if the table is absent\n(older runs predate it) so the viewer degrades gracefully.  Falls back to the\npre-enrichment columns when unit_type/storage_size are missing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int) -> list[dict]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_sku_scores": {
+      "decorators": [],
+      "doc": "All per-SKU scores for a run; empty list if the table is absent (older runs).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list[dict]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_task_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list[TaskStats]"
+    },
+    "Optimization/persistence/Picking_Data.py::run_identity": {
+      "decorators": [],
+      "doc": "Return the stored identity + key params for a run (rename-proof metadata).\nMissing columns (older schema) are simply omitted from the dict.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> dict"
+    },
+    "Optimization/persistence/Picking_Data.py::save_aisle_metrics": {
+      "decorators": [],
+      "doc": "Persist per-aisle trip-cost equation state snapshots.\n\nCaptured once per batch after check_reorders() \u2014 reflects the warehouse\nlayout as it evolves under the assignment function.  Strategy A rows carry\nzeros because affinity state is not maintained for uniform placement.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_batch_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list[BatchStats]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_bin_inventory": {
+      "decorators": [],
+      "doc": "Persist pre/post batch bin inventory snapshots.\n\nEach record covers one non-empty bin for one batch: pre_qty is the\nquantity after check_reorders() (before picks), post_qty is the\nquantity after all picks are applied.  Bins empty throughout are omitted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_bin_keyframe": {
+      "decorators": [],
+      "doc": "Write one full occupied-bin snapshot (keyframe) for (run_id, batch_id).\n\nrecords: iterable of dicts with keys aisle_id, bayX, bayY, sku, unit_type,\nstorage_size, qty.  INSERT OR REPLACE so re-running a batch overwrites cleanly.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_bin_scores": {
+      "decorators": [],
+      "doc": "Per-bin static scores.  records: (aisle_id, bayX, bayY, travel_d, height_mult,\nlayout_score, map_pref); map_pref None for non-map strategies.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_picker_events": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_picks": {
+      "decorators": [],
+      "doc": "Persist individual pick events extracted from the picker event stream.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_reorder_queue": {
+      "decorators": [],
+      "doc": "Persist per-batch queue snapshots.  Each record is\n(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two\nare None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_sku_scores": {
+      "decorators": [],
+      "doc": "Per-SKU placement scores.  records: (sku, map_target, labor_cost, handle_var,\nexpected_popularity, expected_labor, equilibrium_qty, reorder_point, lead_time_mean).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_task_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list[TaskStats]) -> None"
+    },
+    "Optimization/persistence/Warehouse_Data.py": {
+      "decorators": [],
+      "doc": "Warehouse_Data.py \u2014 SQLite persistence for warehouse sizing stats and aisle distributions.\n\nWritten once per inventory pair (shared across A/B/C strategies) to\npair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/Warehouse_Data.py::_CREATE_AISLE_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_at_warehouse_id\\n ON aisle_type_stats (warehouse_id)\\n'"
+    },
+    "Optimization/persistence/Warehouse_Data.py::_CREATE_AISLE_LAYOUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_layout (\\n aisle_id INTEGER PRIMARY KEY,\\n handling_type TEXT NOT NULL,\\n category TEXT NOT NULL,\\n unit_type TEXT NOT NULL,\\n storage_size TEXT NOT NULL,\\n bay..."
+    },
+    "Optimization/persistence/Warehouse_Data.py::_CREATE_AISLE_TYPE_STATS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS aisle_type_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n warehouse_id INTEGER NOT NULL REFERENCES warehouse_stats(id),\\n handling_type TEXT NOT NULL,\\n category T..."
+    },
+    "Optimization/persistence/Warehouse_Data.py::_CREATE_WAREHOUSE_STATS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS warehouse_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n inventory_db TEXT NOT NULL,\\n timestamp TEXT NOT NULL,\\n n_skus INTEGER NOT NULL,\\n n_pallet_units INTEGER..."
+    },
+    "Optimization/persistence/Warehouse_Data.py::_open_db": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> sqlite3.Connection"
+    },
+    "Optimization/persistence/Warehouse_Data.py::compute_warehouse_fingerprint": {
+      "decorators": [],
+      "doc": "Stable hash of a warehouse's geometry + inventory profile.\n\nRename-proof identity: stored in warehouse_stats and in every sim run row so a run\ncan be matched to its warehouse.db regardless of folder/file names.  Keyed on the\nper-aisle layout (id, handling, category, unit_type, size, bays) which uniquely\nfixes the geometry the picker_events/aisle_ids were recorded against.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aisle_rows: list[dict], inventory_label: str='') -> str"
+    },
+    "Optimization/persistence/Warehouse_Data.py::init_warehouse_db": {
+      "decorators": [],
+      "doc": "Create warehouse_stats, aisle_type_stats, and aisle_layout tables.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
+    "Optimization/persistence/Warehouse_Data.py::save_aisle_layout": {
+      "decorators": [],
+      "doc": "Replace aisle_layout with one row per aisle of the built warehouse.\n\nrows: dicts with keys aisle_id, handling_type, category, unit_type,\nstorage_size, bay_x, bay_y.  Rewrite-fresh so it always reflects the latest\nplan/warehouse for this pair.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, rows: list[dict]) -> None"
+    },
+    "Optimization/persistence/Warehouse_Data.py::save_warehouse_stats": {
+      "decorators": [],
+      "doc": "Insert one warehouse_stats row + one aisle_type_stats row per aisle type.\n\naisle_rows: list of dicts with keys\n    handling_type, category, unit_type, replica_count, eff_bins_per_aisle,\n    total_bins, size_small_pct, size_medium_pct, size_large_pct, size_xlarge_pct\n\nReturns the warehouse_stats.id of the inserted row.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, inventory_db: str, n_skus: int, n_pallet: int, n_singleton: int, total_aisles: int, total_bins: int, expected_fill: float, target_fill: float, max_aisles: int | None, max_bins: int | None, avg_eq_qty: float, avg_rp: float, aisle_rows: list[dict], warehouse_fingerprint: str | None=None) -> int"
+    },
+    "Optimization/persistence/__init__.py": {
+      "decorators": [],
+      "doc": "Optimization.persistence \u2014 SQLite schemas and read/write for a run's DBs.\n\nLeaf modules by design: none of them imports anything else in Optimization, so persistence can\nnever drag configuration or orchestration into a worker.  See README.md.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/runtime_metrics.py": {
+      "decorators": [],
+      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read\nit to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so\nrecurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are\nvisible.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/runtime_metrics.py::RUNTIME_DB": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'runtime_metrics.db'"
+    },
+    "Optimization/persistence/runtime_metrics.py::SECTIONS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
+    },
+    "Optimization/persistence/runtime_metrics.py::_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\nCREATE TABLE IF NOT EXISTS runtime (\\n cell TEXT NOT NULL,\\n pair TEXT NOT NULL,\\n config TEXT NOT NULL,\\n channel TEXT NOT NULL,\\n arm TEXT NOT NULL,\\n initial TEXT NOT NULL,\\n assignment TEXT ..."
+    },
+    "Optimization/persistence/runtime_metrics.py::_parse_arm": {
+      "decorators": [],
+      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor'); assignment may contain '_'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm: str)"
+    },
+    "Optimization/persistence/runtime_metrics.py::load_rows": {
+      "decorators": [],
+      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> list[dict]"
+    },
+    "Optimization/persistence/runtime_metrics.py::record_arm": {
+      "decorators": [],
+      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
+    },
+    "Optimization/persistence/runtime_metrics.py::runtime_db_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> str"
     },
     "Optimization/run_analysis.py": {
       "decorators": [],
@@ -3310,78 +3747,6 @@
       "kind": "function",
       "signature": "(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None)"
     },
-    "Optimization/runlayout.py": {
-      "decorators": [],
-      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is\nitself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/\u2026``), so the\nper-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the\ntop-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore\nrun PER CELL \u2014 pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/runlayout.py::ChannelRun": {
-      "decorators": [
-        "dataclass(frozen=True)"
-      ],
-      "doc": "One analyzed run directory: <base>/<pair>/<config>[/<channel>].",
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/runlayout.py::ChannelRun.group_key": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "Aggregate grouping key: config, or config/channel on mixed runs.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> str"
-    },
-    "Optimization/runlayout.py::_profile_pairs": {
-      "decorators": [],
-      "doc": "(label, inventory_db, affinity_db) for every valid profile under one run dir.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_path: str, run_name: str) -> list[tuple[str, str, str]]"
-    },
-    "Optimization/runlayout.py::_sim_dbs_in": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run: ChannelRun) -> Iterator[tuple[ChannelRun, str]]"
-    },
-    "Optimization/runlayout.py::cells": {
-      "decorators": [],
-      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a\n``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe \u2014\nso a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on\nresume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run\nroot's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the\ncells; a legacy FLAT run (no cell level \u2014 DBs directly under ``<base>/<pair>/<config>``) is\nyielded as one implicit cell named after the base dir.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str) -> Iterator[tuple[str, str]]"
-    },
-    "Optimization/runlayout.py::discover_db_pairs": {
-      "decorators": [],
-      "doc": "Scan profiles_dir and return (label, inventory_db, affinity_db) for every valid pair.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(profiles_dir: str) -> list[tuple[str, str, str]]"
-    },
-    "Optimization/runlayout.py::find_latest_db_pairs": {
-      "decorators": [],
-      "doc": "Return DB pairs from the most recently generated profile run only.\n\nProfile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy\nbatch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is\nalways the newest.  Walks backwards until a run with valid pairs is found.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(profiles_dir: str) -> list[tuple[str, str, str]]"
-    },
-    "Optimization/runlayout.py::iter_channel_runs": {
-      "decorators": [],
-      "doc": "Yield every channel-run dir under base_dir that contains *marker*.\n\nStore-only runs put the marker directly at <config>/; mixed-catalog runs put one\nper channel at <config>/<channel>/.  Top-level entries starting with '_'\n(e.g. _aggregate/) are skipped.  Order: sorted pair, then config, then channel.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str, marker: str='sim_meta.json') -> Iterator[ChannelRun]"
-    },
-    "Optimization/runlayout.py::iter_sim_dbs": {
-      "decorators": [],
-      "doc": "Yield (ChannelRun, sim_db_path) for every per-strategy result DB under base_dir.\n\nStructural walk over <pair>/<config>[/<channel>]/sim_<strategy>.db \u2014 keyframe DBs\nexcluded.  Channel subdirs are found even when sim_meta.json was never finalized\n(crashed runs), so blank-arm scans see everything.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
-    },
     "Optimization/runschema/__init__.py": {
       "decorators": [],
       "doc": "runschema \u2014 the CONTENT-ADDRESSED contract for a simulation run's on-disk tree.\n\nDownstream tools (analysis, graphs, docs ingest, the replay viewer) resolve paths through a resolver\nfrom this package instead of joining strings.  A structural change to the tree means editing\n``schema.py``; its identity follows automatically.\n\n    from Optimization import runschema\n    rt = runschema.resolver_for(base_dir)        # the schema the run ITSELF was written with\n    for cell, cr, sim_db in rt.sim_dbs():\n        ...\n\nWHY THERE IS NO VERSION NUMBER\n------------------------------\nA schema is identified by the sha256 of its own declared shape\n(``Optimization/schemas/run_tree/<short>.json``), so:\n\n  * nothing to pick, register, or increment \u2014 the id is derived, and re-derivable by anyone;\n  * two branches that change the tree differently get different ids instead of both calling\n    themselves \"v2\";\n  * a run records the exact schema that produced it, so an OLD run stays resolvable forever;\n  * there is no ``LATEST`` to compute \u2014 \"current\" is a named pointer (``INDEX.json``'s `head`),\n    because hashes have no natural order.\n\nCompatibility is negotiated by FEATURE, not by comparing numbers: a contract lists the template\nvocabulary it uses and ``resolver.SUPPORTED_FEATURES`` says what this build implements, so an\nunreadable contract fails by naming the missing feature.\n\nThere is deliberately no support for runs predating the cell-matrix refactor \u2014 they have no\ndescriptor at all.  ``preflight.py`` keeps the committed store honest by proving it against real\ncanary runs before a simulation.",
@@ -3433,7 +3798,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('Optimization/runlayout.py', 'Optimization/sim_manifest.py', 'Optimization/sim_assets.py', 'Optimization/simdriver/__init__.py', 'Optimization/simdriver/cells.py', 'Optimization/simdriver/scenario..."
+      "value_preview": "('Optimization/runschema/runlayout.py', 'Optimization/runschema/sim_manifest.py', 'Optimization/simdriver/sim_assets.py', 'Optimization/simdriver/__init__.py', 'Optimization/simdriver/cells.py', 'O..."
     },
     "Optimization/runschema/contract.py::SHORT_LEN": {
       "decorators": [],
@@ -3862,7 +4227,7 @@
     },
     "Optimization/runschema/resolver.py": {
       "decorators": [],
-      "doc": "runschema.resolver \u2014 ONE generic resolver that interprets ANY run-tree contract document.\n\nThere is deliberately no per-schema Python.  A contract is pure data (levels + path templates), so\nthis class reads it the way a template engine reads a template: change the tree by editing\n``schema.py``, not by writing a new resolver.  That is what makes a content-addressed schema id\nworkable \u2014 the id names a *document*, and this module is the single interpreter of all of them.\n\nEverything that used to be hardcoded here now comes from the contract:\n\n  * the frozen-vs-cell-local planned inventory fallback  -> ``resolves_via`` (first existing wins)\n  * ``sim_<arm>.db`` -> arm                              -> inverse-render of the ``{strategy}``\n                                                            placeholder in the sim_db template\n  * the cross-cell what-if artifact list                 -> ``group: 'whatif'``\n  * the ``_aggregate`` literal                           -> the ``aggregate_dir`` template\n\nTree TRAVERSAL still belongs to ``Optimization/runlayout.py`` \u2014 this class delegates to it and adds\nthe cell level, optional-segment handling, and the axis inventory the viewer navigates by.\n\nFeature negotiation replaces a version number: a contract lists the template vocabulary it uses and\n``SUPPORTED_FEATURES`` says what this build implements, so an unreadable contract fails by NAMING\nthe missing feature instead of comparing integers.",
+      "doc": "runschema.resolver \u2014 ONE generic resolver that interprets ANY run-tree contract document.\n\nThere is deliberately no per-schema Python.  A contract is pure data (levels + path templates), so\nthis class reads it the way a template engine reads a template: change the tree by editing\n``schema.py``, not by writing a new resolver.  That is what makes a content-addressed schema id\nworkable \u2014 the id names a *document*, and this module is the single interpreter of all of them.\n\nEverything that used to be hardcoded here now comes from the contract:\n\n  * the frozen-vs-cell-local planned inventory fallback  -> ``resolves_via`` (first existing wins)\n  * ``sim_<arm>.db`` -> arm                              -> inverse-render of the ``{strategy}``\n                                                            placeholder in the sim_db template\n  * the cross-cell what-if artifact list                 -> ``group: 'whatif'``\n  * the ``_aggregate`` literal                           -> the ``aggregate_dir`` template\n\nTree TRAVERSAL still belongs to ``Optimization/runschema/runlayout.py`` \u2014 this class delegates to it and adds\nthe cell level, optional-segment handling, and the axis inventory the viewer navigates by.\n\nFeature negotiation replaces a version number: a contract lists the template vocabulary it uses and\n``SUPPORTED_FEATURES`` says what this build implements, so an unreadable contract fails by NAMING\nthe missing feature instead of comparing integers.",
       "kind": "module",
       "signature": null
     },
@@ -4088,9 +4453,81 @@
       "kind": "function",
       "signature": "(template: str, **parts) -> str"
     },
+    "Optimization/runschema/runlayout.py": {
+      "decorators": [],
+      "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is\nitself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/\u2026``), so the\nper-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the\ntop-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore\nrun PER CELL \u2014 pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/runlayout.py::ChannelRun": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One analyzed run directory: <base>/<pair>/<config>[/<channel>].",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/runschema/runlayout.py::ChannelRun.group_key": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Aggregate grouping key: config, or config/channel on mixed runs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/runschema/runlayout.py::_profile_pairs": {
+      "decorators": [],
+      "doc": "(label, inventory_db, affinity_db) for every valid profile under one run dir.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_path: str, run_name: str) -> list[tuple[str, str, str]]"
+    },
+    "Optimization/runschema/runlayout.py::_sim_dbs_in": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run: ChannelRun) -> Iterator[tuple[ChannelRun, str]]"
+    },
+    "Optimization/runschema/runlayout.py::cells": {
+      "decorators": [],
+      "doc": "Yield (cell_name, cell_dir) for every cell under a run root.\n\nEvery run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a\n``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe \u2014\nso a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on\nresume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run\nroot's immediate non-``_`` children that contain a ``<pair>/<config>/sim_*.db`` subtree are the\ncells; a legacy FLAT run (no cell level \u2014 DBs directly under ``<base>/<pair>/<config>``) is\nyielded as one implicit cell named after the base dir.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> Iterator[tuple[str, str]]"
+    },
+    "Optimization/runschema/runlayout.py::discover_db_pairs": {
+      "decorators": [],
+      "doc": "Scan profiles_dir and return (label, inventory_db, affinity_db) for every valid pair.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(profiles_dir: str) -> list[tuple[str, str, str]]"
+    },
+    "Optimization/runschema/runlayout.py::find_latest_db_pairs": {
+      "decorators": [],
+      "doc": "Return DB pairs from the most recently generated profile run only.\n\nProfile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy\nbatch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is\nalways the newest.  Walks backwards until a run with valid pairs is found.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(profiles_dir: str) -> list[tuple[str, str, str]]"
+    },
+    "Optimization/runschema/runlayout.py::iter_channel_runs": {
+      "decorators": [],
+      "doc": "Yield every channel-run dir under base_dir that contains *marker*.\n\nStore-only runs put the marker directly at <config>/; mixed-catalog runs put one\nper channel at <config>/<channel>/.  Top-level entries starting with '_'\n(e.g. _aggregate/) are skipped.  Order: sorted pair, then config, then channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, marker: str='sim_meta.json') -> Iterator[ChannelRun]"
+    },
+    "Optimization/runschema/runlayout.py::iter_sim_dbs": {
+      "decorators": [],
+      "doc": "Yield (ChannelRun, sim_db_path) for every per-strategy result DB under base_dir.\n\nStructural walk over <pair>/<config>[/<channel>]/sim_<strategy>.db \u2014 keyframe DBs\nexcluded.  Channel subdirs are found even when sim_meta.json was never finalized\n(crashed runs), so blank-arm scans see everything.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
+    },
     "Optimization/runschema/schema.py": {
       "decorators": [],
-      "doc": "runschema.schema \u2014 THE DECLARATION of the run tree.  Edit this file to change the tree.\n\nThis module is the single source of truth for what a run directory looks like.  Three things live\nhere and nowhere else:\n\n  * ``FEATURES``  \u2014 the template vocabulary this declaration uses; a resolver must support all of it.\n  * ``LEVELS``    \u2014 the ordered directory levels, each flagged optional + why.\n  * ``ARTIFACTS`` \u2014 every file a run produces, as a path TEMPLATE plus its format/scope/schema.\n\nThere is deliberately NO version number here.  A schema's identity is the SHA-256 of these\ndeclarations (``runschema.contract.schema_id``), so it is derived, never chosen: editing the tables\nmints a new id automatically, two branches that make different edits get different ids instead of\ncolliding on \"v2\", and any consumer can re-derive the id and check it.  The generated document lands\nat ``Optimization/schemas/run_tree/<short>.json`` and is committed, so non-Python consumers (the JS\nviewer, notebooks) read the same contract.\n\nProse (``note`` / ``condition``) is EXCLUDED from the hash \u2014 documenting a level or artifact more\nclearly must never mint a new schema.  Anything a path resolver actually depends on is included.\n\n``runschema.resolver.RunTree`` interprets these tables generically; there is no per-schema Python.\nThe walkers themselves stay in ``Optimization/runlayout.py`` (still the single owner of tree\ntraversal); the resolver delegates to them and adds the cell level, the optional-segment handling,\nand the axis inventory the viewer navigates by.\n\nWHY LEVELS ARE CONDITIONAL \u2014 read before adding a level\n-------------------------------------------------------\nTwo levels are NOT always present, and assuming otherwise is the bug this package exists to stop:\n\n  * ``<channel>/`` appears only on a MIXED catalog (store + fulfillment).  A store-only run puts\n    ``sim_*.db`` directly under ``<config>/``.  The pre-existing ``len(rel) < 4`` relpath checks in\n    run_whatif_delta/run_whatif_labor silently dropped every store-only run for exactly this reason.\n  * ``_frozen/<pair>/`` appears only on a MULTI-cell run, where the sampled inventory is frozen once\n    and reshaped per cell.  A single-cell run samples fresh, so its ``planned_inventory.db`` sits at\n    ``<cell>/<pair>/`` instead.\n\nA second trap: the store *config* is named ``store`` and the store *channel* is also ``store``, so a\nreal path reads ``<cell>/<pair>/store/store/sim_*.db``.  Never infer a level by matching a directory\nNAME \u2014 consume levels positionally against the axis lists in ``run_layout.json``.",
+      "doc": "runschema.schema \u2014 THE DECLARATION of the run tree.  Edit this file to change the tree.\n\nThis module is the single source of truth for what a run directory looks like.  Three things live\nhere and nowhere else:\n\n  * ``FEATURES``  \u2014 the template vocabulary this declaration uses; a resolver must support all of it.\n  * ``LEVELS``    \u2014 the ordered directory levels, each flagged optional + why.\n  * ``ARTIFACTS`` \u2014 every file a run produces, as a path TEMPLATE plus its format/scope/schema.\n\nThere is deliberately NO version number here.  A schema's identity is the SHA-256 of these\ndeclarations (``runschema.contract.schema_id``), so it is derived, never chosen: editing the tables\nmints a new id automatically, two branches that make different edits get different ids instead of\ncolliding on \"v2\", and any consumer can re-derive the id and check it.  The generated document lands\nat ``Optimization/schemas/run_tree/<short>.json`` and is committed, so non-Python consumers (the JS\nviewer, notebooks) read the same contract.\n\nProse (``note`` / ``condition``) is EXCLUDED from the hash \u2014 documenting a level or artifact more\nclearly must never mint a new schema.  Anything a path resolver actually depends on is included.\n\n``runschema.resolver.RunTree`` interprets these tables generically; there is no per-schema Python.\nThe walkers themselves stay in ``Optimization/runschema/runlayout.py`` (still the single owner of tree\ntraversal); the resolver delegates to them and adds the cell level, the optional-segment handling,\nand the axis inventory the viewer navigates by.\n\nWHY LEVELS ARE CONDITIONAL \u2014 read before adding a level\n-------------------------------------------------------\nTwo levels are NOT always present, and assuming otherwise is the bug this package exists to stop:\n\n  * ``<channel>/`` appears only on a MIXED catalog (store + fulfillment).  A store-only run puts\n    ``sim_*.db`` directly under ``<config>/``.  The pre-existing ``len(rel) < 4`` relpath checks in\n    run_whatif_delta/run_whatif_labor silently dropped every store-only run for exactly this reason.\n  * ``_frozen/<pair>/`` appears only on a MULTI-cell run, where the sampled inventory is frozen once\n    and reshaped per cell.  A single-cell run samples fresh, so its ``planned_inventory.db`` sits at\n    ``<cell>/<pair>/`` instead.\n\nA second trap: the store *config* is named ``store`` and the store *channel* is also ``store``, so a\nreal path reads ``<cell>/<pair>/store/store/sim_*.db``.  Never infer a level by matching a directory\nNAME \u2014 consume levels positionally against the axis lists in ``run_layout.json``.",
       "kind": "module",
       "signature": null
     },
@@ -4099,7 +4536,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'run_layout': {'path': 'run_layout.json', 'format': 'json', 'scope': 'run', 'writer': 'write_run_layout@Optimization/sim_manifest.py', 'note': 'the cell-tree descriptor; carries schema_id, which s..."
+      "value_preview": "{'run_layout': {'path': 'run_layout.json', 'format': 'json', 'scope': 'run', 'writer': 'write_run_layout@Optimization/runschema/sim_manifest.py', 'note': 'the cell-tree descriptor; carries schema_i..."
     },
     "Optimization/runschema/schema.py::AXES": {
       "decorators": [],
@@ -4136,367 +4573,90 @@
       "signature": null,
       "value_preview": "('comparison_', 'comparison_whatif_')"
     },
-    "Optimization/runtime_metrics.py": {
-      "decorators": [],
-      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read\nit to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so\nrecurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are\nvisible.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/runtime_metrics.py::RUNTIME_DB": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'runtime_metrics.db'"
-    },
-    "Optimization/runtime_metrics.py::SECTIONS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
-    },
-    "Optimization/runtime_metrics.py::_DDL": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\nCREATE TABLE IF NOT EXISTS runtime (\\n cell TEXT NOT NULL,\\n pair TEXT NOT NULL,\\n config TEXT NOT NULL,\\n channel TEXT NOT NULL,\\n arm TEXT NOT NULL,\\n initial TEXT NOT NULL,\\n assignment TEXT ..."
-    },
-    "Optimization/runtime_metrics.py::_parse_arm": {
-      "decorators": [],
-      "doc": "'uni_rank_labor_norsl' -> ('uni', 'rank_labor'); assignment may contain '_'.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(arm: str)"
-    },
-    "Optimization/runtime_metrics.py::load_rows": {
-      "decorators": [],
-      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_root: str) -> list[dict]"
-    },
-    "Optimization/runtime_metrics.py::record_arm": {
-      "decorators": [],
-      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
-    },
-    "Optimization/runtime_metrics.py::runtime_db_path": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_root: str) -> str"
-    },
-    "Optimization/sim_assets.py": {
-      "decorators": [],
-      "doc": "sim_assets.py \u2014 per-pair shared-asset construction for a run.\n\nbuild_shared_assets loads the inventory+affinity pair once, sizes the warehouse\n(Inventory_Manager.plan_warehouse with the per-regime sizing from CONFIG), persists\nthe planned inventory + warehouse stats (rename-proof fingerprint), and returns the\npicklable shared dict every strategy worker receives.  Split out of run_simulation\nso the runner holds orchestration only; run_analysis imports this directly for its\nshape-only rebuild.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/sim_assets.py::_HERE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
-    },
-    "Optimization/sim_assets.py::build_shared_assets": {
-      "decorators": [],
-      "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=5, warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -> dict"
-    },
-    "Optimization/sim_assets.py::build_shared_assets._agg_cap": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(key)"
-    },
-    "Optimization/sim_config.py": {
-      "decorators": [],
-      "doc": "sim_config.py \u2014 the run's single source of tunable truth.\n\nEverything a run can be tuned by lives here: the .env-backed output/profile dirs,\nthe per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested\nCONFIG dict (global + per-channel sections), the derived read-only aliases, and the\nconfig\u2192PickConfig conversion.  run_simulation re-exports the public names so\n`rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)\nkeep working.\n\nCONFIG identity rule: the re-export binds the SAME dict object \u2014 tests mutate\n`rs.CONFIG['global'][...]` in place \u2014 so nobody may ever REBIND CONFIG (or the\nmutation would silently detach from internal readers).",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/sim_config.py::CONFIG": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 5, 'max_skus': None}, 'channels': {'store': {'regime': STORE, 'confi..."
-    },
-    "Optimization/sim_config.py::FULFILLMENT_CONFIGS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
-    },
-    "Optimization/sim_config.py::K_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['num_pickers']"
-    },
-    "Optimization/sim_config.py::N_BATCHES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['n_batches']"
-    },
-    "Optimization/sim_config.py::REGRESSION_CONFIGS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "STORE_CONFIGS"
-    },
-    "Optimization/sim_config.py::SEED_BATCHES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['seed_batches']"
-    },
-    "Optimization/sim_config.py::SEED_WORLD": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['seed_world']"
-    },
-    "Optimization/sim_config.py::STORE_CONFIGS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
-    },
-    "Optimization/sim_config.py::STORE_RESTOCKS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['restocks']"
-    },
-    "Optimization/sim_config.py::_ACTIVE_PICK_CONFIGS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "sorted((s for s in PICK_CONFIGS if s.enabled), key=lambda s: (s.channel, s.order, s.name))"
-    },
-    "Optimization/sim_config.py::_AISLE_H": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "aisle_height_for(10)"
-    },
-    "Optimization/sim_config.py::_AISLE_W": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "aisle_width_for(50)"
-    },
-    "Optimization/sim_config.py::_CART_TYPES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}"
-    },
-    "Optimization/sim_config.py::_CATEGORIES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']"
-    },
-    "Optimization/sim_config.py::_DEFAULT_PROFILES_DIR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "_clean_path(os.getenv('PROFILE_INPUT_DIR', os.path.normpath(os.path.join(_REPO_ROOT, 'Warehouse', 'generated', 'profiles'))))"
-    },
-    "Optimization/sim_config.py::_HANDLINGS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['conveyable', 'non-conveyable']"
-    },
-    "Optimization/sim_config.py::_HERE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
-    },
-    "Optimization/sim_config.py::_INITIAL_FILL": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['fill']"
-    },
-    "Optimization/sim_config.py::_OUTPUT_DIR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "_clean_path(os.getenv('COMPARISON_OUTPUT_DIR', _HERE))"
-    },
-    "Optimization/sim_config.py::_REPO_ROOT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
-    },
-    "Optimization/sim_config.py::_build_pick_cfg": {
-      "decorators": [],
-      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig"
-    },
-    "Optimization/sim_config.py::_checkpoint_every": {
-      "decorators": [],
-      "doc": "Batches between per-strategy checkpoints (floor(n_batches * checkpoint_frac), \u22651) \u2014\nmatches the legacy ``max(1, N_BATCHES // 10)`` cadence at the default 0.1 fraction.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(n_batches: int) -> int"
-    },
-    "Optimization/sim_config.py::_clean_path": {
-      "decorators": [],
-      "doc": "Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.\n\nApplied after os.getenv so that values set directly in the Windows session\nenvironment (with literal r\"...\" text) are normalised the same way as\nvalues parsed from the .env file.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(val: str) -> str"
-    },
-    "Optimization/sim_config.py::_config_name": {
-      "decorators": [],
-      "doc": "A config's directory/identity name (explicit 'name', else a coeff fingerprint).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cfg: dict) -> str"
-    },
-    "Optimization/sim_config.py::_load_env": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
-    },
-    "Optimization/sim_config.py::_setup_logging": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(log_path: str) -> logging.Logger"
-    },
-    "Optimization/sim_config.py::regime_sizing_from_config": {
-      "decorators": [],
-      "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +\ncaps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> dict"
-    },
-    "Optimization/sim_manifest.py": {
+    "Optimization/runschema/sim_manifest.py": {
       "decorators": [],
       "doc": "sim_manifest.py \u2014 run bookkeeping artifacts.\n\nResume state (resume.pkl) + the top-level run_manifest.json schema index that the\ndocs ingest (docs/experiments/ingest.py) auto-discovers a run from.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/sim_manifest.py::_load_resume": {
+    "Optimization/runschema/sim_manifest.py::_load_resume": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str)"
     },
-    "Optimization/sim_manifest.py::_load_run_spec": {
+    "Optimization/runschema/sim_manifest.py::_load_run_spec": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str)"
     },
-    "Optimization/sim_manifest.py::_resume_path": {
+    "Optimization/runschema/sim_manifest.py::_resume_path": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str) -> str"
     },
-    "Optimization/sim_manifest.py::_run_layout_path": {
+    "Optimization/runschema/sim_manifest.py::_run_layout_path": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> str"
     },
-    "Optimization/sim_manifest.py::_run_spec_path": {
+    "Optimization/runschema/sim_manifest.py::_run_spec_path": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> str"
     },
-    "Optimization/sim_manifest.py::_save_resume": {
+    "Optimization/runschema/sim_manifest.py::_save_resume": {
       "decorators": [],
       "doc": "Persist per-strategy batch counters and run IDs for crash recovery.\n\nrun_ids and starts are keyed by strategy key (e.g. 'uniform', 'trip_min').\nWritten atomically (tmp + os.replace) so a crash mid-write can't corrupt resume state.",
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str, run_ids: dict, starts: dict) -> None"
     },
-    "Optimization/sim_manifest.py::_write_run_spec": {
+    "Optimization/runschema/sim_manifest.py::_write_run_spec": {
       "decorators": [],
       "doc": "Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved\ninventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a\nbare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags\nand no find_latest_db_pairs drift.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, spec: dict) -> None"
     },
-    "Optimization/sim_manifest.py::read_run_layout": {
+    "Optimization/runschema/sim_manifest.py::read_run_layout": {
       "decorators": [],
       "doc": "Load <base>/run_layout.json, or None if absent/malformed (legacy runs have no descriptor).",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str)"
     },
-    "Optimization/sim_manifest.py::write_run_layout": {
+    "Optimization/runschema/sim_manifest.py::write_run_layout": {
       "decorators": [],
       "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() tuples [(name, split, zoning, scheduler), \u2026]; split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.\n\n`schema_id` stamps which RUN-TREE CONTRACT this run's directory layout follows \u2014 the sha256 of\nthat contract's own shape, stored at Optimization/schemas/run_tree/<short>.json.  Downstream\ntools select their resolver from it (runschema.resolver_for), so an OLD run keeps analyzing\ncorrectly after the tree shape moves on.  It is a content address, not a sequence number: there\nis nothing to increment, and anyone can re-derive it from the declaration to check it.\n\nDistinct from `version`, which versions THIS descriptor file's own field set.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -> None"
     },
-    "Optimization/sim_manifest.py::write_run_manifest": {
+    "Optimization/runschema/sim_manifest.py::write_run_manifest": {
       "decorators": [],
       "doc": "Write <base>/run_manifest.json \u2014 a schema index of this run (inventories \u00d7\nconfigs \u00d7 strategies) so the docs ingest can auto-discover what to pull.\nSee docs/experiments/ingest.py.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, pairs, store_cfgs, ff_cfgs, strategies) -> None"
     },
-    "Optimization/sim_manifest.py::write_run_manifest._brackets_json": {
+    "Optimization/runschema/sim_manifest.py::write_run_manifest._brackets_json": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(hb)"
     },
-    "Optimization/sim_manifest.py::write_run_manifest._cfg_json": {
+    "Optimization/runschema/sim_manifest.py::write_run_manifest._cfg_json": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -4505,7 +4665,7 @@
     },
     "Optimization/simconfig/__init__.py": {
       "decorators": [],
-      "doc": "simconfig \u2014 self-registering pick-config registry (the sim analogue of the graph suite).\n\nImporting this package fires import_all() so every module under configs/ self-registers its\npick-config via @pick_config; Optimization/sim_config.py then rebuilds STORE_CONFIGS /\nFULFILLMENT_CONFIGS from the registry (filtering by channel + enabled).  Adding a pick-config =\ndrop a module in configs/ \u2014 no central edit.  Whatif cell-matrix specs stay in whatif_config.SPECS\nfor now; the same registry pattern can absorb them later.",
+      "doc": "simconfig \u2014 self-registering pick-config registry (the sim analogue of the graph suite).\n\nImporting this package fires import_all() so every module under configs/ self-registers its\npick-config via @pick_config; Optimization/config/sim_config.py then rebuilds STORE_CONFIGS /\nFULFILLMENT_CONFIGS from the registry (filtering by channel + enabled).  Adding a pick-config =\ndrop a module in configs/ \u2014 no central edit.  Whatif cell-matrix specs stay in whatif_config.SPECS\nfor now; the same registry pattern can absorb them later.",
       "kind": "module",
       "signature": null
     },
@@ -4648,6 +4808,75 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/batch_precompute.py": {
+      "decorators": [],
+      "doc": "batch_precompute.py \u2014 compute each warehouse family's batch sequence ONCE and share it.\n\nBatch sampling (`Workload_Builder.Batch`) is a PURE function of (batch_cfg, inventory, affinity,\nseed_batches + i): it weights SKUs by static demand frequency x the immutable affinity-lift CSR and\ndraws from a dedicated per-batch RNG `random.Random(seed_batches + i)`.  Today every strategy arm of a\nwarehouse family re-samples the identical sequence inside its own worker process \u2014 the heavy\nO(k*|inventory|) sampling (the bulk of the per-batch \"build\" section) is paid ~32x for bit-identical\nresults.  This module computes the sequence ONCE (optionally in parallel chunks) so every arm of the\nfamily reads it instead, while the genuinely sequential `Task.from_batch` stays per-arm in the loop.\n\nCorrectness rests on two things:\n  * `load_inventory_from_db` selects `ORDER BY sku`, so the candidate order \u2014 which\n    `_lift_weighted_sample` indexes positionally \u2014 is deterministic; loading the SAME db with the SAME\n    limit/allowlist the worker uses reproduces the worker's candidates exactly.\n  * a content FINGERPRINT over exactly the fields a batch consumes (the ordered\n    (sku, relative_frequency, quantity_rate) triples + batch_cfg + seeds + the affinity CSR digest)\n    keys the on-disk list.  Families of different sizes get different fingerprints (so they never share\n    a list), and a worker accepts a file only when its own recomputed fingerprint matches \u2014 never\n    another family's.  On any mismatch/miss the caller falls back to inline sampling (still correct).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/batch_precompute.py::_MIN_PARALLEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "16"
+    },
+    "Optimization/simdriver/batch_precompute.py::_affinity_digest": {
+      "decorators": [],
+      "doc": "Hash the immutable affinity-lift CSR (the values batch selection multiplies in).  Distinguishes\ndifferent affinity DBs; identical for the same DB loaded twice (parent precompute vs worker).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity) -> str"
+    },
+    "Optimization/simdriver/batch_precompute.py::_load_worker_inventory": {
+      "decorators": [],
+      "doc": "Load inventory EXACTLY as strategy_runner._run_strategy_worker does (same db, limit,\nallowlist, THEN regime filter) so the candidate list \u2014 and therefore every sampled batch \u2014\nis identical to the worker's.  ``channel_regime`` (store/fulfillment) keeps a mixed-catalog\nchannel's stream regime-pure; None \u21d2 the whole (allowlisted) inventory (store-only).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db: str, max_skus, sku_allowlist, channel_regime=None)"
+    },
+    "Optimization/simdriver/batch_precompute.py::_sample_range": {
+      "decorators": [],
+      "doc": "Module-level (spawn-picklable) chunk worker: load inv+aff once, sample batches [lo, hi).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo, hi, channel_regime=None)"
+    },
+    "Optimization/simdriver/batch_precompute.py::batch_fingerprint": {
+      "decorators": [],
+      "doc": "Stable hash over EXACTLY the inputs that determine the batch sequence (order included).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inventory, batch_cfg, seed_batches: int, n_batches: int, affinity) -> str"
+    },
+    "Optimization/simdriver/batch_precompute.py::ensure_batches": {
+      "decorators": [],
+      "doc": "Compute-or-reuse this family's batch file under out_dir.  Returns (path, fingerprint).\n\nThe file is named by the fingerprint so different families never collide and identical families\n(e.g. configs that don't change inventory) share one file.  Existence \u21d2 reuse (write is atomic);\nthe worker re-verifies the full fingerprint on load.\n\n``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog\nchannel shares ONE list across all its configs (store and fulfillment necessarily get distinct\nfiles: different regime SKUs, seed, and batch fraction all feed the fingerprint).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, log=None, channel_regime=None)"
+    },
+    "Optimization/simdriver/batch_precompute.py::load_batches": {
+      "decorators": [],
+      "doc": "Return the stored batch list IFF the stored fingerprint matches expected; else None so the\ncaller falls back to inline sampling (never the wrong family's list).\n\nImportError/AttributeError guard: a cache written before a module rename/move (e.g. the\nflat->package conversion) embeds the OLD class paths \u2014 unpicklable now.  Treat it exactly\nlike a corrupt file (fall back inline; delete stale _batches_*.pkl to regain the dedup).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, expected_fingerprint: str) -> list | None"
+    },
+    "Optimization/simdriver/batch_precompute.py::precompute_batches": {
+      "decorators": [],
+      "doc": "Return the full list of `Batch` objects for i in [0, n_batches).\n\nSerial when workers<=1 or n_batches<_MIN_PARALLEL; otherwise splits the range across a transient\nspawn pool (each chunk loads inv+aff once, then samples its slice).  Result order is always 0..n-1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, channel_regime=None) -> list"
+    },
+    "Optimization/simdriver/batch_precompute.py::write_batches": {
+      "decorators": [],
+      "doc": "Persist {fingerprint, batches} atomically (tmp + os.replace) so a half-written file is never\nobserved as complete.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, fingerprint: str, batches: list) -> None"
+    },
     "Optimization/simdriver/cells.py": {
       "decorators": [],
       "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler over one frozen inventory.\n_apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is\nseen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].",
@@ -4715,6 +4944,81 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log: logging.Logger) -> list"
+    },
+    "Optimization/simdriver/sim_assets.py": {
+      "decorators": [],
+      "doc": "sim_assets.py \u2014 per-pair shared-asset construction for a run.\n\nbuild_shared_assets loads the inventory+affinity pair once, sizes the warehouse\n(Inventory_Manager.plan_warehouse with the per-regime sizing from CONFIG), persists\nthe planned inventory + warehouse stats (rename-proof fingerprint), and returns the\npicklable shared dict every strategy worker receives.  Split out of run_simulation\nso the runner holds orchestration only; run_analysis imports this directly for its\nshape-only rebuild.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/sim_assets.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Optimization/simdriver/sim_assets.py::build_shared_assets": {
+      "decorators": [],
+      "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=5, warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -> dict"
+    },
+    "Optimization/simdriver/sim_assets.py::build_shared_assets._agg_cap": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key)"
+    },
+    "Optimization/simdriver/strategy_runner.py": {
+      "decorators": [],
+      "doc": "strategy_runner.py \u2014 concurrent strategy worker for run_simulation.py.\n\nSeparates all parallel/CPU machinery from the configuration, analysis, and\nplotting logic in run_simulation.py.\n\nPublic API\n----------\n_run_strategy_worker(args) -> dict\n    Simulate one assignment strategy end-to-end (one process in the flat pool\n    owned by run_simulation._run_workers_flat).\n\nsave_worker_checkpoint(run_dir, strategy, next_batch_id)\nload_worker_checkpoint(run_dir, strategy) -> int\n    Per-strategy crash-recovery checkpoints written inside each worker.\n\nImplementation notes\n--------------------\n_run_strategy_worker must be a module-level function so ProcessPoolExecutor\ncan pickle it by reference in Windows spawn mode.  The child resolves it by\nqualified name (Optimization.simdriver.strategy_runner._run_strategy_worker): spawn's\nprepare() propagates the parent's sys.path \u2014 which the entry script seeded\nwith the repo root \u2014 before anything is unpickled, so this module needs no\nsys.path bootstrap of its own.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker": {
+      "decorators": [],
+      "doc": "Simulate one assignment strategy in its own process.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict) -> dict"
+    },
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._arm_aisle_state": {
+      "decorators": [],
+      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, strategy: str) -> int"
+    },
+    "Optimization/simdriver/strategy_runner.py::reset_strategy_db": {
+      "decorators": [],
+      "doc": "Discard a partially-run strategy's outputs so it restarts bit-identically from batch 0\n(strategy-level resume granularity).  Removes its sim_<key>.db, that db's keyframe sibling,\nand its checkpoint.  Runs in the PARENT before any worker reopens the file (Windows-safe).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, db_path: str, strategy: str) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, strategy: str, next_batch_id: int) -> None"
     },
     "Optimization/simdriver/supervisor.py": {
       "decorators": [],
@@ -4811,292 +5115,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
-    },
-    "Optimization/strategies.py": {
-      "decorators": [],
-      "doc": "strategies.py \u2014 data-driven registry of placement (assignment) strategies.\n\nEach Strategy names an assignment policy and knows how to wire it onto an\nInventory_Manager for the reorder phase.  The whole comparison pipeline\n(run_simulation orchestration, strategy_runner worker, run_analysis/Comparison_Plots\nlabels via sim_meta) iterates this list, so adding a strategy is one entry here.\n\nStrategies share the same uniform INITIAL stocking by default (done in the worker\nbefore build() is called) and differ in how reorder waves are placed.  A strategy\nmay override stocking with a `stock` hook (e.g. optimal_reslot stocks at the\npure-global-W optimum) and may enable bounded per-batch re-slotting via `reslot_frac`.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/strategies.py::Strategy": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/strategies.py::StrategyContext": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": "Everything a strategy's build() may need, assembled by the worker.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Optimization/strategies.py::_INITIALS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[('uni', 'Uni', 'uniform'), ('opt', 'Opt', 'policy')]"
-    },
-    "Optimization/strategies.py::_N_STRATEGIES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)"
-    },
-    "Optimization/strategies.py::_RESLOTS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[('norsl', 'noRSL', 0.0, 'rebalance')]"
-    },
-    "Optimization/strategies.py::_RESLOT_FRAC": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "0.005"
-    },
-    "Optimization/strategies.py::_RESTOCKS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[('fifo', 'FIFO', _build_uniform, False, False, False), ('rank_random', 'Rank_random', _build_uniform_trip_min_ranked, True, True, False), ('rank_popularity', 'Rank_popularity', _build_rank_popular..."
-    },
-    "Optimization/strategies.py::_build_cluster_map": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_cluster_map_rank": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_compaction": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_expansion": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_map": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_map_rank": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_max_cluster": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_min_cluster": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_rank_cartlabor": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_rank_labor": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_rank_maxlabor": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_rank_minlabor": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_rank_popularity": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_trip_max": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_trip_min": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_uniform": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_build_uniform_trip_min_ranked": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext) -> None"
-    },
-    "Optimization/strategies.py::_hsv_hex": {
-      "decorators": [],
-      "doc": "A distinct-ish hex colour for index i of n (HSV hue sweep).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(i: int, n: int) -> str"
-    },
-    "Optimization/strategies.py::_key": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "f'{_ik}_{_rk}_{_sk}'"
-    },
-    "Optimization/strategies.py::_stock_optimal": {
-      "decorators": [],
-      "doc": "Place initial stock at the pure-global-W optimal layout (hottest SKUs in the\nlowest-W bins).  Stores nothing on mgr; reorders use the normal placement.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(mgr, ctx: StrategyContext, inventory) -> None"
-    },
-    "Optimization/strategies.py::restocks_for": {
-      "decorators": [],
-      "doc": "The restock-rule subset a channel sweeps (None \u21d2 full suite).  Unknown channel \u21d2\nNone (full suite), so a new channel runs everything until curated here.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(channel: str) -> tuple[str, ...] | None"
-    },
-    "Optimization/strategies.py::strategies_for": {
-      "decorators": [],
-      "doc": "Subset of STRATEGIES whose restock rule is in `restocks` (None \u21d2 all).\n\nLets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)\nwhile another runs the full suite, without perturbing the global grid used elsewhere.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(restocks) -> list[Strategy]"
-    },
-    "Optimization/strategy_runner.py": {
-      "decorators": [],
-      "doc": "strategy_runner.py \u2014 concurrent strategy worker for run_simulation.py.\n\nSeparates all parallel/CPU machinery from the configuration, analysis, and\nplotting logic in run_simulation.py.\n\nPublic API\n----------\n_run_strategy_worker(args) -> dict\n    Simulate one assignment strategy end-to-end (one process in the flat pool\n    owned by run_simulation._run_workers_flat).\n\nsave_worker_checkpoint(run_dir, strategy, next_batch_id)\nload_worker_checkpoint(run_dir, strategy) -> int\n    Per-strategy crash-recovery checkpoints written inside each worker.\n\nImplementation notes\n--------------------\n_run_strategy_worker must be a module-level function so ProcessPoolExecutor\ncan pickle it by reference in Windows spawn mode.  The child resolves it by\nqualified name (Optimization.strategy_runner._run_strategy_worker): spawn's\nprepare() propagates the parent's sys.path \u2014 which the entry script seeded\nwith the repo root \u2014 before anything is unpickled, so this module needs no\nsys.path bootstrap of its own.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/strategy_runner.py::_cleanup_checkpoints": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_dir: str) -> None"
-    },
-    "Optimization/strategy_runner.py::_run_strategy_worker": {
-      "decorators": [],
-      "doc": "Simulate one assignment strategy in its own process.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(args: dict) -> dict"
-    },
-    "Optimization/strategy_runner.py::_run_strategy_worker._arm_aisle_state": {
-      "decorators": [],
-      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> None"
-    },
-    "Optimization/strategy_runner.py::load_worker_checkpoint": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_dir: str, strategy: str) -> int"
-    },
-    "Optimization/strategy_runner.py::reset_strategy_db": {
-      "decorators": [],
-      "doc": "Discard a partially-run strategy's outputs so it restarts bit-identically from batch 0\n(strategy-level resume granularity).  Removes its sim_<key>.db, that db's keyframe sibling,\nand its checkpoint.  Runs in the PARENT before any worker reopens the file (Windows-safe).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_dir: str, db_path: str, strategy: str) -> None"
-    },
-    "Optimization/strategy_runner.py::save_worker_checkpoint": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_dir: str, strategy: str, next_batch_id: int) -> None"
-    },
-    "Optimization/whatif_config.py": {
-      "decorators": [],
-      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B with NO ABC aisle splitting and NO ABC velocity zoning: hold\nthe layout fixed (whole aisles, no A/B/C banding) and sweep the task\u2192picker scheduler `round_robin`\n(naive static i%num_pickers) vs `lpt` (makespan-MINIMIZING load balancer) across the full\nassignment-function suite \u2014 measuring the throughput (batch-makespan) gain of load-balancing at\nunchanged task makespan (total labor).  The ABC aisle-split and ABC velocity-zoning axes are preserved\nbelow as commented-out lines; uncomment them to sweep layout too.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/whatif_config.py::SPECS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF, '_canary_sweep': {'ks':..."
-    },
-    "Optimization/whatif_config.py::WHATIF": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin', 'lpt'], 'arms': 'all', 'reference': 'k1_off_rr'}"
-    },
-    "Optimization/whatif_config.py::get_spec": {
-      "decorators": [],
-      "doc": "Return the cell-matrix spec dict for a registered name (KeyError if unknown).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(name)"
     },
     "Visualization/db_reader.py": {
       "decorators": [],
@@ -9104,7 +9122,7 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "Equations of the top-3 winning assignment functions (Rank_labor, Map,\nMap_rank), transcribed from the source that defines them. See the module\ndocstring: this is the one macro whose *formula* is hand-maintained against\ncode because no JSON/DB snapshot emits these objectives yet.\n\nSources: `_travel_balanced_impl` / `build_optmap_fn` in\nWarehouse/Assignment_Functions.py; `build_optimal_map` in\nWarehouse/inventory_optimal.py; registry in Optimization/strategies.py.",
+      "doc": "Equations of the top-3 winning assignment functions (Rank_labor, Map,\nMap_rank), transcribed from the source that defines them. See the module\ndocstring: this is the one macro whose *formula* is hand-maintained against\ncode because no JSON/DB snapshot emits these objectives yet.\n\nSources: `_travel_balanced_impl` / `build_optmap_fn` in\nWarehouse/Assignment_Functions.py; `build_optimal_map` in\nWarehouse/inventory_optimal.py; registry in Optimization/config/strategies.py.",
       "is_async": false,
       "kind": "function",
       "signature": "()"

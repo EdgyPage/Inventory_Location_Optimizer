@@ -13,7 +13,7 @@ Everything that used to be hardcoded here now comes from the contract:
   * the cross-cell what-if artifact list                 -> ``group: 'whatif'``
   * the ``_aggregate`` literal                           -> the ``aggregate_dir`` template
 
-Tree TRAVERSAL still belongs to ``Optimization/runlayout.py`` — this class delegates to it and adds
+Tree TRAVERSAL still belongs to ``Optimization/runschema/runlayout.py`` — this class delegates to it and adds
 the cell level, optional-segment handling, and the axis inventory the viewer navigates by.
 
 Feature negotiation replaces a version number: a contract lists the template vocabulary it uses and
@@ -27,8 +27,8 @@ import os
 import re
 from typing import Iterator
 
-from Optimization import runlayout
-from Optimization.sim_manifest import read_run_layout
+from Optimization.runschema import runlayout
+from Optimization.runschema.sim_manifest import read_run_layout
 
 # The template vocabulary this build can interpret.  A contract naming anything outside this set is
 # rejected by runschema.resolver_for with the missing feature spelled out.

@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import os
 
-from Optimization.runlayout import cells
-from Optimization.whatif_config import get_spec, SPECS
+from Optimization.runschema.runlayout import cells
+from Optimization.config.whatif_config import get_spec, SPECS
 from Optimization.run_simulation import _build_cells
 
 

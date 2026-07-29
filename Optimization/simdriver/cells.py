@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from Optimization.sim_config import CONFIG   # SAME object — _apply_cell mutates it in place
+from Optimization.config.sim_config import CONFIG   # SAME object — _apply_cell mutates it in place
 
 
 _SCHED_SHORT = {'round_robin': 'rr', 'lpt': 'lpt'}

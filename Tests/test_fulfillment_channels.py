@@ -6,7 +6,7 @@ Locks in the Store/Fulfillment mixed-warehouse core:
   * plan_warehouse regime-aware sizing (both aisle kinds, no cross-product junk,
     short-shelf ff geometry, store-only unchanged)
   * per-regime cost routing: b._D travel speed + Order.labor_cost + ff height M=1 (Part B)
-  * the Channel / PickerProfile abstraction (Optimization/channels.py)
+  * the Channel / PickerProfile abstraction (Optimization/config/channels.py)
 
 Run:  python -m pytest Tests/test_fulfillment_channels.py -v
 """
@@ -27,7 +27,7 @@ from Warehouse.Inventory_Management import Inventory_Manager
 from Warehouse.Warehouse_Builder import Warehouse_Builder
 from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for, FULFILLMENT_AISLE_HEIGHT
 from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 
 _CATS = ['food', 'clothing', 'electronic']
 _HANDS = ['conveyable', 'non-conveyable']
@@ -210,7 +210,7 @@ def test_fulfillment_bin_height_multiplier_is_one():
 
 def test_channels_module():
     from Warehouse.Pick import PickConfig
-    from Optimization.channels import build_channels, wp_by_regime, fulfillment_pick_config, Channel
+    from Optimization.config.channels import build_channels, wp_by_regime, fulfillment_pick_config, Channel
 
     store_cfg = PickConfig(num_pickers=25, x_speed=3.0, y_speed=2.0)
     chans = build_channels(store_cfg, 25, include_fulfillment=True, ff_num_pickers=30)
@@ -239,7 +239,7 @@ def test_per_channel_cart_type():
     from math import ceil
     from Warehouse.Pick import PickConfig
     from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
-    from Optimization.channels import fulfillment_pick_config
+    from Optimization.config.channels import fulfillment_pick_config
 
     assert StoreCart.capacity() == 125_000
     assert FulfillmentCart.capacity() == 25_000

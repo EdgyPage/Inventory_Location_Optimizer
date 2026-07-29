@@ -269,7 +269,7 @@ def observe(base_dir: str) -> dict:
 
     Returns {'templates': {template: count}, 'levels_seen': {...}, 'layout': {...}}.
     """
-    from Optimization.sim_manifest import read_run_layout
+    from Optimization.runschema.sim_manifest import read_run_layout
     layout = read_run_layout(base_dir) or {}
     axes = _axis_values(layout)
     templates: dict[str, int] = {}

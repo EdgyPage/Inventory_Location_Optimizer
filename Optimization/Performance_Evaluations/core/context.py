@@ -13,8 +13,8 @@ import os
 
 import numpy as np
 
-from Optimization.Picking_Data import load_batch_stats, load_task_stats, load_picker_events
-from Optimization.Simulation_Analytics import task_time_breakdown
+from Optimization.persistence.Picking_Data import load_batch_stats, load_task_stats, load_picker_events
+from Optimization.metrics.Simulation_Analytics import task_time_breakdown
 
 from Optimization.Performance_Evaluations.common.frames import _bdf, _tdf
 from Optimization.Performance_Evaluations.common.series import _build_series, _aggregate_series

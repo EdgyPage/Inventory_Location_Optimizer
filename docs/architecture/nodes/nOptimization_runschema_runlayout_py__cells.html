@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cells · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_runlayout_py__cells" data-id="Optimization/runschema/runlayout.py::cells">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_runlayout_py.html"><code>Optimization/runschema/runlayout.py</code></a> <span class="sep">›</span> <span class="here"><code>cells</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>cells</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_runlayout_py.html"><code>Optimization/runschema/runlayout.py</code></a></p>
+
+<pre class="sig"><code>def cells(base_dir: str) -&gt; Iterator[tuple[str, str]]</code></pre>
+<section class="doc">Yield (cell_name, cell_dir) for every cell under a run root.
+
+Every run is a cell matrix (a plain run is the single cell ``k1_off``).  When the run has a
+``run_layout.json`` descriptor, its cells are yielded IN DESCRIPTOR ORDER with NO disk probe —
+so a partial/crashed cell (dir exists, no ``sim_*.db`` yet) is still yielded and analyzes on
+resume.  When the descriptor is ABSENT (legacy runs), fall back to walking the tree: the run
+root&#x27;s immediate non-``_`` children that contain a ``&lt;pair&gt;/&lt;config&gt;/sim_*.db`` subtree are the
+cells; a legacy FLAT run (no cell level — DBs directly under ``&lt;base&gt;/&lt;pair&gt;/&lt;config&gt;``) is
+yielded as one implicit cell named after the base dir.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py__read_run_layout.html"><code>read_run_layout</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_analyze_run_py__analyze_run.html"><code>analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_cells.html"><code>cells</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_runlayout_py__cells">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/runlayout.py#:~:text=def%20cells">Source ↗</a></p>
+</article>
+</main>
+</body></html>

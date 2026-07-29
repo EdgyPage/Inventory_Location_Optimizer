@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.runschema.runlayout · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_runlayout_py" data-id="Optimization/runschema/runlayout.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/runschema/runlayout.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.runschema.runlayout</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_runlayout_py.html"><code>Optimization/runschema/runlayout.py</code></a></p>
+
+<pre class="sig"><code>Optimization.runschema.runlayout</code></pre>
+<section class="doc">runlayout.py — single owner of the on-disk run-tree layout.
+
+Two trees, one vocabulary:
+
+  * profiles tree (generation output):   &lt;profiles&gt;/&lt;run&gt;/&lt;profile&gt;/{inventory,affinity}/*.db
+  * comparison tree (simulation output): &lt;base&gt;/&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/{sim_*.db,
+                                          sim_meta.json, series.json, ...}
+
+Every run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is
+itself a self-contained comparison root (``&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/…``), so the
+per-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the
+top-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore
+run PER CELL — pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.
+
+Every walker that used to re-encode these shapes (run_simulation&#x27;s pair discovery +
+blank-arm scan, run_analysis&#x27;s config/aggregate walks, run_channel_rollup&#x27;s series
+walk, Visualization/db_reader&#x27;s run discovery) now goes through here, so a layout
+change is a one-file edit.  All listings are ``sorted(os.listdir(...))`` —
+deterministic order, matching the original sites.
+
+A *channel run* is the leaf directory an analyzed run lives in: ``&lt;config&gt;/`` itself
+for store-only runs, or ``&lt;config&gt;/&lt;channel&gt;/`` per channel on mixed-catalog runs.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py.html"><code>Optimization.runschema.sim_manifest</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(7)</span></h2><ul><li><a href="nOptimization_analyze_run_py.html"><code>Optimization.analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_run_analysis_py.html"><code>Optimization.run_analysis</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_run_channel_rollup_py.html"><code>Optimization.run_channel_rollup</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_runschema_resolver_py.html"><code>Optimization.runschema.resolver</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_simdriver_scenario_py.html"><code>Optimization.simdriver.scenario</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nVisualization_db_reader_py.html"><code>Visualization.db_reader</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py__ChannelRun.html"><code>ChannelRun</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py___profile_pairs.html"><code>_profile_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py___sim_dbs_in.html"><code>_sim_dbs_in</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__cells.html"><code>cells</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__discover_db_pairs.html"><code>discover_db_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__find_latest_db_pairs.html"><code>find_latest_db_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__ChannelRun_group_key.html"><code>group_key</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__iter_channel_runs.html"><code>iter_channel_runs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_runlayout_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/runlayout.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -20,8 +20,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from Optimization.runtime_metrics import load_rows, SECTIONS, RUNTIME_DB, runtime_db_path
-from Optimization.sim_config import _OUTPUT_DIR
+from Optimization.persistence.runtime_metrics import load_rows, SECTIONS, RUNTIME_DB, runtime_db_path
+from Optimization.config.sim_config import _OUTPUT_DIR
 
 _SECTION_COLORS = plt.cm.tab10.colors
 

@@ -30,7 +30,7 @@ from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Warehouse.Workload_Builder import Batch, Task
 from Warehouse.fast_pick import DeferredPickSimulation
 from Warehouse.Pick import PickConfig
-from Optimization.channels import build_channels
+from Optimization.config.channels import build_channels
 from Warehouse.generation.generate_inventory import (
     Family, fulfillment_family, build_inventory_from_plan,
     save_inventory_to_db, load_inventory_from_db,

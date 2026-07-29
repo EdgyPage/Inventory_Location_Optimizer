@@ -26,10 +26,10 @@ from Warehouse.Inventory_Management import Inventory_Manager, Placement
 from Warehouse.Warehouse_Builder import Warehouse_Builder
 from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Warehouse.Affinity_Store import AffinityStore
-from Optimization.Workload import WorkloadParams
+from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.Assignment_Functions import build_cluster_maximizing_assignment_fn
-from Optimization.strategies import STRATEGIES, strategies_for
-from Optimization.channels import build_channels
+from Optimization.config.strategies import STRATEGIES, strategies_for
+from Optimization.config.channels import build_channels
 from Warehouse.Pick import PickConfig
 
 # Reuse the mixed-catalog helpers from the sibling channel test.

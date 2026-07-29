@@ -2,7 +2,7 @@
 
 A concrete trace of every placement policy in the current grid: where a unit goes, what
 is scored, and which code path runs. A *strategy* = `initial stock × restock (reorder)
-rule × re-slot` ([strategies.py](../../Optimization/strategies.py)); this doc covers the **8 restock
+rule × re-slot` ([strategies.py](../../Optimization/config/strategies.py)); this doc covers the **8 restock
 families** (the "assignment functions") plus the **2 initial-stock modes**.
 
 Builders live in [Warehouse/Assignment_Functions.py](../../Warehouse/Assignment_Functions.py);

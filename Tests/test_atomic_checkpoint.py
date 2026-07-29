@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import os
 
-from Optimization.strategy_runner import (
+from Optimization.simdriver.strategy_runner import (
     save_worker_checkpoint, load_worker_checkpoint, reset_strategy_db,
 )
-from Optimization.Picking_Data import keyframe_db_path
+from Optimization.persistence.Picking_Data import keyframe_db_path
 
 
 def test_checkpoint_atomic_roundtrip(tmp_path):

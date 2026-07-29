@@ -14,9 +14,9 @@ import types
 
 from Warehouse.Pick import PickConfig, PickSimulation
 from Warehouse.Storage_Primitive import FulfillmentCart
-from Optimization.Simulation_Analytics import (extract_batch_stats, extract_task_stats,
+from Optimization.metrics.Simulation_Analytics import (extract_batch_stats, extract_task_stats,
                                               flag_batch_outliers, WorkloadParams)
-from Optimization.Picking_Data import BatchStats, load_batch_stats
+from Optimization.persistence.Picking_Data import BatchStats, load_batch_stats
 from Optimization.Performance_Evaluations.common.frames import _bdf
 
 

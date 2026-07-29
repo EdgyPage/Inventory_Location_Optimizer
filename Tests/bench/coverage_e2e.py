@@ -21,7 +21,7 @@ if _ROOT not in sys.path:
 
 
 from Optimization import run_simulation as rs
-from Optimization import strategy_runner as sr
+from Optimization.simdriver import strategy_runner as sr
 from Optimization import run_analysis as ra
 
 log = logging.getLogger('cov')

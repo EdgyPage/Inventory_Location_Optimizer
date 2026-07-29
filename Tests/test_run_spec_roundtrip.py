@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 
-from Optimization.sim_manifest import _write_run_spec, _load_run_spec, _run_spec_path
+from Optimization.runschema.sim_manifest import _write_run_spec, _load_run_spec, _run_spec_path
 from Optimization import run_simulation as rs
 
 

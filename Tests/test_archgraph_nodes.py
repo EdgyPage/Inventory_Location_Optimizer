@@ -67,12 +67,12 @@ def test_detail_payloads_are_real():
     ex = _load_extract()
     d = ex.build_nodes_detail()['nodes']
     # a known function: signature + docstring present
-    fn = d['Optimization/sim_assets.py::build_shared_assets']
+    fn = d['Optimization/simdriver/sim_assets.py::build_shared_assets']
     assert fn['kind'] == 'function'
     assert fn['signature'].startswith('(') and 'inventory_db' in fn['signature']
     assert fn['doc'] and len(fn['doc']) > 10
     # a module carries its docstring
-    mod = d['Optimization/strategy_runner.py']
+    mod = d['Optimization/simdriver/strategy_runner.py']
     assert mod['kind'] == 'module'
     # a const carries a value preview
     const = d['Warehouse/Capacity_Reloader.py::RELOADERS']

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from Optimization import sim_config as sc
+from Optimization.config import sim_config as sc
 from Optimization.simconfig import PICK_CONFIGS, PICK_CONFIG_BY_KEY
 from Optimization.simconfig.core.registry import pick_config
 

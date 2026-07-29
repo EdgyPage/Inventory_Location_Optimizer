@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/EdgyPage/Inventory_Location_Optimizer/Optimization/schemas/run_layout.schema.json",
   "title": "run_layout",
-  "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/sim_manifest.py; read by cells@Optimization/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
+  "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/runschema/sim_manifest.py; read by cells@Optimization/runschema/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "schema_id", "kind", "reference", "tree_template", "cells", "pairs"],
