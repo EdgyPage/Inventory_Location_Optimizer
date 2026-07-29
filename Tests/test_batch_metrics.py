@@ -12,8 +12,8 @@ import math
 import sqlite3
 import types
 
-from Warehouse.Pick import PickConfig, PickSimulation
-from Warehouse.Storage_Primitive import FulfillmentCart
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Warehouse.layout.Storage_Primitive import FulfillmentCart
 from Optimization.metrics.Simulation_Analytics import (extract_batch_stats, extract_task_stats,
                                               flag_batch_outliers, WorkloadParams)
 from Optimization.persistence.Picking_Data import BatchStats, load_batch_stats

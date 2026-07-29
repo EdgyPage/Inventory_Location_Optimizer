@@ -28,7 +28,7 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 
 ## Pick time
 
-One pick at bin $b$, from [`Warehouse/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Pick.py). The two channels share the **shape** but differ in the
+One pick at bin $b$, from [`Warehouse/picking/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py). The two channels share the **shape** but differ in the
 handling term $h$ and travel speeds. **Store** channel (`store` calibration):
 
 {{ pick_time_formula('lt0', 'store') }}

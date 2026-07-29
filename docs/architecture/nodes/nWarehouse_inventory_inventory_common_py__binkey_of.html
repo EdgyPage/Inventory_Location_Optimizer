@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>binkey_of · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_common_py__binkey_of" data-id="Warehouse/inventory/inventory_common.py::binkey_of">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_common_py.html"><code>Warehouse/inventory/inventory_common.py</code></a> <span class="sep">›</span> <span class="here"><code>binkey_of</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>binkey_of</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_inventory_inventory_common_py.html"><code>Warehouse/inventory/inventory_common.py</code></a></p>
+<div class="badges"><span class="badge fanin">high fan-in</span></div>
+<pre class="sig"><code>def binkey_of(obj) -&gt; BinKey</code></pre>
+<section class="doc">The 4-tuple BinKey of a StorageUnit or an Aisle.Bin (duck-typed like regime_of).
+
+Units read (handling, category) from their order&#x27;s storage_handle_config plus their
+own (storage_size, unit_category) — Singleton&#x27;s fixed &#x27;singleton&#x27; label comes from
+Singleton.storage_size itself, so no special-casing.  Bins read their four mirror
+attributes.  One constructor for the key that used to be hand-built at ~8 sites.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(8)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__build_abc_bands.html"><code>_build_abc_bands</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__candidates_raw.html"><code>_candidates_raw</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__group_key.html"><code>_group_key</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__key.html"><code>_key</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_configure_zoning.html"><code>configure_zoning</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__optimal_work_assign.html"><code>_optimal_work_assign</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_bucket_requirements.html"><code>bucket_requirements</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_sample_to_capacity__add_one.html"><code>_add_one</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_common_py__binkey_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_common.py#:~:text=def%20binkey_of">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AffinityStore · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Affinity_Store_py__AffinityStore" data-id="Warehouse/catalog/Affinity_Store.py::AffinityStore">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a> <span class="sep">›</span> <span class="here"><code>AffinityStore</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>AffinityStore</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>class AffinityStore</code></pre>
+<section class="doc">SQLite-backed affinity matrix with in-memory CSR acceleration.
+
+At construction the full affinity table is loaded once into a scipy CSR
+sparse matrix so that delta_lift and sum_lift execute as pure numpy/scipy
+operations with no SQL round-trips.  The SQLite connection stays open only
+for writes (load_for_skus, index_inventory).
+
+Typical workflow
+----------------
+store = AffinityStore(&#x27;affinity.db&#x27;)          # loads matrix once (~1-2 s)
+delta = store.delta_lift(sku, aisle_members)  # CSR row slice, O(partners)
+total = store.sum_lift(task_skus)             # scipy submatrix sum, O(k²)</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_simdriver_batch_precompute_py___sample_range.html"><code>_sample_range</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py__ensure_batches.html"><code>ensure_batches</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Affinity_Store_py__AffinityStore">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Affinity_Store.py#:~:text=class%20AffinityStore">Source ↗</a></p>
+</article>
+</main>
+</body></html>

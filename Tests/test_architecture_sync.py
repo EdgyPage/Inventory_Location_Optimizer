@@ -89,9 +89,9 @@ def test_wildcard_boundary_and_layer_mapping():
               {'name': 'core', 'match': 'Warehouse/', 'except': ['Warehouse/physical.py']}]
     # members override longest-match; except carves the leaf out of core
     assert va._layer_of('Warehouse/physical.py', layers) == 'leaf'
-    assert va._layer_of('Warehouse/Order.py', layers) == 'core'
+    assert va._layer_of('Warehouse/catalog/Order.py', layers) == 'core'
     # leaf -> * wildcard fires for any out-edge from the leaf
     nodes = [{'id': 'Warehouse/physical.py', 'name': 'p', 'file': 'Warehouse/physical.py', 'kind': 'module'},
-             {'id': 'Warehouse/Order.py', 'name': 'o', 'file': 'Warehouse/Order.py', 'kind': 'module'}]
-    edges = [{'src': 'Warehouse/physical.py', 'dst': 'Warehouse/Order.py', 'kind': 'imports'}]
+             {'id': 'Warehouse/catalog/Order.py', 'name': 'o', 'file': 'Warehouse/catalog/Order.py', 'kind': 'module'}]
+    edges = [{'src': 'Warehouse/physical.py', 'dst': 'Warehouse/catalog/Order.py', 'kind': 'imports'}]
     assert va.boundary_violations(edges, nodes, layers, [('leaf', '*')])

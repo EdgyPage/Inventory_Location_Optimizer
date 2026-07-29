@@ -46,7 +46,7 @@ backbone:
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
      dst: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}, via: calls}
   - {src: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function},
-     dst: {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}, via: calls}
+     dst: {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}, via: calls}
   # scenario -> supervisor -> build units -> per-channel prep -> batches
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
      dst: {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
@@ -68,15 +68,15 @@ backbone:
   - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      dst: {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
   - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
-     dst: {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}, via: calls}
+     dst: {name: DeferredPickSimulation, file: Warehouse/picking/fast_pick.py, kind: class}, via: calls}
   # placement dispatch (the closures behind mgr.placement) — supplied by resolver_hints.yml
-  - {src: {name: _stock_per_unit, file: Warehouse/Inventory_Management.py, kind: function},
-     dst: {name: place_one, file: Warehouse/Assignment_Functions.py, kind: function}, via: dispatch}
-  - {src: {name: _stock_ranked, file: Warehouse/Inventory_Management.py, kind: function},
-     dst: {name: place_wave, file: Warehouse/Assignment_Functions.py, kind: function}, via: dispatch}
+  - {src: {name: _stock_per_unit, file: Warehouse/inventory/Inventory_Management.py, kind: function},
+     dst: {name: place_one, file: Warehouse/placement/Assignment_Functions.py, kind: function}, via: dispatch}
+  - {src: {name: _stock_ranked, file: Warehouse/inventory/Inventory_Management.py, kind: function},
+     dst: {name: place_wave, file: Warehouse/placement/Assignment_Functions.py, kind: function}, via: dispatch}
   # capacity-reloader registry membership
-  - {src: {name: RELOADERS, file: Warehouse/Capacity_Reloader.py, kind: const},
-     dst: {name: rebalance_reloader, file: Warehouse/Capacity_Reloader.py, kind: function}, via: ref}
+  - {src: {name: RELOADERS, file: Warehouse/placement/Capacity_Reloader.py, kind: const},
+     dst: {name: rebalance_reloader, file: Warehouse/placement/Capacity_Reloader.py, kind: function}, via: ref}
   # what-if matrix reuses the scenario runner per cell
   - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
@@ -102,6 +102,6 @@ hotpaths:
   - {name: build_shared_assets,  file: Optimization/simdriver/sim_assets.py, kind: function}
   - {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}
   - {name: _finalize_config_run, file: Optimization/simdriver/supervisor.py, kind: function}
-  - {name: plan_warehouse,       file: Warehouse/inventory_planning.py, kind: function}
+  - {name: plan_warehouse,       file: Warehouse/inventory/inventory_planning.py, kind: function}
   - {name: ensure_batches,       file: Optimization/simdriver/batch_precompute.py, kind: function}
   - {name: run_analysis,         file: Optimization/run_analysis.py, kind: function}

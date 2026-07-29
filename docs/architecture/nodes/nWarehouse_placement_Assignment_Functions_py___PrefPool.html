@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_PrefPool · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___PrefPool" data-id="Warehouse/placement/Assignment_Functions.py::_PrefPool">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_PrefPool</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_PrefPool</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _PrefPool</code></pre>
+<section class="doc">A wave-local pool of candidate bins sorted by `pref`, with O(log) closest-to-target
+queries and O(α) consumption (a bin taken by one unit is invisible to later queries).
+
+Sort key is geometry-derived and process-reproducible: (pref, aisle_id, x_phys, y_phys)
+— never id(bin), whose value is not reproducible across processes.  Consumption uses a
+union-find &quot;next/prev alive&quot; so no tombstones are ever re-scanned.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_optmap_wave_fn_place_wave.html"><code>place_wave</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___PrefPool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_PrefPool">Source ↗</a></p>
+</article>
+</main>
+</body></html>

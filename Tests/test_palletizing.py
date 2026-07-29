@@ -29,15 +29,15 @@ if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
     sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Order import Order
-from Warehouse.Demand import Demand
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Storage_Primitive import (
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Order import Order
+from Warehouse.catalog.Demand import Demand
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Storage_Primitive import (
     Pallet, Singleton, Storage_Size,
     viable_storage_units, _can_fit,
 )
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 
 # ── output helpers ────────────────────────────────────────────────────────────
 _passed = 0
@@ -65,7 +65,7 @@ def _carton(sku: int, length: int, width: int, height: int,
             equilibrium_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Order:
-    from Warehouse.Order import StorageHandleConfig
+    from Warehouse.catalog.Order import StorageHandleConfig
     c                        = object.__new__(Order)
     c._sku                   = sku
     c.storage_type           = (handling, category)

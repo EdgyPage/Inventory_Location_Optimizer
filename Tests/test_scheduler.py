@@ -10,11 +10,11 @@ Guards the properties the LPT scheduler rests on:
 """
 import types
 
-from Warehouse.Pick import (PickConfig, PickSimulation, assign_tasks,
+from Warehouse.picking.Pick import (PickConfig, PickSimulation, assign_tasks,
                             _task_static, count_cart_swaps)
-from Warehouse.fast_pick import DeferredPickSimulation
-from Warehouse.Storage_Primitive import FulfillmentCart
-from Warehouse.cost_model import sec_per_inch
+from Warehouse.picking.fast_pick import DeferredPickSimulation
+from Warehouse.layout.Storage_Primitive import FulfillmentCart
+from Warehouse.kernel.cost_model import sec_per_inch
 
 
 def _order(sku, vol, wt=5):

@@ -32,7 +32,7 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 
 ## Pick time
 
-One pick at bin $b$, from [`Warehouse/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Pick.py):
+One pick at bin $b$, from [`Warehouse/picking/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py):
 
 {{ pick_time_formula(inv0) }}
 

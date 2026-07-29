@@ -68,7 +68,7 @@ def _store_channel_run(shared, pair_dir, cfg, log, workers=1):
     """Prepare the single store channel-run for `cfg` (this e2e uses a store-only pair, so the
     catalog is not mixed and the run collapses to the legacy <config>/ layout)."""
     from Optimization.config.channels import make_channel
-    from Warehouse.regime import STORE
+    from Warehouse.kernel.regime import STORE
     pc = rs._build_pick_cfg(cfg, num_pickers=rs.K_PICKERS)
     ch = make_channel('store', STORE, pc, rs.K_PICKERS, restocks=rs.STORE_RESTOCKS)
     mixed, _ = rs._channel_runs_for(shared['inventory'])       # store-only → False

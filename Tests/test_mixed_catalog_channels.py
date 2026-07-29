@@ -21,15 +21,15 @@ import random
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
-from Warehouse.Inventory_Builder import Inventory
-from Warehouse.Order import Order
-from Warehouse.regime import regime_of, STORE, FULFILLMENT
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Workload_Builder import Batch, Task
-from Warehouse.fast_pick import DeferredPickSimulation
-from Warehouse.Pick import PickConfig
+from Warehouse.catalog.Inventory_Builder import Inventory
+from Warehouse.catalog.Order import Order
+from Warehouse.kernel.regime import regime_of, STORE, FULFILLMENT
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.picking.Workload_Builder import Batch, Task
+from Warehouse.picking.fast_pick import DeferredPickSimulation
+from Warehouse.picking.Pick import PickConfig
 from Optimization.config.channels import build_channels
 from Warehouse.generation.generate_inventory import (
     Family, fulfillment_family, build_inventory_from_plan,

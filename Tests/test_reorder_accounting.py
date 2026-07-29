@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import random
 
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Order import Order, StorageHandleConfig
-from Warehouse.Demand import Demand
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Order import Order, StorageHandleConfig
+from Warehouse.catalog.Demand import Demand
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Optimization.persistence.Picking_Data import (
     BatchStats, init_run_db, save_batch_stats, load_batch_stats,
 )

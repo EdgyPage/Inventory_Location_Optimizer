@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_optimal_assign · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__optimal_assign" data-id="Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin._optimal_assign">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_optimal_py.html"><code>Warehouse/inventory/inventory_optimal.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin.html"><code>OptimalLayoutMixin</code></a> <span class="sep">›</span> <span class="here"><code>_optimal_assign</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_optimal_assign</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_inventory_inventory_optimal_py.html"><code>Warehouse/inventory/inventory_optimal.py</code></a></p>
+
+<pre class="sig"><code>def _optimal_assign(self, orders: list[Order], freq_of: dict, x_speed: float, y_speed: float, place: bool) -&gt; float</code></pre>
+<section class="doc">Pure-global-D optimal layout: per BinKey class, assign the highest
+pick-frequency units to the lowest-D bins (rearrangement-inequality optimum
+for within-aisle travel).  Returns the minimal Sigma f*D.  When place=True,
+commits each unit to its bin and registers originals so reorders work.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__take_optimal_bin.html"><code>_take_optimal_bin</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_layout_Storage_Primitive_py__viable_storage_units.html"><code>viable_storage_units</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin_optimal_sigma_fd.html"><code>optimal_sigma_fd</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin_place_optimal.html"><code>place_optimal</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__optimal_assign">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_optimal.py#:~:text=def%20_optimal_assign">Source ↗</a></p>
+</article>
+</main>
+</body></html>

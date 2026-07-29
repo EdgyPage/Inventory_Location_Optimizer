@@ -54,7 +54,7 @@ steps:
       fingerprint), and return the picklable shared dict every worker receives.
     functions:
       - {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}
-      - {name: plan_warehouse, file: Warehouse/inventory_planning.py, kind: function}
+      - {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}
       - {name: compute_warehouse_fingerprint, file: Optimization/persistence/Warehouse_Data.py, kind: function}
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
@@ -96,8 +96,8 @@ steps:
       - {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}
       - {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function}
-      - {name: DeferredPickSimulation, file: Warehouse/fast_pick.py, kind: class}
-      - {name: per_pick, file: Warehouse/cost_model.py, kind: function}
+      - {name: DeferredPickSimulation, file: Warehouse/picking/fast_pick.py, kind: class}
+      - {name: per_pick, file: Warehouse/kernel/cost_model.py, kind: function}
       - {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}
     reads: [planned_inventory_db, affinity_db, batches_cache]
     writes: [sim_db, keyframes_db, checkpoint_pkl]

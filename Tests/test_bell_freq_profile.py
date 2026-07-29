@@ -30,7 +30,7 @@ from dataclasses import fields, replace
 
 import pytest
 
-from Warehouse.Order import Order
+from Warehouse.catalog.Order import Order
 from Warehouse.generation.generate_inventory import build_inventory_from_plan
 from Warehouse.generation.generate_mixed_profile import (
     BELL_CREATION_PLAN,

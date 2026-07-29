@@ -26,26 +26,26 @@ if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
     sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
 
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for, uniform_aisle_bins
 import tempfile
 import types
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Order import Order, StorageHandleConfig
-from Warehouse.Demand import Demand
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Order import Order, StorageHandleConfig
+from Warehouse.catalog.Demand import Demand
 from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
     save_inventory_to_db, load_inventory_from_db, Inventory,
 )
-from Warehouse.Inventory_Management import (
+from Warehouse.inventory.Inventory_Management import (
     Inventory_Manager, Placement, _SIZE_RANKS,
 )
-from Warehouse.Assignment_Functions import (
+from Warehouse.placement.Assignment_Functions import (
     build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
 )
-from Warehouse.Storage_Primitive import viable_storage_units, Pallet
-from Warehouse.Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
+from Warehouse.layout.Storage_Primitive import viable_storage_units, Pallet
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
 
 # ── harness ─────────────────────────────────────────────────────────────────
 
@@ -714,9 +714,9 @@ def test_requeue_bin():
 
 def test_capacity_reloader_variants():
     print('\n-- Capacity_Reloader: 3 named variants, per-aisle budget, pallet-only, lowers Sigma f*D --')
-    from Warehouse.Capacity_Reloader import (promote_popular_reloader, demote_unpopular_reloader,
+    from Warehouse.placement.Capacity_Reloader import (promote_popular_reloader, demote_unpopular_reloader,
                                    rebalance_reloader, RELOADERS)
-    from Warehouse.Assignment_Functions import build_ranked_minimizing_assignment_fn
+    from Warehouse.placement.Assignment_Functions import build_ranked_minimizing_assignment_fn
     x, y = 1.0, 0.5
     inv  = _inventory(120, seed=23)
     plan = _plan(inv)
@@ -772,7 +772,7 @@ def _aff_store(skus, pairs):
     skus: ordered list; pairs: list of (sku_i, sku_j, lift)."""
     import numpy as np
     from scipy.sparse import csr_matrix
-    from Warehouse.Affinity_Store import AffinityStore
+    from Warehouse.catalog.Affinity_Store import AffinityStore
     aff = AffinityStore(':memory:')
     idx = {s: i for i, s in enumerate(skus)}
     rows, cols, data = [], [], []
@@ -787,7 +787,7 @@ def _aff_store(skus, pairs):
 def test_cluster_assignment_max_min():
     print('\n-- cluster assignment: max co-locates, min scatters, W tie-break --')
     from collections import defaultdict
-    from Warehouse.Assignment_Functions import (build_cluster_maximizing_assignment_fn,
+    from Warehouse.placement.Assignment_Functions import (build_cluster_maximizing_assignment_fn,
                                       build_cluster_minimizing_assignment_fn)
 
     class _B:
@@ -823,7 +823,7 @@ def test_cluster_assignment_max_min():
 def test_affinity_sampler_correlates_and_guards():
     print('\n-- batch sampler: AffinityStore correlates co-picks, never silent uniform --')
     import random as _r
-    from Warehouse.Workload_Builder import Batch, BatchConfig
+    from Warehouse.picking.Workload_Builder import Batch, BatchConfig
 
     orders = [_make_carton(i, 30) for i in range(1, 7)]   # conveyable/food
     for c in orders:

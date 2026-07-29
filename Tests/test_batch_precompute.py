@@ -25,11 +25,11 @@ _ROOT = os.path.dirname(_HERE)
 
 
 from Optimization.simdriver import batch_precompute as BP            # noqa: E402  (adds Warehouse to sys.path on import)
-from Warehouse.Workload_Builder import Batch, BatchConfig    # noqa: E402
-from Warehouse.Affinity_Store import AffinityStore           # noqa: E402
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig    # noqa: E402
+from Warehouse.catalog.Affinity_Store import AffinityStore           # noqa: E402
 from Warehouse.generation.generate_inventory import (        # noqa: E402
     save_inventory_to_db, Inventory)
-from Warehouse.Order import Order                            # noqa: E402
+from Warehouse.catalog.Order import Order                            # noqa: E402
 
 SEED_B = 1337
 N = 24                                             # batches per sequence in the equivalence checks

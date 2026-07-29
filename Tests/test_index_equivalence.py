@@ -16,13 +16,13 @@ import random
 import pytest
 
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Management import Inventory_Manager, Placement
-from Warehouse.Assignment_Functions import build_cluster_minimizing_assignment_fn
-from Warehouse.Pick import PickConfig, PickSimulation
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
+from Warehouse.placement.Assignment_Functions import build_cluster_minimizing_assignment_fn
+from Warehouse.picking.Pick import PickConfig, PickSimulation
 from Optimization.metrics.Workload import WorkloadParams
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from perf_simulation import _build_inventory, _build_affinity_store, _build_warehouse_cfg
 
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES, N_PICKERS = 42, 2000, 100, 60, 5

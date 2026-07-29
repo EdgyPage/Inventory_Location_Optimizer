@@ -47,8 +47,8 @@ GRAPH_ROOTS = ('Warehouse', 'Optimization', 'Diagnostics', 'Visualization', 'scr
 # `self` is resolved structurally via the enclosing class MRO; these named receivers map
 # to a concrete in-repo class so cross-module `mgr.method()` calls resolve too.
 _RECEIVER_TYPES = {
-    'mgr':     'Warehouse/Inventory_Management.py::Inventory_Manager',
-    'manager': 'Warehouse/Inventory_Management.py::Inventory_Manager',
+    'mgr':     'Warehouse/inventory/Inventory_Management.py::Inventory_Manager',
+    'manager': 'Warehouse/inventory/Inventory_Management.py::Inventory_Manager',
 }
 
 
@@ -77,7 +77,7 @@ def discover_files(roots: tuple[str, ...], include_init: bool = True) -> list[st
 
 
 def _module_name(relpath: str) -> str:
-    """`Warehouse/Order.py` -> `Warehouse.Order`; `pkg/__init__.py` -> `pkg`."""
+    """`Warehouse/catalog/Order.py` -> `Warehouse.catalog.Order`; `pkg/__init__.py` -> `pkg`."""
     stem = relpath[:-3] if relpath.endswith('.py') else relpath
     if stem.endswith('/__init__'):
         stem = stem[: -len('/__init__')]

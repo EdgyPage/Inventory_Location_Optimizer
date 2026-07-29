@@ -21,8 +21,8 @@ if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse import Assignment_Functions as A
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.placement import Assignment_Functions as A
 
 _PASS = _FAIL = 0
 

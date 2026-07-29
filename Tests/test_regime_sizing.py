@@ -16,7 +16,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
-from Warehouse.Inventory_Management import Inventory_Manager                # noqa: E402
+from Warehouse.inventory.Inventory_Management import Inventory_Manager                # noqa: E402
 from Warehouse.generation.generate_inventory import (                      # noqa: E402
     Family, fulfillment_family, build_inventory_from_plan)
 
@@ -190,7 +190,7 @@ def test_aisle_split_store_branch():
 
 
 def test_aisle_split_k_bounded():
-    from Warehouse.inventory_planning import MAX_AISLE_SPLIT_K
+    from Warehouse.inventory.inventory_planning import MAX_AISLE_SPLIT_K
     orders = _mixed_orders()
     ff0 = len(_configs_by_regime(_plan(orders, _base_sizing())))
     rs = _base_sizing(); rs['fulfillment']['aisle_split'] = {'k': 10_000, 'capacity_loss': 0.0}

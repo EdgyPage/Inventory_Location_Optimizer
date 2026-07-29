@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.placement.Capacity_Reloader · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Capacity_Reloader_py" data-id="Warehouse/placement/Capacity_Reloader.py">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <span class="here"><code>Warehouse/placement/Capacity_Reloader.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.placement.Capacity_Reloader</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_placement_Capacity_Reloader_py.html"><code>Warehouse/placement/Capacity_Reloader.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.placement.Capacity_Reloader</code></pre>
+<section class="doc">Capacity_Reloader.py — bounded re-slot via evict-and-requeue.
+
+Rather than swapping bin contents (and breaking ties), a Capacity_Reloader EVICTS
+targeted pallets back into the reorder queue (`manager.requeue_bin`) and reclaims
+their bins.  The manager&#x27;s subsequent ranked drain (in `check_reorders`) then
+re-places everything in priority order, so popular items claim the freed prime bins
+and the evicted ones settle into their proper rank — no swapper, no tie-breaks.
+
+The number of evictions per pallet aisle is capped at a percent of a reference
+aisle&#x27;s bin capacity (the operational pallet-move labor ceiling).
+
+Three named variants (target selectors):
+  - ``promote_popular``  : evict high-frequency pallets sitting in high-D (bad) bins,
+                           so the ranked re-drain lifts them into better bins.
+  - ``demote_unpopular`` : evict low-frequency pallets sitting in low-D (prime) bins,
+                           freeing prime bins for higher-ranked items.
+  - ``rebalance``        : both (split the per-aisle budget) — the swap result
+                           without a swapper.
+
+Re-placement is not the reloader&#x27;s concern: it only evicts/requeues, and the manager&#x27;s
+own ``placement`` policy (via check_reorders) re-drains the freed bins afterwards.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(12)</span></h2><ul><li><a href="nWarehouse_placement_Capacity_Reloader_py__Capacity_Reloader.html"><code>Capacity_Reloader</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__RELOADERS.html"><code>RELOADERS</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py___SELECTORS.html"><code>_SELECTORS</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__Capacity_Reloader___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__demote_unpopular.html"><code>demote_unpopular</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__demote_unpopular_reloader.html"><code>demote_unpopular_reloader</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__Capacity_Reloader_per_aisle_cap.html"><code>per_aisle_cap</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__promote_popular.html"><code>promote_popular</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__promote_popular_reloader.html"><code>promote_popular_reloader</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__rebalance.html"><code>rebalance</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__rebalance_reloader.html"><code>rebalance_reloader</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li><li><a href="nWarehouse_placement_Capacity_Reloader_py__Capacity_Reloader_reload.html"><code>reload</code></a> <span class="dim">Warehouse/placement/Capacity_Reloader.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Capacity_Reloader_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Capacity_Reloader.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

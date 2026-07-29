@@ -31,8 +31,8 @@ import numpy as np
 
 # No sys.path bootstrap: imports are package-absolute and spawn's prepare()
 # propagates the parent's sys.path (seeded by the entry script) to chunk workers.
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.Workload_Builder import Batch
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.picking.Workload_Builder import Batch
 from Warehouse.generation.generate_inventory import load_inventory_from_db
 
 # Below this many batches (or with workers<=1) precompute runs serially — a transient process pool's
@@ -49,7 +49,7 @@ def _load_worker_inventory(inv_db: str, max_skus, sku_allowlist, channel_regime=
     if sku_allowlist is not None:
         inv.orders = [c for c in inv.orders if c.sku in sku_allowlist]
     if channel_regime is not None:
-        from Warehouse.regime import regime_of
+        from Warehouse.kernel.regime import regime_of
         inv.orders = [c for c in inv.orders if regime_of(c) == channel_regime]
     return inv
 

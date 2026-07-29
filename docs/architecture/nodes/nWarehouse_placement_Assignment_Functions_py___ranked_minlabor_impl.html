@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ranked_minlabor_impl · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___ranked_minlabor_impl" data-id="Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_ranked_minlabor_impl</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_ranked_minlabor_impl</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)</code></pre>
+<section class="doc">Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
+
+Models the objective E[task labor] = Σ_s f_s·[ M(y_s)·(intercept + q_s·v_s) + D ] and
+places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
+
+    cost(s, b) = f_s·( M(y_b)·(intercept + v_s) + D_b )  −  λ·Σ_{partners p in aisle} lift(s,p)·f_p
+
+where v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,
+D_b = x_speed·x_phys + y_speed·y_phys.  This fuses three slotting levers into one score:
+  • golden-zone height  — the M(y_b)·v_s term pushes heavy/frequent SKUs to low brackets;
+  • effort-to-front     — the D_b term pulls them to near, low bins;
+  • affinity compaction — the −λ·delta_lift aisle reward co-locates demand partners in the
+    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin
+    is pulled toward the partners&#x27; column centroid (+x_speed·|x−cx|) to shorten the sweep.
+
+maximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)
+to deliberately MAXIMISE the objective — a worst-case upper-bound sanity control (Rank_maxlabor)
+that brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there
+is NO LPT load term — this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units
+are placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.
+
+Both the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D
+deque ends — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
+from its deque end, so the ends are always live (no stale-bin bookkeeping).</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___D_map.html"><code>_D_map</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___demand_weighted_partner_centroid.html"><code>_demand_weighted_partner_centroid</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_maxlabor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_minlabor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___ranked_minlabor_impl">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_ranked_minlabor_impl">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Single source of truth for the cost primitives (Warehouse/cost_model.py — on sys.path
+# Single source of truth for the cost primitives (Warehouse/kernel/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
-from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from Warehouse.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch
-from Warehouse.Storage_Primitive import StoreCart   # default cart for the capacity field
+from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
+from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch
+from Warehouse.layout.Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
 @dataclass
 class WorkloadParams:
     """Coefficients that define how physical effort is estimated for one aisle.
 
-    Mirrors the relevant fields of PickConfig (Warehouse/Pick.py) so the
+    Mirrors the relevant fields of PickConfig (Warehouse/picking/Pick.py) so the
     Optimization layer can compute W without importing simulation internals.
 
     Fields

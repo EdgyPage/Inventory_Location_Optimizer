@@ -1,7 +1,7 @@
 # Assignment Scoring Objectives
 
 Reference for the placement (assignment) scoring used in
-`Warehouse/Assignment_Functions.py`. An `Inventory_Manager` merely *receives* a
+`Warehouse/placement/Assignment_Functions.py`. An `Inventory_Manager` merely *receives* a
 per‑unit `assignment_fn` (and optional `batch_assignment_fn` for ranked drains);
 these builders produce them. Every per‑unit fn shares one shape — the scorers differ
 only in how they rank aisles.

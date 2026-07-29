@@ -13,7 +13,7 @@ You write pytest tests for Inventory_Location_Optimizer. New tests MUST match re
 - Module docstring: filename on line 1; a short *what/why* paragraph (bullet the invariants you lock in);
   a trailing `Run:  python -m pytest Tests/<file>.py -q` line.
 - `from __future__ import annotations`.
-- Imports are PACKAGE-ABSOLUTE: `from Warehouse.Order import Order`,
+- Imports are PACKAGE-ABSOLUTE: `from Warehouse.catalog.Order import Order`,
   `from Optimization import channels`. NO per-file sys.path bootstrap — `Tests/conftest.py`
   puts the repo root (and `Tests/bench` for shared scenario builders) on sys.path.
 - Optional `if __name__ == '__main__': sys.exit(pytest.main([__file__, '-v']))`.

@@ -33,20 +33,20 @@ import random
 import sys
 import time
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Storage_Primitive import viable_storage_units as _vsu
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
 
 # Minimum empty bins to preserve per (handling, category, size, unit_type) bucket
 # during overstock fill so reorder units always find a slot during simulation.
 _OVERSTOCK_MIN_HEADROOM: int = 10
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.fast_pick import DeferredPickSimulation
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Capacity_Reloader import RELOADERS
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.placement.Capacity_Reloader import RELOADERS
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Workload_Builder import Batch, Task
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.picking.Workload_Builder import Batch, Task
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 from Optimization.metrics.Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
@@ -58,7 +58,7 @@ from Optimization.persistence.Picking_Data import (
     save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
-from Warehouse.cost_model import sec_per_inch, height_multiplier
+from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier
 
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ def _run_strategy_worker(args: dict) -> dict:
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
     if channel_regime is not None:
-        from Warehouse.regime import regime_of
+        from Warehouse.kernel.regime import regime_of
         inventory.orders = [c for c in inventory.orders if regime_of(c) == channel_regime]
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} SKUs  ({time.perf_counter()-t0:.2f}s)')
@@ -310,7 +310,7 @@ def _run_strategy_worker(args: dict) -> dict:
     # other regime's empty share.  channel_regime None (store-only) => the whole warehouse.
     base_filled = len(mgr._unavailable)
     if channel_regime is not None:
-        from Warehouse.regime import regime_of
+        from Warehouse.kernel.regime import regime_of
         denom = sum(1 for b in warehouse.bins if regime_of(b) == channel_regime)
         unit  = f'{channel_regime} bins'
     else:

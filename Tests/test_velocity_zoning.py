@@ -10,9 +10,9 @@ Run:  python -m pytest Tests/test_velocity_zoning.py -q
 import random
 import types
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import Warehouse_Builder
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from perf_simulation import _build_inventory, _build_warehouse_cfg
 
 
@@ -85,7 +85,7 @@ def test_zone_filter_spills_when_band_empty():
 
 def test_group_key_off_is_binkey_on_is_binkey_band():
     """Group key adds the band only when zoning is on (byte-identical off)."""
-    from Warehouse.inventory_common import binkey_of
+    from Warehouse.inventory.inventory_common import binkey_of
     # binkey_of reads storage_size / unit_category off the UNIT and handling/category off order.
     unit = types.SimpleNamespace(
         storage_size='ff_small', unit_category='fulfillment',
@@ -107,7 +107,7 @@ def _order(sku, freq, qty=1.0):
 
 
 def test_apportion_floor_sum_and_hot_is_small():
-    from Warehouse.Inventory_Management import _apportion
+    from Warehouse.inventory.Inventory_Management import _apportion
     counts = _apportion(10, [20, 30, 50], 3)     # hot few SKUs, cold many
     assert sum(counts) == 10 and all(c >= 1 for c in counts)   # floor 1 per band
     assert counts[0] < counts[2]                 # hot band gets fewer aisles than cold
@@ -156,7 +156,7 @@ def test_zone_filter_hot_downgrades_to_next_colder():
 # candidate SET as _zone_filter, stay consistent with _index across add/remove, and spill the same.
 
 def _key_of(bin_):
-    from Warehouse.inventory_common import binkey_of
+    from Warehouse.inventory.inventory_common import binkey_of
     return binkey_of(bin_)
 
 

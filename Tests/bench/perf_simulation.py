@@ -38,20 +38,20 @@ if _REPO_ROOT not in sys.path:
 import math
 import numpy as np
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.Order import Order
-from Warehouse.Demand import Demand
-from Warehouse.Inventory_Builder import Inventory
-from Warehouse.Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Warehouse.Assignment_Functions import (
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.catalog.Order import Order
+from Warehouse.catalog.Demand import Demand
+from Warehouse.catalog.Inventory_Builder import Inventory
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.placement.Assignment_Functions import (
     build_load_minimizing_assignment_fn,
     build_load_maximizing_assignment_fn,
 )
-from Warehouse.Pick import PickConfig, PickSimulation
-from Warehouse.Storage_Primitive import Storage_Size
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Warehouse.layout.Storage_Primitive import Storage_Size
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from Optimization.metrics.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 

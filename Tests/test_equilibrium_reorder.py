@@ -29,10 +29,10 @@ if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
     sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
 
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Order import Order, StorageHandleConfig
-from Warehouse.Demand import Demand
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Order import Order, StorageHandleConfig
+from Warehouse.catalog.Demand import Demand
 from Warehouse.generation.generate_inventory import (
     EQUILIBRIUM_COVERAGE_BATCHES,
     REORDER_SAFETY_BATCHES,
@@ -42,9 +42,9 @@ from Warehouse.generation.generate_inventory import (
     DEFAULT_DIM_SPEC,
     DEFAULT_WEIGHT_SPEC,
 )
-from Warehouse.Inventory_Management import Inventory_Manager, _equilibrium_qty
-from Warehouse.Storage_Primitive import viable_storage_units
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, _equilibrium_qty
+from Warehouse.layout.Storage_Primitive import viable_storage_units
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -447,7 +447,7 @@ def test_equilibrium_qty_helper() -> None:
 def test_fill_stability() -> None:
     """Fill rate should not drift downward over 30 batches when using OUP."""
     print('\n-- Part F: fill stability over 30 batches --')
-    from Warehouse.Workload_Builder import Batch, BatchConfig
+    from Warehouse.picking.Workload_Builder import Batch, BatchConfig
 
     inv = build_inventory_with_profile(
         num_skus=100, seed=42,
@@ -497,7 +497,7 @@ def test_fill_stability() -> None:
     for _ in range(30):
         mgr.check_reorders()
         b = Batch(batch_cfg, inv, affinity=None)
-        from Warehouse.Workload_Builder import Task
+        from Warehouse.picking.Workload_Builder import Task
         task = Task.from_batch(b, wh, manager=mgr)
         fills.append(len(mgr.unavailable) / total_bins)
 

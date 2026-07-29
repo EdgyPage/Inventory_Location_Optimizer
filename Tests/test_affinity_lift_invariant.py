@@ -17,8 +17,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.Assignment_Functions import _demand_weighted_delta_lift
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.placement.Assignment_Functions import _demand_weighted_delta_lift
 
 
 def _store(pairs):

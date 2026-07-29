@@ -75,7 +75,7 @@ def test_detail_payloads_are_real():
     mod = d['Optimization/simdriver/strategy_runner.py']
     assert mod['kind'] == 'module'
     # a const carries a value preview
-    const = d['Warehouse/Capacity_Reloader.py::RELOADERS']
+    const = d['Warehouse/placement/Capacity_Reloader.py::RELOADERS']
     assert const['kind'] == 'const' and const['value_preview']
 
 

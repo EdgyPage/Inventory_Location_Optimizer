@@ -52,10 +52,10 @@ def _load_env(path: str) -> None:
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
-from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
-from Warehouse.regime import STORE, FULFILLMENT
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.picking.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.layout.Storage_Primitive import StoreCart, FulfillmentCart
+from Warehouse.kernel.regime import STORE, FULFILLMENT
 from Optimization.config.strategies import restocks_for
 from Optimization.config.channels import FF_BATCH_SEED_OFFSET
 from Optimization.simconfig import PICK_CONFIGS                          # fires the registry import_all()
@@ -98,7 +98,7 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 # Warehouse layout is no longer a static table — Inventory_Manager.plan_warehouse
 # builds per-(handling, category, size_tier, unit_type) uniform aisles sized to
 # the actual inventory, guaranteeing every bucket exists (≥1 aisle) so every
-# SKU is placeable.  See Warehouse/Inventory_Management.py.
+# SKU is placeable.  See Warehouse/inventory/Inventory_Management.py.
 
 
 # ── per-channel config sweeps (rebuilt from the simconfig registry) ─────────────

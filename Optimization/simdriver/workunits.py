@@ -19,11 +19,11 @@ from Optimization.config.sim_config import (
 from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
 from Optimization.config.strategies import strategies_for
 from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.regime import FULFILLMENT
-from Warehouse.Storage_Primitive import StoreCart
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.kernel.regime import FULFILLMENT
+from Warehouse.layout.Storage_Primitive import StoreCart
 # local (in-function) imports preserved from the originals: dataclasses.replace,
-# Warehouse.regime.regime_of, Optimization.config.channels.make_channel.
+# Warehouse.kernel.regime.regime_of, Optimization.config.channels.make_channel.
 
 
 def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
@@ -78,7 +78,7 @@ def _prepare_channel_run(
     injects it before submission.
     """
     from dataclasses import replace                        # noqa: E402 (local)
-    from Warehouse.regime import regime_of                           # noqa: E402
+    from Warehouse.kernel.regime import regime_of                           # noqa: E402
 
     n_batches = CONFIG['global']['n_batches']              # may be overridden via --n-batches
     name     = _config_name(cfg)
@@ -330,7 +330,7 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
     Returns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.
     """
     from Optimization.config.channels import make_channel                         # noqa: E402
-    from Warehouse.regime import regime_of                              # noqa: E402
+    from Warehouse.kernel.regime import regime_of                              # noqa: E402
 
     mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
     runs: list[tuple] = []

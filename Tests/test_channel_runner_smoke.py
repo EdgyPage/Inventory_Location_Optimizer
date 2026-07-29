@@ -163,8 +163,8 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
     """A mixed catalog sweeps store and fulfillment configs INDEPENDENTLY: one channel-run per
     store config + one per fulfillment config (a union), never the cross product.  Store runs
     carry the store cost/pool + their own names; fulfillment runs carry the walker cost + theirs."""
-    from Warehouse.regime import STORE, FULFILLMENT
-    from Warehouse.Storage_Primitive import FulfillmentCart
+    from Warehouse.kernel.regime import STORE, FULFILLMENT
+    from Warehouse.layout.Storage_Primitive import FulfillmentCart
 
     # Asymmetric counts (3 vs 2) so union (5) is distinguishable from a cross product (6).
     store_cfgs = [{'name': 's1'}, {'name': 's2'}, {'name': 's3'}]

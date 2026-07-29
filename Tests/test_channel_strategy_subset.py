@@ -20,17 +20,17 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Warehouse.regime import regime_of, STORE, FULFILLMENT
-from Warehouse.Storage_Primitive import viable_storage_units
-from Warehouse.Inventory_Management import Inventory_Manager, Placement
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.kernel.regime import regime_of, STORE, FULFILLMENT
+from Warehouse.layout.Storage_Primitive import viable_storage_units
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.catalog.Affinity_Store import AffinityStore
 from Optimization.metrics.Workload import WorkloadParams
-from Warehouse.Assignment_Functions import build_cluster_maximizing_assignment_fn
+from Warehouse.placement.Assignment_Functions import build_cluster_maximizing_assignment_fn
 from Optimization.config.strategies import STRATEGIES, strategies_for
 from Optimization.config.channels import build_channels
-from Warehouse.Pick import PickConfig
+from Warehouse.picking.Pick import PickConfig
 
 # Reuse the mixed-catalog helpers from the sibling channel test.
 from test_fulfillment_channels import _mixed_inventory, _ff_order, _plan

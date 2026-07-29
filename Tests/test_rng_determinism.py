@@ -34,13 +34,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Order import Order, StorageHandleConfig
-from Warehouse.Demand import Demand, poisson_sample
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Warehouse.Workload_Builder import Batch, BatchConfig
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Order import Order, StorageHandleConfig
+from Warehouse.catalog.Demand import Demand, poisson_sample
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig
 from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile,
     DEFAULT_DIM_SPEC,

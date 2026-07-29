@@ -13,14 +13,14 @@ import os
 import random
 import time
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
-from Warehouse.Inventory_Management import LoadParams, Inventory_Manager
-from Warehouse.Aisle_Dimensions import uniform_aisle_bins
-from Warehouse.Storage_Primitive import viable_storage_units as _vsu
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Workload_Builder import BatchConfig
+from Warehouse.inventory.Inventory_Management import LoadParams, Inventory_Manager
+from Warehouse.layout.Aisle_Dimensions import uniform_aisle_bins
+from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
     CONFIG, SEED_WORLD, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, _INITIAL_FILL,
@@ -189,7 +189,7 @@ def build_shared_assets(
         # One aisle_type_stats row per bucket (handling, category, size, unit_type).
         # Uniform aisles → the bucket's tier is 100%, others 0%.
         _PCT_COL = {'small': 0, 'medium': 1, 'large': 2, 'extra_large': 3}
-        from Warehouse.Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
+        from Warehouse.layout.Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
                                       FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT)
         aisle_rows = []
         for (h, cat, size, unit_type), cap_bins in plan.capacity.items():

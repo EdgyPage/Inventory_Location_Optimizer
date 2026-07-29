@@ -4,11 +4,11 @@ matches between the reference (Pick) and production (fast_pick) sims.  Two-way l
 totals are unchanged from before the decomposition existed."""
 import types
 
-from Warehouse.Pick import PickConfig, PickSimulation
-from Warehouse.fast_pick import DeferredPickSimulation
-from Warehouse.Storage_Primitive import FulfillmentCart
-from Warehouse.Workload_Builder import Task
-from Warehouse.cost_model import sec_per_inch
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Warehouse.picking.fast_pick import DeferredPickSimulation
+from Warehouse.layout.Storage_Primitive import FulfillmentCart
+from Warehouse.picking.Workload_Builder import Task
+from Warehouse.kernel.cost_model import sec_per_inch
 from Optimization.metrics.Simulation_Analytics import (
     task_time_breakdown, task_travel_breakdown, task_travel_axes)
 

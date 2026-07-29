@@ -484,7 +484,7 @@ def build_pre_snapshot(manager) -> dict:
     Only non-empty bins are captured; empty bins are implicitly quantity=0
     and are not written to the DB.
     """
-    from Warehouse.Storage_Primitive import Singleton
+    from Warehouse.layout.Storage_Primitive import Singleton
     snap = {}
     for bin_ in manager._unavailable.values():
         if bin_.storage is None:
@@ -542,7 +542,7 @@ def snapshot_bin_inventory(
         FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)
     """
     from Optimization.persistence.Picking_Data import BinInventoryRecord
-    from Warehouse.Storage_Primitive import Singleton
+    from Warehouse.layout.Storage_Primitive import Singleton
 
     records = []
 

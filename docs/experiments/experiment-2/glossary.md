@@ -3,7 +3,7 @@
 Definitions for every term the [lifecycle](comparison-overview.md), [Highlights](highlights.md),
 and [Everything else](everything-else.md) pages cite. Each entry has a stable anchor — link to one
 with `glossary.md#<id>` (the id is shown in the heading link). Formula shapes match the code in
-[`Warehouse/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py)
+[`Warehouse/placement/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py)
 and [`docs/design/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/design/ASSIGNMENT_SCORING.md).
 
 ## Channels &amp; carts

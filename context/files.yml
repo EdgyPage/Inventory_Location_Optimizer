@@ -1364,156 +1364,32 @@ files:
       - {name: "api_scores", file: "Visualization/server.py", kind: "function"}
       - {name: "api_sku_scores", file: "Visualization/server.py", kind: "function"}
     notes: ""
-  "Warehouse/Affinity_Store.py":
+  "Warehouse/catalog/Affinity_Store.py":
     purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "AffinityStore", file: "Warehouse/Affinity_Store.py", kind: "class"}
+      - {name: "AffinityStore", file: "Warehouse/catalog/Affinity_Store.py", kind: "class"}
     notes: ""
-  "Warehouse/Aisle_Dimensions.py":
-    purpose: "physical dimension helpers for warehouse aisle layout."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "aisle_width_for", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "aisle_height_for", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "unit_bin_width", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "bins_along_x", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "bins_along_y", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "uniform_aisle_bins", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-      - {name: "catalog_aisle_bins", file: "Warehouse/Aisle_Dimensions.py", kind: "function"}
-    notes: ""
-  "Warehouse/Aisle_Storage.py":
-    purpose: "the Aisle storage model: an aisle and its physical Bins (grid location, centre geometry, occupancy)."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "Aisle", file: "Warehouse/Aisle_Storage.py", kind: "class"}
-    notes: ""
-  "Warehouse/Assignment_Functions.py":
-    purpose: "placement (assignment) functions."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "build_load_minimizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_load_maximizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_co_demand_placement", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_maximizing_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_uniform_assignment_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_popularity_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_labor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_cartlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_minlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_ranked_maxlabor_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_optmap_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_optmap_wave_fn", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "build_cluster_map_placement", file: "Warehouse/Assignment_Functions.py", kind: "function"}
-      - {name: "ASSIGNMENT_BUILDERS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
-      - {name: "RANKED_BUILDERS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
-      - {name: "SCORER_NEEDS", file: "Warehouse/Assignment_Functions.py", kind: "const"}
-    notes: ""
-  "Warehouse/Capacity_Reloader.py":
-    purpose: "bounded re-slot via evict-and-requeue."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "demote_unpopular", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "promote_popular", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "rebalance", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "Capacity_Reloader", file: "Warehouse/Capacity_Reloader.py", kind: "class"}
-      - {name: "promote_popular_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "demote_unpopular_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "rebalance_reloader", file: "Warehouse/Capacity_Reloader.py", kind: "function"}
-      - {name: "RELOADERS", file: "Warehouse/Capacity_Reloader.py", kind: "const"}
-    notes: ""
-  "Warehouse/Demand.py":
+  "Warehouse/catalog/Demand.py":
     purpose: "per-SKU demand model (relative pick frequency + quantity rate) with Knuth-Poisson quantity sampling."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "poisson_sample", file: "Warehouse/Demand.py", kind: "function"}
-      - {name: "Demand", file: "Warehouse/Demand.py", kind: "class"}
+      - {name: "poisson_sample", file: "Warehouse/catalog/Demand.py", kind: "function"}
+      - {name: "Demand", file: "Warehouse/catalog/Demand.py", kind: "class"}
     notes: ""
-  "Warehouse/Inventory_Builder.py":
+  "Warehouse/catalog/Inventory_Builder.py":
     purpose: "builds the SKU catalog: InventoryConfig + Inventory (within-group affinity matrix) via Inventory_Builder."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "InventoryConfig", file: "Warehouse/Inventory_Builder.py", kind: "class"}
-      - {name: "Inventory", file: "Warehouse/Inventory_Builder.py", kind: "class"}
-      - {name: "Inventory_Builder", file: "Warehouse/Inventory_Builder.py", kind: "class"}
+      - {name: "InventoryConfig", file: "Warehouse/catalog/Inventory_Builder.py", kind: "class"}
+      - {name: "Inventory", file: "Warehouse/catalog/Inventory_Builder.py", kind: "class"}
+      - {name: "Inventory_Builder", file: "Warehouse/catalog/Inventory_Builder.py", kind: "class"}
     notes: ""
-  "Warehouse/Inventory_Management.py":
-    purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "Inventory_Manager", file: "Warehouse/Inventory_Management.py", kind: "class"}
-    notes: ""
-  "Warehouse/Order.py":
+  "Warehouse/catalog/Order.py":
     purpose: "the Order (SKU) model: sampled physical dims/weight, per-unit labor cost, and demand attributes."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "Order", file: "Warehouse/Order.py", kind: "class"}
-    notes: ""
-  "Warehouse/Pick.py":
-    purpose: "the pick-simulation core: PickConfig + PickEvent/PickerProgress + PickSimulation over batched tasks."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "PickConfig", file: "Warehouse/Pick.py", kind: "class"}
-      - {name: "PickEvent", file: "Warehouse/Pick.py", kind: "class"}
-      - {name: "PickerProgress", file: "Warehouse/Pick.py", kind: "class"}
-      - {name: "count_cart_swaps", file: "Warehouse/Pick.py", kind: "function"}
-      - {name: "assign_tasks", file: "Warehouse/Pick.py", kind: "function"}
-      - {name: "PickSimulation", file: "Warehouse/Pick.py", kind: "class"}
-    notes: ""
-  "Warehouse/Storage_Primitive.py":
-    purpose: "storage-unit primitives: size/type taxonomy, Pallet/Singleton/FulfillmentBin units and carts, cached fit/packing."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "T", file: "Warehouse/Storage_Primitive.py", kind: "const"}
-      - {name: "Storage_Size", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "Storage_Type", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "StorageUnit", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "Pallet", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "Singleton", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "FulfillmentBin", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "viable_storage_units", file: "Warehouse/Storage_Primitive.py", kind: "function"}
-      - {name: "StorageCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "StoreCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-      - {name: "FulfillmentCart", file: "Warehouse/Storage_Primitive.py", kind: "class"}
-    notes: ""
-  "Warehouse/Warehouse_Builder.py":
-    purpose: "the Warehouse model + builder: AisleConfig/WarehouseConfig specs assembled into a Warehouse of aisles and bins."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "AisleConfig", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
-      - {name: "WarehouseConfig", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
-      - {name: "Warehouse", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
-      - {name: "Warehouse_Builder", file: "Warehouse/Warehouse_Builder.py", kind: "class"}
-    notes: ""
-  "Warehouse/Workload_Builder.py":
-    purpose: "the workload/batch builder: samples affinity- and demand-weighted picking Batches of Tasks."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "BatchConfig", file: "Warehouse/Workload_Builder.py", kind: "class"}
-      - {name: "Batch", file: "Warehouse/Workload_Builder.py", kind: "class"}
-      - {name: "Task", file: "Warehouse/Workload_Builder.py", kind: "class"}
-    notes: ""
-  "Warehouse/cost_model.py":
-    purpose: "single source of truth for the pick-cost primitives."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "height_multiplier", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "TRANSFORMS", file: "Warehouse/cost_model.py", kind: "const"}
-      - {name: "resolve_transform", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "handle_var", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "per_pick", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "sec_per_inch", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "travel_cost", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "aisle_traverse_cost", file: "Warehouse/cost_model.py", kind: "function"}
-      - {name: "cart_step", file: "Warehouse/cost_model.py", kind: "function"}
-    notes: ""
-  "Warehouse/fast_pick.py":
-    purpose: "Two-phase deferred-mutation pick simulation."
-    layer: "warehouse_core"
-    key_symbols:
-      - {name: "DeferredPickSimulation", file: "Warehouse/fast_pick.py", kind: "class"}
+      - {name: "Order", file: "Warehouse/catalog/Order.py", kind: "class"}
     notes: ""
   "Warehouse/generation/generate_affinity.py":
     purpose: "Generate a demand-weighted sparse affinity matrix from an inventory DB."
@@ -1586,44 +1462,168 @@ files:
       - {name: "plot_profile_stats_table", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
       - {name: "main", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
     notes: ""
-  "Warehouse/inventory_common.py":
+  "Warehouse/inventory/Inventory_Management.py":
+    purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
+    notes: ""
+  "Warehouse/inventory/inventory_common.py":
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
     layer: "warehouse_core"
     key_symbols:
-      - {name: "Placement", file: "Warehouse/inventory_common.py", kind: "class"}
-      - {name: "LoadParams", file: "Warehouse/inventory_common.py", kind: "class"}
-      - {name: "WarehousePlan", file: "Warehouse/inventory_common.py", kind: "class"}
-      - {name: "tier_ranks_for", file: "Warehouse/inventory_common.py", kind: "function"}
-      - {name: "binkey_of", file: "Warehouse/inventory_common.py", kind: "function"}
+      - {name: "Placement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
+      - {name: "LoadParams", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
+      - {name: "WarehousePlan", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
+      - {name: "tier_ranks_for", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
+      - {name: "binkey_of", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
     notes: ""
-  "Warehouse/inventory_optimal.py":
+  "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "OptimalLayoutMixin", file: "Warehouse/inventory_optimal.py", kind: "class"}
+      - {name: "OptimalLayoutMixin", file: "Warehouse/inventory/inventory_optimal.py", kind: "class"}
     notes: ""
-  "Warehouse/inventory_planning.py":
+  "Warehouse/inventory/inventory_planning.py":
     purpose: "warehouse sizing/sampling (pre-instantiation)."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "PlanningMixin", file: "Warehouse/inventory_planning.py", kind: "class"}
+      - {name: "PlanningMixin", file: "Warehouse/inventory/inventory_planning.py", kind: "class"}
     notes: ""
-  "Warehouse/inventory_reorder.py":
+  "Warehouse/inventory/inventory_reorder.py":
     purpose: "churn counters, reload primitive, pick notifications, and"
     layer: "warehouse_core"
     key_symbols:
-      - {name: "ReorderMixin", file: "Warehouse/inventory_reorder.py", kind: "class"}
+      - {name: "ReorderMixin", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
+    notes: ""
+  "Warehouse/kernel/cost_model.py":
+    purpose: "single source of truth for the pick-cost primitives."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "height_multiplier", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "TRANSFORMS", file: "Warehouse/kernel/cost_model.py", kind: "const"}
+      - {name: "resolve_transform", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "handle_var", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "per_pick", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "sec_per_inch", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "travel_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "aisle_traverse_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "cart_step", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+    notes: ""
+  "Warehouse/kernel/regime.py":
+    purpose: "storage-regime identity (store vs fulfillment)."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "regime_of", file: "Warehouse/kernel/regime.py", kind: "function"}
+    notes: ""
+  "Warehouse/layout/Aisle_Dimensions.py":
+    purpose: "physical dimension helpers for warehouse aisle layout."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "aisle_width_for", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "aisle_height_for", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "unit_bin_width", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "bins_along_x", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "bins_along_y", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "uniform_aisle_bins", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+      - {name: "catalog_aisle_bins", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
+    notes: ""
+  "Warehouse/layout/Aisle_Storage.py":
+    purpose: "the Aisle storage model: an aisle and its physical Bins (grid location, centre geometry, occupancy)."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "Aisle", file: "Warehouse/layout/Aisle_Storage.py", kind: "class"}
+    notes: ""
+  "Warehouse/layout/Storage_Primitive.py":
+    purpose: "storage-unit primitives: size/type taxonomy, Pallet/Singleton/FulfillmentBin units and carts, cached fit/packing."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "T", file: "Warehouse/layout/Storage_Primitive.py", kind: "const"}
+      - {name: "Storage_Size", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "Storage_Type", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "StorageUnit", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "Pallet", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "Singleton", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "FulfillmentBin", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "viable_storage_units", file: "Warehouse/layout/Storage_Primitive.py", kind: "function"}
+      - {name: "StorageCart", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "StoreCart", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+      - {name: "FulfillmentCart", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
+    notes: ""
+  "Warehouse/layout/Warehouse_Builder.py":
+    purpose: "the Warehouse model + builder: AisleConfig/WarehouseConfig specs assembled into a Warehouse of aisles and bins."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "AisleConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
+      - {name: "WarehouseConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
+      - {name: "Warehouse", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
+      - {name: "Warehouse_Builder", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
     notes: ""
   "Warehouse/physical.py":
     purpose: "the two physical footprint constants (zero-dependency leaf)."
     layer: "leaf"
     key_symbols: []
     notes: ""
-  "Warehouse/regime.py":
-    purpose: "storage-regime identity (store vs fulfillment)."
+  "Warehouse/picking/Pick.py":
+    purpose: "the pick-simulation core: PickConfig + PickEvent/PickerProgress + PickSimulation over batched tasks."
     layer: "warehouse_core"
     key_symbols:
-      - {name: "regime_of", file: "Warehouse/regime.py", kind: "function"}
+      - {name: "PickConfig", file: "Warehouse/picking/Pick.py", kind: "class"}
+      - {name: "PickEvent", file: "Warehouse/picking/Pick.py", kind: "class"}
+      - {name: "PickerProgress", file: "Warehouse/picking/Pick.py", kind: "class"}
+      - {name: "count_cart_swaps", file: "Warehouse/picking/Pick.py", kind: "function"}
+      - {name: "assign_tasks", file: "Warehouse/picking/Pick.py", kind: "function"}
+      - {name: "PickSimulation", file: "Warehouse/picking/Pick.py", kind: "class"}
+    notes: ""
+  "Warehouse/picking/Workload_Builder.py":
+    purpose: "the workload/batch builder: samples affinity- and demand-weighted picking Batches of Tasks."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "BatchConfig", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
+      - {name: "Batch", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
+      - {name: "Task", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/picking/fast_pick.py":
+    purpose: "Two-phase deferred-mutation pick simulation."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "DeferredPickSimulation", file: "Warehouse/picking/fast_pick.py", kind: "class"}
+    notes: ""
+  "Warehouse/placement/Assignment_Functions.py":
+    purpose: "placement (assignment) functions."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "build_load_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_load_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_co_demand_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_uniform_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_popularity_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_labor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_cartlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maxlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_optmap_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_optmap_wave_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_cluster_map_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "ASSIGNMENT_BUILDERS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
+      - {name: "RANKED_BUILDERS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
+      - {name: "SCORER_NEEDS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
+    notes: ""
+  "Warehouse/placement/Capacity_Reloader.py":
+    purpose: "bounded re-slot via evict-and-requeue."
+    layer: "warehouse_core"
+    key_symbols:
+      - {name: "demote_unpopular", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "promote_popular", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "rebalance", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "Capacity_Reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "class"}
+      - {name: "promote_popular_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "demote_unpopular_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "rebalance_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
+      - {name: "RELOADERS", file: "Warehouse/placement/Capacity_Reloader.py", kind: "const"}
     notes: ""
   "docs/experiments/ingest.py":
     purpose: "Pull a simulation run's curated files into a docs experiment folder."

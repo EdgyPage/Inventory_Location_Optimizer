@@ -21,11 +21,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Warehouse.Pick import PickConfig
-from Warehouse.Storage_Primitive import FulfillmentCart
+from Warehouse.picking.Pick import PickConfig
+from Warehouse.layout.Storage_Primitive import FulfillmentCart
 from Optimization.metrics.Workload import WorkloadParams
-from Warehouse.Workload_Builder import BatchConfig
-from Warehouse.regime import STORE, FULFILLMENT
+from Warehouse.picking.Workload_Builder import BatchConfig
+from Warehouse.kernel.regime import STORE, FULFILLMENT
 
 
 @dataclass(frozen=True)

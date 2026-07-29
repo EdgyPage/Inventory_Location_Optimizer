@@ -17,13 +17,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Warehouse.Order import Order
-from Warehouse.cost_model import sec_per_inch
-from Warehouse.Pick import (PickConfig, PickSimulation, PickEvent, _pick_time,
+from Warehouse.catalog.Order import Order
+from Warehouse.kernel.cost_model import sec_per_inch
+from Warehouse.picking.Pick import (PickConfig, PickSimulation, PickEvent, _pick_time,
                   height_multiplier, DEFAULT_HEIGHT_BRACKETS)
-from Warehouse.Storage_Primitive import viable_storage_units, FulfillmentCart
-from Warehouse.Workload_Builder import Task
-from Warehouse.Assignment_Functions import (
+from Warehouse.layout.Storage_Primitive import viable_storage_units, FulfillmentCart
+from Warehouse.picking.Workload_Builder import Task
+from Warehouse.placement.Assignment_Functions import (
     build_ranked_labor_fn,
     build_ranked_popularity_fn,
     build_ranked_uniform_assignment_fn,
@@ -391,8 +391,8 @@ def test_sim_cart_swap_seconds_land_in_travel_not_handling():
 
 def test_workloadparams_cart_capacity_from_pick_config():
     """WorkloadParams carries the regime's cart volume, so the placement cart term can read it."""
-    from Warehouse.Pick import PickConfig
-    from Warehouse.Storage_Primitive import FulfillmentCart
+    from Warehouse.picking.Pick import PickConfig
+    from Warehouse.layout.Storage_Primitive import FulfillmentCart
     assert WorkloadParams().cart_capacity == 125_000
     assert WorkloadParams.from_pick_config(PickConfig()).cart_capacity == 125_000
     assert WorkloadParams.from_pick_config(PickConfig(cart=FulfillmentCart)).cart_capacity == 25_000
@@ -402,7 +402,7 @@ def _cartlabor_place(cap, cart_on):
     """Place two high-volume SKUs given a cheap aisle A (D=0) and an expensive aisle B (D=100).
     A is strictly cheaper so plain rank_labor co-locates both in A; the cart term should push
     the 2nd SKU to B once A's expected volume (2*50=100) overflows the cart.  Returns {sku: aid}."""
-    from Warehouse.Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
+    from Warehouse.placement.Assignment_Functions import build_ranked_labor_fn, build_ranked_cartlabor_fn
     affinity = types.SimpleNamespace(_sku_to_idx={}, _matrix=None)
     wp = WorkloadParams(x_speed=1.0, y_speed=2.0, pick_intercept=0.0,
                         cart_swap_coef=1000.0, cart_capacity=cap)
@@ -451,9 +451,9 @@ def test_rank_cartlabor_registered():
 
 def _mk_wh_mgr(seed=0):
     """Small two-aisle warehouse + manager (mirrors test_placement_lifecycle)."""
-    from Warehouse.Aisle_Storage import Aisle
-    from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-    from Warehouse.Inventory_Management import Inventory_Manager
+    from Warehouse.layout.Aisle_Storage import Aisle
+    from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
     Aisle.next_aisle_id = 1
     random.seed(seed)
     W, H = 5 * 48, 4 * 48
@@ -468,8 +468,8 @@ def _mk_wh_mgr(seed=0):
 
 
 def _mk_carton(sku, f=0.8, q=3.0, weight=5, dims=(8, 8, 6), eq=12):
-    from Warehouse.Order import StorageHandleConfig
-    from Warehouse.Demand import Demand
+    from Warehouse.catalog.Order import StorageHandleConfig
+    from Warehouse.catalog.Demand import Demand
     c = object.__new__(Order)
     c._sku = sku
     c.storage_type = ('conveyable', 'food')

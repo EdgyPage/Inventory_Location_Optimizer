@@ -36,8 +36,8 @@ Formula *shapes* are fixed here from the code that defines them
 only the *numbers* come from JSON, so pages never hard-code a value twice.
 
 Exception: ``assignment_formulas`` transcribes the top-3 assignment-function
-*equations* directly from ``Warehouse/Assignment_Functions.py`` /
-``Warehouse/inventory_optimal.py``. Those objectives are not (yet) emitted to any
+*equations* directly from ``Warehouse/placement/Assignment_Functions.py`` /
+``Warehouse/inventory/inventory_optimal.py``. Those objectives are not (yet) emitted to any
 JSON/DB snapshot, so — unlike every other macro here — there is no programmatic
 source to read. A future refactor should expose each builder&#x27;s objective (e.g. a
 ``formula`` field on the builder or a small registry) so this macro can read it like

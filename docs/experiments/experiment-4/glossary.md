@@ -3,7 +3,7 @@
 Definitions for every term the [lifecycle](comparison-overview.md) and result write-ups
 cite. Each entry has a stable anchor — link to one with `glossary.md#<id>` (the id is shown
 in the heading link). Formula shapes match the code in
-[`Warehouse/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py)
+[`Warehouse/placement/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py)
 and [`docs/design/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/design/ASSIGNMENT_SCORING.md).
 
 ## Layout &amp; geometry
@@ -197,7 +197,7 @@ footprint is fixed). `k2_l10_*` cells drop 10% of bins per cut; `k2_l0_*` split 
 aisles (hot SKUs → a small near zone), so batches can skip the cold aisles. `2-band` = hot/cold;
 `3-band` = A/B/C. In this experiment it **reduces** throughput — the band restriction removes
 placement freedom and lengthens the per-visit sweep in the hot band. See
-[`Warehouse/Inventory_Management.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Inventory_Management.py)
+[`Warehouse/inventory/Inventory_Management.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py)
 (`configure_zoning`).
 
 ### mass_thresholds { #mass-thresholds }

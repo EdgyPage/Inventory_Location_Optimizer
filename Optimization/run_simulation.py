@@ -54,14 +54,14 @@ from Optimization.runschema.sim_manifest import (                               
 )
 
 
-from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Optimization.config import strategies                # noqa: F401  (--whatif arm override)
 from Optimization.config.strategies import STRATEGIES, strategies_for
-from Warehouse.Storage_Primitive import StoreCart
+from Warehouse.layout.Storage_Primitive import StoreCart
 
 from Optimization.persistence.Picking_Data import create_run, init_run_db
 from Optimization.metrics.Workload import WorkloadParams
-from Warehouse.regime import STORE, FULFILLMENT
+from Warehouse.kernel.regime import STORE, FULFILLMENT
 
 from Optimization.simdriver.strategy_runner import (
     load_worker_checkpoint, _run_strategy_worker, _cleanup_checkpoints, reset_strategy_db,

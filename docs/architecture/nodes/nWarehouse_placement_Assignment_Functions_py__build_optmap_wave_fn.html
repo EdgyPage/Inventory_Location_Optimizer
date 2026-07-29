@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>build_optmap_wave_fn · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py__build_optmap_wave_fn" data-id="Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>build_optmap_wave_fn</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>build_optmap_wave_fn</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def build_optmap_wave_fn(mgr, capped=False)</code></pre>
+<section class="doc">Ranked-wave twin of build_optmap_fn: the SAME per-unit objective (argmin |pref−target|,
+or capped nearest-with-pref≥target), but the O(B) scan is amortized — one ``_PrefPool`` sort
+over the group&#x27;s candidates per wave, then an O(log B) bisect per unit.  Units are served in
+QUEUE ORDER (no priority re-sort) so placement matches the per-unit ``place_one`` path except
+on exact pref ties.  A None (pool exhausted) falls to the per-unit straggler path, which
+re-fetches candidates and spills up tiers exactly as today.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_strategies_py___build_map.html"><code>_build_map</code></a> <span class="dim">Optimization/config/strategies.py</span></li><li><a href="nOptimization_config_strategies_py___build_map_rank.html"><code>_build_map_rank</code></a> <span class="dim">Optimization/config/strategies.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py__build_optmap_wave_fn">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20build_optmap_wave_fn">Source ↗</a></p>
+</article>
+</main>
+</body></html>

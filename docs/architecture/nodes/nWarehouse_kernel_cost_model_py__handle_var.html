@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>handle_var · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_kernel_cost_model_py__handle_var" data-id="Warehouse/kernel/cost_model.py::handle_var">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_kernel_cost_model_py.html"><code>Warehouse/kernel/cost_model.py</code></a> <span class="sep">›</span> <span class="here"><code>handle_var</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>handle_var</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_kernel_cost_model_py.html"><code>Warehouse/kernel/cost_model.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def handle_var(weight: float, volume: float, weight_coef: float, volume_coef: float, weight_fn: str=&#x27;log&#x27;, volume_fn: str=&#x27;log&#x27;) -&gt; float</code></pre>
+<section class="doc">Per-unit weight/volume handling term v_s = pw·fn_w(w) + pv·fn_v(v) (no intercept, no
+quantity).  fn defaults to natural log (the original behaviour); other base functions
+(linear / sqrt / pow:p / log:b) are honored so a config&#x27;s pick_weight_fn/pick_volume_fn
+actually changes labor.  The transforms clamp w/v internally (log→≥1, sqrt/pow→≥0).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__resolve_transform.html"><code>resolve_transform</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_metrics_Workload_py__aisle_workload_components.html"><code>aisle_workload_components</code></a> <span class="dim">Optimization/metrics/Workload.py</span></li><li><a href="nWarehouse_catalog_Order_py__Order_compute_labor_cost.html"><code>compute_labor_cost</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__handle_var.html"><code>_handle_var</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_picking_Pick_py___pick_time.html"><code>_pick_time</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_cost_model_py__handle_var">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/cost_model.py#:~:text=def%20handle_var">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -17,7 +17,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from Warehouse.Assignment_Functions import (
+from Warehouse.placement.Assignment_Functions import (
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
     build_ranked_minimizing_assignment_fn,
@@ -38,7 +38,7 @@ from Warehouse.Assignment_Functions import (
     _score_expected_popularity,
     _score_expected_labor,
 )
-from Warehouse.Inventory_Management import Placement, _uniform_assignment
+from Warehouse.inventory.Inventory_Management import Placement, _uniform_assignment
 
 
 @dataclass

@@ -25,7 +25,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 
-from Warehouse.Assignment_Functions import build_ranked_minimizing_assignment_fn
+from Warehouse.placement.Assignment_Functions import build_ranked_minimizing_assignment_fn
 
 
 class _Bin:

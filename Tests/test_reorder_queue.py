@@ -49,11 +49,11 @@ if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
     sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
 
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Pick import PickConfig, PickSimulation
-from Warehouse.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Warehouse.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from Warehouse.generation.generate_inventory import (
     DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
     build_inventory_with_profile,
@@ -72,7 +72,7 @@ MIN_FILL        = 0.40
 # Physical aisle dimensions: 6 pallet-column widths × 4 extra_large-height levels.
 # With density expansion, singleton aisles have 3× more X bins and
 # small-tier bins create 4× more Y levels than the physical slot count.
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
 _AISLE_W = aisle_width_for(6)    # 6 × 48 = 288 physical units
 _AISLE_H = aisle_height_for(4)   # 4 × 48 = 192 physical units
 
@@ -110,9 +110,9 @@ def check(label: str, ok: bool, detail: str = '') -> None:
 
 def _build_wh_cfg(n_skus: int) -> WarehouseConfig:
     """Size the warehouse so 1-bin-per-SKU reaches ~87% fill."""
-    from Warehouse.Aisle_Dimensions import SIZE_HEIGHTS, unit_bin_width as _ubw
+    from Warehouse.layout.Aisle_Dimensions import SIZE_HEIGHTS, unit_bin_width as _ubw
     n_types = len(_AISLE_CFGS)   # 48
-    from Warehouse.Aisle_Dimensions import SINGLETON_BIN_HEIGHT as _SBH
+    from Warehouse.layout.Aisle_Dimensions import SINGLETON_BIN_HEIGHT as _SBH
     def _bins(cfg: AisleConfig) -> int:
         n_cols = _AISLE_W // _ubw(cfg.unit_type)
         if cfg.unit_type == 'singleton':

@@ -20,13 +20,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 
 
-from Warehouse.Order import Order
-from Warehouse.regime import regime_of, STORE, FULFILLMENT
-from Warehouse.Storage_Primitive import Pallet, Singleton, FulfillmentBin, viable_storage_units, _can_fit
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for, FULFILLMENT_AISLE_HEIGHT
-from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.catalog.Order import Order
+from Warehouse.kernel.regime import regime_of, STORE, FULFILLMENT
+from Warehouse.layout.Storage_Primitive import Pallet, Singleton, FulfillmentBin, viable_storage_units, _can_fit
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for, FULFILLMENT_AISLE_HEIGHT
+from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 from Optimization.metrics.Workload import WorkloadParams
 
 _CATS = ['food', 'clothing', 'electronic']
@@ -209,7 +209,7 @@ def test_fulfillment_bin_height_multiplier_is_one():
 # ── Channel abstraction ──────────────────────────────────────────────────────
 
 def test_channels_module():
-    from Warehouse.Pick import PickConfig
+    from Warehouse.picking.Pick import PickConfig
     from Optimization.config.channels import build_channels, wp_by_regime, fulfillment_pick_config, Channel
 
     store_cfg = PickConfig(num_pickers=25, x_speed=3.0, y_speed=2.0)
@@ -237,8 +237,8 @@ def test_per_channel_cart_type():
     """Store keeps the standard 125k cart; fulfillment gets the 25k tote, and the smaller
     cart yields a strictly larger carts_required for the same picked volume."""
     from math import ceil
-    from Warehouse.Pick import PickConfig
-    from Warehouse.Storage_Primitive import StoreCart, FulfillmentCart
+    from Warehouse.picking.Pick import PickConfig
+    from Warehouse.layout.Storage_Primitive import StoreCart, FulfillmentCart
     from Optimization.config.channels import fulfillment_pick_config
 
     assert StoreCart.capacity() == 125_000

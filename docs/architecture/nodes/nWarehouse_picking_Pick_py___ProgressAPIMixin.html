@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ProgressAPIMixin · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Pick_py___ProgressAPIMixin" data-id="Warehouse/picking/Pick.py::_ProgressAPIMixin">
+<nav class="crumbs"><a href="../layers.html">warehouse_core</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a> <span class="sep">›</span> <span class="here"><code>_ProgressAPIMixin</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_ProgressAPIMixin</code></h1>
+<p class="meta">layer <span class="chip">warehouse_core</span> · file <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a></p>
+
+<pre class="sig"><code>class _ProgressAPIMixin</code></pre>
+<section class="doc">Post-run progress inspection shared by BOTH pick simulations.
+
+progress_at/step_table/_state_at were verbatim duplicates in PickSimulation
+and DeferredPickSimulation (cosmetic drift only).  They read nothing but
+self._events (set by run()) and self._config.num_pickers, so one mixin
+serves both.  NOT part of the numeric sim path - the picker loops stay
+deliberately separate (deferred-mutation contract).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Pick_py___ProgressAPIMixin">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py#:~:text=class%20_ProgressAPIMixin">Source ↗</a></p>
+</article>
+</main>
+</body></html>

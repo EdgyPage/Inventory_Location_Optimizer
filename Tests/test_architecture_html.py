@@ -148,9 +148,9 @@ def test_breadcrumb_helper_semantics():
     ix = rh._load_index()
     loc = rh.L('nodes')
     # a nested method: layer -> file page -> enclosing class -> name
-    nested = rh._breadcrumb(ix, 'Warehouse/Inventory_Management.py::Inventory_Manager._stock_per_unit', loc)
+    nested = rh._breadcrumb(ix, 'Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit', loc)
     assert 'href="../layers.html"' in nested or 'layers.html' in nested
-    assert 'files/' + rh._mid('Warehouse/Inventory_Management.py') + '.html' in nested
+    assert 'files/' + rh._mid('Warehouse/inventory/Inventory_Management.py') + '.html' in nested
     assert 'Inventory_Manager' in nested and '_stock_per_unit' in nested
     # a top-level function: no class crumb
     top = rh._breadcrumb(ix, 'Optimization/simdriver/sim_assets.py::build_shared_assets', loc)

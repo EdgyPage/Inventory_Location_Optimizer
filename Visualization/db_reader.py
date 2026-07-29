@@ -24,8 +24,8 @@ from functools import lru_cache
 
 # No sys.path bootstrap: imports are package-absolute; the entry script
 # (Visualization/server.py) seeds the repo root.
-from Warehouse.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT
-from Warehouse.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.layout.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT
+from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
 
 from Optimization.persistence.Picking_Data import (
     load_reorder_queue, load_bin_scores, load_sku_scores,

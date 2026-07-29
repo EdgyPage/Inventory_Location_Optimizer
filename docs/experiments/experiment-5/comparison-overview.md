@@ -116,7 +116,7 @@ Picking a SKU decrements its on-hand quantity; once its inventory
 ## 4. Reorder
 
 Once per batch, `check_reorders`
-([Warehouse/inventory_reorder.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory_reorder.py))
+([Warehouse/inventory/inventory_reorder.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py))
 scans flagged SKUs and issues an order-up-to quantity for any whose position ≤ ROP:
 
 ```text
