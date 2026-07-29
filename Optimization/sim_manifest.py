@@ -79,15 +79,18 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
     cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
     {'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.
 
-    `schema_version` stamps which RUN-TREE CONTRACT this run's directory layout follows
-    (Optimization/schemas/run_tree.v<N>.json).  Downstream tools select their resolver from it
-    (runschema.resolver_for), so an OLD run keeps analyzing correctly after the tree shape moves on.
-    It is distinct from `version`, which versions THIS descriptor file's own field set.
+    `schema_id` stamps which RUN-TREE CONTRACT this run's directory layout follows — the sha256 of
+    that contract's own shape, stored at Optimization/schemas/run_tree/<short>.json.  Downstream
+    tools select their resolver from it (runschema.resolver_for), so an OLD run keeps analyzing
+    correctly after the tree shape moves on.  It is a content address, not a sequence number: there
+    is nothing to increment, and anyone can re-derive it from the declaration to check it.
+
+    Distinct from `version`, which versions THIS descriptor file's own field set.
     """
-    from Optimization.runschema import RUN_TREE_VERSION
+    from Optimization.runschema import contract as _contract
     layout = {
         'version'       : 1,
-        'schema_version': RUN_TREE_VERSION,
+        'schema_id'     : _contract.head() or _contract.build()['schema_id'],
         'kind'         : 'single' if len(cells) <= 1 else 'sweep',
         'spec'         : spec,
         'base'         : os.path.basename(base_dir.rstrip('/\\')),

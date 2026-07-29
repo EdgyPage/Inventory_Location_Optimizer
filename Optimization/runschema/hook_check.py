@@ -24,28 +24,35 @@ if _ROOT not in sys.path:
 
 def main() -> int:
     try:
-        from Optimization import runschema
         from Optimization.runschema import contract, preflight
 
-        version = runschema.RUN_TREE_VERSION
-        committed = contract.load(version)
-        if committed is None:
-            print(f'[schema] no committed run-tree contract for v{version} — generate it: '
+        head = contract.head()
+        if head is None:
+            print('[schema] the run-tree schema store is empty — mint it: '
+                  'python -m Optimization.runschema.contract --write')
+            return 0
+
+        fresh = contract.build()
+        if fresh['schema_id'] != head:
+            n = len(contract.diff_shape(contract.load(head) or {}, fresh))
+            print(f'[schema] runschema/schema.py now hashes to '
+                  f'{contract.short_id(fresh["schema_id"])} but the head is '
+                  f'{contract.short_id(head)} ({n} shape diff(s)) — adopt it: '
                   f'python -m Optimization.runschema.contract --write')
             return 0
 
-        fresh = contract.build(version)
-        if committed.get('tree_fingerprint') != fresh['tree_fingerprint']:
-            print(f'[schema] run_tree.v{version}.json is STALE vs runschema/v{version}.py '
-                  f'({len(contract.diff_shape(committed, fresh))} shape diff(s)) — regenerate: '
-                  f'python -m Optimization.runschema.contract --write')
+        problems = contract.verify_store()
+        if problems:
+            print(f'[schema] run-tree schema store integrity: {problems[0]} '
+                  f'({len(problems)} problem(s)) — see '
+                  f'python -m Optimization.runschema.contract --check')
             return 0
 
-        changed, _old, _new = preflight.sources_changed(version)
+        changed, _old, _new = preflight.sources_changed()
         if changed:
-            print(f'[schema] shape-defining source changed since the committed run-tree contract '
-                  f'v{version}. The output tree may have moved — validate BEFORE the next run: '
-                  f'python -m Optimization.runschema.preflight')
+            print(f'[schema] shape-defining source changed since the fingerprint recorded for '
+                  f'run-tree schema {contract.short_id(head)}. The output tree may have moved — '
+                  f'validate BEFORE the next run: python -m Optimization.runschema.preflight')
     except SystemExit:          # an argparse/exit deep in an import — stay silent, never nag/block
         return 0
     except Exception:           # never let the hook error out a turn

@@ -15,7 +15,7 @@
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def run_index(base_dir: str) -&gt; dict</code></pre>
-<section class="doc">{schema_version, axes, axis_labels, runs} — the whole navigation contract for the UI.
+<section class="doc">{schema_id, schema_short, axes, axis_labels, runs} — the navigation contract for the UI.
 
 `axes` holds the distinct values actually present, so the front end never hardcodes a level.
 A store-only run yields `channel: []`; the UI should HIDE that selector rather than invent a

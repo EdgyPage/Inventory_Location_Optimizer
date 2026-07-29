@@ -85,8 +85,11 @@ fetch('/api/runs').then(r => r.json()).then(d => {
   AXES = d.axes || {};
   AXIS_ORDER.forEach(a => { filters[a] = ''; });
   buildFilters();
-  const v = d.schema_version;
-  $('schema-badge').textContent = v ? `run-tree v${v}` : 'unversioned run';
+  // Content-addressed schema: show the short id (the full sha256 would blow out the pill).
+  const sid = d.schema_short || (d.schema_id || '').split(':').pop().slice(0, 12);
+  const badge = $('schema-badge');
+  badge.textContent = sid ? `run-tree ${sid}` : 'unidentified run';
+  badge.title = d.schema_id || 'this run records no run-tree schema id';
   if (!RUNS.length) {
     loadingEl.textContent =
       'No runs found. Pass the RUN ROOT (the directory holding run_layout.json).';

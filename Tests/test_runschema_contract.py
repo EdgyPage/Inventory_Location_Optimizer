@@ -1,11 +1,16 @@
 """test_runschema_contract.py
 
-Locks the versioned run-tree contract (Optimization/runschema/):
+Locks the CONTENT-ADDRESSED run-tree contract (Optimization/runschema/):
 
-  - the committed Optimization/schemas/run_tree.v<N>.json equals a fresh generation from
-    runschema/v<N>.py (same "derived == regenerated" discipline as context/arch/verify_architecture);
+  - a schema's id is the sha256 of its own declared shape: deterministic, self-excluding, and
+    invariant under prose edits but sensitive to every field a path resolver depends on;
+  - every stored document re-hashes to its own id AND to its filename — the property that makes the
+    scheme verifiable with no registry to maintain;
+  - INDEX.json's head + parent chain resolve (hashes have no natural order, so the chain is what
+    restores it);
+  - compatibility is negotiated by FEATURE, not by comparing numbers;
   - context/artifacts.yml path patterns agree with the contract for every shared artifact id;
-  - write_run_layout stamps schema_version, and resolver_for refuses a descriptor without one;
+  - write_run_layout stamps schema_id, and resolver_for refuses a descriptor without one;
   - optional segments render correctly (a store-only run has NO <channel> level);
   - the POSITIONAL level walk survives the `<pair>/store/store/` collision, where the store config
     and the store channel share a name — the trap that makes name-based inference wrong.
@@ -28,7 +33,8 @@ import os
 import pytest
 
 from Optimization import runschema
-from Optimization.runschema import contract, preflight, v1
+from Optimization.runschema import contract, preflight, resolver
+from Optimization.runschema import schema as decl
 from Optimization.sim_manifest import write_run_layout, read_run_layout
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,19 +42,54 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── the contract JSON is derived, not hand-maintained ───────────────────────────
 
-def test_committed_contract_matches_module():
-    ver = runschema.RUN_TREE_VERSION
-    committed = contract.load(ver)
-    assert committed is not None, f'run_tree.v{ver}.json is missing'
-    fresh = contract.build(ver)
-    assert committed['tree_fingerprint'] == fresh['tree_fingerprint'], (
-        'run_tree.v%d.json is stale vs runschema/v%d.py:\n  %s' %
-        (ver, ver, '\n  '.join(contract.diff_shape(committed, fresh))))
+def test_head_matches_the_declaration():
+    """The stored head must BE the hash of schema.py — that is the whole guarantee."""
+    fresh = contract.build()
+    head = contract.head()
+    assert head is not None, 'schema store is empty; run: contract --write'
+    committed = contract.load(head)
+    assert committed is not None, f'no document stored for head {contract.short_id(head)}'
+    assert head == fresh['schema_id'], (
+        'schema store is stale vs runschema/schema.py:\n  '
+        + '\n  '.join(contract.diff_shape(committed, fresh)))
+
+
+def test_schema_id_is_deterministic():
+    """Same declaration, same id — in-process and across a fresh interpreter."""
+    import subprocess
+    import sys as _sys
+    a, b = contract.build()['schema_id'], contract.build()['schema_id']
+    assert a == b
+    r = subprocess.run(
+        [_sys.executable, '-c',
+         'from Optimization.runschema import contract; print(contract.build()["schema_id"])'],
+        cwd=_ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == a, 'schema id differs across processes — hashing is not canonical'
+
+
+def test_schema_id_excludes_itself():
+    """An identity cannot be an input to its own hash."""
+    assert 'schema_id' not in contract._shape_only(contract.build())
+
+
+def test_store_is_self_consistent():
+    """Every stored document re-hashes to its own id AND to its filename, and the INDEX chain
+    resolves.  This is what replaces a registry: the store verifies itself."""
+    assert contract.verify_store() == []
+
+
+def test_stored_document_filename_is_its_short_id():
+    docs = contract.load_all()
+    assert docs, 'no schema documents stored'
+    for sid in docs:
+        assert os.path.basename(contract.contract_path(sid)) == f'{contract.short_id(sid)}.json'
+        assert os.path.exists(contract.contract_path(sid))
 
 
 def test_contract_declares_every_axis_and_level():
     doc = contract.build()
-    assert doc['axes'] == list(v1.AXES)
+    assert doc['axes'] == list(decl.AXES)
     names = [lv['name'] for lv in doc['levels']]
     assert names == ['cell', 'pair', 'config', 'channel']
     # channel MUST stay optional — a store-only run has no channel dir.  This is the invariant the
@@ -76,6 +117,8 @@ def test_artifacts_yml_patterns_match_contract():
     for key, spec in doc['artifacts'].items():
         if key not in arts:
             continue                       # contract may cover artifacts the catalog doesn't list
+        if not spec.get('path'):
+            continue                       # alias artifact: no path of its own
         want = preflight._yaml_pattern(spec['path'])
         got = arts[key].get('path_pattern')
         if got != want:
@@ -103,26 +146,28 @@ def _write_layout(base, **over):
     write_run_layout(str(base), **kw)
 
 
-def test_write_run_layout_stamps_schema_version(tmp_path):
+def test_write_run_layout_stamps_the_schema_id(tmp_path):
     base = tmp_path / 'comparison_x'
     base.mkdir()
     _write_layout(base)
     lay = read_run_layout(str(base))
-    assert lay['schema_version'] == runschema.RUN_TREE_VERSION
+    assert lay['schema_id'] == contract.head()
+    assert lay['schema_id'].startswith('sha256:') and len(lay['schema_id']) == len('sha256:') + 64
     # the template is FULL (from the run root) — the cell level is not implied
     assert lay['tree_template'].startswith('<cell>/')
 
 
-def test_resolver_for_selects_the_declared_version(tmp_path):
+def test_resolver_for_binds_to_the_runs_own_schema(tmp_path):
     base = tmp_path / 'comparison_y'
     base.mkdir()
     _write_layout(base)
     rt = runschema.resolver_for(str(base))
-    assert rt.version == runschema.RUN_TREE_VERSION
-    assert isinstance(rt, v1.RunTreeV1)
+    assert isinstance(rt, resolver.RunTree)
+    assert rt.schema_id == contract.head()
+    assert rt.schema_short == contract.short_id(rt.schema_id)
 
 
-def test_resolver_for_rejects_pre_v1_and_unknown(tmp_path):
+def test_resolver_for_rejects_missing_and_unknown_schema(tmp_path):
     empty = tmp_path / 'legacy'
     empty.mkdir()
     with pytest.raises(runschema.UnsupportedRunTree):
@@ -133,24 +178,44 @@ def test_resolver_for_rejects_pre_v1_and_unknown(tmp_path):
     _write_layout(base)
     path = base / 'run_layout.json'
     doc = json.loads(path.read_text())
-    doc.pop('schema_version')
+    doc.pop('schema_id')
     path.write_text(json.dumps(doc))
     with pytest.raises(runschema.UnsupportedRunTree):
-        runschema.resolver_for(str(base))           # pre-v1 descriptor
+        runschema.resolver_for(str(base))           # descriptor without an id
 
-    doc['schema_version'] = 9999
+    # A well-formed id this checkout has no document for — the content-addressed analogue of
+    # "from the future".  Must raise, not ValueError on a coercion.
+    doc['schema_id'] = 'sha256:' + 'de1e7e'.ljust(64, '0')
     path.write_text(json.dumps(doc))
     with pytest.raises(runschema.UnsupportedRunTree):
-        runschema.resolver_for(str(base))           # from the future
+        runschema.resolver_for(str(base))
+
+
+def test_resolver_refuses_a_contract_needing_an_unknown_feature(tmp_path):
+    """Feature negotiation replaces version comparison — and must NAME what is missing."""
+    base = tmp_path / 'comparison_f'
+    base.mkdir()
+    _write_layout(base)
+    doc = copy.deepcopy(contract.build())
+    doc['features'] = list(doc['features']) + ['time-travel']
+    with pytest.raises(runschema.UnsupportedRunTree) as ei:
+        runschema._resolver_for_contract(str(base), doc, None)
+    assert 'time-travel' in str(ei.value)
+
+
+def test_every_declared_feature_is_supported():
+    """The committed declaration must be readable by this build."""
+    missing = set(decl.FEATURES) - set(resolver.SUPPORTED_FEATURES)
+    assert not missing, f'schema.py declares unsupported feature(s): {sorted(missing)}'
 
 
 # ── optional-segment rendering ──────────────────────────────────────────────────
 
 def test_render_drops_the_optional_channel_segment():
-    tmpl = v1.ARTIFACTS['sim_db']['path']
-    mixed = v1.render(tmpl, cell='k1_off', pair='p', config='store', channel='store',
+    tmpl = decl.ARTIFACTS['sim_db']['path']
+    mixed = resolver.render(tmpl, cell='k1_off', pair='p', config='store', channel='store',
                       strategy='uni_fifo_norsl')
-    store_only = v1.render(tmpl, cell='k1_off', pair='p', config='store', channel=None,
+    store_only = resolver.render(tmpl, cell='k1_off', pair='p', config='store', channel=None,
                            strategy='uni_fifo_norsl')
     assert mixed == 'k1_off/p/store/store/sim_uni_fifo_norsl.db'
     assert store_only == 'k1_off/p/store/sim_uni_fifo_norsl.db'
@@ -158,7 +223,7 @@ def test_render_drops_the_optional_channel_segment():
 
 def test_render_raises_on_a_missing_required_part():
     with pytest.raises(KeyError):
-        v1.render(v1.ARTIFACTS['sim_db']['path'], cell='k1_off', pair='p')
+        resolver.render(decl.ARTIFACTS['sim_db']['path'], cell='k1_off', pair='p')
 
 
 # ── the positional walk survives the config/channel name collision ──────────────
@@ -198,7 +263,7 @@ def test_diff_shape_detects_an_added_level():
     b['levels'].append({'name': 'regime', 'optional': False})
     msgs = contract.diff_shape(a, b)
     assert any('level ADDED: regime' in m for m in msgs), msgs
-    assert contract.tree_fingerprint(a) != contract.tree_fingerprint(b)
+    assert contract.schema_id(a) != contract.schema_id(b)
 
 
 def test_diff_shape_detects_a_moved_artifact():
@@ -216,7 +281,7 @@ def test_diff_shape_ignores_prose_edits():
     b['artifacts']['sim_db']['note'] = 'reworded documentation'
     b['levels'][0]['note'] = 'reworded too'
     assert contract.diff_shape(a, b) == []
-    assert contract.tree_fingerprint(a) == contract.tree_fingerprint(b)
+    assert contract.schema_id(a) == contract.schema_id(b)
 
 
 def _obs(templates):
@@ -228,8 +293,8 @@ def _canonical_observations():
     doc = contract.build()
     a, b = [], []
     for spec in doc['artifacts'].values():
-        p = spec['path']
-        if '*' in p or '{group_key}' in p or '{per_strategy' in p:
+        p = spec.get('path')
+        if not p or spec.get('format') == 'dir' or '*' in p or '{initial_group}' in p:
             continue
         a.append(p.replace('/{channel?}', '/{channel}'))
         b.append(p.replace('/{channel?}', ''))
@@ -319,3 +384,126 @@ def test_source_fingerprint_detects_a_deleted_shape_source(tmp_path):
     before = contract.source_fingerprint(str(fake))
     os.remove(fake / contract.SHAPE_SOURCES[0])
     assert contract.source_fingerprint(str(fake)) != before
+
+
+# ── INDEX: the provenance chain that restores the ordering hashes lack ──────────
+
+def test_index_head_and_chain_resolve():
+    index = contract.read_index()
+    docs = contract.load_all()
+    assert index['head'] in docs, 'head does not resolve to a stored document'
+    roots = [sid for sid, m in index['schemas'].items() if m.get('parent') is None]
+    assert len(roots) == 1, f'expected exactly one root schema, got {roots}'
+    for sid, meta in index['schemas'].items():
+        assert meta['short'] == contract.short_id(sid)
+        if meta['parent'] is not None:
+            assert meta['parent'] in index['schemas'], 'dangling parent link'
+
+
+def test_adopt_is_idempotent_and_chains(tmp_path, monkeypatch):
+    """Adopting the head twice must not fork the chain; adopting a CHANGED schema must record the
+    previous head as its parent — that is what gives hashes an order."""
+    store = tmp_path / 'run_tree'
+    store.mkdir()
+    monkeypatch.setattr(contract, '_TREE_DIR', str(store))
+    monkeypatch.setattr(contract, '_INDEX', str(store / 'INDEX.json'))
+
+    first = contract.build()
+    contract.adopt(first, source_fp='sha256:aaa')
+    contract.adopt(first, source_fp='sha256:bbb')           # idempotent
+    idx = contract.read_index()
+    assert list(idx['schemas']) == [first['schema_id']]
+    assert idx['source_fingerprint'] == 'sha256:bbb'        # only the mutable field moved
+
+    second = copy.deepcopy(first)
+    second['artifacts']['sim_db']['path'] = '{cell}/{pair}/{config}/{channel?}/runs/sim_{strategy}.db'
+    second['schema_id'] = contract.schema_id(second)
+    contract.adopt(second, source_fp='sha256:ccc')
+    idx = contract.read_index()
+    assert idx['head'] == second['schema_id']
+    assert idx['schemas'][second['schema_id']]['parent'] == first['schema_id']
+    assert any('sim_db.path' in c for c in idx['schemas'][second['schema_id']]['changes'])
+
+
+def test_write_refuses_a_document_whose_id_is_not_its_hash(tmp_path, monkeypatch):
+    """The store's core invariant: a filename is a claim about content, and must be true."""
+    store = tmp_path / 'run_tree'
+    store.mkdir()
+    monkeypatch.setattr(contract, '_TREE_DIR', str(store))
+    doc = contract.build()
+    doc['artifacts']['sim_db']['path'] = 'tampered/{strategy}.db'   # id no longer matches content
+    with pytest.raises(AssertionError):
+        contract.write(doc)
+
+
+# ── the resolver is generic: behaviour comes from the contract, not from Python ──
+
+def test_resolves_via_prefers_the_first_existing_candidate(tmp_path):
+    """The frozen-vs-cell-local planned inventory fallback is DATA now, not an if-statement."""
+    base = tmp_path / 'comparison_rv'
+    (base / 'k1_off' / 'pairA').mkdir(parents=True)
+    _write_layout(base)
+    rt = runschema.resolver_for(str(base))
+
+    local = base / 'k1_off' / 'pairA' / 'planned_inventory.db'
+    local.write_text('')
+    assert rt.planned_inventory_db('k1_off', 'pairA') == str(local)   # single-cell shape
+
+    frozen = base / '_frozen' / 'pairA' / 'planned_inventory.db'
+    frozen.parent.mkdir(parents=True)
+    frozen.write_text('')
+    assert rt.planned_inventory_db('k1_off', 'pairA') == str(frozen)  # frozen wins when present
+
+
+def test_strategy_of_inverts_the_declared_template(tmp_path):
+    """strategy_of is derived from the sim_db template, so renaming the pattern can't strand it."""
+    base = tmp_path / 'comparison_inv'
+    leaf = base / 'k1_off' / 'pairA' / 'store' / 'store'
+    leaf.mkdir(parents=True)
+    _write_layout(base)
+    rt = runschema.resolver_for(str(base))
+    assert rt.strategy_of(str(leaf / 'sim_opt_cluster_map_rank_norsl.db')) == 'opt_cluster_map_rank_norsl'
+    store_only = base / 'k1_off' / 'pairA' / 'store'          # no channel level
+    assert rt.strategy_of(str(store_only / 'sim_uni_fifo_norsl.db')) == 'uni_fifo_norsl'
+
+
+def test_by_group_replaces_the_hardcoded_whatif_list(tmp_path):
+    base = tmp_path / 'comparison_grp'
+    base.mkdir()
+    _write_layout(base)
+    rt = runschema.resolver_for(str(base))
+    assert set(rt.by_group('whatif')) == {
+        'whatif_delta_csv', 'whatif_delta_json', 'whatif_delta_png',
+        'whatif_labor_csv', 'whatif_labor_json', 'whatif_labor_pngs'}
+    assert rt.by_group('nonexistent') == []
+
+
+# ── positive controls for the new hashed fields ─────────────────────────────────
+
+def test_id_changes_on_group_and_resolves_via_edits():
+    """`group` and `resolves_via` steer real behaviour, so they MUST be hashed."""
+    a = contract.build()
+    for mutate in (lambda d: d['artifacts']['sim_db'].__setitem__('group', 'x'),
+                   lambda d: d['artifacts']['planned_inventory'].__setitem__('resolves_via', [])):
+        b = copy.deepcopy(a)
+        mutate(b)
+        assert contract.schema_id(a) != contract.schema_id(b)
+        assert contract.diff_shape(a, b), 'a hashed change must also be EXPLAINED'
+
+
+def test_axis_reordering_is_reported_not_just_hashed():
+    """Regression: axes hash as an ordered list but were diffed as a set, so a reorder changed the
+    id with an EMPTY explanation — under content addressing the diff is the only explanation."""
+    a = contract.build()
+    b = copy.deepcopy(a)
+    b['axes'] = list(reversed(a['axes']))
+    assert contract.schema_id(a) != contract.schema_id(b)
+    assert any(m.startswith('axis ORDER') for m in contract.diff_shape(a, b))
+
+
+def test_feature_edits_change_the_id():
+    a = contract.build()
+    b = copy.deepcopy(a)
+    b['features'] = list(a['features']) + ['new-vocabulary']
+    assert contract.schema_id(a) != contract.schema_id(b)
+    assert any(m.startswith('features') for m in contract.diff_shape(a, b))

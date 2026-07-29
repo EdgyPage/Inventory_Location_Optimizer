@@ -63,7 +63,7 @@ artifacts:
       - {function: cells, file: Optimization/runlayout.py}
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
-    fields: [version, schema_version, kind, spec, base, created, reference, tree_template,
+    fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
              channels, cells, pairs, configs, arms]
 
   warehouse_db:
@@ -193,9 +193,10 @@ artifacts:
     match: "series.json"
     fields: [strategies, extra]
 
-  # The per-leaf graph bundles.  The authoritative, per-directory breakdown lives in the run-tree
-  # contract (Optimization/schemas/run_tree.v1.json: per_strategy_pngs / compare_pngs /
-  # stats_by_initial_pngs / aggregate_pngs); this entry stays as the single catalog handle.
+  # The per-leaf graph bundles.  The authoritative, per-directory breakdown lives in the
+  # content-addressed run-tree contract (Optimization/schemas/run_tree/<short>.json:
+  # per_strategy_pngs / compare_pngs / stats_by_initial_pngs / aggregate_pngs); this entry stays as
+  # the single catalog handle.
   analysis_pngs:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats_by_initial}/**/*.png + comparison_<ts>/<cell>/_aggregate/<config>[/<channel>]/**/*.png"
     format: png
@@ -244,7 +245,7 @@ artifacts:
     readers:
       - {function: whatif_matrix, file: docs/macros.py}
     match: "whatif_delta.json"
-    fields: [schema_version, reference, reference_label, metrics, window_batches, arms, pairs,
+    fields: [schema_id, reference, reference_label, metrics, window_batches, arms, pairs,
              channels, cells]
 
   whatif_delta_png:

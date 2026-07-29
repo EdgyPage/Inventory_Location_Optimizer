@@ -90,10 +90,10 @@ def static_files(filename):
 
 @app.route('/api/runs')
 def api_runs():
-    """The full navigation contract: schema version, the axis values present, and every run.
+    """The full navigation contract: schema id, the axis values present, and every run.
 
-    The UI builds its cascading selectors from `axes`/`axis_order`, so a run-tree version bump
-    changes what you can navigate by without a single JS edit.
+    The UI builds its cascading selectors from `axes`/`axis_order`, so adopting a new run-tree
+    schema changes what you can navigate by without a single JS edit.
     """
     _refresh_runs()
     return jsonify({'base': _BASE, **R.run_index(_BASE)})
@@ -101,18 +101,19 @@ def api_runs():
 
 @app.route('/api/schema')
 def api_schema():
-    """The committed run-tree contract for the version this run was written with.
+    """The committed run-tree contract for the schema THIS run was written with.
 
-    Served from Optimization/schemas/run_tree.v<N>.json (via Visualization/static/schema.json when
-    the package isn't importable), so the front end reads the same declaration the resolver enforces.
+    Served from Optimization/schemas/run_tree/<short>.json (via Visualization/static/schema.json
+    when the package isn't importable), so the front end reads the same declaration the resolver
+    enforces — and an old run gets ITS contract, not whatever the head happens to be.
     """
     try:
         from Optimization.runschema import contract, resolver_for
         try:
-            version = resolver_for(_BASE).version
+            sid = resolver_for(_BASE).schema_id
         except Exception:                                     # noqa: BLE001 - unresolvable tree
-            from Optimization.runschema import RUN_TREE_VERSION as version
-        doc = contract.load(version)
+            sid = contract.head()
+        doc = contract.load(sid) if sid else None
         if doc is not None:
             return jsonify(doc)
     except Exception:                                         # noqa: BLE001

@@ -177,9 +177,10 @@ def main():
                              'summaries) that otherwise runs automatically after the simulation.')
     parser.add_argument('--no-preflight', action='store_true',
                         help='Skip the run-tree schema preflight. The preflight is a no-op unless a '
-                             'shape-defining source changed since the committed contract; when one '
-                             'did, it proves the tree shape with two tiny canary runs and bumps '
-                             '(Optimization/schemas/run_tree.v<N>.json) so downstream tools can '
+                             'shape-defining source changed since the recorded fingerprint; when one '
+                             'did, it proves the tree shape with two tiny canary runs and adopts the '
+                             'resulting content-addressed schema id '
+                             '(Optimization/schemas/run_tree/<short>.json) so downstream tools can '
                              'resolve the layout without hand-written extraction code.')
     parser.add_argument('--analysis-workers', type=int, default=None, metavar='N',
                         help='Pool size for the post-sim analysis pass (default: same as --workers).')

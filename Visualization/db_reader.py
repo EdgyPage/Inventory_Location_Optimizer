@@ -191,22 +191,24 @@ AXIS_LABELS = {
 
 
 def run_index(base_dir: str) -> dict:
-    """{schema_version, axes, axis_labels, runs} — the whole navigation contract for the UI.
+    """{schema_id, schema_short, axes, axis_labels, runs} — the navigation contract for the UI.
 
     `axes` holds the distinct values actually present, so the front end never hardcodes a level.
     A store-only run yields `channel: []`; the UI should HIDE that selector rather than invent a
     value, which is the same optionality the run-tree contract declares.
     """
     runs = discover_runs(base_dir)
-    version = None
+    schema_id = schema_short = None
     try:
         from Optimization.runschema import resolver_for
-        version = resolver_for(base_dir).version
-    except Exception:                                # noqa: BLE001
+        rt = resolver_for(base_dir)
+        schema_id, schema_short = rt.schema_id, rt.schema_short
+    except Exception:                                # noqa: BLE001 - unresolvable/legacy tree
         pass
     axes = {a: sorted({getattr(r, a) for r in runs if getattr(r, a)}) for a in NAV_AXES}
     return {
-        'schema_version': version,
+        'schema_id': schema_id,
+        'schema_short': schema_short,
         'axes': axes,
         'axis_order': list(NAV_AXES),
         'axis_labels': AXIS_LABELS,

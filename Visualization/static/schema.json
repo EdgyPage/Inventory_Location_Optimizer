@@ -1,5 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_id": "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6",
+  "schema_short": "e69b6d392929",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -30,11 +31,16 @@
       "condition": "present only on a MIXED catalog (store + fulfillment); absent on a store-only run, where sim_*.db sits directly under <config>/."
     }
   ],
-  "tree_fingerprint": "sha256:a412c613ba76da9c1bf4ad555814a1750666ff6c398d516e808bb41984e93dad",
   "artifacts": {
     "aggregate_by_initial_csv": {
       "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv",
       "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_dir": {
+      "path": "{cell}/_aggregate/{config}/{channel?}",
+      "format": "dir",
       "scope": "cell",
       "optional": false
     },
@@ -144,6 +150,12 @@
       "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/**/*.png",
       "format": "png",
       "scope": "channel_run",
+      "optional": false
+    },
+    "planned_inventory": {
+      "path": null,
+      "format": "sqlite",
+      "scope": "pair",
       "optional": false
     },
     "planned_inventory_db": {

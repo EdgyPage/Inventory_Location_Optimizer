@@ -14,11 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>sources_changed</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_preflight_py.html"><code>Optimization/runschema/preflight.py</code></a></p>
 
-<pre class="sig"><code>def sources_changed(version: int | None=None) -&gt; tuple[bool, str, str]</code></pre>
-<section class="doc">(changed, committed_fingerprint, current_fingerprint) for the shape-defining sources.
+<pre class="sig"><code>def sources_changed() -&gt; tuple[bool, str, str]</code></pre>
+<section class="doc">(changed, recorded_fingerprint, current_fingerprint) for the shape-defining sources.
 
-A missing contract counts as changed — there is nothing to compare against yet.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__load.html"><code>load</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_hook_check_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/hook_check.py</span></li><li><a href="nOptimization_runschema_preflight_py__ensure.html"><code>ensure</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li><li><a href="nOptimization_runschema_preflight_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
+The recorded value lives in INDEX.json, NOT in a contract document: a document is named by its
+own content hash, so it must never carry a mutable field.  An empty store counts as changed —
+there is nothing to compare against yet.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__read_index.html"><code>read_index</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_hook_check_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/hook_check.py</span></li><li><a href="nOptimization_runschema_preflight_py__ensure.html"><code>ensure</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li><li><a href="nOptimization_runschema_preflight_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_preflight_py__sources_changed">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/preflight.py#:~:text=def%20sources_changed">Source ↗</a></p>
 </article>
 </main>

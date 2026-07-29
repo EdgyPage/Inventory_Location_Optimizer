@@ -119,7 +119,7 @@ def main(argv=None):
         sys.exit(f"source run dir not found: {source}")
 
     log, n = [], 0
-    cells, schema_version = _cells_of(source, log)
+    cells, schema_id = _cells_of(source, log)
     if args.cell:
         wanted = set(args.cell)
         missing = wanted - {c for c, _d in cells}
@@ -176,7 +176,7 @@ def main(argv=None):
     if args.gen_manifest and last_rm is not None:
         _write_starter_manifest(exp_dir, last_rm, args.catalogue, top3, full_suite,
                                 inv_plots, args.dry_run, log,
-                                cells=[c for c, _d in cells], schema_version=schema_version)
+                                cells=[c for c, _d in cells], schema_id=schema_id)
 
     print("\n".join(log))
     print(f"\n{'[dry-run] would copy' if args.dry_run else 'copied'} {n} file(s) "
@@ -184,7 +184,7 @@ def main(argv=None):
 
 
 def _cells_of(source, log):
-    """[(cell_name, cell_dir), …] for a run root, plus the run's tree schema_version.
+    """[(cell_name, cell_dir), …] for a run root, plus the run's tree schema id.
 
     Uses the versioned run-tree resolver.  When the descriptor is missing (a pre-v1 run, or a
     single CELL directory passed the old way), fall back to treating `source` itself as one cell
@@ -194,7 +194,7 @@ def _cells_of(source, log):
     try:
         from Optimization.runschema import resolver_for
         rt = resolver_for(source)
-        return rt.cells(), rt.version
+        return rt.cells(), rt.schema_id
     except Exception as exc:                                    # noqa: BLE001
         log.append(f"  NOTE     no run-tree descriptor at {source} ({exc.__class__.__name__}); "
                    f"treating it as a single cell dir. Point --source at the RUN ROOT to stage "
@@ -268,16 +268,17 @@ def _short_key(inv_id):
 
 
 def _write_starter_manifest(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log,
-                            cells=None, schema_version=None):
+                            cells=None, schema_id=None):
     if not yaml:
         log.append("  NOTE     pyyaml missing; cannot write experiment.yml")
         return
     manifest = {
         "title": f"{os.path.basename(exp_dir)} — FIXME title",
         "run": rm["run"],
-        # Which run-tree contract the source run followed (Optimization/schemas/run_tree.v<N>.json),
-        # so a re-ingest years later knows which layout the staged snapshot came from.
-        "schema_version": schema_version,
+        # Which run-tree contract the source run followed — the content address of that
+        # contract (Optimization/schemas/run_tree/<short>.json), so a re-ingest years later knows
+        # exactly which layout the staged snapshot came from and can fetch that document.
+        "schema_id": schema_id,
         "cells": list(cells or []),
         "catalogue": catalogue,
         "baseline": rm.get("baseline", "fifo"),

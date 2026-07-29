@@ -15,10 +15,13 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_contract_py.html"><code>Optimization/runschema/contract.py</code></a></p>
 
 <pre class="sig"><code>def diff_shape(a: dict, b: dict) -&gt; list[str]</code></pre>
-<section class="doc">Human-readable differences between two contracts&#x27; SHAPES (a = committed, b = new).
+<section class="doc">Human-readable differences between two contracts&#x27; SHAPES (a = old, b = new).
 
-Empty list ⇔ identical tree_fingerprint, so this doubles as the bump decision&#x27;s explanation.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_contract_py___shape_only.html"><code>_shape_only</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_hook_check_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/hook_check.py</span></li></ul></section>
+Empty list ⇔ identical schema_id.  Under content addressing this is the ONLY explanation of why
+an id changed, so it must cover every field `_shape_only` hashes — including list ORDER, which
+an earlier set-based comparison silently ignored (reordering axes flipped the hash but produced
+no diff, i.e. &quot;STALE&quot; with no reason given).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_contract_py___shape_only.html"><code>_shape_only</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__adopt.html"><code>adopt</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_hook_check_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/hook_check.py</span></li><li><a href="nOptimization_runschema_preflight_py__ensure.html"><code>ensure</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_contract_py__diff_shape">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/contract.py#:~:text=def%20diff_shape">Source ↗</a></p>
 </article>
 </main>

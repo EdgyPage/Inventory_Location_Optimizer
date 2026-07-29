@@ -20,15 +20,18 @@ Five stages, cheapest first:
   4. VALIDATE — compare observed templates against the committed contract.  Produced-but-undeclared
                 is the finding that matters; declared-but-never-produced and wrong optionality are
                 caught too.
-  5. BUMP     — on a real difference, scaffold `runschema/v<N+1>.py` from v<N> with the observed
-                deltas applied, emit `run_tree.v<N+1>.json`, and update the downstream orchestrator
-                files (context/artifacts.yml, Visualization/static/schema.json) so the schema is
-                extractable without writing code after the run.
+  5. ADOPT    — the schema's identity is the hash of `schema.py`'s declaration, so there is no
+                number to pick and no module to scaffold.  When the declaration ALREADY covers the
+                observed tree, store the new document, make it the head, and refresh the downstream
+                orchestrator files (context/artifacts.yml, Visualization/static/schema.json).  When
+                the code moved but `schema.py` didn't, print the exact ARTIFACTS entries to add
+                (`--apply` inserts them) and adopt the resulting id.
 
 CLI:
     python -m Optimization.runschema.preflight            # detect; canary + prompt on change
     python -m Optimization.runschema.preflight --check    # stage 1 only; exit 1 on drift, no writes
-    python -m Optimization.runschema.preflight --yes      # unattended: bump without prompting
+    python -m Optimization.runschema.preflight --yes      # unattended: adopt without prompting
+    python -m Optimization.runschema.preflight --apply    # also write observed entries into schema.py
     python -m Optimization.runschema.preflight --force    # run the canaries even with no change
 
 Environment:
@@ -73,18 +76,19 @@ _EXT_FORMAT = {'.db': 'sqlite', '.json': 'json', '.csv': 'csv', '.png': 'png',
 
 # ── stage 1: detect ─────────────────────────────────────────────────────────────
 
-def sources_changed(version: int | None = None) -> tuple[bool, str, str]:
-    """(changed, committed_fingerprint, current_fingerprint) for the shape-defining sources.
+def sources_changed() -> tuple[bool, str, str]:
+    """(changed, recorded_fingerprint, current_fingerprint) for the shape-defining sources.
 
-    A missing contract counts as changed — there is nothing to compare against yet.
+    The recorded value lives in INDEX.json, NOT in a contract document: a document is named by its
+    own content hash, so it must never carry a mutable field.  An empty store counts as changed —
+    there is nothing to compare against yet.
     """
-    from Optimization import runschema
-    version = runschema.RUN_TREE_VERSION if version is None else version
-    committed = contract.load(version)
+    index = contract.read_index()
     current = contract.source_fingerprint()
-    if committed is None:
+    recorded = index.get('source_fingerprint')
+    if not index.get('head') or recorded is None:
         return True, '', current
-    return committed.get('source_fingerprint') != current, committed.get('source_fingerprint', ''), current
+    return recorded != current, recorded, current
 
 
 # ── stage 2: canaries ───────────────────────────────────────────────────────────
@@ -292,10 +296,16 @@ def _declared_templates(doc: dict) -> dict[str, str]:
 
     `{channel?}` expands to BOTH shapes (with and without the segment) because both are legitimate
     — that is precisely the optionality being modelled.
+
+    Skips artifacts that are not FILE templates: aliases (a `resolves_via` entry has no path of its
+    own) and directory entries.  Matching observed files against those would be meaningless, and
+    would make them permanently show up as "declared but never produced".
     """
     out: dict[str, str] = {}
     for key, spec in doc['artifacts'].items():
-        path = spec['path']
+        path = spec.get('path')
+        if not path or spec.get('format') == 'dir':
+            continue
         variants = [path.replace('/{channel?}', '/{channel}'), path.replace('/{channel?}', '')] \
             if '{channel?}' in path else [path]
         for v in variants:
@@ -324,7 +334,7 @@ def validate(doc: dict, obs_a: dict, obs_b: dict) -> dict:
     be told about.
     """
     declared = _declared_templates(doc)
-    decl_keys = set(doc['artifacts'])
+    decl_keys = set(declared.values())
 
     seen_a = set(obs_a['templates']) if obs_a else set()
     seen_b = set(obs_b['templates']) if obs_b else set()
@@ -425,53 +435,52 @@ def _collapse_channel_variants(undeclared: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def scaffold_next_version(doc: dict, findings: dict, next_version: int) -> str:
-    """Write runschema/v<next>.py: v<cur>'s tables with the observed deltas applied.
+def proposed_entries(findings: dict) -> list[tuple[str, str]]:
+    """[(artifact_key, source_text), …] — the ARTIFACTS entries the canaries say are missing.
 
-    Everything a path resolver needs (path/format/scope/optional) is derived mechanically. Only the
-    prose — `writer`, `note`, `condition` — is left as TODO, because a script cannot infer which
-    function creates a file or why it is conditional. Those TODOs are deliberately loud.
+    path/format/scope/optional are derived mechanically from the observed template.  `writer` and
+    `condition` stay TODO because no script can infer which function creates a file or why it is
+    conditional; those TODOs are deliberately loud.
+
+    Channel variants collapse first, so an artifact seen under BOTH tree shapes becomes one
+    `{channel?}` entry rather than two — otherwise the proposal would hard-code the very
+    "channel is always present" assumption this package exists to prevent.
     """
-    cur = doc['schema_version']
-    src_path = os.path.join(_HERE, f'v{cur}.py')
-    with open(src_path, encoding='utf-8') as f:
-        src = f.read()
-
-    src = src.replace(f'SCHEMA_VERSION = {cur}', f'SCHEMA_VERSION = {next_version}', 1)
-    src = src.replace(f'"""runschema.v{cur} —', f'"""runschema.v{next_version} —', 1)
-
-    added_lines = []
+    out: list[tuple[str, str]] = []
     for tmpl, where in sorted(_collapse_channel_variants(findings['undeclared']).items()):
         key = _artifact_key_for(tmpl)
         optional = where != 'A+B'
-        added_lines.append(
-            f"    {key!r}: {{\n"
-            f"        'path': {tmpl!r},\n"
-            f"        'format': {_format_of(tmpl)!r}, 'scope': {_scope_of(tmpl)!r},\n"
-            f"        'optional': {optional},\n"
-            + (f"        'condition': 'TODO — observed only in canary {where}; state WHY.',\n"
-               if optional else '')
-            + f"        'writer': 'TODO@TODO',   # TODO(schema-preflight): who writes this?\n"
-            f"    }},")
+        out.append((key,
+                    f"    {key!r}: {{\n"
+                    f"        'path': {tmpl!r},\n"
+                    f"        'format': {_format_of(tmpl)!r}, 'scope': {_scope_of(tmpl)!r},\n"
+                    f"        'optional': {optional},\n"
+                    + (f"        'condition': 'TODO — observed only in canary {where}; state WHY.',\n"
+                       if optional else '')
+                    + f"        'writer': 'TODO@TODO',   # TODO(schema-preflight): who writes this?\n"
+                    f"    }},"))
+    return out
 
-    removed = set(findings['never_produced'])
-    if added_lines:
-        marker = '\n    # ── transient per-channel-run state'
-        block = ('\n    # ── added by runschema.preflight (canary-observed; fill the TODOs) ──\n'
-                 + '\n'.join(added_lines) + '\n')
-        src = src.replace(marker, block + marker, 1) if marker in src else src.replace(
-            '\n}\n\n\n# ── template rendering', block + '}\n\n\n# ── template rendering', 1)
 
-    header = (f'# NOTE: scaffolded by runschema.preflight from v{cur}.\n'
-              f'# Canary-observed deltas are applied below; every TODO must be filled before this\n'
-              f'# contract is trustworthy.  Artifacts v{cur} declared but the canaries never\n'
-              f'# produced: {sorted(removed) or "none"}.\n')
-    src = src.replace('from __future__ import annotations', header + 'from __future__ import annotations', 1)
+def apply_entries(entries: list[tuple[str, str]]) -> str:
+    """Insert proposed ARTIFACTS entries into runschema/schema.py.  Returns the path.
 
-    dst = os.path.join(_HERE, f'v{next_version}.py')
-    with open(dst, 'w', encoding='utf-8') as f:
+    Editing the ONE declaration is the whole point of dropping per-version modules: there is no
+    `v<N+1>.py` to scaffold, so the new schema id falls out of the edited tables automatically.
+    """
+    path = os.path.join(_HERE, 'schema.py')
+    with open(path, encoding='utf-8') as f:
+        src = f.read()
+    block = ('\n    # ── added by runschema.preflight (canary-observed; fill the TODOs) ──\n'
+             + '\n'.join(text for _k, text in entries) + '\n')
+    marker = '\n    # ── transient per-channel-run state'
+    if marker in src:
+        src = src.replace(marker, block + marker, 1)
+    else:
+        src = src.rstrip()[:-1].rstrip() + block + '}\n'      # before the ARTIFACTS closing brace
+    with open(path, 'w', encoding='utf-8') as f:
         f.write(src)
-    return dst
+    return path
 
 
 def _yaml_pattern(tmpl: str) -> str:
@@ -492,7 +501,7 @@ def update_artifacts_yml(doc: dict, path: str | None = None) -> list[str]:
     with open(path, encoding='utf-8') as f:
         lines = f.readlines()
 
-    want = {k: _yaml_pattern(v['path']) for k, v in doc['artifacts'].items()}
+    want = {k: _yaml_pattern(v['path']) for k, v in doc['artifacts'].items() if v.get('path')}
     changed: list[str] = []
     current: str | None = None
     for i, line in enumerate(lines):
@@ -515,17 +524,17 @@ def update_artifacts_yml(doc: dict, path: str | None = None) -> list[str]:
 def update_viewer_schema(doc: dict, path: str | None = None) -> str:
     """Emit Visualization/static/schema.json — the slice of the contract the front end reads.
 
-    The viewer builds its cascading run selectors from `axes` and `levels`, so a version bump
+    The viewer builds its cascading run selectors from `axes` and `levels`, so adopting a new schema
     changes the UI's navigation without a single JS edit.
     """
     path = path or os.path.join(_REPO_ROOT, 'Visualization', 'static', 'schema.json')
     payload = {
-        'schema_version': doc['schema_version'],
+        'schema_id': doc['schema_id'],
+        'schema_short': contract.short_id(doc['schema_id']),
         'generated_by': 'Optimization/runschema/preflight.py',
         'axes': doc['axes'],
         'levels': doc['levels'],
-        'tree_fingerprint': doc['tree_fingerprint'],
-        'artifacts': {k: {'path': v['path'], 'format': v['format'], 'scope': v['scope'],
+        'artifacts': {k: {'path': v.get('path'), 'format': v['format'], 'scope': v['scope'],
                           'optional': v.get('optional', False)}
                       for k, v in doc['artifacts'].items()},
     }
@@ -554,30 +563,50 @@ def _report(findings: dict, echo) -> None:
         echo(f'    - {", ".join(findings["never_produced"])}')
 
 
+def _confirm(question: str, assume_yes: bool, echo) -> bool:
+    """Interactive gate.  Non-interactive without --yes is a refusal, never a silent write."""
+    if assume_yes:
+        return True
+    if not sys.stdin or not sys.stdin.isatty():
+        echo('[preflight] non-interactive and no --yes — refusing to write. Run '
+             '`python -m Optimization.runschema.preflight --yes` or pass --no-preflight.')
+        return False
+    try:
+        ans = input(f'[preflight] {question} [y/N] ').strip().lower()
+    except EOFError:
+        ans = ''
+    if ans not in ('y', 'yes'):
+        echo('[preflight] declined — no files written.')
+        return False
+    return True
+
+
 def ensure(echo=print, *, assume_yes: bool = False, force: bool = False,
-           keep_workdir: bool = False) -> int:
+           keep_workdir: bool = False, apply_entries_to_schema: bool = False) -> int:
     """The full preflight.  Returns 0 to proceed with the run, non-zero to stop.
 
     Stage 1 short-circuits when nothing shape-defining changed, which is the common case.
     """
-    from Optimization import runschema
     if os.environ.get(SKIP_ENV) == '1':
         return 0
 
-    version = runschema.RUN_TREE_VERSION
-    changed, old_fp, new_fp = sources_changed(version)
+    short = contract.short_id
+    changed, old_fp, new_fp = sources_changed()
+    head = contract.head()
     if not changed and not force:
-        echo(f'[preflight] run-tree contract v{version} current (no shape-defining source change).')
+        echo(f'[preflight] run-tree schema {short(head) if head else "(none)"} current '
+             f'(no shape-defining source change).')
         return 0
 
-    doc = contract.load(version)
-    if doc is None:
-        echo(f'[preflight] no committed contract for v{version}; generating from '
-             f'runschema/v{version}.py first.')
-        doc = contract.build(version)
-        contract.write(doc)
+    # The declaration is the source of truth; its hash is the candidate id for this run.
+    doc = contract.build()
+    if head is None:
+        echo('[preflight] schema store is empty; minting from runschema/schema.py.')
+    elif doc['schema_id'] != head:
+        echo(f'[preflight] schema.py now hashes to {short(doc["schema_id"])} '
+             f'(head is {short(head)}) — the declaration was edited.')
 
-    echo(f'[preflight] shape-defining sources changed since the committed v{version} contract.')
+    echo(f'[preflight] shape-defining sources changed since the recorded fingerprint.')
     echo(f'            {old_fp or "(none)"} -> {new_fp}')
     echo('[preflight] proving the tree shape with two canary runs (this is the slow path)...')
 
@@ -597,37 +626,49 @@ def ensure(echo=print, *, assume_yes: bool = False, force: bool = False,
         findings = validate(doc, obs_a, obs_b)
         _report(findings, lambda m: echo(f'[preflight] {m}'))
 
+        # ── the declaration ALREADY covers the observed tree ────────────────────
         if findings['ok']:
-            doc['source_fingerprint'] = new_fp
-            contract.write(doc)
+            if doc['schema_id'] == head:
+                contract.adopt(doc, source_fp=new_fp)      # refresh the trigger only
+                update_viewer_schema(doc)
+                echo(f'[preflight] tree shape UNCHANGED — schema {short(head)} still valid; '
+                     f'refreshed the source fingerprint.')
+                return 0
+
+            echo(f'[preflight] the declaration changed and the canaries CONFIRM it: '
+                 f'{short(head) if head else "(none)"} -> {short(doc["schema_id"])}')
+            for m in (contract.diff_shape(contract.load(head), doc) if head else ['initial schema']):
+                echo(f'[preflight]   - {m}')
+            if not _confirm(f'adopt schema {short(doc["schema_id"])}?', assume_yes, echo):
+                return 3
+            contract.adopt(doc, source_fp=new_fp)
+            update_artifacts_yml(doc)
             update_viewer_schema(doc)
-            echo(f'[preflight] tree shape UNCHANGED — contract v{version} still valid; '
-                 f'refreshed its source fingerprint.')
+            echo(f'[preflight] adopted {short(doc["schema_id"])} (parent '
+                 f'{short(head) if head else "none"}); artifacts.yml + viewer schema refreshed.')
             return 0
 
-        nxt = version + 1
-        echo(f'[preflight] the tree shape CHANGED — contract v{version} is no longer accurate.')
-        echo(f'[preflight] proposed: bump to v{nxt} (scaffold runschema/v{nxt}.py + '
-             f'run_tree.v{nxt}.json, update artifacts.yml + the viewer schema).')
-        if not assume_yes:
-            if not sys.stdin or not sys.stdin.isatty():
-                echo('[preflight] non-interactive and no --yes — refusing to bump. Run '
-                     '`python -m Optimization.runschema.preflight --yes` or pass --no-preflight.')
-                return 3
-            try:
-                ans = input('[preflight] Proceed with the version bump? [y/N] ').strip().lower()
-            except EOFError:
-                ans = ''
-            if ans not in ('y', 'yes'):
-                echo('[preflight] declined — no files written.')
-                return 3
-
-        path = scaffold_next_version(doc, findings, nxt)
-        echo(f'[preflight] wrote {os.path.relpath(path, _REPO_ROOT)}  '
-             f'(fill every TODO before trusting it)')
-        echo(f'[preflight] NOW: register v{nxt} in Optimization/runschema/__init__.py '
-             f'(_RESOLVERS + RUN_TREE_VERSION), then re-run this preflight to emit '
-             f'run_tree.v{nxt}.json and refresh the downstream orchestrator files.')
+        # ── the CODE moved but schema.py did not ────────────────────────────────
+        entries = proposed_entries(findings)
+        echo('[preflight] the tree shape CHANGED and the declaration does not cover it.')
+        if not entries:
+            echo('[preflight] no new paths to declare — the mismatch is optionality only; fix the '
+                 '`optional` flags in runschema/schema.py by hand, then re-run.')
+            return 4
+        echo(f'[preflight] add these {len(entries)} entr(y|ies) to ARTIFACTS in '
+             f'Optimization/runschema/schema.py:')
+        for _key, text in entries:
+            for line in text.splitlines():
+                echo(f'[preflight]   {line}')
+        if not apply_entries_to_schema:
+            echo('[preflight] re-run with --apply to insert them automatically, then fill every '
+                 'TODO and re-run the preflight to adopt the resulting schema id.')
+            return 4
+        if not _confirm('insert them into schema.py?', assume_yes, echo):
+            return 3
+        path = apply_entries(entries)
+        echo(f'[preflight] edited {os.path.relpath(path, _REPO_ROOT)} — fill every TODO, then '
+             f're-run the preflight; the new schema id follows from the edited tables.')
         return 4
     finally:
         if keep_workdir:
@@ -639,11 +680,14 @@ def ensure(echo=print, *, assume_yes: bool = False, force: bool = False,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description='Prove the run-tree contract before a simulation (detect -> canary -> '
-                    'validate -> bump).')
+                    'validate -> adopt).')
     ap.add_argument('--check', action='store_true',
-                    help='stage 1 only: exit 1 if shape-defining sources changed. Writes nothing. '
-                         'Used by the Claude Stop hook and the test suite.')
-    ap.add_argument('--yes', action='store_true', help='bump without prompting (unattended)')
+                    help='stage 1 only: exit 1 if shape-defining sources changed or the schema '
+                         'store is stale. Writes nothing. Used by the Stop hook and the tests.')
+    ap.add_argument('--yes', action='store_true', help='adopt without prompting (unattended)')
+    ap.add_argument('--apply', action='store_true',
+                    help='when the canaries find undeclared paths, insert the proposed ARTIFACTS '
+                         'entries into runschema/schema.py instead of only printing them')
     ap.add_argument('--force', action='store_true',
                     help='run the canaries even when no source change was detected')
     ap.add_argument('--keep-workdir', action='store_true', help='keep the canary temp dir')
@@ -653,24 +697,24 @@ def main(argv=None) -> int:
     echo = (lambda _m: None) if args.quiet else print
 
     if args.check:
-        from Optimization import runschema
-        version = runschema.RUN_TREE_VERSION
         stale = contract.main(['--check', '--quiet'])
-        changed, _old, _new = sources_changed(version)
         if stale:
-            print(f'[schema] run_tree.v{version}.json is stale vs runschema/v{version}.py — '
-                  f'regenerate: python -m Optimization.runschema.contract --write')
+            print('[schema] the run-tree schema store is stale vs runschema/schema.py — adopt it: '
+                  'python -m Optimization.runschema.contract --write')
             return 1
+        changed, _old, _new = sources_changed()
+        head = contract.head()
         if changed:
-            print(f'[schema] shape-defining source changed since the committed run-tree contract '
-                  f'v{version} — the output tree may have moved. Validate before the next run: '
+            print(f'[schema] shape-defining source changed since the recorded fingerprint for '
+                  f'run-tree schema {contract.short_id(head) if head else "(none)"} — the output '
+                  f'tree may have moved. Validate before the next run: '
                   f'python -m Optimization.runschema.preflight')
             return 1
-        echo(f'run-tree contract v{version} current.')
+        echo(f'run-tree schema {contract.short_id(head)} current.')
         return 0
 
     return ensure(echo=print, assume_yes=args.yes, force=args.force,
-                  keep_workdir=args.keep_workdir)
+                  keep_workdir=args.keep_workdir, apply_entries_to_schema=args.apply)
 
 
 if __name__ == '__main__':

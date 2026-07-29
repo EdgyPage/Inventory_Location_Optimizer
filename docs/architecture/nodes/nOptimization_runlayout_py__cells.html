@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_runlayout_py.html"><code>Optimization/runlayout.py</code></a> <span class="sep">›</span> <span class="here"><code>cells</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>cells</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runlayout_py.html"><code>Optimization/runlayout.py</code></a></p>
-<div class="badges"><span class="badge cycle">in import cycle</span></div>
+
 <pre class="sig"><code>def cells(base_dir: str) -&gt; Iterator[tuple[str, str]]</code></pre>
 <section class="doc">Yield (cell_name, cell_dir) for every cell under a run root.
 
@@ -24,7 +24,7 @@ resume.  When the descriptor is ABSENT (legacy runs), fall back to walking the t
 root&#x27;s immediate non-``_`` children that contain a ``&lt;pair&gt;/&lt;config&gt;/sim_*.db`` subtree are the
 cells; a legacy FLAT run (no cell level — DBs directly under ``&lt;base&gt;/&lt;pair&gt;/&lt;config&gt;``) is
 yielded as one implicit cell named after the base dir.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runlayout.py</span></li><li><a href="nOptimization_sim_manifest_py__read_run_layout.html"><code>read_run_layout</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_analyze_run_py__analyze_run.html"><code>analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_runschema_v1_py__RunTreeV1_cells.html"><code>cells</code></a> <span class="dim">Optimization/runschema/v1.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runlayout.py</span></li><li><a href="nOptimization_sim_manifest_py__read_run_layout.html"><code>read_run_layout</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_analyze_run_py__analyze_run.html"><code>analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_cells.html"><code>cells</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runlayout_py__cells">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runlayout.py#:~:text=def%20cells">Source ↗</a></p>
 </article>
 </main>

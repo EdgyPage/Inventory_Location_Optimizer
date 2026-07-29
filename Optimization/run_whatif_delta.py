@@ -137,7 +137,7 @@ def _write_delta_json(base_dir, rt, rows, reference, cell_names) -> str:
                           'by_channel': by_channel})
 
     doc = {
-        'schema_version': rt.version,
+        'schema_id': rt.schema_id,
         'reference': reference,
         'reference_label': reference,
         'metrics': ['dthr_batch', 'dtask_ms', 'dbatch_ms', 'dthr_task'],

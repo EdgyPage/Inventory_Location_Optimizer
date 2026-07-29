@@ -15,11 +15,19 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_contract_py.html"><code>Optimization/runschema/contract.py</code></a></p>
 
 <pre class="sig"><code>def _shape_only(doc: dict) -&gt; dict</code></pre>
-<section class="doc">The parts of a contract that DEFINE the tree — prose and fingerprints excluded.
+<section class="doc">The projection that DEFINES the tree — the exact material `schema_id` hashes.
 
-`note` / `condition` are documentation: editing them must not force a version bump, so they are
-stripped before hashing.  Everything that a downstream path-resolver depends on stays.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__diff_shape.html"><code>diff_shape</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__tree_fingerprint.html"><code>tree_fingerprint</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section>
+Excluded on purpose:
+  * `schema_id` — an identity cannot be an input to its own hash.
+  * `note` / `condition` / `description` — documenting the tree better must never mint a new
+    schema, so prose is stripped before hashing.
+  * `writer` — WHICH function creates a file is attribution, not tree shape; moving a producer
+    does not move the file.
+  * `source_fingerprint` / provenance — mutable, and lives in INDEX.json.
+
+Included: everything a path resolver depends on.  Note `axes`, `levels`, `tables` and
+`resolves_via` are LISTS, so their ORDER is significant — reordering them is a real change.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__diff_shape.html"><code>diff_shape</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__schema_id.html"><code>schema_id</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_contract_py___shape_only">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/contract.py#:~:text=def%20_shape_only">Source ↗</a></p>
 </article>
 </main>

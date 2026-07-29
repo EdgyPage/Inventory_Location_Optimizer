@@ -5,12 +5,12 @@
   "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/sim_manifest.py; read by cells@Optimization/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "schema_version", "kind", "reference", "tree_template", "cells", "pairs"],
+  "required": ["version", "schema_id", "kind", "reference", "tree_template", "cells", "pairs"],
   "properties": {
     "version": {"type": "integer", "minimum": 1, "description": "version of THIS descriptor's field set"},
-    "schema_version": {
-      "type": "integer", "minimum": 1,
-      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows — see Optimization/schemas/run_tree.v<N>.json. runschema.resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes."
+    "schema_id": {
+      "type": "string", "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows: the sha256 of that contract's own declared shape, stored at Optimization/schemas/run_tree/<first-12-hex>.json. resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes. A content address, not a sequence number — derived from the declaration, so it is re-derivable and cannot be mis-assigned."
     },
     "kind": {"type": "string", "enum": ["single", "sweep"]},
     "spec": {"type": "string", "description": "whatif_config.SPECS name that produced the run"},

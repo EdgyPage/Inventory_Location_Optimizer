@@ -447,17 +447,25 @@ files:
       - {name: "iter_sim_dbs", file: "Optimization/runlayout.py", kind: "function"}
     notes: ""
   "Optimization/runschema/contract.py":
-    purpose: "Generates, fingerprints and diffs the machine-readable run-tree contract \u2014 builds Optimization/schemas/run_tree.v<N>.json from the v<N> module's LEVELS/ARTIFACTS tables, hashes the declared shape (tree_fingerprint) and the shape-defining sources (source_fingerprint), and explains any difference."
+    purpose: "Derives, stores and diffs CONTENT-ADDRESSED run-tree contracts: schema_id is the sha256 of the declaration\u2019s own shape (prose and the id itself excluded), documents are immutable and named by that hash, and INDEX.json holds the mutable side \u2014 head pointer, source-change fingerprint and the parent chain that restores the ordering hashes lack."
     layer: "optimization"
     key_symbols:
+      - {name: "SHORT_LEN", file: "Optimization/runschema/contract.py", kind: "const"}
       - {name: "SHAPE_SOURCES", file: "Optimization/runschema/contract.py", kind: "const"}
+      - {name: "short_id", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "contract_path", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "source_fingerprint", file: "Optimization/runschema/contract.py", kind: "function"}
-      - {name: "tree_fingerprint", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "schema_id", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "build", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "load", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "load_all", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "read_index", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "write_index", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "head", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "write", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "diff_shape", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "adopt", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "verify_store", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "main", file: "Optimization/runschema/contract.py", kind: "function"}
     notes: ""
   "Optimization/runschema/hook_check.py":
@@ -476,24 +484,31 @@ files:
       - {name: "run_canaries", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "observe", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "validate", file: "Optimization/runschema/preflight.py", kind: "function"}
-      - {name: "scaffold_next_version", file: "Optimization/runschema/preflight.py", kind: "function"}
+      - {name: "proposed_entries", file: "Optimization/runschema/preflight.py", kind: "function"}
+      - {name: "apply_entries", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "update_artifacts_yml", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "update_viewer_schema", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "ensure", file: "Optimization/runschema/preflight.py", kind: "function"}
       - {name: "main", file: "Optimization/runschema/preflight.py", kind: "function"}
     notes: ""
-  "Optimization/runschema/v1.py":
-    purpose: "The v1 run-tree contract \u2014 declarative LEVELS (with the optional <channel> level) + ARTIFACTS path templates, and RunTreeV1, the resolver downstream tools ask for paths instead of joining strings."
+  "Optimization/runschema/resolver.py":
+    purpose: "The ONE generic resolver: RunTree interprets ANY contract document, so there is no per-schema Python. Renders path templates (optional {name?} segments, globs), inverts the sim_db template to recover an arm, follows `resolves_via` candidate lists, and queries by `group` \u2014 everything that used to be hardcoded per version."
     layer: "optimization"
     key_symbols:
-      - {name: "SCHEMA_VERSION", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "ROOT_PREFIXES", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "RESERVED_PREFIX", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "LEVELS", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "AXES", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "ARTIFACTS", file: "Optimization/runschema/v1.py", kind: "const"}
-      - {name: "render", file: "Optimization/runschema/v1.py", kind: "function"}
-      - {name: "RunTreeV1", file: "Optimization/runschema/v1.py", kind: "class"}
+      - {name: "SUPPORTED_FEATURES", file: "Optimization/runschema/resolver.py", kind: "const"}
+      - {name: "render", file: "Optimization/runschema/resolver.py", kind: "function"}
+      - {name: "RunTree", file: "Optimization/runschema/resolver.py", kind: "class"}
+    notes: ""
+  "Optimization/runschema/schema.py":
+    purpose: "THE DECLARATION of the run tree and the only file to edit when the tree changes \u2014 FEATURES (template vocabulary), LEVELS (ordered directory levels, channel optional) and ARTIFACTS (path templates). Carries no version number: its sha256 IS the schema id."
+    layer: "optimization"
+    key_symbols:
+      - {name: "FEATURES", file: "Optimization/runschema/schema.py", kind: "const"}
+      - {name: "ROOT_PREFIXES", file: "Optimization/runschema/schema.py", kind: "const"}
+      - {name: "RESERVED_PREFIX", file: "Optimization/runschema/schema.py", kind: "const"}
+      - {name: "LEVELS", file: "Optimization/runschema/schema.py", kind: "const"}
+      - {name: "AXES", file: "Optimization/runschema/schema.py", kind: "const"}
+      - {name: "ARTIFACTS", file: "Optimization/runschema/schema.py", kind: "const"}
     notes: ""
   "Optimization/runtime_metrics.py":
     purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
@@ -1143,17 +1158,23 @@ files:
       - {name: "test_get_spec_unknown_raises", file: "Tests/test_run_unification.py", kind: "function"}
     notes: ""
   "Tests/test_runschema_contract.py":
-    purpose: "Locks the versioned run-tree contract: run_tree.v<N>.json == a fresh generation from v<N>.py, artifacts.yml patterns agree with it, schema_version stamping + resolver selection, optional-segment rendering, and the positional level walk that survives the <pair>/store/store/ name collision \u2014 with positive controls so none of it can pass vacuously."
+    purpose: "Locks the content-addressed run-tree contract: the id is deterministic, excludes itself, is invariant under prose edits but sensitive to every hashed field; every stored document re-hashes to its own id and filename; the INDEX head/parent chain resolves; and compatibility is negotiated by feature rather than by comparing numbers \u2014 with positive controls so none of it can pass vacuously."
     layer: "tests"
     key_symbols:
-      - {name: "test_committed_contract_matches_module", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_head_matches_the_declaration", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_schema_id_is_deterministic", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_schema_id_excludes_itself", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_store_is_self_consistent", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_stored_document_filename_is_its_short_id", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_contract_declares_every_axis_and_level", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_every_optional_artifact_states_its_condition", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_artifacts_yml_patterns_match_contract", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_shared_artifact_ids_are_not_empty", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_write_run_layout_stamps_schema_version", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolver_for_selects_the_declared_version", file: "Tests/test_runschema_contract.py", kind: "function"}
-      - {name: "test_resolver_for_rejects_pre_v1_and_unknown", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_write_run_layout_stamps_the_schema_id", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_for_binds_to_the_runs_own_schema", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_for_rejects_missing_and_unknown_schema", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolver_refuses_a_contract_needing_an_unknown_feature", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_every_declared_feature_is_supported", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_render_drops_the_optional_channel_segment", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_render_raises_on_a_missing_required_part", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_generalize_is_positional", file: "Tests/test_runschema_contract.py", kind: "function"}
@@ -1167,6 +1188,15 @@ files:
       - {name: "test_source_fingerprint_changes_when_a_shape_source_changes", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_source_fingerprint_ignores_line_ending_churn", file: "Tests/test_runschema_contract.py", kind: "function"}
       - {name: "test_source_fingerprint_detects_a_deleted_shape_source", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_index_head_and_chain_resolve", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_adopt_is_idempotent_and_chains", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_write_refuses_a_document_whose_id_is_not_its_hash", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_resolves_via_prefers_the_first_existing_candidate", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_strategy_of_inverts_the_declared_template", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_by_group_replaces_the_hardcoded_whatif_list", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_id_changes_on_group_and_resolves_via_edits", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_axis_reordering_is_reported_not_just_hashed", file: "Tests/test_runschema_contract.py", kind: "function"}
+      - {name: "test_feature_edits_change_the_id", file: "Tests/test_runschema_contract.py", kind: "function"}
     notes: ""
   "Tests/test_runtime_metrics.py":
     purpose: "Locks the runtime-metrics DB + graphs \u2014 record_arm/load round-trip, UNIQUE-key overwrite, arm parsing + rate, and the emitted ranked/breakdown PNGs."

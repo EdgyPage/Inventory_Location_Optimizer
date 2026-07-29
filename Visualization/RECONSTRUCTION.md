@@ -15,13 +15,13 @@ python server.py "<comparison_YYYYMMDD_HHMMSS dir>"   # the RUN ROOT (holds run_
 ```
 
 Pass the **run root**, not a cell directory: the viewer resolves the tree through
-`Optimization/runschema` using the run's own `schema_version`, and spans every cell.
+`Optimization/runschema` using the run's own `schema_id`, and spans every cell.
 
 Runs are picked with cascading filters — **warehouse** (pair) → **warehouse type** (channel) →
 **pick config** → **layout/scheduler cell** → **assignment function** — built at runtime from
 `/api/runs`'s `axes`, so the navigable levels follow the run-tree schema rather than being
 hardcoded in the front end. An axis with no values (e.g. `channel` on a store-only run) is hidden.
-`/api/schema` serves the run's committed contract (`Optimization/schemas/run_tree.v<N>.json`).
+`/api/schema` serves the contract THAT RUN was written with (`Optimization/schemas/run_tree/<short>.json`), not whatever is current.
 
 Add up to 4 runs → side-by-side panes; pane titles show the assignment fn plus whichever axes
 differ between the open panes. Two view modes:
@@ -43,11 +43,13 @@ added; older runs replay everything else.
 ## Files per simulation output
 
 The authoritative, machine-readable version of this layout is
-`Optimization/schemas/run_tree.v<N>.json`, generated from `Optimization/runschema/v<N>.py`. Resolve
-paths through the resolver (`runschema.resolver_for(run_root)`) rather than joining strings.
+`Optimization/schemas/run_tree/<short>.json`, generated from `Optimization/runschema/schema.py`.
+Each document is named by the sha256 of its own declared shape, so a run records exactly which
+layout produced it and that document can always be found. Resolve paths through the resolver
+(`runschema.resolver_for(run_root)`) rather than joining strings.
 
 ```
-<run_root>/run_layout.json                                # descriptor: schema_version + cells
+<run_root>/run_layout.json                                # descriptor: schema_id + cells
 <run_root>/<cell>/<pair>/warehouse.db                     # geometry + sizing (shared by all arms)
 <run_root>/<cell>/<pair>/planned_inventory.db             # single-cell runs only (see below)
 <run_root>/_frozen/<pair>/planned_inventory.db            # multi-cell runs: frozen, shared
