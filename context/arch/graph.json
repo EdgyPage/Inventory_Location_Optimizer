@@ -7916,12 +7916,62 @@
       "src": "scripts/archive_cells.py::cell_state"
     },
     {
+      "dst": "scripts/archive_cells.py::_existing_ancestor",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::copy_verified"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_quick_check",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::copy_verified"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_retry",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::copy_verified"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_retry",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::evacuate"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_tree_stats",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::evacuate"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_verify_copy",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::evacuate"
+    },
+    {
+      "dst": "scripts/archive_cells.py::copy_verified",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::evacuate"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::_DEFAULT_PROFILES_DIR",
+      "kind": "ref",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::_OUTPUT_DIR",
+      "kind": "ref",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
       "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "scripts/archive_cells.py::main"
     },
     {
       "dst": "scripts/archive_cells.py::cold_root",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "scripts/archive_cells.py::evacuate",
       "kind": "calls",
       "src": "scripts/archive_cells.py::main"
     },
@@ -18571,6 +18621,14 @@
     },
     {
       "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_existing_ancestor",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_existing_ancestor",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
       "id": "scripts/archive_cells.py::_in_flight",
       "kind": "function",
       "module": "scripts/archive_cells.py",
@@ -18655,6 +18713,22 @@
       "kind": "function",
       "module": "scripts/archive_cells.py",
       "name": "cold_root",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::copy_verified",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "copy_verified",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::evacuate",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "evacuate",
       "public": true
     },
     {

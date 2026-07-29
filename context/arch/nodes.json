@@ -9333,6 +9333,13 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "scripts/archive_cells.py::_existing_ancestor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> str"
+    },
     "scripts/archive_cells.py::_in_flight": {
       "decorators": [],
       "doc": "resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.",
@@ -9409,6 +9416,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> str | None"
+    },
+    "scripts/archive_cells.py::copy_verified": {
+      "decorators": [],
+      "doc": "Copy a tree file-by-file, verifying each file as it lands. Resumable, and never destructive.\n\nshutil.copytree is all-or-nothing: an interrupted copy leaves a partial tree that the next\nattempt refuses to touch, and it verifies nothing. That is the wrong shape for a multi-hundred-\ngigabyte move onto an external disk, where a disconnect mid-copy is a routine failure rather\nthan an exceptional one.\n\nEach file is copied, size-checked, and (if SQLite) integrity-checked before the next one\nstarts, so an interruption leaves a tree where every file present is known-good. Re-running\nskips those and continues.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(src_root: str, dst_root: str, *, resume: bool=True, echo=print) -> dict"
+    },
+    "scripts/archive_cells.py::evacuate": {
+      "decorators": [],
+      "doc": "Move a whole tree to bulk storage \u2014 for emptying a drive, not for mid-run archival.\n\nNo junction is left behind: this exists for the case where the source volume is about to be\nreformatted, so a link back to it would be pointless. That also means the caller is responsible\nfor repointing anything that referenced the old location.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(src: str, dst: str, *, delete_source: bool=False, dry_run: bool=False, echo=print) -> dict"
     },
     "scripts/archive_cells.py::is_archived": {
       "decorators": [],

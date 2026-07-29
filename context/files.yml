@@ -1703,6 +1703,8 @@ files:
       - {name: "cell_state", file: "scripts/archive_cells.py", kind: "function"}
       - {name: "archivable", file: "scripts/archive_cells.py", kind: "function"}
       - {name: "is_archived", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "copy_verified", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "evacuate", file: "scripts/archive_cells.py", kind: "function"}
       - {name: "supports_reparse", file: "scripts/archive_cells.py", kind: "function"}
       - {name: "archive_keyframes", file: "scripts/archive_cells.py", kind: "function"}
       - {name: "archive_cell", file: "scripts/archive_cells.py", kind: "function"}

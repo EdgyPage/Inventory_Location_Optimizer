@@ -140,6 +140,132 @@ def _tree_stats(root: str) -> tuple[int, int]:
     return n, total
 
 
+def copy_verified(src_root: str, dst_root: str, *, resume: bool = True, echo=print) -> dict:
+    """Copy a tree file-by-file, verifying each file as it lands. Resumable, and never destructive.
+
+    shutil.copytree is all-or-nothing: an interrupted copy leaves a partial tree that the next
+    attempt refuses to touch, and it verifies nothing. That is the wrong shape for a multi-hundred-
+    gigabyte move onto an external disk, where a disconnect mid-copy is a routine failure rather
+    than an exceptional one.
+
+    Each file is copied, size-checked, and (if SQLite) integrity-checked before the next one
+    starts, so an interruption leaves a tree where every file present is known-good. Re-running
+    skips those and continues.
+    """
+    stats = {'copied': 0, 'skipped': 0, 'bytes': 0, 'problems': []}
+    plan = []
+    for dirpath, _d, files in os.walk(src_root):
+        rel = os.path.relpath(dirpath, src_root)
+        for fn in files:
+            s = os.path.join(dirpath, fn)
+            d = os.path.join(dst_root, fn) if rel == '.' else os.path.join(dst_root, rel, fn)
+            try:
+                plan.append((s, d, os.path.getsize(s)))
+            except OSError as exc:
+                stats['problems'].append(f'cannot stat {fn}: {exc}')
+    total = sum(sz for _s, _d, sz in plan)
+    echo(f'    {len(plan)} file(s), {total / 1024 ** 3:.1f} GB')
+
+    free = shutil.disk_usage(_existing_ancestor(dst_root)).free
+    if free < total * 1.02:
+        stats['problems'].append(
+            f'destination has {free / 1024 ** 3:.0f} GB free, needs {total / 1024 ** 3:.0f} GB')
+        return stats
+
+    last_echo = time.time()
+    for i, (s, d, sz) in enumerate(plan, 1):
+        try:
+            if resume and os.path.isfile(d) and os.path.getsize(d) == sz:
+                if not d.endswith('.db') or not _quick_check(d):
+                    stats['skipped'] += 1
+                    continue
+            os.makedirs(os.path.dirname(d), exist_ok=True)
+            _retry(lambda a=s, b=d: shutil.copy2(a, b))
+            if os.path.getsize(d) != sz:
+                raise OSError(f'size mismatch after copy ({os.path.getsize(d)} != {sz})')
+            if d.endswith('.db'):
+                bad = _quick_check(d)
+                if bad:
+                    raise OSError(bad)
+            stats['copied'] += 1
+            stats['bytes'] += sz
+        except (OSError, shutil.Error) as exc:
+            # Remove the bad partial so a resume re-copies it rather than trusting it.
+            try:
+                if os.path.isfile(d):
+                    os.remove(d)
+            except OSError:
+                pass
+            stats['problems'].append(f'{os.path.relpath(s, src_root)}: {exc}')
+            if len(stats['problems']) >= 25:
+                stats['problems'].append('too many failures — stopping')
+                break
+        if time.time() - last_echo > 30:
+            echo(f'      {i}/{len(plan)}  {stats["bytes"] / 1024 ** 3:.1f} GB copied')
+            last_echo = time.time()
+    return stats
+
+
+def _existing_ancestor(path: str) -> str:
+    while path and not os.path.isdir(path):
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return path or '.'
+
+
+def evacuate(src: str, dst: str, *, delete_source: bool = False, dry_run: bool = False,
+             echo=print) -> dict:
+    """Move a whole tree to bulk storage — for emptying a drive, not for mid-run archival.
+
+    No junction is left behind: this exists for the case where the source volume is about to be
+    reformatted, so a link back to it would be pointless. That also means the caller is responsible
+    for repointing anything that referenced the old location.
+    """
+    res = {'src': os.path.basename(src), 'status': 'dry-run'}
+    if not os.path.isdir(src):
+        return {**res, 'status': 'failed', 'error': 'source not found'}
+    n, total = _tree_stats(src)
+    res.update(files=n, gb=round(total / 1024 ** 3, 2))
+    echo(f'  {os.path.basename(src)}: {n} file(s), {total / 1024 ** 3:.1f} GB')
+    if dry_run:
+        return res
+
+    stats = copy_verified(src, dst, echo=echo)
+    res['copied'], res['skipped'] = stats['copied'], stats['skipped']
+    if stats['problems']:
+        res['status'] = 'failed'
+        res['problems'] = stats['problems'][:10]
+        echo(f'    FAILED ({len(stats["problems"])} problem(s)) — source left untouched')
+        for p in stats['problems'][:5]:
+            echo(f'      {p}')
+        return res
+
+    # Independent post-check: the copy loop verified each file as it went, but a second pass over
+    # the finished tree is what catches a file that vanished from the source mid-copy.
+    problems = _verify_copy(src, dst, echo)
+    if problems:
+        res['status'] = 'failed'
+        res['problems'] = problems[:10]
+        echo(f'    POST-VERIFY FAILED ({len(problems)}) — source left untouched')
+        return res
+
+    if delete_source:
+        try:
+            _retry(lambda: shutil.rmtree(src))
+            echo(f'    source removed; {total / 1024 ** 3:.1f} GB freed')
+        except OSError as exc:
+            res['status'] = 'copied-not-deleted'
+            res['error'] = f'copy verified but source could not be removed: {exc}'
+            echo(f'    {res["error"]}')
+            return res
+    else:
+        echo('    copy verified; source KEPT (pass --delete-source to free the space)')
+    res['status'] = 'evacuated'
+    return res
+
+
 def _verify_copy(src: str, dst: str, echo) -> list:
     """Every file present at the same size, and every SQLite file structurally intact.
 
@@ -382,8 +508,16 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description='Archive completed what-if cells to bulk storage, leaving a junction behind.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ap.add_argument('--run', required=True, metavar='DIR',
+    ap.add_argument('--run', default=None, metavar='DIR',
                     help='run root (absolute, or a name under COMPARISON_OUTPUT_DIR)')
+    ap.add_argument('--evacuate', default=None, metavar='SRC',
+                    help='move an entire tree to COLD_DRIVE and stop — for emptying a drive before '
+                         'reformatting it. Accepts a path, or the keywords "profiles" (the '
+                         'simulator input catalogues) and "outputs" (every completed run).')
+    ap.add_argument('--to', default=None, metavar='DIR',
+                    help='destination for --evacuate (default: mirror the name under COLD_DRIVE)')
+    ap.add_argument('--delete-source', action='store_true',
+                    help='with --evacuate: remove the source AFTER the copy verifies')
     ap.add_argument('--cell', action='append', default=None, help='only this cell (repeatable)')
     ap.add_argument('--watch', action='store_true', help='keep polling while the simulation runs')
     ap.add_argument('--interval', type=int, default=300, metavar='S', help='poll interval')
@@ -400,7 +534,6 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
 
     from Optimization import runschema
-    run_dir = runschema.resolve_base_dir(a.run)
     cold = cold_root()
     if not cold:
         print('COLD_DRIVE is not set. Add it to .env alongside COMPARISON_OUTPUT_DIR.')
@@ -408,6 +541,29 @@ def main(argv=None) -> int:
     if not os.path.isdir(cold):
         print('COLD_DRIVE is set but does not resolve to a directory — is the drive connected?')
         return 2
+
+    if a.evacuate:
+        from Optimization.config import sim_config as sc
+        src = {'profiles': sc._DEFAULT_PROFILES_DIR,
+               'outputs': sc._OUTPUT_DIR}.get(a.evacuate, a.evacuate)
+        if not os.path.isdir(src):
+            print(f'nothing to evacuate at: {a.evacuate}')
+            return 2
+        dst = a.to or os.path.join(cold, os.path.basename(os.path.normpath(src)))
+        if os.path.normcase(os.path.abspath(dst)).startswith(
+                os.path.normcase(os.path.abspath(src))):
+            print('REFUSING: the destination is inside the source.')
+            return 2
+        print(f'evacuate : {os.path.basename(os.path.normpath(src))} -> '
+              f'{os.path.basename(os.path.normpath(dst))}')
+        r = evacuate(src, dst, delete_source=a.delete_source, dry_run=a.dry_run)
+        print(f'\n{r["status"]}')
+        return 0 if r['status'] in ('evacuated', 'dry-run') else 1
+
+    if not a.run:
+        print('pass --run DIR (or --evacuate SRC)')
+        return 2
+    run_dir = runschema.resolve_base_dir(a.run)
     if not os.path.isdir(run_dir):
         print(f'run directory not found: {a.run}')
         return 2
