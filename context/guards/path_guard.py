@@ -17,8 +17,14 @@ What is LEGAL, and deliberately so:
   PROFILE_INPUT_DIR), which are how a machine path is supposed to be referred to here.
 
 The current username is derived at RUNTIME from the home directory — never written down.
-Hardcoding it would make this file the first violation of its own rule.  For the same
-reason every example in this module and its tests uses a synthetic value (Z:\\Users\\example).
+Hardcoding it would make this file the first violation of its own rule.
+
+For the same reason, no example anywhere in this module is a real path SHAPE: examples are
+written `DRIVE:\dir\file` rather than with a single leading letter, because a literal example
+would match the very patterns defined below and this file would flag itself.  Allowlisting it
+was the alternative and is worse — it would switch the guard off for the one file whose
+content is most likely to contain paths.  Tests build their fixtures by concatenation for the
+same reason.
 
 Run standalone:
     python context/guards/path_guard.py --scan          # every tracked file; exit 1 on findings
@@ -42,11 +48,11 @@ assert os.path.isdir(os.path.join(_ROOT, 'Warehouse')), (
 # a write, so every pattern must require evidence of a real absolute path, not merely a colon
 # or a slash.
 PATTERNS = [
-    # C:\Users\...  C:/Users/...  C:\\Users\\... (JSON/notebook-escaped)  //c/Users/... (git-bash).
-    # Two segments are required, and the first must be >= 2 chars.  Both conditions earn their
-    # keep against real content in this repo:
+    # Matches DRIVE:\dir\file and DRIVE:/dir/file, plain or backslash-escaped, plus the git-bash
+    # slash-DRIVE-slash form (second pattern).  Two segments are required, the first >= 2 chars.  Both
+    # conditions earn their keep against real content in this repo:
     #   - the separator is [\\/]{1,2} because notebooks and nodes.json store paths escaped, and a
-    #     one-backslash-only rule misses `C:\\path\\to\\x.db` entirely — a real leak vector;
+    #     one-backslash-only rule misses the doubled form entirely — a real leak vector;
     #   - the {2,40} minimum is what still rejects `db:\n\nEvery ...`, a JSON-escaped newline in a
     #     docstring.  A lone escape letter is one char; a directory name is not.  Without it the
     #     guard blocks every write to context/arch/nodes.json forever.
@@ -55,9 +61,12 @@ PATTERNS = [
     ('drive-absolute', re.compile(r'/{1,2}[a-zA-Z]/(?:Users|Data|home)/', re.I)),
     ('home-absolute',  re.compile(r'/(?:home|Users)/[A-Za-z0-9._-]+')),
     ('unc-share',      re.compile(r'\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]+')),
-    # A bare session UUID: how scratchpad/transcript paths identify one run of one machine.
-    ('session-id',     re.compile(r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-'
-                                  r'[0-9a-f]{4}-[0-9a-f]{12}\b', re.I)),
+    # A session UUID used as a PATH SEGMENT — how scratchpad/transcript paths name one run on one
+    # machine.  The leading separator is required: a bare UUID is an identifier, not a location,
+    # and every memory's `originSessionId:` frontmatter is one.  Matching those would block every
+    # write to the memory store, which is the thing this guard most needs to protect.
+    ('session-id',     re.compile(r'[\\/][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-'
+                                  r'[0-9a-f]{4}-[0-9a-f]{12}(?:[\\/]|\b)', re.I)),
 ]
 
 # The username, resolved at runtime and never stored in this file.  Guarded against absurd

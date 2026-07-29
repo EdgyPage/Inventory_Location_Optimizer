@@ -1,0 +1,8 @@
+- [Commit on develop](commit-directly-to-main.md) — day-to-day commits on develop; main stays default but curated via squash-merge
+- [nbstripout filter](nbstripout-filter.md) — notebooks output-stripped on commit; run `nbstripout --install` per clone
+- [GPU broker dormant](gpu-broker-dormant-not-for-placement.md) — GPU broker is validated infra with no consumer; don't GPU-accelerate placement (calc already reduced away, greedy stays CPU)
+- [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (both full 34-arm suite as of 2026-07-08; arm subsets live in strategies.CHANNEL_RESTOCKS); combine best plans with run_channel_rollup.py
+- [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — perf_simulation._build_inventory orders lack reorder_point; set it to 0 to actually exercise reorder-time placement
+- [Results drive location](results-drive-location.md) — run outputs live on F: (not D:); sim_meta.json inv_db points at a stale H: path
+- [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — approved multi-phase plan (one-way travel model + velocity zoning toggle + throughput scatter); picker position persists across tasks (Pick.py); fast_pick.py is the production sim (four-way lockstep)
+- [No \uXXXX in heredoc Python](no-unicode-escapes-in-heredoc-python.md) — escapes land as literal text in files.yml and break catalog idempotency; paste the real char or use Edit
