@@ -13,9 +13,22 @@ version: 1
 #     `members` override; `except` carves sub-trees out).  Used for BOUNDARY + the catalog.
 layers:
   - {name: leaf,           members: [Warehouse/physical.py]}          # dependency-free primitive
+  # --- Warehouse domain packages (longest match wins, so these beat "Warehouse/") -----------
+  - {name: wh_kernel,      match: "Warehouse/kernel/"}                # zero-dependency value objects
+  - {name: wh_layout,      match: "Warehouse/layout/"}                # physical geometry
+  - {name: wh_catalog,     match: "Warehouse/catalog/"}               # SKUs + demand
+  - {name: wh_inventory,   match: "Warehouse/inventory/"}             # the placement engine
+  - {name: wh_placement,   match: "Warehouse/placement/"}             # the assignment functions
+  - {name: wh_picking,     match: "Warehouse/picking/"}               # the pick simulations
   - {name: warehouse_core, match: "Warehouse/",
      except: ["Warehouse/generation/", "Warehouse/physical.py"]}      # the domain engine
   - {name: generation,     match: "Warehouse/generation/"}            # data-gen CLIs
+  # --- Optimization run-harness packages ---------------------------------------------------
+  - {name: opt_config,      match: "Optimization/config/"}            # CONFIG + the sweeps
+  - {name: opt_persistence, match: "Optimization/persistence/"}       # SQLite read/write
+  - {name: opt_metrics,     match: "Optimization/metrics/"}           # events -> numbers
+  - {name: opt_runschema,   match: "Optimization/runschema/"}         # the run-tree contract
+  - {name: opt_simdriver,   match: "Optimization/simdriver/"}         # orchestration
   - {name: optimization,   match: "Optimization/",
      except: ["Optimization/Performance_Evaluations/", "Optimization/gpu/"]}   # run harness
   - {name: evaluations,    match: "Optimization/Performance_Evaluations/"}     # analysis/plots
@@ -36,6 +49,22 @@ boundaries:
   - {forbid: [warehouse_core, visualization],why: "domain engine must not import the viewer"}
   - {forbid: [warehouse_core, gpu],          why: "core stays CPU-only; GPU is an optional add-on"}
   - {forbid: [leaf, "*"],                    why: "physical.py is a dependency-free leaf"}
+
+  # --- Package-level invariants: what keeps the 2026-07 restructure from re-sprawling.
+  #     Each was checked against graph.json BEFORE being asserted (a forbid that is already
+  #     violated fails immediately), so none of these is aspirational.
+  - {forbid: [wh_kernel, "*"],               why: "kernel is zero-dependency: cost_model/regime are imported by everything and may import nothing"}
+  - {forbid: [wh_layout, wh_inventory],      why: "geometry is a primitive; the placement engine builds on it, not the reverse"}
+  - {forbid: [wh_layout, wh_placement],      why: "geometry must not know which assignment function chose a bin"}
+  - {forbid: [wh_layout, wh_picking],        why: "geometry must not depend on the pick simulation"}
+  - {forbid: [wh_catalog, wh_inventory],     why: "what a SKU IS must not depend on where it is placed"}
+  - {forbid: [wh_catalog, wh_placement],     why: "the catalogue must not depend on the assignment functions"}
+  - {forbid: [opt_persistence, opt_config],  why: "persistence is a leaf: a worker saves results without dragging CONFIG into its process"}
+  - {forbid: [opt_persistence, opt_simdriver], why: "storing results must not depend on orchestration"}
+  - {forbid: [opt_persistence, opt_runschema], why: "DB IO must not depend on run-tree path resolution"}
+  - {forbid: [opt_persistence, opt_metrics], why: "persistence stores numbers; it must not compute them"}
+  - {forbid: [opt_metrics, opt_simdriver],   why: "metrics are computed from events, independent of who ran them"}
+  - {forbid: [opt_metrics, opt_config],      why: "metrics must not depend on the run's tuning knobs"}
 
 # --- Backbone: the caller->callee edges that define the system's call structure.  SCOPE
 #     asserts each exists in graph.json (via = edge kind: calls | ref | dispatch).

@@ -257,7 +257,7 @@ files:
     notes: ""
   "Optimization/config/channels.py":
     purpose: "the Channel abstraction: one operation over a shared warehouse."
-    layer: "optimization"
+    layer: "opt_config"
     key_symbols:
       - {name: "PickerProfile", file: "Optimization/config/channels.py", kind: "class"}
       - {name: "Channel", file: "Optimization/config/channels.py", kind: "class"}
@@ -269,7 +269,7 @@ files:
     notes: ""
   "Optimization/config/sim_config.py":
     purpose: "the run's single source of tunable truth."
-    layer: "optimization"
+    layer: "opt_config"
     key_symbols:
       - {name: "STORE_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
       - {name: "FULFILLMENT_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
@@ -284,7 +284,7 @@ files:
     notes: ""
   "Optimization/config/strategies.py":
     purpose: "data-driven registry of placement (assignment) strategies."
-    layer: "optimization"
+    layer: "opt_config"
     key_symbols:
       - {name: "StrategyContext", file: "Optimization/config/strategies.py", kind: "class"}
       - {name: "Strategy", file: "Optimization/config/strategies.py", kind: "class"}
@@ -293,7 +293,7 @@ files:
     notes: ""
   "Optimization/config/whatif_config.py":
     purpose: "Experiment definition for `run_simulation --whatif`: the aisle-reconstruction \u00d7 velocity-zoning"
-    layer: "optimization"
+    layer: "opt_config"
     key_symbols:
       - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -338,7 +338,7 @@ files:
     notes: ""
   "Optimization/metrics/Simulation_Analytics.py":
     purpose: "per-batch and per-task statistics from PickSimulation events."
-    layer: "optimization"
+    layer: "opt_metrics"
     key_symbols:
       - {name: "sum_lift", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "avg_concurrent_pickers", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
@@ -359,7 +359,7 @@ files:
     notes: ""
   "Optimization/metrics/Workload.py":
     purpose: "analytical per-aisle workload (W) model (WorkloadParams + aisle_workload) mirroring the sim's pick-cost primitives."
-    layer: "optimization"
+    layer: "opt_metrics"
     key_symbols:
       - {name: "WorkloadParams", file: "Optimization/metrics/Workload.py", kind: "class"}
       - {name: "aisle_workload_components", file: "Optimization/metrics/Workload.py", kind: "function"}
@@ -367,7 +367,7 @@ files:
     notes: ""
   "Optimization/persistence/Picking_Data.py":
     purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
-    layer: "optimization"
+    layer: "opt_persistence"
     key_symbols:
       - {name: "PickRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "AisleMetricRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
@@ -402,7 +402,7 @@ files:
     notes: ""
   "Optimization/persistence/Warehouse_Data.py":
     purpose: "SQLite persistence for warehouse sizing stats and aisle distributions."
-    layer: "optimization"
+    layer: "opt_persistence"
     key_symbols:
       - {name: "compute_warehouse_fingerprint", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
       - {name: "init_warehouse_db", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
@@ -411,7 +411,7 @@ files:
     notes: ""
   "Optimization/persistence/runtime_metrics.py":
     purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
-    layer: "optimization"
+    layer: "opt_persistence"
     key_symbols:
       - {name: "RUNTIME_DB", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "SECTIONS", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
@@ -464,7 +464,7 @@ files:
     notes: ""
   "Optimization/runschema/contract.py":
     purpose: "Derives, stores and diffs CONTENT-ADDRESSED run-tree contracts: schema_id is the sha256 of the declaration\u2019s own shape (prose and the id itself excluded), documents are immutable and named by that hash, and INDEX.json holds the mutable side \u2014 head pointer, source-change fingerprint and the parent chain that restores the ordering hashes lack."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "SHORT_LEN", file: "Optimization/runschema/contract.py", kind: "const"}
       - {name: "SHAPE_SOURCES", file: "Optimization/runschema/contract.py", kind: "const"}
@@ -486,13 +486,13 @@ files:
     notes: ""
   "Optimization/runschema/hook_check.py":
     purpose: "Advisory Stop-hook backstop (.claude/settings.json): compares source + contract fingerprints and prints a one-line nag when the output tree may have moved. Never runs a canary, always exits 0."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "main", file: "Optimization/runschema/hook_check.py", kind: "function"}
     notes: ""
   "Optimization/runschema/preflight.py":
     purpose: "Proves the run-tree contract BEFORE a simulation: detects shape-defining source changes, runs two tiny canary sims (mixed 2-cell + store-only 1-cell, so optional levels are exercised both ways), validates the produced tree against the committed contract, and on a real change scaffolds the next version and rewrites the downstream orchestrator files."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "SKIP_ENV", file: "Optimization/runschema/preflight.py", kind: "const"}
       - {name: "CANARY_ARGS", file: "Optimization/runschema/preflight.py", kind: "const"}
@@ -509,7 +509,7 @@ files:
     notes: ""
   "Optimization/runschema/resolver.py":
     purpose: "The ONE generic resolver: RunTree interprets ANY contract document, so there is no per-schema Python. Renders path templates (optional {name?} segments, globs), inverts the sim_db template to recover an arm, follows `resolves_via` candidate lists, and queries by `group` \u2014 everything that used to be hardcoded per version."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "SUPPORTED_FEATURES", file: "Optimization/runschema/resolver.py", kind: "const"}
       - {name: "render", file: "Optimization/runschema/resolver.py", kind: "function"}
@@ -517,7 +517,7 @@ files:
     notes: ""
   "Optimization/runschema/runlayout.py":
     purpose: "single owner of the on-disk run-tree layout."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "discover_db_pairs", file: "Optimization/runschema/runlayout.py", kind: "function"}
       - {name: "find_latest_db_pairs", file: "Optimization/runschema/runlayout.py", kind: "function"}
@@ -528,7 +528,7 @@ files:
     notes: ""
   "Optimization/runschema/schema.py":
     purpose: "THE DECLARATION of the run tree and the only file to edit when the tree changes \u2014 FEATURES (template vocabulary), LEVELS (ordered directory levels, channel optional) and ARTIFACTS (path templates). Carries no version number: its sha256 IS the schema id."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "FEATURES", file: "Optimization/runschema/schema.py", kind: "const"}
       - {name: "ROOT_PREFIXES", file: "Optimization/runschema/schema.py", kind: "const"}
@@ -539,7 +539,7 @@ files:
     notes: ""
   "Optimization/runschema/sim_manifest.py":
     purpose: "run bookkeeping artifacts."
-    layer: "optimization"
+    layer: "opt_runschema"
     key_symbols:
       - {name: "write_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
@@ -589,7 +589,7 @@ files:
     notes: ""
   "Optimization/simdriver/batch_precompute.py":
     purpose: "compute each warehouse family's batch sequence ONCE and share it."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols:
       - {name: "batch_fingerprint", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "precompute_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
@@ -599,23 +599,23 @@ files:
     notes: ""
   "Optimization/simdriver/cells.py":
     purpose: "What-if cell matrix \u2014 build/apply/inspect cells (aisle-split x zoning x scheduler over one frozen inventory); _apply_cell mutates the shared CONFIG in place."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols: []
     notes: ""
   "Optimization/simdriver/scenario.py":
     purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols: []
     notes: ""
   "Optimization/simdriver/sim_assets.py":
     purpose: "per-pair shared-asset construction for a run."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols:
       - {name: "build_shared_assets", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/strategy_runner.py":
     purpose: "concurrent strategy worker for run_simulation.py."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols:
       - {name: "save_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
@@ -623,12 +623,12 @@ files:
     notes: ""
   "Optimization/simdriver/supervisor.py":
     purpose: "Crash-recovery pool driver + finalize gate \u2014 flat ProcessPoolExecutor lifetime, isolate per-unit failures, rebuild+resubmit on BrokenProcessPool up to max_retries, finalize a group only when every arm succeeded."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols: []
     notes: ""
   "Optimization/simdriver/workunits.py":
     purpose: "Plan the per-strategy flat-pool work units \u2014 shared assets + batches + resume-aware start planning + the picklable strategy_args shipped to each worker (parent-process only)."
-    layer: "optimization"
+    layer: "opt_simdriver"
     key_symbols: []
     notes: ""
   "Tests/architecture/test_archgraph_extract.py":
@@ -1366,20 +1366,20 @@ files:
     notes: ""
   "Warehouse/catalog/Affinity_Store.py":
     purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."
-    layer: "warehouse_core"
+    layer: "wh_catalog"
     key_symbols:
       - {name: "AffinityStore", file: "Warehouse/catalog/Affinity_Store.py", kind: "class"}
     notes: ""
   "Warehouse/catalog/Demand.py":
     purpose: "per-SKU demand model (relative pick frequency + quantity rate) with Knuth-Poisson quantity sampling."
-    layer: "warehouse_core"
+    layer: "wh_catalog"
     key_symbols:
       - {name: "poisson_sample", file: "Warehouse/catalog/Demand.py", kind: "function"}
       - {name: "Demand", file: "Warehouse/catalog/Demand.py", kind: "class"}
     notes: ""
   "Warehouse/catalog/Inventory_Builder.py":
     purpose: "builds the SKU catalog: InventoryConfig + Inventory (within-group affinity matrix) via Inventory_Builder."
-    layer: "warehouse_core"
+    layer: "wh_catalog"
     key_symbols:
       - {name: "InventoryConfig", file: "Warehouse/catalog/Inventory_Builder.py", kind: "class"}
       - {name: "Inventory", file: "Warehouse/catalog/Inventory_Builder.py", kind: "class"}
@@ -1387,7 +1387,7 @@ files:
     notes: ""
   "Warehouse/catalog/Order.py":
     purpose: "the Order (SKU) model: sampled physical dims/weight, per-unit labor cost, and demand attributes."
-    layer: "warehouse_core"
+    layer: "wh_catalog"
     key_symbols:
       - {name: "Order", file: "Warehouse/catalog/Order.py", kind: "class"}
     notes: ""
@@ -1464,13 +1464,13 @@ files:
     notes: ""
   "Warehouse/inventory/Inventory_Management.py":
     purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."
-    layer: "warehouse_core"
+    layer: "wh_inventory"
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_common.py":
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
-    layer: "warehouse_core"
+    layer: "wh_inventory"
     key_symbols:
       - {name: "Placement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "LoadParams", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
@@ -1480,25 +1480,25 @@ files:
     notes: ""
   "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."
-    layer: "warehouse_core"
+    layer: "wh_inventory"
     key_symbols:
       - {name: "OptimalLayoutMixin", file: "Warehouse/inventory/inventory_optimal.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_planning.py":
     purpose: "warehouse sizing/sampling (pre-instantiation)."
-    layer: "warehouse_core"
+    layer: "wh_inventory"
     key_symbols:
       - {name: "PlanningMixin", file: "Warehouse/inventory/inventory_planning.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_reorder.py":
     purpose: "churn counters, reload primitive, pick notifications, and"
-    layer: "warehouse_core"
+    layer: "wh_inventory"
     key_symbols:
       - {name: "ReorderMixin", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
     notes: ""
   "Warehouse/kernel/cost_model.py":
     purpose: "single source of truth for the pick-cost primitives."
-    layer: "warehouse_core"
+    layer: "wh_kernel"
     key_symbols:
       - {name: "height_multiplier", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "TRANSFORMS", file: "Warehouse/kernel/cost_model.py", kind: "const"}
@@ -1512,13 +1512,13 @@ files:
     notes: ""
   "Warehouse/kernel/regime.py":
     purpose: "storage-regime identity (store vs fulfillment)."
-    layer: "warehouse_core"
+    layer: "wh_kernel"
     key_symbols:
       - {name: "regime_of", file: "Warehouse/kernel/regime.py", kind: "function"}
     notes: ""
   "Warehouse/layout/Aisle_Dimensions.py":
     purpose: "physical dimension helpers for warehouse aisle layout."
-    layer: "warehouse_core"
+    layer: "wh_layout"
     key_symbols:
       - {name: "aisle_width_for", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
       - {name: "aisle_height_for", file: "Warehouse/layout/Aisle_Dimensions.py", kind: "function"}
@@ -1530,13 +1530,13 @@ files:
     notes: ""
   "Warehouse/layout/Aisle_Storage.py":
     purpose: "the Aisle storage model: an aisle and its physical Bins (grid location, centre geometry, occupancy)."
-    layer: "warehouse_core"
+    layer: "wh_layout"
     key_symbols:
       - {name: "Aisle", file: "Warehouse/layout/Aisle_Storage.py", kind: "class"}
     notes: ""
   "Warehouse/layout/Storage_Primitive.py":
     purpose: "storage-unit primitives: size/type taxonomy, Pallet/Singleton/FulfillmentBin units and carts, cached fit/packing."
-    layer: "warehouse_core"
+    layer: "wh_layout"
     key_symbols:
       - {name: "T", file: "Warehouse/layout/Storage_Primitive.py", kind: "const"}
       - {name: "Storage_Size", file: "Warehouse/layout/Storage_Primitive.py", kind: "class"}
@@ -1552,7 +1552,7 @@ files:
     notes: ""
   "Warehouse/layout/Warehouse_Builder.py":
     purpose: "the Warehouse model + builder: AisleConfig/WarehouseConfig specs assembled into a Warehouse of aisles and bins."
-    layer: "warehouse_core"
+    layer: "wh_layout"
     key_symbols:
       - {name: "AisleConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "WarehouseConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
@@ -1566,7 +1566,7 @@ files:
     notes: ""
   "Warehouse/picking/Pick.py":
     purpose: "the pick-simulation core: PickConfig + PickEvent/PickerProgress + PickSimulation over batched tasks."
-    layer: "warehouse_core"
+    layer: "wh_picking"
     key_symbols:
       - {name: "PickConfig", file: "Warehouse/picking/Pick.py", kind: "class"}
       - {name: "PickEvent", file: "Warehouse/picking/Pick.py", kind: "class"}
@@ -1577,7 +1577,7 @@ files:
     notes: ""
   "Warehouse/picking/Workload_Builder.py":
     purpose: "the workload/batch builder: samples affinity- and demand-weighted picking Batches of Tasks."
-    layer: "warehouse_core"
+    layer: "wh_picking"
     key_symbols:
       - {name: "BatchConfig", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
       - {name: "Batch", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
@@ -1585,13 +1585,13 @@ files:
     notes: ""
   "Warehouse/picking/fast_pick.py":
     purpose: "Two-phase deferred-mutation pick simulation."
-    layer: "warehouse_core"
+    layer: "wh_picking"
     key_symbols:
       - {name: "DeferredPickSimulation", file: "Warehouse/picking/fast_pick.py", kind: "class"}
     notes: ""
   "Warehouse/placement/Assignment_Functions.py":
     purpose: "placement (assignment) functions."
-    layer: "warehouse_core"
+    layer: "wh_placement"
     key_symbols:
       - {name: "build_load_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_load_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
@@ -1614,7 +1614,7 @@ files:
     notes: ""
   "Warehouse/placement/Capacity_Reloader.py":
     purpose: "bounded re-slot via evict-and-requeue."
-    layer: "warehouse_core"
+    layer: "wh_placement"
     key_symbols:
       - {name: "demote_unpopular", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
       - {name: "promote_popular", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
