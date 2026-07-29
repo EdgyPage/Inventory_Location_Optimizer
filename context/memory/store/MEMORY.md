@@ -1,5 +1,5 @@
-- [Commit on develop](commit-directly-to-main.md) — day-to-day commits on develop; main stays default but curated via squash-merge
-- [nbstripout filter](nbstripout-filter.md) — notebooks output-stripped on commit; run `nbstripout --install` per clone
+- [Commit on develop](commit-on-develop.md) — why day-to-day commits live on develop and main is curated (the rule itself is CLAUDE.md §5)
+- [nbstripout filter](nbstripout-filter.md) — the filter is silently inactive in a fresh clone, and stripped notebooks show no outputs on GitHub (not broken — re-run locally)
 - [GPU broker dormant](gpu-broker-dormant-not-for-placement.md) — GPU broker is validated infra with no consumer; don't GPU-accelerate placement (calc already reduced away, greedy stays CPU)
 - [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (both full 34-arm suite as of 2026-07-08; arm subsets live in strategies.CHANNEL_RESTOCKS); combine best plans with run_channel_rollup.py
 - [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — perf_simulation._build_inventory orders lack reorder_point; set it to 0 to actually exercise reorder-time placement

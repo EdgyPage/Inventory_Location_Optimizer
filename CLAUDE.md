@@ -110,8 +110,14 @@ re-resolved** — grep `context/files.yml` or use `git log --follow`.
 
 ## 5. Git, paths, and memory
 
-- Day-to-day commits go on **`develop`**. No feature branches or PRs unless asked; `main` is curated
-  via squash-merge at milestones. Maintainer agents do not commit — they leave a working tree.
+- Day-to-day commits go on **`develop`**. No feature branches or PRs unless asked; `main` is the
+  GitHub default but is curated, updated only at milestones via squash-merge. Do not commit to
+  `main` directly.
+- **Stage only the files the request touches** — never bundle unrelated config or formatting tweaks
+  into someone else's commit.
+- **Do not push unless asked.** Committing is routine here; publishing is not.
+- Maintainer agents (`architecture-`, `context-`, `memory-maintainer`) do not commit at all — they
+  leave their changes in the working tree for review.
 - **Never write a machine-local path into a tracked file or a memory** — no drive-letter absolutes,
   no home-directory absolutes, no username, no scratchpad path. Name the `.env` key
   (`COMPARISON_OUTPUT_DIR`, `PROFILE_INPUT_DIR`) or use a `~/`-relative form. Enforced by
