@@ -61,6 +61,22 @@ SPECS = {
     },
     # The committed picker-scheduler A/B sweep (round_robin vs lpt over the full arm suite).
     'scheduler_ab': WHATIF,
+    # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
+    # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one
+    # restock rule = 2 arms per cell instead of 34.  Not for analysis — runschema.preflight runs it
+    # into a temp dir to prove the on-disk tree shape before a real simulation.
+    '_canary_sweep': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['round_robin', 'lpt'], 'arms': ('fifo',), 'reference': 'k1_off_rr',
+    },
+    # The other half of the preflight pair: ONE cell, so `_frozen/` and the cross-cell what-if
+    # outputs are absent.  Paired with a store-only catalog it also proves the `<channel>` level is
+    # absent — the optionality that the `len(rel) < 4` relpath bugs used to get wrong.  Same
+    # single-cell shape as 'single', but pinned to one restock rule (2 arms, not 34).
+    '_canary_single': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['round_robin'], 'arms': ('fifo',), 'reference': 'k1_off',
+    },
 }
 
 

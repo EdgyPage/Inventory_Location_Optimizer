@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_collapse_channel_variants · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_preflight_py___collapse_channel_variants" data-id="Optimization/runschema/preflight.py::_collapse_channel_variants">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_preflight_py.html"><code>Optimization/runschema/preflight.py</code></a> <span class="sep">›</span> <span class="here"><code>_collapse_channel_variants</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_collapse_channel_variants</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema_preflight_py.html"><code>Optimization/runschema/preflight.py</code></a></p>
+
+<pre class="sig"><code>def _collapse_channel_variants(undeclared: dict[str, str]) -&gt; dict[str, str]</code></pre>
+<section class="doc">Fold `…/{channel}/x` + `…/x` into one `…/{channel?}/x` entry.
+
+The two canaries observe the SAME artifact under both shapes — mixed catalogs put it under a
+channel dir, store-only ones don&#x27;t.  Emitting two scaffold entries would hard-code exactly the
+&quot;channel is always there&quot; assumption this whole package exists to prevent, so an artifact seen
+in both shapes becomes one required entry with an optional segment.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_preflight_py__scaffold_next_version.html"><code>scaffold_next_version</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_preflight_py___collapse_channel_variants">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/preflight.py#:~:text=def%20_collapse_channel_variants">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -40,8 +40,18 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
     cells: explicit [cell_name, …] from the driver (avoids re-scanning); else discovered from disk.
     reference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).
     """
-    cell_items = ([(c, os.path.join(base_dir, c)) for c in cells] if cells is not None
-                  else list(runlayout.cells(base_dir)))
+    # Cell list: the driver's own (avoids a re-scan), else the versioned resolver.  A run whose
+    # descriptor is unreadable (pre-v1) falls back to the raw walker so an old tree still analyzes.
+    if cells is not None:
+        cell_items = [(c, os.path.join(base_dir, c)) for c in cells]
+    else:
+        try:
+            from Optimization.runschema import resolver_for
+            cell_items = resolver_for(base_dir).cells()
+        except Exception as exc:                                   # noqa: BLE001
+            log.warning(f'  analyze_run: no usable run-tree descriptor ({exc!r}); '
+                        f'falling back to the structural walk')
+            cell_items = list(runlayout.cells(base_dir))
     if not cell_items:
         log.warning(f'  analyze_run: no cells found under {base_dir}')
         return
@@ -89,7 +99,8 @@ def main(argv=None):
     ap.add_argument('--workers', type=int, default=1, help='per-cell analysis pool size')
     ap.add_argument('--preset', default='BY_INITIAL', help='run_analysis preset')
     args = ap.parse_args(argv)
-    base_dir = args.base_dir if os.path.isabs(args.base_dir) else os.path.join(_OUTPUT_DIR, args.base_dir)
+    from Optimization.runschema import resolve_base_dir
+    base_dir = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base_dir):
         sys.exit(f'Directory not found: {base_dir}')
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))

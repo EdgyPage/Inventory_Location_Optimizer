@@ -46,16 +46,24 @@ def _ro(path: str) -> sqlite3.Connection:
 
 @dataclass
 class RunRef:
-    id: str            # stable id: "<pair>/<config>/<strategy>"
+    id: str            # stable id: "<cell>/<pair>/<config>[/<channel>]/<strategy>"
     label: str
-    pair: str
-    config: str
-    strategy: str
+    cell: str          # what-if cell (aisle-split × zoning × scheduler)
+    pair: str          # the warehouse (inventory+affinity pair label)
+    config: str        # pick-config
+    channel: str | None  # 'store' | 'fulfillment'; None on a store-only tree (no channel level)
+    strategy: str      # the assignment-function arm
     sim_db: str
     warehouse_db: str
     keyframe_db: str
     run_id: int
     n_batches: int
+
+    @property
+    def axis_values(self) -> dict:
+        """This run's coordinate on every navigation axis — what the UI filters on."""
+        return {'cell': self.cell, 'pair': self.pair, 'config': self.config,
+                'channel': self.channel, 'strategy': self.strategy}
 
 
 def _nearest_warehouse_db(sim_db: str) -> str | None:
@@ -117,20 +125,33 @@ def _read_run_meta(sim_db: str) -> dict | None:
 
 
 def discover_runs(base_dir: str) -> list[RunRef]:
-    """Walk <base>/<pair>/<config>[/<channel>]/sim_*.db and return one RunRef per
-    strategy run (the layout walk lives in Optimization.runlayout).
+    """One RunRef per strategy run across the WHOLE run tree, via the versioned resolver.
 
-    Rename-proof: the strategy/pair/config labels come from the DB's stored identity
-    (falling back to the file/dir names for older runs), and each run's warehouse.db is
-    matched by warehouse_fingerprint (falling back to the nearest warehouse.db by path).
-    Mixed-catalog runs surface with the channel folded into the config label
-    (e.g. 'store_high_weight/fulfillment') so store-only ids are unchanged."""
-    from Optimization.runlayout import iter_sim_dbs
+    base_dir is the RUN ROOT.  This previously called the per-CELL walker
+    (``iter_sim_dbs(base_dir)``) at the run root, so every cell-matrix run — i.e. every run since
+    the cell refactor — surfaced ZERO runs in the viewer.  ``runschema.resolver_for`` reads the
+    run's own ``run_layout.json`` and spans all its cells.
+
+    Rename-proof: strategy/pair/config labels come from the DB's stored identity (falling back to
+    the file/dir names), and each run's warehouse.db is matched by warehouse_fingerprint (falling
+    back to the nearest warehouse.db by path).  The CELL, however, exists only in the path —
+    sim_*.db has no cell column — so it always comes from the resolver.
+    """
     runs: list[RunRef] = []
     if not os.path.isdir(base_dir):
         return runs
+    try:
+        from Optimization.runschema import resolver_for
+        rt = resolver_for(base_dir)
+        walk = rt.sim_dbs()
+    except Exception:                                # noqa: BLE001 - unresolvable/pre-v1 tree
+        # Last resort so a bare cell directory still opens: walk it as a single implicit cell.
+        from Optimization.runlayout import iter_sim_dbs
+        cell = os.path.basename(os.path.abspath(base_dir).rstrip('/\\'))
+        walk = ((cell, cr, db) for cr, db in iter_sim_dbs(base_dir))
+
     fp_index = _warehouse_fp_index(base_dir)
-    for cr, sim_db in iter_sim_dbs(base_dir):
+    for cell, cr, sim_db in walk:
         fn = os.path.basename(sim_db)
         meta = _read_run_meta(sim_db)
         if meta is None:
@@ -138,17 +159,17 @@ def discover_runs(base_dir: str) -> list[RunRef]:
         strategy = meta['strategy_key'] or fn[4:-3]
         pair_lbl = meta['pair_label'] or cr.pair
         cfg_lbl  = meta['config_label'] or cr.config
-        if cr.channel:
-            cfg_lbl = f'{cfg_lbl}/{cr.channel}'
         wh = (fp_index.get(meta['warehouse_fingerprint'])
               or _nearest_warehouse_db(sim_db))
         if not wh:
             continue
         kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
+        chan = cr.channel
+        rid = '/'.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p)
+        label = ' · '.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p)
         runs.append(RunRef(
-            id=f'{pair_lbl}/{cfg_lbl}/{strategy}',
-            label=f'{pair_lbl} · {cfg_lbl} · {strategy}',
-            pair=pair_lbl, config=cfg_lbl, strategy=strategy,
+            id=rid, label=label,
+            cell=cell, pair=pair_lbl, config=cfg_lbl, channel=chan, strategy=strategy,
             sim_db=sim_db, warehouse_db=wh,
             keyframe_db=kf if os.path.exists(kf) else '',
             run_id=meta['run_id'], n_batches=meta['n_batches'],
@@ -156,9 +177,46 @@ def discover_runs(base_dir: str) -> list[RunRef]:
     return runs
 
 
+# The navigation axes the viewer builds its cascading selectors from.  Order = selector order:
+# warehouse -> warehouse type -> pick config -> cell -> assignment function.
+NAV_AXES = ('pair', 'channel', 'config', 'cell', 'strategy')
+
+AXIS_LABELS = {
+    'pair'    : 'Warehouse',
+    'channel' : 'Warehouse type',
+    'config'  : 'Pick config',
+    'cell'    : 'Layout / scheduler cell',
+    'strategy': 'Assignment function',
+}
+
+
+def run_index(base_dir: str) -> dict:
+    """{schema_version, axes, axis_labels, runs} — the whole navigation contract for the UI.
+
+    `axes` holds the distinct values actually present, so the front end never hardcodes a level.
+    A store-only run yields `channel: []`; the UI should HIDE that selector rather than invent a
+    value, which is the same optionality the run-tree contract declares.
+    """
+    runs = discover_runs(base_dir)
+    version = None
+    try:
+        from Optimization.runschema import resolver_for
+        version = resolver_for(base_dir).version
+    except Exception:                                # noqa: BLE001
+        pass
+    axes = {a: sorted({getattr(r, a) for r in runs if getattr(r, a)}) for a in NAV_AXES}
+    return {
+        'schema_version': version,
+        'axes': axes,
+        'axis_order': list(NAV_AXES),
+        'axis_labels': AXIS_LABELS,
+        'runs': [{'id': r.id, 'label': r.label, 'n_batches': r.n_batches, **r.axis_values}
+                 for r in runs],
+    }
+
+
 def run_summaries(base_dir: str) -> list[dict]:
-    return [{'id': r.id, 'label': r.label, 'pair': r.pair, 'config': r.config,
-             'strategy': r.strategy, 'n_batches': r.n_batches} for r in discover_runs(base_dir)]
+    return run_index(base_dir)['runs']
 
 
 # ── geometry ─────────────────────────────────────────────────────────────────────

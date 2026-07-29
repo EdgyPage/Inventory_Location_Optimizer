@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>resolver_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema___init___py__resolver_for" data-id="Optimization/runschema/__init__.py::resolver_for">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema___init___py.html"><code>Optimization/runschema/__init__.py</code></a> <span class="sep">›</span> <span class="here"><code>resolver_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>resolver_for</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_runschema___init___py.html"><code>Optimization/runschema/__init__.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def resolver_for(base_dir: str)</code></pre>
+<section class="doc">Return the resolver matching the run&#x27;s own ``run_layout.json`` ``schema_version``.
+
+Raises UnsupportedRunTree when the descriptor is missing (a pre-v1 run) or names a version this
+build doesn&#x27;t know — a loud failure is the point.  Silently guessing the layout is what made
+every downstream tool drift in the first place.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema___init___py__UnsupportedRunTree.html"><code>UnsupportedRunTree</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_sim_manifest_py__read_run_layout.html"><code>read_run_layout</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(7)</span></h2><ul><li><a href="nOptimization_analyze_run_py__analyze_run.html"><code>analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_run_whatif_delta_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li><li><a href="nVisualization_db_reader_py__discover_runs.html"><code>discover_runs</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py__run_index.html"><code>run_index</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_server_py__api_schema.html"><code>api_schema</code></a> <span class="dim">Visualization/server.py</span></li><li><a href="ndocs_experiments_ingest_py___cells_of.html"><code>_cells_of</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema___init___py__resolver_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/__init__.py#:~:text=def%20resolver_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

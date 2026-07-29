@@ -290,8 +290,8 @@ def main() -> None:
     except Exception:
         pass
 
-    base_dir = (args.base_dir if os.path.isabs(args.base_dir)
-                else os.path.join(_OUTPUT_DIR, args.base_dir))
+    from Optimization.runschema import resolve_base_dir
+    base_dir = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base_dir):
         sys.exit(f'Directory not found: {base_dir}')
 

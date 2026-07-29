@@ -132,7 +132,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='Runtime (compute-cost) graphs from runtime_metrics.db.')
     ap.add_argument('run_root')
     args = ap.parse_args(argv)
-    root = args.run_root if os.path.isabs(args.run_root) else os.path.join(_OUTPUT_DIR, args.run_root)
+    from Optimization.runschema import resolve_base_dir
+    root = resolve_base_dir(args.run_root)
     if not os.path.exists(runtime_db_path(root)):
         raise SystemExit(f'no {RUNTIME_DB} in {root}')
     run(root)

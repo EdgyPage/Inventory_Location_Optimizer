@@ -1,7 +1,7 @@
 # context/ — machine-parsable flow + artifact specs
 
-last-synced-commit: 343c98f1d04373bc4c323e74ae2266714103f6e5  <!-- updated by the context-maintainer agent after each sync -->
-arch-synced-commit: 876f429edb04fc4ca14b2faac70e35e91d7582fc  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/) -->
+last-synced-commit: 8b809e5568662d14b3ddf2eb4f388582d8f99c7b  <!-- updated by the context-maintainer agent after each sync -->
+arch-synced-commit: 8b809e5568662d14b3ddf2eb4f388582d8f99c7b  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/) -->
 
 Verifiable documentation of the pipeline's code flow, designed for BOTH humans and
 downstream design programs (the MkDocs results site, Claude Design). Every
@@ -20,6 +20,31 @@ these files incrementally after commits.
 | `arch/graph.json` + `arch/nodes.json` | DERIVED truth: the call/import graph + per-node signatures/docstrings, extracted from source (regenerable) |
 | `files.yml` | the file catalog: every source + test file's purpose, layer, key symbols, notes |
 | `docs/architecture/**` | the generated static HTML code-map suite (per-node/-file pages, ego-graph explorer, layer/catalog/inefficiency hubs); `arch/site_manifest.json` pins it |
+
+Related, and verified the same way but living outside `context/`:
+`Optimization/schemas/run_tree.v<N>.json` — the VERSIONED contract for a run's on-disk directory
+tree (see below). `artifacts.yml`'s `path_pattern`s are kept in step with it.
+
+## Run-tree contract layer (Optimization/runschema/)
+
+`artifacts.yml` documents artifacts for humans; `Optimization/runschema/` makes the tree
+RESOLVABLE by code. `runschema/v<N>.py` holds the declarative `LEVELS` + `ARTIFACTS` tables and the
+`RunTreeV<N>` resolver; `runschema/contract.py` generates `Optimization/schemas/run_tree.v<N>.json`
+from them (committed, so the JS viewer and notebooks read the same contract). A run stamps
+`schema_version` into its `run_layout.json`, and `runschema.resolver_for(run_root)` selects the
+matching resolver — so an OLD run stays analyzable after the tree shape moves on.
+
+Two levels are CONDITIONAL and must be handled both ways: `<channel>/` exists only on a mixed
+catalog, and `_frozen/<pair>/` only on a multi-cell run. Assuming otherwise is what silently
+dropped every store-only run from the what-if scanners.
+
+`runschema/preflight.py` keeps the contract honest and runs automatically at the front of
+`run_simulation.py` (skip with `--no-preflight`). It compares source fingerprints first — free
+unless something shape-defining changed — then proves the shape with two tiny canary runs (mixed
+2-cell + store-only 1-cell, so both forms of each optional level appear), and on a real change
+scaffolds `v<N+1>.py` and rewrites the downstream orchestrator files (`artifacts.yml` patterns,
+`Visualization/static/schema.json`). `runschema/hook_check.py` is the advisory Stop-hook nag.
+Gated by `Tests/test_runschema_contract.py`.
 
 ## Architecture layer (context/arch/ + architecture.yml + files.yml)
 

@@ -29,7 +29,7 @@ artifacts:
 
   # ── simulation outputs ──────────────────────────────────────────────────────────
   run_manifest:
-    path_pattern: "comparison_<ts>/run_manifest.json"
+    path_pattern: "comparison_<ts>/<cell>/run_manifest.json"
     format: json
     writer: {function: write_run_manifest, file: Optimization/sim_manifest.py}
     readers:
@@ -63,11 +63,11 @@ artifacts:
       - {function: cells, file: Optimization/runlayout.py}
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
-    fields: [version, kind, spec, base, created, reference, tree_template, channels, cells,
-             pairs, configs, arms]
+    fields: [version, schema_version, kind, spec, base, created, reference, tree_template,
+             channels, cells, pairs, configs, arms]
 
   warehouse_db:
-    path_pattern: "comparison_<ts>/<pair>/warehouse.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"
     format: sqlite
     writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
     readers:
@@ -79,7 +79,7 @@ artifacts:
     tables: [warehouse_stats, aisle_type_stats]
 
   planned_inventory_db:
-    path_pattern: "comparison_<ts>/<pair>/planned_inventory.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/planned_inventory.db"
     format: sqlite
     writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
     readers:
@@ -89,7 +89,7 @@ artifacts:
     tables: [cartons]
 
   config_json:
-    path_pattern: "comparison_<ts>/<pair>/<config>/config.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>/config.json"
     format: json
     writer: {function: _prepare_channel_run, file: Optimization/simdriver/workunits.py}
     readers:
@@ -103,7 +103,7 @@ artifacts:
              avg_lead_time_mean, avg_supply_cv, height_brackets]
 
   batches_cache:
-    path_pattern: "comparison_<ts>/<pair>/_batches_<fp16>.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/_batches_*.pkl"
     format: pickle
     writer: {function: write_batches, file: Optimization/batch_precompute.py}
     readers:
@@ -112,7 +112,7 @@ artifacts:
     fields: [fingerprint, n, batches]
 
   resume_pkl:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/resume.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/resume.pkl"
     format: pickle
     writer: {function: _save_resume, file: Optimization/sim_manifest.py}
     readers:
@@ -121,7 +121,7 @@ artifacts:
     fields: [run_ids, next_batch]
 
   checkpoint_pkl:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
     format: pickle
     writer: {function: save_worker_checkpoint, file: Optimization/strategy_runner.py}
     readers:
@@ -130,7 +130,7 @@ artifacts:
     fields: [next_batch_id]
 
   sim_db:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
     format: sqlite
     writer: {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
     readers:
@@ -143,7 +143,7 @@ artifacts:
              bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
 
   keyframes_db:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
     format: sqlite
     writer: {function: save_bin_keyframe, file: Optimization/Picking_Data.py}
     readers:
@@ -153,7 +153,7 @@ artifacts:
     tables: [bin_keyframe]
 
   sim_meta:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_meta.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_meta.json"
     format: json
     writer: {function: _finalize_config_run, file: Optimization/simdriver/supervisor.py}
     readers:
@@ -184,7 +184,7 @@ artifacts:
 
   # ── analysis outputs ────────────────────────────────────────────────────────────
   series_json:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/series.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/series.json"
     format: json
     writer: {function: _dump_series, file: Optimization/Performance_Evaluations/common/series.py}
     readers:
@@ -193,8 +193,11 @@ artifacts:
     match: "series.json"
     fields: [strategies, extra]
 
+  # The per-leaf graph bundles.  The authoritative, per-directory breakdown lives in the run-tree
+  # contract (Optimization/schemas/run_tree.v1.json: per_strategy_pngs / compare_pngs /
+  # stats_by_initial_pngs / aggregate_pngs); this entry stays as the single catalog handle.
   analysis_pngs:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats}/**.png + comparison_<ts>/_aggregate/<cfg>/**.png"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats_by_initial}/**/*.png + comparison_<ts>/<cell>/_aggregate/<config>[/<channel>]/**/*.png"
     format: png
     writer: {function: prepare_config_dirs, file: Optimization/Performance_Evaluations/driver.py}
     readers:
@@ -202,15 +205,57 @@ artifacts:
     match: "per_strategy"
 
   channel_rollup_csv:
-    path_pattern: "comparison_<ts>/channel_rollup.csv + channel_rollup_summary.csv"
+    path_pattern: "comparison_<ts>/<cell>/channel_rollup.csv"
     format: csv
     writer: {function: rollup, file: Optimization/run_channel_rollup.py}
     readers: []
     match: "channel_rollup"
-    fields: [inventory, config, channel, plan, saving_abs, saving_pct, is_baseline, is_best]
+    fields: [pair, config, channel, plan_key, plan_label, assignment, ss_prod_hours,
+             saving_abs, saving_pct, is_baseline, is_best]
+
+  channel_rollup_summary_csv:
+    path_pattern: "comparison_<ts>/<cell>/channel_rollup_summary.csv"
+    format: csv
+    writer: {function: rollup, file: Optimization/run_channel_rollup.py}
+    readers: []
+    match: "channel_rollup_summary.csv"
+    fields: [pair, channel, best_config, best_plan, baseline_fifo_ss, best_ss, saving_abs,
+             saving_pct]
+
+  # ── cross-cell what-if outputs (multi-cell runs only) ───────────────────────────
+  whatif_delta_csv:
+    path_pattern: "comparison_<ts>/whatif_delta.csv"
+    format: csv
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers: []
+    match: "whatif_delta.csv"
+    fields: [cell, pair, pickcfg, channel, arm,
+             ref_task_ms, cell_task_ms, d_task_ms_pct,
+             ref_batch_ms, cell_batch_ms, d_batch_ms_pct,
+             ref_thr_batch, cell_thr_batch, d_thr_batch_pct,
+             ref_thr_task, cell_thr_task, d_thr_task_pct]
+
+  whatif_delta_json:
+    # Consumed by the docs site (macros.whatif_matrix). Emitted alongside the CSV so the site
+    # snapshot is a copy, never a hand-rename of whatif_labor.json.
+    path_pattern: "comparison_<ts>/whatif_delta.json"
+    format: json
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers:
+      - {function: whatif_matrix, file: docs/macros.py}
+    match: "whatif_delta.json"
+    fields: [schema_version, reference, reference_label, metrics, window_batches, arms, pairs,
+             channels, cells]
+
+  whatif_delta_png:
+    path_pattern: "comparison_<ts>/whatif_delta.png"
+    format: png
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers: []
+    match: "whatif_delta.png"
 
   whatif_labor_csv:
-    path_pattern: "<comparison_whatif_...>/whatif_labor.csv"
+    path_pattern: "comparison_<ts>/whatif_labor.csv"
     format: csv
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
@@ -219,7 +264,7 @@ artifacts:
              batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
 
   whatif_labor_json:
-    path_pattern: "<comparison_whatif_...>/whatif_labor.json"
+    path_pattern: "comparison_<ts>/whatif_labor.json"
     format: json
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
@@ -228,7 +273,7 @@ artifacts:
              labor_baseline, hours_note, cells]
 
   whatif_labor_pngs:
-    path_pattern: "<comparison_whatif_...>/{whatif_labor_throughput_scatter,whatif_labor_saved_bars,whatif_batch_hours_rr_vs_lpt,whatif_scheduler_uplift}.png"
+    path_pattern: "comparison_<ts>/whatif_*.png"
     format: png
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []

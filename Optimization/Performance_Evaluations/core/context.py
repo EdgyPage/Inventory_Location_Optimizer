@@ -21,6 +21,29 @@ from Optimization.Performance_Evaluations.common.series import _build_series, _a
 from Optimization.Performance_Evaluations.common.style import _focus_filter, _WIN
 
 
+def _provenance_parts(leaf_dir: str, max_up: int = 6) -> list[str]:
+    """Directory names from the RUN ROOT down to `leaf_dir`, for a figure's provenance footer.
+
+    The run root is the dir holding run_layout.json (the run-tree descriptor).  Anchoring on that
+    marker keeps the label correct whether the leaf is `<cell>/<pair>/<config>` (store-only) or
+    `<cell>/<pair>/<config>/<channel>` (mixed) — a fixed dirname-hop count cannot be right for both.
+    Falls back to the last three components when no descriptor is found (e.g. an ad-hoc dir under
+    test), so this never raises inside a plotting call.
+    """
+    leaf = os.path.abspath(leaf_dir)
+    parts: list[str] = []
+    d = leaf
+    for _ in range(max_up):
+        if os.path.exists(os.path.join(d, 'run_layout.json')):
+            return [os.path.basename(d)] + parts
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        parts.insert(0, os.path.basename(d))
+        d = parent
+    return leaf.replace('\\', '/').split('/')[-3:]
+
+
 def _strategy_travel_handling(strategies, ss_lo, max_b, n_sample=8):
     """Per-strategy (travel, handling) picker-time totals over a sample of steady-state
     batches, reconstructed from picker_events.  Returns {key: (travel, handling)}."""
@@ -77,11 +100,16 @@ class EvalContext:
         return f'{self.inv} / {self.name}'
 
     def footer(self) -> str:
-        """Provenance line stamped on every figure: origin sim folder + inventory."""
-        cfg  = os.path.basename(self.run_dir)
-        pair = os.path.basename(os.path.dirname(self.run_dir))
-        base = os.path.basename(os.path.dirname(os.path.dirname(self.run_dir)))
-        return f"sim: {base} / {pair} / {cfg}     inventory: {self.inv}"
+        """Provenance line stamped on every figure: origin sim folder + inventory.
+
+        run_dir is `<run>/<cell>/<pair>/<config>` on a store-only run and
+        `<run>/<cell>/<pair>/<config>/<channel>` on a mixed one, so a FIXED number of dirname hops
+        mislabels one of the two — the old three-hop version rendered the config name in the "run"
+        slot for every channelized run.  Walk up to the run root (the dir holding run_layout.json)
+        instead, so the label is right at either depth.
+        """
+        parts = _provenance_parts(self.run_dir)
+        return f"sim: {' / '.join(parts)}     inventory: {self.inv}"
 
     def full_title(self, s) -> str:
         bits = [self.inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
@@ -168,8 +196,10 @@ class AggregateContext:
         return cls(job['profile_series_list'], job['out_dir'], job['pickcfg'], focus, log)
 
     def footer(self) -> str:
-        base = os.path.basename(os.path.dirname(os.path.dirname(self.out_dir)))
-        return (f"sim: {base} / _aggregate / {self.pickcfg}     "
+        # out_dir is <run>/<cell>/_aggregate/<config>[/<channel>] — same variable depth as the
+        # per-config footer, so anchor on the run-root marker rather than counting dirname hops.
+        parts = _provenance_parts(self.out_dir)
+        return (f"sim: {' / '.join(parts)}     "
                 f"{self.n_profiles} profiles (cross-profile)")
 
     def agg_series(self):

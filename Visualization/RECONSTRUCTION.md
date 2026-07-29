@@ -10,11 +10,21 @@ The DB-backed web viewer that consumes these now exists: `server.py` (Flask API 
 ```
 cd Visualization
 pip install -r requirements.txt
-python server.py "<comparison_YYYYMMDD_HHMMSS dir>"   # positional, or --base, or $COMPARISON_OUTPUT_DIR
+python server.py "<comparison_YYYYMMDD_HHMMSS dir>"   # the RUN ROOT (holds run_layout.json)
 # → http://localhost:5000
 ```
 
-Add up to 4 runs by name → side-by-side panes. Two view modes:
+Pass the **run root**, not a cell directory: the viewer resolves the tree through
+`Optimization/runschema` using the run's own `schema_version`, and spans every cell.
+
+Runs are picked with cascading filters — **warehouse** (pair) → **warehouse type** (channel) →
+**pick config** → **layout/scheduler cell** → **assignment function** — built at runtime from
+`/api/runs`'s `axes`, so the navigable levels follow the run-tree schema rather than being
+hardcoded in the front end. An axis with no values (e.g. `channel` on a store-only run) is hidden.
+`/api/schema` serves the run's committed contract (`Optimization/schemas/run_tree.v<N>.json`).
+
+Add up to 4 runs → side-by-side panes; pane titles show the assignment fn plus whichever axes
+differ between the open panes. Two view modes:
 
 - **active aisles only** (default): only the aisles a picker is *currently* standing in are
   drawn, each as its own SKU-coloured **bin layout** with the picker dot and Manhattan-routed
@@ -32,12 +42,28 @@ added; older runs replay everything else.
 
 ## Files per simulation output
 
+The authoritative, machine-readable version of this layout is
+`Optimization/schemas/run_tree.v<N>.json`, generated from `Optimization/runschema/v<N>.py`. Resolve
+paths through the resolver (`runschema.resolver_for(run_root)`) rather than joining strings.
+
 ```
-<base_dir>/<pair>/warehouse.db              # geometry + sizing (shared by A/B/C)
-<base_dir>/<pair>/planned_inventory.db      # the sampled inventory actually stocked
-<base_dir>/<pair>/<config>/sim_A.db         # strategy A run DB (B, C alongside)
-<base_dir>/<pair>/<config>/sim_A.keyframes.db   # full bin snapshots every K batches
+<run_root>/run_layout.json                                # descriptor: schema_version + cells
+<run_root>/<cell>/<pair>/warehouse.db                     # geometry + sizing (shared by all arms)
+<run_root>/<cell>/<pair>/planned_inventory.db             # single-cell runs only (see below)
+<run_root>/_frozen/<pair>/planned_inventory.db            # multi-cell runs: frozen, shared
+<run_root>/<cell>/<pair>/<config>[/<channel>]/sim_<arm>.db
+<run_root>/<cell>/<pair>/<config>[/<channel>]/sim_<arm>.keyframes.db
 ```
+
+**Two levels are conditional** — assuming otherwise is what broke the earlier consumers:
+
+| Level | Present | Absent |
+|---|---|---|
+| `<channel>/` | mixed catalog (store + fulfillment) | store-only run — DBs sit directly under `<config>/` |
+| `_frozen/<pair>/` | multi-cell run (inventory frozen once, reshaped per cell) | single-cell run — `planned_inventory.db` lives at `<cell>/<pair>/` |
+
+Note `<pair>/store/store/` is a real path: the store *config* and the store *channel* share a name,
+so levels must be consumed positionally, never matched by directory name.
 
 ## What's stored
 

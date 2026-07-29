@@ -14,9 +14,12 @@
 <h1><span class="kind kind-function">function</span> <code>_scan_labor</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a></p>
 
-<pre class="sig"><code>def _scan_labor(cell_dir: str) -&gt; dict</code></pre>
-<section class="doc">{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py___metrics.html"><code>_metrics</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py___hours.html"><code>_hours</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
+<pre class="sig"><code>def _scan_labor(rt, cell: str) -&gt; dict</code></pre>
+<section class="doc">{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.
+
+Walks via the versioned run-tree resolver.  The previous relpath scan required a `&lt;channel&gt;`
+segment (`len(rel) &lt; 4: continue`) and so returned NOTHING for a store-only run.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py___channel_of.html"><code>_channel_of</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_delta_py___metrics.html"><code>_metrics</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py___hours.html"><code>_hours</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_labor_py___scan_labor">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_labor.py#:~:text=def%20_scan_labor">Source ↗</a></p>
 </article>
 </main>

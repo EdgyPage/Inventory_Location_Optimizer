@@ -9,8 +9,11 @@ Locks Optimization/run_whatif_labor.py — the cross-cell throughput / labor-HOU
   - end-to-end main(): on a synthetic 2-cell tree, whatif_labor.csv carries the right
     scheduler/hours columns and labor_saved = labor(fifo) - labor(arm) (same cell/channel/initial),
     and whatif_labor.json is whatif_matrix()-shaped (one treatment cell vs the reference).
+  - STORE-ONLY runs are scanned (regression): the tree has no <channel> level, which the old
+    relpath scan (`len(rel) < 4: continue`) skipped entirely, silently returning zero rows.
 
-Synthetic sqlite only — deterministic, no D: drive, no real simulation.
+Synthetic sqlite only — deterministic, no D: drive, no real simulation.  Trees carry a real
+run_layout.json so the versioned resolver (Optimization/runschema) can walk them.
 
 Run:  python -m pytest Tests/test_whatif_labor.py -q
 """
@@ -22,6 +25,18 @@ import os
 import sqlite3
 
 from Optimization import run_whatif_labor as rwl
+from Optimization.runschema import resolver_for
+from Optimization.sim_manifest import write_run_layout
+
+
+def _descriptor(root, cells, channels, reference=None):
+    """Write the run-tree descriptor the resolver selects a version from."""
+    write_run_layout(
+        str(root), spec='test', reference=reference or cells[0],
+        cells=[(c, None, {'enabled': False},
+                'lpt' if c.endswith('_lpt') else 'round_robin') for c in cells],
+        pairs=[('pairA', 'i.db', 'a.db')], store_cfgs=[{'name': 'store'}],
+        ff_cfgs=[], channels=channels, arms=None, created='2026-07-28T00:00:00')
 
 
 def _make_db(path, per_batch):
@@ -68,14 +83,31 @@ def test_pct_sign():
 
 
 def test_scan_labor_key_and_merge(tmp_path):
-    cell = tmp_path / 'k1_off_lpt'
-    d = cell / 'pairA' / 'store' / 'store'
+    root = tmp_path / 'comparison_whatif_scan'
+    root.mkdir()
+    d = root / 'k1_off_lpt' / 'pairA' / 'store' / 'store'
     d.mkdir(parents=True)
     _make_db(str(d / 'sim_uni_fifo_norsl.db'), [(1.0e6, 5.0e5, 50)] * 60)
-    got = rwl._scan_labor(str(cell))
+    _descriptor(root, ['k1_off_lpt'], ['store', 'fulfillment'])
+    got = rwl._scan_labor(resolver_for(str(root)), 'k1_off_lpt')
     assert ('pairA', 'store', 'store', 'uni_fifo_norsl') in got
     row = got[('pairA', 'store', 'store', 'uni_fifo_norsl')]
     assert 'labor_hours' in row and 'task_ms' in row and 'thr_batch' in row   # hours + steady means merged
+
+
+def test_scan_labor_finds_store_only_runs(tmp_path):
+    """Regression: a store-only tree has NO <channel> level.  The old relpath scan required four
+    segments and returned nothing at all for these runs."""
+    root = tmp_path / 'comparison_store_only'
+    root.mkdir()
+    d = root / 'k1_off' / 'pairA' / 'store'          # <cell>/<pair>/<config>/  — no channel dir
+    d.mkdir(parents=True)
+    _make_db(str(d / 'sim_uni_fifo_norsl.db'), [(1.0e6, 5.0e5, 50)] * 60)
+    _descriptor(root, ['k1_off'], ['store'])
+    got = rwl._scan_labor(resolver_for(str(root)), 'k1_off')
+    assert got, 'store-only run produced no rows — the channel level is OPTIONAL'
+    # channel is reported as 'store' (the layout has no channel dir, but the channel IS store)
+    assert ('pairA', 'store', 'store', 'uni_fifo_norsl') in got
 
 
 # ── end-to-end main() ───────────────────────────────────────────────────────────────────────
@@ -88,10 +120,12 @@ def _arm_tree(root, cell, arm, per_batch):
 
 def test_main_labor_saved_and_json(tmp_path, monkeypatch):
     root = tmp_path / 'comparison_whatif_test'
+    root.mkdir()
     # fifo = 1.0 h labor; map = 0.5 h labor  -> saved(map) = +0.5 h.  lpt gets more throughput.
     for cell, thr in (('k1_off_rr', 1.0), ('k1_off_lpt', 1.4)):
         _arm_tree(root, cell, 'uni_fifo_norsl', [(3.6e4, 3.6e4, 10)] * 100)   # 100*3.6e4 = 3.6e6 ms = 1.0 h
         _arm_tree(root, cell, 'uni_map_norsl', [(1.8e4, 1.8e4, 10 * thr)] * 100)  # 1.8e6 ms = 0.5 h
+    _descriptor(root, ['k1_off_rr', 'k1_off_lpt'], ['store', 'fulfillment'], reference='k1_off_rr')
     monkeypatch.setattr('sys.argv',
                         ['run_whatif_labor', str(root), '--baseline', 'fifo', '--reference', 'k1_off_rr'])
     rwl.main()

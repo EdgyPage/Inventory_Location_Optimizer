@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_sim_manifest_py.html"><code>Optimization/sim_manifest.py</code></a> <span class="sep">›</span> <span class="here"><code>write_run_layout</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>write_run_layout</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_sim_manifest_py.html"><code>Optimization/sim_manifest.py</code></a></p>
-
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -&gt; None</code></pre>
 <section class="doc">Write &lt;base&gt;/run_layout.json — the descriptor of a run&#x27;s unified cell tree
 ``&lt;base&gt;/&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/sim_*.db``.  Lets tools INFER the tree (cells,
@@ -22,7 +22,12 @@ or OLD run enumerate + label cells without re-importing the (possibly since-chan
 Atomic (tmp + os.replace), same pattern as _write_run_spec.
 
 cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
-{&#x27;k&#x27;,&#x27;capacity_loss&#x27;}.  `created` (ISO-8601) is passed in so the caller owns the clock.</section>
+{&#x27;k&#x27;,&#x27;capacity_loss&#x27;}.  `created` (ISO-8601) is passed in so the caller owns the clock.
+
+`schema_version` stamps which RUN-TREE CONTRACT this run&#x27;s directory layout follows
+(Optimization/schemas/run_tree.v&lt;N&gt;.json).  Downstream tools select their resolver from it
+(runschema.resolver_for), so an OLD run keeps analyzing correctly after the tree shape moves on.
+It is distinct from `version`, which versions THIS descriptor file&#x27;s own field set.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_sim_manifest_py___run_layout_path.html"><code>_run_layout_path</code></a> <span class="dim">Optimization/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_sim_manifest_py__write_run_layout">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/sim_manifest.py#:~:text=def%20write_run_layout">Source ↗</a></p>
 </article>

@@ -1361,6 +1361,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::AggregateContext.agg_series"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::_provenance_parts",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::AggregateContext.footer"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_focus_filter",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.__init__"
@@ -1394,6 +1399,11 @@
       "dst": "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.breakdown"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::_provenance_parts",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.footer"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.batch_df",
@@ -2261,6 +2271,11 @@
       "src": "Optimization/analyze_run.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
       "dst": "Optimization/sim_config.py",
       "kind": "imports",
       "src": "Optimization/analyze_run.py"
@@ -2311,12 +2326,22 @@
       "src": "Optimization/analyze_run.py::analyze_run"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
       "dst": "Optimization/sim_manifest.py::read_run_layout",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::analyze_run"
     },
     {
       "dst": "Optimization/analyze_run.py::analyze_run",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::main"
     },
@@ -2596,6 +2621,11 @@
       "src": "Optimization/run_analysis.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
       "dst": "Optimization/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
@@ -2696,6 +2726,11 @@
       "src": "Optimization/run_analysis.py::main"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::main"
+    },
+    {
       "dst": "Optimization/sim_config.py::_setup_logging",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::main"
@@ -2726,6 +2761,11 @@
       "src": "Optimization/run_channel_rollup.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_channel_rollup.py"
+    },
+    {
       "dst": "Optimization/run_channel_rollup.py::_baseline_entry",
       "kind": "calls",
       "src": "Optimization/run_channel_rollup.py::_channel_rows"
@@ -2742,6 +2782,11 @@
     },
     {
       "dst": "Optimization/run_channel_rollup.py::rollup",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "Optimization/run_channel_rollup.py::main"
     },
@@ -2763,6 +2808,11 @@
     {
       "dst": "Optimization/run_runtime_graphs.py::main",
       "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
       "src": "Optimization/run_runtime_graphs.py"
     },
     {
@@ -2812,6 +2862,11 @@
     },
     {
       "dst": "Optimization/run_runtime_graphs.py::run",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::main"
     },
@@ -2867,6 +2922,11 @@
     },
     {
       "dst": "Optimization/runlayout.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
     },
@@ -2956,6 +3016,11 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/runschema/preflight.py::ensure",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/sim_config.py::_setup_logging",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -3001,9 +3066,19 @@
       "src": "Optimization/run_whatif_delta.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
       "dst": "Optimization/whatif_config.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_channel_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_scan"
     },
     {
       "dst": "Optimization/run_whatif_delta.py::_metrics",
@@ -3011,7 +3086,17 @@
       "src": "Optimization/run_whatif_delta.py::_scan"
     },
     {
+      "dst": "Optimization/run_whatif_delta.py::_cell_labels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_write_delta_json"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py::run",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py::main"
     },
@@ -3026,6 +3111,16 @@
       "src": "Optimization/run_whatif_delta.py::run"
     },
     {
+      "dst": "Optimization/run_whatif_delta.py::_write_delta_json",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::run"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::run"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_labor.py"
@@ -3033,6 +3128,11 @@
     {
       "dst": "Optimization/run_whatif_labor.py::main",
       "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
       "src": "Optimization/run_whatif_labor.py"
     },
     {
@@ -3059,6 +3159,11 @@
       "dst": "Optimization/run_whatif_labor.py::_channels",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::_labor_saved_bars"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_channel_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
     },
     {
       "dst": "Optimization/run_whatif_delta.py::_metrics",
@@ -3082,6 +3187,11 @@
     },
     {
       "dst": "Optimization/run_whatif_labor.py::run",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::main"
     },
@@ -3141,6 +3251,11 @@
       "src": "Optimization/run_whatif_labor.py::run"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::run"
+    },
+    {
       "dst": "Optimization/sim_manifest.py",
       "kind": "imports",
       "src": "Optimization/runlayout.py"
@@ -3179,6 +3294,461 @@
       "dst": "Optimization/runlayout.py::_sim_dbs_in",
       "kind": "calls",
       "src": "Optimization/runlayout.py::iter_sim_dbs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/__init__.py"
+    },
+    {
+      "dst": "Optimization/sim_config.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/__init__.py"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/__init__.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::UnsupportedRunTree",
+      "kind": "calls",
+      "src": "Optimization/runschema/__init__.py::resolver_for"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/runschema/__init__.py::resolver_for"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::LATEST",
+      "kind": "calls",
+      "src": "Optimization/runschema/__init__.py::resolver_for_new_run"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/contract.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::main",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::build"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::tree_fingerprint",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::build"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::_shape_only",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::diff_shape"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::contract_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::load"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::build",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::contract_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::diff_shape",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::write",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::_sha",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::tree_fingerprint"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::_shape_only",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::tree_fingerprint"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::contract_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::write"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/hook_check.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/hook_check.py"
+    },
+    {
+      "dst": "Optimization/runschema/hook_check.py::main",
+      "kind": "calls",
+      "src": "Optimization/runschema/hook_check.py"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/hook_check.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::build",
+      "kind": "calls",
+      "src": "Optimization/runschema/hook_check.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::diff_shape",
+      "kind": "calls",
+      "src": "Optimization/runschema/hook_check.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/runschema/hook_check.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::sources_changed",
+      "kind": "calls",
+      "src": "Optimization/runschema/hook_check.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::main",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_affinity.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_write_canary_catalog",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_run_canary"
+    },
+    {
+      "dst": "Warehouse/generation/generate_affinity.py::_init_db",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::Family",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::build_inventory_from_plan",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::fulfillment_family",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::save_inventory_to_db",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::build",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::write",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_report",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::observe",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::run_canaries",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::scaffold_next_version",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::sources_changed",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::update_viewer_schema",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::validate",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::ensure"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::main",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::ensure",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::sources_changed",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_axis_values",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::observe"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_generalize_file",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::observe"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::observe"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_run_canary",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::run_canaries"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_artifact_key_for",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::scaffold_next_version"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_collapse_channel_variants",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::scaffold_next_version"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_format_of",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::scaffold_next_version"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_scope_of",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::scaffold_next_version"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::sources_changed"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::sources_changed"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_yaml_pattern",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::update_artifacts_yml"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_declared_templates",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::validate"
+    },
+    {
+      "dst": "Optimization/runschema/preflight.py::_template_regex",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::validate"
+    },
+    {
+      "dst": "Optimization/runlayout.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/v1.py"
+    },
+    {
+      "dst": "Optimization/runtime_metrics.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/v1.py"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/v1.py"
+    },
+    {
+      "dst": "Optimization/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.__init__"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.axes"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.strategy_of",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.axes"
+    },
+    {
+      "dst": "Optimization/runlayout.py::cells",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.cells"
+    },
+    {
+      "dst": "Optimization/runlayout.py::ChannelRun",
+      "kind": "ref",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.channel_runs"
+    },
+    {
+      "dst": "Optimization/runlayout.py::iter_channel_runs",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.channel_runs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.cell_dir",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.channel_runs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.cells",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.channel_runs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.config_json"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::render",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.path"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.planned_inventory_db"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.rollup_csv"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.run_layout_json"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.run_manifest"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.run_spec_json"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.runtime_db"
+    },
+    {
+      "dst": "Optimization/runlayout.py::ChannelRun",
+      "kind": "ref",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs"
+    },
+    {
+      "dst": "Optimization/runlayout.py::iter_sim_dbs",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.cell_dir",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.cells",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.warehouse_db"
+    },
+    {
+      "dst": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/v1.py::RunTreeV1.whatif_outputs"
     },
     {
       "dst": "Optimization/runtime_metrics.py::runtime_db_path",
@@ -3384,6 +3954,11 @@
       "dst": "Warehouse/Pick.py::PickConfig",
       "kind": "calls",
       "src": "Optimization/sim_config.py::_build_pick_cfg"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/sim_manifest.py"
     },
     {
       "dst": "Optimization/sim_manifest.py::_resume_path",
@@ -4441,6 +5016,11 @@
       "src": "Visualization/db_reader.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
       "dst": "Warehouse/Aisle_Dimensions.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
@@ -4522,6 +5102,11 @@
     },
     {
       "dst": "Optimization/runlayout.py::iter_sim_dbs",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::discover_runs"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "Visualization/db_reader.py::discover_runs"
     },
@@ -4621,7 +5206,17 @@
       "src": "Visualization/db_reader.py::reconstruct_overview"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::run_index"
+    },
+    {
       "dst": "Visualization/db_reader.py::discover_runs",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::run_index"
+    },
+    {
+      "dst": "Visualization/db_reader.py::run_index",
       "kind": "calls",
       "src": "Visualization/db_reader.py::run_summaries"
     },
@@ -4629,6 +5224,16 @@
       "dst": "Optimization/Picking_Data.py::load_sku_scores",
       "kind": "calls",
       "src": "Visualization/db_reader.py::sku_scores"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Visualization/server.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Visualization/server.py"
     },
     {
       "dst": "Visualization/server.py::_refresh_runs",
@@ -4684,6 +5289,16 @@
       "dst": "Visualization/server.py::_refresh_runs",
       "kind": "calls",
       "src": "Visualization/server.py::api_runs"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_schema"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_schema"
     },
     {
       "dst": "Visualization/server.py::_run_or_404",
@@ -7046,14 +7661,49 @@
       "src": "Warehouse/inventory_reorder.py::ReorderMixin.requeue_bin"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "docs/experiments/ingest.py"
+    },
+    {
       "dst": "docs/experiments/ingest.py::main",
       "kind": "calls",
       "src": "docs/experiments/ingest.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_cells_of"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_copy",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_inventory_assets"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_find",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_inventory_assets"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_copy",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_whatif"
+    },
+    {
       "dst": "docs/experiments/ingest.py::_short_key",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_write_starter_manifest"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_cell_inventory_configs",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_cells_of",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
     },
     {
       "dst": "docs/experiments/ingest.py::_copy",
@@ -7062,6 +7712,16 @@
     },
     {
       "dst": "docs/experiments/ingest.py::_find",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_stage_inventory_assets",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_stage_whatif",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
     },
@@ -8529,6 +9189,14 @@
       "module": "Optimization/Performance_Evaluations/core/context.py",
       "name": "title",
       "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::_provenance_parts",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "_provenance_parts",
+      "public": false
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
@@ -10692,6 +11360,22 @@
     },
     {
       "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_cell_labels",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_cell_labels",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_channel_of",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_channel_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
       "id": "Optimization/run_whatif_delta.py::_metrics",
       "kind": "function",
       "module": "Optimization/run_whatif_delta.py",
@@ -10712,6 +11396,22 @@
       "kind": "function",
       "module": "Optimization/run_whatif_delta.py",
       "name": "_scan",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_write_delta_json",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_write_delta_json",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_write_delta_json._med",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_med",
       "public": false
     },
     {
@@ -10960,6 +11660,718 @@
       "kind": "function",
       "module": "Optimization/runlayout.py",
       "name": "iter_sim_dbs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py",
+      "kind": "module",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "Optimization.runschema",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::LATEST",
+      "kind": "const",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "LATEST",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::RUN_TREE_VERSION",
+      "kind": "const",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "RUN_TREE_VERSION",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::UnsupportedRunTree",
+      "kind": "class",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "UnsupportedRunTree",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::_RESOLVERS",
+      "kind": "const",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "_RESOLVERS",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "function",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "resolve_base_dir",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "function",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "resolver_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/__init__.py",
+      "id": "Optimization/runschema/__init__.py::resolver_for_new_run",
+      "kind": "function",
+      "module": "Optimization/runschema/__init__.py",
+      "name": "resolver_for_new_run",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py",
+      "kind": "module",
+      "module": "Optimization/runschema/contract.py",
+      "name": "Optimization.runschema.contract",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::SHAPE_SOURCES",
+      "kind": "const",
+      "module": "Optimization/runschema/contract.py",
+      "name": "SHAPE_SOURCES",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::_HERE",
+      "kind": "const",
+      "module": "Optimization/runschema/contract.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/runschema/contract.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::_SCHEMA_DIR",
+      "kind": "const",
+      "module": "Optimization/runschema/contract.py",
+      "name": "_SCHEMA_DIR",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::_sha",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "_sha",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::_shape_only",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "_shape_only",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::build",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "build",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::contract_path",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "contract_path",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::diff_shape",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "diff_shape",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::load",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "load",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::main",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::source_fingerprint",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "source_fingerprint",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::tree_fingerprint",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "tree_fingerprint",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::write",
+      "kind": "function",
+      "module": "Optimization/runschema/contract.py",
+      "name": "write",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/hook_check.py",
+      "id": "Optimization/runschema/hook_check.py",
+      "kind": "module",
+      "module": "Optimization/runschema/hook_check.py",
+      "name": "Optimization.runschema.hook_check",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/hook_check.py",
+      "id": "Optimization/runschema/hook_check.py::_ROOT",
+      "kind": "const",
+      "module": "Optimization/runschema/hook_check.py",
+      "name": "_ROOT",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/hook_check.py",
+      "id": "Optimization/runschema/hook_check.py::main",
+      "kind": "function",
+      "module": "Optimization/runschema/hook_check.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py",
+      "kind": "module",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "Optimization.runschema.preflight",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::CANARY_ARGS",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "CANARY_ARGS",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::SKIP_ENV",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "SKIP_ENV",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_BATCHES_RE",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_BATCHES_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_CKPT_RE",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_CKPT_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_EXT_FORMAT",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_EXT_FORMAT",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_HERE",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_STRATEGY_RE",
+      "kind": "const",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_STRATEGY_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_artifact_key_for",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_artifact_key_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_axis_values",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_axis_values",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_collapse_channel_variants",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_collapse_channel_variants",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_declared_templates",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_declared_templates",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_format_of",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_format_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_generalize_file",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_generalize_file",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_report",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_report",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_run_canary",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_run_canary",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_scope_of",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_scope_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_template_regex",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_template_regex",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_write_canary_catalog",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_write_canary_catalog",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::_yaml_pattern",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_yaml_pattern",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::ensure",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "ensure",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::main",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::observe",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "observe",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::run_canaries",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "run_canaries",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::scaffold_next_version",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "scaffold_next_version",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::sources_changed",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "sources_changed",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::update_artifacts_yml",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "update_artifacts_yml",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::update_viewer_schema",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "update_viewer_schema",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::validate",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "validate",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/preflight.py",
+      "id": "Optimization/runschema/preflight.py::validate._match",
+      "kind": "function",
+      "module": "Optimization/runschema/preflight.py",
+      "name": "_match",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py",
+      "kind": "module",
+      "module": "Optimization/runschema/v1.py",
+      "name": "Optimization.runschema.v1",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::ARTIFACTS",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "ARTIFACTS",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::AXES",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "AXES",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::LEVELS",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "LEVELS",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RESERVED_PREFIX",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "RESERVED_PREFIX",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::ROOT_PREFIXES",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "ROOT_PREFIXES",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1",
+      "kind": "class",
+      "module": "Optimization/runschema/v1.py",
+      "name": "RunTreeV1",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.__init__",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.__repr__",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.aggregate_dir",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "aggregate_dir",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.axes",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "axes",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.cell_dir",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "cell_dir",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.cells",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "cells",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.channel_runs",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "channel_runs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.config_json",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "config_json",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.is_sweep",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "is_sweep",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.keyframe_db",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "keyframe_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.path",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "path",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.planned_inventory_db",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "planned_inventory_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.rollup_csv",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "rollup_csv",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.run_layout_json",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "run_layout_json",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.run_manifest",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "run_manifest",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.run_spec_json",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "run_spec_json",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.runtime_db",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "runtime_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.series_json",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "series_json",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.sim_dbs",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "sim_dbs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.sim_meta",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "sim_meta",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.strategy_of",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "strategy_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.warehouse_db",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "warehouse_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::RunTreeV1.whatif_outputs",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "whatif_outputs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::SCHEMA_VERSION",
+      "kind": "const",
+      "module": "Optimization/runschema/v1.py",
+      "name": "SCHEMA_VERSION",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/v1.py",
+      "id": "Optimization/runschema/v1.py::render",
+      "kind": "function",
+      "module": "Optimization/runschema/v1.py",
+      "name": "render",
       "public": true
     },
     {
@@ -12084,10 +13496,34 @@
     },
     {
       "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::AXIS_LABELS",
+      "kind": "const",
+      "module": "Visualization/db_reader.py",
+      "name": "AXIS_LABELS",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::NAV_AXES",
+      "kind": "const",
+      "module": "Visualization/db_reader.py",
+      "name": "NAV_AXES",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
       "id": "Visualization/db_reader.py::RunRef",
       "kind": "class",
       "module": "Visualization/db_reader.py",
       "name": "RunRef",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::RunRef.axis_values",
+      "kind": "function",
+      "module": "Visualization/db_reader.py",
+      "name": "axis_values",
       "public": true
     },
     {
@@ -12236,6 +13672,14 @@
     },
     {
       "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::run_index",
+      "kind": "function",
+      "module": "Visualization/db_reader.py",
+      "name": "run_index",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
       "id": "Visualization/db_reader.py::run_summaries",
       "kind": "function",
       "module": "Visualization/db_reader.py",
@@ -12344,6 +13788,14 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_runs",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_schema",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_schema",
       "public": true
     },
     {
@@ -16292,10 +17744,50 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::DEFAULT_WHATIF_DATA",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "DEFAULT_WHATIF_DATA",
+      "public": true
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::DEFAULT_WHATIF_PNG_GLOB",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "DEFAULT_WHATIF_PNG_GLOB",
+      "public": true
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_DOCS",
       "kind": "const",
       "module": "docs/experiments/ingest.py",
       "name": "_DOCS",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_cell_inventory_configs",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_cell_inventory_configs",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_cells_of",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_cells_of",
       "public": false
     },
     {
@@ -16320,6 +17812,22 @@
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_short_key",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_stage_inventory_assets",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_stage_inventory_assets",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_stage_whatif",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_stage_whatif",
       "public": false
     },
     {

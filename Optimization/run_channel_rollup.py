@@ -205,9 +205,11 @@ def rollup(base_dir: str, log=print) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('base_dir', help='the comparison_YYYYMMDD_HHMMSS run directory')
+    ap.add_argument('base_dir', help='a CELL directory of a run (relative names resolve under '
+                                     'COMPARISON_OUTPUT_DIR)')
     args = ap.parse_args()
-    base = os.path.abspath(args.base_dir)
+    from Optimization.runschema import resolve_base_dir
+    base = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base):
         ap.error(f'not a directory: {base}')
     rollup(base)

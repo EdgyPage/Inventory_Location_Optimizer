@@ -5,9 +5,13 @@
   "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/sim_manifest.py; read by cells@Optimization/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "kind", "reference", "tree_template", "cells", "pairs"],
+  "required": ["version", "schema_version", "kind", "reference", "tree_template", "cells", "pairs"],
   "properties": {
-    "version": {"type": "integer", "minimum": 1},
+    "version": {"type": "integer", "minimum": 1, "description": "version of THIS descriptor's field set"},
+    "schema_version": {
+      "type": "integer", "minimum": 1,
+      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows — see Optimization/schemas/run_tree.v<N>.json. runschema.resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes."
+    },
     "kind": {"type": "string", "enum": ["single", "sweep"]},
     "spec": {"type": "string", "description": "whatif_config.SPECS name that produced the run"},
     "base": {"type": "string", "description": "os.path.basename of the run root (self-check)"},

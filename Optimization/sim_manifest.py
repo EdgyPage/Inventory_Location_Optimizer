@@ -78,15 +78,23 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
 
     cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
     {'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.
+
+    `schema_version` stamps which RUN-TREE CONTRACT this run's directory layout follows
+    (Optimization/schemas/run_tree.v<N>.json).  Downstream tools select their resolver from it
+    (runschema.resolver_for), so an OLD run keeps analyzing correctly after the tree shape moves on.
+    It is distinct from `version`, which versions THIS descriptor file's own field set.
     """
+    from Optimization.runschema import RUN_TREE_VERSION
     layout = {
-        'version'      : 1,
+        'version'       : 1,
+        'schema_version': RUN_TREE_VERSION,
         'kind'         : 'single' if len(cells) <= 1 else 'sweep',
         'spec'         : spec,
         'base'         : os.path.basename(base_dir.rstrip('/\\')),
         'created'      : created,
         'reference'    : reference,
-        'tree_template': '<pair>/<config>[/<channel>]/sim_<strategy>.db',
+        # FULL template from the run root — the cell level is part of the tree, not implied.
+        'tree_template': '<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db',
         'channels'     : list(channels),
         'cells'        : [{'name': name, 'split': split, 'zoning': zoning, 'scheduler': sched}
                           for (name, split, zoning, sched) in cells],

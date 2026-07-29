@@ -23,8 +23,23 @@ body {
 }
 #topbar .title { font-weight: 600; font-size: 15px; color: #fff; }
 #topbar label { color: var(--muted); }
-.run-picker, .controls, .view-opts { display: flex; align-items: center; gap: 8px; }
+.controls, .view-opts { display: flex; align-items: center; gap: 8px; }
 .view-opts { margin-left: auto; }
+
+/* Cascading run picker: a filter row (built at runtime from the run-tree axes) above the
+   final run <select>.  Wraps, because a sweep can expose five axes. */
+.run-picker { display: flex; flex-direction: column; gap: 4px; }
+.run-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.run-filters .filter {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--muted); font-size: 12px;
+}
+.run-filters select { max-width: 190px; font-size: 12px; padding: 2px 6px; }
+.run-pick-row { display: flex; align-items: center; gap: 8px; }
+.schema-badge {
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 1px 8px; font-size: 11px; white-space: nowrap;
+}
 select, button {
   background: #21262d; color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 4px 8px; font: inherit; cursor: pointer;

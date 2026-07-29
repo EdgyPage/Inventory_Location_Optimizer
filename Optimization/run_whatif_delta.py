@@ -6,17 +6,22 @@ needed), keyed by (pair, pick-config, channel, arm), and diffs every cell agains
     task makespan  (Σ task time = total labor)          batch makespan (last-picker finish)
     throughput / task makespan (items / Σ task time)    throughput / batch makespan (items / makespan)
 
-Emits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per
-cell×channel×arm) and a median summary.  This is what makes a scheduling win legible: LPT should show
-Δbatch-makespan ↓ and Δthroughput/batch ↑ while Δtask-makespan (labor) and Δthroughput/task stay ≈flat.
+Emits whatif_delta.csv (all four deltas), whatif_delta.json (the docs site's matrix table), and a
+labor-saving-vs-throughput-gain scatter (one point per cell×channel×arm) plus a median summary.  This
+is what makes a scheduling win legible: LPT should show Δbatch-makespan ↓ and Δthroughput/batch ↑
+while Δtask-makespan (labor) and Δthroughput/task stay ≈flat.
 
     python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config
+
+Tree access goes through the versioned run-tree resolver (Optimization/runschema), never raw globs:
+the previous relpath-splitting scan required a `<channel>` segment and therefore silently dropped
+EVERY store-only run, whose sim DBs sit directly under `<config>/`.
 """
 from __future__ import annotations
 
 import argparse
 import csv
-import glob
+import json
 import os
 import sqlite3
 import statistics
@@ -70,21 +75,84 @@ def _metrics(db: str):
         con.close()
 
 
-def _scan(cell_dir: str) -> dict:
-    """{(pair, pickcfg, channel, arm): metrics} for one scenario subtree."""
+def _channel_of(cr) -> str:
+    """The channel a run belongs to.  ChannelRun.channel is None on a store-only layout (no channel
+    subdir) — that IS the store channel, so name it rather than emitting a blank column."""
+    return cr.channel or 'store'
+
+
+def _scan(rt, cell: str) -> dict:
+    """{(pair, pickcfg, channel, arm): metrics} for one cell, via the run-tree resolver."""
     out = {}
-    for db in glob.glob(os.path.join(cell_dir, '**', 'sim_*.db'), recursive=True):
-        if db.endswith('.keyframes.db'):
-            continue
-        rel = os.path.relpath(db, cell_dir).replace('\\', '/').split('/')
-        if len(rel) < 4:          # expect pair/pickcfg/channel/sim_<arm>.db
-            continue
-        pair, pickcfg, channel = rel[0], rel[1], rel[2]
-        arm = os.path.basename(db)[4:-3]
+    for _cell, cr, db in rt.sim_dbs(cell):
         m = _metrics(db)
         if m and m['task_ms']:
-            out[(pair, pickcfg, channel, arm)] = m
+            out[(cr.pair, cr.config, _channel_of(cr), rt.strategy_of(db))] = m
     return out
+
+
+def _cell_labels(layout_cell: dict) -> tuple[str, str]:
+    """(layout, zoning_label) for one descriptor cell — the prose the docs matrix shows."""
+    split = layout_cell.get('split')
+    if not split:
+        lay = 'whole aisle'
+    else:
+        lay = f"k={split.get('k')}" + (f", loss={split.get('capacity_loss', 0.0):.0%}"
+                                       if split.get('capacity_loss') else '')
+    z = layout_cell.get('zoning') or {}
+    zone = z.get('mode', 'on') if z.get('enabled') else 'off'
+    return lay, zone
+
+
+def _write_delta_json(base_dir, rt, rows, reference, cell_names) -> str:
+    """Write whatif_delta.json — the per-cell × per-channel MEDIAN table the docs site renders.
+
+    Previously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the only
+    way to get one was to hand-copy and rename whatif_labor.json.  The four-metric key names
+    (dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that macro prefers.
+    """
+    by_cell: dict = {}
+    for r in rows:
+        by_cell.setdefault(r['cell'], {}).setdefault(r['channel'], []).append(r)
+
+    def _med(vs, key):
+        vals = [v[key] for v in vs if v[key] == v[key]]      # drop NaN
+        return statistics.median(vals) if vals else None
+
+    descriptor = {c['name']: c for c in (rt.layout.get('cells') or ())}
+    cells_out = []
+    for name in cell_names:
+        if name == reference:
+            continue
+        lay, zone = _cell_labels(descriptor.get(name, {}))
+        by_channel = {}
+        for ch, vs in sorted(by_cell.get(name, {}).items()):
+            by_channel[ch] = {
+                'dthr_batch': {'med': _med(vs, 'd_thr_batch_pct'), 'n': len(vs)},
+                'dtask_ms'  : {'med': _med(vs, 'd_task_ms_pct'),   'n': len(vs)},
+                'dbatch_ms' : {'med': _med(vs, 'd_batch_ms_pct'),  'n': len(vs)},
+                'dthr_task' : {'med': _med(vs, 'd_thr_task_pct'),  'n': len(vs)},
+            }
+        cells_out.append({'name': name, 'layout': lay, 'zoning_label': zone,
+                          'by_channel': by_channel})
+
+    doc = {
+        'schema_version': rt.version,
+        'reference': reference,
+        'reference_label': reference,
+        'metrics': ['dthr_batch', 'dtask_ms', 'dbatch_ms', 'dthr_task'],
+        'window_batches': WIN,
+        'arms': len({r['arm'] for r in rows}),
+        'pairs': sorted({r['pair'] for r in rows}),
+        'channels': sorted({r['channel'] for r in rows}),
+        'cells': cells_out,
+    }
+    path = os.path.join(base_dir, 'whatif_delta.json')
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(doc, f, indent=2)
+    os.replace(tmp, path)
+    return path
 
 
 def _pct(a, b, higher_better):
@@ -98,20 +166,24 @@ def run(base_dir, reference=None, log=None):
     """Engine: diff every cell under base_dir vs the reference cell; write whatif_delta.csv +
     the labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub
     calls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op."""
+    from Optimization.runschema import resolver_for
     _say = log.info if log is not None else print
+    rt = resolver_for(base_dir)
     if reference is None:
-        # Single source of truth: the sweep's reference cell lives in whatif_config.
+        # Prefer the run's OWN descriptor (correct when re-analyzing an old sweep); fall back to the
+        # currently-committed spec only when the descriptor has none.
+        reference = rt.layout.get('reference')
+    if reference is None:
         try:
             from Optimization.whatif_config import WHATIF
             reference = WHATIF.get('reference', 'k1_off')
         except Exception:
             reference = 'k1_off'
 
-    cell_names = [d for d in sorted(os.listdir(base_dir))
-                  if os.path.isdir(os.path.join(base_dir, d)) and not d.startswith('_')]
+    cell_names = [name for name, _dir in rt.cells()]
     if reference not in cell_names:
         raise SystemExit(f'reference cell {reference!r} not found in {cell_names}')
-    scans = {c: _scan(os.path.join(base_dir, c)) for c in cell_names}
+    scans = {c: _scan(rt, c) for c in cell_names}
     ref = scans[reference]
 
     rows = []
@@ -146,6 +218,9 @@ def run(base_dir, reference=None, log=None):
         w.writeheader()
         w.writerows(rows)
     _say(f'wrote {csv_path}  ({len(rows)} rows)')
+
+    json_path = _write_delta_json(base_dir, rt, rows, reference, cell_names)
+    _say(f'wrote {json_path}')
 
     if rows:
         fig, ax = plt.subplots(figsize=(10, 7))
@@ -191,13 +266,14 @@ def run(base_dir, reference=None, log=None):
 
 
 def main():
+    from Optimization.runschema import resolve_base_dir
     ap = argparse.ArgumentParser(description='Diff what-if scenarios vs a reference cell.')
     ap.add_argument('base_dir')
     ap.add_argument('--reference', default=None,
-                    help="reference cell to diff against (default: WHATIF['reference'] from "
-                         "whatif_config.py, else 'k1_off')")
+                    help="reference cell to diff against (default: the run's own run_layout.json "
+                         "reference, else WHATIF['reference'] from whatif_config.py)")
     args = ap.parse_args()
-    run(args.base_dir, args.reference)
+    run(resolve_base_dir(args.base_dir), args.reference)
 
 
 if __name__ == '__main__':

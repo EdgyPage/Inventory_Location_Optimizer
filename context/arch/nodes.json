@@ -1207,7 +1207,7 @@
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.footer": {
       "decorators": [],
-      "doc": "Provenance line stamped on every figure: origin sim folder + inventory.",
+      "doc": "Provenance line stamped on every figure: origin sim folder + inventory.\n\nrun_dir is `<run>/<cell>/<pair>/<config>` on a store-only run and\n`<run>/<cell>/<pair>/<config>/<channel>` on a mixed one, so a FIXED number of dirname hops\nmislabels one of the two \u2014 the old three-hop version rendered the config name in the \"run\"\nslot for every channelized run.  Walk up to the run root (the dir holding run_layout.json)\ninstead, so the label is right at either depth.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
@@ -1271,6 +1271,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::_provenance_parts": {
+      "decorators": [],
+      "doc": "Directory names from the RUN ROOT down to `leaf_dir`, for a figure's provenance footer.\n\nThe run root is the dir holding run_layout.json (the run-tree descriptor).  Anchoring on that\nmarker keeps the label correct whether the leaf is `<cell>/<pair>/<config>` (store-only) or\n`<cell>/<pair>/<config>/<channel>` (mixed) \u2014 a fixed dirname-hop count cannot be right for both.\nFalls back to the last three components when no descriptor is found (e.g. an ad-hoc dir under\ntest), so this never raises inside a plotting call.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(leaf_dir: str, max_up: int=6) -> list[str]"
     },
     "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling": {
       "decorators": [],
@@ -3146,7 +3153,7 @@
     },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],
-      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas) + a labor-saving-vs-throughput-gain scatter (one point per\ncell\u00d7channel\u00d7arm) and a median summary.  This is what makes a scheduling win legible: LPT should show\n\u0394batch-makespan \u2193 and \u0394throughput/batch \u2191 while \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config",
+      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas), whatif_delta.json (the docs site's matrix table), and a\nlabor-saving-vs-throughput-gain scatter (one point per cell\u00d7channel\u00d7arm) plus a median summary.  This\nis what makes a scheduling win legible: LPT should show \u0394batch-makespan \u2193 and \u0394throughput/batch \u2191\nwhile \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config\n\nTree access goes through the versioned run-tree resolver (Optimization/runschema), never raw globs:\nthe previous relpath-splitting scan required a `<channel>` segment and therefore silently dropped\nEVERY store-only run, whose sim DBs sit directly under `<config>/`.",
       "kind": "module",
       "signature": null
     },
@@ -3156,6 +3163,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "50"
+    },
+    "Optimization/run_whatif_delta.py::_cell_labels": {
+      "decorators": [],
+      "doc": "(layout, zoning_label) for one descriptor cell \u2014 the prose the docs matrix shows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(layout_cell: dict) -> tuple[str, str]"
+    },
+    "Optimization/run_whatif_delta.py::_channel_of": {
+      "decorators": [],
+      "doc": "The channel a run belongs to.  ChannelRun.channel is None on a store-only layout (no channel\nsubdir) \u2014 that IS the store channel, so name it rather than emitting a blank column.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cr) -> str"
     },
     "Optimization/run_whatif_delta.py::_metrics": {
       "decorators": [],
@@ -3173,10 +3194,24 @@
     },
     "Optimization/run_whatif_delta.py::_scan": {
       "decorators": [],
-      "doc": "{(pair, pickcfg, channel, arm): metrics} for one scenario subtree.",
+      "doc": "{(pair, pickcfg, channel, arm): metrics} for one cell, via the run-tree resolver.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell_dir: str) -> dict"
+      "signature": "(rt, cell: str) -> dict"
+    },
+    "Optimization/run_whatif_delta.py::_write_delta_json": {
+      "decorators": [],
+      "doc": "Write whatif_delta.json \u2014 the per-cell \u00d7 per-channel MEDIAN table the docs site renders.\n\nPreviously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the only\nway to get one was to hand-copy and rename whatif_labor.json.  The four-metric key names\n(dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that macro prefers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, rt, rows, reference, cell_names) -> str"
+    },
+    "Optimization/run_whatif_delta.py::_write_delta_json._med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vs, key)"
     },
     "Optimization/run_whatif_delta.py::main": {
       "decorators": [],
@@ -3194,7 +3229,7 @@
     },
     "Optimization/run_whatif_labor.py": {
       "decorators": [],
-      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (_scan-style glob + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
       "kind": "module",
       "signature": null
     },
@@ -3284,10 +3319,10 @@
     },
     "Optimization/run_whatif_labor.py::_scan_labor": {
       "decorators": [],
-      "doc": "{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.",
+      "doc": "{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.\n\nWalks via the versioned run-tree resolver.  The previous relpath scan required a `<channel>`\nsegment (`len(rel) < 4: continue`) and so returned NOTHING for a store-only run.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell_dir: str) -> dict"
+      "signature": "(rt, cell: str) -> dict"
     },
     "Optimization/run_whatif_labor.py::_scheduler_of": {
       "decorators": [],
@@ -3395,6 +3430,632 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
+    },
+    "Optimization/runschema/__init__.py": {
+      "decorators": [],
+      "doc": "runschema \u2014 the VERSIONED contract for a simulation run's on-disk tree.\n\nDownstream tools (analysis, graphs, docs ingest, the replay viewer) resolve paths through a\nresolver from this package instead of joining strings.  A structural change to the tree therefore\nmeans adding a ``vN.py`` and regenerating ``Optimization/schemas/run_tree.vN.json`` \u2014 not editing\npath arithmetic scattered across the analysis branch.\n\n    from Optimization import runschema\n    rt = runschema.resolver_for(base_dir)        # version chosen by the run's OWN descriptor\n    for cell, cr, sim_db in rt.sim_dbs():\n        ...\n\nVersion selection reads ``schema_version`` out of the run's ``run_layout.json``, so an OLD run keeps\nanalyzing with the resolver it was written by even after the code moves on.  ``RUN_TREE_VERSION`` is\nwhat a NEW run stamps.\n\nThere is deliberately NO pre-v1 fallback: v1 is the tree as of the cell-matrix refactor, and runs\nolder than that are not supported (they predate ``run_layout.json`` entirely).  ``preflight.py``\nkeeps the committed contract honest by proving it against real canary runs before a simulation.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/__init__.py::LATEST": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_RESOLVERS[RUN_TREE_VERSION]"
+    },
+    "Optimization/runschema/__init__.py::RUN_TREE_VERSION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/runschema/__init__.py::UnsupportedRunTree": {
+      "decorators": [],
+      "doc": "Raised for a run whose tree version this build cannot resolve.",
+      "kind": "class",
+      "signature": "(Exception)"
+    },
+    "Optimization/runschema/__init__.py::_RESOLVERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{1: RunTreeV1}"
+    },
+    "Optimization/runschema/__init__.py::resolve_base_dir": {
+      "decorators": [],
+      "doc": "Resolve a CLI run argument: an absolute path as-is, a bare name against COMPARISON_OUTPUT_DIR.\n\nEvery downstream CLI over a run tree shares this, so `python -m Optimization.run_whatif_delta\ncomparison_20260728_120000` behaves the same as the analysis hub instead of only resolving\nrelative to the current directory.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> str"
+    },
+    "Optimization/runschema/__init__.py::resolver_for": {
+      "decorators": [],
+      "doc": "Return the resolver matching the run's own ``run_layout.json`` ``schema_version``.\n\nRaises UnsupportedRunTree when the descriptor is missing (a pre-v1 run) or names a version this\nbuild doesn't know \u2014 a loud failure is the point.  Silently guessing the layout is what made\nevery downstream tool drift in the first place.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str)"
+    },
+    "Optimization/runschema/__init__.py::resolver_for_new_run": {
+      "decorators": [],
+      "doc": "Resolver for a run being CREATED right now (its descriptor may not be written yet).\n\nAlways the LATEST version \u2014 a new run is stamped with RUN_TREE_VERSION by definition.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, layout: dict | None=None)"
+    },
+    "Optimization/runschema/contract.py": {
+      "decorators": [],
+      "doc": "runschema.contract \u2014 emit / fingerprint / diff the machine-readable run-tree contract.\n\n``Optimization/schemas/run_tree.v<N>.json`` is GENERATED from ``runschema/v<N>.py``'s LEVELS +\nARTIFACTS tables and committed, so consumers that aren't Python (the JS viewer, notebooks, any\nfuture ETL) read the same contract the resolver enforces.  Nothing here inspects a run directory \u2014\nthat's ``preflight.observe``; this module only deals with the DECLARED shape.\n\nTwo fingerprints live in the emitted file and they answer different questions:\n\n  * ``tree_fingerprint``   \u2014 hash of the DECLARED shape (levels + artifact path/format/scope/tables).\n    Changes only when the contract itself changes.  This is what a version bump is about.\n  * ``source_fingerprint`` \u2014 hash of the shape-DEFINING source files.  Changes whenever code that\n    could move a file moves.  It is a cheap *trigger*, not proof: a docstring edit trips it, which\n    is exactly why the preflight then runs canaries before concluding anything.\n\nRun standalone:\n    python -m Optimization.runschema.contract --write     # regenerate the committed JSON\n    python -m Optimization.runschema.contract --check     # exit 1 if the JSON is stale",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/contract.py::SHAPE_SOURCES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('Optimization/runlayout.py', 'Optimization/sim_manifest.py', 'Optimization/sim_assets.py', 'Optimization/simdriver/__init__.py', 'Optimization/simdriver/cells.py', 'Optimization/simdriver/scenario..."
+    },
+    "Optimization/runschema/contract.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Optimization/runschema/contract.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(_HERE, '..', '..'))"
+    },
+    "Optimization/runschema/contract.py::_SCHEMA_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_REPO_ROOT, 'Optimization', 'schemas')"
+    },
+    "Optimization/runschema/contract.py::_sha": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(payload: bytes) -> str"
+    },
+    "Optimization/runschema/contract.py::_shape_only": {
+      "decorators": [],
+      "doc": "The parts of a contract that DEFINE the tree \u2014 prose and fingerprints excluded.\n\n`note` / `condition` are documentation: editing them must not force a version bump, so they are\nstripped before hashing.  Everything that a downstream path-resolver depends on stays.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> dict"
+    },
+    "Optimization/runschema/contract.py::build": {
+      "decorators": [],
+      "doc": "Generate the contract document for a version from its vN module's tables.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(version: int | None=None, repo_root: str=_REPO_ROOT) -> dict"
+    },
+    "Optimization/runschema/contract.py::contract_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(version: int) -> str"
+    },
+    "Optimization/runschema/contract.py::diff_shape": {
+      "decorators": [],
+      "doc": "Human-readable differences between two contracts' SHAPES (a = committed, b = new).\n\nEmpty list \u21d4 identical tree_fingerprint, so this doubles as the bump decision's explanation.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a: dict, b: dict) -> list[str]"
+    },
+    "Optimization/runschema/contract.py::load": {
+      "decorators": [],
+      "doc": "The committed contract for a version, or None when it isn't there yet.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(version: int) -> dict | None"
+    },
+    "Optimization/runschema/contract.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Optimization/runschema/contract.py::source_fingerprint": {
+      "decorators": [],
+      "doc": "Hash of every shape-defining source file (path + content), in declared order.\n\nLine endings are NORMALISED to \\n before hashing.  On Windows a checkout, stash/pop, or\nautocrlf change rewrites CRLF<->LF without touching a single statement; hashing raw bytes made\nthat look like a structural change and cost a needless canary pair.  Content changes still\nregister, which is the whole point.\n\nA missing file contributes its path plus a MISSING marker rather than being skipped, so\nDELETING a shape source is detected instead of silently matching.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> str"
+    },
+    "Optimization/runschema/contract.py::tree_fingerprint": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> str"
+    },
+    "Optimization/runschema/contract.py::write": {
+      "decorators": [],
+      "doc": "Write a contract document to its versioned path, atomically.  Returns the path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> str"
+    },
+    "Optimization/runschema/hook_check.py": {
+      "decorators": [],
+      "doc": "hook_check.py \u2014 Stop-hook backstop that nudges a run-tree schema resync on drift.\n\nWired via .claude/settings.json (Stop hook), alongside context/arch/hook_check.py.  Runs ONLY the\ncheap stage of the preflight \u2014 a source-fingerprint comparison plus a staleness check of the\ncommitted contract.  It NEVER runs a canary simulation and ALWAYS exits 0: this is advisory and\nmust not block a turn, slow it down, or fail when something upstream is half-edited.\n\nThe nag it prints is the whole point.  Discovering that the output tree moved at the START of the\nnext simulation is cheap; discovering it after a multi-hour run, from broken graphs, is not.\n\nRun standalone:  python Optimization/runschema/hook_check.py",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/hook_check.py::_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
+    },
+    "Optimization/runschema/hook_check.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
+    },
+    "Optimization/runschema/preflight.py": {
+      "decorators": [],
+      "doc": "runschema.preflight \u2014 prove the run-tree contract BEFORE a simulation, not after.\n\nThe problem this solves: every structural change to the output tree used to be discovered\ndownstream, weeks later, as hand-written throwaway extraction code.  This runs at the FRONT of a\nrun instead.\n\nFive stages, cheapest first:\n\n  1. DETECT   \u2014 hash the shape-defining sources (contract.SHAPE_SOURCES) against the\n                `source_fingerprint` in the committed contract.  Unchanged \u21d2 return immediately.\n                This is the common path: no canary, no cost.\n  2. CANARY   \u2014 only on a source change.  Two tiny REAL runs into a temp dir:\n                  A: mixed catalog + 2-cell sweep  -> `<channel>/` present, `_frozen/`, what-if\n                  B: store-only    + 1-cell        -> `<channel>/` ABSENT, no `_frozen/`\n                One canary alone would encode \"channel always present\" \u2014 the exact assumption\n                behind the store-only bugs this package exists to prevent.\n  3. OBSERVE  \u2014 generalize every produced path back to a template, consuming levels POSITIONALLY\n                against run_layout.json's axis lists (never by directory name: the store config is\n                named `store` and so is the store channel, so `<pair>/store/store/` is real).\n  4. VALIDATE \u2014 compare observed templates against the committed contract.  Produced-but-undeclared\n                is the finding that matters; declared-but-never-produced and wrong optionality are\n                caught too.\n  5. BUMP     \u2014 on a real difference, scaffold `runschema/v<N+1>.py` from v<N> with the observed\n                deltas applied, emit `run_tree.v<N+1>.json`, and update the downstream orchestrator\n                files (context/artifacts.yml, Visualization/static/schema.json) so the schema is\n                extractable without writing code after the run.\n\nCLI:\n    python -m Optimization.runschema.preflight            # detect; canary + prompt on change\n    python -m Optimization.runschema.preflight --check    # stage 1 only; exit 1 on drift, no writes\n    python -m Optimization.runschema.preflight --yes      # unattended: bump without prompting\n    python -m Optimization.runschema.preflight --force    # run the canaries even with no change\n\nEnvironment:\n    ILO_SKIP_PREFLIGHT=1   skip entirely (set for the canary subprocesses so they cannot recurse)",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/preflight.py::CANARY_ARGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['--n-batches', '2', '--max-skus', '200', '--s-max-aisles', '4', '--s-min-bins', '400', '--s-max-bins', '900', '--ff-max-aisles', '3', '--ff-min-bins', '300', '--ff-max-bins', '700', '--keyframe-in..."
+    },
+    "Optimization/runschema/preflight.py::SKIP_ENV": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'ILO_SKIP_PREFLIGHT'"
+    },
+    "Optimization/runschema/preflight.py::_BATCHES_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('^_batches_[0-9a-f]+\\\\.pkl$')"
+    },
+    "Optimization/runschema/preflight.py::_CKPT_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('^_ckpt_(?P<strategy>.+)\\\\.pkl$')"
+    },
+    "Optimization/runschema/preflight.py::_EXT_FORMAT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'.db': 'sqlite', '.json': 'json', '.csv': 'csv', '.png': 'png', '.pkl': 'pickle', '.log': 'text', '.txt': 'text'}"
+    },
+    "Optimization/runschema/preflight.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Optimization/runschema/preflight.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "contract._REPO_ROOT"
+    },
+    "Optimization/runschema/preflight.py::_STRATEGY_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('^sim_(?P<strategy>.+?)(?P<kf>\\\\.keyframes)?\\\\.db$')"
+    },
+    "Optimization/runschema/preflight.py::_artifact_key_for": {
+      "decorators": [],
+      "doc": "A stable snake_case key for a newly-observed template.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tmpl: str) -> str"
+    },
+    "Optimization/runschema/preflight.py::_axis_values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(layout: dict) -> dict[str, set]"
+    },
+    "Optimization/runschema/preflight.py::_collapse_channel_variants": {
+      "decorators": [],
+      "doc": "Fold `\u2026/{channel}/x` + `\u2026/x` into one `\u2026/{channel?}/x` entry.\n\nThe two canaries observe the SAME artifact under both shapes \u2014 mixed catalogs put it under a\nchannel dir, store-only ones don't.  Emitting two scaffold entries would hard-code exactly the\n\"channel is always there\" assumption this whole package exists to prevent, so an artifact seen\nin both shapes becomes one required entry with an optional segment.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(undeclared: dict[str, str]) -> dict[str, str]"
+    },
+    "Optimization/runschema/preflight.py::_declared_templates": {
+      "decorators": [],
+      "doc": "contract path template -> artifact key, normalized to the observe() vocabulary.\n\n`{channel?}` expands to BOTH shapes (with and without the segment) because both are legitimate\n\u2014 that is precisely the optionality being modelled.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> dict[str, str]"
+    },
+    "Optimization/runschema/preflight.py::_format_of": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tmpl: str) -> str"
+    },
+    "Optimization/runschema/preflight.py::_generalize_file": {
+      "decorators": [],
+      "doc": "Turn a run-root-relative path into a template, consuming levels POSITIONALLY.\n\nPositional consumption is the whole point: `<pair>/store/store/` is a real path where the\nconfig and the channel share a name, so any name-based guess is wrong. Each level is taken only\nat its own depth, and only if the segment is a known value for that axis.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(segments: list[str], axes: dict[str, set]) -> str"
+    },
+    "Optimization/runschema/preflight.py::_report": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(findings: dict, echo) -> None"
+    },
+    "Optimization/runschema/preflight.py::_run_canary": {
+      "decorators": [],
+      "doc": "Run one canary simulation in a SUBPROCESS; return its run-root dir (None on failure).\n\nIsolation is by environment, not new flags: PROFILE_INPUT_DIR / COMPARISON_OUTPUT_DIR are\nalready the driver's input/output roots (sim_config), so the real results drive is never\ntouched.  ILO_SKIP_PREFLIGHT stops the child from re-entering this module.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(workdir: str, name: str, *, spec: str, mixed: bool, echo=print) -> str | None"
+    },
+    "Optimization/runschema/preflight.py::_scope_of": {
+      "decorators": [],
+      "doc": "Which level a newly-observed template belongs to \u2014 the deepest axis it consumes.\n\n`_aggregate/` is per-CELL even though it carries {config}/{channel} beneath it: those are the\ngrouping key of a cross-profile rollup, not the run's own config/channel levels.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tmpl: str) -> str"
+    },
+    "Optimization/runschema/preflight.py::_template_regex": {
+      "decorators": [],
+      "doc": "Compile a declared path template into a matcher for OBSERVED templates.\n\nObserved templates carry placeholders as literal text (`{cell}`), so those compare exactly; only\nthe glob forms are fuzzy:  `**/` spans any number of segments, `*` stays within one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(declared: str) -> re.Pattern"
+    },
+    "Optimization/runschema/preflight.py::_write_canary_catalog": {
+      "decorators": [],
+      "doc": "Generate one tiny inventory+affinity pair in the profiles-tree layout the driver discovers.\n\nMirrors Tests/test_channel_runner_smoke.py's catalog: a real (if small) affinity matrix over\nconsecutive SKUs, because affinity-driven arms refuse to run on an empty one.  `mixed=False`\nomits the fulfillment family, which is what makes the run store-only (no `<channel>` level).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(profiles_root: str, profile: str, *, mixed: bool, num_skus: int=300)"
+    },
+    "Optimization/runschema/preflight.py::_yaml_pattern": {
+      "decorators": [],
+      "doc": "contract template -> the angle-bracket pattern style context/artifacts.yml uses.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tmpl: str) -> str"
+    },
+    "Optimization/runschema/preflight.py::ensure": {
+      "decorators": [],
+      "doc": "The full preflight.  Returns 0 to proceed with the run, non-zero to stop.\n\nStage 1 short-circuits when nothing shape-defining changed, which is the common case.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(echo=print, *, assume_yes: bool=False, force: bool=False, keep_workdir: bool=False) -> int"
+    },
+    "Optimization/runschema/preflight.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Optimization/runschema/preflight.py::observe": {
+      "decorators": [],
+      "doc": "Derive the on-disk shape of a finished run: the set of generalized path templates.\n\nReturns {'templates': {template: count}, 'levels_seen': {...}, 'layout': {...}}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> dict"
+    },
+    "Optimization/runschema/preflight.py::run_canaries": {
+      "decorators": [],
+      "doc": "Both canaries.  A = mixed catalog + 2-cell sweep; B = store-only + single cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(workdir: str, echo=print) -> dict[str, str | None]"
+    },
+    "Optimization/runschema/preflight.py::scaffold_next_version": {
+      "decorators": [],
+      "doc": "Write runschema/v<next>.py: v<cur>'s tables with the observed deltas applied.\n\nEverything a path resolver needs (path/format/scope/optional) is derived mechanically. Only the\nprose \u2014 `writer`, `note`, `condition` \u2014 is left as TODO, because a script cannot infer which\nfunction creates a file or why it is conditional. Those TODOs are deliberately loud.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict, findings: dict, next_version: int) -> str"
+    },
+    "Optimization/runschema/preflight.py::sources_changed": {
+      "decorators": [],
+      "doc": "(changed, committed_fingerprint, current_fingerprint) for the shape-defining sources.\n\nA missing contract counts as changed \u2014 there is nothing to compare against yet.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(version: int | None=None) -> tuple[bool, str, str]"
+    },
+    "Optimization/runschema/preflight.py::update_artifacts_yml": {
+      "decorators": [],
+      "doc": "Rewrite context/artifacts.yml `path_pattern:` lines from the contract.\n\nLine-level edit (not a YAML round-trip) so the file's comments and ordering survive \u2014 they are\nthe documentation.  Only ids that exist in BOTH the contract and the file are touched.\nReturns the list of ids whose pattern changed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict, path: str | None=None) -> list[str]"
+    },
+    "Optimization/runschema/preflight.py::update_viewer_schema": {
+      "decorators": [],
+      "doc": "Emit Visualization/static/schema.json \u2014 the slice of the contract the front end reads.\n\nThe viewer builds its cascading run selectors from `axes` and `levels`, so a version bump\nchanges the UI's navigation without a single JS edit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict, path: str | None=None) -> str"
+    },
+    "Optimization/runschema/preflight.py::validate": {
+      "decorators": [],
+      "doc": "Compare both canaries against the committed contract.\n\nReturns {'undeclared': {...}, 'never_produced': [...], 'optionality': [...], 'ok': bool}.\n`undeclared` is the finding that matters most: a file the tree produces that no consumer can\nbe told about.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict, obs_a: dict, obs_b: dict) -> dict"
+    },
+    "Optimization/runschema/preflight.py::validate._match": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tmpl: str) -> str | None"
+    },
+    "Optimization/runschema/v1.py": {
+      "decorators": [],
+      "doc": "runschema.v1 \u2014 the v1 run-tree contract: declarative level/artifact tables + the resolver.\n\nThis module is the SINGLE source of truth for what a v1 run directory looks like.  Two things\nlive here and nowhere else:\n\n  * ``LEVELS``    \u2014 the ordered directory levels, each flagged optional + why.\n  * ``ARTIFACTS`` \u2014 every file a run produces, as a path TEMPLATE plus its format/scope/schema.\n\n``Optimization/schemas/run_tree.v1.json`` is GENERATED from these two tables (see\n``runschema.contract``) and committed, so non-Python consumers (the JS viewer, notebooks) read the\nsame contract.  ``RunTreeV1`` is the Python face of it: downstream code asks it for paths instead of\njoining strings, so a v2 tree means a new ``v2.py`` \u2014 not edits scattered across the analysis branch.\n\nThe walkers themselves stay in ``Optimization/runlayout.py`` (still the single owner of tree\ntraversal); this class delegates to them and adds the cell level, the optional-segment handling,\nand the axis inventory the viewer navigates by.\n\nWHY LEVELS ARE CONDITIONAL \u2014 read before adding a level\n-------------------------------------------------------\nTwo levels are NOT always present, and assuming otherwise is the bug this package exists to stop:\n\n  * ``<channel>/`` appears only on a MIXED catalog (store + fulfillment).  A store-only run puts\n    ``sim_*.db`` directly under ``<config>/``.  The pre-existing ``len(rel) < 4`` relpath checks in\n    run_whatif_delta/run_whatif_labor silently dropped every store-only run for exactly this reason.\n  * ``_frozen/<pair>/`` appears only on a MULTI-cell run, where the sampled inventory is frozen once\n    and reshaped per cell.  A single-cell run samples fresh, so its ``planned_inventory.db`` sits at\n    ``<cell>/<pair>/`` instead.\n\nA second trap: the store *config* is named ``store`` and the store *channel* is also ``store``, so a\nreal path reads ``<cell>/<pair>/store/store/sim_*.db``.  Never infer a level by matching a directory\nNAME \u2014 consume levels positionally against the axis lists in ``run_layout.json``.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/runschema/v1.py::ARTIFACTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'run_layout': {'path': 'run_layout.json', 'format': 'json', 'scope': 'run', 'writer': 'write_run_layout@Optimization/sim_manifest.py', 'note': 'the cell-tree descriptor; carries schema_version, wh..."
+    },
+    "Optimization/runschema/v1.py::AXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('cell', 'pair', 'config', 'channel', 'strategy')"
+    },
+    "Optimization/runschema/v1.py::LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[{'name': 'cell', 'optional': False, 'note': 'what-if cell: aisle-split x zoning x scheduler. Every run is a cell matrix; a plain run is the single cell k1_off.'}, {'name': 'pair', 'optional': Fals..."
+    },
+    "Optimization/runschema/v1.py::RESERVED_PREFIX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'_'"
+    },
+    "Optimization/runschema/v1.py::ROOT_PREFIXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('comparison_', 'comparison_whatif_')"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1": {
+      "decorators": [],
+      "doc": "Resolver for a v1 run tree.  Construct via ``runschema.resolver_for(base_dir)``.\n\nEvery accessor returns an ABSOLUTE path (or an iterator of them).  Existence is NOT implied \u2014\noptional artifacts legitimately do not exist on some runs (see LEVELS/ARTIFACTS `condition`),\nso callers check `os.path.exists` where it matters.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, base_dir: str, layout: dict | None=None)"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.aggregate_dir": {
+      "decorators": [],
+      "doc": "<cell>/_aggregate/<group_key> \u2014 the cross-profile aggregate subtree.\n\ngroup_key is ChannelRun.group_key: `<config>` on a store-only run, `<config>/<channel>` on\na mixed one, so the optional channel level is already folded in by the caller.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, group_key: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.axes": {
+      "decorators": [],
+      "doc": "Sorted distinct values per axis, observed from the tree and backfilled from the\ndescriptor.  `channel` is [] on a store-only run \u2014 that emptiness is meaningful, and the\nUI should hide the channel selector rather than invent a value.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict[str, list[str]]"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.cell_dir": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.cells": {
+      "decorators": [],
+      "doc": "[(cell_name, cell_dir), \u2026] in descriptor order (so partial/crashed cells are included).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[tuple[str, str]]"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.channel_runs": {
+      "decorators": [],
+      "doc": "Yield (cell_name, ChannelRun) for every analyzed leaf.  `cell=None` spans the whole run.\n\nChannelRun.channel is None on a store-only run \u2014 do NOT assume a channel segment.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str | None=None) -> Iterator[tuple[str, runlayout.ChannelRun]]"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.config_json": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pair: str, config: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.is_sweep": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "True when the run has >1 cell \u2014 the condition that produces _frozen/ and the\ncross-cell what-if outputs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.keyframe_db": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sim_db: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.path": {
+      "decorators": [],
+      "doc": "Absolute path of any ARTIFACTS entry, e.g. path('sim_db', cell=\u2026, pair=\u2026,\nconfig=\u2026, channel=None, strategy='uni_fifo_norsl').",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str, **parts) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.planned_inventory_db": {
+      "decorators": [],
+      "doc": "The planned inventory for (cell, pair).\n\nMulti-cell runs freeze it once at _frozen/<pair>/ and share it across cells; single-cell\nruns write it under <cell>/<pair>/.  Prefer whichever exists, frozen first \u2014 that mirrors\nbuild_shared_assets, which returns the frozen DB verbatim when one was supplied.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pair: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.rollup_csv": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.run_layout_json": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.run_manifest": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.run_spec_json": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.runtime_db": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.series_json": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cr: runlayout.ChannelRun) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.sim_dbs": {
+      "decorators": [],
+      "doc": "Yield (cell_name, ChannelRun, sim_db_path) across the run (or one cell).\n\nStructural \u2014 finds arms whose sim_meta.json was never finalized (crashed runs) too.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str | None=None) -> Iterator[tuple[str, runlayout.ChannelRun, str]]"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.sim_meta": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cr: runlayout.ChannelRun) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.strategy_of": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": "'\u2026/sim_uni_fifo_norsl.db' -> 'uni_fifo_norsl'.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sim_db: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.warehouse_db": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pair: str) -> str"
+    },
+    "Optimization/runschema/v1.py::RunTreeV1.whatif_outputs": {
+      "decorators": [],
+      "doc": "Existing cross-cell what-if artifacts at the run root (empty on a single-cell run).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[str]"
+    },
+    "Optimization/runschema/v1.py::SCHEMA_VERSION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/runschema/v1.py::render": {
+      "decorators": [],
+      "doc": "Render an ARTIFACTS path template to a relative path.\n\n`{name}` substitutes parts[name]; `{name?}` is an OPTIONAL segment that is dropped along with\nits separator when parts.get(name) is None.  Raises KeyError for a missing required part, so a\ntypo fails loudly instead of producing a path with a literal brace in it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(template: str, **parts) -> str"
     },
     "Optimization/runtime_metrics.py": {
       "decorators": [],
@@ -3737,7 +4398,7 @@
     },
     "Optimization/sim_manifest.py::write_run_layout": {
       "decorators": [],
-      "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() tuples [(name, split, zoning, scheduler), \u2026]; split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.",
+      "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() tuples [(name, split, zoning, scheduler), \u2026]; split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.\n\n`schema_version` stamps which RUN-TREE CONTRACT this run's directory layout follows\n(Optimization/schemas/run_tree.v<N>.json).  Downstream tools select their resolver from it\n(runschema.resolver_for), so an OLD run keeps analyzing correctly after the tree shape moves on.\nIt is distinct from `version`, which versions THIS descriptor file's own field set.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -> None"
@@ -4333,7 +4994,7 @@
     },
     "Optimization/whatif_config.py": {
       "decorators": [],
-      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B: hold the layout fixed (no split, no zoning) and sweep the\ntask\u2192picker scheduler `round_robin` vs `lpt` across the full assignment-function suite, to measure the\nthroughput (makespan) gain of load-balancing at unchanged total labor.  To sweep layout too, re-add\nvalues to `ks`/`losses`/`zoning`.",
+      "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B with NO ABC aisle splitting and NO ABC velocity zoning: hold\nthe layout fixed (whole aisles, no A/B/C banding) and sweep the task\u2192picker scheduler `round_robin`\n(naive static i%num_pickers) vs `lpt` (makespan-MINIMIZING load balancer) across the full\nassignment-function suite \u2014 measuring the throughput (batch-makespan) gain of load-balancing at\nunchanged task makespan (total labor).  The ABC aisle-split and ABC velocity-zoning axes are preserved\nbelow as commented-out lines; uncomment them to sweep layout too.",
       "kind": "module",
       "signature": null
     },
@@ -4342,7 +5003,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF}"
+      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF, '_canary_sweep': {'ks':..."
     },
     "Optimization/whatif_config.py::WHATIF": {
       "decorators": [],
@@ -4364,6 +5025,20 @@
       "kind": "module",
       "signature": null
     },
+    "Visualization/db_reader.py::AXIS_LABELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'pair': 'Warehouse', 'channel': 'Warehouse type', 'config': 'Pick config', 'cell': 'Layout / scheduler cell', 'strategy': 'Assignment function'}"
+    },
+    "Visualization/db_reader.py::NAV_AXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('pair', 'channel', 'config', 'cell', 'strategy')"
+    },
     "Visualization/db_reader.py::RunRef": {
       "decorators": [
         "dataclass"
@@ -4371,6 +5046,15 @@
       "doc": null,
       "kind": "class",
       "signature": ""
+    },
+    "Visualization/db_reader.py::RunRef.axis_values": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "This run's coordinate on every navigation axis \u2014 what the UI filters on.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Visualization/db_reader.py::_GRID_COLS": {
       "decorators": [],
@@ -4467,7 +5151,7 @@
     },
     "Visualization/db_reader.py::discover_runs": {
       "decorators": [],
-      "doc": "Walk <base>/<pair>/<config>[/<channel>]/sim_*.db and return one RunRef per\nstrategy run (the layout walk lives in Optimization.runlayout).\n\nRename-proof: the strategy/pair/config labels come from the DB's stored identity\n(falling back to the file/dir names for older runs), and each run's warehouse.db is\nmatched by warehouse_fingerprint (falling back to the nearest warehouse.db by path).\nMixed-catalog runs surface with the channel folded into the config label\n(e.g. 'store_high_weight/fulfillment') so store-only ids are unchanged.",
+      "doc": "One RunRef per strategy run across the WHOLE run tree, via the versioned resolver.\n\nbase_dir is the RUN ROOT.  This previously called the per-CELL walker\n(``iter_sim_dbs(base_dir)``) at the run root, so every cell-matrix run \u2014 i.e. every run since\nthe cell refactor \u2014 surfaced ZERO runs in the viewer.  ``runschema.resolver_for`` reads the\nrun's own ``run_layout.json`` and spans all its cells.\n\nRename-proof: strategy/pair/config labels come from the DB's stored identity (falling back to\nthe file/dir names), and each run's warehouse.db is matched by warehouse_fingerprint (falling\nback to the nearest warehouse.db by path).  The CELL, however, exists only in the path \u2014\nsim_*.db has no cell column \u2014 so it always comes from the resolver.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> list[RunRef]"
@@ -4499,6 +5183,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run: RunRef, batch: int) -> dict"
+    },
+    "Visualization/db_reader.py::run_index": {
+      "decorators": [],
+      "doc": "{schema_version, axes, axis_labels, runs} \u2014 the whole navigation contract for the UI.\n\n`axes` holds the distinct values actually present, so the front end never hardcodes a level.\nA store-only run yields `channel: []`; the UI should HIDE that selector rather than invent a\nvalue, which is the same optionality the run-tree contract declares.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> dict"
     },
     "Visualization/db_reader.py::run_summaries": {
       "decorators": [],
@@ -4604,7 +5295,16 @@
       "decorators": [
         "app.route('/api/runs')"
       ],
-      "doc": null,
+      "doc": "The full navigation contract: schema version, the axis values present, and every run.\n\nThe UI builds its cascading selectors from `axes`/`axis_order`, so a run-tree version bump\nchanges what you can navigate by without a single JS edit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Visualization/server.py::api_schema": {
+      "decorators": [
+        "app.route('/api/schema')"
+      ],
+      "doc": "The committed run-tree contract for the version this run was written with.\n\nServed from Optimization/schemas/run_tree.v<N>.json (via Visualization/static/schema.json when\nthe package isn't importable), so the front end reads the same declaration the resolver enforces.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -8079,7 +8779,7 @@
     },
     "docs/experiments/ingest.py": {
       "decorators": [],
-      "doc": "Pull a simulation run's curated files into a docs experiment folder.\n\nCopies, from a completed run's output directory (on the external drive) into\n``docs/experiments/<exp>/``, exactly the small files the site needs:\n\n  * per inventory \u00d7 config:  ``config.json`` + the curated comparison PNGs\n  * per inventory:           ``params.json`` + the inventory distribution PNGs\n\nIt prefers the run's ``run_manifest.json`` (written by run_simulation.py) to\nauto-discover inventories \u00d7 configs; for older runs without one it falls back to the\nexperiment's ``experiment.yml``. With ``--gen-manifest`` it also writes a starter\n``experiment.yml`` you then edit (titles, short keys, winners).\n\nUsage (run locally \u2014 CI has no drive access):\n    python docs/experiments/ingest.py --exp experiment-2         --source \"D:/.../comparison_20260801_120000\" --gen-manifest --dry-run\n    python docs/experiments/ingest.py --exp experiment-2 --source \"D:/.../comparison_...\"\n\nNothing here runs at site-build time; it just stages committed snapshots.",
+      "doc": "Pull a simulation run's curated files into a docs experiment folder.\n\nCopies, from a completed run's output directory (on the external drive) into\n``docs/experiments/<exp>/``, exactly the small files the site needs:\n\n  * per inventory \u00d7 config:  ``config.json`` + the curated comparison PNGs\n  * per inventory:           ``params.json`` + the inventory distribution PNGs\n\n``--source`` is the RUN ROOT.  Every run is a cell matrix, so the run root holds one\n``<cell>/`` subtree per what-if cell and ONE invocation now stages them all; previously this\nscript assumed the pre-cell flat tree (``<source>/<inv>/<cfg>``) and only worked if you pointed\nit at a single cell directory by hand, once per cell.\n\nThe docs-side layout is unchanged \u2014 ``images/<cell>/<inv>/<config>/`` \u2014 because that is what\n``docs/macros.py`` indexes and what every committed snapshot already uses.  The ``<channel>``\nlevel is flattened away by the recursive figure lookup (a store config only ever runs on the\nstore channel, and likewise for fulfillment), so no site path moves.\n\nInventories \u00d7 configs come from each cell's ``run_manifest.json``; for older runs without one it\nfalls back to the experiment's ``experiment.yml``.  With ``--gen-manifest`` it also writes a\nstarter ``experiment.yml`` you then edit (titles, short keys, winners).\n\nCross-cell what-if outputs at the run root (``whatif_delta.json`` + the ``whatif_*.png`` set) are\nstaged too \u2014 those used to be hand-copied and hand-renamed.\n\nUsage (run locally \u2014 CI has no drive access):\n    python docs/experiments/ingest.py --exp experiment-2         --source \"D:/.../comparison_20260801_120000\" --gen-manifest --dry-run\n    python docs/experiments/ingest.py --exp experiment-5 --source \"D:/.../comparison_whatif_...\"\n    python docs/experiments/ingest.py --exp experiment-5 --source \"D:/...\" --cell k1_off_lpt\n\nNothing here runs at site-build time; it just stages committed snapshots.",
       "kind": "module",
       "signature": null
     },
@@ -8104,12 +8804,47 @@
       "signature": null,
       "value_preview": "['top3_by_initial_prodtime_cum_improvement.png', 'top3_by_initial_production_time_over_time.png', 'top3_by_initial_prodtime_delta_trend.png', 'top_vs_baseline_table.png', 'top_vs_baseline.png']"
     },
+    "docs/experiments/ingest.py::DEFAULT_WHATIF_DATA": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['whatif_delta.json']"
+    },
+    "docs/experiments/ingest.py::DEFAULT_WHATIF_PNG_GLOB": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'whatif_*.png'"
+    },
     "docs/experiments/ingest.py::_DOCS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.dirname(os.path.dirname(os.path.abspath(__file__)))"
+    },
+    "docs/experiments/ingest.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
+    },
+    "docs/experiments/ingest.py::_cell_inventory_configs": {
+      "decorators": [],
+      "doc": "(run_manifest|None, inventories, configs) for one cell \u2014 manifest first, experiment.yml next.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir, exp_dir, ymldoc, log)"
+    },
+    "docs/experiments/ingest.py::_cells_of": {
+      "decorators": [],
+      "doc": "[(cell_name, cell_dir), \u2026] for a run root, plus the run's tree schema_version.\n\nUses the versioned run-tree resolver.  When the descriptor is missing (a pre-v1 run, or a\nsingle CELL directory passed the old way), fall back to treating `source` itself as one cell\nso an existing workflow still stages \u2014 but say so, because the cell name then comes from the\ndirectory name rather than the run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(source, log)"
     },
     "docs/experiments/ingest.py::_copy": {
       "decorators": [],
@@ -8132,12 +8867,26 @@
       "kind": "function",
       "signature": "(inv_id)"
     },
+    "docs/experiments/ingest.py::_stage_inventory_assets": {
+      "decorators": [],
+      "doc": "params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_src, inv, exp_dir, args, inv_plots, log)"
+    },
+    "docs/experiments/ingest.py::_stage_whatif": {
+      "decorators": [],
+      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(source, exp_dir, dry, log)"
+    },
     "docs/experiments/ingest.py::_write_starter_manifest": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log)"
+      "signature": "(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log, cells=None, schema_version=None)"
     },
     "docs/experiments/ingest.py::main": {
       "decorators": [],

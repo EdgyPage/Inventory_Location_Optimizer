@@ -19,6 +19,7 @@ import logging
 import logging.handlers
 import multiprocessing
 import os
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -174,6 +175,12 @@ def main():
     parser.add_argument('--no-analyze', action='store_true',
                         help='Skip the in-process analysis pass (per-cell graphs + cross-cell what-if '
                              'summaries) that otherwise runs automatically after the simulation.')
+    parser.add_argument('--no-preflight', action='store_true',
+                        help='Skip the run-tree schema preflight. The preflight is a no-op unless a '
+                             'shape-defining source changed since the committed contract; when one '
+                             'did, it proves the tree shape with two tiny canary runs and bumps '
+                             '(Optimization/schemas/run_tree.v<N>.json) so downstream tools can '
+                             'resolve the layout without hand-written extraction code.')
     parser.add_argument('--analysis-workers', type=int, default=None, metavar='N',
                         help='Pool size for the post-sim analysis pass (default: same as --workers).')
     parser.add_argument('--max-retries', type=int, default=2, metavar='N',
@@ -310,6 +317,25 @@ def main():
             'pairs'        : [list(p) for p in pairs],
         })
         log.info('  Wrote run_spec.json — zero-param `--resume` enabled')
+
+    # ── run-tree schema preflight — BEFORE the descriptor is stamped, so the contract this run
+    # declares is one that has actually been PROVEN against real output.  Free unless a
+    # shape-defining source changed (it compares source fingerprints first); on a change it runs two
+    # tiny canary sims and, if the tree really moved, bumps the version + updates the downstream
+    # orchestrator files.  Skipping is explicit (--no-preflight).
+    if not args.no_preflight:
+        from Optimization.runschema import preflight as _preflight
+        _pf = _preflight.ensure(echo=log.info)
+        if _pf != 0:
+            # Nothing has simulated yet; drop the stub run dir (log + spec only) so an aborted
+            # preflight doesn't leave a phantom run behind for the next person to puzzle over.
+            _stub = not any(os.path.isdir(os.path.join(base_dir, d)) for d in os.listdir(base_dir))
+            log.error(f'Schema preflight stopped the run (exit {_pf}).')
+            logging.shutdown()
+            if _stub and not args.resume:
+                shutil.rmtree(base_dir, ignore_errors=True)
+            sys.exit(f'Schema preflight stopped the run (exit {_pf}). Resolve the run-tree contract '
+                     f'above, or re-run with --no-preflight to proceed anyway.')
 
     # run_layout.json — the unified cell-tree descriptor (cells/reference/configs/pairs), so tools
     # INFER the tree instead of directory-guessing.  Written for a new run; a resumed LEGACY run
