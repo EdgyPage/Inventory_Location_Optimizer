@@ -26,6 +26,13 @@ import os
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SEC = chr(167)          # the section sign, built rather than typed so this file stays ascii-safe
 
+# The fixture document name is ASSEMBLED, never written literally, for the same reason
+# test_path_guard builds its paths by concatenation: this file is itself scanned by the guard it
+# tests, so spelling out a reference to a non-existent document would be a real finding here.
+# It surfaced only after the file was committed and so became tracked -- the scan reads
+# git ls-files, and an untracked fixture is invisible to it.
+DOC = 'FAKE' + '.md'
+
 
 def _guard():
     path = os.path.join(_ROOT, 'context', 'guards', 'docref_guard.py')
@@ -61,9 +68,9 @@ def test_reference_extraction_is_not_vacuous():
 
 def test_catches_a_renumbered_section():
     g = _guard()
-    docs = {'FAKE.md': 'FAKE.md'}
-    cache = {'FAKE.md': ({'1', '2'}, ['Alpha', 'Beta'])}
-    bad = g.scan_text('see FAKE.md section 5 for details', docs, cache)
+    docs = {DOC: DOC}
+    cache = {DOC: ({'1', '2'}, ['Alpha', 'Beta'])}
+    bad = g.scan_text('see ' + DOC + ' section 5 for details', docs, cache)
     assert bad, 'a reference to a section that does not exist was not caught'
     assert '5' in bad[0][1] and '1, 2' in bad[0][1], (
         f'the message should name the missing section and what does exist, got: {bad[0][1]}')
@@ -71,23 +78,23 @@ def test_catches_a_renumbered_section():
 
 def test_catches_a_retitled_section():
     g = _guard()
-    docs = {'FAKE.md': 'FAKE.md'}
-    cache = {'FAKE.md': ({'1'}, ['Alpha'])}
-    assert g.scan_text('see FAKE.md ' + SEC + 'Conventions', docs, cache), (
+    docs = {DOC: DOC}
+    cache = {DOC: ({'1'}, ['Alpha'])}
+    assert g.scan_text('see ' + DOC + ' ' + SEC + 'Conventions', docs, cache), (
         'a word reference to a heading that no longer exists was not caught'
     )
-    assert not g.scan_text('see FAKE.md ' + SEC + 'Alpha', docs, cache), (
+    assert not g.scan_text('see ' + DOC + ' ' + SEC + 'Alpha', docs, cache), (
         'a word reference that DOES match a heading was wrongly flagged')
 
 
 def test_ignores_non_references():
     """A bare filename is not a section reference; flagging it would be noise."""
     g = _guard()
-    docs = {'FAKE.md': 'FAKE.md'}
-    cache = {'FAKE.md': ({'1'}, ['Alpha'])}
-    for text in ('if the two disagree, FAKE.md wins and this list is stale',
-                 'see [the doc](FAKE.md) for more',
-                 'FAKE.md is the canonical copy'):
+    docs = {DOC: DOC}
+    cache = {DOC: ({'1'}, ['Alpha'])}
+    for text in ('if the two disagree, ' + DOC + ' wins and this list is stale',
+                 'see [the doc](' + DOC + ') for more',
+                 DOC + ' is the canonical copy'):
         assert not g.scan_text(text, docs, cache), f'wrongly flagged a non-reference: {text!r}'
 
 

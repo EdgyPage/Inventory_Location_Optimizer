@@ -691,6 +691,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "SEC", file: "Tests/architecture/test_docref_guard.py", kind: "const"}
+      - {name: "DOC", file: "Tests/architecture/test_docref_guard.py", kind: "const"}
       - {name: "test_every_section_reference_resolves", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
       - {name: "test_reference_extraction_is_not_vacuous", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
       - {name: "test_catches_a_renumbered_section", file: "Tests/architecture/test_docref_guard.py", kind: "function"}
