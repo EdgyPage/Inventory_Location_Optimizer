@@ -66,7 +66,10 @@ DEFAULT_FULL_SUITE = [
     "production_time_over_time.png",
 ]
 DEFAULT_INVENTORY_PLOTS = [
-    "group_sizes.png", "demand.png", "param_frequency.png",
+    # NB param_relative_frequency, not param_frequency: generate_inventory writes these as
+    # f'param_{pname}.png' over _CP_PARAMS, and 418d6bf renamed that parameter. Because a missing
+    # file here only logs MISSING and returns 0, the stale name silently staged nothing for months.
+    "group_sizes.png", "demand.png", "param_relative_frequency.png",
     "param_quantity.png", "equilibrium_qty.png",
 ]
 # Cross-cell what-if artifacts at the RUN ROOT. whatif_delta.json is what docs/macros.py's
