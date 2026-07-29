@@ -696,6 +696,31 @@ files:
       - {name: "test_merge_is_idempotent", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
       - {name: "test_no_todo_or_empty_purposes", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_memory_sync.py":
+    purpose: "Locks the git-tracked memory mirror: index/file 1:1, no stale path anchors, and the mirror really is tracked; asserts on the mirror only, never the machine-local live store."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_repo_only_verification_passes", file: "Tests/architecture/test_memory_sync.py", kind: "function"}
+      - {name: "test_index_and_files_are_one_to_one", file: "Tests/architecture/test_memory_sync.py", kind: "function"}
+      - {name: "test_no_stale_path_anchors", file: "Tests/architecture/test_memory_sync.py", kind: "function"}
+      - {name: "test_anchor_extraction_is_not_vacuous", file: "Tests/architecture/test_memory_sync.py", kind: "function"}
+      - {name: "test_mirror_is_actually_tracked_by_git", file: "Tests/architecture/test_memory_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_path_guard.py":
+    purpose: "Locks the machine-local-path guard: every tracked file scans clean, and the detector is non-vacuous both ways (catches every leaked form seen here, ignores the known false positives)."
+    layer: "tests"
+    key_symbols:
+      - {name: "BS", file: "Tests/architecture/test_path_guard.py", kind: "const"}
+      - {name: "D", file: "Tests/architecture/test_path_guard.py", kind: "const"}
+      - {name: "S", file: "Tests/architecture/test_path_guard.py", kind: "const"}
+      - {name: "MUST_CATCH", file: "Tests/architecture/test_path_guard.py", kind: "const"}
+      - {name: "MUST_IGNORE", file: "Tests/architecture/test_path_guard.py", kind: "const"}
+      - {name: "test_detector_catches_every_known_machine_local_form", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+      - {name: "test_detector_ignores_the_known_false_positives", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+      - {name: "test_every_tracked_file_is_clean", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+      - {name: "test_allowlist_is_small_and_points_at_real_files", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+      - {name: "test_username_is_never_hardcoded", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_registry_discovery.py":
     purpose: "Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss \u2014 a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks."
     layer: "tests"

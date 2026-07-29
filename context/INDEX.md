@@ -20,6 +20,8 @@ these files incrementally after commits.
 | `arch/graph.json` + `arch/nodes.json` | DERIVED truth: the call/import graph + per-node signatures/docstrings, extracted from source (regenerable) |
 | `files.yml` | the file catalog: every source + test file's purpose, layer, key symbols, notes |
 | `docs/architecture/**` | the generated static HTML code-map suite (per-node/-file pages, ego-graph explorer, layer/catalog/inefficiency hubs); `arch/site_manifest.json` pins it |
+| `guards/` | content guards — `path_guard.py` keeps machine-local filesystem paths out of tracked files |
+| `memory/` | the durable memory layer — `store/` mirrors the session memory store into git |
 
 Related, and verified the same way but living outside `context/`:
 `Optimization/schemas/run_tree/` — the CONTENT-ADDRESSED contracts for a run's on-disk directory
@@ -84,6 +86,30 @@ dead-links); `--fast` (integrity only) runs in the Stop hook. The `architecture-
 agent runs the chain, both verifiers, and bumps `arch-synced-commit`. `--catalog-merge`
 preserves human-owned `purpose`/`notes` by construction. The suite is published on the
 MkDocs site at `/architecture/` (wrapper page `docs/code-graph.md`).
+
+## Guard + memory layers (context/guards/ + context/memory/)
+
+Two layers that verify file CONTENT rather than code structure. Both live under `context/`, which
+is outside `CATALOG_ROOTS` (`arch/extract.py`), so files here need no `files.yml` entry.
+
+`guards/path_guard.py` forbids machine-local filesystem paths — drive-letter and home-directory
+absolutes, UNC shares, the current username (derived at runtime, never written down), and
+session-scoped scratchpad paths — in any tracked file. Repo-relative paths stay legal; the whole
+verified anchor layer is built from them. It is enforced at write time: `guards/hook_check.py
+--pre-write` is the ONE hook in this repo that fails a call (exit 2), and it **fails open** on any
+internal error so a broken guard can never brick a session. A `Stop` scan backstops writes that
+bypass `PreToolUse`, such as a Bash heredoc.
+
+`memory/store/` is a git-tracked mirror of the session memory store, which otherwise lives outside
+the repo in a directory named after the repo's absolute path — and is therefore orphaned whenever
+the repo moves. Direction is live → mirror, always; `sync.py --push` refuses to mirror anything the
+guard flags, and refuses entirely when the live store is empty but the mirror is not (that is what a
+move looks like — the answer is `--restore`). `verify_memory.py` checks located/parity/index/shape/
+links/paths/anchors; `--repo-only` drops the two machine-local checks so a test can run in any
+clone. The anchor check is the one that rots unattended: a refactor that moves files silently
+invalidates every memory citing them, and the 2026-07 restructure staled 8 anchors across 4 of 8
+memories before this existed. The `memory-maintainer` agent owns repairs. Gated by
+`Tests/architecture/test_path_guard.py` and `test_memory_sync.py`.
 
 ## Schema (v1)
 

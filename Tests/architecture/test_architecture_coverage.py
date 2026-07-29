@@ -74,8 +74,11 @@ def test_def_span_resolution():
         assert span is not None, f"hotpath def not found: {h['name']} @ {h['file']}"
         lo, hi = span
         assert 1 <= lo <= hi, f'bad span for {h["name"]}: {span}'
-    # a fabricated name resolves to nothing (the resolver isn't vacuous)
-    assert _def_span(os.path.join(_ROOT, 'Optimization', 'strategy_runner.py'),
+    # a fabricated name resolves to nothing (the resolver isn't vacuous).  The file comes from the
+    # hotpath declaration rather than a literal path: a hardcoded one silently became a
+    # FileNotFoundError when strategy_runner.py moved into Optimization/simdriver/, which turned
+    # this non-vacuity guard into a crash instead of a check.
+    assert _def_span(os.path.join(_ROOT, hps[0]['file']),
                      '__definitely_not_a_symbol__') is None
 
 
