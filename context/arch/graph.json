@@ -7846,6 +7846,126 @@
       "src": "docs/experiments/ingest.py::main"
     },
     {
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
+      "src": "scripts/archive_cells.py"
+    },
+    {
+      "dst": "Optimization/run_channel_rollup.py",
+      "kind": "imports",
+      "src": "scripts/archive_cells.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "scripts/archive_cells.py"
+    },
+    {
+      "dst": "scripts/archive_cells.py::main",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_quick_check",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::_verify_copy"
+    },
+    {
+      "dst": "Optimization/run_channel_rollup.py::rollup",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::analyse_cell"
+    },
+    {
+      "dst": "scripts/archive_cells.py::cell_state",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archivable"
+    },
+    {
+      "dst": "scripts/archive_cells.py::is_archived",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archivable"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_retry",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_cell"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_tree_stats",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_cell"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_verify_copy",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_cell"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_quick_check",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_keyframes"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_retry",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::archive_keyframes"
+    },
+    {
+      "dst": "scripts/archive_cells.py::_in_flight",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::cell_state"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "scripts/archive_cells.py::cold_root",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "scripts/archive_cells.py::supports_reparse",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "scripts/archive_cells.py::sweep",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::main"
+    },
+    {
+      "dst": "scripts/archive_cells.py::is_archived",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::supports_reparse"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::sweep"
+    },
+    {
+      "dst": "scripts/archive_cells.py::analyse_cell",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::sweep"
+    },
+    {
+      "dst": "scripts/archive_cells.py::archivable",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::sweep"
+    },
+    {
+      "dst": "scripts/archive_cells.py::archive_cell",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::sweep"
+    },
+    {
+      "dst": "scripts/archive_cells.py::archive_keyframes",
+      "kind": "calls",
+      "src": "scripts/archive_cells.py::sweep"
+    },
+    {
       "dst": "scripts/new_experiment.py::main",
       "kind": "calls",
       "src": "scripts/new_experiment.py"
@@ -18407,6 +18527,166 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "thr",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py",
+      "kind": "module",
+      "module": "scripts/archive_cells.py",
+      "name": "scripts.archive_cells",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::RETRY_ERRNOS",
+      "kind": "const",
+      "module": "scripts/archive_cells.py",
+      "name": "RETRY_ERRNOS",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::STAGING_SUFFIX",
+      "kind": "const",
+      "module": "scripts/archive_cells.py",
+      "name": "STAGING_SUFFIX",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_HERE",
+      "kind": "const",
+      "module": "scripts/archive_cells.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_ROOT",
+      "kind": "const",
+      "module": "scripts/archive_cells.py",
+      "name": "_ROOT",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_in_flight",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_in_flight",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_quick_check",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_quick_check",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_retry",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_retry",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_tree_stats",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_tree_stats",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::_verify_copy",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "_verify_copy",
+      "public": false
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::analyse_cell",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "analyse_cell",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::archivable",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "archivable",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::archive_cell",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "archive_cell",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::archive_keyframes",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "archive_keyframes",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::cell_state",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "cell_state",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::cold_root",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "cold_root",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::is_archived",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "is_archived",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::main",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::supports_reparse",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "supports_reparse",
+      "public": true
+    },
+    {
+      "file": "scripts/archive_cells.py",
+      "id": "scripts/archive_cells.py::sweep",
+      "kind": "function",
+      "module": "scripts/archive_cells.py",
+      "name": "sweep",
       "public": true
     },
     {

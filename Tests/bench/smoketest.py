@@ -447,7 +447,13 @@ def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
     cells = [n for n, _d in rt.cells()]
     pairs = list(layout.get('pairs') or [])
     cfgs = layout.get('configs') or {}
-    n_cfg = len(cfgs.get('store') or []) + (len(cfgs.get('fulfillment') or []) if ctx.mixed else 0)
+    # Prefer the catalogue measurement from stage 0; fall back to the run's own descriptor when
+    # verifying a run we did not simulate (--reuse-run). Defaulting to False would silently HALVE
+    # the expected counts on a mixed run and report a passing tree as broken.
+    mixed = ctx.mixed
+    if mixed is None:
+        mixed = len(layout.get('channels') or []) > 1
+    n_cfg = len(cfgs.get('store') or []) + (len(cfgs.get('fulfillment') or []) if mixed else 0)
 
     arms = []
     if cells:
@@ -467,7 +473,7 @@ def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
             problems.append(f'{cell}/{cr.pair}/{cr.group_key}: sim_meta.json missing')
         if not os.path.isfile(rt.series_json(cr)):
             problems.append(f'{cell}/{cr.pair}/{cr.group_key}: series.json missing')
-        if ctx.mixed and cr.channel is None:
+        if mixed and cr.channel is None:
             problems.append(f'{cell}/{cr.pair}/{cr.config}: mixed catalogue but no <channel> level')
 
     dbs = list(rt.sim_dbs())
@@ -512,6 +518,7 @@ def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
 
     counts = {
         'cells': len(cells), 'pairs': len(pairs), 'configs': n_cfg, 'arms': len(arms),
+        'mixed': mixed, 'mixed_source': 'catalogue' if ctx.mixed is not None else 'run_layout',
         'channel_runs': {'expected': exp_leaves, 'found': len(leaves)},
         'sim_dbs': {'expected': exp_dbs, 'found': len(dbs)},
         'keyframes_missing': kf_missing,

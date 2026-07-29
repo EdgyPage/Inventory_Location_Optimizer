@@ -9299,6 +9299,145 @@
       "kind": "function",
       "signature": "(ch)"
     },
+    "scripts/archive_cells.py": {
+      "decorators": [],
+      "doc": "archive_cells.py \u2014 move completed what-if cells off the hot drive while the run continues.\n\nA finished cell is ~99.8 % SQLite: the sim DBs and their keyframe siblings. The hot drive cannot\nhold a whole sweep, so each cell has to move to slower bulk storage as soon as it is done \u2014 without\ndisturbing the simulation, and without breaking anything that reads the cell later.\n\nTwo facts shape the whole design:\n\n  * A cell is quiescent the moment its scenario returns. Cells run strictly sequentially and no\n    handle outlives an arm (every SQLite connection is opened and closed inside a save call; the\n    only long-lived files, run.log and runtime_metrics.db, live at the RUN ROOT, not in a cell).\n  * But analysis runs AFTER every cell and opens each sim DB by the ABSOLUTE path recorded in\n    sim_meta.json, and the cross-cell what-if scans need every cell at once. So a plain move\n    breaks the run.\n\nThe resolution is a Windows directory junction. Python does not classify a junction as a link --\nos.path.islink is False, is_dir() is True -- and this repo contains no follow_symlinks=False,\nislink, or scandir call anywhere. So every walker and every absolute db_path keeps working through\nit, unchanged. The cell's bytes are on the cold drive; its path is not.\n\nBecause the cold drive is slow, this analyses each cell BEFORE moving it: the heavy per-arm reads\nhappen while the data is still local, and only the light cross-cell scan (one aggregate query per\nDB) ever crosses to bulk storage. Run the simulation with --no-analyze and let this drive analysis.\n\nConfiguration: COLD_DRIVE in .env, the same file that holds COMPARISON_OUTPUT_DIR. Importing the\nsim config injects it into the environment; nothing here hardcodes a location.\n\n    python scripts/archive_cells.py --run RUN --dry-run\n    python scripts/archive_cells.py --run RUN --watch          # loop while the sim runs\n    python scripts/archive_cells.py --run RUN --cell k1_off_rr",
+      "kind": "module",
+      "signature": null
+    },
+    "scripts/archive_cells.py::RETRY_ERRNOS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(5, 32)"
+    },
+    "scripts/archive_cells.py::STAGING_SUFFIX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'.__archiving'"
+    },
+    "scripts/archive_cells.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "scripts/archive_cells.py::_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
+    },
+    "scripts/archive_cells.py::_in_flight": {
+      "decorators": [],
+      "doc": "resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str) -> list"
+    },
+    "scripts/archive_cells.py::_quick_check": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db_path: str) -> str | None"
+    },
+    "scripts/archive_cells.py::_retry": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fn, attempts: int=5, delay: float=2.0)"
+    },
+    "scripts/archive_cells.py::_tree_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(root: str) -> tuple[int, int]"
+    },
+    "scripts/archive_cells.py::_verify_copy": {
+      "decorators": [],
+      "doc": "Every file present at the same size, and every SQLite file structurally intact.\n\nThe integrity pass is the reason this is safe to delete after: a truncated copy from a\ndisconnected external drive has the right name and the wrong contents.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(src: str, dst: str, echo) -> list"
+    },
+    "scripts/archive_cells.py::analyse_cell": {
+      "decorators": [],
+      "doc": "Run this cell's analysis while it is still on fast storage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, workers: int, echo=print) -> bool"
+    },
+    "scripts/archive_cells.py::archivable": {
+      "decorators": [],
+      "doc": "Complete cells that are also safe to touch.\n\nCells run sequentially, so a cell is provably not the live one once a LATER cell has started.\nThe final cell only becomes safe when the run itself is over, which the caller asserts with\ninclude_last.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, layout: dict, mixed: bool, include_last: bool) -> list"
+    },
+    "scripts/archive_cells.py::archive_cell": {
+      "decorators": [],
+      "doc": "Copy one cell to bulk storage, verify it, then replace it with a junction.\n\nOrdering is the safety property: the source is only ever renamed aside AFTER a verified copy\nexists, and it is only deleted AFTER the junction is in place and proven to read. There is no\nwindow in which the cell path does not resolve -- which matters because the driver's resume\nprobe treats a missing directory as \"never ran\" and would re-simulate the whole cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, cold: str, *, dry_run: bool=False, echo=print) -> dict"
+    },
+    "scripts/archive_cells.py::archive_keyframes": {
+      "decorators": [],
+      "doc": "Move only the keyframe DBs \u2014 the one family with no downstream reader.\n\nThis is what remains possible when the hot volume cannot hold a junction. Keyframes are ~19% of\na cell and are read by NOTHING in the analysis path: not run_analysis, not the rollup, not\neither what-if scan. The replay viewer is the only consumer and it already degrades to an empty\nstring when the file is absent. So they can simply leave, with no link and no path rewriting.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, cold: str, *, dry_run: bool=False, echo=print) -> dict"
+    },
+    "scripts/archive_cells.py::cell_state": {
+      "decorators": [],
+      "doc": "(is_complete, why). Stricter than the driver's own resume probe.\n\nThe driver's `_cell_complete` accepts one sim_meta.json per pair, so a cell with two of eight\nleaves finalized reports complete. Archiving on that would move a half-written cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, layout: dict, mixed: bool) -> tuple[bool, str]"
+    },
+    "scripts/archive_cells.py::cold_root": {
+      "decorators": [],
+      "doc": "The configured bulk-storage root, or None.\n\nNone rather than a fallback path on purpose: a silent fallback is how a run ends up writing\nhundreds of gigabytes somewhere nobody intended.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> str | None"
+    },
+    "scripts/archive_cells.py::is_archived": {
+      "decorators": [],
+      "doc": "True if this path is already a junction (Python reports a junction as a plain dir).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str) -> bool"
+    },
+    "scripts/archive_cells.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "scripts/archive_cells.py::supports_reparse": {
+      "decorators": [],
+      "doc": "Can this volume hold a directory junction?\n\nexFAT cannot \u2014 it has no reparse points \u2014 and an external SSD formatted for portability is very\noften exFAT. Creating the junction is the only reliable test: the failure is a bare\nOSError(22, 'Incorrect function') from the FSCTL, and it leaves an empty directory behind that\nmust be cleaned up. Probing here costs milliseconds; discovering it after copying a hundred\ngigabytes does not.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(directory: str) -> bool"
+    },
+    "scripts/archive_cells.py::sweep": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, *, cold: str, workers: int, analyse: bool, dry_run: bool, include_last: bool, only: list | None, mode: str='auto', echo=print) -> list"
+    },
     "scripts/new_experiment.py": {
       "decorators": [],
       "doc": "Scaffold a new docs experiment from the template.\n\nCopies docs/experiments/_template/ -> docs/experiments/<name>/, turning\nexperiment.yml.example into a starter experiment.yml. With --source it then runs the\ningest to auto-fill experiment.yml (from the run's run_manifest.json) and pull the files.\n\n    python scripts/new_experiment.py --name experiment-2\n    python scripts/new_experiment.py --name experiment-2 --source \"$COMPARISON_OUTPUT_DIR/comparison_20260801_120000\"\n\nThen: edit experiment.yml (title, short keys, winners), add the nav block it prints to\nmkdocs.yml, and `mkdocs serve`.",

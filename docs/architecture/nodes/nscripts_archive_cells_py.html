@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scripts.archive_cells · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_archive_cells_py" data-id="scripts/archive_cells.py">
+<nav class="crumbs"><a href="../layers.html">scripts</a> <span class="sep">›</span> <span class="here"><code>scripts/archive_cells.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>scripts.archive_cells</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
+
+<pre class="sig"><code>scripts.archive_cells</code></pre>
+<section class="doc">archive_cells.py — move completed what-if cells off the hot drive while the run continues.
+
+A finished cell is ~99.8 % SQLite: the sim DBs and their keyframe siblings. The hot drive cannot
+hold a whole sweep, so each cell has to move to slower bulk storage as soon as it is done — without
+disturbing the simulation, and without breaking anything that reads the cell later.
+
+Two facts shape the whole design:
+
+  * A cell is quiescent the moment its scenario returns. Cells run strictly sequentially and no
+    handle outlives an arm (every SQLite connection is opened and closed inside a save call; the
+    only long-lived files, run.log and runtime_metrics.db, live at the RUN ROOT, not in a cell).
+  * But analysis runs AFTER every cell and opens each sim DB by the ABSOLUTE path recorded in
+    sim_meta.json, and the cross-cell what-if scans need every cell at once. So a plain move
+    breaks the run.
+
+The resolution is a Windows directory junction. Python does not classify a junction as a link --
+os.path.islink is False, is_dir() is True -- and this repo contains no follow_symlinks=False,
+islink, or scandir call anywhere. So every walker and every absolute db_path keeps working through
+it, unchanged. The cell&#x27;s bytes are on the cold drive; its path is not.
+
+Because the cold drive is slow, this analyses each cell BEFORE moving it: the heavy per-arm reads
+happen while the data is still local, and only the light cross-cell scan (one aggregate query per
+DB) ever crosses to bulk storage. Run the simulation with --no-analyze and let this drive analysis.
+
+Configuration: COLD_DRIVE in .env, the same file that holds COMPARISON_OUTPUT_DIR. Importing the
+sim config injects it into the environment; nothing here hardcodes a location.
+
+    python scripts/archive_cells.py --run RUN --dry-run
+    python scripts/archive_cells.py --run RUN --watch          # loop while the sim runs
+    python scripts/archive_cells.py --run RUN --cell k1_off_rr</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_run_channel_rollup_py.html"><code>Optimization.run_channel_rollup</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(19)</span></h2><ul><li><a href="nscripts_archive_cells_py__RETRY_ERRNOS.html"><code>RETRY_ERRNOS</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__STAGING_SUFFIX.html"><code>STAGING_SUFFIX</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___HERE.html"><code>_HERE</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___in_flight.html"><code>_in_flight</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___quick_check.html"><code>_quick_check</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___retry.html"><code>_retry</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___tree_stats.html"><code>_tree_stats</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___verify_copy.html"><code>_verify_copy</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__analyse_cell.html"><code>analyse_cell</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__archivable.html"><code>archivable</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__archive_cell.html"><code>archive_cell</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__archive_keyframes.html"><code>archive_keyframes</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__cell_state.html"><code>cell_state</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__cold_root.html"><code>cold_root</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__is_archived.html"><code>is_archived</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__main.html"><code>main</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__supports_reparse.html"><code>supports_reparse</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__sweep.html"><code>sweep</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

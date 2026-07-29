@@ -1693,6 +1693,23 @@ files:
     key_symbols:
       - {name: "define_env", file: "docs/macros.py", kind: "function"}
     notes: ""
+  "scripts/archive_cells.py":
+    purpose: "Moves completed what-if cells to bulk storage (COLD_DRIVE) while the simulation continues: analyses each cell while it is still local, verifies every copied SQLite file, then frees the space."
+    layer: "scripts"
+    key_symbols:
+      - {name: "STAGING_SUFFIX", file: "scripts/archive_cells.py", kind: "const"}
+      - {name: "RETRY_ERRNOS", file: "scripts/archive_cells.py", kind: "const"}
+      - {name: "cold_root", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "cell_state", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "archivable", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "is_archived", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "supports_reparse", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "archive_keyframes", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "archive_cell", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "analyse_cell", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "sweep", file: "scripts/archive_cells.py", kind: "function"}
+      - {name: "main", file: "scripts/archive_cells.py", kind: "function"}
+    notes: ""
   "scripts/new_experiment.py":
     purpose: "Scaffold a new docs experiment from the template."
     layer: "scripts"

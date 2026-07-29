@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>archive_cell · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_archive_cells_py__archive_cell" data-id="scripts/archive_cells.py::archive_cell">
+<nav class="crumbs"><a href="../layers.html">scripts</a> <span class="sep">›</span> <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a> <span class="sep">›</span> <span class="here"><code>archive_cell</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>archive_cell</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
+
+<pre class="sig"><code>def archive_cell(rt, cell: str, cold: str, *, dry_run: bool=False, echo=print) -&gt; dict</code></pre>
+<section class="doc">Copy one cell to bulk storage, verify it, then replace it with a junction.
+
+Ordering is the safety property: the source is only ever renamed aside AFTER a verified copy
+exists, and it is only deleted AFTER the junction is in place and proven to read. There is no
+window in which the cell path does not resolve -- which matters because the driver&#x27;s resume
+probe treats a missing directory as &quot;never ran&quot; and would re-simulate the whole cell.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nscripts_archive_cells_py___retry.html"><code>_retry</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___tree_stats.html"><code>_tree_stats</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py___verify_copy.html"><code>_verify_copy</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__sweep.html"><code>sweep</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py__archive_cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20archive_cell">Source ↗</a></p>
+</article>
+</main>
+</body></html>
