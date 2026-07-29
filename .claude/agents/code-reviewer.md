@@ -16,7 +16,7 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
 2. Read the changed files AND enough surrounding code to judge correctness — never review a hunk in
    isolation. Trace callers/callees of changed functions.
 
-## This repo has no linter and no CLAUDE.md — the conventions are:
+## This repo has no linter; CLAUDE.md §2 is canonical — restated here because a subagent may not inherit it. If the two disagree, CLAUDE.md wins and this list is stale:
 - Style lives in the code: heavy module/function docstrings + inline comments, box-drawing banners
   (`# ── … ──`). Match the surrounding file; do not impose an external ruleset.
 - Imports are PACKAGE-ABSOLUTE (`from Warehouse.catalog.Order import Order`); flag any new
