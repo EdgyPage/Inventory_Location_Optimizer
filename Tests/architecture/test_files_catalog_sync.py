@@ -70,8 +70,10 @@ def test_merge_preserves_notes_and_prunes_deleted():
     assert merged[victim]['purpose'] == 'SENTINEL purpose — must survive resync'
     assert merged[victim]['notes'] == 'SENTINEL notes — must survive resync'
     assert 'Optimization/__GHOST_DELETED__.py' not in merged, 'deleted file not pruned'
-    # mechanical fields are still refreshed from the code
-    assert merged[victim]['layer'] == 'optimization'
+    # mechanical fields are still refreshed from the code.  NB the layer is the NARROWEST
+    # matching one — `opt_simdriver`, not the catch-all `optimization` — because architecture.yml
+    # resolves by longest path prefix and the run-harness packages are declared as their own layers.
+    assert merged[victim]['layer'] == 'opt_simdriver'
 
 
 def test_merge_is_idempotent():
