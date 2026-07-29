@@ -73,13 +73,21 @@ def live_store() -> tuple[str | None, list[str]]:
 
 
 def _memories(d: str) -> dict[str, bytes]:
+    """Read every memory, with line endings NORMALISED to LF.
+
+    On Windows core.autocrlf rewrites the mirror to CRLF on checkout while Claude Code writes the
+    live store with LF, so a raw byte compare would report permanent divergence in every fresh
+    clone.  .gitattributes pins the mirror to LF, and this normalisation is the second layer --
+    the same belt-and-braces Optimization/runschema/contract.py:source_fingerprint uses, and for
+    the same reason.
+    """
     out = {}
     if not d or not os.path.isdir(d):
         return out
     for name in sorted(os.listdir(d)):
         if name.endswith('.md'):
             with open(os.path.join(d, name), 'rb') as fh:
-                out[name] = fh.read()
+                out[name] = fh.read().replace(b'\r\n', b'\n')
     return out
 
 
