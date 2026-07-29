@@ -59,7 +59,10 @@ PATTERNS = [
     ('drive-absolute', re.compile(r'(?:^|[^A-Za-z0-9_])[A-Za-z]:[\\/]{1,2}'
                                   r'[A-Za-z0-9_$.~ -]{2,40}[\\/]{1,2}[A-Za-z0-9_$.~-]')),
     ('drive-absolute', re.compile(r'/{1,2}[a-zA-Z]/(?:Users|Data|home)/', re.I)),
-    ('home-absolute',  re.compile(r'/(?:home|Users)/[A-Za-z0-9._-]+')),
+    # A POSIX home absolute starts at a boundary, never mid-word.  Without the leading guard this
+    # also matches slash-separated PROSE and URL tails -- it blocked a correct write to MEMORY.md
+    # the first time it ran for real, on a sentence listing path kinds separated by slashes.
+    ('home-absolute',  re.compile(r'(?:^|[^A-Za-z0-9_])/(?:home|Users)/[A-Za-z0-9._-]+')),
     ('unc-share',      re.compile(r'\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]+')),
     # A session UUID used as a PATH SEGMENT — how scratchpad/transcript paths name one run on one
     # machine.  The leading separator is required: a bare UUID is an identifier, not a location,

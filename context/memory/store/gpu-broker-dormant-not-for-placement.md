@@ -5,15 +5,15 @@ metadata:
   type: project
 ---
 
-The VRAM-budgeted GPU broker + governor (`Optimization/gpu_broker.py`, `gpu_client.py`,
-`Tests/test_gpu_governor.py`, `Tests/bench_gpu_concurrency.py`, committed `b758c4a`) is kept as
+The VRAM-budgeted GPU broker + governor (`Optimization/gpu/gpu_broker.py`, `gpu_client.py`,
+`Tests/gpu/test_gpu_governor.py`, `Tests/gpu/bench_gpu_concurrency.py`, committed `b758c4a`) is kept as
 **dormant, validated infrastructure** — it has no production consumer by design.
 
 **Why:** We investigated wiring it into production placement and rejected it. The earlier benchmark
 (`bench_gpu_placement.py`) measured a *dense U×C cost-matrix argmin* and reported a 27–54x GPU win,
 but that operation does not exist in production. The real placement code reduced it away:
 `init_travel_costs` precomputes `b._D` and a per-aisle index bisect-sorted by `_D` (maintained
-incrementally), so every placement fn in `Warehouse/Assignment_Functions.py` reduces a unit to
+incrementally), so every placement fn in `Warehouse/placement/Assignment_Functions.py` reduces a unit to
 **one representative bin per aisle** and scans **O(N_aisles)** with lazy CSR + early termination — not
 O(C bins). The dense kernel would be (a) slower (brute force vs the reduction), (b) non-equivalent
 (omits height brackets, the λ·affinity aisle reward, and the partner-centroid pull in the real
@@ -27,7 +27,7 @@ optimal placement IS ~10–19% cheaper than the greedy (real headroom), but the 
 at 100×800; `scipy.linear_sum_assignment` ALSO collapses at scale on structured costs (~97s at
 2000×40000, so "lift the U≤1200 cap" doesn't scale either); and the affinity (QAP) fixed-point
 **oscillates**, doesn't converge. The fast greedy (~0.09s at any scale) is fast *because* it's the
-reduced per-aisle scan. `Optimization/gpu_auction.py` is a correct-but-slow reference kept for the record.
+reduced per-aisle scan. `Optimization/gpu/gpu_auction.py` is a correct-but-slow reference kept for the record.
 
 **How to apply:** Do NOT re-attempt GPU acceleration of placement (neither the dense-argmin nor the
 auction/LAP route). The greedy must stay sequential/CPU. Per-batch wall is `reord` ~44% (the sequential

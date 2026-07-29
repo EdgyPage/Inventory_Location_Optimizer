@@ -10,7 +10,7 @@ metadata:
 
 When editing `context/files.yml` (or any repo YAML) from a `python - <<'PY'` heredoc, never write
 `—` / `’` in a string literal — the sequence survives as six literal characters, and
-`Tests/test_files_catalog_sync.py::test_merge_is_idempotent` then fails because
+`Tests/architecture/test_files_catalog_sync.py::test_merge_is_idempotent` then fails because
 `extract.py --catalog-merge` re-dumps it as `\\u2014`.
 
 **Why:** this has now bitten three separate times in this repo, each costing a failed suite run and
