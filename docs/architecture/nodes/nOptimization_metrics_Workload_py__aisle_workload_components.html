@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aisle_workload_components · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_Workload_py__aisle_workload_components" data-id="Optimization/metrics/Workload.py::aisle_workload_components">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_Workload_py.html"><code>Optimization/metrics/Workload.py</code></a> <span class="sep">›</span> <span class="here"><code>aisle_workload_components</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>aisle_workload_components</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_Workload_py.html"><code>Optimization/metrics/Workload.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def aisle_workload_components(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -&gt; tuple[float, float, float]</code></pre>
+<section class="doc">The (D, P, C) decomposition of one aisle&#x27;s workload W = D + P + C.
+
+  D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)
+                 (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)
+  P (handling) = Σ_stops  height_mult(y) * (intercept + qty
+                                    * (weight_coef*ln(weight) + volume_coef*ln(volume)))
+  C (cart)     = cart_swap_coef * max(0, carts_required - 1)
+
+Mirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the
+per-unit weight/volume handling.  Split out so callers can report the
+handling-vs-travel breakdown of the analytical objective (see expected_task_labor).
+
+Parameters
+----------
+x_traversed    : total bayX distance walked in the aisle (from Task)
+y_traversed    : total bayY distance walked in the aisle (from Task)
+carts_required : number of carts the aisle&#x27;s picks fill (from Task)
+pick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop
+params         : WorkloadParams coefficients</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__expected_task_labor.html"><code>expected_task_labor</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_metrics_Workload_py__aisle_workload.html"><code>aisle_workload</code></a> <span class="dim">Optimization/metrics/Workload.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Workload_py__aisle_workload_components">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Workload.py#:~:text=def%20aisle_workload_components">Source ↗</a></p>
+</article>
+</main>
+</body></html>

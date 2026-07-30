@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_lift_weighted_sample · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Workload_Builder_py___lift_weighted_sample" data-id="Warehouse/picking/Workload_Builder.py::_lift_weighted_sample">
+<nav class="crumbs"><a href="../layers.html">wh_picking</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a> <span class="sep">›</span> <span class="here"><code>_lift_weighted_sample</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_lift_weighted_sample</code></h1>
+<p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a></p>
+
+<pre class="sig"><code>def _lift_weighted_sample(candidates: list, k: int, affinity: &#x27;AffMatrix | AffinityStore | None&#x27;, rng: random.Random | None=None) -&gt; list</code></pre>
+<section class="doc">Sample k distinct items from candidates without replacement.
+
+Weight of a candidate B is the conditional-demand model
+    weight(B) = demand.relative_frequency(B) · Π lift(A, B)
+over the already-selected partners A of B.  Lift enters MULTIPLICATIVELY (its
+natural sense: lift = 1 = independence ⇒ no change), so demand and affinity stay
+commensurable.  affinity=None ⇒ pure demand weighting (empty partner map).
+
+Uses a numpy cumsum draw per step + the module-level partner-map cache.  Pass `rng`
+(a `random.Random`) to draw from a dedicated stream; default `None` uses the global
+module.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py___get_partner_map.html"><code>_get_partner_map</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py__Batch___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Workload_Builder_py___lift_weighted_sample">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Workload_Builder.py#:~:text=def%20_lift_weighted_sample">Source ↗</a></p>
+</article>
+</main>
+</body></html>

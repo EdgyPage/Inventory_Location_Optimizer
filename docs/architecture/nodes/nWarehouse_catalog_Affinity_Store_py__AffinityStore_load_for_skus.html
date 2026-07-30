@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>load_for_skus · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Affinity_Store_py__AffinityStore_load_for_skus" data-id="Warehouse/catalog/Affinity_Store.py::AffinityStore.load_for_skus">
+<nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a> <span class="sep">›</span> <a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore.html"><code>AffinityStore</code></a> <span class="sep">›</span> <span class="here"><code>load_for_skus</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>load_for_skus</code></h1>
+<p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def load_for_skus(self, skus: Collection[int], min_lift: float=1.5, max_lift: float=5.0) -&gt; AffMatrix</code></pre>
+<section class="doc">Return a local AffMatrix dict for all within-group pairs in *skus*.
+
+Already-stored pairs are read from the DB.  Any missing within-group pair
+is generated (random.uniform), persisted, then included.  Cross-group pairs
+are absent; callers treat missing keys as 0.0.
+
+Note: new rows written here are NOT reflected in the in-memory CSR matrix.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Affinity_Store_py__AffinityStore_load_for_skus">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Affinity_Store.py#:~:text=def%20load_for_skus">Source ↗</a></p>
+</article>
+</main>
+</body></html>

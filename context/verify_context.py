@@ -129,7 +129,59 @@ def check_artifacts(relpath: str) -> set:
             if ssrc is None or not re.search(
                     rf'CREATE TABLE(\s+IF NOT EXISTS)?\s+{re.escape(table)}\b', ssrc):
                 err(f'{where}: table `{table}` has no CREATE TABLE in {schema_file}')
+        # json: if a committed *.schema.json is declared, the artifact's `fields` must equal the
+        # schema's top-level `properties` — teeth that keep artifacts.yml and the JSON Schema in sync
+        # (json `fields` are otherwise documentation-only).
+        sf = art.get('schema_file', '')
+        if sf.endswith('.schema.json'):
+            raw = src_of(sf)
+            if raw is None:
+                err(f'{where}: schema_file missing: {sf}')
+            else:
+                import json as _json
+                try:
+                    props = set((_json.loads(raw).get('properties') or {}).keys())
+                except _json.JSONDecodeError as exc:
+                    err(f'{where}: schema_file not valid JSON ({sf}): {exc}')
+                    props = None
+                fields = set(art.get('fields', []))
+                if props is not None and fields != props:
+                    err(f'{where}: `fields` {sorted(fields)} != schema properties {sorted(props)} in {sf}')
     return set(arts)
+
+
+def check_runtree_writers() -> int:
+    """Every `writer: 'func@path'` in the run-tree declaration must name real code.
+
+    WHY THIS EXISTS: `writer` is deliberately excluded from the run-tree schema's hashed projection
+    (`_shape_only`) — attribution is not tree shape, so moving a producer must not mint a new schema
+    id.  The side effect is that NOTHING checked these strings: `contract --check` compares only the
+    id, `verify_store()` re-hashes without them, and no test reads them.  A refactor could rot all
+    31 of them silently, taking the committed contract document with it.
+
+    Returns the number of writers checked (0 if the package is unavailable, e.g. no pyyaml env).
+    """
+    try:
+        sys.path.insert(0, _ROOT)
+        from Optimization.runschema import schema as decl
+    except Exception as exc:                                   # noqa: BLE001 - optional import
+        err(f'runschema.schema: cannot import to verify writers ({exc!r})')
+        return 0
+    n = 0
+    for key, spec in sorted(decl.ARTIFACTS.items()):
+        writer = spec.get('writer')
+        if not writer:
+            continue                                           # aliases have no producer
+        if 'TODO' in writer:
+            err(f'runschema/schema.py:{key}: writer is still a TODO ({writer!r})')
+            continue
+        func, _, path = writer.partition('@')
+        if not func or not path:
+            err(f'runschema/schema.py:{key}: writer {writer!r} is not `func@path`')
+            continue
+        check_symbol(func, path, 'function', f'runschema/schema.py:{key}:writer')
+        n += 1
+    return n
 
 
 def main() -> int:
@@ -138,6 +190,7 @@ def main() -> int:
     args = ap.parse_args()
 
     artifact_ids = check_artifacts('context/artifacts.yml')
+    n_writers = check_runtree_writers()
     flows_dir = os.path.join(_HERE, 'flows')
     flow_files = sorted(f for f in os.listdir(flows_dir) if f.endswith('.yml'))
     if not flow_files:
@@ -151,7 +204,8 @@ def main() -> int:
             print('  -', e)
         return 1
     if not args.quiet:
-        print(f'context/ OK — {len(flow_files)} flow(s) + {len(artifact_ids)} artifacts verified.')
+        print(f'context/ OK — {len(flow_files)} flow(s) + {len(artifact_ids)} artifacts '
+              f'+ {n_writers} run-tree writer(s) verified.')
     return 0
 
 

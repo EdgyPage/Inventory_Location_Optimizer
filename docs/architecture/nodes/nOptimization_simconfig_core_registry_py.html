@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.core.registry · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_core_registry_py" data-id="Optimization/simconfig/core/registry.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/core/registry.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.core.registry</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_core_registry_py.html"><code>Optimization/simconfig/core/registry.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simconfig.core.registry</code></pre>
+<section class="doc">PickConfigSpec descriptor + @pick_config decorator + module-level registry.
+
+Mirrors Optimization/Performance_Evaluations/core/registry.py: a frozen dataclass per item, a
+flat list, and a by-key dict, populated by a decorator so a pick-config module self-registers on
+import.  A pick-config is the plain dict Optimization/sim_config._build_pick_cfg consumes; the spec
+makes explicit the CHANNEL split (store vs fulfillment) that used to be implicit in WHICH list the
+dict lived in, plus a sweep ``order`` (list order is load-bearing — it sets config-dir identity and
+sweep order, so it must NOT depend on filesystem walk order) and an ``enabled`` flag so a variant
+can be kept as a discoverable menu entry without running.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(5)</span></h2><ul><li><a href="nOptimization_simconfig___init___py.html"><code>Optimization.simconfig</code></a> <span class="dim">Optimization/simconfig/__init__.py</span></li><li><a href="nOptimization_simconfig_configs_ful_calibrated_py.html"><code>Optimization.simconfig.configs.ful_calibrated</code></a> <span class="dim">Optimization/simconfig/configs/ful_calibrated.py</span></li><li><a href="nOptimization_simconfig_configs_store_py.html"><code>Optimization.simconfig.configs.store</code></a> <span class="dim">Optimization/simconfig/configs/store.py</span></li><li><a href="nOptimization_simconfig_configs_store_high_height_py.html"><code>Optimization.simconfig.configs.store_high_height</code></a> <span class="dim">Optimization/simconfig/configs/store_high_height.py</span></li><li><a href="nOptimization_simconfig_configs_store_high_weight_high_height_py.html"><code>Optimization.simconfig.configs.store_high_weight_high_height</code></a> <span class="dim">Optimization/simconfig/configs/store_high_weight_high_height.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_core_registry_py__PickConfigSpec.html"><code>PickConfigSpec</code></a> <span class="dim">Optimization/simconfig/core/registry.py</span></li><li><a href="nOptimization_simconfig_core_registry_py__pick_config__wrap.html"><code>_wrap</code></a> <span class="dim">Optimization/simconfig/core/registry.py</span></li><li><a href="nOptimization_simconfig_core_registry_py__pick_config.html"><code>pick_config</code></a> <span class="dim">Optimization/simconfig/core/registry.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_core_registry_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/core/registry.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

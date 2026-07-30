@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Singleton · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_layout_Storage_Primitive_py__Singleton" data-id="Warehouse/layout/Storage_Primitive.py::Singleton">
+<nav class="crumbs"><a href="../layers.html">wh_layout</a> <span class="sep">›</span> <a href="../files/nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse/layout/Storage_Primitive.py</code></a> <span class="sep">›</span> <span class="here"><code>Singleton</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>Singleton</code></h1>
+<p class="meta">layer <span class="chip">wh_layout</span> · file <a href="../files/nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse/layout/Storage_Primitive.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>class Singleton(Pallet)</code></pre>
+<section class="doc">Forward-pick / small-footprint storage.
+
+Singleton bins are a single fixed size (no small/medium/large/extra_large
+tiers).  Any item whose two smallest dimensions both fit within 16×16 can
+be placed; items are rotated to minimise the stacking height.  storage_size
+is always &#x27;singleton&#x27; — one bucket per (handling, category), distinct from
+all pallet size tiers and never None so DB NOT NULL constraints are satisfied.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_layout_Storage_Primitive_py__viable_storage_units.html"><code>viable_storage_units</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_layout_Storage_Primitive_py__Singleton">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/layout/Storage_Primitive.py#:~:text=class%20Singleton">Source ↗</a></p>
+</article>
+</main>
+</body></html>

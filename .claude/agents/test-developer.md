@@ -10,12 +10,16 @@ You write pytest tests for Inventory_Location_Optimizer. New tests MUST match re
 (Warehouse/ and Optimization/ are real packages; `Tests/conftest.py` is the single sys.path bootstrap).
 
 ## File skeleton (copy this shape)
+Conventions below are the canonical copy in CLAUDE.md §2, restated because a subagent may not inherit
+it. If the two disagree, CLAUDE.md wins and this file is stale.
+
 - Module docstring: filename on line 1; a short *what/why* paragraph (bullet the invariants you lock in);
-  a trailing `Run:  python -m pytest Tests/<file>.py -q` line.
+  a trailing `Run:  python -m pytest Tests/<dir>/<file>.py -q` line.
 - `from __future__ import annotations`.
-- Imports are PACKAGE-ABSOLUTE: `from Warehouse.Order import Order`,
-  `from Optimization import channels`. NO per-file sys.path bootstrap — `Tests/conftest.py`
-  puts the repo root (and `Tests/bench` for shared scenario builders) on sys.path.
+- Imports are PACKAGE-ABSOLUTE: `from Warehouse.catalog.Order import Order`,
+  `from Optimization.config import channels`. NO per-file sys.path bootstrap — `Tests/conftest.py`
+  puts the repo root (and `Tests/bench` for shared scenario builders) on sys.path. A bare-name import
+  silently stops resolving the moment a module moves — that is how 8 tests went dark for a week.
 - Optional `if __name__ == '__main__': sys.exit(pytest.main([__file__, '-v']))`.
 - Module-level `_snake_case` helper builders; reuse existing helpers (e.g.
   `from perf_simulation import _build_inventory, _build_affinity_store`) rather than duplicating.
@@ -46,7 +50,7 @@ You write pytest tests for Inventory_Location_Optimizer. New tests MUST match re
 
 ## Always finish by verifying
 Run `python -m pytest Tests/<newfile>.py -q` to green, then the golden suite near what you touched
-(e.g. `python -m pytest Tests/test_fulfillment_channels.py Tests/test_warehouse_sizing.py -q`, or full
+(e.g. `python -m pytest Tests/unit/test_fulfillment_channels.py Tests/unit/test_warehouse_sizing.py -q`, or full
 `python -m pytest Tests/ -q -k "not gpu"` for broad changes). Report what you added + exact commands/results.
 
 A NEW `Tests/*.py` becomes an entry in the architecture file catalog (`Tests/` is in scope). If

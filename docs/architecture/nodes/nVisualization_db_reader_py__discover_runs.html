@@ -15,15 +15,18 @@
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def discover_runs(base_dir: str) -&gt; list[RunRef]</code></pre>
-<section class="doc">Walk &lt;base&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/sim_*.db and return one RunRef per
-strategy run (the layout walk lives in Optimization.runlayout).
+<section class="doc">One RunRef per strategy run across the WHOLE run tree, via the versioned resolver.
 
-Rename-proof: the strategy/pair/config labels come from the DB&#x27;s stored identity
-(falling back to the file/dir names for older runs), and each run&#x27;s warehouse.db is
-matched by warehouse_fingerprint (falling back to the nearest warehouse.db by path).
-Mixed-catalog runs surface with the channel folded into the config label
-(e.g. &#x27;store_high_weight/fulfillment&#x27;) so store-only ids are unchanged.</section>
-<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runlayout.py</span></li><li><a href="nVisualization_db_reader_py__RunRef.html"><code>RunRef</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___nearest_warehouse_db.html"><code>_nearest_warehouse_db</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___read_run_meta.html"><code>_read_run_meta</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___warehouse_fp_index.html"><code>_warehouse_fp_index</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py__run_summaries.html"><code>run_summaries</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
+base_dir is the RUN ROOT.  This previously called the per-CELL walker
+(``iter_sim_dbs(base_dir)``) at the run root, so every cell-matrix run — i.e. every run since
+the cell refactor — surfaced ZERO runs in the viewer.  ``runschema.resolver_for`` reads the
+run&#x27;s own ``run_layout.json`` and spans all its cells.
+
+Rename-proof: strategy/pair/config labels come from the DB&#x27;s stored identity (falling back to
+the file/dir names), and each run&#x27;s warehouse.db is matched by warehouse_fingerprint (falling
+back to the nearest warehouse.db by path).  The CELL, however, exists only in the path —
+sim_*.db has no cell column — so it always comes from the resolver.</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nOptimization_runschema___init___py__resolver_for.html"><code>resolver_for</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_runlayout_py__iter_sim_dbs.html"><code>iter_sim_dbs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nVisualization_db_reader_py__RunRef.html"><code>RunRef</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___nearest_warehouse_db.html"><code>_nearest_warehouse_db</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___read_run_meta.html"><code>_read_run_meta</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___warehouse_fp_index.html"><code>_warehouse_fp_index</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py__run_index.html"><code>run_index</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_db_reader_py__discover_runs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/db_reader.py#:~:text=def%20discover_runs">Source ↗</a></p>
 </article>
 </main>

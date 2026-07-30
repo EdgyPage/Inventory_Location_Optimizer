@@ -27,12 +27,73 @@ const runSelect = $('run-select'), panesEl = $('panes'), loadingEl = $('loading-
 const slider = $('time-slider'), timeDisp = $('time-display'), phaseLabel = $('phase-label');
 const batchLabel = $('batch-label');
 
-// ── init ──────────────────────────────────────────────────────────────────────
+// ── run navigation ────────────────────────────────────────────────────────────
+// A run's coordinate is (warehouse, warehouse type, pick config, cell, assignment fn).  A full
+// sweep is 34 arms × cells × pairs × configs × channels — hundreds of entries — so a single flat
+// list is unusable.  The filter row below is generated FROM the server's `axes`, so which levels
+// exist is decided by the run-tree schema, not by this file.
+let AXIS_ORDER = [], AXIS_LABELS = {}, AXES = {};
+const filters = {};                       // axis -> selected value ('' = any)
+
+function buildFilters() {
+  const wrap = $('run-filters');
+  wrap.innerHTML = '';
+  AXIS_ORDER.forEach(axis => {
+    const values = AXES[axis] || [];
+    if (values.length === 0) return;      // axis absent for this run (e.g. store-only: no channel)
+    const lab = document.createElement('label');
+    lab.className = 'filter';
+    const sel = document.createElement('select');
+    sel.dataset.axis = axis;
+    sel.onchange = () => { filters[axis] = sel.value; syncFilters(); };
+    lab.append(`${AXIS_LABELS[axis] || axis} `, sel);
+    wrap.appendChild(lab);
+  });
+  syncFilters();
+}
+
+/** Runs matching every selected filter except `exceptAxis` (so each selector offers the values
+ *  still reachable given the OTHER choices, instead of dead options). */
+function matching(exceptAxis) {
+  return RUNS.filter(r => AXIS_ORDER.every(a =>
+    a === exceptAxis || !filters[a] || String(r[a] ?? '') === filters[a]));
+}
+
+function syncFilters() {
+  $('run-filters').querySelectorAll('select').forEach(sel => {
+    const axis = sel.dataset.axis;
+    const avail = [...new Set(matching(axis).map(r => r[axis]).filter(v => v != null))].sort();
+    if (filters[axis] && !avail.includes(filters[axis])) filters[axis] = '';   // now unreachable
+    sel.innerHTML = `<option value="">any (${avail.length})</option>` +
+      avail.map(v => `<option value="${v}"${filters[axis] === v ? ' selected' : ''}>${v}</option>`).join('');
+  });
+
+  const hits = matching(null);
+  runSelect.innerHTML = hits.length
+    ? '<option value="">— pick a run —</option>' +
+      hits.map(r => `<option value="${r.id}">${r.label}  (${r.n_batches}b)</option>`).join('')
+    : '<option value="">— no run matches these filters —</option>';
+  loadingEl.textContent = panes.length
+    ? loadingEl.textContent
+    : `${hits.length} of ${RUNS.length} runs match · add up to ${MAX_PANES} panes`;
+}
+
 fetch('/api/runs').then(r => r.json()).then(d => {
   RUNS = d.runs || [];
-  runSelect.innerHTML = '<option value="">— pick a run —</option>' +
-    RUNS.map(r => `<option value="${r.id}">${r.label}  (${r.n_batches}b)</option>`).join('');
-  loadingEl.textContent = `${RUNS.length} runs available · add up to ${MAX_PANES} panes`;
+  AXIS_ORDER = d.axis_order || [];
+  AXIS_LABELS = d.axis_labels || {};
+  AXES = d.axes || {};
+  AXIS_ORDER.forEach(a => { filters[a] = ''; });
+  buildFilters();
+  // Content-addressed schema: show the short id (the full sha256 would blow out the pill).
+  const sid = d.schema_short || (d.schema_id || '').split(':').pop().slice(0, 12);
+  const badge = $('schema-badge');
+  badge.textContent = sid ? `run-tree ${sid}` : 'unidentified run';
+  badge.title = d.schema_id || 'this run records no run-tree schema id';
+  if (!RUNS.length) {
+    loadingEl.textContent =
+      'No runs found. Pass the RUN ROOT (the directory holding run_layout.json).';
+  }
 }).catch(e => { loadingEl.textContent = 'Error loading runs: ' + e.message; });
 
 $('add-run').onclick = () => {
@@ -61,11 +122,30 @@ $('queue-close').onclick = () => $('queue-modal').classList.add('hidden');
 window.addEventListener('resize', () => { sizeCanvases(); layoutAll(); renderAll(); });
 
 // ── panes ───────────────────────────────────────────────────────────────────────
+/** Pane heading: the assignment fn, plus whichever axes actually DIFFER between the open panes.
+ *  Comparing two arms in one cell shows just the arm; comparing the same arm across cells or
+ *  channels shows what distinguishes them, so panes are never ambiguous. */
+function paneTitle(run, others) {
+  const varying = AXIS_ORDER.filter(a =>
+    a !== 'strategy' && new Set(others.map(r => r[a] ?? '')).size > 1);
+  return [run.strategy, ...varying.map(a => run[a]).filter(Boolean)].join(' · ');
+}
+
+/** Re-label every pane: which axes "differ" changes as panes are added or removed, so titles
+ *  computed at add time would otherwise go stale (and read as duplicates). */
+function refreshPaneTitles() {
+  const runs = panes.map(p => p.run);
+  panes.forEach(p => {
+    const el = p.el.querySelector('.pane-title');
+    if (el) el.textContent = paneTitle(p.run, runs);
+  });
+}
+
 function addPane(run) {
   const el = document.createElement('div'); el.className = 'pane';
   el.innerHTML = `
     <div class="pane-head">
-      <span class="pane-title">${run.strategy}</span>
+      <span class="pane-title" title="${run.label}"></span>
       <span class="pane-stat"></span>
       <button class="pane-close">✕</button>
     </div>
@@ -80,6 +160,7 @@ function addPane(run) {
   pane.canvas.onclick = ev => onPaneClick(pane, ev);
   el.querySelector('.pane-close').onclick = () => removePane(pane);
   panes.push(pane);
+  refreshPaneTitles();
   setGridClass();
   $('run-count').textContent = `${panes.length} / ${MAX_PANES} panes`;
   slider.disabled = false;
@@ -93,6 +174,7 @@ function addPane(run) {
 function removePane(pane) {
   panes = panes.filter(p => p !== pane);
   pane.el.remove();
+  refreshPaneTitles();
   setGridClass();
   $('run-count').textContent = `${panes.length} / ${MAX_PANES} panes`;
   sizeCanvases(); layoutAll(); renderAll();

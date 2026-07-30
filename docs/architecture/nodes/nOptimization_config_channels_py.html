@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.config.channels · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_channels_py" data-id="Optimization/config/channels.py">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <span class="here"><code>Optimization/config/channels.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.config.channels</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_channels_py.html"><code>Optimization/config/channels.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>Optimization.config.channels</code></pre>
+<section class="doc">channels.py — the Channel abstraction: one operation over a shared warehouse.
+
+A *Channel* bundles the three things that differ between the store and fulfillment
+operations while the pick MECHANICS stay shared:
+
+  * regime      — which SKU family / bins it uses (BinKey routing; see regime.py)
+  * batch stream — its own order-generation rate/size (a BatchConfig, built per run once
+                   the channel&#x27;s SKU-subset size is known) + an independent seed offset
+  * picker pool — its own worker count + cost regression (a PickerProfile wrapping a
+                   PickConfig)
+
+The channel list is the single source of truth the runner uses to (a) generate a batch
+stream per channel, (b) simulate each channel with its own picker pool + cost, and (c)
+derive ``WP_BY_REGIME`` for the per-regime cost routing in placement/labor.  Adding a new
+operation later = adding one Channel.
+
+Backward-compatible: a run with a single ``store`` channel reproduces today&#x27;s behavior
+exactly (one batch stream, one picker pool, one cost, one DB subtree).</section>
+<section class="rel"><h2>Imports <span class="count">(6)</span></h2><ul><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_metrics_Workload_py.html"><code>Optimization.metrics.Workload</code></a> <span class="dim">Optimization/metrics/Workload.py</span></li><li><a href="nWarehouse_kernel_regime_py.html"><code>Warehouse.kernel.regime</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li><li><a href="nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse.layout.Storage_Primitive</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li><li><a href="nWarehouse_picking_Pick_py.html"><code>Warehouse.picking.Pick</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse.picking.Workload_Builder</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simdriver_workunits_py.html"><code>Optimization.simdriver.workunits</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_config_channels_py__Channel.html"><code>Channel</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__FF_BATCH_SEED_OFFSET.html"><code>FF_BATCH_SEED_OFFSET</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__PickerProfile.html"><code>PickerProfile</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__Channel_batch_config.html"><code>batch_config</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__build_channels.html"><code>build_channels</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__fulfillment_pick_config.html"><code>fulfillment_pick_config</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__make_channel.html"><code>make_channel</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__wp_by_regime.html"><code>wp_by_regime</code></a> <span class="dim">Optimization/config/channels.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_channels_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/channels.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

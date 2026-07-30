@@ -1,7 +1,7 @@
 """Tests/conftest.py — single sys.path bootstrap for the whole suite.
 
 Replaces the per-file ``sys.path.insert(...)`` boilerplate that every test used
-to carry.  Project imports are package-absolute: ``from Warehouse.Order import
+to carry.  Project imports are package-absolute: ``from Warehouse.catalog.Order import
 Order``, ``from Optimization import channels``.  Tests/ itself stays a
 NON-package (no __init__.py): pytest's default prepend import mode puts each
 test file's own directory on sys.path, which is what keeps helper imports

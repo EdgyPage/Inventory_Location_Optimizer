@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_travel_balanced_impl · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___travel_balanced_impl" data-id="Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_travel_balanced_impl</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_travel_balanced_impl</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _travel_balanced_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)</code></pre>
+<section class="doc">Travel- AND height-aware LPT load balance (Rank_labor).
+
+The expected labor of placing a unit in a bin is freq·qty times the per-pick cost
+THERE:  height_mult(y_bin)·(pick_intercept + handle_var) + D_bin, where handle_var is
+the per-unit weight/volume handling, height_mult(y) scales the WHOLE at-location pick
+(intercept + handling), and D_bin = x_speed·x_phys + y_speed·y_phys is travel.  Each
+unit is placed in the specific empty bin that minimises the resulting BUSIEST aisle&#x27;s
+total labor (greedy LPT).  So a bin is only chosen high/far when the aisle&#x27;s load is
+low enough to absorb the extra handling/travel — heavy, frequently-picked SKUs gravitate
+to low, near bins.
+
+Within an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),
+so bins are grouped per aisle by height bracket, each a min-D deque; for each unit we
+scan one min-D representative per (aisle, bracket) — O(units · aisles · n_brackets).
+
+cart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,
+expected_batch_skus, total_freq) that adds each aisle&#x27;s EXPECTED CART-SWAP cost to its
+balanced load, so the balancer disperses volume that would overflow a cart.  Default
+None ⇒ byte-identical Rank_labor.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___D_map.html"><code>_D_map</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_cartlabor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_labor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___travel_balanced_impl">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_travel_balanced_impl">Source ↗</a></p>
+</article>
+</main>
+</body></html>

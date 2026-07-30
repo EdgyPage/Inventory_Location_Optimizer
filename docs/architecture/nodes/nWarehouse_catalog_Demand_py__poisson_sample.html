@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poisson_sample · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Demand_py__poisson_sample" data-id="Warehouse/catalog/Demand.py::poisson_sample">
+<nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Demand_py.html"><code>Warehouse/catalog/Demand.py</code></a> <span class="sep">›</span> <span class="here"><code>poisson_sample</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>poisson_sample</code></h1>
+<p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Demand_py.html"><code>Warehouse/catalog/Demand.py</code></a></p>
+
+<pre class="sig"><code>def poisson_sample(lam: float, rng: random.Random | None=None) -&gt; int</code></pre>
+<section class="doc">Knuth&#x27;s algorithm: return a Poisson-distributed integer with mean `lam`.
+
+Pass `rng` (a `random.Random`) to draw from a dedicated stream; default `None`
+uses the global `random` module (back-compatible).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_catalog_Demand_py__Demand_sample.html"><code>sample</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_catalog_Order_py___sample_weight.html"><code>_sample_weight</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Demand_py__poisson_sample">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Demand.py#:~:text=def%20poisson_sample">Source ↗</a></p>
+</article>
+</main>
+</body></html>

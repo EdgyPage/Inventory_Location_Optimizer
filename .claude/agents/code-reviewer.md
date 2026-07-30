@@ -16,15 +16,15 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
 2. Read the changed files AND enough surrounding code to judge correctness — never review a hunk in
    isolation. Trace callers/callees of changed functions.
 
-## This repo has no linter and no CLAUDE.md — the conventions are:
+## This repo has no linter; CLAUDE.md §2 is canonical — restated here because a subagent may not inherit it. If the two disagree, CLAUDE.md wins and this list is stale:
 - Style lives in the code: heavy module/function docstrings + inline comments, box-drawing banners
   (`# ── … ──`). Match the surrounding file; do not impose an external ruleset.
-- Imports are PACKAGE-ABSOLUTE (`from Warehouse.Order import Order`); flag any new
+- Imports are PACKAGE-ABSOLUTE (`from Warehouse.catalog.Order import Order`); flag any new
   `sys.path.insert` outside entry-script bootstraps and Tests/conftest.py.
 - Reuse before reinvention — check for existing helpers before flagging/adding new ones:
-  `Warehouse/regime.py:regime_of`; `Warehouse/inventory_common.py` (`_wp_for`, `tier_ranks_for`,
-  `_SIZE_RANKS`, `BinKey`); `Warehouse/cost_model.py` (`sec_per_inch`, `height_multiplier`,
-  `handle_var`); `Warehouse/Aisle_Dimensions.py` (`uniform_aisle_bins`, `catalog_aisle_bins`).
+  `Warehouse/kernel/regime.py:regime_of`; `Warehouse/inventory/inventory_common.py` (`_wp_for`, `tier_ranks_for`,
+  `_SIZE_RANKS`, `BinKey`); `Warehouse/kernel/cost_model.py` (`sec_per_inch`, `height_multiplier`,
+  `handle_var`); `Warehouse/layout/Aisle_Dimensions.py` (`uniform_aisle_bins`, `catalog_aisle_bins`).
   Flag duplicated logic.
 - Run DBs are 150–200 GB and gitignored. NEVER approve committing `*.db` / `comparison_*/` output; only
   curated PNGs + config/params JSON belong in git.
@@ -50,7 +50,7 @@ could fold into an existing code path.
   cross-layer import. A new `import` that would make the domain engine (`Warehouse/`) depend on the run
   harness (`Optimization/`), analysis, generation, diagnostics, viz, or GPU — or that gives the
   dependency-free leaf `Warehouse/physical.py` an in-repo import — is a layering violation (Critical);
-  `Tests/test_architecture_sync.py` will fail on it. For dead-code / coupling smells, cross-reference
+  `Tests/architecture/test_architecture_sync.py` will fail on it. For dead-code / coupling smells, cross-reference
   `docs/architecture/inefficiency.html` (orphan public functions, new import cycles, high fan-in/out).
 
 ## Verify before asserting a bug

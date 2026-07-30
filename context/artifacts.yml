@@ -12,7 +12,7 @@ artifacts:
     writer: {function: save_inventory_to_db, file: Warehouse/generation/generate_inventory.py}
     readers:
       - {function: load_inventory_from_db, file: Warehouse/generation/generate_inventory.py}
-      - {function: build_shared_assets, file: Optimization/sim_assets.py}
+      - {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     match: "inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
     tables: [cartons, run_metadata, creation_plan]
@@ -22,16 +22,16 @@ artifacts:
     format: sqlite
     writer: {function: generate_run, file: Warehouse/generation/generate_affinity.py}
     readers:
-      - {function: AffinityStore, file: Warehouse/Affinity_Store.py}
+      - {function: AffinityStore, file: Warehouse/catalog/Affinity_Store.py}
     match: "affinity.db"
     schema_file: Warehouse/generation/generate_affinity.py
     tables: [affinity, run_metadata]
 
   # ── simulation outputs ──────────────────────────────────────────────────────────
   run_manifest:
-    path_pattern: "comparison_<ts>/run_manifest.json"
+    path_pattern: "comparison_<ts>/<cell>/run_manifest.json"
     format: json
-    writer: {function: write_run_manifest, file: Optimization/sim_manifest.py}
+    writer: {function: write_run_manifest, file: Optimization/runschema/sim_manifest.py}
     readers:
       - {function: main, file: docs/experiments/ingest.py}
     match: "run_manifest.json"
@@ -42,40 +42,56 @@ artifacts:
     # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
     path_pattern: "comparison_<ts>/run_spec.json"
     format: json
-    writer: {function: _write_run_spec, file: Optimization/sim_manifest.py}
+    writer: {function: _write_run_spec, file: Optimization/runschema/sim_manifest.py}
     readers:
-      - {function: _load_run_spec, file: Optimization/sim_manifest.py}
+      - {function: _load_run_spec, file: Optimization/runschema/sim_manifest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
-             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, profiles_dir,
+             ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
              all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
 
+  run_layout:
+    # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
+    # tool can INFER the tree — and analyze a partial/crashed or OLD run — without directory-guessing
+    # or re-importing the (possibly since-changed) whatif spec.  `fields` is verified against the
+    # committed JSON Schema's top-level properties (see schema_file).
+    path_pattern: "comparison_<ts>/run_layout.json"
+    format: json
+    schema_file: Optimization/schemas/run_layout.schema.json
+    writer: {function: write_run_layout, file: Optimization/runschema/sim_manifest.py}
+    readers:
+      - {function: cells, file: Optimization/runschema/runlayout.py}
+      - {function: analyze_run, file: Optimization/analyze_run.py}
+    match: "run_layout.json"
+    fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
+             channels, cells, pairs, configs, arms]
+
   warehouse_db:
-    path_pattern: "comparison_<ts>/<pair>/warehouse.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"
     format: sqlite
-    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    writer: {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     readers:
       - {function: discover_runs, file: Visualization/db_reader.py}
     # the filename literal lives in the CALLER (run_simulation composes the path);
     # the writer's tripwire is its parameter name.
     match: "warehouse_db_path"
-    schema_file: Optimization/Warehouse_Data.py
+    schema_file: Optimization/persistence/Warehouse_Data.py
     tables: [warehouse_stats, aisle_type_stats]
 
   planned_inventory_db:
-    path_pattern: "comparison_<ts>/<pair>/planned_inventory.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/planned_inventory.db"
     format: sqlite
-    writer: {function: build_shared_assets, file: Optimization/sim_assets.py}
+    writer: {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     readers:
-      - {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+      - {function: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py}
     match: "planned_inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
     tables: [cartons]
 
   config_json:
-    path_pattern: "comparison_<ts>/<pair>/<config>/config.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>/config.json"
     format: json
-    writer: {function: _prepare_channel_run, file: Optimization/run_simulation.py}
+    writer: {function: _prepare_channel_run, file: Optimization/simdriver/workunits.py}
     readers:
       - {function: define_env, file: docs/macros.py}
     match: "config.json"
@@ -87,59 +103,59 @@ artifacts:
              avg_lead_time_mean, avg_supply_cv, height_brackets]
 
   batches_cache:
-    path_pattern: "comparison_<ts>/<pair>/_batches_<fp16>.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/_batches_*.pkl"
     format: pickle
-    writer: {function: write_batches, file: Optimization/batch_precompute.py}
+    writer: {function: write_batches, file: Optimization/simdriver/batch_precompute.py}
     readers:
-      - {function: load_batches, file: Optimization/batch_precompute.py}
+      - {function: load_batches, file: Optimization/simdriver/batch_precompute.py}
     match: "_batches_"
     fields: [fingerprint, n, batches]
 
   resume_pkl:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/resume.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/resume.pkl"
     format: pickle
-    writer: {function: _save_resume, file: Optimization/sim_manifest.py}
+    writer: {function: _save_resume, file: Optimization/runschema/sim_manifest.py}
     readers:
-      - {function: _load_resume, file: Optimization/sim_manifest.py}
+      - {function: _load_resume, file: Optimization/runschema/sim_manifest.py}
     match: "resume.pkl"
     fields: [run_ids, next_batch]
 
   checkpoint_pkl:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/_ckpt_<strategy>.pkl"
     format: pickle
-    writer: {function: save_worker_checkpoint, file: Optimization/strategy_runner.py}
+    writer: {function: save_worker_checkpoint, file: Optimization/simdriver/strategy_runner.py}
     readers:
-      - {function: load_worker_checkpoint, file: Optimization/strategy_runner.py}
+      - {function: load_worker_checkpoint, file: Optimization/simdriver/strategy_runner.py}
     match: "_ckpt_"
     fields: [next_batch_id]
 
   sim_db:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db"
     format: sqlite
-    writer: {function: _run_strategy_worker, file: Optimization/strategy_runner.py}
+    writer: {function: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py}
     readers:
       - {function: EvalContext, file: Optimization/Performance_Evaluations/core/context.py}
-      - {function: iter_sim_dbs, file: Optimization/runlayout.py}
+      - {function: iter_sim_dbs, file: Optimization/runschema/runlayout.py}
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "sim_"
-    schema_file: Optimization/Picking_Data.py
+    schema_file: Optimization/persistence/Picking_Data.py
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
              bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
 
   keyframes_db:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
     format: sqlite
-    writer: {function: save_bin_keyframe, file: Optimization/Picking_Data.py}
+    writer: {function: save_bin_keyframe, file: Optimization/persistence/Picking_Data.py}
     readers:
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "keyframes.db"
-    schema_file: Optimization/Picking_Data.py
+    schema_file: Optimization/persistence/Picking_Data.py
     tables: [bin_keyframe]
 
   sim_meta:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/sim_meta.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_meta.json"
     format: json
-    writer: {function: _finalize_config_run, file: Optimization/run_simulation.py}
+    writer: {function: _finalize_config_run, file: Optimization/simdriver/supervisor.py}
     readers:
       - {function: _config_jobs, file: Optimization/run_analysis.py}
       - {function: _find_series, file: Optimization/run_channel_rollup.py}
@@ -148,9 +164,27 @@ artifacts:
     fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
              optimal_work, inv_db, aff_db]
 
+  runtime_metrics_db:
+    path_pattern: "comparison_<ts>/runtime_metrics.db"
+    format: sqlite
+    writer: {function: record_arm, file: Optimization/persistence/runtime_metrics.py}
+    readers:
+      - {function: load_rows, file: Optimization/persistence/runtime_metrics.py}
+      - {function: run, file: Optimization/run_runtime_graphs.py}
+    match: "runtime_metrics.db"
+    schema_file: Optimization/persistence/runtime_metrics.py
+    tables: [runtime]
+
+  runtime_pngs:
+    path_pattern: "comparison_<ts>/_runtime/*.png"
+    format: png
+    writer: {function: run, file: Optimization/run_runtime_graphs.py}
+    readers: []
+    match: "runtime"
+
   # ── analysis outputs ────────────────────────────────────────────────────────────
   series_json:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/series.json"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/series.json"
     format: json
     writer: {function: _dump_series, file: Optimization/Performance_Evaluations/common/series.py}
     readers:
@@ -159,8 +193,12 @@ artifacts:
     match: "series.json"
     fields: [strategies, extra]
 
+  # The per-leaf graph bundles.  The authoritative, per-directory breakdown lives in the
+  # content-addressed run-tree contract (Optimization/schemas/run_tree/<short>.json:
+  # per_strategy_pngs / compare_pngs / stats_by_initial_pngs / aggregate_pngs); this entry stays as
+  # the single catalog handle.
   analysis_pngs:
-    path_pattern: "comparison_<ts>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats}/**.png + comparison_<ts>/_aggregate/<cfg>/**.png"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats_by_initial}/**/*.png + comparison_<ts>/<cell>/_aggregate/<config>[/<channel>]/**/*.png"
     format: png
     writer: {function: prepare_config_dirs, file: Optimization/Performance_Evaluations/driver.py}
     readers:
@@ -168,34 +206,76 @@ artifacts:
     match: "per_strategy"
 
   channel_rollup_csv:
-    path_pattern: "comparison_<ts>/channel_rollup.csv + channel_rollup_summary.csv"
+    path_pattern: "comparison_<ts>/<cell>/channel_rollup.csv"
     format: csv
     writer: {function: rollup, file: Optimization/run_channel_rollup.py}
     readers: []
     match: "channel_rollup"
-    fields: [inventory, config, channel, plan, saving_abs, saving_pct, is_baseline, is_best]
+    fields: [pair, config, channel, plan_key, plan_label, assignment, ss_prod_hours,
+             saving_abs, saving_pct, is_baseline, is_best]
+
+  channel_rollup_summary_csv:
+    path_pattern: "comparison_<ts>/<cell>/channel_rollup_summary.csv"
+    format: csv
+    writer: {function: rollup, file: Optimization/run_channel_rollup.py}
+    readers: []
+    match: "channel_rollup_summary.csv"
+    fields: [pair, channel, best_config, best_plan, baseline_fifo_ss, best_ss, saving_abs,
+             saving_pct]
+
+  # ── cross-cell what-if outputs (multi-cell runs only) ───────────────────────────
+  whatif_delta_csv:
+    path_pattern: "comparison_<ts>/whatif_delta.csv"
+    format: csv
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers: []
+    match: "whatif_delta.csv"
+    fields: [cell, pair, pickcfg, channel, arm,
+             ref_task_ms, cell_task_ms, d_task_ms_pct,
+             ref_batch_ms, cell_batch_ms, d_batch_ms_pct,
+             ref_thr_batch, cell_thr_batch, d_thr_batch_pct,
+             ref_thr_task, cell_thr_task, d_thr_task_pct]
+
+  whatif_delta_json:
+    # Consumed by the docs site (macros.whatif_matrix). Emitted alongside the CSV so the site
+    # snapshot is a copy, never a hand-rename of whatif_labor.json.
+    path_pattern: "comparison_<ts>/whatif_delta.json"
+    format: json
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers:
+      - {function: whatif_matrix, file: docs/macros.py}
+    match: "whatif_delta.json"
+    fields: [schema_id, reference, reference_label, metrics, window_batches, arms, pairs,
+             channels, cells]
+
+  whatif_delta_png:
+    path_pattern: "comparison_<ts>/whatif_delta.png"
+    format: png
+    writer: {function: run, file: Optimization/run_whatif_delta.py}
+    readers: []
+    match: "whatif_delta.png"
 
   whatif_labor_csv:
-    path_pattern: "<comparison_whatif_...>/whatif_labor.csv"
+    path_pattern: "comparison_<ts>/whatif_labor.csv"
     format: csv
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor.csv"
     fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
              batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
 
   whatif_labor_json:
-    path_pattern: "<comparison_whatif_...>/whatif_labor.json"
+    path_pattern: "comparison_<ts>/whatif_labor.json"
     format: json
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor.json"
     fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
              labor_baseline, hours_note, cells]
 
   whatif_labor_pngs:
-    path_pattern: "<comparison_whatif_...>/{whatif_labor_throughput_scatter,whatif_labor_saved_bars,whatif_batch_hours_rr_vs_lpt,whatif_scheduler_uplift}.png"
+    path_pattern: "comparison_<ts>/whatif_*.png"
     format: png
-    writer: {function: main, file: Optimization/run_whatif_labor.py}
+    writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor_throughput_scatter"

@@ -1,6 +1,6 @@
 """The Evaluation descriptor + @evaluation decorator + module-level registry.
 
-Mirrors the registry style of Optimization/strategies.py (a dataclass per item, a flat
+Mirrors the registry style of Optimization/config/strategies.py (a dataclass per item, a flat
 list, and a by-key dict), but populated by a decorator so a graph module self-registers
 on import.  A graph's `render(ctx, params)` does the actual plotting; the descriptor
 carries only the metadata the driver needs to schedule it.

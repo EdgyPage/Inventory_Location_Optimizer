@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>supports_reparse · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_archive_cells_py__supports_reparse" data-id="scripts/archive_cells.py::supports_reparse">
+<nav class="crumbs"><a href="../layers.html">scripts</a> <span class="sep">›</span> <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a> <span class="sep">›</span> <span class="here"><code>supports_reparse</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>supports_reparse</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
+
+<pre class="sig"><code>def supports_reparse(directory: str) -&gt; bool</code></pre>
+<section class="doc">Can this volume hold a directory junction?
+
+exFAT cannot — it has no reparse points — and an external SSD formatted for portability is very
+often exFAT. Creating the junction is the only reliable test: the failure is a bare
+OSError(22, &#x27;Incorrect function&#x27;) from the FSCTL, and it leaves an empty directory behind that
+must be cleaned up. Probing here costs milliseconds; discovering it after copying a hundred
+gigabytes does not.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__is_archived.html"><code>is_archived</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__main.html"><code>main</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py__supports_reparse">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20supports_reparse">Source ↗</a></p>
+</article>
+</main>
+</body></html>

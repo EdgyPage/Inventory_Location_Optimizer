@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/EdgyPage/Inventory_Location_Optimizer/Optimization/schemas/run_layout.schema.json",
+  "title": "run_layout",
+  "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/runschema/sim_manifest.py; read by cells@Optimization/runschema/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "schema_id", "kind", "reference", "tree_template", "cells", "pairs"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1, "description": "version of THIS descriptor's field set"},
+    "schema_id": {
+      "type": "string", "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows: the sha256 of that contract's own declared shape, stored at Optimization/schemas/run_tree/<first-12-hex>.json. resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes. A content address, not a sequence number — derived from the declaration, so it is re-derivable and cannot be mis-assigned."
+    },
+    "kind": {"type": "string", "enum": ["single", "sweep"]},
+    "spec": {"type": "string", "description": "whatif_config.SPECS name that produced the run"},
+    "base": {"type": "string", "description": "os.path.basename of the run root (self-check)"},
+    "created": {"type": "string", "description": "run-start timestamp (ISO-8601)"},
+    "reference": {"type": "string", "description": "baseline/round-robin cell for the cross-cell delta"},
+    "tree_template": {"type": "string", "description": "leaf path pattern relative to a cell dir"},
+    "channels": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["store", "fulfillment"]},
+      "minItems": 1
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "split", "zoning", "scheduler"],
+        "properties": {
+          "name": {"type": "string"},
+          "split": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["k", "capacity_loss"],
+                "properties": {
+                  "k": {"type": "integer", "minimum": 2},
+                  "capacity_loss": {"type": "number", "minimum": 0, "maximum": 1}
+                }
+              }
+            ]
+          },
+          "zoning": {
+            "type": "object",
+            "required": ["enabled"],
+            "properties": {"enabled": {"type": "boolean"}, "mode": {"type": "string"}}
+          },
+          "scheduler": {"type": "string", "enum": ["round_robin", "lpt"]}
+        }
+      }
+    },
+    "pairs": {"type": "array", "items": {"type": "string"}},
+    "configs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": {"type": "array", "items": {"type": "string"}},
+        "fulfillment": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "arms": {"type": ["array", "null"], "items": {"type": "string"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "single"}}},
+      "then": {"properties": {"cells": {"maxItems": 1}}}
+    }
+  ]
+}

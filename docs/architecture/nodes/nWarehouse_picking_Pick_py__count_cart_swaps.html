@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>count_cart_swaps · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Pick_py__count_cart_swaps" data-id="Warehouse/picking/Pick.py::count_cart_swaps">
+<nav class="crumbs"><a href="../layers.html">wh_picking</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a> <span class="sep">›</span> <span class="here"><code>count_cart_swaps</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>count_cart_swaps</code></h1>
+<p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def count_cart_swaps(pick_volumes, cart_remaining: float, cart_cap: float) -&gt; tuple[int, float]</code></pre>
+<section class="doc">Next-fit cart swaps for an ORDERED sequence of pick volumes, starting from ``cart_remaining``.
+Returns ``(swaps, new_remaining)``.  Uses the same ``cart_step`` primitive the sim runs per pick,
+so this reproduces exactly what the sim charges for those picks.
+
+This is the **exact-makespan predictor** — a partition&#x27;s realized cart cost, computable up front.
+The LPT scheduler does NOT balance on this; it balances a cheaper continuous proxy (see
+``assign_tasks``).  This is the oracle the scheduler↔sim self-consistency test checks the sim
+against, plus a reusable helper for scoring a partition&#x27;s exact makespan.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__cart_step.html"><code>cart_step</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Pick_py__count_cart_swaps">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py#:~:text=def%20count_cart_swaps">Source ↗</a></p>
+</article>
+</main>
+</body></html>

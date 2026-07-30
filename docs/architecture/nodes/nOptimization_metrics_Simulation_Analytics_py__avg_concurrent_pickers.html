@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>avg_concurrent_pickers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_Simulation_Analytics_py__avg_concurrent_pickers" data-id="Optimization/metrics/Simulation_Analytics.py::avg_concurrent_pickers">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a> <span class="sep">›</span> <span class="here"><code>avg_concurrent_pickers</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>avg_concurrent_pickers</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a></p>
+
+<pre class="sig"><code>def avg_concurrent_pickers(events: list) -&gt; float</code></pre>
+<section class="doc">Time-weighted average number of pickers simultaneously in &#x27;picking&#x27; state.
+
+A picker is &quot;picking&quot; from the moment they arrive at a bin (arrive event)
+until they finish handling it (pick event).  Cart-swap overhead is folded
+into that interval because both arrive and pick share the same pick_time span.
+
+Algorithm
+---------
+Build a (time, +1/-1) change-list, sort it, then sweep to integrate the
+concurrent-count curve.  Divide by total simulation span.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__extract_batch_stats.html"><code>extract_batch_stats</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py__avg_concurrent_pickers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20avg_concurrent_pickers">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,330 @@
+{
+  "schema_id": "sha256:6e825081640c87ca7f87affc579570ff57e3183106fc29e1ec8786ad7ff9001a",
+  "schema_short": "6e825081640c",
+  "generated_by": "Optimization/runschema/preflight.py",
+  "axes": [
+    "cell",
+    "pair",
+    "config",
+    "channel",
+    "strategy"
+  ],
+  "levels": [
+    {
+      "name": "cell",
+      "optional": false,
+      "note": "what-if cell: aisle-split x zoning x scheduler. Every run is a cell matrix; a plain run is the single cell k1_off."
+    },
+    {
+      "name": "pair",
+      "optional": false,
+      "note": "inventory+affinity pair label (the warehouse) \u2014 <profile_run>__<profile>."
+    },
+    {
+      "name": "config",
+      "optional": false,
+      "note": "pick-config name (store, store_high_height, ful_calibrated, ...)."
+    },
+    {
+      "name": "channel",
+      "optional": true,
+      "condition": "present only on a MIXED catalog (store + fulfillment); absent on a store-only run, where sim_*.db sits directly under <config>/."
+    }
+  ],
+  "artifacts": {
+    "aggregate_by_initial_csv": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_dir": {
+      "path": "{cell}/_aggregate/{config}/{channel?}",
+      "format": "dir",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_pngs": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/**/*.png",
+      "format": "png",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_summary_csv": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_tests_json": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_tests.json",
+      "format": "json",
+      "scope": "cell",
+      "optional": false
+    },
+    "analysis_log": {
+      "path": "analysis.log",
+      "format": "text",
+      "scope": "run",
+      "optional": true
+    },
+    "batches_cache": {
+      "path": "{cell}/{pair}/_batches_*.pkl",
+      "format": "pickle",
+      "scope": "pair",
+      "optional": true
+    },
+    "batches_long_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/batches_long.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "by_initial_stats_summary_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/stats_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "by_initial_summary_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "by_initial_tests_json": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json",
+      "format": "json",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "cell_analysis_log": {
+      "path": "{cell}/analysis.log",
+      "format": "text",
+      "scope": "cell",
+      "optional": true
+    },
+    "channel_rollup_csv": {
+      "path": "{cell}/channel_rollup.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "channel_rollup_summary_csv": {
+      "path": "{cell}/channel_rollup_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "checkpoint_pkl": {
+      "path": "{cell}/{pair}/{config}/{channel?}/_ckpt_{strategy}.pkl",
+      "format": "pickle",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "compare_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/compare/**/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "config_json": {
+      "path": "{cell}/{pair}/{config}/config.json",
+      "format": "json",
+      "scope": "config",
+      "optional": false
+    },
+    "frozen_inventory_db": {
+      "path": "_frozen/{pair}/planned_inventory.db",
+      "format": "sqlite",
+      "scope": "run",
+      "optional": true
+    },
+    "frozen_warehouse_db": {
+      "path": "_frozen/{pair}/warehouse.db",
+      "format": "sqlite",
+      "scope": "run",
+      "optional": true
+    },
+    "keyframes_db": {
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "per_run_summary_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "per_strategy_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/**/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "planned_inventory": {
+      "path": null,
+      "format": "sqlite",
+      "scope": "pair",
+      "optional": false
+    },
+    "planned_inventory_db": {
+      "path": "{cell}/{pair}/planned_inventory.db",
+      "format": "sqlite",
+      "scope": "pair",
+      "optional": true
+    },
+    "resume_pkl": {
+      "path": "{cell}/{pair}/{config}/{channel?}/resume.pkl",
+      "format": "pickle",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "run_layout": {
+      "path": "run_layout.json",
+      "format": "json",
+      "scope": "run",
+      "optional": false
+    },
+    "run_log": {
+      "path": "run.log",
+      "format": "text",
+      "scope": "run",
+      "optional": false
+    },
+    "run_manifest": {
+      "path": "{cell}/run_manifest.json",
+      "format": "json",
+      "scope": "cell",
+      "optional": false
+    },
+    "run_spec": {
+      "path": "run_spec.json",
+      "format": "json",
+      "scope": "run",
+      "optional": false
+    },
+    "runtime_metrics_db": {
+      "path": "runtime_metrics.db",
+      "format": "sqlite",
+      "scope": "run",
+      "optional": false
+    },
+    "runtime_pngs": {
+      "path": "_runtime/*.png",
+      "format": "png",
+      "scope": "run",
+      "optional": false
+    },
+    "series_json": {
+      "path": "{cell}/{pair}/{config}/{channel?}/series.json",
+      "format": "json",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "sim_db": {
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "sim_meta": {
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_meta.json",
+      "format": "json",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "stats_by_initial_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/**/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "stats_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats/**/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "stats_summary_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "stats_tests_json": {
+      "path": "{cell}/{pair}/{config}/{channel?}/stats/tests.json",
+      "format": "json",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "summary_batch_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "summary_task_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "warehouse_db": {
+      "path": "{cell}/{pair}/warehouse.db",
+      "format": "sqlite",
+      "scope": "pair",
+      "optional": false
+    },
+    "whatif_delta_csv": {
+      "path": "whatif_delta.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_delta_json": {
+      "path": "whatif_delta.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_delta_png": {
+      "path": "whatif_delta.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_labor_csv": {
+      "path": "whatif_labor.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_labor_json": {
+      "path": "whatif_labor.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_labor_pngs": {
+      "path": "whatif_*.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_volume_csv": {
+      "path": "whatif_volume.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_volume_json": {
+      "path": "whatif_volume.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    }
+  }
+}

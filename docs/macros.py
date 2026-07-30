@@ -19,8 +19,8 @@ Formula *shapes* are fixed here from the code that defines them
 only the *numbers* come from JSON, so pages never hard-code a value twice.
 
 Exception: ``assignment_formulas`` transcribes the top-3 assignment-function
-*equations* directly from ``Warehouse/Assignment_Functions.py`` /
-``Warehouse/inventory_optimal.py``. Those objectives are not (yet) emitted to any
+*equations* directly from ``Warehouse/placement/Assignment_Functions.py`` /
+``Warehouse/inventory/inventory_optimal.py``. Those objectives are not (yet) emitted to any
 JSON/DB snapshot, so — unlike every other macro here — there is no programmatic
 source to read. A future refactor should expose each builder's objective (e.g. a
 ``formula`` field on the builder or a small registry) so this macro can read it like
@@ -308,7 +308,7 @@ def define_env(env):
     @env.macro
     def pick_time_formula(*args):
         """Pick-time cost model (LaTeX) with this config's calibrated coefficients.
-        Matches Warehouse/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""
+        Matches Warehouse/picking/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""
         c = _load_cfg(*_ric(args))
         t0 = _num(c["pick_intercept"])
         wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
@@ -357,8 +357,8 @@ def define_env(env):
         code because no JSON/DB snapshot emits these objectives yet.
 
         Sources: `_travel_balanced_impl` / `build_optmap_fn` in
-        Warehouse/Assignment_Functions.py; `build_optimal_map` in
-        Warehouse/inventory_optimal.py; registry in Optimization/strategies.py.
+        Warehouse/placement/Assignment_Functions.py; `build_optimal_map` in
+        Warehouse/inventory/inventory_optimal.py; registry in Optimization/config/strategies.py.
         """
         return "\n".join([
             "All three share one **per-bin labor primitive** — the expected time to make one "

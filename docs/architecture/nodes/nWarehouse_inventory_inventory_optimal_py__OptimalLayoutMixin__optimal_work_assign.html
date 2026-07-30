@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_optimal_work_assign · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__optimal_work_assign" data-id="Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin._optimal_work_assign">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_optimal_py.html"><code>Warehouse/inventory/inventory_optimal.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin.html"><code>OptimalLayoutMixin</code></a> <span class="sep">›</span> <span class="here"><code>_optimal_work_assign</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_optimal_work_assign</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_optimal_py.html"><code>Warehouse/inventory/inventory_optimal.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _optimal_work_assign(self, orders: list[Order], freq_of: dict, qty_of: dict, wp) -&gt; tuple[float, dict]</code></pre>
+<section class="doc">Exact minimal expected WORK (travel + height-weighted handling) for this
+warehouse + inventory, and each SKU&#x27;s optimal preferred score.
+
+Per BinKey class solves the assignment  min Σ f_s·D_b + (f_s·q_s·v_s)·M(y_b)
+exactly (scipy LAP) — the rearrangement/transportation optimum that drives the
+highest height-sensitivity (f·q·v) units to the lowest-M bins and the highest
+frequency to the lowest-D bins.  Returns:
+  W*          = Σ (assigned bins) f·(intercept + D_b) + (f·q·v)·M_b
+                (per occupied-bin convention, matching current_sigma_fd)
+  sku_target  = {sku → pref(b*)} where b* is the SKU&#x27;s assigned bin and
+                pref(b) = D_b + M(y_b)·V_REF is the quantity-free bin basis.
+Pure computation — does not mutate manager state.</section>
+<section class="rel"><h2>Callees <span class="count">(7)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___wp_for.html"><code>_wp_for</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__binkey_of.html"><code>binkey_of</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__handle_var.html"><code>_handle_var</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_layout_Storage_Primitive_py__viable_storage_units.html"><code>viable_storage_units</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin_build_optimal_map.html"><code>build_optimal_map</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin_optimal_work.html"><code>optimal_work</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_optimal_py__OptimalLayoutMixin__optimal_work_assign">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_optimal.py#:~:text=def%20_optimal_work_assign">Source ↗</a></p>
+</article>
+</main>
+</body></html>

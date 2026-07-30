@@ -14,7 +14,7 @@
 # unresolved anchor is reported by --write and fails verify_architecture).
 version: 1
 dispatch:
-  - src: {name: _stock_per_unit, file: Warehouse/Inventory_Management.py}   # Inventory_Manager._stock_per_unit -> self.placement.place_one(...)
-    dst: {name: place_one,        file: Warehouse/Assignment_Functions.py}
-  - src: {name: _stock_ranked,   file: Warehouse/Inventory_Management.py}    # Inventory_Manager._stock_ranked -> self.placement.place_wave(...)
-    dst: {name: place_wave,       file: Warehouse/Assignment_Functions.py}
+  - src: {name: _stock_per_unit, file: Warehouse/inventory/Inventory_Management.py}   # Inventory_Manager._stock_per_unit -> self.placement.place_one(...)
+    dst: {name: place_one,        file: Warehouse/placement/Assignment_Functions.py}
+  - src: {name: _stock_ranked,   file: Warehouse/inventory/Inventory_Management.py}    # Inventory_Manager._stock_ranked -> self.placement.place_wave(...)
+    dst: {name: place_wave,       file: Warehouse/placement/Assignment_Functions.py}

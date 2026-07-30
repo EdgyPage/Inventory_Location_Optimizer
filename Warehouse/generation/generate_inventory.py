@@ -80,10 +80,10 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from Warehouse.Order import Order, StorageHandleConfig
-from Warehouse.Demand import Demand
-from Warehouse.Inventory_Builder import Inventory
-from Warehouse.Storage_Primitive import Storage_Type
+from Warehouse.catalog.Order import Order, StorageHandleConfig
+from Warehouse.catalog.Demand import Demand
+from Warehouse.catalog.Inventory_Builder import Inventory
+from Warehouse.layout.Storage_Primitive import Storage_Type
 
 _DEFAULT_OUT_DIR  = os.path.join(_WH, 'generated', 'inventories')
 _HANDLINGS        = ['conveyable', 'non-conveyable']

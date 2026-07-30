@@ -23,8 +23,8 @@ import numpy as np
 import bench_gpu_common as B
 from bench_gpu_common import cp, torch, bench, record, print_table, set_overlap
 
-from Warehouse.Workload_Builder import _lift_weighted_sample, _get_partner_map
-from Warehouse.Affinity_Store import AffinityStore
+from Warehouse.picking.Workload_Builder import _lift_weighted_sample, _get_partner_map
+from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.generation.generate_inventory import load_inventory_from_db
 
 _SEED = 1337

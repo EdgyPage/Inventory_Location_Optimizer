@@ -28,7 +28,7 @@ contract and must exit 0 when you finish. Anchors are exact `{name,file,kind}` i
      catalog feeds the site). Read the file and write a real one-line purpose in the terse,
      present-tense style of the existing entries (base it on the file's top-level
      functions/classes, not a guess). **Never leave a `TODO` or empty purpose** —
-     `Tests/test_files_catalog_sync.py::test_no_todo_or_empty_purposes` fails on any of them.
+     `Tests/architecture/test_files_catalog_sync.py::test_no_todo_or_empty_purposes` fails on any of them.
      Flag any low-confidence purpose in your report, but still write your best grounded line.
      (`--catalog-merge` preserves existing human-owned `purpose`/`notes` — only new entries are TODO.)
    - `python context/arch/extract.py --write-nodes` → refreshes `context/arch/nodes.json`

@@ -1,0 +1,74 @@
+# Experiment 6 manifest — single source of truth for this experiment's docs.
+#
+# A picker-SCHEDULER A/B (round-robin `k1_off_rr` vs LPT `k1_off_lpt`, layout & zoning pinned off)
+# analysed through a NEW lens: cumulative pick volume against elapsed time.  Experiment 5 asked the
+# same question with steady-state scalars; this one asks it as a RATE, so the answer to "how can
+# throughput rise while the work stays the same" is visible rather than asserted.
+#
+# Headline numbers render from data/whatif_delta.json (the cross-cell matrix) and are quoted from
+# whatif_volume.csv, which Optimization/run_whatif_volume.py emits at the run root.
+#
+# NOTE this is a DIFFERENT run from Experiment 5: fill is 0.85 on both channels (Exp 5 ran 0.90
+# store / 0.92 fulfillment) and bins were capped at 200k per channel.  Store figures are therefore
+# not directly comparable between the two experiments — see comparison.md.
+
+title: "Experiment 6 — throughput as a rate: cumulative volume, labor, and the LPT scheduler"
+
+# Primary run folder = the WINNER cell (its config.json drives setup_table / run_section).
+run: k1_off_lpt
+
+catalogue: catalogue
+baseline: uni_fifo_norsl      # the FIFO baseline every assignment arm is measured against
+
+# The store channel's biggest labor savers, which also carry the largest scheduler uplift.
+winners: [rank_labor, rank_cartlabor, map]
+
+whatif:
+  source_run: comparison_whatif_20260729_125755
+  reference: k1_off_rr        # round-robin; every other cell is diffed against it
+  scatter: whatif_volume_curves.png    # cumulative volume vs elapsed hours, rr vs lpt
+  winner: k1_off_lpt
+  cells: 2
+  arms: 34
+  n_batches: 100
+
+inventories:
+  bell_lt0:
+    id: mixed_20260708_075953__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260708_075953__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: []
+
+# Curated figures.  The two NEW ones lead their lists.  Listing them here is load-bearing: a name
+# ingest cannot find only logs MISSING and returns 0, so an unlisted figure is silently absent.
+figures:
+  top3:
+    - top3_by_initial_volume_curve.png
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - top3_by_initial_labor_per_batch.png
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png

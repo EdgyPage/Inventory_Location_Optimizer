@@ -13,6 +13,12 @@ You review pytest tests for Inventory_Location_Optimizer. You report findings; y
 dependence: `python -m pytest Tests/<file>.py -q`.
 
 ## Checklist (flag violations, most severe first)
+Canonical copy: CLAUDE.md §2. Restated here because a subagent may not inherit it; if the two
+disagree, CLAUDE.md wins and this list is stale.
+
+- **Imports resolve.** A bare-name import (`from Assignment_Functions import ...`) or a per-file
+  `sys.path.insert` is Critical, not style: it fails at COLLECTION when a module moves, and a file
+  that never collects reports no failures at all. Imports are package-absolute.
 - **Real asserts.** FLAG any legacy `check()`-based test as Critical: `check()` prints PASS/FAIL but
   never raises, so `def test_*` passes under pytest even on failure — its only real signal is the
   `__main__` exit code. New tests must use bare `assert`.

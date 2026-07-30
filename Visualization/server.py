@@ -62,9 +62,10 @@ print(f'Serving runs from: {_BASE}', flush=True)
 if _RUNS:
     print(f'  {len(_RUNS)} run(s) found.  http://localhost:{_PORT}', flush=True)
 else:
-    print(f'  WARNING: 0 runs found under this directory.  Pass the comparison_* dir, e.g.\n'
+    print(f'  WARNING: 0 runs found under this directory.  Pass the RUN ROOT, e.g.\n'
           f'    python server.py "<...>/comparison_YYYYMMDD_HHMMSS"\n'
-          f'  (looks for <pair>/warehouse.db + <pair>/<config>/sim_*.db).  '
+          f'  (the dir holding run_layout.json; runs live at '
+          f'<cell>/<pair>/<config>[/<channel>]/sim_*.db).  '
           f'http://localhost:{_PORT}', flush=True)
 
 
@@ -89,8 +90,38 @@ def static_files(filename):
 
 @app.route('/api/runs')
 def api_runs():
+    """The full navigation contract: schema id, the axis values present, and every run.
+
+    The UI builds its cascading selectors from `axes`/`axis_order`, so adopting a new run-tree
+    schema changes what you can navigate by without a single JS edit.
+    """
     _refresh_runs()
-    return jsonify({'base': _BASE, 'runs': R.run_summaries(_BASE)})
+    return jsonify({'base': _BASE, **R.run_index(_BASE)})
+
+
+@app.route('/api/schema')
+def api_schema():
+    """The committed run-tree contract for the schema THIS run was written with.
+
+    Served from Optimization/schemas/run_tree/<short>.json (via Visualization/static/schema.json
+    when the package isn't importable), so the front end reads the same declaration the resolver
+    enforces — and an old run gets ITS contract, not whatever the head happens to be.
+    """
+    try:
+        from Optimization.runschema import contract, resolver_for
+        try:
+            sid = resolver_for(_BASE).schema_id
+        except Exception:                                     # noqa: BLE001 - unresolvable tree
+            sid = contract.head()
+        doc = contract.load(sid) if sid else None
+        if doc is not None:
+            return jsonify(doc)
+    except Exception:                                         # noqa: BLE001
+        pass
+    static_copy = os.path.join(app.static_folder, 'schema.json')
+    if os.path.exists(static_copy):
+        return send_from_directory(app.static_folder, 'schema.json')
+    abort(404, description='no run-tree contract available')
 
 
 @app.route('/api/geometry')

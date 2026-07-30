@@ -46,14 +46,14 @@ if _REPO_ROOT not in sys.path:
 
 import numpy as np
 
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Builder import Inventory
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Optimization.Workload import WorkloadParams
-from Warehouse.Workload_Builder import Batch, BatchConfig, Task
-from Warehouse.Pick import PickConfig, PickSimulation
-from Optimization.strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Inventory_Builder import Inventory
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Optimization.metrics.Workload import WorkloadParams
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Optimization.config.strategies import STRATEGY_BY_KEY, STRATEGIES, StrategyContext
 
 # Reuse the small-sim builders from the perf harness (no DB needed).
 from perf_simulation import _build_inventory, _build_affinity_store, _CATEGORIES

@@ -69,7 +69,7 @@ This experiment's inventory variants:
 
 Before batch 1 the whole catalogue is stocked once, into bins grouped by
 `BinKey = (handling, category, storage_size, unit_type)`. Two initial layouts bracket the
-starting point (see [strategy_runner.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/strategy_runner.py) — the `stock_mode` branch):
+starting point (see [strategy_runner.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py) — the `stock_mode` branch):
 
 - **`uni`** — `enqueue_all` → uniform-random placement (a deliberately poor start); the
   assignment function has to *climb* from there.
@@ -116,7 +116,7 @@ Picking a SKU decrements its on-hand quantity; once its inventory
 ## 4. Reorder
 
 Once per batch, `check_reorders`
-([Warehouse/inventory_reorder.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory_reorder.py))
+([Warehouse/inventory/inventory_reorder.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py))
 scans flagged SKUs and issues an order-up-to quantity for any whose position ≤ ROP:
 
 ```text

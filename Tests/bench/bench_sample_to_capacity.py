@@ -24,9 +24,9 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 
-from Warehouse import Storage_Primitive
-from Warehouse.Aisle_Dimensions import aisle_width_for, aisle_height_for
-from Warehouse.Inventory_Management import Inventory_Manager
+from Warehouse.layout import Storage_Primitive
+from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile, DEFAULT_DIM_SPEC, DEFAULT_WEIGHT_SPEC,
 )

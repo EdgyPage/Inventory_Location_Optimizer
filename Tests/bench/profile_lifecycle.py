@@ -45,19 +45,19 @@ _LOGS_DIR  = os.path.join(os.path.dirname(_HERE), 'logs')   # Tests/logs (gitign
 
 import numpy as np
 
-from Warehouse.Affinity_Store import AffinityStore
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Builder import Inventory
-from Warehouse.Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Warehouse.Assignment_Functions import (
+from Warehouse.catalog.Affinity_Store import AffinityStore
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.catalog.Inventory_Builder import Inventory
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.placement.Assignment_Functions import (
     build_cluster_minimizing_assignment_fn,
     build_cluster_maximizing_assignment_fn,
 )
-from Warehouse.Pick import PickConfig, PickSimulation
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Optimization.Workload import WorkloadParams
-from Warehouse.Workload_Builder import Batch, BatchConfig, Task
-from Optimization.Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Warehouse.picking.Pick import PickConfig, PickSimulation
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Optimization.metrics.Workload import WorkloadParams
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
+from Optimization.metrics.Simulation_Analytics import extract_batch_stats, extract_task_stats
 
 # Reuse setup helpers from the existing benchmark — no duplication, no source changes
 from perf_simulation import (

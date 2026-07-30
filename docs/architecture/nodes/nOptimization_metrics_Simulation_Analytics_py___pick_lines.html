@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_pick_lines · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_Simulation_Analytics_py___pick_lines" data-id="Optimization/metrics/Simulation_Analytics.py::_pick_lines">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a> <span class="sep">›</span> <span class="here"><code>_pick_lines</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_pick_lines</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a></p>
+
+<pre class="sig"><code>def _pick_lines(task) -&gt; list[tuple[int, int, int, float]]</code></pre>
+<section class="doc">(weight, volume, qty, y_phys) per bin stop that has inventory for this task.
+y_phys lets aisle_workload apply the height-bracket handling multiplier.
+
+Prefer the snapshot captured at task build (Task.pick_lines) — the live path bins are
+depleted by the sim&#x27;s pick application before extract_task_stats runs, which would
+otherwise drop emptied bins and zero out W.  Falls back to the live read for any task
+object that predates the snapshot.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__expected_task_labor.html"><code>expected_task_labor</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_metrics_Simulation_Analytics_py__extract_task_stats.html"><code>extract_task_stats</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py___pick_lines">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20_pick_lines">Source ↗</a></p>
+</article>
+</main>
+</body></html>

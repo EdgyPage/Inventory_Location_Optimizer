@@ -18,7 +18,7 @@ import numpy as np
 
 import bench_gpu_common as B
 from bench_gpu_common import cp, torch, median_ms, record, print_table, equiv
-from Warehouse.cost_model import DEFAULT_HEIGHT_BRACKETS, sec_per_inch
+from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS, sec_per_inch
 
 _SEED = 1337
 _INTERCEPT, _PW, _PV, _CART = 15.0, 0.58, 0.7, 300.0

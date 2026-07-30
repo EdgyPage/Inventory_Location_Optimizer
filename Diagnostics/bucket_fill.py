@@ -38,15 +38,15 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from Optimization import run_simulation as rs
-from Warehouse.Aisle_Storage import Aisle
-from Warehouse.Inventory_Management import Inventory_Manager
-from Warehouse.Warehouse_Builder import Warehouse_Builder
-from Warehouse.Workload_Builder import Batch, Task
-from Warehouse.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
-from Warehouse.fast_pick import DeferredPickSimulation
+from Warehouse.layout.Aisle_Storage import Aisle
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
+from Warehouse.picking.Workload_Builder import Batch, Task
+from Warehouse.picking.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
+from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db
-from Optimization.strategies import STRATEGY_BY_KEY, StrategyContext
-from Optimization.Workload import WorkloadParams
+from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
+from Optimization.metrics.Workload import WorkloadParams
 
 Bucket = tuple   # (handling, category, size, unit_type)
 

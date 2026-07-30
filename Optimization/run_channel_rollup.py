@@ -46,7 +46,7 @@ def _is_num(x) -> bool:
 
 def _find_series(base_dir: str) -> list[tuple[str, str]]:
     """(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run."""
-    from Optimization.runlayout import iter_channel_runs
+    from Optimization.runschema.runlayout import iter_channel_runs
     out = []
     for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
         sp = os.path.join(run.path, 'series.json')
@@ -205,9 +205,11 @@ def rollup(base_dir: str, log=print) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('base_dir', help='the comparison_YYYYMMDD_HHMMSS run directory')
+    ap.add_argument('base_dir', help='a CELL directory of a run (relative names resolve under '
+                                     'COMPARISON_OUTPUT_DIR)')
     args = ap.parse_args()
-    base = os.path.abspath(args.base_dir)
+    from Optimization.runschema import resolve_base_dir
+    base = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base):
         ap.error(f'not a directory: {base}')
     rollup(base)

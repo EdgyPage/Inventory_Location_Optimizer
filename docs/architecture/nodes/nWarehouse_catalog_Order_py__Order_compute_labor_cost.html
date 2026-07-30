@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>compute_labor_cost · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Order_py__Order_compute_labor_cost" data-id="Warehouse/catalog/Order.py::Order.compute_labor_cost">
+<nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Order_py.html"><code>Warehouse/catalog/Order.py</code></a> <span class="sep">›</span> <a href="nWarehouse_catalog_Order_py__Order.html"><code>Order</code></a> <span class="sep">›</span> <span class="here"><code>compute_labor_cost</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>compute_labor_cost</code></h1>
+<p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Order_py.html"><code>Warehouse/catalog/Order.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def compute_labor_cost(self, pick_intercept: float, pick_weight_coef: float, pick_volume_coef: float, pick_weight_fn: str=&#x27;log&#x27;, pick_volume_fn: str=&#x27;log&#x27;) -&gt; float</code></pre>
+<section class="doc">Set (and return) labor_cost = per-unit pick regression cost for this order
+under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
+no cart swap, ground level.  Call once per worker after inventory load.
+
+Also stores handle_var = the per-unit weight/volume term ALONE (without the
+intercept).  labor_cost (= intercept + handle_var) is the qty=1 ground per-pick
+cost used to RANK items; the height multiplier scales the whole at-location pick
+at placement time: per-pick at height = mult*(pick_intercept + qty*handle_var).</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_catalog_Order_py__Order_volume.html"><code>volume</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Order_py__Order_compute_labor_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Order.py#:~:text=def%20compute_labor_cost">Source ↗</a></p>
+</article>
+</main>
+</body></html>

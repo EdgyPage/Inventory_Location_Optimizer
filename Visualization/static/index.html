@@ -10,11 +10,16 @@
   <header id="topbar">
     <div class="title">Warehouse Replay &amp; Compare</div>
 
+    <!-- Cascading run picker.  The filter row is BUILT AT RUNTIME from /api/runs `axes`, so the
+         navigable levels follow the run-tree schema version instead of being hardcoded here. -->
     <div class="run-picker">
-      <label>Add run:</label>
-      <select id="run-select"><option value="">— loading runs —</option></select>
-      <button id="add-run" title="Add to a free pane (up to 4)">+ pane</button>
-      <span id="run-count" class="hint">0 / 4 panes</span>
+      <div id="run-filters" class="run-filters"></div>
+      <div class="run-pick-row">
+        <select id="run-select"><option value="">— loading runs —</option></select>
+        <button id="add-run" title="Add to a free pane (up to 4)">+ pane</button>
+        <span id="run-count" class="hint">0 / 4 panes</span>
+        <span id="schema-badge" class="hint schema-badge" title="run-tree schema id"></span>
+      </div>
     </div>
 
     <div class="controls">

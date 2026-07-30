@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>init_demand_state · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_init_demand_state" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>init_demand_state</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>init_demand_state</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def init_demand_state(self, inventory: Any, wp: Any=None) -&gt; None</code></pre>
+<section class="doc">Populate demand-product lookup and per-aisle demand sums.
+
+Must be called after init_lift_state() so _aisle_sku_sets already
+reflects the actual placement.  Call once per strategy worker before
+swapping to a trip-cost assignment function.
+
+When *wp* is given, also build the cost-weighted labor twin
+(_sku_pick_load_product = f*q*cost1 = order.expected_labor, and the
+per-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(5)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py___setup_strategy.html"><code>_setup_strategy</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy__arm.html"><code>_arm</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker__arm_aisle_state.html"><code>_arm_aisle_state</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_init_demand_state">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20init_demand_state">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -65,13 +65,13 @@ Equilibrium knobs (module constants): `EQUILIBRIUM_COVERAGE_BATCHES` (=10, targe
 `generate_affinity.py` to produce `affinity.db` (~150–200 MB) — a runnable **profile** is the
 inventory + affinity pair the simulator consumes.
 
-### 2. Adjust strategies — `Optimization/strategies.py`
+### 2. Adjust strategies — `Optimization/config/strategies.py`
 
 Which placement families run is a data-driven registry. Edit the lists near the bottom:
 
 - `_INITIALS` — initial layout: `uni` (uniform-random) and `opt` (policy-stocked; the whole
   inventory is placed through the strategy's own assignment function).
-- `_RESTOCKS` — the 16 reorder-placement families; comment/uncomment a row to drop/add one.
+- `_RESTOCKS` — the 17 reorder-placement families; comment/uncomment a row to drop/add one.
 - `_RESLOTS` — bounded per-batch re-slot variants (commented out by default).
 
 Run-id keys are `{initial}_{restock}_{reslot}`, e.g. `opt_rank_labor_norsl`. The `STRATEGIES`
@@ -85,12 +85,13 @@ python Optimization/run_simulation.py --resume <run_dir>    # resume a crashed r
 python -m Optimization.run_simulation --workers 15          # equivalent module form
 ```
 
-Everything tunable lives in the **`CONFIG` dict** (`run_simulation.py`): a `global` section
-(`seed_world=42`, `seed_batches=1337`, `n_batches=100`, workers, checkpointing) and a
-per-channel `channels` section — `store` and `fulfillment` are tuned independently, each
-with its own pick-config sweep (`STORE_CONFIGS`: `store`, `store_high_weight`;
-`FULFILLMENT_CONFIGS`: `ful_calibrated`, `ful_calibrated_fast_walkers`), picker pool, cart,
-restock subset, batch shape, fill headroom, and warehouse sizing. Useful args: `--workers`,
+Everything tunable lives in the **`CONFIG` dict** (`Optimization/config/sim_config.py`): a
+`global` section (`seed_world=42`, `seed_batches=1337`, `n_batches=100`, workers, checkpointing)
+and a per-channel `channels` section — `store` and `fulfillment` are tuned independently, each
+with its own pick-config sweep (currently `STORE_CONFIGS`: `store`; `FULFILLMENT_CONFIGS`:
+`ful_calibrated` — the full menu, including disabled variants, lives as self-registering modules
+under `Optimization/simconfig/configs/`), picker pool, cart, restock subset, batch shape, fill
+headroom, and warehouse sizing. Useful args: `--workers`,
 `--resume`, `--all-profiles`, `--max-skus` (cap for a smaller/faster warehouse),
 `--keyframe-interval`, `--n-batches`. **Writes:** `sim_<strategy>.db` per arm
 (**~150–600 MB each**) + `config.json` per config (+ per-channel subdirs on mixed catalogs).
@@ -117,12 +118,39 @@ curates.
 
 ## Repo layout
 
+Each subpackage has a **README stating what belongs in it and what does not** — read that before
+adding a file, since it is what keeps these directories from sprawling again.
+
+**`Warehouse/` — the domain engine.** `physical.py` stays at the root as the dependency-free leaf.
+
+| Package | What |
+|---|---|
+| `inventory/` | the `Inventory_Manager` placement engine + its planning/optimal/reorder mixins |
+| `placement/` | the assignment functions themselves — the research subject |
+| `layout/` | physical geometry: storage units, aisles, bins, the warehouse builder |
+| `catalog/` | SKUs and demand: `Order`, the affinity matrix, the catalogue builder |
+| `picking/` | the pick simulations and the batch/task workload they consume |
+| `kernel/` | zero-dependency value objects (pick-cost primitives, store/fulfillment regime) |
+| `generation/` | the data-generation CLIs that build inventory/affinity/profile DBs |
+
+**`Optimization/` — the run harness.** The seven `run_*.py` / `analyze_run.py` entry points stay at
+the package root: what you RUN is at the top, everything else is organised beneath.
+
+| Package | What |
+|---|---|
+| `config/` | `CONFIG` and everything a run is tuned by (+ the `simconfig/` pick-config registry) |
+| `simdriver/` | orchestration: cells, work units, the supervisor, the worker, shared assets |
+| `runschema/` | the content-addressed run-tree contract + the on-disk layout walkers |
+| `persistence/` | SQLite schemas and read/write for a run's DBs |
+| `metrics/` | turning simulation events into per-batch / per-task numbers |
+| `Performance_Evaluations/` | the registry-driven graph + statistics suite |
+| `gpu/` | validated but intentionally dormant — see its README before reviving it |
+
 | Dir | What |
 |-----|------|
-| `Warehouse/` | inventory generation, warehouse model, placement/assignment functions, reorder logic |
-| `Optimization/` | the run harness (`run_simulation.py`, `run_analysis.py`, `strategies.py`) |
-| `Visualization/` · `Diagnostics/` | replay viewer, diagnostics |
-| `Tests/` | test + benchmark suites |
+| `Visualization/` · `Diagnostics/` | replay viewer, diagnostics dashboards |
+| `Tests/` | grouped by what a failure means: `unit/`, `integration/`, `e2e/`, `architecture/` |
+| `context/` | the verified spec layer — flows, artifacts, architecture, file catalog |
 | `notebooks/` | exploratory Jupyter notebooks |
 | `docs/` | the MkDocs results site (published via GitHub Pages) + `docs/design/` engineering docs |
 

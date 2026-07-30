@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>extract_task_stats · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_Simulation_Analytics_py__extract_task_stats" data-id="Optimization/metrics/Simulation_Analytics.py::extract_task_stats">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a> <span class="sep">›</span> <span class="here"><code>extract_task_stats</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>extract_task_stats</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_Simulation_Analytics_py.html"><code>Optimization/metrics/Simulation_Analytics.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def extract_task_stats(events: list, tasks: list, batch_id: int, affinity, wp: WorkloadParams, run_id: int=0, lift_cache: dict | None=None) -&gt; list[TaskStats]</code></pre>
+<section class="doc">Extract per-aisle TaskStats from one PickSimulation.run() result.
+
+duration         : task_end.time - task_start.time for this aisle
+W              : analytical workload via aisle_workload()
+lift_sum         : sum_lift for SKUs present in this task
+num_bins_visited : bins with at least one pick (task.items membership)
+total_items      : sum of quantities across this aisle&#x27;s SKUs</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py___pick_lines.html"><code>_pick_lines</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_metrics_Simulation_Analytics_py__sum_lift.html"><code>sum_lift</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_metrics_Workload_py__aisle_workload.html"><code>aisle_workload</code></a> <span class="dim">Optimization/metrics/Workload.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__TaskStats.html"><code>TaskStats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py__extract_task_stats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20extract_task_stats">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -15,7 +15,7 @@ converts leftover picker imbalance into throughput at ~flat labor (batch_hours �
 *** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms ÷ 3.6e6), NOT wall-clock or
     staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***
 
-Reuses run_whatif_delta's engine (_scan-style glob + _metrics steady-state means); adds full-run
+Reuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run
 sums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json
 (whatif_matrix()-compatible), and four PNGs.
 
@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import glob
 import json
 import os
 import sqlite3
@@ -36,7 +35,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from Optimization.run_whatif_delta import _metrics, WIN   # steady-state (last WIN) means
+from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
 
 MS_PER_HOUR = 3.6e6
 _SCHED = {'rr': 'round_robin', 'lpt': 'lpt'}
@@ -69,18 +68,17 @@ def _hours(db: str):
         con.close()
 
 
-def _scan_labor(cell_dir: str) -> dict:
-    """{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}."""
+def _scan_labor(rt, cell: str) -> dict:
+    """{(pair, pickcfg, channel, arm): {**steady means (whatif_delta), **full-run hours}}.
+
+    Walks via the versioned run-tree resolver.  The previous relpath scan required a `<channel>`
+    segment (`len(rel) < 4: continue`) and so returned NOTHING for a store-only run.
+    """
     out = {}
-    for db in glob.glob(os.path.join(cell_dir, '**', 'sim_*.db'), recursive=True):
-        if db.endswith('.keyframes.db'):
-            continue
-        rel = os.path.relpath(db, cell_dir).replace('\\', '/').split('/')
-        if len(rel) < 4:                       # expect pair/pickcfg/channel/sim_<arm>.db
-            continue
+    for _cell, cr, db in rt.sim_dbs(cell):
         m, h = _metrics(db), _hours(db)
         if m and h and m.get('task_ms'):
-            out[(rel[0], rel[1], rel[2], os.path.basename(db)[4:-3])] = {**m, **h}
+            out[(cr.pair, cr.config, _channel_of(cr), rt.strategy_of(db))] = {**m, **h}
     return out
 
 
@@ -215,31 +213,29 @@ def _uplift_bars(uplift, out_path):
     plt.close(fig)
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('base_dir')
-    ap.add_argument('--baseline', default='fifo',
-                    help="assignment fn to measure labor-hours-saved against (default 'fifo')")
-    ap.add_argument('--baseline-initial', default='match', choices=('match', 'uni', 'opt'),
-                    help="baseline arm's initial placement: 'match' compares opt-vs-opt / uni-vs-uni "
-                         "(isolates the assignment fn); 'uni'/'opt' pins it (default 'match')")
-    ap.add_argument('--reference', default=None,
-                    help="scheduler reference cell (default WHATIF['reference'], else 'k1_off_rr')")
-    ap.add_argument('--pairs', default='sum', choices=('sum', 'median'),
-                    help='how to blend the two catalogs for hours (sum = additive workload; default sum)')
-    args = ap.parse_args()
+def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None):
+    """Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +
+    the four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process
+    (no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits
+    the CSV/JSON (its cross-cell deltas are empty)."""
+    import types
+    args = types.SimpleNamespace(base_dir=base_dir, baseline=baseline,
+                                 baseline_initial=baseline_initial, reference=reference, pairs=pairs)
+    from Optimization.runschema import resolver_for
+    rt = resolver_for(args.base_dir)
+    if args.reference is None:
+        args.reference = rt.layout.get('reference')
     if args.reference is None:
         try:
-            from Optimization.whatif_config import WHATIF
+            from Optimization.config.whatif_config import WHATIF
             args.reference = WHATIF.get('reference', 'k1_off_rr')
         except Exception:
             args.reference = 'k1_off_rr'
 
-    cells = [d for d in sorted(os.listdir(args.base_dir))
-             if os.path.isdir(os.path.join(args.base_dir, d)) and not d.startswith('_')]
+    cells = [name for name, _dir in rt.cells()]
     if not cells:
         raise SystemExit(f'no scenario cells in {args.base_dir}')
-    scans = {c: _scan_labor(os.path.join(args.base_dir, c)) for c in cells}
+    scans = {c: _scan_labor(rt, c) for c in cells}
 
     # ── long rows at (cell, pair, pickcfg, channel, arm) grain ─────────────────────────────
     rows = []
@@ -356,6 +352,26 @@ def main():
         ups = [uplift[(ch, a)] for _c, a in uplift if _c == ch and uplift[(ch, a)] == uplift[(ch, a)]]
         print(f'  {ch:12}  best labor-saver vs {args.baseline}: {best[0]} ({best[1]:+.1f} h)  '
               f'median LPT throughput uplift: {_med(ups):+.1f}%')
+    return csv_path
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('base_dir')
+    ap.add_argument('--baseline', default='fifo',
+                    help="assignment fn to measure labor-hours-saved against (default 'fifo')")
+    ap.add_argument('--baseline-initial', default='match', choices=('match', 'uni', 'opt'),
+                    help="baseline arm's initial placement: 'match' compares opt-vs-opt / uni-vs-uni "
+                         "(isolates the assignment fn); 'uni'/'opt' pins it (default 'match')")
+    ap.add_argument('--reference', default=None,
+                    help="scheduler reference cell (default: the run's own run_layout.json "
+                         "reference, else WHATIF['reference'])")
+    ap.add_argument('--pairs', default='sum', choices=('sum', 'median'),
+                    help='how to blend the two catalogs for hours (sum = additive workload; default sum)')
+    args = ap.parse_args()
+    from Optimization.runschema import resolve_base_dir
+    run(resolve_base_dir(args.base_dir), baseline=args.baseline,
+        baseline_initial=args.baseline_initial, reference=args.reference, pairs=args.pairs)
 
 
 if __name__ == '__main__':

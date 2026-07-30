@@ -3,7 +3,7 @@
 Definitions for every term the [lifecycle](comparison-overview.md) and result write-ups
 cite. Each entry has a stable anchor — link to one with `glossary.md#<id>` (the id is shown
 in the heading link). Formula shapes match the code in
-[`Warehouse/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Assignment_Functions.py)
+[`Warehouse/placement/Assignment_Functions.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py)
 and [`docs/design/ASSIGNMENT_SCORING.md`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/design/ASSIGNMENT_SCORING.md).
 
 ## Layout &amp; geometry
@@ -41,7 +41,7 @@ An ergonomic multiplier on the whole at-location pick, keyed to shelf height `y_
 
 ### f_s — relative (pick) frequency { #f-s }
 A SKU's pick-selection weight as a **[0,1] relative share** — *not* an absolute pick rate;
-stored as `relative_frequency` (DB column `demand_frequency`). Drives weighted batch sampling,
+stored as `relative_frequency` — the same name in the Python model and the `cartons` DB column. Drives weighted batch sampling,
 so it shows up in every travel-weighted score: hot SKUs are the ones worth putting up front.
 
 ### q_s — pick quantity { #q-s }

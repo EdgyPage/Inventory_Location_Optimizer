@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ff_depth_split · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_planning_py___ff_depth_split" data-id="Warehouse/inventory/inventory_planning.py::_ff_depth_split">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a> <span class="sep">›</span> <span class="here"><code>_ff_depth_split</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_ff_depth_split</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _ff_depth_split(size: str, target_bins: int, depth_classes: list, ff_h: int)</code></pre>
+<section class="doc">Split one fulfillment size tier&#x27;s target bins across DEPTH classes (shallow…deep aisles
+that share the same BinKey), so a placement wave can route hot SKUs to shallow aisles.
+
+Each class is {&#x27;columns&#x27;: n, &#x27;share&#x27;: w}; its aisle_width = n·FULFILLMENT_BIN_WIDTH and it
+holds ~ (share) of `target_bins` worth of bins.  Returns (classes, total_bins) where
+classes = [(aisle_width, n_aisles, eff_per_aisle), …].  Preserves total bins (± rounding)
+while growing the aisle count; guarantees ≥1 aisle per positive-share class so no tier is
+dropped.  Classes with columns &lt; 1 bin width or non-positive share are skipped.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_layout_Aisle_Dimensions_py__catalog_aisle_bins.html"><code>catalog_aisle_bins</code></a> <span class="dim">Warehouse/layout/Aisle_Dimensions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py___ff_depth_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20_ff_depth_split">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -35,9 +35,9 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__fil
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from Optimization.sim_assets import build_shared_assets
-from Optimization.sim_config import regime_sizing_from_config, _setup_logging, _OUTPUT_DIR
-from Optimization.runlayout import iter_channel_runs
+from Optimization.simdriver.sim_assets import build_shared_assets
+from Optimization.config.sim_config import regime_sizing_from_config, _setup_logging, _OUTPUT_DIR
+from Optimization.runschema.runlayout import iter_channel_runs
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
 # so the registry is populated before any job runs.
@@ -290,8 +290,8 @@ def main() -> None:
     except Exception:
         pass
 
-    base_dir = (args.base_dir if os.path.isabs(args.base_dir)
-                else os.path.join(_OUTPUT_DIR, args.base_dir))
+    from Optimization.runschema import resolve_base_dir
+    base_dir = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base_dir):
         sys.exit(f'Directory not found: {base_dir}')
 

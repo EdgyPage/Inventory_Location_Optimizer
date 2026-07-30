@@ -34,7 +34,7 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 
 ## Pick time
 
-One pick at bin $b$, from [`Warehouse/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/Pick.py):
+One pick at bin $b$, from [`Warehouse/picking/Pick.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py):
 
 {{ pick_time_formula(inv0) }}
 
@@ -46,7 +46,7 @@ height multipliers $M(y)$:
 ## Task labor — handling + travel + cart { #task-labor }
 
 The **realised** time to clear one aisle (the simulation's measurement, from
-[`Optimization/Workload.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Workload.py))
+[`Optimization/metrics/Workload.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Workload.py))
 splits into three parts:
 
 $$W \;=\; \underbrace{\sum_{\text{stops}} M(y)\,(t_0 + q\,h)}_{H\ \text{— handling}}

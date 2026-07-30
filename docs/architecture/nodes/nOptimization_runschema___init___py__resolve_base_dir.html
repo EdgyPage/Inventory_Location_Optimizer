@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>resolve_base_dir · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema___init___py__resolve_base_dir" data-id="Optimization/runschema/__init__.py::resolve_base_dir">
+<nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema___init___py.html"><code>Optimization/runschema/__init__.py</code></a> <span class="sep">›</span> <span class="here"><code>resolve_base_dir</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>resolve_base_dir</code></h1>
+<p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema___init___py.html"><code>Optimization/runschema/__init__.py</code></a></p>
+<div class="badges"><span class="badge fanin">high fan-in</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def resolve_base_dir(name: str) -&gt; str</code></pre>
+<section class="doc">Resolve a CLI run argument: an absolute path as-is, a bare name against COMPARISON_OUTPUT_DIR.
+
+Every downstream CLI over a run tree shares this, so `python -m Optimization.run_whatif_delta
+comparison_20260728_120000` behaves the same as the analysis hub instead of only resolving
+relative to the current directory.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(8)</span></h2><ul><li><a href="nOptimization_analyze_run_py__main.html"><code>main</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_run_analysis_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_run_channel_rollup_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_run_runtime_graphs_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_runtime_graphs.py</span></li><li><a href="nOptimization_run_whatif_delta_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li><li><a href="nOptimization_run_whatif_volume_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li><li><a href="nscripts_archive_cells_py__main.html"><code>main</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema___init___py__resolve_base_dir">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/__init__.py#:~:text=def%20resolve_base_dir">Source ↗</a></p>
+</article>
+</main>
+</body></html>

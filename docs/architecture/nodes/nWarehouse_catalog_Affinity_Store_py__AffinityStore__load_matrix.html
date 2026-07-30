@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_load_matrix · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Affinity_Store_py__AffinityStore__load_matrix" data-id="Warehouse/catalog/Affinity_Store.py::AffinityStore._load_matrix">
+<nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a> <span class="sep">›</span> <a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore.html"><code>AffinityStore</code></a> <span class="sep">›</span> <span class="here"><code>_load_matrix</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_load_matrix</code></h1>
+<p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a></p>
+
+<pre class="sig"><code>def _load_matrix(self) -&gt; None</code></pre>
+<section class="doc">Read the full affinity table into a CSR sparse matrix.
+
+Uses searchsorted for vectorised SKU→index mapping instead of a Python
+loop, so even a 10M-row table loads in a few seconds.  The matrix uses
+float32 to halve memory vs the float64 stored in SQLite (~60 MB for
+7.5M pairs).
+
+Note: load_for_skus writes new rows to SQLite but does NOT update this
+matrix.  That path is only used for online/legacy generation and is not
+called by the comparison scripts.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Affinity_Store_py__AffinityStore__load_matrix">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Affinity_Store.py#:~:text=def%20_load_matrix">Source ↗</a></p>
+</article>
+</main>
+</body></html>

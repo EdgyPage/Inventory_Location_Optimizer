@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_zone_filter · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__zone_filter" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_zone_filter</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_zone_filter</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>def _zone_filter(self, unit: StorageUnit, bins: list) -&gt; list</code></pre>
+<section class="doc">Restrict *bins* to the unit&#x27;s velocity band, spilling COLDER-first then HOTTER-fallback:
+a hot item whose band is full drops to the next available (colder) aisle; a cold item whose
+band is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.
+
+The O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit
+tests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__band_of_unit.html"><code>_band_of_unit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__spill_bands.html"><code>_spill_bands</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__candidates.html"><code>_candidates</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__zone_filter">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_zone_filter">Source ↗</a></p>
+</article>
+</main>
+</body></html>
