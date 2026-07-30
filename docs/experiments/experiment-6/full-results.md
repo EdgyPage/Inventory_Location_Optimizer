@@ -26,7 +26,7 @@ Three things read directly off that figure:
   3.4 hours regardless of arm, because a batch with more items simply costs more. That is why the
   right-hand panel exists — comparing against FIFO on the *same* batch removes the swing.
 - **The advantage is steady, not growing.** The store's best arms hold about **+5.8 %** less labor
-  than FIFO across the whole run; the `map` variants hold **+4.2 %**. The lines are flat, so the
+  than FIFO across the whole run; the `map` variants hold **+4.3 %**. The lines are flat, so the
   saving is a property of the placement, not something that accumulates as the warehouse fills.
 - **Levels:** FIFO averages **2.65 labor-hours per batch** over the last 50 batches against **2.49**
   for the best arms — read from the legend of the same figure.
