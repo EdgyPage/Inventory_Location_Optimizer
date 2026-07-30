@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6",
-  "schema_short": "e69b6d392929",
+  "schema_id": "sha256:6e825081640c87ca7f87affc579570ff57e3183106fc29e1ec8786ad7ff9001a",
+  "schema_short": "6e825081640c",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -62,6 +62,12 @@
       "scope": "cell",
       "optional": false
     },
+    "analysis_log": {
+      "path": "analysis.log",
+      "format": "text",
+      "scope": "run",
+      "optional": true
+    },
     "batches_cache": {
       "path": "{cell}/{pair}/_batches_*.pkl",
       "format": "pickle",
@@ -91,6 +97,12 @@
       "format": "json",
       "scope": "channel_run",
       "optional": false
+    },
+    "cell_analysis_log": {
+      "path": "{cell}/analysis.log",
+      "format": "text",
+      "scope": "cell",
+      "optional": true
     },
     "channel_rollup_csv": {
       "path": "{cell}/channel_rollup.csv",
@@ -299,6 +311,18 @@
     "whatif_labor_pngs": {
       "path": "whatif_*.png",
       "format": "png",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_volume_csv": {
+      "path": "whatif_volume.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true
+    },
+    "whatif_volume_json": {
+      "path": "whatif_volume.json",
+      "format": "json",
       "scope": "run",
       "optional": true
     }

@@ -414,9 +414,20 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
     present_but_forbidden = sorted(must_absent & produced)
     undeclared = dict(find['undeclared'])
 
+    # Re-analysing an old run with newer code legitimately drops files its own contract never
+    # declared.  That is the content-addressing design working, not a defect — so split those out
+    # rather than failing on them.  A file undeclared in BOTH this run's doc and head is still a
+    # real finding: nothing anywhere knows how to consume it.
+    postdates: dict = {}
+    if not ev['head_matches']:
+        in_head = set(preflight._declared_templates(contract.load(contract.head())))
+        postdates = {t: w for t, w in undeclared.items() if t in in_head}
+        undeclared = {t: w for t, w in undeclared.items() if t not in in_head}
+
     ev['required_missing'] = required_missing
     ev['expected_absent_but_present'] = present_but_forbidden
     ev['undeclared'] = undeclared
+    ev['postdates_run_schema'] = postdates
 
     counts, problems = _leaf_checks(rt, ctx, kf_on)
     ev['counts'] = counts
@@ -431,6 +442,9 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
     if present_but_forbidden:
         msgs.append(f'{len(present_but_forbidden)} artifact(s) present that this run shape must NOT '
                     f'have: {present_but_forbidden} — a freeze or a finalize did not happen')
+    if postdates:
+        msgs.append(f'{len(postdates)} file(s) postdate this run\'s contract ({rt.schema_short}) but '
+                    f'are declared at head — expected after re-analysis: {sorted(postdates)[:6]}')
     if undeclared:
         msgs.append(f'{len(undeclared)} undeclared path template(s) — files no consumer knows about:')
         for tmpl, _where in sorted(undeclared.items())[:10]:

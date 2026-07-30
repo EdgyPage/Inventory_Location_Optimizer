@@ -141,10 +141,32 @@ ARTIFACTS = {
         'path': 'whatif_labor.json', 'format': 'json', 'scope': 'run', 'optional': True,
         'condition': 'multi-cell runs only.',
         'writer': 'run@Optimization/run_whatif_labor.py'},
+    'analysis_log': {
+        'path': 'analysis.log', 'format': 'text', 'scope': 'run', 'optional': True,
+        'condition': 'standalone re-analysis only — analyze_run opens its own log file when run as '
+                     'a CLI; the in-process path after a simulation reuses run.log, which is why '
+                     'the preflight canaries never produce this.',
+        'writer': 'main@Optimization/analyze_run.py'},
+    'cell_analysis_log': {
+        'path': '{cell}/analysis.log', 'format': 'text', 'scope': 'cell', 'optional': True,
+        'condition': 'standalone re-analysis only (see analysis_log).',
+        'writer': 'main@Optimization/run_analysis.py'},
+    'whatif_volume_csv': {
+        'group': 'whatif',
+        'path': 'whatif_volume.csv', 'format': 'csv', 'scope': 'run', 'optional': True,
+        'condition': 'multi-cell runs only.',
+        'note': 'per-arm cumulative-volume metrics (throughput, area gain, shape index); the '
+                'numbers the docs pages cite. labor_hours here equals whatif_labor.csv exactly.',
+        'writer': 'run@Optimization/run_whatif_volume.py'},
+    'whatif_volume_json': {
+        'group': 'whatif',
+        'path': 'whatif_volume.json', 'format': 'json', 'scope': 'run', 'optional': True,
+        'condition': 'multi-cell runs only.',
+        'writer': 'run@Optimization/run_whatif_volume.py'},
     'whatif_labor_pngs': {
         'group': 'whatif',
         'path': 'whatif_*.png', 'format': 'png', 'scope': 'run', 'optional': True,
-        'condition': 'multi-cell runs only.',
+        'condition': 'multi-cell runs only; the glob also covers whatif_volume_*.png.',
         'writer': 'run@Optimization/run_whatif_labor.py'},
 
     # ── per cell ────────────────────────────────────────────────────────────────
