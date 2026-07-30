@@ -1123,6 +1123,63 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py": {
+      "decorators": [],
+      "doc": "compare.volume_curve \u2014 cumulative pick volume against elapsed time: how much work each arm\nfinishes per unit of time, and how far ahead of FIFO it is at any given hour.  Under compare/top.\n\nWHY A CURVE AND NOT A BAR.  Throughput as a single number hides *when* the work happened.  Plotting\nrunning items against running elapsed hours makes the rate itself the visible thing: the SLOPE of the\ncurve IS throughput (items per hour), so a steeper line that terminates further left finished the\nsame demand sooner.  That is the whole \"better throughput at equal labor\" story in one picture \u2014 the\narms do not do less work, they do it in less elapsed time.\n\nTHE TIME AXIS IS SYNTHESIZED, AND HAS TO BE.  There is no global clock in the data: every batch's sim\nclock restarts at zero (batch_start_time is 0.0 for every row, batch_end_time == duration).  So\nelapsed time is the running sum of batch makespans, which is exactly the quantity run_whatif_labor\nalready calls `batch_hours`.  Same definition, same units, so numbers reconcile across the suite.\n\nON THE AREA METRIC \u2014 read this before quoting it.  The cumulative curve is very nearly a straight\nline from the origin (measured shape index 1.0007 on a real 100-batch store arm), so its raw area is\nT*I/2 and carries NO information the two endpoints do not already give.  Reporting a bare \"AUC\" would\ntherefore be a dressed-up restatement of items x hours.  Three numbers are reported instead, and only\nthe first two are performance measures:\n\n    mean_thr_items_hr    PRIMARY.  items / elapsed hours = the chord slope.  Higher is better.\n                         This is what the area reduces to; saying it directly is the same\n                         information without pretending to measure curve shape.\n    auc_gain_vs_fifo_pct The area BETWEEN this arm's curve and FIFO's, over FIFO's own area, on a\n                         shared hour grid.  Higher is better.  Non-degenerate: two straight lines of\n                         different slope have a gap that grows with time, which is precisely\n                         \"by any given hour, how much more work is finished\".\n    shape_index          area / (T*I/2).  A STABILITY DIAGNOSTIC, not a score.  ~1.000 means the rate\n                         held steady for the whole run; a bend would show as a departure from 1.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::HOURS_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot": {
+      "decorators": [],
+      "doc": "Left: cumulative volume vs elapsed hours.  Right: lead over FIFO at matched hours.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(selected, gof, frames, baseline, top_n, top_by, title, path)"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve": {
+      "decorators": [],
+      "doc": "(hours, items) running totals over batches, ordered by batch_id.\n\nhours[i] is elapsed time at the END of batch i, so the pair (hours, items) is the point\n\"this much work had been finished by this much elapsed time\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(df)"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics": {
+      "decorators": [],
+      "doc": "{'items','elapsed_hours','mean_thr_items_hr','auc_item_hours','shape_index'}.\n\nTrapezoid area from the origin: the curve starts at (0,0) by construction, and a batch is only\ncounted once it has completed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(hrs, items)"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base": {
+      "decorators": [],
+      "doc": "(grid_hours, delta_items, gain_pct) \u2014 this arm's lead over the baseline at matched time.\n\nBoth curves are interpolated onto a shared grid spanning only the hours BOTH actually cover, so\nthe comparison never extrapolates past the shorter run.  gain_pct is the area between the curves\nover the baseline's own area on that grid, which is the honest \"how far ahead, on average\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(hrs, items, base_hrs, base_items)"
+    },
+    "Optimization/Performance_Evaluations/comparison/volume_curve.py::render": {
+      "decorators": [
+        "evaluation(key='compare.volume_curve', label='Cumulative pick volume vs elapsed time, with rate + lead-over-FIFO metrics', scope='config', needs=('batch',), out_subdir='compare/top', defaults={'top_n': 3, 'top_by': 'initial'})"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/core/__init__.py": {
       "decorators": [],
       "doc": null,
@@ -1621,21 +1678,21 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'compare.top_metric': {'top_n': 2, 'top_by': 'initial'}, 'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'}, 'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'}, 'agg.cross_profi..."
+      "value_preview": "{'compare.top_metric': {'top_n': 2, 'top_by': 'initial'}, 'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'}, 'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'}, 'compare.volume_..."
     },
     "Optimization/Performance_Evaluations/presets.py::_GLOBAL_TOP": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'compare.top_metric': {'top_n': 1, 'top_by': 'global'}, 'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'}, 'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'}, 'agg.cross_profile'..."
+      "value_preview": "{'compare.top_metric': {'top_n': 1, 'top_by': 'global'}, 'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'}, 'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'}, 'compare.volume_cur..."
     },
     "Optimization/Performance_Evaluations/presets.py::_INITIAL_TOP": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'compare.top_metric': {'top_n': 3, 'top_by': 'initial'}, 'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'}, 'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'}, 'agg.cross_profi..."
+      "value_preview": "{'compare.top_metric': {'top_n': 3, 'top_by': 'initial'}, 'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'}, 'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'}, 'compare.volume_..."
     },
     "Optimization/Performance_Evaluations/presets.py::_PER_STRATEGY": {
       "decorators": [],

@@ -1331,6 +1331,81 @@
       "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/frames.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/context.py"
@@ -9309,6 +9384,70 @@
       "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "Optimization.Performance_Evaluations.comparison.volume_curve",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::HOURS_NOTE",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "HOURS_NOTE",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::MS_PER_HOUR",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "MS_PER_HOUR",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "_plot",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "cumulative_curve",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "curve_metrics",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "name": "gain_vs_base",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
       "name": "render",
       "public": true
     },

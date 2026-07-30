@@ -151,6 +151,17 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/comparison/volume_curve.py":
+    purpose: "compare.volume_curve — cumulative pick volume vs elapsed hours (slope = throughput) plus the lead over FIFO at matched time; reports mean throughput, a non-degenerate area gain, and a shape-index stability diagnostic."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "const"}
+      - {name: "HOURS_NOTE", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "const"}
+      - {name: "cumulative_curve", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
+      - {name: "curve_metrics", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
+      - {name: "gain_vs_base", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/core/context.py":
     purpose: "the per-config (and per-aggregate-group) data hub."
     layer: "evaluations"

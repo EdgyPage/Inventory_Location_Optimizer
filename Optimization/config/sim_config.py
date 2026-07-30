@@ -149,7 +149,7 @@ CONFIG = {
             'cart'       : 'StoreCart',
             'seed_offset': 0,
             'batch'      : {'mean': 0.15, 'std': 0.05},
-            'fill'       : 0.9,
+            'fill'       : 0.85,
             # aisle_split (optional): cut each aisle into k shorter segments (~depth/k) with a
             # capacity_loss modeling throughway construction.  None/{'k':1} = no split
             # (byte-identical).  e.g. {'k': 2, 'capacity_loss': 0.15}.
@@ -170,7 +170,7 @@ CONFIG = {
             'cart'       : 'FulfillmentCart',
             'seed_offset': FF_BATCH_SEED_OFFSET,
             'batch'      : {'mean': 0.20, 'std': 0.05},
-            'fill'       : 0.92,
+            'fill'       : 0.85,
             # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
             # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
             # depth_classes (optional): split each ff size tier's aisles into shallow/deep
