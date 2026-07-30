@@ -104,7 +104,7 @@ files:
       - {name: "render", file: "Optimization/Performance_Evaluations/comparison/faceted.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/comparison/labor_trend.py":
-    purpose: "compare.labor_trend — labor hours per batch (Σ task duration) over batch order plus % saved vs FIFO on the same batch, with a fitted trend per 100 batches and the near-empty batch marked rather than hidden."
+    purpose: "compare.labor_trend \u2014 labor hours per batch (\u03a3 task duration) over batch order plus % saved vs FIFO on the same batch, with a fitted trend per 100 batches and the near-empty batch marked rather than hidden."
     layer: "evaluations"
     key_symbols:
       - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "const"}
@@ -482,6 +482,15 @@ files:
       - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
+    notes: ""
+  "Optimization/run_whatif_volume.py":
+    purpose: "Cross-cell cumulative-volume what-if: compares schedulers (round-robin vs LPT) on work finished per elapsed hour, and emits whatif_volume.csv/json \u2014 the numbers the docs pages cite."
+    layer: "optimization"
+    key_symbols:
+      - {name: "scan", file: "Optimization/run_whatif_volume.py", kind: "function"}
+      - {name: "build_rows", file: "Optimization/run_whatif_volume.py", kind: "function"}
+      - {name: "run", file: "Optimization/run_whatif_volume.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_whatif_volume.py", kind: "function"}
     notes: ""
   "Optimization/runschema/contract.py":
     purpose: "Derives, stores and diffs CONTENT-ADDRESSED run-tree contracts: schema_id is the sha256 of the declaration\u2019s own shape (prose and the id itself excluded), documents are immutable and named by that hash, and INDEX.json holds the mutable side \u2014 head pointer, source-change fingerprint and the parent chain that restores the ordering hashes lack."

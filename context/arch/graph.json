@@ -2156,6 +2156,11 @@
       "src": "Optimization/analyze_run.py"
     },
     {
+      "dst": "Optimization/run_whatif_volume.py",
+      "kind": "imports",
+      "src": "Optimization/analyze_run.py"
+    },
+    {
       "dst": "Optimization/runschema/__init__.py",
       "kind": "imports",
       "src": "Optimization/analyze_run.py"
@@ -2197,6 +2202,11 @@
     },
     {
       "dst": "Optimization/run_whatif_labor.py::run",
+      "kind": "calls",
+      "src": "Optimization/analyze_run.py::analyze_run"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::run",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::analyze_run"
     },
@@ -3654,6 +3664,116 @@
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::main",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_curves_png"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_curves_png"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_metrics_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_curves_png"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_pick_best",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_curves_png"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_channels",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_gain_png"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_parse_arm",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::build_rows"
+    },
+    {
+      "dst": "Optimization/run_whatif_labor.py::_scheduler_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::build_rows"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_gain",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::build_rows"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_metrics_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::build_rows"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::scan",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::build_rows"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::run",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::main"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_curves_png",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_gain_png",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::build_rows",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::run"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_channel_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::scan"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_series",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::scan"
     },
     {
       "dst": "Optimization/config/sim_config.py",
@@ -12596,6 +12716,110 @@
       "kind": "function",
       "module": "Optimization/run_whatif_labor.py",
       "name": "run",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py",
+      "kind": "module",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "Optimization.run_whatif_volume",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_FIELDS",
+      "kind": "const",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_curves_png",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_curves_png",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_gain",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_gain",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_gain_png",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_gain_png",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_metrics_of",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_metrics_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_pick_best",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_pick_best",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_series",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_series",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::build_rows",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "build_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::log",
+      "kind": "const",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "log",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::main",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::run",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "run",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::scan",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "scan",
       "public": true
     },
     {

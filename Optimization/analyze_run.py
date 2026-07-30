@@ -8,7 +8,8 @@ run without re-simulating:
 
 For each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)
 and the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs
-the cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`) at the run root.  Each
+the cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`,
+`run_whatif_volume.run`) at the run root.  Each
 step is isolated in try/except so one failure never sinks the rest — the sim's DBs are already safe
 on disk, so analysis is best-effort.
 """
@@ -19,7 +20,8 @@ import logging
 import os
 import sys
 
-from Optimization import run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor, run_runtime_graphs
+from Optimization import (run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor,
+                          run_whatif_volume, run_runtime_graphs)
 from Optimization.runschema import runlayout
 from Optimization.config.sim_config import _OUTPUT_DIR, _setup_logging
 from Optimization.runschema.sim_manifest import read_run_layout
@@ -34,11 +36,14 @@ def _step(log, what, fn):
 
 
 def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', reference=None,
-                cross_cell=True):
+                cross_cell=True, granularity='config'):
     """Analyze every cell of a run, then (for a multi-cell run) the cross-cell what-if summaries.
 
     cells: explicit [cell_name, …] from the driver (avoids re-scanning); else discovered from disk.
     reference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).
+    granularity: 'config' emits one job per channel-run (a handful per cell, so a large
+        --workers is mostly idle); 'graph' emits one job per (channel-run, evaluation),
+        which is what actually saturates a big pool on a re-analysis.
     """
     # Cell list: the driver's own (avoids a re-scan), else the versioned resolver.  A run whose
     # descriptor is unreadable (pre-v1) falls back to the raw walker so an old tree still analyzes.
@@ -60,7 +65,9 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
     for name, cell_dir in cell_items:
         log.info(f'  cell {name}: graphs + rollup')
         _step(log, f'{name}/graphs',
-              lambda cd=cell_dir: run_analysis.run_analysis(cd, log, workers=workers, preset=preset))
+              lambda cd=cell_dir: run_analysis.run_analysis(cd, log, workers=workers,
+                                                            preset=preset,
+                                                            granularity=granularity))
         _step(log, f'{name}/rollup',
               lambda cd=cell_dir: run_channel_rollup.rollup(cd, log=log.info))
 
@@ -86,6 +93,7 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
         else:
             log.warning(f'  skip whatif_delta: reference {ref!r} not among cells {cell_names}')
         _step(log, 'whatif_labor', lambda: run_whatif_labor.run(base_dir, reference=ref, log=log))
+        _step(log, 'whatif_volume', lambda: run_whatif_volume.run(base_dir, reference=ref, log=log))
 
     # Runtime (compute-cost) graphs from runtime_metrics.db at the run root — always attempted;
     # skips gracefully when the DB is absent (e.g. a re-analysis of an old run without it).
@@ -98,13 +106,18 @@ def main(argv=None):
     ap.add_argument('--reference', default=None, help='baseline cell for the cross-cell delta')
     ap.add_argument('--workers', type=int, default=1, help='per-cell analysis pool size')
     ap.add_argument('--preset', default='BY_INITIAL', help='run_analysis preset')
+    ap.add_argument('--granularity', default='config', choices=('config', 'graph'),
+                    help="job unit: 'config' loads a channel-run's context once and shares "
+                         "it across that run's graphs; 'graph' emits one job per graph, "
+                         'which is what saturates a large --workers on a re-analysis')
     args = ap.parse_args(argv)
     from Optimization.runschema import resolve_base_dir
     base_dir = resolve_base_dir(args.base_dir)
     if not os.path.isdir(base_dir):
         sys.exit(f'Directory not found: {base_dir}')
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
-    analyze_run(base_dir, log, workers=args.workers, preset=args.preset, reference=args.reference)
+    analyze_run(base_dir, log, workers=args.workers, preset=args.preset, reference=args.reference,
+                granularity=args.granularity)
 
 
 if __name__ == '__main__':

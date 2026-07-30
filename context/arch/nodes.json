@@ -1858,7 +1858,7 @@
     },
     "Optimization/analyze_run.py": {
       "decorators": [],
-      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`) at the run root.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
+      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`,\n`run_whatif_volume.run`) at the run root.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
       "kind": "module",
       "signature": null
     },
@@ -1871,10 +1871,10 @@
     },
     "Optimization/analyze_run.py::analyze_run": {
       "decorators": [],
-      "doc": "Analyze every cell of a run, then (for a multi-cell run) the cross-cell what-if summaries.\n\ncells: explicit [cell_name, \u2026] from the driver (avoids re-scanning); else discovered from disk.\nreference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).",
+      "doc": "Analyze every cell of a run, then (for a multi-cell run) the cross-cell what-if summaries.\n\ncells: explicit [cell_name, \u2026] from the driver (avoids re-scanning); else discovered from disk.\nreference: the round-robin/baseline cell for the cross-cell delta (from the run's spec).\ngranularity: 'config' emits one job per channel-run (a handful per cell, so a large\n    --workers is mostly idle); 'graph' emits one job per (channel-run, evaluation),\n    which is what actually saturates a big pool on a re-analysis.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', reference=None, cross_cell=True)"
+      "signature": "(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', reference=None, cross_cell=True, granularity='config')"
     },
     "Optimization/analyze_run.py::main": {
       "decorators": [],
@@ -3860,6 +3860,96 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None)"
+    },
+    "Optimization/run_whatif_volume.py": {
+      "decorators": [],
+      "doc": "run_whatif_volume.py \u2014 cross-cell CUMULATIVE-VOLUME what-if: how much work each scheduler\nfinishes per unit of elapsed time (re-analyze, no re-sim).\n\nThe per-config `compare.volume_curve` graph can only see ONE channel-run leaf, so it compares\nassignment functions inside a single cell.  The scheduler axis lives only in the CELL directory name\n(k1_off_rr / k1_off_lpt), so the round-robin-vs-LPT comparison has to happen here, at the run root,\nalongside run_whatif_delta and run_whatif_labor.\n\n  per (channel, scheduler, assignment-fn, initial):\n    elapsed_hours      = \u03a3 duration      / 3.6e6    running wall-clock the work took\n    labor_hours        = \u03a3 task_makespan / 3.6e6    running serial labor (what the work COST)\n    mean_thr_items_hr  = items / elapsed_hours      the chord slope of the cumulative curve\n    auc_gain_vs_rr_pct area between this cell's cumulative curve and the reference cell's,\n                       over the reference's own area, on a shared hour grid\n\nWHY THIS SEPARATES THE TWO LEVERS.  The assignment function changes labor_hours (less work).  The\nscheduler does not \u2014 it changes elapsed_hours (the same work, less picker idle time).  Plotting\ncumulative volume against elapsed hours makes that visible as a steeper line reaching the same\nvolume sooner, which is the honest picture of \"more throughput at flat labor\".\n\n*** CAVEAT: hours are SIM-MODELED pick-time (batch_stats ms / 3.6e6), NOT wall-clock or staffing\n    hours.  A modeled-effort figure for comparing arms, not a schedule. ***\n\n  python -m Optimization.run_whatif_volume <comparison_whatif_...> [--reference k1_off_rr]",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_whatif_volume.py::_FIELDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['cell', 'scheduler', 'pair', 'pickcfg', 'channel', 'arm', 'initial', 'assignment', 'items', 'elapsed_hours', 'labor_hours', 'mean_thr_items_hr', 'auc_item_hours', 'shape_index', 'auc_gain_vs_ref_p..."
+    },
+    "Optimization/run_whatif_volume.py::_curves_png": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, scans, cells, out_path)"
+    },
+    "Optimization/run_whatif_volume.py::_gain": {
+      "decorators": [],
+      "doc": "% area between curve `a` and reference `b`, over b's area, on the hours BOTH cover.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a, b)"
+    },
+    "Optimization/run_whatif_volume.py::_gain_png": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out_path)"
+    },
+    "Optimization/run_whatif_volume.py::_metrics_of": {
+      "decorators": [],
+      "doc": "Endpoint + area metrics for one cumulative series.  See volume_curve for why shape_index is\na stability diagnostic and not a score.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(s)"
+    },
+    "Optimization/run_whatif_volume.py::_pick_best": {
+      "decorators": [],
+      "doc": "Highest-throughput arm in the reference cell for this channel \u2014 the one worth drawing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, channel)"
+    },
+    "Optimization/run_whatif_volume.py::_series": {
+      "decorators": [],
+      "doc": "(hours, items) cumulative arrays for one arm, ordered by batch.\n\nRead-only + immutable so verifying an archived copy never leaves a -wal/-shm sidecar beside it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str)"
+    },
+    "Optimization/run_whatif_volume.py::build_rows": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cells, reference)"
+    },
+    "Optimization/run_whatif_volume.py::log": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "logging.getLogger('analysis')"
+    },
+    "Optimization/run_whatif_volume.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Optimization/run_whatif_volume.py::run": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, reference: str | None=None, log=log) -> list"
+    },
+    "Optimization/run_whatif_volume.py::scan": {
+      "decorators": [],
+      "doc": "{(pair, config, channel, arm): series} for one cell, via the versioned resolver.\n\nThe key deliberately EXCLUDES the cell, so the same key in two cells is the same arm under two\nschedulers \u2014 the join run_whatif_delta and run_whatif_labor already use.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell)"
     },
     "Optimization/runschema/__init__.py": {
       "decorators": [],
