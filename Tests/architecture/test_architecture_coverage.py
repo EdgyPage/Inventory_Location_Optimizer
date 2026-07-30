@@ -99,13 +99,20 @@ def test_hotpaths_execute_under_e2e_driver():
     finally:
         cov.stop()
     data = cov.get_data()
+    # coverage keys its data by fully normalised absolute path, and `data.lines()` is an exact dict
+    # lookup.  architecture.yml stores hotpath files POSIX-style, so os.path.join builds a
+    # mixed-separator path on Windows ('...\Optimization/simdriver/strategy_runner.py') that never
+    # matches — every hotpath then reads as "never executed" and the sentinel masks the rest.
+    # Match on normcase(normpath(...)) so separator style and drive-letter case cannot decide this.
+    measured = {os.path.normcase(os.path.normpath(f)): f for f in data.measured_files()}
 
     def executed(anchor) -> bool:
-        abs_path = os.path.join(_ROOT, anchor['file'])
+        abs_path = os.path.normpath(os.path.join(_ROOT, anchor['file']))
         span = _def_span(abs_path, anchor['name'])
         if span is None:
             return False
-        lines = data.lines(abs_path) or []
+        key = measured.get(os.path.normcase(abs_path))
+        lines = (data.lines(key) or []) if key else []
         lo, hi = span
         return any(lo <= ln <= hi for ln in lines)
 
