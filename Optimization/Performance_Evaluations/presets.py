@@ -21,7 +21,7 @@ _COMPARE = ['compare.faceted', 'compare.overlay', 'compare.top_metric',
             'compare.throughput_labor',
             'compare.delta_over_time', 'compare.delta_by_batch',
             'compare.volume_curve',
-            'compare.task_box', 'breakdown.travel_handling']
+            'compare.task_box', 'compare.labor_trend', 'breakdown.travel_handling']
 _AGG = ['agg.cross_profile']
 
 
@@ -41,16 +41,19 @@ _GLOBAL_TOP = {'compare.top_metric': {'top_n': 1, 'top_by': 'global'},
                'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'},
                'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'},
                'compare.volume_curve': {'top_n': 1, 'top_by': 'global'},
+               'compare.labor_trend': {'top_n': 1, 'top_by': 'global'},
                'agg.cross_profile': {'top_n': 1, 'top_by': 'global'}}
 _INITIAL_TOP = {'compare.top_metric': {'top_n': 3, 'top_by': 'initial'},
                 'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'},
                 'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'},
                 'compare.volume_curve': {'top_n': 3, 'top_by': 'initial'},
+                'compare.labor_trend': {'top_n': 3, 'top_by': 'initial'},
                 'agg.cross_profile': {'top_n': 3, 'top_by': 'initial'}}
 _E2E_TOP = {'compare.top_metric': {'top_n': 2, 'top_by': 'initial'},
             'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'},
             'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'},
             'compare.volume_curve': {'top_n': 2, 'top_by': 'initial'},
+            'compare.labor_trend': {'top_n': 2, 'top_by': 'initial'},
             'agg.cross_profile': {'top_n': 2, 'top_by': 'initial'}}
 
 

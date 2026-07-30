@@ -912,6 +912,63 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py": {
+      "decorators": [],
+      "doc": "compare.labor_trend \u2014 labor cost of the scheduled tasks, batch by batch, and how it moves.\nUnder compare/breakdown.\n\nWHAT \"LABOR\" IS HERE.  The per-batch sum of task durations, which is exactly batch_stats.\ntask_makespan (verified equal to float noise) \u2014 the serial makespan a lone picker would incur, i.e.\ntotal work, independent of how many pickers ran in parallel.  That is the quantity the assignment\nfunction actually moves; the scheduler does not change it.  Converted to hours with the same\nMS_PER_HOUR the what-if layer uses so figures reconcile across the suite.\n\nWHY IT IS PLOTTED AGAINST BATCH NUMBER.  Labor per batch is a demand-driven quantity: a batch with\nmore items costs more, whatever the policy.  Plotting it over batch order shows whether a policy's\nadvantage HOLDS as the warehouse fills and reorders churn, or decays.  The right panel removes the\ndemand signal entirely by expressing each batch as a percentage against FIFO on that same batch, so\nwhat remains is the policy effect alone.\n\nTWO THINGS NOT TO READ INTO IT.  (1) There is no warm-up transient: batch 0 measured 70% of median\non a real run, well inside the family, so the opening batches are not a ramp and are not excluded.\n(2) One batch in the store channel carries ~4 items and shows as a spike in the % panel and a notch\nin the raw panel; it is identical in all 34 arms because the batch sequence is shared across arms,\nso it is a property of the demand sample and biases no comparison between policies.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot'), win (steady-state tail).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::HOURS_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'modeled sim pick-time hours (\u03a3 task duration / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(selected, gof, frames, baseline, top_n, top_by, win, title, path)"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::_smooth": {
+      "decorators": [],
+      "doc": "Centred moving average, the same 5-batch window the over-time trajectories use.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(y, win=5)"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::labor_by_batch": {
+      "decorators": [],
+      "doc": "(batch_ids, labor_hours) \u2014 \u03a3 task duration per batch, in hours, ordered by batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(task_df)"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::render": {
+      "decorators": [
+        "evaluation(key='compare.labor_trend', label='Labor hours per batch and % saved vs FIFO, over batch order', scope='config', needs=('task',), out_subdir='compare/breakdown', defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN})"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/comparison/labor_trend.py::trend_per_100": {
+      "decorators": [],
+      "doc": "Least-squares slope in labor-hours per 100 batches \u2014 the trend as a NUMBER.\n\nReported so \"labor goes down over time\" is quantified rather than eyeballed off a line.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batches, hours)"
+    },
     "Optimization/Performance_Evaluations/comparison/overlay.py": {
       "decorators": [],
       "doc": "compare.overlay \u2014 all strategies overlaid on one axis per over-time metric: color =\nassignment function, linestyle = (initial, reslot).  One PNG per metric under compare/overlay/.",

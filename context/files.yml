@@ -103,6 +103,16 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/comparison/faceted.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/comparison/labor_trend.py":
+    purpose: "compare.labor_trend — labor hours per batch (Σ task duration) over batch order plus % saved vs FIFO on the same batch, with a fitted trend per 100 batches and the near-empty batch marked rather than hidden."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "const"}
+      - {name: "HOURS_NOTE", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "const"}
+      - {name: "labor_by_batch", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "function"}
+      - {name: "trend_per_100", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/comparison/labor_trend.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/comparison/overlay.py":
     purpose: "all strategies overlaid on one axis per over-time metric: color ="
     layer: "evaluations"
@@ -152,7 +162,7 @@ files:
       - {name: "render", file: "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/comparison/volume_curve.py":
-    purpose: "compare.volume_curve — cumulative pick volume vs elapsed hours (slope = throughput) plus the lead over FIFO at matched time; reports mean throughput, a non-degenerate area gain, and a shape-index stability diagnostic."
+    purpose: "compare.volume_curve \u2014 cumulative pick volume vs elapsed hours (slope = throughput) plus the lead over FIFO at matched time; reports mean throughput, a non-degenerate area gain, and a shape-index stability diagnostic."
     layer: "evaluations"
     key_symbols:
       - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "const"}
