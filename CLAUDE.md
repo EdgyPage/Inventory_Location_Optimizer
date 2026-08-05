@@ -7,7 +7,7 @@ verified anchors in `context/` — see the last section before adding anything h
 
 | Read this | When |
 |---|---|
-| `README.md` | the human map: the 4-step workflow and every CLI's arguments |
+| `README.md` | the human map: setup, the 5-step workflow, and every CLI's arguments |
 | **`context/INDEX.md`** | **densest file in the repo.** Before touching `context/`, `Optimization/runschema/`, or any anchor |
 | `Tests/README.md` | what a failure in each test directory *means*, and the 3 placement constraints |
 | 14 package READMEs | what belongs in a directory — and what does not |
@@ -74,15 +74,15 @@ Or hand the whole chain to the `architecture-maintainer` agent.
 - **Floats compare with a tolerance, never `==`.**
 - **Spawn, not fork.** `ProcessPoolExecutor` worker entry points and their arguments must be
   module-level and picklable.
-- **Never commit `*.db` or `comparison_*/`.** Run output is 150–200 GB per sweep. Only curated PNGs
-  and config/params JSON belong in git.
+- **Never commit `*.db` or `comparison_*/`.** Run output is ~500 GB per sweep (measured; see the
+  README's size section). Only curated PNGs and config/params JSON belong in git.
 - **Tests use real `assert`.** Never add a legacy `check()`-based test (see §3).
 
 ## 3. Silent traps — each of these fails with no error message
 
 - **`Optimization/config/sim_config.py` `_REPO_ROOT` is depth-sensitive.** It is used for `.env`
   loading, not imports. A wrong `..` count silently stops `.env` loading, `COMPARISON_OUTPUT_DIR`
-  falls back to the source tree, and a run writes 150–200 GB *into the repo*. Guarded by an
+  falls back to the source tree, and a run writes hundreds of GB *into the repo*. Guarded by an
   `assert` — do not remove it.
 - **Consume run-tree levels positionally, never by directory name.** The store *config* and the
   store *channel* are both named `store`, so `<cell>/<pair>/store/store/` is a real path. Two levels

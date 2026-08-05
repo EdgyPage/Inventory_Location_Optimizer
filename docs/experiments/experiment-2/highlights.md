@@ -65,7 +65,15 @@ batch — the store winners pull ahead and stay ahead:
 </figure>
 
 !!! note "Store — reading of the result"
-    Space intentionally left blank for user input
+    `Rank_labor` and `Rank_cartlabor` finishing level at ≈ −3.7 % is the informative part. They
+    score slots by different objectives — one on pick labour, one on labour including the cart
+    penalty — and arrive at the same number, which says the store channel's recoverable cost is
+    dominated by the term both of them share. Adding the cart term buys nothing here.
+    <br><br>
+    The cumulative-improvement curve matters as much as the endpoint: the winners separate from
+    FIFO early and the gap keeps widening rather than flattening. That is what distinguishes a real
+    placement effect from a stocking artefact — a better *initial* layout would show up as a
+    constant offset that FIFO gradually erodes, not as a growing divergence over 100 batches.
 
 ---
 
@@ -128,7 +136,16 @@ by metric (higher = better than FIFO):
     [Everything else](everything-else.md) for the full metric-by-metric picture.
 
 !!! note "Fulfillment — reading of the result"
-    Space intentionally left blank for user input
+    `Compact` wins by making each pick trip shorter, and it does that by concentrating stock into
+    fewer, denser aisle segments. The cost is concurrency: pickers that share a short aisle queue
+    behind each other, which is exactly why the same arm shows ≈ −39 % makespan and ≈ −25 %
+    throughput alongside its −3.4 % labour saving.
+    <br><br>
+    So the fulfillment answer is conditional in a way the store answer is not. **If labour hours are
+    the binding constraint, `Compact` is the right choice; if orders-out-the-door is, it is the
+    wrong one.** Experiment 2 cannot resolve that — it measures both and declines to collapse them.
+    [Experiment 6](../experiment-6/index.md) later shows the tension is avoidable from the other
+    direction: changing the picker *scheduler* buys throughput without spending labour at all.
 
 ---
 
@@ -150,4 +167,12 @@ For the full-suite steady-state ranking and the per-batch overlays across every 
 **[Everything else](everything-else.md)**.
 
 !!! note "Notes"
-    Space intentionally left blank for user input
+    The two-panel delta chart is the most honest summary on this page, because it refuses to pick a
+    single axis. Read horizontally and the families sort into three bands: a small group that
+    improves duration, a large neutral middle that is statistically indistinguishable from FIFO, and
+    the bracket controls going sharply negative on both metrics.
+    <br><br>
+    The diagonal is what to look at. `Compact` and `CluMap` sit in the *green-on-duration,
+    red-on-throughput* quadrant — the trade-off made visible — while nothing occupies the
+    green-on-both quadrant by any meaningful margin. Within placement alone, on this channel, there
+    was no free lunch to find.

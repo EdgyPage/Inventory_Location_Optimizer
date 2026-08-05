@@ -1,0 +1,26 @@
+# Simulator runtime dependencies.  Install with:  pip install -r requirements.txt
+#
+# Versions are floors, not pins — these are the ones this project is developed against
+# (Python 3.11).  The docs site has its own list in requirements-docs.txt.
+
+numpy>=1.25              # the numeric core: catalogue draws, placement scoring, pick sampling
+scipy>=1.11              # sparse affinity matrices + the Wilcoxon tests behind the result tables
+pandas>=2.0              # analysis frames: per-batch/per-task metrics, the what-if scanners
+matplotlib>=3.7          # every PNG the analysis and the docs site publish
+
+# Not optional in practice.  Every Tests/architecture/* file does `pytest.importorskip('yaml')`,
+# so WITHOUT pyyaml all eight drift gates SKIP and the suite reports green while the docs rot.
+pyyaml>=6.0
+
+flask>=3.0               # Visualization/server.py — the run replay viewer
+pytest>=8.0              # the test suite
+
+# A git filter, not an import: .git/config points the `nbstripout` filter at this command, and a
+# fresh clone fails to check out notebooks until it exists.  Run `nbstripout --install` once.
+nbstripout>=0.7
+
+# ── optional ────────────────────────────────────────────────────────────────────────────
+# torch>=2.0             # Optimization/gpu/ only — validated but intentionally dormant.
+#                        # Read Optimization/gpu/README.md before reviving it.
+#
+# networkx and coverage are architecture-tooling deps and live in requirements-docs.txt.

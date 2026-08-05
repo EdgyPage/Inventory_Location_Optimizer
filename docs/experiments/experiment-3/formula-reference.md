@@ -9,7 +9,14 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 {% set inv0 = (experiment().inventories.keys() | list) | first %}
 
 !!! note "Notes"
-    <!-- paste commentary here -->
+    Nothing in the mathematics changed between Experiment 2 and Experiment 3 — the cost models,
+    the labor decomposition and every assignment function's scoring objective are identical. What
+    changed is the **input distribution**: this sweep draws relative frequency from a bell mixture
+    rather than a uniform.
+
+    That is the point of holding the formulae fixed. Any movement in the rankings here is
+    attributable to the demand shape alone, so this page is best read as the control: the
+    definitions that did *not* vary, against which the changed result is measured.
 
 ## Notation
 

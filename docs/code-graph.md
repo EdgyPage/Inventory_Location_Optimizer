@@ -11,7 +11,8 @@ with the code by the architecture-maintainer, so it never drifts.
 ## What's inside
 
 - **A page per symbol** — one description page for every function, class, module, and
-  constant (~1,100), with its signature, docstring, and linked callers/callees.
+  constant (~1,400), with its signature, docstring, and linked callers/callees. The exact count
+  is whatever `context/arch/nodes.json` holds at the last rebuild.
 - **An ego-graph explorer** — click any node to expand its call neighbourhood; the graph and
   the pages mirror the same data.
 - **Layer & boundary view** — modules grouped by architectural layer, with cross-layer

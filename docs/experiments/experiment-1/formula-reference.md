@@ -7,7 +7,19 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 [Glossary](glossary.md).
 
 !!! note "Notes"
-    <!-- paste commentary here -->
+    Two of these formulae explain most of Experiment 1's results, so they are worth reading before
+    the write-ups rather than after.
+
+    The **height-bracket multiplier** $M(y)$ is why the four calibrations produce four different
+    answers: it is a step function on shelf height, so steepening it does not scale every pick
+    equally — it re-prices the *high* slots specifically, which is exactly the resource a placement
+    rule allocates. That is the mechanism behind "steeper penalties, larger win", and behind height
+    mattering more than weight on the 2026-06-24 run.
+
+    The **assignment functions are not all trying to win.** `tmax`, `cmin`, `expn` and
+    `rank_maxlabor` are deliberate bracket controls — they maximise the objective their siblings
+    minimise, to bound how much of the outcome each lever can possibly explain. Reading them as
+    failed optimisations misreads the design.
 
 ## Notation
 

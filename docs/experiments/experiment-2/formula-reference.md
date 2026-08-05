@@ -7,7 +7,19 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 [Glossary](glossary.md).
 
 !!! note "Notes"
-    Space intentionally left blank for user input
+    Read the two channel cost models side by side before reading any result on this site — the
+    difference between them is the whole reason Experiment 2 produces two answers.
+
+    They share the same functional form and differ in their coefficients and their cart. The store
+    channel's big cart makes a swap expensive but infrequent; the fulfillment channel's small cart
+    makes swaps cheap but constant, so a much larger share of fulfillment task labour is cart-swap
+    rather than travel. That single asymmetry explains why a rule that shortens **aisle sweeps**
+    (`Compact`) wins fulfillment while a rule that balances **pick labour** (`Rank_labor`) wins the
+    store — each is minimising the term that actually dominates in its own channel.
+
+    The bracket controls (`tmax`, `cmin`, `expn`, `Rank_maxlabor`, `MinClu`) maximise what their
+    siblings minimise. They are not attempts that failed; they are the upper bound on how much
+    each lever can move the result at all.
 
 ## Notation
 

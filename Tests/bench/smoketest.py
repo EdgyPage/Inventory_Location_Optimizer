@@ -185,7 +185,7 @@ def _stage_preconditions(ctx: _Ctx) -> StageResult:
         return r
 
     # Output root must be configured AND outside the repo. A wrong _REPO_ROOT depth in sim_config
-    # silently falls back to the source tree and writes a 150-200 GB run into git with no error.
+    # silently falls back to the source tree and writes a several-hundred-GB run into git, no error.
     out_dir = sc._OUTPUT_DIR
     ev['output_dir_configured'] = bool(os.environ.get('COMPARISON_OUTPUT_DIR'))
     inside_repo = os.path.normcase(os.path.abspath(out_dir)).startswith(os.path.normcase(_ROOT))
