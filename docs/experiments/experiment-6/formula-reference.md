@@ -9,7 +9,14 @@ these runs during a simulation; this page is the canonical **what**. Symbols are
 {% set inv0 = (experiment().inventories.keys() | list) | first %}
 
 !!! note "Notes"
-    <!-- paste commentary here -->
+    One distinction on this page carries the whole experiment: **task labor** is a property of the
+    work, and it is what every formula below computes. None of them says anything about *when* a
+    task runs or *which picker* runs it.
+
+    That is why swapping round-robin for LPT can move throughput by double digits while leaving
+    every quantity defined here unchanged to within ±0.07 %. The scheduler does not appear in the
+    cost model at all — it only decides the order in which the model's outputs are consumed. If a
+    formula on this page changed between the two schedulers, that would be a bug, not a finding.
 
 ## Notation
 

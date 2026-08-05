@@ -23,4 +23,4 @@ requires breaking the cycle first.
 **`sim_config._REPO_ROOT` is depth-sensitive and fails SILENTLY.** It is used for `.env` loading and
 the default profiles dir — not for imports — so a wrong `..` count does not raise. It makes `.env`
 stop loading, which makes `COMPARISON_OUTPUT_DIR` fall back to the source tree, which puts a
-150–200 GB run output inside the repo. There is an `assert` guarding it; do not remove it.
+several hundred GB of run output inside the repo. There is an `assert` guarding it; do not remove it.

@@ -68,4 +68,13 @@ fulfillment channel.
 | `comparison_20260706_174353` | 2026-07-06 | store + fulfillment channels, 2 calibrations each, lt0 + ltrand0-5 | `uni_fifo_norsl` (FIFO) |
 
 !!! note "Summary"
-    Space intentionally left blank for user input
+    One run, two warehouses, analysed independently — so this single row produces **two separate
+    answers**, not an average. That is the structural point of Experiment 2: the store and
+    fulfillment channels share a catalogue and a geometry and nothing else, and the assignment
+    function that wins one does not win the other.
+    <br><br>
+    It also produced the first result on this site where "winning" needed a qualifier.
+    `Compact` takes the fulfillment channel on total task time while *losing* on makespan and
+    throughput — the same arm is the best and the worst choice depending on which quantity the
+    operation is actually bound by. Every later experiment carries that distinction forward; by
+    [Experiment 6](../experiment-6/index.md) it is the headline.

@@ -26,8 +26,8 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
   `_SIZE_RANKS`, `BinKey`); `Warehouse/kernel/cost_model.py` (`sec_per_inch`, `height_multiplier`,
   `handle_var`); `Warehouse/layout/Aisle_Dimensions.py` (`uniform_aisle_bins`, `catalog_aisle_bins`).
   Flag duplicated logic.
-- Run DBs are 150–200 GB and gitignored. NEVER approve committing `*.db` / `comparison_*/` output; only
-  curated PNGs + config/params JSON belong in git.
+- Run DBs are hundreds of GB and gitignored. NEVER approve committing `*.db` / `comparison_*/` output;
+  only curated PNGs + config/params JSON belong in git.
 
 ## Correctness checklist (highest priority)
 - **Byte-identical discipline**: a new feature must be a NO-OP when its flag/regime is off

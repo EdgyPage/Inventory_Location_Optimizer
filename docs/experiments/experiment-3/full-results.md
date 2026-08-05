@@ -5,7 +5,15 @@ initial layouts — for this experiment, as a **inventory-lead × pick-config** 
 comparison write-up stays focused on the top-3 winners; this is the drill-down.
 
 !!! note "Notes"
-    <!-- paste commentary here -->
+    Worth checking here specifically: whether the bell demand shape **reordered** the suite or
+    merely rescaled it. The comparison page reports that the store win sharpens and the
+    fulfillment win shrinks, but a headline cannot distinguish "the same families, different
+    margins" from "different families won".
+
+    The matrix below can. If the losing tail and the bracket controls hold the same relative
+    positions as in [Experiment 2](../experiment-2/everything-else.md), the demand shape is
+    scaling an existing effect rather than creating a new one — which is the weaker and more
+    likely reading.
 
 ## The headline
 

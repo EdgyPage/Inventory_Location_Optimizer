@@ -7,7 +7,14 @@ channel only sweeps its labor subset, the full 17-family competition lives on th
 channel; the store subset is shown at the end.
 
 !!! note "Notes"
-    Space intentionally left blank for user input
+    The reason the full field is worth a page of its own: **the winners' margins are only
+    interpretable against the losers' spread.** A −3.4 % champion means one thing when the suite
+    spans −3.4 % to −3.0 %, and something entirely different when it spans −3.4 % to +20 %. This
+    page is where that scale is visible.
+
+    Note also why the 17-family competition runs on the **fulfillment** channel: the store channel
+    sweeps only its labour subset (`CHANNEL_RESTOCKS` in `Optimization/config/strategies.py`), so
+    the store arms shown at the end are a deliberate subset rather than a truncated run.
 
 ## The headline: most families don't beat FIFO
 
@@ -106,4 +113,11 @@ mathematics are on the [Highlights](highlights.md); the full family catalogue is
 [Formula reference](formula-reference.md).
 
 !!! note "Notes"
-    Space intentionally left blank for user input
+    The finding that generalised furthest from this page is the negative one: **an optimisation
+    aimed at the wrong proxy makes total task time worse, not merely flat.** Several genuine
+    cohesion- and co-demand-only families land on the wrong side of FIFO — not because they fail
+    to optimise, but because they optimise something that is not the objective.
+
+    That is why every later experiment reports its baseline explicitly and keeps the adversarial
+    arms in the suite. A result that only shows the winners cannot distinguish "this lever is
+    worth 3 %" from "this lever is worth 3 % and costs 20 % when pointed the wrong way".
