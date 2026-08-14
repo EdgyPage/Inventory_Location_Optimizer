@@ -10,3 +10,7 @@
 - [AUC is degenerate on volume curves](auc-degenerate-on-volume-curves.md) — cumulative pick-volume curves are straight (shape index 0.987–1.025), so raw AUC restates items×hours/2; report chord slope and area-between-curves instead
 - [Batch-95 flat spot is shared demand](batch-95-flat-spot-is-shared-demand.md) — the 4-item store batch is identical in all 34 arms (shared _batches_*.pkl), so it biases no comparison; batch 0 is a mild ramp, not a warm-up outlier
 - [analyze_run granularity starves workers](analyze-run-granularity-worker-saturation.md) — the default emits 4 jobs/cell so --workers 24 idles ~20; pass --granularity graph (~88 jobs/cell) for a full re-analysis
+- [Real test coverage was 317, not 374](real-test-coverage-is-317.md) — 57 "passing" tests contained no raising assertion; don't take a pass count as proof without checking it can fail
+- [753d01e shifted throughput ~1.4%](determinism-fix-shifted-throughput.md) — the determinism fix raised absolute throughput and left labor alone, so everything published before it reads low
+- [Reloader cap floors to zero](reloader-cap-floors-to-zero.md) — per_aisle_cap rounds to 0 at test scale so requeue_bin never fires; assert the event count, not just the end state
+- [WAL sidecars come from readers](wal-sidecars-come-from-readers.md) — a mode=ro open creates -wal/-shm and can't remove them; unclean writer closes are not the cause, so no write-side fix clears an archive
