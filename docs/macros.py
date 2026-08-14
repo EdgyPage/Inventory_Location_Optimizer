@@ -154,6 +154,36 @@ def define_env(env):
         ``{% for k, inv in experiment().inventories.items() %}``."""
         return _manifest() or {}
 
+    @env.macro
+    def run_commit():
+        """Which simulator CODE produced this experiment's run, rendered for a caption.
+
+        The one ``schema_id`` a page can already cite names the run's DB **table** contract, and a
+        change that moves no table is byte-identical in it: ``753d01e`` shifted absolute throughput
+        ~1.4 % and left every id on the run unchanged. This reads the commit that
+        ``Optimization/runschema/sim_manifest.py`` stamps into ``run_spec.json`` and
+        ``docs/experiments/ingest.py`` carries into ``experiment.yml``.
+
+        Two lookup sites, because a run has two names. A **what-if** experiment's ``run:`` is a
+        CELL inside the sweep, so the run root — and therefore its commit — lives beside
+        ``whatif.source_run``; an ordinary experiment's ``run:`` IS the run and its commit sits at
+        the top level next to ``schema_id``, which is where ingest writes it.
+
+        Runs that predate the stamp render as *not recorded* rather than silently as nothing: the
+        absence is the point, and a page that quietly omitted it would be the same invisible gap
+        this macro exists to close.
+        """
+        m = _manifest() or {}
+        c = (m.get("whatif") or {}).get("commit") or m.get("commit")
+        dirty = (m.get("whatif") or {}).get("dirty")
+        if dirty is None:
+            dirty = m.get("dirty")
+        if not c or c == "unknown":
+            return "code commit not recorded"
+        # `+ uncommitted changes` is not decoration: a dirty tree means the commit alone does not
+        # identify what ran, so a reader must not treat the sha as reproducible.
+        return f"code <code>{c}</code>" + (" <strong>+ uncommitted changes</strong>" if dirty else "")
+
     # ---- number / spec formatting -------------------------------------------
 
     def _num(x):

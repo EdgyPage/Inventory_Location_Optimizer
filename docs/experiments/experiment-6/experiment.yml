@@ -25,6 +25,12 @@ winners: [rank_labor, rank_cartlabor, map]
 
 whatif:
   source_run: comparison_whatif_20260729_125755
+  # The simulator commit this run was produced with.  `unknown` because the run predates the stamp
+  # (Optimization/runschema/sim_manifest.py now records repo_commit into run_spec.json, and
+  # docs/experiments/ingest.py carries it here).  NOT back-filled by guesswork: a sha nobody can
+  # verify against the run is worse than an honest gap, and the page note pins what IS known — the
+  # run is older than 753d01e.  docs/macros.py:run_commit() renders this beside the run id.
+  commit: unknown
   reference: k1_off_rr        # round-robin; every other cell is diffed against it
   scatter: whatif_volume_curves.png    # cumulative volume vs elapsed hours, rr vs lpt
   winner: k1_off_lpt

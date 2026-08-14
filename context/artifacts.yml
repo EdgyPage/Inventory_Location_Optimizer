@@ -42,15 +42,21 @@ artifacts:
   run_spec:
     # The fully-resolved run invocation (argv + resolved run-shaping params + pinned inventory
     # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
+    # repo_commit / repo_dirty are CODE provenance — the only field on a run that distinguishes two
+    # runs of the same tree and the same tables from different simulator code.  repo_commit is
+    # 'unknown' and repo_dirty null where no git metadata exists (a source export, a missing git);
+    # deriving them never fails a run.
     path_pattern: "comparison_<ts>/run_spec.json"
     format: json
     writer: {function: _write_run_spec, file: Optimization/runschema/sim_manifest.py}
     readers:
       - {function: _load_run_spec, file: Optimization/runschema/sim_manifest.py}
+      - {function: main, file: docs/experiments/ingest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
              ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
-             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs,
+             repo_commit, repo_dirty]
 
   run_layout:
     # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
@@ -168,8 +174,10 @@ artifacts:
     # driver's reserved `_` prefix (runschema.schema.RESERVED_PREFIX) so every tree walker skips
     # it; named `sim_<arm>.viz.db` beside the sim DB it would instead satisfy all three predicates
     # of runlayout._sim_dbs_in and surface as an extra ARM.
-    # Deliberately absent from runschema/schema.py ARTIFACTS: that dict is hashed into the
-    # run-tree schema_id, and a file no run writes must not mint a new contract.
+    # ALSO declared in runschema/schema.py ARTIFACTS (`viz_cache_db`, optional).  It was left out
+    # at first on the grounds that a file no run writes should not mint a run-tree schema — but the
+    # contract is what verify_tree matches observed files against, so the omission surfaced as one
+    # undeclared template per arm on any run the viewer had been pointed at.
     path_pattern: "comparison_<ts>/_viz/<cell>/<pair>/<config>[/<channel>]/<strategy>.viz.db"
     format: sqlite
     writer: {function: build_one, file: Visualization/precompute.py}

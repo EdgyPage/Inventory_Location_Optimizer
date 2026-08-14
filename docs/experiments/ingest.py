@@ -123,6 +123,7 @@ def main(argv=None):
 
     log, n = [], 0
     cells, schema_id = _cells_of(source, log)
+    commit, dirty = _repo_provenance_of(source, log)
     if args.cell:
         wanted = set(args.cell)
         missing = wanted - {c for c, _d in cells}
@@ -179,7 +180,8 @@ def main(argv=None):
     if args.gen_manifest and last_rm is not None:
         _write_starter_manifest(exp_dir, last_rm, args.catalogue, top3, full_suite,
                                 inv_plots, args.dry_run, log,
-                                cells=[c for c, _d in cells], schema_id=schema_id)
+                                cells=[c for c, _d in cells], schema_id=schema_id,
+                                commit=commit, dirty=dirty)
 
     print("\n".join(log))
     print(f"\n{'[dry-run] would copy' if args.dry_run else 'copied'} {n} file(s) "
@@ -203,6 +205,28 @@ def _cells_of(source, log):
                    f"treating it as a single cell dir. Point --source at the RUN ROOT to stage "
                    f"every cell in one pass.")
         return [(os.path.basename(source.rstrip("/\\")), source)], None
+
+
+def _repo_provenance_of(source, log):
+    """(commit, dirty) for a run root — the simulator CODE that produced it.
+
+    Read from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the
+    only file on a run that distinguishes two runs of the same tree and the same tables from
+    different code.  Runs made before the stamp existed have no such keys and yield
+    ``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than
+    quietly dropped.
+    """
+    path = os.path.join(source, "run_spec.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            spec = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        log.append(f"  NOTE     no readable run_spec.json at {source}; recording commit 'unknown'")
+        return "unknown", None
+    commit = spec.get("repo_commit") or "unknown"
+    if commit == "unknown":
+        log.append("  NOTE     run_spec.json carries no repo_commit (run predates the stamp)")
+    return commit, spec.get("repo_dirty")
 
 
 def _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log):
@@ -271,7 +295,7 @@ def _short_key(inv_id):
 
 
 def _write_starter_manifest(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log,
-                            cells=None, schema_id=None):
+                            cells=None, schema_id=None, commit=None, dirty=None):
     if not yaml:
         log.append("  NOTE     pyyaml missing; cannot write experiment.yml")
         return
@@ -282,6 +306,13 @@ def _write_starter_manifest(exp_dir, rm, catalogue, top3, full_suite, inv_plots,
         # contract (Optimization/schemas/run_tree/<short>.json), so a re-ingest years later knows
         # exactly which layout the staged snapshot came from and can fetch that document.
         "schema_id": schema_id,
+        # Which simulator CODE produced it.  schema_id answers "what shape", this answers "what
+        # behaviour" — and only the second moves when a fix changes a number without changing a
+        # path or a column.  docs/macros.py:run_commit() renders it beside the run id.
+        # A WHAT-IF experiment's `run:` is a cell, so its commit belongs beside whatif.source_run;
+        # move this key there by hand when you add that block.
+        "commit": commit,
+        "dirty": dirty,
         "cells": list(cells or []),
         "catalogue": catalogue,
         "baseline": rm.get("baseline", "fifo"),

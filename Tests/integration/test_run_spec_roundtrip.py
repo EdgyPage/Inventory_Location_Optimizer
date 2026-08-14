@@ -23,7 +23,12 @@ def test_write_load_roundtrip(tmp_path):
             'pairs': [['profileX', 'inv.db', 'aff.db']], 'resume_granularity': 'strategy'}
     _write_run_spec(str(tmp_path), spec)
     assert os.path.exists(_run_spec_path(str(tmp_path)))
-    assert _load_run_spec(str(tmp_path)) == spec                 # exact round-trip
+    got = _load_run_spec(str(tmp_path))
+    # Every key the CALLER supplied round-trips byte-for-byte; the writer adds code provenance
+    # on top (repo_commit/repo_dirty), which is why this is a superset check and not equality.
+    assert {k: got[k] for k in spec} == spec, got
+    assert got['repo_commit'], f'no repo_commit stamped: {got}'
+    assert set(got) - set(spec) == {'repo_commit', 'repo_dirty'}, sorted(set(got) - set(spec))
     # atomic: no leftover temp file
     assert not any(n.startswith('run_spec.json.tmp') for n in os.listdir(tmp_path))
     # missing -> None (bare resume of a pre-recovery run)
