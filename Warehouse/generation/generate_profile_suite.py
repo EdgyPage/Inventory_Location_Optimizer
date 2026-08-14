@@ -332,6 +332,16 @@ def plot_profile_stats_table(
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # First statement in main, so it covers argparse's own output AND every print below.
+    # The two closing lines of a suite run ("Cross-profile plots →", "Summary →") carry a
+    # U+2192, which has no cp1252 mapping — on a legacy console that raised UnicodeEncodeError
+    # after HOURS of generation, discarding the summary of work that had already succeeded.
+    # Guarded: reconfigure is 3.7+ and stdout may be a plain pipe under some launchers.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Generate inventory + affinity for a suite of order profiles.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

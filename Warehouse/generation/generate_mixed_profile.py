@@ -209,6 +209,15 @@ def _build_plan(args) -> list:
 # ── driver ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
+    # INSIDE parse_args, so a reconfigure that sits after it never runs on the one path that
+    # needs it most.  U+2192 (in --ff-cube-fraction's help) has no cp1252 mapping, so `--help`
+    # on a legacy console died with UnicodeEncodeError instead of printing usage.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Generate one realistic mixed inventory + affinity profile.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -264,10 +273,6 @@ def main() -> None:
     parser.add_argument('--estimate', action='store_true',
                         help='print the plan + expected conveyable fraction and affinity size, then exit')
     args = parser.parse_args()
-    try:
-        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
-    except Exception:
-        pass
     out_dir = _clean_path(args.out_dir)
 
     demand_override = None

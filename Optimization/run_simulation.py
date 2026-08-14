@@ -115,6 +115,15 @@ def _apply_run_spec(args, spec, explicit):
 
 
 def main():
+    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
+    # INSIDE parse_args, so anything placed after it never runs on that path.  U+2192 (in
+    # --s-composition's help) has no cp1252 mapping — unlike the em/en dashes and ellipses
+    # elsewhere here — so `--help` on a legacy console died with UnicodeEncodeError.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
