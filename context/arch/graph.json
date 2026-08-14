@@ -2876,6 +2876,46 @@
       "src": "Optimization/metrics/Workload.py::aisle_workload_components"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::declared_keyframe_shape",
+      "kind": "ref",
+      "src": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "kind": "ref",
+      "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
@@ -2891,12 +2931,17 @@
       "src": "Optimization/persistence/Picking_Data.py::create_run"
     },
     {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::declared_keyframe_shape"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
+      "dst": "Schema/shape.py::canonical_shape",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape"
     },
@@ -2939,16 +2984,6 @@
       "dst": "Optimization/persistence/Picking_Data.py::TaskStats",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::schema_shape_id",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -3006,7 +3041,7 @@
       "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::schema_shape_id",
+      "dst": "Schema/shape.py::shape_id",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
     },
@@ -5531,6 +5566,116 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks"
     },
     {
+      "dst": "Schema/connect.py::_uri",
+      "kind": "calls",
+      "src": "Schema/connect.py::read_only"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Schema/identity.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Schema/identity.py"
+    },
+    {
+      "dst": "Schema/shape.py::shape_id",
+      "kind": "calls",
+      "src": "Schema/identity.py::Family.declared_id"
+    },
+    {
+      "dst": "Schema/identity.py::Family.declared_id",
+      "kind": "calls",
+      "src": "Schema/identity.py::Family.supported_ids"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/identity.py::UnsupportedSchema",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/identity.py::resolve",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Schema/identity.py::check"
+    },
+    {
+      "dst": "Schema/identity.py::SchemaDrift",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/identity.py::read_stamp",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/shape.py::observed_id",
+      "kind": "calls",
+      "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/shape.py::shape_id",
+      "kind": "calls",
+      "src": "Schema/shape.py::is_same_shape"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/shape.py::observed_id"
+    },
+    {
+      "dst": "Schema/shape.py::shape_id",
+      "kind": "calls",
+      "src": "Schema/shape.py::observed_id"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/shape.py::shape_of_ddl"
+    },
+    {
       "dst": "Visualization/cache_schema.py::source_stamps",
       "kind": "calls",
       "src": "Visualization/cache_schema.py::cache_freshness"
@@ -5807,16 +5952,6 @@
     },
     {
       "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/__init__.py::reader_for"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::describe_diff",
-      "kind": "calls",
-      "src": "Visualization/readers/__init__.py::reader_for"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::diff_shapes",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py::reader_for"
     },
@@ -6121,14 +6256,14 @@
       "src": "Visualization/readers/fingerprint.py"
     },
     {
-      "dst": "Visualization/readers/protocol.py",
+      "dst": "Schema/shape.py",
       "kind": "imports",
       "src": "Visualization/readers/fingerprint.py"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
-      "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "dst": "Visualization/readers/protocol.py",
+      "kind": "imports",
+      "src": "Visualization/readers/fingerprint.py"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
@@ -6136,17 +6271,22 @@
       "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id",
+      "dst": "Schema/shape.py::canonical_shape",
       "kind": "calls",
       "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
     },
     {
-      "dst": "Visualization/readers/fingerprint.py::describe_diff",
+      "dst": "Schema/shape.py::describe_diff",
       "kind": "calls",
       "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
     },
     {
-      "dst": "Visualization/readers/fingerprint.py::diff_shapes",
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Schema/shape.py::observed_id",
       "kind": "calls",
       "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
     },
@@ -12212,6 +12352,22 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "KEYFRAME_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::PRE_STAMP_SIM_SCHEMA_ID",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "PRE_STAMP_SIM_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::PickRecord",
       "kind": "class",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12228,19 +12384,19 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "SIM_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::TaskStats",
       "kind": "class",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "TaskStats",
       "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_AUTOINCREMENT_RE",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_AUTOINCREMENT_RE",
-      "public": false
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
@@ -12460,22 +12616,6 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_WHITESPACE_RE",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_WHITESPACE_RE",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_WITHOUT_ROWID_RE",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_WITHOUT_ROWID_RE",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12500,18 +12640,18 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "canonical_schema_shape",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "create_run",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::declared_keyframe_shape",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "declared_keyframe_shape",
       "public": true
     },
     {
@@ -12628,14 +12768,6 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "observed_sim_schema_id",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::run_identity",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12720,14 +12852,6 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_task_stats",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::schema_shape_id",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "schema_shape_id",
       "public": true
     },
     {
@@ -15107,6 +15231,286 @@
       "public": false
     },
     {
+      "file": "Schema/__init__.py",
+      "id": "Schema/__init__.py",
+      "kind": "module",
+      "module": "Schema/__init__.py",
+      "name": "Schema",
+      "public": true
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py",
+      "kind": "module",
+      "module": "Schema/connect.py",
+      "name": "Schema.connect",
+      "public": true
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::_BUSY_TIMEOUT",
+      "kind": "const",
+      "module": "Schema/connect.py",
+      "name": "_BUSY_TIMEOUT",
+      "public": false
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::_CACHE_PAGES",
+      "kind": "const",
+      "module": "Schema/connect.py",
+      "name": "_CACHE_PAGES",
+      "public": false
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::_uri",
+      "kind": "function",
+      "module": "Schema/connect.py",
+      "name": "_uri",
+      "public": false
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::bulk_writer",
+      "kind": "function",
+      "module": "Schema/connect.py",
+      "name": "bulk_writer",
+      "public": true
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::read_only",
+      "kind": "function",
+      "module": "Schema/connect.py",
+      "name": "read_only",
+      "public": true
+    },
+    {
+      "file": "Schema/connect.py",
+      "id": "Schema/connect.py::writer",
+      "kind": "function",
+      "module": "Schema/connect.py",
+      "name": "writer",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py",
+      "kind": "module",
+      "module": "Schema/identity.py",
+      "name": "Schema.identity",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::Family",
+      "kind": "class",
+      "module": "Schema/identity.py",
+      "name": "Family",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::Family.declared_id",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "declared_id",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::Family.supported_ids",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "supported_ids",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::SchemaDrift",
+      "kind": "class",
+      "module": "Schema/identity.py",
+      "name": "SchemaDrift",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::SchemaError",
+      "kind": "class",
+      "module": "Schema/identity.py",
+      "name": "SchemaError",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::UnsupportedSchema",
+      "kind": "class",
+      "module": "Schema/identity.py",
+      "name": "UnsupportedSchema",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::UnsupportedSchema.__init__",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::check",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "check",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::families",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "families",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::get",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::read_stamp",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "read_stamp",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::register",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "register",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::resolve",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "resolve",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::stamp",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "stamp",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py",
+      "kind": "module",
+      "module": "Schema/shape.py",
+      "name": "Schema.shape",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::SHORT_LEN",
+      "kind": "const",
+      "module": "Schema/shape.py",
+      "name": "SHORT_LEN",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::_AUTOINCREMENT_RE",
+      "kind": "const",
+      "module": "Schema/shape.py",
+      "name": "_AUTOINCREMENT_RE",
+      "public": false
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::_WHITESPACE_RE",
+      "kind": "const",
+      "module": "Schema/shape.py",
+      "name": "_WHITESPACE_RE",
+      "public": false
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::_WITHOUT_ROWID_RE",
+      "kind": "const",
+      "module": "Schema/shape.py",
+      "name": "_WITHOUT_ROWID_RE",
+      "public": false
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::canonical_shape",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "canonical_shape",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::describe_diff",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "describe_diff",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::diff_shapes",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "diff_shapes",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::is_same_shape",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "is_same_shape",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::observed_id",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "observed_id",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::shape_id",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "shape_id",
+      "public": true
+    },
+    {
+      "file": "Schema/shape.py",
+      "id": "Schema/shape.py::shape_of_ddl",
+      "kind": "function",
+      "module": "Schema/shape.py",
+      "name": "shape_of_ddl",
+      "public": true
+    },
+    {
       "file": "Visualization/__init__.py",
       "id": "Visualization/__init__.py",
       "kind": "module",
@@ -15817,22 +16221,6 @@
       "module": "Visualization/readers/fingerprint.py",
       "name": "__all__",
       "public": false
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::describe_diff",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "describe_diff",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::diff_shapes",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "diff_shapes",
-      "public": true
     },
     {
       "file": "Visualization/readers/fingerprint.py",
@@ -20992,6 +21380,7 @@
     "Optimization",
     "Diagnostics",
     "Visualization",
+    "Schema",
     "scripts",
     "docs"
   ],

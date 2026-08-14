@@ -25,7 +25,9 @@ artifacts:
       - {function: AffinityStore, file: Warehouse/catalog/Affinity_Store.py}
     match: "affinity.db"
     schema_file: Warehouse/generation/generate_affinity.py
-    tables: [affinity, run_metadata]
+    # sku_group is written only by Warehouse/catalog/Affinity_Store.py but is DECLARED by the
+    # generator, so the file's shape no longer changes the first time the store opens it.
+    tables: [affinity, run_metadata, sku_group]
 
   # ── simulation outputs ──────────────────────────────────────────────────────────
   run_manifest:

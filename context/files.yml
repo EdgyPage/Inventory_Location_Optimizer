@@ -397,11 +397,12 @@ files:
       - {name: "BinInventoryRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "PickerEventRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "init_run_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "canonical_schema_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "schema_shape_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "observed_sim_schema_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "declared_sim_schema_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "sim_schema_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "declared_keyframe_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "PRE_STAMP_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "SIM_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "run_identity", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -666,6 +667,43 @@ files:
     layer: "opt_simdriver"
     key_symbols: []
     notes: ""
+  "Schema/connect.py":
+    purpose: "the three ways this project should open a SQLite file."
+    layer: "schema"
+    key_symbols:
+      - {name: "read_only", file: "Schema/connect.py", kind: "function"}
+      - {name: "writer", file: "Schema/connect.py", kind: "function"}
+      - {name: "bulk_writer", file: "Schema/connect.py", kind: "function"}
+    notes: ""
+  "Schema/identity.py":
+    purpose: "which schema is this database, and is it the one we expect?"
+    layer: "schema"
+    key_symbols:
+      - {name: "SchemaError", file: "Schema/identity.py", kind: "class"}
+      - {name: "UnsupportedSchema", file: "Schema/identity.py", kind: "class"}
+      - {name: "SchemaDrift", file: "Schema/identity.py", kind: "class"}
+      - {name: "Family", file: "Schema/identity.py", kind: "class"}
+      - {name: "register", file: "Schema/identity.py", kind: "function"}
+      - {name: "get", file: "Schema/identity.py", kind: "function"}
+      - {name: "families", file: "Schema/identity.py", kind: "function"}
+      - {name: "stamp", file: "Schema/identity.py", kind: "function"}
+      - {name: "read_stamp", file: "Schema/identity.py", kind: "function"}
+      - {name: "resolve", file: "Schema/identity.py", kind: "function"}
+      - {name: "check", file: "Schema/identity.py", kind: "function"}
+    notes: ""
+  "Schema/shape.py":
+    purpose: "the canonical SQL shape of a SQLite database, and the diff between two."
+    layer: "schema"
+    key_symbols:
+      - {name: "SHORT_LEN", file: "Schema/shape.py", kind: "const"}
+      - {name: "canonical_shape", file: "Schema/shape.py", kind: "function"}
+      - {name: "shape_id", file: "Schema/shape.py", kind: "function"}
+      - {name: "observed_id", file: "Schema/shape.py", kind: "function"}
+      - {name: "shape_of_ddl", file: "Schema/shape.py", kind: "function"}
+      - {name: "diff_shapes", file: "Schema/shape.py", kind: "function"}
+      - {name: "describe_diff", file: "Schema/shape.py", kind: "function"}
+      - {name: "is_same_shape", file: "Schema/shape.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_archgraph_extract.py":
     purpose: "test_archgraph_extract.py"
     layer: "tests"
@@ -796,6 +834,22 @@ files:
       - {name: "parse", file: "Tests/bench/bench_sections.py", kind: "function"}
       - {name: "section_shares", file: "Tests/bench/bench_sections.py", kind: "function"}
       - {name: "run", file: "Tests/bench/bench_sections.py", kind: "function"}
+    notes: ""
+  "Tests/bench/bin_log_harness.py":
+    purpose: "a sandbox for proving a bin-mutation log can replay the simulation."
+    layer: "tests"
+    key_symbols:
+      - {name: "Place", file: "Tests/bench/bin_log_harness.py", kind: "class"}
+      - {name: "Evict", file: "Tests/bench/bin_log_harness.py", kind: "class"}
+      - {name: "Pick", file: "Tests/bench/bin_log_harness.py", kind: "class"}
+      - {name: "BinLog", file: "Tests/bench/bin_log_harness.py", kind: "class"}
+      - {name: "fold", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "attach_recorder", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "begin_batch", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "observe", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "build_scenario", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "make_reloader", file: "Tests/bench/bin_log_harness.py", kind: "function"}
+      - {name: "run_sim", file: "Tests/bench/bin_log_harness.py", kind: "function"}
     notes: ""
   "Tests/bench/coverage_e2e.py":
     purpose: "single-process full-pipeline exerciser (refactor safety net)."
@@ -959,6 +1013,24 @@ files:
       - {name: "test_legacy_db_without_columns_loads", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
       - {name: "test_flag_batch_outliers_preserves_new_metrics", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
       - {name: "test_bdf_thr_task_nan_when_task_makespan_absent", file: "Tests/integration/test_batch_metrics.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_bin_log_replay.py":
+    purpose: "PHASE A: can a bin-mutation log replay the simulation exactly?"
+    layer: "tests"
+    key_symbols:
+      - {name: "N_SKUS", file: "Tests/integration/test_bin_log_replay.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/integration/test_bin_log_replay.py", kind: "const"}
+      - {name: "plain", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "reslot", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_the_plain_scenario_actually_reorders", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_the_reslot_scenario_actually_evicts", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_fold_equals_truth_at_every_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_fold_is_exact_at_both_edges_of_a_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_units_are_conserved_every_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_recorder_agrees_with_the_managers_own_counters", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_recorder_agrees_with_the_reload_counter", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_dropping_placements_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_dropping_evictions_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
     notes: ""
   "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
@@ -1516,8 +1588,6 @@ files:
     key_symbols:
       - {name: "read_stamped_id", file: "Visualization/readers/fingerprint.py", kind: "function"}
       - {name: "resolve_schema_id", file: "Visualization/readers/fingerprint.py", kind: "function"}
-      - {name: "diff_shapes", file: "Visualization/readers/fingerprint.py", kind: "function"}
-      - {name: "describe_diff", file: "Visualization/readers/fingerprint.py", kind: "function"}
     notes: ""
   "Visualization/readers/protocol.py":
     purpose: "the versioned data interface the views are written against."

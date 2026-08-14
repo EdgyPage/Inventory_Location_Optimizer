@@ -1,11 +1,12 @@
 import csv
-import hashlib
-import json
 import os
 import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from Schema import identity as _identity
+from Schema import shape as _shape
 
 
 @dataclass
@@ -509,89 +510,22 @@ def init_run_db(path: str) -> None:
 
 
 # ── Schema identity ───────────────────────────────────────────────────────────
-# A sim DB carries no version number (PRAGMA user_version and application_id are 0 on every run
-# ever written), so its identity is DERIVED FROM SHAPE and then stamped — the same trick
-# Optimization/runschema/contract.py uses for the run tree.  Nobody picks the number, two
-# branches cannot both call themselves "v3", and any consumer can re-derive it to check.
+# The shape normalizer and the id derivation live in `Schema/` so every DB family shares one
+# implementation.  The family REGISTERS ITSELF here rather than Schema/ importing this module:
+# Schema is a stdlib-only leaf and must not depend on any writer.
 #
-# Runs written before the sim_schema_id column existed leave it NULL; the viewer derives the id
-# from sqlite_master instead and pins the result, so a 500 GB archive stays readable untouched.
-
-_AUTOINCREMENT_RE = re.compile(r'\bAUTOINCREMENT\b', re.IGNORECASE)
-_WITHOUT_ROWID_RE = re.compile(r'\bWITHOUT\s+ROWID\b', re.IGNORECASE)
-_WHITESPACE_RE = re.compile(r'\s+')
+# The declared shape is produced by BUILDING the schema this module creates, in memory — never
+# by hand-listing columns, which is exactly the kind of declaration that drifts from its writer.
 
 _DECLARED_SIM_SCHEMA_ID: str | None = None
 
 
-def canonical_schema_shape(con: sqlite3.Connection) -> dict:
-    """The hashable SQL shape of every user table on this connection.
-
-    Covers, per table: columns (name / normalized type / notnull / pk) in cid order, every
-    index's name + uniqueness + ORDERED columns, and the AUTOINCREMENT and WITHOUT ROWID flags
-    (both invisible to PRAGMA table_info — an INTEGER PRIMARY KEY looks identical to an
-    INTEGER PRIMARY KEY AUTOINCREMENT there, and six of these ten tables use the latter).
-
-    Deliberately EXCLUDED, and not to be "fixed" without reading why:
-      sqlite_sequence     a side effect of AUTOINCREMENT, carrying no shape of its own; the
-                          flag above recovers the only bit that matters.
-      sqlite_stat1..4     created by ANALYZE.  Hashing them would mint a new schema id for a
-                          statistics refresh and orphan every vetted reader — and ANALYZE is a
-                          plausible thing to run here, since one viewer query is an unindexed
-                          24 s scan.
-      foreign keys        declared but never enforced (nothing sets PRAGMA foreign_keys=ON),
-                          so a read-only consumer cannot observe them.
-      views, triggers     none exist; excluding them makes adding one a conscious act.
-
-    Everything is sorted, so the ORDER of the CREATE statements in _apply_run_schema is not a
-    schema change and does not move the id.  Column types are upper-cased and whitespace-collapsed
-    but NOT resolved to SQLite affinities: renaming INTEGER to INT is harmless but real, and
-    should be visible rather than silently absorbed.
-    """
-    tables = {}
-    master = {
-        name: (sql or '')
-        for name, sql in con.execute(
-            "SELECT name, sql FROM sqlite_master WHERE type='table' "
-            "AND name NOT LIKE 'sqlite_%'")
-    }
-    for name, sql in master.items():
-        cols = [
-            {'name': r[1], 'type': _WHITESPACE_RE.sub(' ', (r[2] or '').strip()).upper(),
-             'notnull': int(r[3]), 'pk': int(r[5])}
-            for r in con.execute(f'PRAGMA table_info("{name}")')
-        ]
-        indexes = [
-            {'name': idx[1], 'unique': int(idx[2]),
-             'cols': [r[2] for r in con.execute(f'PRAGMA index_info("{idx[1]}")')]}
-            for idx in con.execute(f'PRAGMA index_list("{name}")')
-        ]
-        tables[name] = {
-            'columns': cols,
-            'indexes': sorted(indexes, key=lambda i: i['name']),
-            'autoincrement': bool(_AUTOINCREMENT_RE.search(sql)),
-            'without_rowid': bool(_WITHOUT_ROWID_RE.search(sql)),
-        }
-    return {'tables': dict(sorted(tables.items()))}
-
-
-def schema_shape_id(shape: dict) -> str:
-    """12-hex id of a canonical shape (same truncation as the run-tree contract)."""
-    blob = json.dumps(shape, sort_keys=True, separators=(',', ':')).encode('utf-8')
-    return hashlib.sha256(blob).hexdigest()[:12]
-
-
-def observed_sim_schema_id(con: sqlite3.Connection) -> str:
-    """The id of the schema the database behind *con* actually has."""
-    return schema_shape_id(canonical_schema_shape(con))
-
-
 def declared_sim_schema_shape() -> dict:
-    """Canonical shape of a run DB as _apply_run_schema creates it, built in memory."""
+    """Canonical shape of a run DB as `_apply_run_schema` creates it, built in memory."""
     con = sqlite3.connect(':memory:')
     try:
         _apply_run_schema(con)
-        return canonical_schema_shape(con)
+        return _shape.canonical_shape(con)
     finally:
         con.close()
 
@@ -600,8 +534,37 @@ def sim_schema_id() -> str:
     """The id this build stamps into new run DBs.  Computed once, then cached."""
     global _DECLARED_SIM_SCHEMA_ID
     if _DECLARED_SIM_SCHEMA_ID is None:
-        _DECLARED_SIM_SCHEMA_ID = schema_shape_id(declared_sim_schema_shape())
+        _DECLARED_SIM_SCHEMA_ID = _shape.shape_id(declared_sim_schema_shape())
     return _DECLARED_SIM_SCHEMA_ID
+
+
+def declared_keyframe_shape() -> dict:
+    """Canonical shape of the sibling keyframe DB."""
+    con = sqlite3.connect(':memory:')
+    try:
+        con.execute(_CREATE_BIN_KEYFRAME)
+        con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+#: The shape every run in the archive was written with, before `sim_schema_id` existed.  Frozen:
+#: it cannot be recomputed from today's source, and those files are never rewritten.
+PRE_STAMP_SIM_SCHEMA_ID = '23d0c7f167bc'
+
+SIM_DB_FAMILY = _identity.register(_identity.Family(
+    name='sim_db',
+    declared_shape=declared_sim_schema_shape,
+    meta_table=None,                 # stamped into simulation_runs.sim_schema_id, not a meta table
+    known_ids=(PRE_STAMP_SIM_SCHEMA_ID,),
+))
+
+KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
+    name='keyframes_db',
+    declared_shape=declared_keyframe_shape,
+    meta_table=None,
+))
 
 
 def create_run(path: str, run_type: str, params: dict | None = None,

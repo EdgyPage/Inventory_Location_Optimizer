@@ -2880,6 +2880,20 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='keyframes_db', declared_shape=declared_keyframe_shape, meta_table=None))"
+    },
+    "Optimization/persistence/Picking_Data.py::PRE_STAMP_SIM_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'23d0c7f167bc'"
+    },
     "Optimization/persistence/Picking_Data.py::PickRecord": {
       "decorators": [
         "dataclass"
@@ -2896,6 +2910,13 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID,)))"
+    },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
         "dataclass"
@@ -2903,13 +2924,6 @@
       "doc": null,
       "kind": "class",
       "signature": ""
-    },
-    "Optimization/persistence/Picking_Data.py::_AUTOINCREMENT_RE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "re.compile('\\\\bAUTOINCREMENT\\\\b', re.IGNORECASE)"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
       "decorators": [],
@@ -3100,20 +3114,6 @@
       "signature": null,
       "value_preview": "('num_pickers', 'x_speed', 'y_speed', 'pick_intercept', 'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef', 'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval', 'optimal_sigma_fd', 'o..."
     },
-    "Optimization/persistence/Picking_Data.py::_WHITESPACE_RE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "re.compile('\\\\s+')"
-    },
-    "Optimization/persistence/Picking_Data.py::_WITHOUT_ROWID_RE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "re.compile('\\\\bWITHOUT\\\\s+ROWID\\\\b', re.IGNORECASE)"
-    },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
       "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.",
@@ -3135,13 +3135,6 @@
       "kind": "function",
       "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
     },
-    "Optimization/persistence/Picking_Data.py::canonical_schema_shape": {
-      "decorators": [],
-      "doc": "The hashable SQL shape of every user table on this connection.\n\nCovers, per table: columns (name / normalized type / notnull / pk) in cid order, every\nindex's name + uniqueness + ORDERED columns, and the AUTOINCREMENT and WITHOUT ROWID flags\n(both invisible to PRAGMA table_info \u2014 an INTEGER PRIMARY KEY looks identical to an\nINTEGER PRIMARY KEY AUTOINCREMENT there, and six of these ten tables use the latter).\n\nDeliberately EXCLUDED, and not to be \"fixed\" without reading why:\n  sqlite_sequence     a side effect of AUTOINCREMENT, carrying no shape of its own; the\n                      flag above recovers the only bit that matters.\n  sqlite_stat1..4     created by ANALYZE.  Hashing them would mint a new schema id for a\n                      statistics refresh and orphan every vetted reader \u2014 and ANALYZE is a\n                      plausible thing to run here, since one viewer query is an unindexed\n                      24 s scan.\n  foreign keys        declared but never enforced (nothing sets PRAGMA foreign_keys=ON),\n                      so a read-only consumer cannot observe them.\n  views, triggers     none exist; excluding them makes adding one a conscious act.\n\nEverything is sorted, so the ORDER of the CREATE statements in _apply_run_schema is not a\nschema change and does not move the id.  Column types are upper-cased and whitespace-collapsed\nbut NOT resolved to SQLite affinities: renaming INTEGER to INT is harmless but real, and\nshould be visible rather than silently absorbed.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(con: sqlite3.Connection) -> dict"
-    },
     "Optimization/persistence/Picking_Data.py::create_run": {
       "decorators": [],
       "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
@@ -3149,9 +3142,16 @@
       "kind": "function",
       "signature": "(path: str, run_type: str, params: dict | None=None, identity: dict | None=None) -> int"
     },
+    "Optimization/persistence/Picking_Data.py::declared_keyframe_shape": {
+      "decorators": [],
+      "doc": "Canonical shape of the sibling keyframe DB.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
     "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape": {
       "decorators": [],
-      "doc": "Canonical shape of a run DB as _apply_run_schema creates it, built in memory.",
+      "doc": "Canonical shape of a run DB as `_apply_run_schema` creates it, built in memory.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -3247,13 +3247,6 @@
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[TaskStats]"
     },
-    "Optimization/persistence/Picking_Data.py::observed_sim_schema_id": {
-      "decorators": [],
-      "doc": "The id of the schema the database behind *con* actually has.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(con: sqlite3.Connection) -> str"
-    },
     "Optimization/persistence/Picking_Data.py::run_identity": {
       "decorators": [],
       "doc": "Return the stored identity + key params for a run (rename-proof metadata).\nMissing columns (older schema) are simply omitted from the dict.",
@@ -3330,13 +3323,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[TaskStats]) -> None"
-    },
-    "Optimization/persistence/Picking_Data.py::schema_shape_id": {
-      "decorators": [],
-      "doc": "12-hex id of a canonical shape (same truncation as the run-tree contract).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(shape: dict) -> str"
     },
     "Optimization/persistence/Picking_Data.py::sim_schema_id": {
       "decorators": [],
@@ -5397,6 +5383,245 @@
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
     },
+    "Schema/__init__.py": {
+      "decorators": [],
+      "doc": "Schema \u2014 the shape and identity of this project's SQLite databases.\n\n`Schema/` owns the shape of each **database**.\n`Optimization/runschema/` owns the shape of the run **directory tree**.\nThey are different questions and neither imports the other. See README.md.\n\nStdlib only, and importable from every layer \u2014 which is the reason it is a top-level package\nrather than living under `Optimization/`: `context/architecture.yml` forbids\n`warehouse_core -> optimization`, and `Warehouse/generation/` writes two of the DB families.\n\nNothing is imported eagerly; take what you need:\n\n    from Schema import connect          # read_only / writer / bulk_writer\n    from Schema import shape            # canonical_shape / shape_id / diff_shapes\n    from Schema import identity         # Family / register / resolve / check",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/connect.py": {
+      "decorators": [],
+      "doc": "connect.py \u2014 the three ways this project should open a SQLite file.\n\nBefore this module there were **seven** distinct connect idioms across 35 production call sites\nand no shared helper, which had two concrete consequences:\n\n  * `Optimization/run_whatif_delta.py` and `run_whatif_labor.py` opened **archived** sim DBs\n    read-WRITE with no pragmas, dropping `-wal`/`-shm` sidecars beside a 1 GB file \u2014 exactly the\n    condition `scripts/archive_cells.py::_quick_check` exists to defend against.\n  * A shape fingerprint is only meaningful if reading a database cannot change it, and a\n    read-write open can (WAL mode is itself a write).\n\nThree intents, named:\n\n    read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way\n                       to fingerprint one.\n    writer(path)       a database being written during a run: WAL + a busy timeout, so parallel\n                       workers do not trip over each other's checkpoints.\n    bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,\n                       because a crash means \"rebuild it\", not \"lose data\".\n\nStdlib only; no imports from anywhere else in the repo.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/connect.py::_BUSY_TIMEOUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "60.0"
+    },
+    "Schema/connect.py::_CACHE_PAGES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "-262144"
+    },
+    "Schema/connect.py::_uri": {
+      "decorators": [],
+      "doc": "A read-only URI that survives Windows paths.\n\n`sqlite3` wants forward slashes in a URI even on Windows; a raw backslash path silently\nfails to open. That bug is why this is one function and not five copies.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, *, immutable: bool=False) -> str"
+    },
+    "Schema/connect.py::bulk_writer": {
+      "decorators": [],
+      "doc": "Open a DERIVED file for a full rebuild.\n\nDurability is deliberately off. It is safe precisely because the file is derived: a crash\nleaves a cache with no completion marker, which its reader treats as absent and rebuilds.\nDo not use this for anything that is a matter of record.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str)"
+    },
+    "Schema/connect.py::read_only": {
+      "decorators": [],
+      "doc": "Open a finished artifact strictly for reading.\n\nNever use a writer here: `PRAGMA journal_mode=WAL` is a WRITE, so it fails on a read-only\nmount and otherwise leaves sidecar files next to an archived database.\n\n`immutable=True` additionally promises the file will not change while open, which lets SQLite\nskip locking entirely \u2014 correct for an archived run, wrong for one still being written.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, *, row_factory: bool=True, immutable: bool=False)"
+    },
+    "Schema/connect.py::writer": {
+      "decorators": [],
+      "doc": "Open a database that a run is actively writing.\n\nWAL allows concurrent readers alongside the single writer, which is what lets the viewer\nopen a run that is still going.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, *, timeout: float=_BUSY_TIMEOUT, tuned: bool=False)"
+    },
+    "Schema/identity.py": {
+      "decorators": [],
+      "doc": "identity.py \u2014 which schema is this database, and is it the one we expect?\n\nThe registry of DB families and the stamped -> pinned -> derived resolution that turns a file into\na known shape.\n\nWhy a database needs an identity at all\n---------------------------------------\nNothing in this project raises when a column disappears. Every loader in\n`Optimization/persistence/Picking_Data.py` does `SELECT *` and guards with `row.keys()`, and\n`Optimization/Performance_Evaluations/` reaches all of them through those loaders \u2014 so a renamed\nor dropped column does not fail, it silently becomes the dataclass default `0.0`/NaN in\n`common/frames.py`, and a published number quietly changes. That is the quietest failure mode in\nthe codebase. An identity check converts it into a loud one.\n\nIdentity is DERIVED FROM SHAPE, never chosen \u2014 the same trick\n`Optimization/runschema/contract.py` uses for the run tree. Nobody picks a version number, two\nbranches cannot both call themselves \"v3\", and any consumer can re-derive it to check.\n\nResolution order is **stamped -> pinned -> derived**, because deriving costs ~10 PRAGMA round\ntrips per file and an archive holds hundreds:\n\n    stamped   the writer recorded its own id in the file (families that have a meta table)\n    pinned    a previous derivation was cached alongside (e.g. a derived sidecar)\n    derived   read out of `sqlite_master` now",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/identity.py::Family": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One database family: what it is called, how it declares its shape, where it stamps it.\n\n`declared_shape` is a callable rather than a literal so a family's expectation is always\nproduced by BUILDING the schema its writer builds \u2014 a hand-listed column set is exactly the\nkind of declaration that drifts.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/identity.py::Family.declared_id": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Schema/identity.py::Family.supported_ids": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Schema/identity.py::SchemaDrift": {
+      "decorators": [],
+      "doc": "The stamped or pinned id disagrees with the file's actual shape.",
+      "kind": "class",
+      "signature": "(SchemaError)"
+    },
+    "Schema/identity.py::SchemaError": {
+      "decorators": [],
+      "doc": "Base for every schema-identity failure.",
+      "kind": "class",
+      "signature": "(Exception)"
+    },
+    "Schema/identity.py::UnsupportedSchema": {
+      "decorators": [],
+      "doc": "This database's shape is not one this build knows how to read.",
+      "kind": "class",
+      "signature": "(SchemaError)"
+    },
+    "Schema/identity.py::UnsupportedSchema.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str, observed: str, known: tuple, detail: str='')"
+    },
+    "Schema/identity.py::check": {
+      "decorators": [],
+      "doc": "Open `path` read-only, resolve its id, and refuse anything unvetted.\n\nThe one call a consumer needs before trusting a file's columns.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, family_name: str, *, verify: bool=False) -> str"
+    },
+    "Schema/identity.py::families": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
+    },
+    "Schema/identity.py::get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> Family"
+    },
+    "Schema/identity.py::read_stamp": {
+      "decorators": [],
+      "doc": "The id a writer recorded, or None.\n\nNone is the expected answer for every file written before its family was stamped \u2014 that is\nthe normal path into derivation, not an error.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, family: Family) -> str | None"
+    },
+    "Schema/identity.py::register": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: Family) -> Family"
+    },
+    "Schema/identity.py::resolve": {
+      "decorators": [],
+      "doc": "Resolve the schema id of `con`. Returns `(schema_id, source)`.\n\nWith `verify=True` the id is always re-derived and checked against whatever was stamped or\npinned; a disagreement means the file was migrated after it was written, and raises. The\nstamp is provenance, but the OBSERVED shape is what queries must be planned against.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, family: Family, *, pinned: str | None=None, verify: bool=False) -> tuple"
+    },
+    "Schema/identity.py::stamp": {
+      "decorators": [],
+      "doc": "Record this build's declared id into the file. No-op for a family with no meta table.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, family: Family) -> str | None"
+    },
+    "Schema/shape.py": {
+      "decorators": [],
+      "doc": "shape.py \u2014 the canonical SQL shape of a SQLite database, and the diff between two.\n\nStdlib only, and deliberately family-agnostic: every function here takes a bare\n`sqlite3.Connection` and knows nothing about which of the project's databases it is looking at.\nThat is what lets one implementation serve all eight families.\n\nWhat the shape covers, per table (excluding `sqlite_%`):\n  * `PRAGMA table_info`  -> (name, normalized type, notnull, pk) in cid order\n  * `PRAGMA index_list` + `index_info` -> each index's name, uniqueness, and ORDERED columns\n  * AUTOINCREMENT / WITHOUT ROWID, regexed out of `sqlite_master.sql`\n\nDeliberately EXCLUDED \u2014 do not \"fix\" these without reading why:\n  `sqlite_sequence`     a side effect of AUTOINCREMENT carrying no shape of its own, and not\n                        reliably present on a database rebuilt by another path.  The bit that\n                        matters is recovered by the AUTOINCREMENT flag instead.\n  `sqlite_stat1..4`     created by ANALYZE.  Hashing them would mint a new id for a statistics\n                        refresh and orphan every vetted reader \u2014 and ANALYZE is a plausible\n                        thing to run here, since one viewer query is an unindexed 24 s scan.\n  foreign keys          declared but never enforced (nothing sets `PRAGMA foreign_keys=ON`),\n                        so a read-only consumer cannot observe them.\n  views, triggers       none exist; excluding them makes adding one a conscious act.\n\nEverything is sorted, so the ORDER of CREATE statements is not a schema change. Column types are\nupper-cased and whitespace-collapsed but NOT resolved to SQLite affinities: renaming `INTEGER` to\n`INT` is harmless but real, and should be visible rather than silently absorbed.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/shape.py::SHORT_LEN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "12"
+    },
+    "Schema/shape.py::_AUTOINCREMENT_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('\\\\bAUTOINCREMENT\\\\b', re.IGNORECASE)"
+    },
+    "Schema/shape.py::_WHITESPACE_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('\\\\s+')"
+    },
+    "Schema/shape.py::_WITHOUT_ROWID_RE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('\\\\bWITHOUT\\\\s+ROWID\\\\b', re.IGNORECASE)"
+    },
+    "Schema/shape.py::canonical_shape": {
+      "decorators": [],
+      "doc": "The hashable SQL shape of every user table on this connection.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection) -> dict"
+    },
+    "Schema/shape.py::describe_diff": {
+      "decorators": [],
+      "doc": "One finding per clause, for an exception message.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d: dict, limit: int=6) -> str"
+    },
+    "Schema/shape.py::diff_shapes": {
+      "decorators": [],
+      "doc": "Structural difference `expected` -> `actual`, as plain data.\n\nExists because every family's DDL is `CREATE TABLE IF NOT EXISTS`: a database written by old\ncode and reopened by new code gains the missing TABLES but never the missing COLUMNS, so it\nmatches neither declaration. \"hash 4f2a\u2026 is unknown\" is useless for that; \"picks is missing\ncolumn quantity\" is actionable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(expected: dict, actual: dict) -> dict"
+    },
+    "Schema/shape.py::is_same_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a: dict, b: dict) -> bool"
+    },
+    "Schema/shape.py::observed_id": {
+      "decorators": [],
+      "doc": "The id of the schema the database behind *con* actually has.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection) -> str"
+    },
+    "Schema/shape.py::shape_id": {
+      "decorators": [],
+      "doc": "12-hex id of a canonical shape.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shape: dict) -> str"
+    },
+    "Schema/shape.py::shape_of_ddl": {
+      "decorators": [],
+      "doc": "Canonical shape of a schema built in memory from DDL statements.\n\nThis is how a family declares its expected shape: by BUILDING it, never by hand-listing\ncolumns. A declaration derived from the same DDL the writer executes cannot drift from it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(statements) -> dict"
+    },
     "Visualization/__init__.py": {
       "decorators": [],
       "doc": "Visualization \u2014 the spatial run viewer.\n\nA package so `python -m Visualization.precompute` works and the reader layer can be imported\npackage-absolutely.  See README.md for what belongs here; RECONSTRUCTION.md for what the\npersisted data can and cannot answer.\n\nNothing is imported eagerly: `server.py` needs flask, `precompute.py` must NOT, and the readers\nneed neither.  Importing this package pulls in nothing but this docstring.",
@@ -6004,7 +6229,7 @@
     },
     "Visualization/readers/fingerprint.py": {
       "decorators": [],
-      "doc": "fingerprint.py \u2014 resolving WHICH sim-DB schema a file has, and explaining a mismatch.\n\nThe normalizer itself lives in `Optimization/persistence/Picking_Data` beside the DDL it\ndescribes \u2014 `canonical_schema_shape` / `schema_shape_id` / `observed_sim_schema_id` /\n`sim_schema_id`.  There is exactly one implementation and the declared id is produced by running\nit over a schema the writer actually builds, so declaration cannot drift from reality.\n\nThis module adds the two things only a *reader* needs:\n\n  * :func:`resolve_schema_id` \u2014 the stamped -> pinned -> derived precedence.\n  * :func:`diff_shapes` / :func:`describe_diff` \u2014 what an ``UnsupportedSimSchema`` message says.\n\nWhy the diff matters: ``init_run_db`` is all ``CREATE TABLE IF NOT EXISTS``, so a DB written by\nold code and reopened by new code gains the missing TABLES but never the missing COLUMNS \u2014 it\nmatches neither declaration.  \"hash 4f2a\u2026 is unknown\" is useless for that; \"picks is missing\ncolumn quantity; index ix_pe_run_batch_time absent\" is actionable.",
+      "doc": "fingerprint.py \u2014 resolving WHICH sim-DB schema a file has, and explaining a mismatch.\n\nThe normalizer and the structural diff live in `Schema/shape.py`, shared by every DB family;\nthe sim DB's DECLARED shape comes from `Picking_Data.declared_sim_schema_shape`, which builds the\nschema its own writer builds, so the declaration cannot drift from reality.\n\nThis module is the thin sim-specific layer over both, and adds the one thing only a *reader*\nneeds: :func:`resolve_schema_id`, the stamped -> pinned -> derived precedence.  Everything else\nhere is a re-export, kept so the reader package has a single import surface.\n\nWhy the diff matters: ``init_run_db`` is all ``CREATE TABLE IF NOT EXISTS``, so a DB written by\nold code and reopened by new code gains the missing TABLES but never the missing COLUMNS \u2014 it\nmatches neither declaration.  \"hash 4f2a\u2026 is unknown\" is useless for that; \"picks is missing\ncolumn quantity; index ix_pe_run_batch_time absent\" is actionable.",
       "kind": "module",
       "signature": null
     },
@@ -6014,20 +6239,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "['canonical_schema_shape', 'declared_sim_schema_shape', 'observed_sim_schema_id', 'schema_shape_id', 'sim_schema_id', 'resolve_schema_id', 'read_stamped_id', 'diff_shapes', 'describe_diff']"
-    },
-    "Visualization/readers/fingerprint.py::describe_diff": {
-      "decorators": [],
-      "doc": "One finding per clause, for an exception message.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(d: dict, limit: int=6) -> str"
-    },
-    "Visualization/readers/fingerprint.py::diff_shapes": {
-      "decorators": [],
-      "doc": "Structural difference `expected` -> `actual`, as plain data.\n\n``{'tables_missing': [...], 'tables_extra': [...],\n   'columns': {table: {'missing': [...], 'extra': [...], 'changed': [(col, exp, act)]}},\n   'indexes': {table: {'missing': [...], 'extra': [...]}}}``",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(expected: dict, actual: dict) -> dict"
     },
     "Visualization/readers/fingerprint.py::read_stamped_id": {
       "decorators": [],
@@ -6609,7 +6820,7 @@
     },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore._init_schema": {
       "decorators": [],
-      "doc": null,
+      "doc": "Create the tables ONLY when something is actually missing.\n\nThis used to run unconditionally, which meant opening a complete, generator-written\n`affinity.db` \u2014 even purely to read it \u2014 silently ADDED `sku_group` and changed the\nfile's shape.  A database whose structure depends on whether it has been opened yet\ncannot be fingerprinted, and the mutation also drifted it away from what\n`context/artifacts.yml` declares.  The generator now declares `sku_group` too, so the\ncommon path finds everything present and touches nothing.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -6997,7 +7208,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS affinity (\\n sku_i INTEGER NOT NULL,\\n sku_j INTEGER NOT NULL,\\n lift REAL NOT NULL,\\n PRIMARY KEY (sku_i, sku_j)\\n );\\n CREATE INDEX IF NOT EXISTS idx_affinity_sku_i..."
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS affinity (\\n sku_i INTEGER NOT NULL,\\n sku_j INTEGER NOT NULL,\\n lift REAL NOT NULL,\\n PRIMARY KEY (sku_i, sku_j)\\n );\\n CREATE INDEX IF NOT EXISTS idx_affinity_sku_i..."
     },
     "Warehouse/generation/generate_affinity.py::_TOP_K_DEFAULT": {
       "decorators": [],

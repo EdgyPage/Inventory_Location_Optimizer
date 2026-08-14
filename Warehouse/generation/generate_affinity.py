@@ -104,6 +104,14 @@ _SCHEMA = '''
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );
+    -- Declared here even though only Warehouse/catalog/Affinity_Store.py writes it.  Without
+    -- this the store's _init_schema ADDS the table the first time a generator-written file is
+    -- opened, so the database's shape changed simply by being read — and no stable schema
+    -- fingerprint of this family was possible.  Both DDLs must stay in step.
+    CREATE TABLE IF NOT EXISTS sku_group (
+        sku        INTEGER PRIMARY KEY,
+        lift_group INTEGER NOT NULL
+    );
 '''
 
 

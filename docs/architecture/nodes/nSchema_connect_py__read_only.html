@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>read_only · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_connect_py__read_only" data-id="Schema/connect.py::read_only">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a> <span class="sep">›</span> <span class="here"><code>read_only</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>read_only</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a></p>
+
+<pre class="sig"><code>def read_only(path: str, *, row_factory: bool=True, immutable: bool=False)</code></pre>
+<section class="doc">Open a finished artifact strictly for reading.
+
+Never use a writer here: `PRAGMA journal_mode=WAL` is a WRITE, so it fails on a read-only
+mount and otherwise leaves sidecar files next to an archived database.
+
+`immutable=True` additionally promises the file will not change while open, which lets SQLite
+skip locking entirely — correct for an archived run, wrong for one still being written.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py___uri.html"><code>_uri</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nSchema_identity_py__check.html"><code>check</code></a> <span class="dim">Schema/identity.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_connect_py__read_only">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/connect.py#:~:text=def%20read_only">Source ↗</a></p>
+</article>
+</main>
+</body></html>

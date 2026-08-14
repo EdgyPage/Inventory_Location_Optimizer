@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.connect · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_connect_py" data-id="Schema/connect.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/connect.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.connect</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a></p>
+
+<pre class="sig"><code>Schema.connect</code></pre>
+<section class="doc">connect.py — the three ways this project should open a SQLite file.
+
+Before this module there were **seven** distinct connect idioms across 35 production call sites
+and no shared helper, which had two concrete consequences:
+
+  * `Optimization/run_whatif_delta.py` and `run_whatif_labor.py` opened **archived** sim DBs
+    read-WRITE with no pragmas, dropping `-wal`/`-shm` sidecars beside a 1 GB file — exactly the
+    condition `scripts/archive_cells.py::_quick_check` exists to defend against.
+  * A shape fingerprint is only meaningful if reading a database cannot change it, and a
+    read-write open can (WAL mode is itself a write).
+
+Three intents, named:
+
+    read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way
+                       to fingerprint one.
+    writer(path)       a database being written during a run: WAL + a busy timeout, so parallel
+                       workers do not trip over each other&#x27;s checkpoints.
+    bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,
+                       because a crash means &quot;rebuild it&quot;, not &quot;lose data&quot;.
+
+Stdlib only; no imports from anywhere else in the repo.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nSchema_connect_py___BUSY_TIMEOUT.html"><code>_BUSY_TIMEOUT</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py___CACHE_PAGES.html"><code>_CACHE_PAGES</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py___uri.html"><code>_uri</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__bulk_writer.html"><code>bulk_writer</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__writer.html"><code>writer</code></a> <span class="dim">Schema/connect.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_connect_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/connect.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

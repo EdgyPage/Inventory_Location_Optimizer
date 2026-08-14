@@ -22,8 +22,12 @@ import sqlite3
 import tempfile
 
 from Optimization.persistence.Picking_Data import (
-    canonical_schema_shape, create_run, declared_sim_schema_shape, init_run_db,
-    observed_sim_schema_id, schema_shape_id, sim_schema_id, _apply_run_schema,
+    create_run, declared_sim_schema_shape, init_run_db, sim_schema_id, _apply_run_schema,
+)
+from Schema.shape import (
+    canonical_shape as canonical_schema_shape,
+    observed_id as observed_sim_schema_id,
+    shape_id as schema_shape_id,
 )
 from Visualization.readers.fingerprint import (
     describe_diff, diff_shapes, read_stamped_id, resolve_schema_id,

@@ -40,20 +40,38 @@ class AffinityStore:
         self._init_schema()
         self._load_matrix()
 
+    #: Mirrors Warehouse/generation/generate_affinity.py `_SCHEMA`.  The generator owns the file;
+    #: this exists so an in-memory store (the test/legacy path) still has tables to write into.
+    _SCHEMA = '''
+        CREATE TABLE IF NOT EXISTS sku_group (
+            sku        INTEGER PRIMARY KEY,
+            lift_group INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS affinity (
+            sku_i INTEGER NOT NULL,
+            sku_j INTEGER NOT NULL,
+            lift  REAL    NOT NULL,
+            PRIMARY KEY (sku_i, sku_j)
+        );
+        CREATE INDEX IF NOT EXISTS idx_affinity_sku_i ON affinity(sku_i);
+    '''
+    _TABLES = ('sku_group', 'affinity')
+
     def _init_schema(self) -> None:
-        self._conn.executescript('''
-            CREATE TABLE IF NOT EXISTS sku_group (
-                sku        INTEGER PRIMARY KEY,
-                lift_group INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS affinity (
-                sku_i INTEGER NOT NULL,
-                sku_j INTEGER NOT NULL,
-                lift  REAL    NOT NULL,
-                PRIMARY KEY (sku_i, sku_j)
-            );
-            CREATE INDEX IF NOT EXISTS idx_affinity_sku_i ON affinity(sku_i);
-        ''')
+        """Create the tables ONLY when something is actually missing.
+
+        This used to run unconditionally, which meant opening a complete, generator-written
+        `affinity.db` — even purely to read it — silently ADDED `sku_group` and changed the
+        file's shape.  A database whose structure depends on whether it has been opened yet
+        cannot be fingerprinted, and the mutation also drifted it away from what
+        `context/artifacts.yml` declares.  The generator now declares `sku_group` too, so the
+        common path finds everything present and touches nothing.
+        """
+        have = {r[0] for r in self._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        if all(t in have for t in self._TABLES):
+            return
+        self._conn.executescript(self._SCHEMA)
         self._conn.commit()
 
     def _load_matrix(self) -> None:

@@ -1,14 +1,12 @@
 """fingerprint.py — resolving WHICH sim-DB schema a file has, and explaining a mismatch.
 
-The normalizer itself lives in `Optimization/persistence/Picking_Data` beside the DDL it
-describes — `canonical_schema_shape` / `schema_shape_id` / `observed_sim_schema_id` /
-`sim_schema_id`.  There is exactly one implementation and the declared id is produced by running
-it over a schema the writer actually builds, so declaration cannot drift from reality.
+The normalizer and the structural diff live in `Schema/shape.py`, shared by every DB family;
+the sim DB's DECLARED shape comes from `Picking_Data.declared_sim_schema_shape`, which builds the
+schema its own writer builds, so the declaration cannot drift from reality.
 
-This module adds the two things only a *reader* needs:
-
-  * :func:`resolve_schema_id` — the stamped -> pinned -> derived precedence.
-  * :func:`diff_shapes` / :func:`describe_diff` — what an ``UnsupportedSimSchema`` message says.
+This module is the thin sim-specific layer over both, and adds the one thing only a *reader*
+needs: :func:`resolve_schema_id`, the stamped -> pinned -> derived precedence.  Everything else
+here is a re-export, kept so the reader package has a single import surface.
 
 Why the diff matters: ``init_run_db`` is all ``CREATE TABLE IF NOT EXISTS``, so a DB written by
 old code and reopened by new code gains the missing TABLES but never the missing COLUMNS — it
@@ -19,9 +17,12 @@ from __future__ import annotations
 
 import sqlite3
 
-from Optimization.persistence.Picking_Data import (       # the single normalizer
-    canonical_schema_shape, declared_sim_schema_shape,
-    observed_sim_schema_id, schema_shape_id, sim_schema_id,
+from Optimization.persistence.Picking_Data import declared_sim_schema_shape, sim_schema_id
+from Schema.shape import (                                # the single normalizer, one per repo
+    canonical_shape as canonical_schema_shape,
+    describe_diff, diff_shapes,
+    observed_id as observed_sim_schema_id,
+    shape_id as schema_shape_id,
 )
 
 __all__ = [
@@ -79,62 +80,5 @@ def resolve_schema_id(con: sqlite3.Connection, pinned: str | None = None,
     return claimed, claimed_source
 
 
-# ── structural diffing ───────────────────────────────────────────────────────────
-
-def diff_shapes(expected: dict, actual: dict) -> dict:
-    """Structural difference `expected` -> `actual`, as plain data.
-
-    ``{'tables_missing': [...], 'tables_extra': [...],
-       'columns': {table: {'missing': [...], 'extra': [...], 'changed': [(col, exp, act)]}},
-       'indexes': {table: {'missing': [...], 'extra': [...]}}}``
-    """
-    exp_t, act_t = expected['tables'], actual['tables']
-    out = {
-        'tables_missing': sorted(set(exp_t) - set(act_t)),
-        'tables_extra': sorted(set(act_t) - set(exp_t)),
-        'columns': {},
-        'indexes': {},
-    }
-    for name in sorted(set(exp_t) & set(act_t)):
-        e_cols = {c['name']: c for c in exp_t[name]['columns']}
-        a_cols = {c['name']: c for c in act_t[name]['columns']}
-        changed = [(c, e_cols[c], a_cols[c])
-                   for c in sorted(set(e_cols) & set(a_cols)) if e_cols[c] != a_cols[c]]
-        missing = sorted(set(e_cols) - set(a_cols))
-        extra = sorted(set(a_cols) - set(e_cols))
-        if missing or extra or changed:
-            out['columns'][name] = {'missing': missing, 'extra': extra, 'changed': changed}
-
-        e_idx = {i['name'] for i in exp_t[name]['indexes']}
-        a_idx = {i['name'] for i in act_t[name]['indexes']}
-        if e_idx - a_idx or a_idx - e_idx:
-            out['indexes'][name] = {'missing': sorted(e_idx - a_idx),
-                                    'extra': sorted(a_idx - e_idx)}
-    return out
-
-
-def describe_diff(d: dict, limit: int = 6) -> str:
-    """One finding per clause, for an exception message."""
-    lines = []
-    if d['tables_missing']:
-        lines.append(f"tables missing: {', '.join(d['tables_missing'])}")
-    if d['tables_extra']:
-        lines.append(f"tables extra: {', '.join(d['tables_extra'])}")
-    for table, c in d['columns'].items():
-        if c['missing']:
-            lines.append(f"{table} is missing column(s): {', '.join(c['missing'])}")
-        if c['extra']:
-            lines.append(f"{table} has extra column(s): {', '.join(c['extra'])}")
-        for col, exp, act in c['changed']:
-            lines.append(f"{table}.{col} type changed: "
-                         f"{exp['type'] or '<untyped>'} -> {act['type'] or '<untyped>'}")
-    for table, i in d['indexes'].items():
-        if i['missing']:
-            lines.append(f"{table} is missing index(es): {', '.join(i['missing'])}")
-        if i['extra']:
-            lines.append(f"{table} has extra index(es): {', '.join(i['extra'])}")
-    if not lines:
-        return 'no structural difference found (the ids differ for another reason)'
-    if len(lines) > limit:
-        lines = lines[:limit] + [f'... and {len(lines) - limit} more']
-    return '; '.join(lines)
+# Structural diffing now lives in Schema/shape.py and is re-exported above — it was never
+# sim-specific, and every DB family needs it.

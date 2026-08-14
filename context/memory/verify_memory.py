@@ -35,7 +35,7 @@ VALID_TYPES = ('user', 'feedback', 'project', 'reference')
 REQUIRED_KEYS = ('name', 'description')
 
 _TOP_DIRS = ('Warehouse', 'Optimization', 'Tests', 'Visualization', 'Diagnostics',
-             'context', 'docs', 'scripts', 'notebooks')
+             'Schema', 'context', 'docs', 'scripts', 'notebooks')
 _EXT = r'py|md|json|yml|yaml|db|ipynb|csv|txt|cfg|toml'
 
 
