@@ -215,13 +215,21 @@ def test_db_roundtrip() -> None:
         check('equilibrium_qty/reorder_point/lead_time_mean preserved after save+load',
               len(mismatches) == 0, f'{mismatches[:3]}')
 
-        # Verify no stock_qty column was written
+        # Verify the equilibrium columns were written and stock_qty was not.
+        # The table is `cartons`, NOT `orders` — the persisted name was deliberately kept
+        # stable across the Carton→Order rename (generate_inventory._SCHEMA).  This read
+        # used to name `orders`; PRAGMA table_info on a table that does not exist returns
+        # NO ROWS rather than raising, so `cols` was always [] and all three checks below
+        # were vacuous — the absent-check passed for the wrong reason and the two
+        # present-checks asserted nothing.  Real asserts, and the emptiness guard first,
+        # so the same mistake fails loudly instead of silently.
         conn = sqlite3.connect(db_path)
-        cols = [r[1] for r in conn.execute('PRAGMA table_info(orders)').fetchall()]
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
         conn.close()
-        check('stock_qty column absent from new DB', 'stock_qty' not in cols)
-        check('equilibrium_qty column present',      'equilibrium_qty' in cols)
-        check('lead_time_mean column present',        'lead_time_mean'  in cols)
+        assert cols, 'PRAGMA table_info(cartons) returned no columns — wrong table name?'
+        assert 'stock_qty' not in cols, f'stock_qty column present in new DB: {cols}'
+        assert 'equilibrium_qty' in cols, f'equilibrium_qty column missing: {cols}'
+        assert 'lead_time_mean' in cols, f'lead_time_mean column missing: {cols}'
     finally:
         os.unlink(db_path)
 

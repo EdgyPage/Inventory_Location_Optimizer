@@ -187,8 +187,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._sku_vol_product: dict[int, float] = {}   # sku -> f * q * volume
 
         # SKU → bins split by unit type for Task.from_batch lookups.
-        # Sets give O(1) add/discard; Task.from_batch sorts the bins by
-        # (bayX, bayY) anyway so insertion order doesn't matter.
+        # Sets give O(1) add/discard, but `Aisle.Bin` defines no __hash__/__eq__, so these
+        # hash by IDENTITY and iterate in memory-address order — NOT insertion order, and
+        # not reproducibly across processes (spawn + ASLR).  `Task.from_batch` is therefore
+        # required to impose its own order: it sorts each set by `bin.location` before
+        # draining.  `_plan_aisle_path` sorts only the bins ALREADY SELECTED and cannot
+        # substitute for that.  Anything else that iterates these sets and lets the order
+        # reach a result must sort them too.
         self._sku_singleton_bins: dict[int, set[Aisle.Bin]] = defaultdict(set)
         self._sku_pallet_bins: dict[int, set[Aisle.Bin]]    = defaultdict(set)
 
