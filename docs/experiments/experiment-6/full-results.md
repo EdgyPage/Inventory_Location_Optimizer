@@ -1,9 +1,12 @@
-# Full results — the labor side
+# Labor — the placement lever
 
-The [comparison write-up](comparison.md) is about **throughput**: how fast the work clears, which
-the scheduler decides. This page is about **labor**: how much work there is in the first place,
-which the *assignment function* decides. They are separate levers, and the scheduler moves this
-page's numbers by essentially nothing.
+*This is the evidence page for the labor half of the [Results](index.md) summary, and it carries
+every arm in the sweep, including the ones that lose.*
+
+The [throughput page](comparison.md) is about how fast the work clears, which the scheduler
+decides. This page is about **labor**: how much work there is in the first place, which the
+*assignment function* decides. They are separate levers, and the scheduler moves this page's
+numbers by essentially nothing.
 
 !!! warning "Modeled hours, not wall-clock"
     "Labor hours" here is Σ task duration ÷ 3.6 M ms — the serial makespan one picker would incur
@@ -42,9 +45,18 @@ statistically flat over a 100-batch run. Nothing here decays.
     shared across arms — so it biases no comparison between policies. It is a property of the
     demand draw, not of any placement strategy.
 
+!!! note "Why the [Results](index.md) table says −5.4 % where this page says 5.8 %"
+    Two summaries of the same series, and neither is a correction of the other. The **5.8 %** above
+    is the ratio of *run totals* — 249.10 labor-hours for the best arm against 264.34 for FIFO — so
+    it is volume-weighted, and the large batches, which save proportionally more, dominate it. The
+    Results table reports the **median of the per-batch deltas**, which weights that 4-item batch
+    the same as a 74,000-item one and therefore lands slightly lower. The same split explains the
+    `map` family reading **+4.3 %** here and **−4.0 %** there. Quote whichever answers the question
+    being asked, but say which one it is.
+
 ## The scheduler does not touch labor
 
-This is the claim the [comparison page](comparison.md) rests on, so it is worth stating with its
+This is the claim the [throughput page](comparison.md) rests on, so it is worth stating with its
 bound rather than as a round number. Across **68 LPT arms per channel** in `whatif_volume.csv`:
 
 | channel | median labor delta vs round-robin | worst case across all arms |
@@ -55,7 +67,7 @@ bound rather than as a round number. Across **68 LPT arms per channel** in `what
 <small>Column `labor_delta_vs_ref_pct`, `whatif_volume.csv`.</small>
 
 A scheduler that re-packs tasks across pickers cannot change how long those tasks take — and the
-data confirms it to within a tenth of a percent. So every throughput gain on the comparison page is
+data confirms it to within a tenth of a percent. So every throughput gain on the throughput page is
 attributable to reduced idle time, not to reduced work.
 
 ## Where the labor savings actually come from

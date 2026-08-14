@@ -110,7 +110,7 @@ def define_env(env):
         (captions looked up from the module maps) else the module default list."""
         m = _manifest()
         if m:
-            caps = dict(_FIGURES + _FULL_SUITE_FIGURES)
+            caps = dict(_FIGURES + _FULL_SUITE_FIGURES + _EXTRA_CAPTIONS)
             return [(n, caps.get(n, n)) for n in m.get("figures", {}).get(kind, [])]
         return _FIGURES if kind == "top3" else _FULL_SUITE_FIGURES
 
@@ -458,9 +458,12 @@ def define_env(env):
         ("top3_by_initial_prodtime_delta_trend.png",
          "Production-time delta vs FIFO — smoothed trend."),
         ("top_vs_baseline_table.png",
-         "Top strategies vs FIFO baseline — significance table (means, deltas, p-values)."),
+         "Top runs vs the FIFO baseline — total task time (labor) and throughput side by side, "
+         "both paired over every batch the run shares with FIFO, with the task-time Wilcoxon p."),
         ("top_vs_baseline.png",
-         "Top strategies vs FIFO baseline — effect sizes with confidence intervals."),
+         "Top runs vs the FIFO baseline — grouped bars of % improvement across the five headline "
+         "metrics (task makespan, batch makespan, throughput off each, and layout total f·D), "
+         "measured on the steady-state window."),
     ]
 
     @env.macro
@@ -480,13 +483,31 @@ def define_env(env):
 
     # full assignment-function suite figures (every strategy arm), for the compiled
     # Full-results report — filename -> caption.
+    # Captions are shared by every experiment, so they must not hard-code a family count —
+    # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
     _FULL_SUITE_FIGURES = [
         ("task_duration_by_strategy.png",
-         "Steady-state task duration for every strategy arm (Uni|… and Opt|… × 16 families); "
-         "diamond = mean. The full suite, ranked."),
+         "Steady-state task duration for every strategy arm (Uni|… and Opt|… across the whole "
+         "restock-family suite); diamond = mean. The full suite, ranked."),
         ("production_time_over_time.png",
-         "Production time per batch, all 16 assignment functions overlaid "
+         "Production time per batch, every assignment function overlaid "
          "(Opt = solid, Uni = dashed)."),
+    ]
+
+    # Captions for figures that only MANIFEST-mode experiments list.  Deliberately kept out of
+    # _FIGURES / _FULL_SUITE_FIGURES: legacy mode (Experiment 1, no experiment.yml) renders those
+    # two lists verbatim, so a name added there would make Experiment 1's pages demand an image
+    # that sweep never produced and fail `mkdocs build --strict`.  _figs() merges this in for the
+    # caption lookup only.
+    _EXTRA_CAPTIONS = [
+        ("top3_by_initial_volume_curve.png",
+         "Cumulative items picked against elapsed hours — the slope is throughput. Left: the "
+         "selected arms against the FIFO baseline. Right: each arm's lead over FIFO at matched "
+         "elapsed time."),
+        ("top3_by_initial_labor_per_batch.png",
+         "Labor hours per batch over the run. Left: raw per-batch line plus a 5-batch mean, with "
+         "each arm's last-window mean and fitted trend in the legend. Right: the same arms as a "
+         "percentage against FIFO on the same batch, which cancels the demand swing."),
     ]
 
     @env.macro

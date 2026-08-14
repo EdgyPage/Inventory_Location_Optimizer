@@ -4,9 +4,15 @@ Two stakeholder-facing artifacts under compare/:
   * top_vs_baseline.png        — grouped bars, % improvement of each top run vs the FIFO
                                  baseline across the headline metrics (higher = better).
   * top_vs_baseline_table.png  — a supporting table graphic (for the site): one row per
-                                 top run with its assignment function, the % difference in
-                                 TOTAL task time vs FIFO, and the statistical significance
-                                 (paired Wilcoxon p over all batches).
+                                 top run, with the % difference in TOTAL task time (labor)
+                                 AND in throughput vs FIFO, plus the statistical
+                                 significance (paired Wilcoxon p over all batches).
+
+Both table columns come from `_paired`, so they share one window and one method — a labor
+number measured over all batches next to a throughput number measured over the last 50 would
+be two different questions in one table.  The bar chart is the steady-state view; the table is
+the paired-over-the-whole-run view.  They answer the same question and need not match to the
+decimal.
 
 Baseline = strategies[0] (the FIFO/uniform-random run).  Params: top_n, top_by.
 """
@@ -33,6 +39,9 @@ _BAR_METRICS = [
     ('Layout total f*D',     'ss_sigma',      True),
 ]
 
+# table cell shading — better / worse than the FIFO baseline
+_GREEN, _RED = '#d4efdf', '#f9d7d4'
+
 
 def _impr(val, base, lower):
     """Signed % improvement vs baseline (always oriented so higher = better)."""
@@ -42,16 +51,21 @@ def _impr(val, base, lower):
     return ((base - val) / base * 100.0) if lower else ((val - base) / base * 100.0)
 
 
-def _prod_paired(ctx, s):
-    """(pct_change, wilcoxon_p) of TOTAL task time (Σ task duration / batch) vs the FIFO
-    baseline, paired over all common batches.  pct = (strat − base)/base · 100
-    (negative ⇒ less total task time than FIFO ⇒ better)."""
+def _paired(ctx, s, source, col):
+    """(pct_change, wilcoxon_p, n_batches) for one per-batch metric vs the FIFO baseline,
+    paired over the batches the two runs share.
+
+    pct = (median(strat) − median(base))/median(base) · 100 — the RAW sign, so the caller
+    decides which direction reads as better.  Used for both table columns:
+      ('task_sum', 'duration')      → total task time = labor  (negative ⇒ better)
+      ('batch',    'completion_rate') → throughput / batch makespan (positive ⇒ better)
+    """
     base = ctx.base
-    pb = _metric_series(ctx.batch_df(base['key']), ctx.task_df(base['key']), 'task_sum', 'duration', 0)
-    ps = _metric_series(ctx.batch_df(s['key']),    ctx.task_df(s['key']),    'task_sum', 'duration', 0)
+    pb = _metric_series(ctx.batch_df(base['key']), ctx.task_df(base['key']), source, col, 0)
+    ps = _metric_series(ctx.batch_df(s['key']),    ctx.task_df(s['key']),    source, col, 0)
     common = sorted(set(pb.index) & set(ps.index))
     if len(common) < 3:
-        return float('nan'), float('nan')
+        return float('nan'), float('nan'), 0
     b = pb.loc[common].values.astype(float)
     v = ps.loc[common].values.astype(float)
     mb = float(np.median(b))
@@ -60,7 +74,7 @@ def _prod_paired(ctx, s):
         p = float(st.wilcoxon(v, b).pvalue) if np.any(v != b) else 1.0
     except ValueError:
         p = float('nan')
-    return pct, p
+    return pct, p, len(common)
 
 
 def _bar_chart(ctx, selected, S, baseline, path, top_n, top_by):
@@ -92,20 +106,28 @@ def _bar_chart(ctx, selected, S, baseline, path, top_n, top_by):
 
 
 def _table_graphic(ctx, selected, S, baseline, path):
+    """The site's quick-takeaway table: labor AND throughput vs FIFO, one row per run.
+
+    Rows are labelled with _stitle (initial|assignment|reslot), not the bare assignment name —
+    Opt|Rank_labor and Uni|Rank_labor are different runs and must not collapse to one label.
+    """
     bd = S.get(baseline['key'])
     base_prod = bd.get('ss_prod_hours') if bd else None
-    col_labels = ['Assignment function', 'Total task time vs FIFO', 'Significance (Wilcoxon p)']
-    cell_text, pcts = [], []
+    col_labels = ['Run (initial | assignment | reslot)', 'Labor — total task time vs FIFO',
+                  'Throughput vs FIFO', 'Significance (task time, Wilcoxon p)']
+    fmt = lambda v: '-' if not np.isfinite(v) else f'{v:+.1f}%'
+    cell_text, labor_pcts, thr_pcts, nb = [], [], [], 0
     for s in selected:
-        pct, p = _prod_paired(ctx, s)
-        asn = s.get('assignment') or _stitle(s)
-        pct_txt = '-' if not np.isfinite(pct) else f'{pct:+.1f}%'
+        lab_pct, p, n = _paired(ctx, s, 'task_sum', 'duration')
+        thr_pct, _, _ = _paired(ctx, s, 'batch', 'completion_rate')
+        nb = max(nb, n)
         sig_txt = '-' if not np.isfinite(p) else f'{p:.3g}  {_stars(p)}'
-        cell_text.append([asn, pct_txt, sig_txt])
-        pcts.append(pct)
+        cell_text.append([_stitle(s), fmt(lab_pct), fmt(thr_pct), sig_txt])
+        labor_pcts.append(lab_pct)
+        thr_pcts.append(thr_pct)
 
     nrows = len(cell_text)
-    fig, ax = plt.subplots(figsize=(10, 1.6 + 0.55 * (nrows + 1)))
+    fig, ax = plt.subplots(figsize=(13, 1.8 + 0.55 * (nrows + 1)))
     ax.axis('off')
     tbl = ax.table(cellText=cell_text, colLabels=col_labels, loc='center', cellLoc='center')
     tbl.auto_set_font_size(False)
@@ -116,16 +138,21 @@ def _table_graphic(ctx, selected, S, baseline, path):
         hc = cells[(0, c)]
         hc.set_facecolor('#34495e')
         hc.set_text_props(color='white', fontweight='bold')
-    for r, pct in enumerate(pcts, start=1):           # green = less work, red = more
-        if np.isfinite(pct):
-            cells[(r, 1)].set_facecolor('#d4efdf' if pct < 0 else '#f9d7d4')
+    # Shade each metric in ITS OWN direction: less labor is better, more throughput is better.
+    for r, (lab, thr) in enumerate(zip(labor_pcts, thr_pcts), start=1):
+        if np.isfinite(lab):
+            cells[(r, 1)].set_facecolor(_GREEN if lab < 0 else _RED)
+        if np.isfinite(thr):
+            cells[(r, 2)].set_facecolor(_GREEN if thr > 0 else _RED)
 
     base_txt = ('' if base_prod is None or not np.isfinite(base_prod)
                 else f'   (FIFO total task time ~ {base_prod:,.0f} sim units)')
+    win_txt = f'both columns paired over the {nb} batches each run shares with FIFO' if nb else ''
     ax.set_title(
-        f'Top runs vs FIFO baseline — total task time & significance  [{ctx.title}]\n'
-        f'negative % = less total task time than FIFO (better);  '
-        f'* p<.05  ** p<.01  *** p<.001{base_txt}',
+        f'Top runs vs FIFO baseline — labor & throughput  [{ctx.title}]\n'
+        f'negative labor % = less total task time than FIFO (better);  '
+        f'positive throughput % = more items per hour (better)\n'
+        f'{win_txt};  * p<.05  ** p<.01  *** p<.001{base_txt}',
         fontsize=11, fontweight='bold', pad=16)
     _save_close(fig, path)
 

@@ -1,5 +1,11 @@
 # Experiment 2 — overview
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 6**](../experiment-6/index.md) is the current sweep. This page is kept because
+    it is where the **two-independent-warehouses** split (store vs fulfillment) that every later
+    experiment reuses was established. Its numbers come from a different run and are not directly
+    comparable with Experiment 6's.
+
 The second placement-strategy sweep. Where [Experiment 1](../experiment-1/index.md) ran a single
 generic warehouse, Experiment 2 splits the operation into **two independent warehouses** — a
 **store** replenishment channel and a **fulfillment** channel — and asks the same question of

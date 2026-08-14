@@ -1,5 +1,11 @@
 # Experiment 1 — overview
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 6**](../experiment-6/index.md) is the current sweep. This is the **first**
+    experiment on the site, kept because it establishes that placement beats FIFO at all and that
+    the margin scales with how expensive a pick is. Its numbers come from a different run — and a
+    much simpler setup — and are not directly comparable with Experiment 6's.
+
 The first placement-strategy sweep. One synthetic catalogue (**`mixed_realistic`** — 100,000
 SKUs, six product categories) is stocked into a warehouse and picked over 100 batches, and the
 full suite of restock-placement rules is compared against a first-in-first-out (FIFO) baseline.

@@ -1,4 +1,7 @@
-# {{ experiment().title }} — comparison
+# Throughput — the scheduler lever
+
+*This is the evidence page for the throughput half of the [Results](index.md) summary. Start there
+if you want the finding; read on for how it was measured and what it does not show.*
 
 !!! note "Summary"
     The picker **scheduler** and the **assignment function** move two different quantities, and this
@@ -102,6 +105,14 @@ Across the store's 34 arms, total items span **6.8 %** and elapsed hours span **
 and why the right-hand panel compares at *matched* time rather than at the finish.
 
 {{ whatif_matrix() }}
+
+!!! note "Why this table says +12.8 % and the summary above says +13.7 %"
+    They are the same effect measured over two windows, and the difference is the whole gap
+    between them. This table is generated from `data/whatif_delta.json`, whose medians are taken
+    over the **last 50 batches** — the steady-state window. The **+13.7 %** headline comes from
+    `whatif_volume.csv` and is the **full-run** chord slope, every batch included. Neither is a
+    correction of the other; a page quoting both must say which window it means, and the ~0.9 pp
+    between them is the size of the early-run transient.
 
 ## Scheduler uplift across every assignment function
 

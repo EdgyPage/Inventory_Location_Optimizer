@@ -1,5 +1,11 @@
 # {{ experiment().title }}
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 6**](../experiment-6/index.md) is the current sweep. This page is kept because
+    it is where the **bell-shaped demand** catalogue that every later experiment reuses was first
+    measured. Its numbers come from a different run and are not directly comparable with
+    Experiment 6's.
+
 <!-- Overview / definitions for this experiment. Edit the prose; the data wires up from
      experiment.yml, so there are no hard-coded run IDs below. -->
 

@@ -48,6 +48,11 @@ _INITIAL_TOP = {'compare.top_metric': {'top_n': 3, 'top_by': 'initial'},
                 'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'},
                 'compare.volume_curve': {'top_n': 3, 'top_by': 'initial'},
                 'compare.labor_trend': {'top_n': 3, 'top_by': 'initial'},
+                # The site pairs top_vs_baseline_table.png with volume_curve's figure, so the two
+                # must select the SAME arms.  Without this entry top_vs_baseline falls back to its
+                # own defaults (top_by='global') and shows a 3-arm subset of the curve's 6.
+                # Only BY_INITIAL gets it: _GLOBAL_TOP's top_n=1 would cut the table to one row.
+                'compare.top_vs_baseline': {'top_n': 3, 'top_by': 'initial'},
                 'agg.cross_profile': {'top_n': 3, 'top_by': 'initial'}}
 _E2E_TOP = {'compare.top_metric': {'top_n': 2, 'top_by': 'initial'},
             'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'},
