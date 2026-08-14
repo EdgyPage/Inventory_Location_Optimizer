@@ -89,10 +89,14 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   are conditional: `<channel>/` exists only on a mixed catalogue, `_frozen/<pair>/` only on a
   multi-cell run. Assuming otherwise silently dropped every store-only run from the what-if scanners.
   Use `runschema.resolver_for(base_dir)`; never join path strings.
-- **7 legacy `check()`-harness test files print PASS/FAIL but never raise** — they pass under pytest
-  while failing. `Tests/unit/test_reorder_queue.py` has zero `def test_` functions at all.
-- **Every `Tests/architecture/*` file does `pytest.importorskip('yaml')`.** Without pyyaml, all eight
-  drift gates *skip* and the suite is green while the docs rot.
+- **A `check()`-harness test passes under pytest while failing** — its `fail()` body is a `print`
+  plus a counter, so nothing raises. The legacy files that did this were converted to real
+  `assert`s; the pattern is **gone from `Tests/` and must not return**. Same failure mode, same
+  silence: a test module with no `def test_` function at all collects nothing and reports success.
+- **Without pyyaml, 6 of the 13 `Tests/architecture/*` files `importorskip` and vanish** — and they
+  are exactly the sync gates (architecture, HTML site, graph extract, coverage, files-catalog,
+  context). The other seven still run, so the suite looks healthy while the generated docs and the
+  `context/` anchors rot unchecked.
 - **`nbstripout` is a git filter whose command lives in uncommitted `.git/config`.** A fresh clone
   needs `pip install nbstripout && nbstripout --install` or notebook checkout fails.
 
