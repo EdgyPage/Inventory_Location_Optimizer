@@ -3337,6 +3337,20 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='warehouse_db', declared_shape=declared_warehouse_shape, meta_table='schema_meta'))"
+    },
+    "Optimization/persistence/Warehouse_Data.py::_ALL_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_CREATE_WAREHOUSE_STATS, _CREATE_AISLE_TYPE_STATS, _CREATE_AISLE_IDX, _CREATE_AISLE_LAYOUT, _identity.meta_ddl('schema_meta'))"
+    },
     "Optimization/persistence/Warehouse_Data.py::_CREATE_AISLE_IDX": {
       "decorators": [],
       "doc": null,
@@ -3379,6 +3393,13 @@
       "kind": "function",
       "signature": "(aisle_rows: list[dict], inventory_label: str='') -> str"
     },
+    "Optimization/persistence/Warehouse_Data.py::declared_warehouse_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
     "Optimization/persistence/Warehouse_Data.py::init_warehouse_db": {
       "decorators": [],
       "doc": "Create warehouse_stats, aisle_type_stats, and aisle_layout tables.",
@@ -3419,12 +3440,26 @@
       "signature": null,
       "value_preview": "'runtime_metrics.db'"
     },
+    "Optimization/persistence/runtime_metrics.py::RUNTIME_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta'))"
+    },
     "Optimization/persistence/runtime_metrics.py::SECTIONS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
+    },
+    "Optimization/persistence/runtime_metrics.py::_ALL_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_DDL, _identity.meta_ddl('schema_meta'))"
     },
     "Optimization/persistence/runtime_metrics.py::_DDL": {
       "decorators": [],
@@ -3439,6 +3474,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(arm: str)"
+    },
+    "Optimization/persistence/runtime_metrics.py::declared_runtime_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Optimization/persistence/runtime_metrics.py::load_rows": {
       "decorators": [],
@@ -5465,6 +5507,13 @@
       "kind": "function",
       "signature": "(self) -> tuple"
     },
+    "Schema/identity.py::META_TABLE_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'CREATE TABLE IF NOT EXISTS %s (key TEXT PRIMARY KEY, value TEXT)'"
+    },
     "Schema/identity.py::SchemaDrift": {
       "decorators": [],
       "doc": "The stamped or pinned id disagrees with the file's actual shape.",
@@ -5510,6 +5559,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(name: str) -> Family"
+    },
+    "Schema/identity.py::meta_ddl": {
+      "decorators": [],
+      "doc": "The stamp table's DDL, for a family to include in its own schema.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(table: str='schema_meta') -> str"
     },
     "Schema/identity.py::read_stamp": {
       "decorators": [],

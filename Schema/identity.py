@@ -32,6 +32,18 @@ from Schema import connect
 from Schema.shape import canonical_shape, describe_diff, diff_shapes, observed_id, shape_id
 
 
+#: The stamp table every family with `meta_table` set must DECLARE in its own DDL.
+#: `stamp()` creates it idempotently, but a family that does not declare it would have an
+#: observed shape (with the table) that never matches its declared shape (without) — so the
+#: declaration has to include it.  `%s` is the family's chosen table name.
+META_TABLE_DDL = 'CREATE TABLE IF NOT EXISTS %s (key TEXT PRIMARY KEY, value TEXT)'
+
+
+def meta_ddl(table: str = 'schema_meta') -> str:
+    """The stamp table's DDL, for a family to include in its own schema."""
+    return META_TABLE_DDL % table
+
+
 class SchemaError(Exception):
     """Base for every schema-identity failure."""
 
@@ -98,8 +110,7 @@ def stamp(con: sqlite3.Connection, family: Family) -> str | None:
     if family.meta_table is None:
         return None
     sid = family.declared_id()
-    con.execute(f'CREATE TABLE IF NOT EXISTS {family.meta_table} '
-                f'(key TEXT PRIMARY KEY, value TEXT)')
+    con.execute(meta_ddl(family.meta_table))
     con.execute(f'INSERT OR REPLACE INTO {family.meta_table} (key, value) VALUES (?, ?)',
                 (family.meta_key, sid))
     return sid

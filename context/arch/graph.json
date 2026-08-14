@@ -3046,7 +3046,47 @@
       "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Optimization/persistence/Warehouse_Data.py::declared_warehouse_shape",
+      "kind": "ref",
+      "src": "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::meta_ddl",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py::_ALL_DDL"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py::declared_warehouse_shape"
+    },
+    {
       "dst": "Optimization/persistence/Warehouse_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py::init_warehouse_db"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
       "kind": "calls",
       "src": "Optimization/persistence/Warehouse_Data.py::init_warehouse_db"
     },
@@ -3061,6 +3101,41 @@
       "src": "Optimization/persistence/Warehouse_Data.py::save_warehouse_stats"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/runtime_metrics.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/runtime_metrics.py"
+    },
+    {
+      "dst": "Optimization/persistence/runtime_metrics.py::declared_runtime_shape",
+      "kind": "ref",
+      "src": "Optimization/persistence/runtime_metrics.py::RUNTIME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::RUNTIME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::RUNTIME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::meta_ddl",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::_ALL_DDL"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::declared_runtime_shape"
+    },
+    {
       "dst": "Optimization/persistence/runtime_metrics.py::runtime_db_path",
       "kind": "calls",
       "src": "Optimization/persistence/runtime_metrics.py::load_rows"
@@ -3072,6 +3147,11 @@
     },
     {
       "dst": "Optimization/persistence/runtime_metrics.py::runtime_db_path",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::record_arm"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
       "kind": "calls",
       "src": "Optimization/persistence/runtime_metrics.py::record_arm"
     },
@@ -5654,6 +5734,11 @@
       "dst": "Schema/shape.py::observed_id",
       "kind": "calls",
       "src": "Schema/identity.py::resolve"
+    },
+    {
+      "dst": "Schema/identity.py::meta_ddl",
+      "kind": "calls",
+      "src": "Schema/identity.py::stamp"
     },
     {
       "dst": "Schema/shape.py::shape_id",
@@ -12872,6 +12957,22 @@
     },
     {
       "file": "Optimization/persistence/Warehouse_Data.py",
+      "id": "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY",
+      "kind": "const",
+      "module": "Optimization/persistence/Warehouse_Data.py",
+      "name": "WAREHOUSE_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Warehouse_Data.py",
+      "id": "Optimization/persistence/Warehouse_Data.py::_ALL_DDL",
+      "kind": "const",
+      "module": "Optimization/persistence/Warehouse_Data.py",
+      "name": "_ALL_DDL",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Warehouse_Data.py",
       "id": "Optimization/persistence/Warehouse_Data.py::_CREATE_AISLE_IDX",
       "kind": "const",
       "module": "Optimization/persistence/Warehouse_Data.py",
@@ -12916,6 +13017,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Warehouse_Data.py",
       "name": "compute_warehouse_fingerprint",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Warehouse_Data.py",
+      "id": "Optimization/persistence/Warehouse_Data.py::declared_warehouse_shape",
+      "kind": "function",
+      "module": "Optimization/persistence/Warehouse_Data.py",
+      "name": "declared_warehouse_shape",
       "public": true
     },
     {
@@ -12968,11 +13077,27 @@
     },
     {
       "file": "Optimization/persistence/runtime_metrics.py",
+      "id": "Optimization/persistence/runtime_metrics.py::RUNTIME_DB_FAMILY",
+      "kind": "const",
+      "module": "Optimization/persistence/runtime_metrics.py",
+      "name": "RUNTIME_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/runtime_metrics.py",
       "id": "Optimization/persistence/runtime_metrics.py::SECTIONS",
       "kind": "const",
       "module": "Optimization/persistence/runtime_metrics.py",
       "name": "SECTIONS",
       "public": true
+    },
+    {
+      "file": "Optimization/persistence/runtime_metrics.py",
+      "id": "Optimization/persistence/runtime_metrics.py::_ALL_DDL",
+      "kind": "const",
+      "module": "Optimization/persistence/runtime_metrics.py",
+      "name": "_ALL_DDL",
+      "public": false
     },
     {
       "file": "Optimization/persistence/runtime_metrics.py",
@@ -12989,6 +13114,14 @@
       "module": "Optimization/persistence/runtime_metrics.py",
       "name": "_parse_arm",
       "public": false
+    },
+    {
+      "file": "Optimization/persistence/runtime_metrics.py",
+      "id": "Optimization/persistence/runtime_metrics.py::declared_runtime_shape",
+      "kind": "function",
+      "module": "Optimization/persistence/runtime_metrics.py",
+      "name": "declared_runtime_shape",
+      "public": true
     },
     {
       "file": "Optimization/persistence/runtime_metrics.py",
@@ -15328,6 +15461,14 @@
     },
     {
       "file": "Schema/identity.py",
+      "id": "Schema/identity.py::META_TABLE_DDL",
+      "kind": "const",
+      "module": "Schema/identity.py",
+      "name": "META_TABLE_DDL",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
       "id": "Schema/identity.py::SchemaDrift",
       "kind": "class",
       "module": "Schema/identity.py",
@@ -15380,6 +15521,14 @@
       "kind": "function",
       "module": "Schema/identity.py",
       "name": "get",
+      "public": true
+    },
+    {
+      "file": "Schema/identity.py",
+      "id": "Schema/identity.py::meta_ddl",
+      "kind": "function",
+      "module": "Schema/identity.py",
+      "name": "meta_ddl",
       "public": true
     },
     {

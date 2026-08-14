@@ -432,6 +432,8 @@ files:
     layer: "opt_persistence"
     key_symbols:
       - {name: "compute_warehouse_fingerprint", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+      - {name: "declared_warehouse_shape", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
+      - {name: "WAREHOUSE_DB_FAMILY", file: "Optimization/persistence/Warehouse_Data.py", kind: "const"}
       - {name: "init_warehouse_db", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
       - {name: "save_aisle_layout", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
       - {name: "save_warehouse_stats", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
@@ -441,6 +443,8 @@ files:
     layer: "opt_persistence"
     key_symbols:
       - {name: "RUNTIME_DB", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
+      - {name: "declared_runtime_shape", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
+      - {name: "RUNTIME_DB_FAMILY", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "SECTIONS", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "runtime_db_path", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
       - {name: "record_arm", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
@@ -679,6 +683,8 @@ files:
     purpose: "which schema is this database, and is it the one we expect?"
     layer: "schema"
     key_symbols:
+      - {name: "META_TABLE_DDL", file: "Schema/identity.py", kind: "const"}
+      - {name: "meta_ddl", file: "Schema/identity.py", kind: "function"}
       - {name: "SchemaError", file: "Schema/identity.py", kind: "class"}
       - {name: "UnsupportedSchema", file: "Schema/identity.py", kind: "class"}
       - {name: "SchemaDrift", file: "Schema/identity.py", kind: "class"}
@@ -816,6 +822,20 @@ files:
       - {name: "test_every_declared_pick_config_is_registered", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_schema_identity.py":
+    purpose: "every registered DB family must have a trustworthy shape id."
+    layer: "tests"
+    key_symbols:
+      - {name: "EXPECTED_FAMILIES", file: "Tests/architecture/test_schema_identity.py", kind: "const"}
+      - {name: "test_the_expected_families_are_registered", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_declared_shape_is_built_not_listed", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_id_is_stable_and_order_independent", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_a_real_change_moves_the_id", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_stamp_round_trips", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_an_unstamped_file_falls_through_to_derivation", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_drift_between_stamp_and_reality_is_caught", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+      - {name: "test_unsupported_schema_names_the_difference", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."

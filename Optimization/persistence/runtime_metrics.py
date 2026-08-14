@@ -16,6 +16,9 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import identity as _identity
+from Schema import shape as _shape
+
 RUNTIME_DB = 'runtime_metrics.db'
 
 _DDL = """
@@ -46,6 +49,30 @@ CREATE TABLE IF NOT EXISTS runtime (
 
 # The named sections a runtime row breaks down into (column, human label) — the stacked-breakdown
 # order.  Kept here so the DB and the graphs agree on the section set.
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf importing no writer.
+# The declared shape is BUILT from the same DDL `record_arm` executes, never hand-listed.
+
+_ALL_DDL = (_DDL, _identity.meta_ddl('schema_meta'))
+
+
+def declared_runtime_shape() -> dict:
+    con = sqlite3.connect(':memory:')
+    try:
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
+    name='runtime_metrics_db',
+    declared_shape=declared_runtime_shape,
+    meta_table='schema_meta',
+))
+
+
 SECTIONS = [
     ('reord_s',   'reorder'),
     ('build_s',   'batch-build'),
@@ -78,7 +105,9 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
     batches = int(res.get('done', 0) or 0)
     con = sqlite3.connect(runtime_db_path(run_root))
     try:
-        con.execute(_DDL)
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        _identity.stamp(con, RUNTIME_DB_FAMILY)
         con.execute(
             'INSERT OR REPLACE INTO runtime '
             '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'

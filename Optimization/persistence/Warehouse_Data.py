@@ -8,6 +8,9 @@ pair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.
 import hashlib
 import os
 import sqlite3
+
+from Schema import identity as _identity
+from Schema import shape as _shape
 from datetime import datetime, timezone
 
 
@@ -97,15 +100,41 @@ def _open_db(path: str) -> sqlite3.Connection:
 
 # ── public API ─────────────────────────────────────────────────────────────────
 
+#: The ONE ordered DDL list: init_warehouse_db executes it and the declared shape is built from
+#: it, so the declaration cannot drift from what the writer creates.
+_ALL_DDL = (_CREATE_WAREHOUSE_STATS, _CREATE_AISLE_TYPE_STATS, _CREATE_AISLE_IDX,
+            _CREATE_AISLE_LAYOUT, _identity.meta_ddl('schema_meta'))
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf that imports no writer.
+# The declared shape is BUILT from the same DDL init_warehouse_db executes, never hand-listed.
+
+def declared_warehouse_shape() -> dict:
+    con = sqlite3.connect(':memory:')
+    try:
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+WAREHOUSE_DB_FAMILY = _identity.register(_identity.Family(
+    name='warehouse_db',
+    declared_shape=declared_warehouse_shape,
+    meta_table='schema_meta',
+))
+
+
 def init_warehouse_db(path: str) -> None:
     """Create warehouse_stats, aisle_type_stats, and aisle_layout tables."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     con = _open_db(path)
     try:
-        con.execute(_CREATE_WAREHOUSE_STATS)
-        con.execute(_CREATE_AISLE_TYPE_STATS)
-        con.execute(_CREATE_AISLE_IDX)
-        con.execute(_CREATE_AISLE_LAYOUT)
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        _identity.stamp(con, WAREHOUSE_DB_FAMILY)
         con.commit()
     finally:
         con.close()
