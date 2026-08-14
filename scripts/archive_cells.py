@@ -128,10 +128,18 @@ def is_archived(cell_dir: str) -> bool:
 
 
 # ── the move ────────────────────────────────────────────────────────────────────────────────
-def _tree_stats(root: str) -> tuple[int, int]:
+# SQLite's transient companions.  They are deliberately NOT copied into an archive (see
+# _sweep_sidecars), so any count used to compare a source tree against its copy must agree on
+# whether they are in it — see the guard in archive_cell().
+_SIDECAR_SUFFIXES = ('-wal', '-shm')
+
+
+def _tree_stats(root: str, *, skip_sidecars: bool = False) -> tuple[int, int]:
     n = total = 0
     for dirpath, _d, files in os.walk(root):
         for fn in files:
+            if skip_sidecars and fn.endswith(_SIDECAR_SUFFIXES):
+                continue
             try:
                 total += os.path.getsize(os.path.join(dirpath, fn))
                 n += 1
@@ -327,7 +335,7 @@ def _sweep_sidecars(root: str) -> int:
     removed = 0
     for dirpath, _d, files in os.walk(root):
         for fn in files:
-            if fn.endswith(('-wal', '-shm')):
+            if fn.endswith(_SIDECAR_SUFFIXES):
                 try:
                     os.remove(os.path.join(dirpath, fn))
                     removed += 1
@@ -454,12 +462,22 @@ def archive_cell(rt, cell: str, cold: str, *, dry_run: bool = False, echo=print)
             echo(f'      {p}')
         return res
 
-    # Re-measure the destination AFTER verification rather than trusting the pre-copy count of the
+    # Re-measure BOTH sides after verification rather than trusting the pre-copy count of the
     # source: verification itself can add files, and the junction is about to be compared to this.
-    n_dst, _sz_dst = _tree_stats(dst)
-    if n_dst != n:
+    #
+    # Both counts must EXCLUDE sidecars.  `n` above was taken before `_sweep_sidecars(dst)`
+    # deliberately removed them from the copy, so comparing against it made `n_dst` short by
+    # exactly the number swept — and every cell that carries a sidecar carries hundreds.  That
+    # made this guard reject every such cell as a short copy ("copy has 4343 files, source had
+    # 4621"), which is to say: any cell touched by a reader could never be archived at all.  The
+    # guard is asking "did everything that must survive the swap land?", and a sidecar is
+    # explicitly not in that set.
+    n_dst,  _sz_dst = _tree_stats(dst, skip_sidecars=True)
+    n_kept, _sz_src = _tree_stats(src, skip_sidecars=True)
+    if n_dst != n_kept:
         res['status'] = 'failed'
-        res['error'] = f'copy has {n_dst} files, source had {n} — refusing to swap in a junction'
+        res['error'] = (f'copy has {n_dst} files, source had {n_kept} '
+                        f'(sidecars excluded from both) — refusing to swap in a junction')
         echo(f'    {res["error"]}')
         return res
 
@@ -470,9 +488,11 @@ def archive_cell(rt, cell: str, cold: str, *, dry_run: bool = False, echo=print)
         _winapi.CreateJunction(dst, src)            # (target, link)
         if not os.path.isdir(src) or not os.readlink(src):
             raise OSError('junction did not resolve')
-        seen, _sz = _tree_stats(src)
-        if seen != n:
-            raise OSError(f'junction reads {seen} file(s), expected {n}')
+        # `src` now RESOLVES TO `dst`, so this must expect the copy's count (n_dst), not the
+        # pre-copy source count `n` — which still includes the sidecars swept out of the copy.
+        seen, _sz = _tree_stats(src, skip_sidecars=True)
+        if seen != n_dst:
+            raise OSError(f'junction reads {seen} file(s), expected {n_dst}')
     except Exception as exc:
         # A failed CreateJunction leaves an EMPTY REAL DIRECTORY behind, not a link — so testing
         # for a junction here is not enough, and skipping the cleanup makes the rename below fail
