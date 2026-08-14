@@ -15,7 +15,18 @@
 <p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_bin_recorder_py.html"><code>Optimization/metrics/bin_recorder.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def begin_batch(self, batch_id: int) -&gt; None</code></pre>
-<section class="doc">Roll onto a new batch and reset the intra-batch sequence counters.</section>
+<section class="doc">Roll onto a new batch.
+
+The sequence counters are deliberately NOT reset here.  They used to be, and that was a
+silent data-loss bug: initial stocking happens before the loop and records at
+`batch_id = 0`, then the loop&#x27;s first `begin_batch(0)` restarted `seq` at 0 — so a batch-0
+reorder placement collided with an initial fill on the primary key
+`(run_id, batch_id, seq)` and `INSERT OR REPLACE` quietly dropped the initial row.  It
+went unnoticed because no shipped arm reorders at batch 0.
+
+A run-scoped monotonic counter makes the collision structurally impossible while
+preserving every ordering property that matters: `seq` is still ascending within a batch,
+so `ORDER BY batch_id, seq` is still the application order.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_bin_recorder_py__BinRecorder_begin_batch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/bin_recorder.py#:~:text=def%20begin_batch">Source ↗</a></p>
 </article>

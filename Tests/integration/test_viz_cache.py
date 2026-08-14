@@ -114,7 +114,7 @@ def test_bin_span_reproduces_every_keyframe_bin_for_bin(arm):
             truth = {(a, x, y): s for a, x, y, s, _q in rows}
             spanned = {(r[0], r[1], r[2]): r[3] for r in con.execute(
                 'SELECT aisle_id, bayX, bayY, sku FROM bin_span '
-                'WHERE run_id=? AND kf_from<=? AND kf_to>=?', (arm.run_id, batch, batch))}
+                'WHERE run_id=? AND t_from<=? AND t_to>=?', (arm.run_id, batch, batch))}
             assert spanned == truth, f'keyframe {batch} does not round-trip through bin_span'
     finally:
         con.close()
@@ -126,8 +126,8 @@ def test_spans_close_on_sku_change_and_on_emptying(arm):
     try:
         spans = {(r[0], r[1], r[2]): [] for r in con.execute(
             'SELECT aisle_id, bayX, bayY FROM bin_span WHERE run_id=?', (arm.run_id,))}
-        for r in con.execute('SELECT aisle_id, bayX, bayY, kf_from, kf_to, sku FROM bin_span '
-                             'WHERE run_id=? ORDER BY aisle_id, bayX, bayY, kf_from',
+        for r in con.execute('SELECT aisle_id, bayX, bayY, t_from, t_to, sku FROM bin_span '
+                             'WHERE run_id=? ORDER BY aisle_id, bayX, bayY, t_from',
                              (arm.run_id,)):
             spans[(r[0], r[1], r[2])].append((r[3], r[4], r[5]))
     finally:

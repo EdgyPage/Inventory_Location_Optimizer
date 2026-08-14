@@ -23,12 +23,13 @@ import argparse
 import csv
 import json
 import os
-import sqlite3
 import statistics
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+from Schema import connect
 
 WIN = 50   # steady-state window (batches), matching series.py
 
@@ -42,8 +43,13 @@ def _metrics(db: str):
         thr_task  = items / task makespan                             (metric c)
 
     New runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.
+
+    Read-only + immutable, never a plain `sqlite3.connect`: these DBs are written in WAL mode, so
+    any writable open — including a bare read — makes SQLite drop `-wal`/`-shm` sidecars beside a
+    ~1 GB archived file.  That is exactly what `scripts/archive_cells.py::_quick_check` exists to
+    defend against, and `run_whatif_volume._series` already does it this way.
     """
-    con = sqlite3.connect(db)
+    con = connect.read_only(db, row_factory=False, immutable=True)
     try:
         maxb = con.execute('SELECT MAX(batch_id) FROM batch_stats').fetchone()[0]
         if maxb is None:

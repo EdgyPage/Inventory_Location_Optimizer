@@ -64,11 +64,21 @@ class BinRecorder:
 
     # ── driver hooks ──
     def begin_batch(self, batch_id: int) -> None:
-        """Roll onto a new batch and reset the intra-batch sequence counters."""
+        """Roll onto a new batch.
+
+        The sequence counters are deliberately NOT reset here.  They used to be, and that was a
+        silent data-loss bug: initial stocking happens before the loop and records at
+        `batch_id = 0`, then the loop's first `begin_batch(0)` restarted `seq` at 0 — so a batch-0
+        reorder placement collided with an initial fill on the primary key
+        `(run_id, batch_id, seq)` and `INSERT OR REPLACE` quietly dropped the initial row.  It
+        went unnoticed because no shipped arm reorders at batch 0.
+
+        A run-scoped monotonic counter makes the collision structurally impossible while
+        preserving every ordering property that matters: `seq` is still ascending within a batch,
+        so `ORDER BY batch_id, seq` is still the application order.
+        """
         self._in_batch_loop = True
         self._batch = batch_id
-        self._place_seq = 0
-        self._evict_seq = 0
 
     def drain(self) -> tuple[list, list]:
         """Hand over the accumulated rows and clear, mirroring the other checkpoint lists."""

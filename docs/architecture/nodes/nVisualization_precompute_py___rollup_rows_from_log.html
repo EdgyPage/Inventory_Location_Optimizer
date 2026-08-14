@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_rollup_rows_from_log · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_precompute_py___rollup_rows_from_log" data-id="Visualization/precompute.py::_rollup_rows_from_log">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a> <span class="sep">›</span> <span class="here"><code>_rollup_rows_from_log</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_rollup_rows_from_log</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a></p>
+
+<pre class="sig"><code>def _rollup_rows_from_log(run, batches, capacity, deltas, aisle_picks, task_secs)</code></pre>
+<section class="doc">Per (batch, aisle) rollups, prefix-summed from `_log_pass`&#x27;s per-batch steps.
+
+Exact at EVERY batch — nothing inherits a keyframe any more. The running totals are carried
+across the full batch range rather than across `batches`, because a batch that produced no
+tasks writes no `batch_stats` row (`RECONSTRUCTION.md` §7) and skipping its steps would
+desynchronise every batch after it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py__build_one.html"><code>build_one</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___rollup_rows_from_log">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_rollup_rows_from_log">Source ↗</a></p>
+</article>
+</main>
+</body></html>

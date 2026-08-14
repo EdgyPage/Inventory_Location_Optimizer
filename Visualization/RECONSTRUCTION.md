@@ -23,6 +23,19 @@ falls back to `$COMPARISON_OUTPUT_DIR`.
 
 ## 1. The reconstruction contract — keyframes are canonical
 
+> **Superseded for runs that carry the bin-mutation log.** `sim_<arm>.db` now also holds
+> `bin_placement` + `bin_eviction`, which together with `picks` are the COMPLETE record of bin
+> state (`Optimization/metrics/bin_recorder.py`). Folding them reproduces the simulation's own
+> bins at **every** batch, so `state_at` returns `exact: true` everywhere and
+> `Visualization/precompute.py` builds `bin_span` from the log rather than from the keyframes.
+> Keyframes are retained as the independent audit and as a qty anchor, not as the reconstruction
+> mechanism.
+>
+> Everything below still describes **the archive** — every arm written before that change, which
+> is ~500 GB of runs that will never be rewritten. Both paths ship; `cache_meta.span_source` and
+> the `bin_log` capability say which one a given arm gets, and the reader reports `exact: false`
+> for the second exactly as it always did.
+
 ### `bin_inventory` is a pure DEPLETION log. It never records a restock.
 
 `Optimization/simdriver/strategy_runner.py` calls `check_reorders()` **before**
@@ -177,8 +190,13 @@ too slow to compute per request on a production run:
 | `bin_span` | a measured 5.0 s scan for "this bin's history" (`bin_keyframe`'s PK starts `(run_id, batch_id)`, so there is no usable per-aisle index) |
 | `final_home` | the per-SKU destination map that drives the convergence colouring |
 
-`bin_span` is built **from the keyframes**, never from `bin_inventory` — that is what makes it exact
-per §1. Invalidation compares `st_size` and `st_mtime_ns` of all three source DBs; a stale cache is
+`bin_span` is built **from the bin-mutation log** (`bin_placement` + `bin_eviction` + `picks`), so
+`t_from`/`t_to` are arbitrary batch ids and a frame is exact at every batch. An arm written before
+that log existed falls back to spans built **from the keyframes** — never from `bin_inventory` —
+which are exact only on the keyframe grid per §1. `cache_meta.span_source` records which, and the
+reader only reports `exact` off the keyframe grid for the first.
+
+Invalidation compares `st_size` and `st_mtime_ns` of all three source DBs; a stale cache is
 bypassed with a loud warning naming the exact rebuild command, never silently served.
 
 ---

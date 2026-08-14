@@ -17,9 +17,14 @@
 <pre class="sig"><code>def _keyframe_pass(kf_con, run_id)</code></pre>
 <section class="doc">One ordered scan of `bin_keyframe` -&gt; (spans, per-(batch,aisle) occupancy, final homes).
 
-Reads in `(run_id, batch_id)` order so the existing PK/index serves it. Spans close when a
-bin&#x27;s SKU changes between consecutive keyframes; a bin that disappears from a keyframe has
-become empty and its span closes at the previous one.</section>
+The FALLBACK for an arm written before `bin_placement` existed. Reads in `(run_id, batch_id)`
+order so the existing PK/index serves it. Spans close when a bin&#x27;s SKU changes between
+consecutive keyframes; a bin that disappears from a keyframe has become empty and its span
+closes at the previous one.
+
+These spans live on the KEYFRAME grid: they say nothing about what happened between two
+snapshots, which is exactly the 59% gap `RECONSTRUCTION.md` §1 measures. `build_one` records
+`span_source=keyframe` so the reader keeps reporting `exact: false` off that grid.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py__build_one.html"><code>build_one</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___keyframe_pass">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_keyframe_pass">Source ↗</a></p>
 </article>

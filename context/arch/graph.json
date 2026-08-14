@@ -236,6 +236,31 @@
       "src": "Diagnostics/replay_run.py"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Diagnostics/replay_run.py"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::_has_rows",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::occupied_from_aisle_metrics",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::occupied_from_bin_inventory",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::occupied_from_bin_log",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
       "dst": "Diagnostics/replay_run.py::_nearest_warehouse_db",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::main"
@@ -251,17 +276,22 @@
       "src": "Diagnostics/replay_run.py::main"
     },
     {
-      "dst": "Diagnostics/replay_run.py::_connect",
+      "dst": "Diagnostics/replay_run.py::_BatchStream",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::occupied_from_bin_log"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::read_layout"
     },
     {
-      "dst": "Diagnostics/replay_run.py::_connect",
+      "dst": "Diagnostics/replay_run.py::_has_rows",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
     {
-      "dst": "Diagnostics/replay_run.py::_has_rows",
+      "dst": "Diagnostics/replay_run.py::_occupancy",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
@@ -271,17 +301,12 @@
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
     {
-      "dst": "Diagnostics/replay_run.py::occupied_from_aisle_metrics",
-      "kind": "calls",
-      "src": "Diagnostics/replay_run.py::replay_sim_db"
-    },
-    {
-      "dst": "Diagnostics/replay_run.py::occupied_from_bin_inventory",
-      "kind": "calls",
-      "src": "Diagnostics/replay_run.py::replay_sim_db"
-    },
-    {
       "dst": "Diagnostics/replay_run.py::read_layout",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::replay_sim_db"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
@@ -3686,6 +3711,16 @@
       "src": "Optimization/run_whatif_delta.py"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_metrics"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py::_channel_of",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py::_scan"
@@ -3751,6 +3786,11 @@
       "src": "Optimization/run_whatif_labor.py"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
       "dst": "Optimization/run_whatif_labor.py::_agg",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
@@ -3759,6 +3799,11 @@
       "dst": "Optimization/run_whatif_labor.py::_channels",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::_batch_hours_bars"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_hours"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_agg",
@@ -5676,6 +5721,11 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::sim_schema_id",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py::_load_resume",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
@@ -5821,9 +5871,44 @@
       "src": "Schema/shape.py::shape_of_ddl"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY"
+    },
+    {
+      "dst": "Visualization/cache_schema.py::declared_cache_shape",
+      "kind": "ref",
+      "src": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY"
+    },
+    {
       "dst": "Visualization/cache_schema.py::source_stamps",
       "kind": "calls",
       "src": "Visualization/cache_schema.py::cache_freshness"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::declared_cache_shape"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::init_cache_db"
     },
     {
       "dst": "Optimization/runschema/__init__.py",
@@ -5971,6 +6056,11 @@
       "src": "Visualization/precompute.py"
     },
     {
+      "dst": "Visualization/precompute.py::_bin_spans",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::_log_pass"
+    },
+    {
       "dst": "Visualization/cache_schema.py::source_stamps",
       "kind": "calls",
       "src": "Visualization/precompute.py::_source_stamps"
@@ -5996,6 +6086,11 @@
       "src": "Visualization/precompute.py::build_one"
     },
     {
+      "dst": "Visualization/precompute.py::_log_pass",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
       "dst": "Visualization/precompute.py::_picks_pass",
       "kind": "calls",
       "src": "Visualization/precompute.py::build_one"
@@ -6006,12 +6101,22 @@
       "src": "Visualization/precompute.py::build_one"
     },
     {
+      "dst": "Visualization/precompute.py::_rollup_rows_from_log",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
       "dst": "Visualization/precompute.py::_source_stamps",
       "kind": "calls",
       "src": "Visualization/precompute.py::build_one"
     },
     {
       "dst": "Visualization/precompute.py::cache_state",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::log_present",
       "kind": "calls",
       "src": "Visualization/precompute.py::build_one"
     },
@@ -6121,6 +6226,11 @@
       "src": "Visualization/readers/base.py"
     },
     {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.cache_status",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._cache_conn"
@@ -6136,9 +6246,144 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before"
     },
     {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._log_start"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.batch_index",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._pending_restocks"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._span_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._log_start",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._span_index",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
@@ -6239,6 +6484,11 @@
       "dst": "Visualization/cache_schema.py::cache_freshness",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.cache_status"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._log_start",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader.cache_status",
@@ -6346,37 +6596,17 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_log",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_deplete",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_spans",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
     },
@@ -6816,9 +7046,44 @@
       "src": "Warehouse/catalog/Order.py::_sample_weight"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_affinity.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_affinity.py"
+    },
+    {
       "dst": "Warehouse/generation/generate_affinity.py::main",
       "kind": "calls",
       "src": "Warehouse/generation/generate_affinity.py"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY"
+    },
+    {
+      "dst": "Warehouse/generation/generate_affinity.py::declared_affinity_shape",
+      "kind": "ref",
+      "src": "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_affinity.py::_init_db"
+    },
+    {
+      "dst": "Schema/shape.py::shape_of_ddl",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_affinity.py::declared_affinity_shape"
     },
     {
       "dst": "Warehouse/generation/generate_affinity.py::_init_db",
@@ -6906,6 +7171,16 @@
       "src": "Warehouse/generation/generate_affinity.py::plot_lift_histogram"
     },
     {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
       "dst": "Warehouse/catalog/Demand.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_inventory.py"
@@ -6929,6 +7204,26 @@
       "dst": "Warehouse/layout/Storage_Primitive.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Schema/identity.py::Family",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::register",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::declared_inventory_shape",
+      "kind": "ref",
+      "src": "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::_init_db"
     },
     {
       "dst": "Warehouse/catalog/Inventory_Builder.py::Inventory",
@@ -6989,6 +7284,11 @@
       "dst": "Warehouse/layout/Storage_Primitive.py::Storage_Type",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::build_inventory_with_profile"
+    },
+    {
+      "dst": "Schema/shape.py::shape_of_ddl",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::declared_inventory_shape"
     },
     {
       "dst": "Warehouse/generation/generate_inventory.py::Family",
@@ -9345,6 +9645,38 @@
     },
     {
       "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_BatchStream",
+      "kind": "class",
+      "module": "Diagnostics/replay_run.py",
+      "name": "_BatchStream",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_BatchStream.__init__",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_BatchStream.batch",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "batch",
+      "public": true
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_BatchStream.take",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
       "id": "Diagnostics/replay_run.py::_GRID_COLS",
       "kind": "const",
       "module": "Diagnostics/replay_run.py",
@@ -9369,10 +9701,10 @@
     },
     {
       "file": "Diagnostics/replay_run.py",
-      "id": "Diagnostics/replay_run.py::_connect",
-      "kind": "function",
+      "id": "Diagnostics/replay_run.py::_REPO_ROOT",
+      "kind": "const",
       "module": "Diagnostics/replay_run.py",
-      "name": "_connect",
+      "name": "_REPO_ROOT",
       "public": false
     },
     {
@@ -9389,6 +9721,14 @@
       "kind": "function",
       "module": "Diagnostics/replay_run.py",
       "name": "_nearest_warehouse_db",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_occupancy",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "_occupancy",
       "public": false
     },
     {
@@ -9429,6 +9769,14 @@
       "kind": "function",
       "module": "Diagnostics/replay_run.py",
       "name": "occupied_from_bin_inventory",
+      "public": true
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::occupied_from_bin_log",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "occupied_from_bin_log",
       "public": true
     },
     {
@@ -15889,10 +16237,34 @@
     },
     {
       "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::SPAN_SOURCE_KEYFRAME",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "SPAN_SOURCE_KEYFRAME",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::SPAN_SOURCE_LOG",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "SPAN_SOURCE_LOG",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
       "id": "Visualization/cache_schema.py::TABLES",
       "kind": "const",
       "module": "Visualization/cache_schema.py",
       "name": "TABLES",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "VIZ_CACHE_DB_FAMILY",
       "public": true
     },
     {
@@ -15981,6 +16353,14 @@
       "kind": "function",
       "module": "Visualization/cache_schema.py",
       "name": "cache_freshness",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::declared_cache_shape",
+      "kind": "function",
+      "module": "Visualization/cache_schema.py",
+      "name": "declared_cache_shape",
       "public": true
     },
     {
@@ -16145,6 +16525,14 @@
     },
     {
       "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_bin_spans",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_bin_spans",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
       "id": "Visualization/precompute.py::_executemany",
       "kind": "function",
       "module": "Visualization/precompute.py",
@@ -16177,6 +16565,14 @@
     },
     {
       "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_log_pass",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_log_pass",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
       "id": "Visualization/precompute.py::_picks_pass",
       "kind": "function",
       "module": "Visualization/precompute.py",
@@ -16189,6 +16585,14 @@
       "kind": "function",
       "module": "Visualization/precompute.py",
       "name": "_rollup_rows",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_rollup_rows_from_log",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_rollup_rows_from_log",
       "public": false
     },
     {
@@ -16237,6 +16641,14 @@
       "kind": "function",
       "module": "Visualization/precompute.py",
       "name": "cache_state",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::log_present",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "log_present",
       "public": true
     },
     {
@@ -16313,6 +16725,14 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_apply_picks_upto_t",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -16329,10 +16749,58 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_keyframe_state",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._log_start",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_log_start",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_pending_restocks",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._span_index",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_span_index",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_state_from_keyframes",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_log",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_state_from_log",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_spans",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_state_from_spans",
       "public": false
     },
     {
@@ -16613,6 +17081,14 @@
       "kind": "const",
       "module": "Visualization/readers/protocol.py",
       "name": "CAP_AISLE_METRICS",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_BIN_LOG",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_BIN_LOG",
       "public": true
     },
     {
@@ -17553,6 +18029,22 @@
     },
     {
       "file": "Warehouse/generation/generate_affinity.py",
+      "id": "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_affinity.py",
+      "name": "AFFINITY_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_affinity.py",
+      "id": "Warehouse/generation/generate_affinity.py::_ALL_DDL",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_affinity.py",
+      "name": "_ALL_DDL",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_affinity.py",
       "id": "Warehouse/generation/generate_affinity.py::_BYTES_PER_ROW",
       "kind": "const",
       "module": "Warehouse/generation/generate_affinity.py",
@@ -17686,6 +18178,14 @@
       "module": "Warehouse/generation/generate_affinity.py",
       "name": "_s",
       "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_affinity.py",
+      "id": "Warehouse/generation/generate_affinity.py::declared_affinity_shape",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_affinity.py",
+      "name": "declared_affinity_shape",
+      "public": true
     },
     {
       "file": "Warehouse/generation/generate_affinity.py",
@@ -17846,6 +18346,22 @@
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "Family",
       "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "INVENTORY_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::_ALL_DDL",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "_ALL_DDL",
+      "public": false
     },
     {
       "file": "Warehouse/generation/generate_inventory.py",
@@ -18038,6 +18554,14 @@
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "_summary",
       "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::declared_inventory_shape",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "declared_inventory_shape",
+      "public": true
     },
     {
       "file": "Warehouse/generation/generate_inventory.py",

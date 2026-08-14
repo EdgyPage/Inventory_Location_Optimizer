@@ -113,9 +113,38 @@
     },
     "Diagnostics/replay_run.py": {
       "decorators": [],
-      "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are:\n    <pair>/warehouse.db            aisle_layout   (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       aisle_metrics  (n_bins occupied / aisle / batch)\n                                   bin_inventory  (universal fallback)\n                                   batch_stats    (duration / batch)\n                                   simulation_runs (run params)\n\nOccupied bins come from `aisle_metrics.n_bins` when present (affinity strategies);\notherwise they are reconstructed from `bin_inventory` deltas (works for any run).\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
+      "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so\nit stays inside cp1252 \u2014 no box drawing here, unlike the section banners below):\n\n    <pair>/warehouse.db            aisle_layout    (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       bin_placement   PLACE  |\n                                   bin_eviction    EVICT  |  the bin-mutation log:\n                                   picks           PICK   |  fold -> EXACT occupancy\n                                   aisle_metrics   (n_bins occupied / aisle / batch)\n                                   bin_inventory   (pick deltas - legacy fallback)\n                                   batch_stats     (duration / batch)\n                                   simulation_runs (run params)\n\nWhere occupancy comes from \u2014 and what it is worth\n-------------------------------------------------\nThree sources, tried best-first.  Only the first is correct, so every export now RECORDS which one\nit used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the\nCLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is\nthe failure this tool shipped with for its whole life.\n\n1. `bin_placement` + `bin_eviction` + `picks`  ->  **EXACT at every batch.**\n   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are\n   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in\n   application order \u2014 EVICT, then PLACE, then PICK, mirroring the runner \u2014 reproduces the\n   simulation's own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof\n   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a\n   production arm's `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690\n   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.\n\n2. `aisle_metrics.n_bins`  ->  **approximate.**  It is the manager's own occupied-bin counter\n   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch's\n   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a\n   pick.  Only strategies that maintain aisle state write it at all \u2014 for a uniform-placement arm\n   the table is empty, which is why the third source is what usually ran.\n\n3. `bin_inventory` deltas  ->  **approximate and biased downward.**  The table records picks and\n   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is\n   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.\n   Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832\n   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy\n   \u2014 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a\n   warehouse that slowly drains, plausibly enough that nothing flagged it for months.\n\nOld runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to\n2/3 and are labelled approximate instead of silently believed.\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
       "kind": "module",
       "signature": null
+    },
+    "Diagnostics/replay_run.py::_BatchStream": {
+      "decorators": [],
+      "doc": "One table's rows, grouped by `batch_id`, consumed strictly forward.\n\nA cursor with one row of lookahead rather than a list: a single production arm holds millions\nof picks, and the fold only ever needs the batch it is currently applying.  `take()` is a\ngenerator and MUST be drained before the stream is asked for its next batch.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Diagnostics/replay_run.py::_BatchStream.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, conn: sqlite3.Connection, sql: str, args: tuple)"
+    },
+    "Diagnostics/replay_run.py::_BatchStream.batch": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The batch the next unread row belongs to, or None when exhausted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int | None"
+    },
+    "Diagnostics/replay_run.py::_BatchStream.take": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int)"
     },
     "Diagnostics/replay_run.py::_GRID_COLS": {
       "decorators": [],
@@ -138,19 +167,19 @@
       "signature": null,
       "value_preview": "os.path.join(_HERE, 'out')"
     },
-    "Diagnostics/replay_run.py::_connect": {
+    "Diagnostics/replay_run.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> sqlite3.Connection"
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(_HERE)"
     },
     "Diagnostics/replay_run.py::_has_rows": {
       "decorators": [],
-      "doc": null,
+      "doc": "Does `table` exist AND carry at least one row (for `run_id`, when given)?\n\nThe run_id filter is not decoration: an arm that was resumed or interrupted can leave a table\ncreated-but-empty for the run being replayed, and an unfiltered probe would then select a\nsource that folds to nothing.",
       "is_async": false,
       "kind": "function",
-      "signature": "(conn: sqlite3.Connection, table: str) -> bool"
+      "signature": "(conn: sqlite3.Connection, table: str, run_id: int | None=None) -> bool"
     },
     "Diagnostics/replay_run.py::_nearest_warehouse_db": {
       "decorators": [],
@@ -158,6 +187,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(sim_db: str) -> str | None"
+    },
+    "Diagnostics/replay_run.py::_occupancy": {
+      "decorators": [],
+      "doc": "Pick the best occupancy source this DB actually carries and name it \u2014 (None, None) if none.\n\nProbing rather than assuming is what keeps the ~500 GB archive readable: those DBs predate the\nbin-mutation log entirely, so `bin_placement` is not merely empty \u2014 the table does not exist.\n`_has_rows` is False for both cases, and the run then falls through to a LABELLED\napproximation.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(conn, run_id, max_batches: int)"
     },
     "Diagnostics/replay_run.py::build_batches": {
       "decorators": [],
@@ -182,17 +218,24 @@
     },
     "Diagnostics/replay_run.py::occupied_from_aisle_metrics": {
       "decorators": [],
-      "doc": null,
+      "doc": "APPROXIMATE fallback \u2014 see `_SOURCES['aisle_metrics']`.\n\n`n_bins` is the manager's own occupied-bin counter sampled after the restock pass and BEFORE\nthe batch's picks, so this is the start-of-batch frame, not the end-of-batch one the log and\n`bin_inventory` produce.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id) -> dict[int, dict[int, int]]"
     },
     "Diagnostics/replay_run.py::occupied_from_bin_inventory": {
       "decorators": [],
-      "doc": "Roll bin_inventory deltas (full snapshot at batch 0 + changed bins after) into\nan occupied-bin count per aisle at the end of each recorded batch.",
+      "doc": "APPROXIMATE fallback of last resort \u2014 see `_SOURCES['bin_inventory']`.\n\nRolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin\ncount per aisle at the end of each recorded batch.  The stream contains picks and no restocks,\nso the curve it produces can only ever fall; it is kept solely because the pre-`bin_placement`\narchive has nothing better.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id) -> dict[int, dict[int, int]]"
+    },
+    "Diagnostics/replay_run.py::occupied_from_bin_log": {
+      "decorators": [],
+      "doc": "Fold PLACE + EVICT + PICK into an occupied-bin count per aisle at the end of each batch.\n\nThis is the correct reconstruction, and the only one: the three event streams are every\nmutation of `Aisle.Bin.storage` the simulation can make, so the fold reproduces its own state\nrather than approximating it.  Mirrors `Tests/bench/bin_log_harness.py::fold`, including the\nwithin-batch order **EVICT -> PLACE -> PICK** \u2014 the runner reloads, then calls\n`check_reorders()`, then simulates picks.\n\nOnly the aisle counts are kept, not `{loc: (sku, qty)}` as the harness does: the dashboard\ndraws fill per aisle, and a whole warehouse of per-bin tuples per batch is not worth carrying.\nCounts are maintained incrementally as bins enter and leave `qty`, so a batch costs its own\nevents and not a rescan of ~165k bins.\n\nQuantities are integers throughout (`qty`, `picks.quantity`), so the depletion test below is\nexact integer arithmetic \u2014 no float tolerance is involved anywhere in this fold.\n\n`max_batches` stops the fold early (0 = all).  Occupancy at batch k depends on every event\nbefore it, so this is a cap on output, never a shortcut through the history.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(conn, run_id, max_batches: int=0) -> dict[int, dict[int, int]]"
     },
     "Diagnostics/replay_run.py::read_layout": {
       "decorators": [],
@@ -2892,7 +2935,7 @@
     },
     "Optimization/metrics/bin_recorder.py::BinRecorder.begin_batch": {
       "decorators": [],
-      "doc": "Roll onto a new batch and reset the intra-batch sequence counters.",
+      "doc": "Roll onto a new batch.\n\nThe sequence counters are deliberately NOT reset here.  They used to be, and that was a\nsilent data-loss bug: initial stocking happens before the loop and records at\n`batch_id = 0`, then the loop's first `begin_batch(0)` restarted `seq` at 0 \u2014 so a batch-0\nreorder placement collided with an initial fill on the primary key\n`(run_id, batch_id, seq)` and `INSERT OR REPLACE` quietly dropped the initial row.  It\nwent unnoticed because no shipped arm reorders at batch 0.\n\nA run-scoped monotonic counter makes the collision structurally impossible while\npreserving every ordering property that matters: `seq` is still ascending within a batch,\nso `ORDER BY batch_id, seq` is still the application order.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch_id: int) -> None"
@@ -3028,7 +3071,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_eviction (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- intra-batch order (mgr._reload_mo..."
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_eviction (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- run-scoped monotonic; ascending w..."
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION_IDX": {
       "decorators": [],
@@ -3077,7 +3120,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS bin_placement (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- intra-batch fill order (mgr._reo..."
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS bin_placement (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- run-scoped monotonic; ascending ..."
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT_IDX": {
       "decorators": [],
@@ -3913,7 +3956,7 @@
     },
     "Optimization/run_whatif_delta.py::_metrics": {
       "decorators": [],
-      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.",
+      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.\n\nRead-only + immutable, never a plain `sqlite3.connect`: these DBs are written in WAL mode, so\nany writable open \u2014 including a bare read \u2014 makes SQLite drop `-wal`/`-shm` sidecars beside a\n~1 GB archived file.  That is exactly what `scripts/archive_cells.py::_quick_check` exists to\ndefend against, and `run_whatif_volume._series` already does it this way.",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
@@ -4017,7 +4060,7 @@
     },
     "Optimization/run_whatif_labor.py::_hours": {
       "decorators": [],
-      "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.",
+      "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.\n\nRead-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened\nany other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
@@ -5812,7 +5855,7 @@
     },
     "Visualization/cache_schema.py": {
       "decorators": [],
-      "doc": "cache_schema.py \u2014 DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`).\n\nEverything here is DERIVED. Deleting a sidecar costs time, never data; the viewer runs without\none, just slowly. It exists because four things are too slow to compute per request on a\nproduction arm (384 aisles, 396,500 bins, 130,885 SKUs, 100 batches, ~1 GB sim DB):\n\n| Table                | Replaces                                                           |\n|----------------------|--------------------------------------------------------------------|\n| `aisle_batch_rollup` | a ~0.7 s whole-warehouse state rebuild per pane per batch step, run |\n|                      | only to count occupied bins per aisle                               |\n| `sku_rank`           | a measured 24.4 s `GROUP BY sku` full scan of `picks`               |\n| `sku_series`         | the same scan again, per batch                                      |\n| `bin_span`           | a measured ~5-9 s scan for one bin's history \u2014 `bin_keyframe`'s PK  |\n|                      | starts `(run_id, batch_id)`, so no per-aisle index is usable        |\n| `final_home`         | the per-SKU destination map the convergence colouring is built on   |\n\n**`bin_span` is built from the KEYFRAMES, never from `bin_inventory`.** That is what makes it\nexact: the delta stream records picks and never restocks, so replaying it loses 59% of a real\nwarehouse within five batches (`RECONSTRUCTION.md` \u00a71). The spans therefore live on the keyframe\ngrid \u2014 `kf_from`/`kf_to` are batch ids of keyframes, not arbitrary batches.\n\nThis module is DDL and nothing else, so `context/verify_context.py` can point a `schema_file` at\nit and check every declared table actually exists.",
+      "doc": "cache_schema.py \u2014 DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`).\n\nEverything here is DERIVED. Deleting a sidecar costs time, never data; the viewer runs without\none, just slowly. It exists because four things are too slow to compute per request on a\nproduction arm (384 aisles, 396,500 bins, 130,885 SKUs, 100 batches, ~1 GB sim DB):\n\n| Table                | Replaces                                                           |\n|----------------------|--------------------------------------------------------------------|\n| `aisle_batch_rollup` | a ~0.7 s whole-warehouse state rebuild per pane per batch step, run |\n|                      | only to count occupied bins per aisle                               |\n| `sku_rank`           | a measured 24.4 s `GROUP BY sku` full scan of `picks`               |\n| `sku_series`         | the same scan again, per batch                                      |\n| `bin_span`           | a measured ~5-9 s scan for one bin's history \u2014 `bin_keyframe`'s PK  |\n|                      | starts `(run_id, batch_id)`, so no per-aisle index is usable        |\n| `final_home`         | the per-SKU destination map the convergence colouring is built on   |\n\n**`bin_span` is built from the LOG \u2014 `bin_placement` + `bin_eviction` + `picks`.** Those three\ntables are the complete bin-mutation record (`Optimization/metrics/bin_recorder.py`, proved\nagainst a live simulation by `Tests/integration/test_bin_log_replay.py`), so a span is exact at\n**every** batch, not merely at the keyframes. `t_from`/`t_to` are therefore arbitrary batch ids.\n\nA span still keys on SKU CHANGE rather than on qty: qty churns every batch and a per-bin-per-batch\ntable would be 396,500 x 100 = 39.65M rows, larger than the sim DB it caches. Exact qty at an\narbitrary `(batch, t)` is `qty_at_from` minus the picks since `t_from`, which the reader already\ndoes.\n\nRuns written BEFORE the log existed (every arm of the current archive) fall back to spans built\nfrom the keyframes \u2014 exact only on the keyframe grid, which is the old contract\n(`RECONSTRUCTION.md` \u00a71). Which of the two produced a given sidecar is recorded in\n`cache_meta.span_source`, because the reader's `exact` flag depends on it and guessing would be\nthe same class of silent error the log exists to remove.\n\nThis module is DDL and nothing else, so `context/verify_context.py` can point a `schema_file` at\nit and check every declared table actually exists.",
       "kind": "module",
       "signature": null
     },
@@ -5821,7 +5864,21 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "1"
+      "value_preview": "2"
+    },
+    "Visualization/cache_schema.py::SPAN_SOURCE_KEYFRAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'keyframe'"
+    },
+    "Visualization/cache_schema.py::SPAN_SOURCE_LOG": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'log'"
     },
     "Visualization/cache_schema.py::TABLES": {
       "decorators": [],
@@ -5829,6 +5886,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('cache_meta', 'bin_span', 'sku_rank', 'sku_series', 'final_home', 'aisle_batch_rollup')"
+    },
+    "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='viz_cache_db', declared_shape=declared_cache_shape, meta_table='cache_meta'))"
     },
     "Visualization/cache_schema.py::_ALL": {
       "decorators": [],
@@ -5856,14 +5920,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_span (\\n run_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n kf_from INTEGER NOT NULL, -- first keyframe bat..."
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_span (\\n run_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT NULL,\\n bayX INTEGER NOT NULL,\\n bayY INTEGER NOT NULL,\\n t_from INTEGER NOT NULL, -- first batch holding..."
     },
     "Visualization/cache_schema.py::_CREATE_BIN_SPAN_IDX": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_span_batch\\n ON bin_span (run_id, kf_from, kf_to, aisle_id, bayX, bayY, sku, qty_at_from)\\n'"
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_span_batch\\n ON bin_span (run_id, t_from, t_to, aisle_id, bayX, bayY, sku, qty_at_from)\\n'"
     },
     "Visualization/cache_schema.py::_CREATE_CACHE_META": {
       "decorators": [],
@@ -5906,6 +5970,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(viz_cache: str, sim_db: str, keyframe_db: str, warehouse_db: str) -> str"
+    },
+    "Visualization/cache_schema.py::declared_cache_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Visualization/cache_schema.py::init_cache_db": {
       "decorators": [],
@@ -6037,7 +6108,7 @@
     },
     "Visualization/precompute.py": {
       "decorators": [],
-      "doc": "precompute.py \u2014 build the derived viewer sidecar for one or more arms.\n\n    python -m Visualization.precompute \"<run_root>\" --cell k1_off_rr --config store \\\n           --channel store --arms uni_fifo_norsl,opt_rank_labor_norsl\n\nEverything it writes is derived from the sim + keyframe DBs; deleting `_viz/` costs time, never\ndata. Filters are not a convenience \u2014 a full sweep is up to 272 arms, so the default is \"the arms\nyou name\", never \"everything\".\n\nCost per arm is dominated by two sequential passes:\n\n  * the keyframes (~3.3 M rows over 20 snapshots) -> `bin_span`, occupancy, `final_home`\n  * `picks` (~3.1 M rows) -> `sku_rank`, `sku_series`, per-aisle pick counts\n\nBoth are single ordered scans over an existing index. In particular the keyframe pass reads in\n`(run_id, batch_id)` order \u2014 the PK prefix \u2014 and NOT `ORDER BY aisle_id, ...`, which has no index\nand would add a multi-million-row temp sort for nothing.\n\nMust not import flask: this runs under the bare repo interpreter.",
+      "doc": "precompute.py \u2014 build the derived viewer sidecar for one or more arms.\n\n    python -m Visualization.precompute \"<run_root>\" --cell k1_off_rr --config store \\\n           --channel store --arms uni_fifo_norsl,opt_rank_labor_norsl\n\nEverything it writes is derived from the sim + keyframe DBs; deleting `_viz/` costs time, never\ndata. Filters are not a convenience \u2014 a full sweep is up to 272 arms, so the default is \"the arms\nyou name\", never \"everything\".\n\nCost per arm is dominated by two sequential passes:\n\n  * `picks` (~3.1 M rows) -> `sku_rank`, `sku_series`, per-aisle pick counts, per-bin depletion\n  * the bin-mutation LOG (~2.2 M rows) -> `bin_span`, occupancy, `final_home`\n\nBoth are single ordered scans over an existing index. The log pass reads `bin_placement` and\n`bin_eviction` in `(run_id, batch_id, seq)` order \u2014 their PK \u2014 and the picks pass takes no\n`ORDER BY` at all, because neither has an index on `aisle_id` and asking for one would add a\nmulti-million-row temp sort for nothing.\n\nTwo span sources, and the sidecar records which one it used\n-----------------------------------------------------------\n`bin_placement + bin_eviction + picks` is the complete bin-mutation record, so folding it gives\nthe simulation's own bin state at EVERY batch (`Tests/integration/test_bin_log_replay.py` proves\nthis against a live sim). Arms written before the log existed \u2014 every arm of the current archive \u2014\nfall back to `_keyframe_pass`, whose spans are exact only on the keyframe grid, which is the old\ncontract (`RECONSTRUCTION.md` \u00a71). `cache_meta.span_source` says which, and the reader will only\nreport `exact` off the keyframe grid for the first.\n\nMust not import flask: this runs under the bare repo interpreter.",
       "kind": "module",
       "signature": null
     },
@@ -6047,6 +6118,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "50000"
+    },
+    "Visualization/precompute.py::_bin_spans": {
+      "decorators": [],
+      "doc": "Fold ONE bin's PLACE/EVICT/PICK events into its exact occupancy spans.\n\n`events` are `(batch, kind, seq, sku, qty)` sorted ascending, `kind` 0 = EVICT, 1 = PLACE \u2014\nso the sort itself imposes the runner's within-batch order, EVICT -> PLACE -> PICK: the\nreloader runs first, then `check_reorders()`, and only then the pick simulation.\n`picks` is `{batch: units}` for this bin, or None.\n\nA span therefore OPENS at the batch of its PLACE (the bin already holds the unit at that\nbatch's START, which is the frame every keyframe and every `state_at` is defined on) and\nCLOSES at whichever comes first:\n\n  * the batch before the next PLACE/EVICT \u2014 a span that opens and closes inside one batch is\n    never visible at start-of-batch resolution and is dropped (`t_to < t_from`);\n  * the batch whose picks drain it to zero.\n\nReturns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the\n`[(batch, units)]` actually consumed inside the span \u2014 the caller needs it to keep the\nper-aisle qty rollup exact without re-reading `picks`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events, picks, last_batch)"
     },
     "Visualization/precompute.py::_executemany": {
       "decorators": [],
@@ -6064,7 +6142,7 @@
     },
     "Visualization/precompute.py::_keyframe_pass": {
       "decorators": [],
-      "doc": "One ordered scan of `bin_keyframe` -> (spans, per-(batch,aisle) occupancy, final homes).\n\nReads in `(run_id, batch_id)` order so the existing PK/index serves it. Spans close when a\nbin's SKU changes between consecutive keyframes; a bin that disappears from a keyframe has\nbecome empty and its span closes at the previous one.",
+      "doc": "One ordered scan of `bin_keyframe` -> (spans, per-(batch,aisle) occupancy, final homes).\n\nThe FALLBACK for an arm written before `bin_placement` existed. Reads in `(run_id, batch_id)`\norder so the existing PK/index serves it. Spans close when a bin's SKU changes between\nconsecutive keyframes; a bin that disappears from a keyframe has become empty and its span\ncloses at the previous one.\n\nThese spans live on the KEYFRAME grid: they say nothing about what happened between two\nsnapshots, which is exactly the 59% gap `RECONSTRUCTION.md` \u00a71 measures. `build_one` records\n`span_source=keyframe` so the reader keeps reporting `exact: false` off that grid.",
       "is_async": false,
       "kind": "function",
       "signature": "(kf_con, run_id)"
@@ -6076,19 +6154,33 @@
       "kind": "function",
       "signature": "()"
     },
-    "Visualization/precompute.py::_picks_pass": {
+    "Visualization/precompute.py::_log_pass": {
       "decorators": [],
-      "doc": "One scan of `picks` -> per-SKU totals, per-(batch,aisle) pick counts, top-N series.\n\nReplaces the measured 24.4 s `GROUP BY sku` and a second scan for the series. Aggregated in\nPython rather than SQL so one read feeds all three.",
+      "doc": "One ordered scan each of `bin_placement` + `bin_eviction` -> spans exact at EVERY batch.\n\nReturns `(spans, homes, final_batch, deltas)`.  `deltas` holds per-`(aisle, batch)` STEPS for\nthe four rollup metrics rather than their values: a span contributes `+1` at `t_from` and\n`-1` at `t_to + 1`, so the rollup prefix-sums in O(spans + picks) instead of expanding\nbins x batches \u2014 2.2M steps against 39.65M cells on a production arm.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_con, run_id, top_n)"
+      "signature": "(sim_con, run_id, batches, bin_picks)"
+    },
+    "Visualization/precompute.py::_picks_pass": {
+      "decorators": [],
+      "doc": "One scan of `picks` -> per-SKU totals, per-(batch,aisle) pick counts, top-N series.\n\nReplaces the measured 24.4 s `GROUP BY sku` and a second scan for the series. Aggregated in\nPython rather than SQL so one read feeds all of them.\n\n`want_bin_picks` adds per-`(bin, batch)` depletion, which is the third input the span fold\nneeds (PLACE + EVICT tell it what a bin holds; picks tell it when the bin runs dry). It is\nopt-in because it is the one aggregate proportional to the pick count rather than to the SKU\nor aisle count, and the keyframe fallback has no use for it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sim_con, run_id, top_n, want_bin_picks=False)"
     },
     "Visualization/precompute.py::_rollup_rows": {
       "decorators": [],
-      "doc": "Per (batch, aisle) rollups.\n\nOccupancy is only known at keyframes, so a non-keyframe batch inherits the nearest keyframe\nat or below it \u2014 the same rule `state_at` uses, and it is why `home_match` and `occupied`\nstep rather than glide between keyframes.",
+      "doc": "Per (batch, aisle) rollups on the KEYFRAME grid \u2014 the pre-log fallback.\n\nOccupancy is only known at keyframes, so a non-keyframe batch inherits the nearest keyframe\nat or below it \u2014 the same rule `state_at` uses without a log, and it is why `home_match` and\n`occupied` step rather than glide between keyframes.",
       "is_async": false,
       "kind": "function",
       "signature": "(run, batches, capacity, occupancy, aisle_picks, task_secs, home_sets, spans)"
+    },
+    "Visualization/precompute.py::_rollup_rows_from_log": {
+      "decorators": [],
+      "doc": "Per (batch, aisle) rollups, prefix-summed from `_log_pass`'s per-batch steps.\n\nExact at EVERY batch \u2014 nothing inherits a keyframe any more. The running totals are carried\nacross the full batch range rather than across `batches`, because a batch that produced no\ntasks writes no `batch_stats` row (`RECONSTRUCTION.md` \u00a77) and skipping its steps would\ndesynchronise every batch after it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run, batches, capacity, deltas, aisle_picks, task_secs)"
     },
     "Visualization/precompute.py::_select": {
       "decorators": [],
@@ -6131,6 +6223,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run) -> str"
+    },
+    "Visualization/precompute.py::log_present": {
+      "decorators": [],
+      "doc": "Does this run carry a bin-mutation log?\n\nPK-served (`LIMIT 1` on `(run_id, batch_id, seq)`), and tolerant of a DB written before the\ntable existed \u2014 which is every arm in the archive, so the OperationalError is the NORMAL\nanswer here, not an error condition.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sim_con, run_id) -> bool"
     },
     "Visualization/precompute.py::main": {
       "decorators": [],
@@ -6175,7 +6274,7 @@
     },
     "Visualization/readers/base.py": {
       "decorators": [],
-      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71 and is the reason this class exists:\n`bin_inventory` records picks and *never* restocks, so rolling deltas forward from a keyframe\nloses 59% of a real warehouse within five batches.  `state_at` therefore reads the keyframe and\nsubtracts picks \u2014 exact at a keyframe batch, honestly flagged elsewhere.",
+      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71, and `state_at` has three implementations of\nit because a run can carry three different records:\n\n  1. **span index** \u2014 a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One\n     indexed lookup per frame, exact at every batch.\n  2. **live log fold** \u2014 the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take\n     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.\n  3. **keyframe + picks** \u2014 the pre-log archive.  `bin_inventory` records picks and *never*\n     restocks, so rolling deltas forward loses 59% of a real warehouse within five batches; this\n     path is exact only AT a keyframe and says `exact: false` everywhere else.\n\nWhich one served a frame is visible in the payload: `exact` is the honest answer, never the\nconvenient one.",
       "kind": "module",
       "signature": null
     },
@@ -6192,6 +6291,13 @@
       "kind": "function",
       "signature": "(self, sim_db: str, warehouse_db: str, run_id: int, keyframe_db: str='', viz_cache: str='', schema_id: str='', schema_source: str='')"
     },
+    "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t": {
+      "decorators": [],
+      "doc": "Subtract batch `batch`'s own picks up to sim_time `t`.  No-op when `t` is None.\n\nThis is the intra-batch clock: `picks.sim_time` is the finest resolution the record has,\nand it is unaffected by the log (restocks carry no sub-batch time \u2014 `check_reorders()`\nruns entirely between two batches' simulations).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, con, bins: dict, batch: int, t, scope: str) -> None"
+    },
     "Visualization/readers/base.py::SqliteSimReader._cache_conn": {
       "decorators": [],
       "doc": "An open sidecar connection, or None when there is nothing trustworthy to read.",
@@ -6206,6 +6312,20 @@
       "kind": "function",
       "signature": "(self, batch: int) -> int | None"
     },
+    "Visualization/readers/base.py::SqliteSimReader._keyframe_state": {
+      "decorators": [],
+      "doc": "`{bin: {sku, qty}}` at one keyframe \u2014 the post-restock, pre-pick start of that batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, keyframe: int | None, aisles) -> dict"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._log_start": {
+      "decorators": [],
+      "doc": "The first batch this run recorded a PLACE for, or None if it has no log.\n\n`MIN(batch_id)` on the `(run_id, batch_id, seq)` primary key, so it is an index seek,\nnot a scan.  None is the normal answer for every arm in the archive \u2014 those runs predate\n`bin_placement` \u2014 which is why the missing table is caught rather than raised.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int | None"
+    },
     "Visualization/readers/base.py::SqliteSimReader._pending_restocks": {
       "decorators": [],
       "doc": "Restock placements this frame cannot show: batches (keyframe, batch].\n\nThe keyframe already includes its OWN batch's restocks \u2014 `check_reorders()` runs before\nthe snapshot is taken.",
@@ -6213,9 +6333,37 @@
       "kind": "function",
       "signature": "(self, keyframe: int, batch: int) -> int"
     },
+    "Visualization/readers/base.py::SqliteSimReader._span_index": {
+      "decorators": [],
+      "doc": "An open sidecar, but ONLY when its `bin_span` came from the bin-mutation log.\n\nA v1 sidecar, or one rebuilt from the keyframes because the arm predates the log, holds\nspans on the keyframe grid.  Reading those as if they were exact between keyframes is\nprecisely the error this whole change removes, so the source is checked, not assumed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> sqlite3.Connection | None"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes": {
+      "decorators": [],
+      "doc": "The pre-log frame: nearest keyframe below, minus the picks since.\n\nExact when `batch` IS a keyframe batch.  Otherwise depletion-exact but missing the\nrestocks of the batches in between, which is reported rather than hidden.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles: list[int] | None=None, t: float | None=None) -> dict"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._state_from_log": {
+      "decorators": [],
+      "doc": "The frame folded live from `bin_placement` + `bin_eviction` + `picks`.\n\nUsed when the run HAS a log but no fresh sidecar. The nearest keyframe is the base and\nthe log carries it forward, so the work is bounded by the keyframe interval. With no\nkeyframe below, an empty warehouse is the base \u2014 valid only when the log starts at batch\n0, i.e. it recorded the initial fill; a resumed run whose log starts later cannot be\nanchored and falls through.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._state_from_spans": {
+      "decorators": [],
+      "doc": "The frame from the sidecar's log-built span index. None = no such index.\n\nThe span gives the bin's SKU and the qty it was filled with at `t_from`; the qty NOW is\nthat minus the picks since.  A keyframe at or below `batch` is used as the qty anchor\nwhenever one exists \u2014 not for correctness, but to bound the pick scan to one keyframe\ninterval instead of the whole run.  Without keyframes the answer is the same, read from\na longer range.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
     "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes": {
       "decorators": [],
-      "doc": "Last-resort path for a run written with keyframe_interval=0.\n\n`bin_inventory` holds one full snapshot (at the run's FIRST batch, which is not\nnecessarily 0 on a resumed run) and depletion-only deltas after it.  Ordering is by\n`batch_id, id`: the loop is last-write-wins and a bin can receive rows from two\nbranches in one batch, so `batch_id` alone is not a total order.",
+      "doc": "Last-resort path: a PRE-LOG run written with keyframe_interval=0.\n\nStill reachable, and not dead code: it is the only record such an arm has. A run with a\nbin-mutation log never lands here \u2014 `_state_from_log` folds it from an empty warehouse\ninstead, exactly, with no keyframe needed.\n\n`bin_inventory` holds one full snapshot (at the run's FIRST batch, which is not\nnecessarily 0 on a resumed run) and depletion-only deltas after it.  Ordering is by\n`batch_id, id`: the loop is last-write-wins and a bin can receive rows from two\nbranches in one batch, so `batch_id` alone is not a total order.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch: int, aisles, t) -> dict"
@@ -6257,7 +6405,7 @@
     },
     "Visualization/readers/base.py::SqliteSimReader.bin_history": {
       "decorators": [],
-      "doc": "Everything this bin held, one row per keyframe where it changed.\n\nServed from the sidecar's `bin_span` when present.  The live fallback is a scan of\n`bin_keyframe` \u2014 whose PK starts `(run_id, batch_id)`, so there is no usable per-aisle\nindex and this costs ~5 s on a production DB.  That is exactly why the sidecar exists.",
+      "doc": "Everything this bin held, one row per occupancy.\n\nServed from the sidecar's `bin_span` when present \u2014 where, on a log-built cache, the\n`t_from`/`t_to` bounds are the real batches the bin held that SKU rather than the\nkeyframes it was observed at.  The live fallback is a scan of `bin_keyframe`, whose PK\nstarts `(run_id, batch_id)`, so there is no usable per-aisle index and it costs ~5 s on a\nproduction DB.  That is exactly why the sidecar exists.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, aisle: int, bayX: int, bayY: int) -> list[dict]"
@@ -6348,7 +6496,7 @@
     },
     "Visualization/readers/base.py::SqliteSimReader.state_at": {
       "decorators": [],
-      "doc": "Occupied bins at (batch, t).\n\nExact when `batch` is a keyframe batch.  Otherwise the frame is the nearest keyframe\nbelow, with the intervening picks applied \u2014 depletion-exact, but missing the restocks\nof the batches in between, which is reported rather than hidden.",
+      "doc": "Occupied bins at (batch, t).\n\nTries the three records in cost order \u2014 cached span index, live log fold, keyframe \u2014\nand returns the first that can answer.  The first two are exact at EVERY batch; the\nthird is exact only AT a keyframe and says so.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch: int, aisles: list[int] | None=None, t: float | None=None) -> dict"
@@ -6447,7 +6595,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(CAP_KEYFRAMES, CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)"
+      "value_preview": "(CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)"
     },
     "Visualization/readers/protocol.py::CAP_AISLE_METRICS": {
       "decorators": [],
@@ -6455,6 +6603,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'aisle_metrics'"
+    },
+    "Visualization/readers/protocol.py::CAP_BIN_LOG": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'bin_log'"
     },
     "Visualization/readers/protocol.py::CAP_BIN_SCORES": {
       "decorators": [],
@@ -7322,6 +7477,20 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='affinity_db', declared_shape=declared_affinity_shape, meta_table='run_metadata'))"
+    },
+    "Warehouse/generation/generate_affinity.py::_ALL_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_SCHEMA,)"
+    },
     "Warehouse/generation/generate_affinity.py::_BYTES_PER_ROW": {
       "decorators": [],
       "doc": null,
@@ -7440,6 +7609,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(v)"
+    },
+    "Warehouse/generation/generate_affinity.py::declared_affinity_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Warehouse/generation/generate_affinity.py::estimate": {
       "decorators": [],
@@ -7580,6 +7756,20 @@
       "doc": "One category's SKU archetype.  Every *_spec accepts any dist incl. 'mixture'\n(multimodal).  length/width/height are sampled INDEPENDENTLY from their own specs;\nweight from weight_spec; demand from freq_spec (rate in (0,1]) and qty_spec\n(integer units/pick).  handling_split is the per-family (conveyable, non-conveyable)\npropensity; share is the family's relative SKU fraction (normalized across the plan).",
       "kind": "class",
       "signature": ""
+    },
+    "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_identity.register(_identity.Family(name='inventory_db', declared_shape=declared_inventory_shape, meta_table='run_metadata'))"
+    },
+    "Warehouse/generation/generate_inventory.py::_ALL_DDL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_SCHEMA,)"
     },
     "Warehouse/generation/generate_inventory.py::_CARTON_MAX_DIM": {
       "decorators": [],
@@ -7748,6 +7938,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(s: pd.Series) -> dict"
+    },
+    "Warehouse/generation/generate_inventory.py::declared_inventory_shape": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Warehouse/generation/generate_inventory.py::fulfillment_families": {
       "decorators": [],

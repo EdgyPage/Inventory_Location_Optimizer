@@ -20,11 +20,16 @@ import sqlite3
 import pytest
 
 # Importing the writers is what populates the registry — Schema/ imports no writer, so a family
-# exists only once its own module has been loaded.
+# exists only once its own module has been loaded.  `cache_schema` is the writer for the DERIVED
+# viewer sidecar and lives outside Optimization/, which is exactly why the registry is keyed by
+# family rather than by package.
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
 from Schema import identity, shape
+from Visualization import cache_schema  # noqa: F401
+from Warehouse.generation import generate_affinity, generate_inventory  # noqa: F401
 
-EXPECTED_FAMILIES = {'sim_db', 'keyframes_db', 'warehouse_db', 'runtime_metrics_db'}
+EXPECTED_FAMILIES = {'sim_db', 'keyframes_db', 'warehouse_db', 'runtime_metrics_db',
+                     'viz_cache_db', 'inventory_db', 'affinity_db'}
 
 
 def test_the_expected_families_are_registered():

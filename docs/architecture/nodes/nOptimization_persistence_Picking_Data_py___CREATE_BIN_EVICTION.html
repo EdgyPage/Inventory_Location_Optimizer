@@ -14,7 +14,7 @@
 <h1><span class="kind kind-const">const</span> <code>_CREATE_BIN_EVICTION</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 
-<pre class="sig"><code>_CREATE_BIN_EVICTION = &#x27;\n CREATE TABLE IF NOT EXISTS bin_eviction (\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\n batch_id INTEGER NOT NULL,\n seq INTEGER NOT NULL, -- intra-batch order (mgr._reload_mo...</code></pre>
+<pre class="sig"><code>_CREATE_BIN_EVICTION = &#x27;\n CREATE TABLE IF NOT EXISTS bin_eviction (\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\n batch_id INTEGER NOT NULL,\n seq INTEGER NOT NULL, -- run-scoped monotonic; ascending w...</code></pre>
 <section class="doc empty">No docstring.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___CREATE_BIN_EVICTION">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=_CREATE_BIN_EVICTION">Source ↗</a></p>

@@ -28,13 +28,13 @@ import argparse
 import csv
 import json
 import os
-import sqlite3
 import statistics
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from Schema import connect
 from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
 
 MS_PER_HOUR = 3.6e6
@@ -55,8 +55,12 @@ def _parse_arm(arm: str):
 
 
 def _hours(db: str):
-    """Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches."""
-    con = sqlite3.connect(db)
+    """Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
+
+    Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
+    any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.
+    """
+    con = connect.read_only(db, row_factory=False, immutable=True)
     try:
         row = con.execute('SELECT SUM(task_makespan), SUM(duration), SUM(total_items), COUNT(*) '
                           'FROM batch_stats').fetchone()

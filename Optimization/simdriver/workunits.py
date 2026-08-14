@@ -9,7 +9,7 @@ import json
 import logging
 import os
 
-from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_schema_id
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
@@ -314,6 +314,11 @@ def _prepare_channel_run(
         optimal_work     = ch_optimal_work,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
+        # The shape every sim_<arm>.db in this directory was written with (Schema/identity.py).
+        # It is stamped into simulation_runs.sim_schema_id too, but the docs site opens NO
+        # database — docs/macros.py and docs/experiments/ingest.py read committed JSON only —
+        # so this is the ONLY way schema identity reaches the website.
+        sim_schema_id = sim_schema_id(),
     )
     return strategy_args, [sim_skeleton]
 

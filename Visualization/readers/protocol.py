@@ -61,13 +61,14 @@ class SimSchemaDrift(SimSchemaError):
 # are what let it hide the panel instead.
 
 CAP_KEYFRAMES = 'keyframes'         # a .keyframes.db exists and has rows -> exact spatial state
+CAP_BIN_LOG = 'bin_log'             # bin_placement rows exist -> EVERY batch is exactly rebuildable
 CAP_AISLE_METRICS = 'aisle_metrics'
 CAP_REORDER_QUEUE = 'reorder_queue'
 CAP_BIN_SCORES = 'bin_scores'
 CAP_SKU_SCORES = 'sku_scores'
 CAP_VIZ_CACHE = 'viz_cache'         # a fresh sidecar is bound -> the cheap paths are available
 
-ALL_CAPABILITIES = (CAP_KEYFRAMES, CAP_AISLE_METRICS, CAP_REORDER_QUEUE,
+ALL_CAPABILITIES = (CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE,
                     CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)
 
 

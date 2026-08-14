@@ -5,10 +5,19 @@ threaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cac
 crossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file
 — trivial next to the ~0.5 s keyframe read they precede — so every query opens and closes its own.
 
-The reconstruction contract is `RECONSTRUCTION.md` §1 and is the reason this class exists:
-`bin_inventory` records picks and *never* restocks, so rolling deltas forward from a keyframe
-loses 59% of a real warehouse within five batches.  `state_at` therefore reads the keyframe and
-subtracts picks — exact at a keyframe batch, honestly flagged elsewhere.
+The reconstruction contract is `RECONSTRUCTION.md` §1, and `state_at` has three implementations of
+it because a run can carry three different records:
+
+  1. **span index** — a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One
+     indexed lookup per frame, exact at every batch.
+  2. **live log fold** — the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take
+     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.
+  3. **keyframe + picks** — the pre-log archive.  `bin_inventory` records picks and *never*
+     restocks, so rolling deltas forward loses 59% of a real warehouse within five batches; this
+     path is exact only AT a keyframe and says `exact: false` everywhere else.
+
+Which one served a frame is visible in the payload: `exact` is the honest answer, never the
+convenient one.
 """
 from __future__ import annotations
 
@@ -16,7 +25,7 @@ import os
 import sqlite3
 
 from Visualization.readers.protocol import (
-    CAP_AISLE_METRICS, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
+    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
     CAP_SKU_SCORES, CAP_VIZ_CACHE,
 )
 
@@ -110,6 +119,8 @@ class SqliteSimReader:
             con.close()
         if self.keyframe_db and self.keyframe_batches():
             caps.add(CAP_KEYFRAMES)
+        if self._log_start() is not None:
+            caps.add(CAP_BIN_LOG)
         # Freshness, not mere existence: a stale sidecar is not a capability, it is a hazard.
         # Deliberately NOT memoised with the rest — a cache built while the viewer is running
         # must become visible without a restart.
@@ -274,12 +285,55 @@ class SqliteSimReader:
         drop = {'run_id', 'sku'}
         return {str(r['sku']): {k: r[k] for k in r.keys() if k not in drop} for r in rows}
 
-    # ── state: the keyframe-canonical contract ───────────────────────────────────
+    # ── state ────────────────────────────────────────────────────────────────────
 
     def _keyframe_at_or_before(self, batch: int) -> int | None:
         kfs = self.keyframe_batches()
         prior = [k for k in kfs if k <= batch]
         return max(prior) if prior else None
+
+    def _log_start(self) -> int | None:
+        """The first batch this run recorded a PLACE for, or None if it has no log.
+
+        `MIN(batch_id)` on the `(run_id, batch_id, seq)` primary key, so it is an index seek,
+        not a scan.  None is the normal answer for every arm in the archive — those runs predate
+        `bin_placement` — which is why the missing table is caught rather than raised.
+        """
+        if 'log_start' in self._memo:
+            return self._memo['log_start']
+        out = None
+        con = _ro(self.sim_db)
+        try:
+            row = con.execute('SELECT MIN(batch_id) FROM bin_placement WHERE run_id=?',
+                              (self.run_id,)).fetchone()
+            out = None if row is None or row[0] is None else int(row[0])
+        except sqlite3.OperationalError:              # table absent: a pre-log run
+            out = None
+        finally:
+            con.close()
+        self._memo['log_start'] = out
+        return out
+
+    def _span_index(self) -> sqlite3.Connection | None:
+        """An open sidecar, but ONLY when its `bin_span` came from the bin-mutation log.
+
+        A v1 sidecar, or one rebuilt from the keyframes because the arm predates the log, holds
+        spans on the keyframe grid.  Reading those as if they were exact between keyframes is
+        precisely the error this whole change removes, so the source is checked, not assumed.
+        """
+        from Visualization.cache_schema import SPAN_SOURCE_LOG
+        cache = self._cache_conn()
+        if cache is None:
+            return None
+        try:
+            row = cache.execute(
+                "SELECT value FROM cache_meta WHERE key='span_source'").fetchone()
+            if row is not None and row[0] == SPAN_SOURCE_LOG:
+                return cache
+        except sqlite3.Error:
+            pass
+        cache.close()
+        return None
 
     def _pending_restocks(self, keyframe: int, batch: int) -> int:
         """Restock placements this frame cannot show: batches (keyframe, batch].
@@ -296,15 +350,188 @@ class SqliteSimReader:
                  t: float | None = None) -> dict:
         """Occupied bins at (batch, t).
 
-        Exact when `batch` is a keyframe batch.  Otherwise the frame is the nearest keyframe
-        below, with the intervening picks applied — depletion-exact, but missing the restocks
-        of the batches in between, which is reported rather than hidden.
+        Tries the three records in cost order — cached span index, live log fold, keyframe —
+        and returns the first that can answer.  The first two are exact at EVERY batch; the
+        third is exact only AT a keyframe and says so.
         """
         batch = int(batch)
+        state = self._state_from_spans(batch, aisles, t)
+        if state is None:
+            state = self._state_from_log(batch, aisles, t)
+        if state is None:
+            state = self._state_from_keyframes(batch, aisles, t)
+        return state
+
+    def _state_from_spans(self, batch: int, aisles, t) -> dict | None:
+        """The frame from the sidecar's log-built span index. None = no such index.
+
+        The span gives the bin's SKU and the qty it was filled with at `t_from`; the qty NOW is
+        that minus the picks since.  A keyframe at or below `batch` is used as the qty anchor
+        whenever one exists — not for correctness, but to bound the pick scan to one keyframe
+        interval instead of the whole run.  Without keyframes the answer is the same, read from
+        a longer range.
+        """
+        cache = self._span_index()
+        if cache is None:
+            return None
+        scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
+        try:
+            rows = cache.execute(
+                f'SELECT aisle_id, bayX, bayY, t_from, sku, qty_at_from FROM bin_span '
+                f'WHERE run_id=? AND t_from<=? AND t_to>=?{scope}',
+                (self.run_id, batch, batch)).fetchall()
+        except sqlite3.Error:
+            return None
+        finally:
+            cache.close()
+        if not rows:
+            # Either the batch is outside the cached run or the scope holds no occupied bin.
+            # An empty warehouse is not a state this simulation produces, so fall through
+            # rather than assert an exact empty frame.
+            return None
+
+        kf = self._keyframe_at_or_before(batch)
+        kf_state = self._keyframe_state(kf, aisles) if kf is not None else {}
+        bins: dict[str, dict] = {}
+        anchor: dict[str, int] = {}                   # bin -> batch its qty is known at
+        for r in rows:
+            if r['sku'] is None:
+                continue
+            key = f"{r['aisle_id']},{r['bayX']},{r['bayY']}"
+            sku, t_from = int(r['sku']), int(r['t_from'])
+            known = kf_state.get(key)
+            # The keyframe only anchors a span it actually falls inside, and only when the two
+            # agree on the SKU: a disagreement means one of the records is wrong, and the log is
+            # the one this frame is built from.
+            if kf is not None and t_from <= kf and known is not None and known['sku'] == sku:
+                bins[key] = {'sku': sku, 'qty': known['qty']}
+                anchor[key] = kf
+            else:
+                bins[key] = {'sku': sku, 'qty': int(r['qty_at_from'])}
+                anchor[key] = t_from
+
+        lo = min(anchor.values())
+        con = _ro(self.sim_db)
+        try:
+            if batch > lo:
+                # Grouped per (bin, batch) rather than per bin: each bin subtracts only the
+                # picks at or after ITS OWN anchor — earlier ones belong to a previous unit.
+                for r in con.execute(
+                        f'SELECT aisle_id, bayX, bayY, batch_id, SUM(quantity) n FROM picks '
+                        f'WHERE run_id=? AND batch_id>=? AND batch_id<?{scope} '
+                        f'GROUP BY aisle_id, bayX, bayY, batch_id', (self.run_id, lo, batch)):
+                    key = f"{r['aisle_id']},{r['bayX']},{r['bayY']}"
+                    if int(r['batch_id']) >= anchor.get(key, batch):
+                        _deplete(bins, r['aisle_id'], r['bayX'], r['bayY'], r['n'])
+            self._apply_picks_upto_t(con, bins, batch, t, scope)
+        finally:
+            con.close()
+        return {'batch': batch, 'keyframe': kf, 't': t, 'bins': bins,
+                'exact': True, 'restocks_pending': 0, 'note': ''}
+
+    def _state_from_log(self, batch: int, aisles, t) -> dict | None:
+        """The frame folded live from `bin_placement` + `bin_eviction` + `picks`.
+
+        Used when the run HAS a log but no fresh sidecar. The nearest keyframe is the base and
+        the log carries it forward, so the work is bounded by the keyframe interval. With no
+        keyframe below, an empty warehouse is the base — valid only when the log starts at batch
+        0, i.e. it recorded the initial fill; a resumed run whose log starts later cannot be
+        anchored and falls through.
+        """
+        start = self._log_start()
+        if start is None:
+            return None
+        kf = self._keyframe_at_or_before(batch)
+        if kf is None and start != 0:
+            return None
+        base = kf if kf is not None else 0
+        scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
+
+        bins = self._keyframe_state(kf, aisles) if kf is not None else {}
+        events: dict[int, list] = {}                  # batch -> [(kind, seq, key, sku, qty)]
+        con = _ro(self.sim_db)
+        try:
+            # kind 0 = EVICT, 1 = PLACE, so sorting a batch's events replays the runner's order:
+            # the reloader, then check_reorders, then the picks.
+            for r in con.execute(
+                    f'SELECT batch_id, seq, aisle_id, bayX, bayY FROM bin_eviction '
+                    f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
+                    (self.run_id, base, batch)):
+                events.setdefault(int(r['batch_id']), []).append(
+                    (0, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}", None, 0))
+            for r in con.execute(
+                    f'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_placement '
+                    f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
+                    (self.run_id, base, batch)):
+                events.setdefault(int(r['batch_id']), []).append(
+                    (1, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}",
+                     int(r['sku']), int(r['qty'])))
+            picks: dict[int, list] = {}
+            if batch > base:
+                for r in con.execute(
+                        f'SELECT batch_id, aisle_id, bayX, bayY, SUM(quantity) n FROM picks '
+                        f'WHERE run_id=? AND batch_id>=? AND batch_id<?{scope} '
+                        f'GROUP BY batch_id, aisle_id, bayX, bayY', (self.run_id, base, batch)):
+                    picks.setdefault(int(r['batch_id']), []).append(
+                        (r['aisle_id'], r['bayX'], r['bayY'], r['n']))
+
+            for b in range(base, batch + 1):
+                for kind, _seq, key, sku, qty in sorted(events.get(b, ())):
+                    if kind:
+                        bins[key] = {'sku': sku, 'qty': qty}
+                    else:
+                        bins.pop(key, None)
+                for aisle, bx, by, n in picks.get(b, ()):
+                    _deplete(bins, aisle, bx, by, n)
+            self._apply_picks_upto_t(con, bins, batch, t, scope)
+        finally:
+            con.close()
+        return {'batch': batch, 'keyframe': kf, 't': t, 'bins': bins,
+                'exact': True, 'restocks_pending': 0, 'note': ''}
+
+    def _keyframe_state(self, keyframe: int | None, aisles) -> dict:
+        """`{bin: {sku, qty}}` at one keyframe — the post-restock, pre-pick start of that batch."""
+        bins: dict[str, dict] = {}
+        if keyframe is None or not self.keyframe_db:
+            return bins
+        scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
+        con = _ro(self.keyframe_db)
+        try:
+            for r in con.execute(
+                    f'SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe '
+                    f'WHERE run_id=? AND batch_id=?{scope}', (self.run_id, keyframe)):
+                if r['qty'] > 0:
+                    bins[f"{r['aisle_id']},{r['bayX']},{r['bayY']}"] = {
+                        'sku': int(r['sku']), 'qty': int(r['qty'])}
+        finally:
+            con.close()
+        return bins
+
+    def _apply_picks_upto_t(self, con, bins: dict, batch: int, t, scope: str) -> None:
+        """Subtract batch `batch`'s own picks up to sim_time `t`.  No-op when `t` is None.
+
+        This is the intra-batch clock: `picks.sim_time` is the finest resolution the record has,
+        and it is unaffected by the log (restocks carry no sub-batch time — `check_reorders()`
+        runs entirely between two batches' simulations).
+        """
+        if t is None:
+            return
+        for r in con.execute(
+                f'SELECT aisle_id, bayX, bayY, SUM(quantity) n FROM picks '
+                f'WHERE run_id=? AND batch_id=? AND sim_time<=?{scope} '
+                f'GROUP BY aisle_id, bayX, bayY', (self.run_id, batch, float(t))):
+            _deplete(bins, r['aisle_id'], r['bayX'], r['bayY'], r['n'])
+
+    def _state_from_keyframes(self, batch: int, aisles: list[int] | None = None,
+                              t: float | None = None) -> dict:
+        """The pre-log frame: nearest keyframe below, minus the picks since.
+
+        Exact when `batch` IS a keyframe batch.  Otherwise depletion-exact but missing the
+        restocks of the batches in between, which is reported rather than hidden.
+        """
         kf = self._keyframe_at_or_before(batch)
         scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
 
-        bins: dict[str, dict] = {}
         if kf is None:
             kfs = self.keyframe_batches()
             if kfs:
@@ -320,16 +547,7 @@ class SqliteSimReader:
             # so this frame is exact only at that batch.  Reported as such.
             return self._state_without_keyframes(batch, aisles, t)
 
-        kcon = _ro(self.keyframe_db)
-        try:
-            for r in kcon.execute(
-                    f'SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe '
-                    f'WHERE run_id=? AND batch_id=?{scope}', (self.run_id, kf)):
-                if r['qty'] > 0:
-                    bins[f"{r['aisle_id']},{r['bayX']},{r['bayY']}"] = {
-                        'sku': int(r['sku']), 'qty': int(r['qty'])}
-        finally:
-            kcon.close()
+        bins = self._keyframe_state(kf, aisles)
 
         # Apply picks: whole batches [kf, batch), then batch itself up to t.
         con = _ro(self.sim_db)
@@ -340,12 +558,7 @@ class SqliteSimReader:
                         f'WHERE run_id=? AND batch_id>=? AND batch_id<?{scope} '
                         f'GROUP BY aisle_id, bayX, bayY', (self.run_id, kf, batch)):
                     _deplete(bins, r['aisle_id'], r['bayX'], r['bayY'], r['n'])
-            if t is not None:
-                for r in con.execute(
-                        f'SELECT aisle_id, bayX, bayY, SUM(quantity) n FROM picks '
-                        f'WHERE run_id=? AND batch_id=? AND sim_time<=?{scope} '
-                        f'GROUP BY aisle_id, bayX, bayY', (self.run_id, batch, float(t))):
-                    _deplete(bins, r['aisle_id'], r['bayX'], r['bayY'], r['n'])
+            self._apply_picks_upto_t(con, bins, batch, t, scope)
         finally:
             con.close()
 
@@ -361,7 +574,11 @@ class SqliteSimReader:
         }
 
     def _state_without_keyframes(self, batch: int, aisles, t) -> dict:
-        """Last-resort path for a run written with keyframe_interval=0.
+        """Last-resort path: a PRE-LOG run written with keyframe_interval=0.
+
+        Still reachable, and not dead code: it is the only record such an arm has. A run with a
+        bin-mutation log never lands here — `_state_from_log` folds it from an empty warehouse
+        instead, exactly, with no keyframe needed.
 
         `bin_inventory` holds one full snapshot (at the run's FIRST batch, which is not
         necessarily 0 on a resumed run) and depletion-only deltas after it.  Ordering is by
@@ -402,19 +619,21 @@ class SqliteSimReader:
                 'events': self.events(batch, aisle=aisle)}
 
     def bin_history(self, aisle: int, bayX: int, bayY: int) -> list[dict]:
-        """Everything this bin held, one row per keyframe where it changed.
+        """Everything this bin held, one row per occupancy.
 
-        Served from the sidecar's `bin_span` when present.  The live fallback is a scan of
-        `bin_keyframe` — whose PK starts `(run_id, batch_id)`, so there is no usable per-aisle
-        index and this costs ~5 s on a production DB.  That is exactly why the sidecar exists.
+        Served from the sidecar's `bin_span` when present — where, on a log-built cache, the
+        `t_from`/`t_to` bounds are the real batches the bin held that SKU rather than the
+        keyframes it was observed at.  The live fallback is a scan of `bin_keyframe`, whose PK
+        starts `(run_id, batch_id)`, so there is no usable per-aisle index and it costs ~5 s on a
+        production DB.  That is exactly why the sidecar exists.
         """
         aisle, bayX, bayY = int(aisle), int(bayX), int(bayY)
         cache = self._cache_conn()
         if cache is not None:
             try:
                 rows = [dict(r) for r in cache.execute(
-                    'SELECT kf_from, kf_to, sku, qty_at_from FROM bin_span '
-                    'WHERE run_id=? AND aisle_id=? AND bayX=? AND bayY=? ORDER BY kf_from',
+                    'SELECT t_from, t_to, sku, qty_at_from FROM bin_span '
+                    'WHERE run_id=? AND aisle_id=? AND bayX=? AND bayY=? ORDER BY t_from',
                     (self.run_id, aisle, bayX, bayY))]
                 return rows
             except sqlite3.Error:
@@ -425,7 +644,7 @@ class SqliteSimReader:
             return []
         con = _ro(self.keyframe_db)
         try:
-            return [{'kf_from': int(r['batch_id']), 'kf_to': int(r['batch_id']),
+            return [{'t_from': int(r['batch_id']), 't_to': int(r['batch_id']),
                      'sku': int(r['sku']), 'qty_at_from': int(r['qty'])}
                     for r in con.execute(
                         'SELECT batch_id, sku, qty FROM bin_keyframe '

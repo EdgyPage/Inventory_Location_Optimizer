@@ -83,16 +83,20 @@ register({
         { size: 11, color: 'rgba(255,255,255,.4)' });
       return;
     }
-    const kfs = data.meta?.keyframes || [];
-    const lo = kfs.length ? kfs[0] : 0;
-    const hi = kfs.length ? kfs[kfs.length - 1] : 1;
+    // Spans are batch-bounded now (the bin-mutation log resolves every batch, not only the
+    // keyframes), so the timeline axis is the batch grid and falls back to keyframes only for
+    // a pre-log arm whose spans really do sit on that coarser grid.
+    const grid = (data.meta?.batches?.length ? data.meta.batches
+                                            : (data.meta?.keyframes || []));
+    const lo = grid.length ? grid[0] : 0;
+    const hi = grid.length ? grid[grid.length - 1] : 1;
     const barX = 6;
     const barW = w - 12;
     const barH = 18;
     rect(g, barX, y, barW, barH, 'rgba(255,255,255,0.05)');
     for (const s of spans) {
-      const x0 = barX + barW * ((s.kf_from - lo) / Math.max(1, hi - lo));
-      const x1 = barX + barW * ((s.kf_to - lo) / Math.max(1, hi - lo));
+      const x0 = barX + barW * ((s.t_from - lo) / Math.max(1, hi - lo));
+      const x1 = barX + barW * ((s.t_to - lo) / Math.max(1, hi - lo));
       rect(g, x0, y, Math.max(2, x1 - x0), barH, palette.forSku(s.sku, aisle));
     }
     y += barH + 4;
@@ -102,7 +106,7 @@ register({
     y += 16;
     for (const s of spans.slice(0, 12)) {
       rect(g, 6, y, 10, 10, palette.forSku(s.sku, aisle));
-      text(g, `batches ${s.kf_from}-${s.kf_to}   sku ${s.sku}   qty ${s.qty_at_from}`, 20, y,
+      text(g, `batches ${s.t_from}-${s.t_to}   sku ${s.sku}   qty ${s.qty_at_from}`, 20, y,
         { size: 10, color: 'rgba(255,255,255,.7)' });
       y += 14;
     }

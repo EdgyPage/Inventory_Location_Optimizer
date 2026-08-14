@@ -14,9 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>_has_rows</code></h1>
 <p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_replay_run_py.html"><code>Diagnostics/replay_run.py</code></a></p>
 
-<pre class="sig"><code>def _has_rows(conn: sqlite3.Connection, table: str) -&gt; bool</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
+<pre class="sig"><code>def _has_rows(conn: sqlite3.Connection, table: str, run_id: int | None=None) -&gt; bool</code></pre>
+<section class="doc">Does `table` exist AND carry at least one row (for `run_id`, when given)?
+
+The run_id filter is not decoration: an arm that was resumed or interrupted can leave a table
+created-but-empty for the run being replayed, and an unfiltered probe would then select a
+source that folds to nothing.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_replay_run_py___occupancy.html"><code>_occupancy</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_replay_run_py___has_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/replay_run.py#:~:text=def%20_has_rows">Source ↗</a></p>
 </article>
 </main>

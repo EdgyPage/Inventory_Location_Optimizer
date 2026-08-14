@@ -188,8 +188,10 @@ artifacts:
       - {function: _find_series, file: Optimization/run_channel_rollup.py}
       - {function: main, file: docs/experiments/ingest.py}
     match: "sim_meta.json"
+    # sim_schema_id: the Schema/ id of the sim_<arm>.db files beside this file.  The docs site
+    # opens no database, so this JSON is the only route by which schema identity reaches it.
     fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
-             optimal_work, inv_db, aff_db]
+             optimal_work, inv_db, aff_db, sim_schema_id]
 
   runtime_metrics_db:
     path_pattern: "comparison_<ts>/runtime_metrics.db"

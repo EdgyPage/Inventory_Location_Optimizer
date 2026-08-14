@@ -280,7 +280,10 @@ async function loadBatchTrack() {
 function updateStatus() {
   const s = get();
   const kfs = data.meta?.keyframes || [];
-  const exact = kfs.includes(s.batch);
+  // A run carrying the bin-mutation log is exactly reconstructible at EVERY batch; only the
+  // pre-log archive is limited to its keyframes.
+  const logged = (data.meta?.capabilities || []).includes('bin_log');
+  const exact = logged || kfs.includes(s.batch);
   statusEl.innerHTML = `batch <b>${s.batch}</b>`
     + `<span class="${exact ? 'ok' : 'warn'}">${exact ? 'exact' : 'between keyframes'}</span>`
     + (s.aisle !== null ? ` · aisle <b>${s.aisle}</b>` : '')

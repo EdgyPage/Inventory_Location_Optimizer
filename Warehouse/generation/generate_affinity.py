@@ -80,6 +80,9 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import identity as _identity
+from Schema import shape as _shape
+
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
 _TOP_K_DEFAULT       = 10
 _CANDIDATE_K_DEFAULT = 60    # legacy (demand-rank model); unused by the latent-cluster model
@@ -115,13 +118,44 @@ _SCHEMA = '''
 '''
 
 
+#: The ONE ordered DDL list: `_init_db` executes it and the declared shape is BUILT from it, so
+#: the declaration cannot drift from what the writer creates.  `_SCHEMA` is a multi-statement
+#: script, hence the single-element tuple — `_shape.shape_of_ddl` dispatches to `executescript`.
+#: No `_identity.meta_ddl(...)` entry: this family stamps into `run_metadata`, which the script
+#: above ALREADY declares.  A meta table created only by `stamp()` would appear in the observed
+#: shape and never in the declared one, so no file could ever verify.
+_ALL_DDL = (_SCHEMA,)
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf that imports no writer
+# (context/architecture.yml forbids `schema -> generation`).
+#
+# This family was UNHASHABLE until `sku_group` moved into `_SCHEMA` above: reading a
+# generator-written file with `Warehouse/catalog/Affinity_Store.py` used to ADD that table, so
+# the observed shape depended on whether the file had ever been opened.  Both DDLs must stay in
+# step — `AffinityStore._init_schema` now creates nothing when every table is already present.
+
+def declared_affinity_shape() -> dict:
+    return _shape.shape_of_ddl(_ALL_DDL)
+
+
+AFFINITY_DB_FAMILY = _identity.register(_identity.Family(
+    name='affinity_db',
+    declared_shape=declared_affinity_shape,
+    meta_table='run_metadata',      # already declared above; shared with the params_json row
+))
+
+
 def _init_db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')
     conn.execute('PRAGMA cache_size=-262144')
     conn.execute('PRAGMA temp_store=MEMORY')
-    conn.executescript(_SCHEMA)
+    for stmt in _ALL_DDL:
+        conn.executescript(stmt)
+    _identity.stamp(conn, AFFINITY_DB_FAMILY)
     conn.commit()
     return conn
 

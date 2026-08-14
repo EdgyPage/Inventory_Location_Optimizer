@@ -80,6 +80,8 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import identity as _identity
+from Schema import shape as _shape
 from Warehouse.catalog.Order import Order, StorageHandleConfig
 from Warehouse.catalog.Demand import Demand
 from Warehouse.catalog.Inventory_Builder import Inventory
@@ -585,6 +587,38 @@ _PLAN_PARAM_SPECS = [
 _HANDLINGS_ORDER = ['conveyable', 'non-conveyable']
 
 
+#: The ONE ordered DDL list: `_init_db` executes it and the declared shape is BUILT from it, so
+#: the declaration cannot drift from what the writer creates.  `_SCHEMA` is a multi-statement
+#: script, hence the single-element tuple — `_shape.shape_of_ddl` dispatches to `executescript`.
+#: No `_identity.meta_ddl(...)` entry here: this family stamps into `run_metadata`, which the
+#: script above ALREADY declares (with a stricter `value TEXT NOT NULL`).  A family whose meta
+#: table were created only by `stamp()` could never have observed == declared.
+_ALL_DDL = (_SCHEMA,)
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf that imports no writer
+# (context/architecture.yml forbids `schema -> generation`).
+
+def declared_inventory_shape() -> dict:
+    return _shape.shape_of_ddl(_ALL_DDL)
+
+
+#: ONE family covers both `inventory.db` (the generated catalogue) and `planned_inventory.db`
+#: (the grown/stock-planned copy the sim workers reload).  They are the same family because they
+#: are the same FILE SHAPE: `save_inventory_to_db` writes both through this `_init_db`, so both
+#: carry cartons + run_metadata + creation_plan and hash identically.  Identity is a property of
+#: the schema, not of the role a file plays — a second family would be a second name for one
+#: shape, and would have to be kept in step by hand for no gain.  (context/artifacts.yml lists
+#: only `tables: [cartons]` for planned_inventory.db because that is the table its READER needs;
+#: that is a subset claim about consumption, not a claim that the other two are absent.)
+INVENTORY_DB_FAMILY = _identity.register(_identity.Family(
+    name='inventory_db',
+    declared_shape=declared_inventory_shape,
+    meta_table='run_metadata',      # already declared above; shared with the params_json row
+))
+
+
 def _init_db(db_path: str) -> sqlite3.Connection:
     parent = os.path.dirname(os.path.abspath(db_path))
     if parent:
@@ -592,7 +626,9 @@ def _init_db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')
-    conn.executescript(_SCHEMA)
+    for stmt in _ALL_DDL:
+        conn.executescript(stmt)
+    _identity.stamp(conn, INVENTORY_DB_FAMILY)
     conn.commit()
     return conn
 

@@ -15,11 +15,11 @@
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a></p>
 
 <pre class="sig"><code>def _rollup_rows(run, batches, capacity, occupancy, aisle_picks, task_secs, home_sets, spans)</code></pre>
-<section class="doc">Per (batch, aisle) rollups.
+<section class="doc">Per (batch, aisle) rollups on the KEYFRAME grid — the pre-log fallback.
 
 Occupancy is only known at keyframes, so a non-keyframe batch inherits the nearest keyframe
-at or below it — the same rule `state_at` uses, and it is why `home_match` and `occupied`
-step rather than glide between keyframes.</section>
+at or below it — the same rule `state_at` uses without a log, and it is why `home_match` and
+`occupied` step rather than glide between keyframes.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py__build_one.html"><code>build_one</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___rollup_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_rollup_rows">Source ↗</a></p>
 </article>

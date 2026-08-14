@@ -467,7 +467,10 @@ _CREATE_BIN_PLACEMENT = """
     CREATE TABLE IF NOT EXISTS bin_placement (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id INTEGER NOT NULL,
-        seq      INTEGER NOT NULL,   -- intra-batch fill order (mgr._reorder_placements)
+        seq      INTEGER NOT NULL,   -- run-scoped monotonic; ascending within a batch.
+                                     -- NOT reset per batch: initial stocking records at
+                                     -- batch 0 before the loop, so a per-batch counter
+                                     -- collided with batch-0 reorders on this PK.
         aisle_id INTEGER NOT NULL,
         bayX     INTEGER NOT NULL,
         bayY     INTEGER NOT NULL,
@@ -487,7 +490,7 @@ _CREATE_BIN_EVICTION = """
     CREATE TABLE IF NOT EXISTS bin_eviction (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id INTEGER NOT NULL,
-        seq      INTEGER NOT NULL,   -- intra-batch order (mgr._reload_moves)
+        seq      INTEGER NOT NULL,   -- run-scoped monotonic; ascending within a batch
         aisle_id INTEGER NOT NULL,
         bayX     INTEGER NOT NULL,
         bayY     INTEGER NOT NULL,

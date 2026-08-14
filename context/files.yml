@@ -18,6 +18,7 @@ files:
     layer: "diagnostics"
     key_symbols:
       - {name: "read_layout", file: "Diagnostics/replay_run.py", kind: "function"}
+      - {name: "occupied_from_bin_log", file: "Diagnostics/replay_run.py", kind: "function"}
       - {name: "occupied_from_aisle_metrics", file: "Diagnostics/replay_run.py", kind: "function"}
       - {name: "occupied_from_bin_inventory", file: "Diagnostics/replay_run.py", kind: "function"}
       - {name: "build_batches", file: "Diagnostics/replay_run.py", kind: "function"}
@@ -1073,6 +1074,7 @@ files:
       - {name: "test_recorder_agrees_with_the_reload_counter", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_dropping_placements_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_dropping_evictions_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_placement_seq_never_collides_within_a_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
     notes: ""
   "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
@@ -1082,6 +1084,33 @@ files:
       - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_plan_strategy_start_all_branches", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_log_reconstruction.py":
+    purpose: "the acceptance test: the VIEWER is exact at every batch."
+    layer: "tests"
+    key_symbols:
+      - {name: "N_SKUS", file: "Tests/integration/test_log_reconstruction.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/integration/test_log_reconstruction.py", kind: "const"}
+      - {name: "KEYFRAME_INTERVAL", file: "Tests/integration/test_log_reconstruction.py", kind: "const"}
+      - {name: "ARM", file: "Tests/integration/test_log_reconstruction.py", kind: "const"}
+      - {name: "run", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_run_has_batches_no_keyframe_covers", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_run_actually_restocks_between_keyframes", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_cache_was_built_from_the_log", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_state_at_a_non_keyframe_batch_equals_ground_truth", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_state_at_is_exact_at_every_batch", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_end_of_batch_frame_is_exact_too", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_a_scoped_frame_matches_the_same_aisle_of_the_full_frame", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_live_fold_is_exact_without_any_cache", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_run_advertises_the_log_as_a_capability", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "reslot", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_reslot_scenario_actually_evicts", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_state_at_is_exact_at_every_batch_with_reslotting", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_aisle_rollup_occupancy_is_exact_at_every_batch", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "crippled", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_without_the_log_the_cache_falls_back_to_keyframes", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_without_the_log_a_non_keyframe_batch_is_wrong_AND_says_so", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_without_the_log_a_keyframe_batch_is_still_exact", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
     notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
@@ -1594,7 +1623,11 @@ files:
     layer: "visualization"
     key_symbols:
       - {name: "CACHE_VERSION", file: "Visualization/cache_schema.py", kind: "const"}
+      - {name: "SPAN_SOURCE_LOG", file: "Visualization/cache_schema.py", kind: "const"}
+      - {name: "SPAN_SOURCE_KEYFRAME", file: "Visualization/cache_schema.py", kind: "const"}
       - {name: "TABLES", file: "Visualization/cache_schema.py", kind: "const"}
+      - {name: "declared_cache_shape", file: "Visualization/cache_schema.py", kind: "function"}
+      - {name: "VIZ_CACHE_DB_FAMILY", file: "Visualization/cache_schema.py", kind: "const"}
       - {name: "source_stamps", file: "Visualization/cache_schema.py", kind: "function"}
       - {name: "cache_freshness", file: "Visualization/cache_schema.py", kind: "function"}
       - {name: "init_cache_db", file: "Visualization/cache_schema.py", kind: "function"}
@@ -1615,6 +1648,7 @@ files:
     layer: "visualization"
     key_symbols:
       - {name: "cache_state", file: "Visualization/precompute.py", kind: "function"}
+      - {name: "log_present", file: "Visualization/precompute.py", kind: "function"}
       - {name: "build_one", file: "Visualization/precompute.py", kind: "function"}
       - {name: "main", file: "Visualization/precompute.py", kind: "function"}
     notes: ""
@@ -1639,6 +1673,7 @@ files:
       - {name: "UnsupportedSimSchema", file: "Visualization/readers/protocol.py", kind: "class"}
       - {name: "SimSchemaDrift", file: "Visualization/readers/protocol.py", kind: "class"}
       - {name: "CAP_KEYFRAMES", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_BIN_LOG", file: "Visualization/readers/protocol.py", kind: "const"}
       - {name: "CAP_AISLE_METRICS", file: "Visualization/readers/protocol.py", kind: "const"}
       - {name: "CAP_REORDER_QUEUE", file: "Visualization/readers/protocol.py", kind: "const"}
       - {name: "CAP_BIN_SCORES", file: "Visualization/readers/protocol.py", kind: "const"}
@@ -1711,6 +1746,8 @@ files:
     purpose: "Generate a demand-weighted sparse affinity matrix from an inventory DB."
     layer: "generation"
     key_symbols:
+      - {name: "declared_affinity_shape", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
+      - {name: "AFFINITY_DB_FAMILY", file: "Warehouse/generation/generate_affinity.py", kind: "const"}
       - {name: "load_affinity_from_db", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
       - {name: "iter_affinity_from_db", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
       - {name: "estimate", file: "Warehouse/generation/generate_affinity.py", kind: "function"}
@@ -1742,6 +1779,8 @@ files:
       - {name: "fulfillment_families", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "build_inventory_from_plan", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "build_inventory_with_profile", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "declared_inventory_shape", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "INVENTORY_DB_FAMILY", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "save_inventory_to_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "load_inventory_from_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "compute_stats", file: "Warehouse/generation/generate_inventory.py", kind: "function"}

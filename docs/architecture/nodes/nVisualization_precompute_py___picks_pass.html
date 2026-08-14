@@ -14,11 +14,16 @@
 <h1><span class="kind kind-function">function</span> <code>_picks_pass</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a></p>
 
-<pre class="sig"><code>def _picks_pass(sim_con, run_id, top_n)</code></pre>
+<pre class="sig"><code>def _picks_pass(sim_con, run_id, top_n, want_bin_picks=False)</code></pre>
 <section class="doc">One scan of `picks` -&gt; per-SKU totals, per-(batch,aisle) pick counts, top-N series.
 
 Replaces the measured 24.4 s `GROUP BY sku` and a second scan for the series. Aggregated in
-Python rather than SQL so one read feeds all three.</section>
+Python rather than SQL so one read feeds all of them.
+
+`want_bin_picks` adds per-`(bin, batch)` depletion, which is the third input the span fold
+needs (PLACE + EVICT tell it what a bin holds; picks tell it when the bin runs dry). It is
+opt-in because it is the one aggregate proportional to the pick count rather than to the SKU
+or aisle count, and the keyframe fallback has no use for it.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py__build_one.html"><code>build_one</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___picks_pass">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_picks_pass">Source ↗</a></p>
 </article>

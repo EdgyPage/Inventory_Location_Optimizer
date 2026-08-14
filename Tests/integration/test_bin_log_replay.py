@@ -181,3 +181,40 @@ def test_dropping_evictions_breaks_the_fold(reslot):
 
     assert folded != truth
     assert set(folded) - set(truth), 'expected ghost bins with evictions dropped'
+
+
+# ── regression: the PK must be collision-proof ───────────────────────────────────
+
+def test_placement_seq_never_collides_within_a_batch():
+    """`(run_id, batch_id, seq)` is the primary key, and `save_bin_placements` uses
+    INSERT OR REPLACE — so a repeated seq inside one batch does not error, it silently DROPS a
+    row.
+
+    That was a real bug: initial stocking records at batch 0 before the loop starts, and the
+    loop's first `begin_batch(0)` used to restart `seq` at 0, so any batch-0 reorder overwrote an
+    initial fill. It went unnoticed because no shipped arm reorders at batch 0. The counter is
+    now run-scoped and monotonic.
+    """
+    from Optimization.metrics.bin_recorder import BinRecorder
+
+    inv, wh, mgr = H.build_scenario(n_skus=120)
+    rec = BinRecorder(run_id=1)
+    rec.attach(mgr)
+    log = H.BinLog()
+    log._state = {'batch': 0, 'place_seq': 0, 'evict_seq': 0, 'evicted_units': set()}
+    original = H.begin_batch
+    H.begin_batch = lambda l, b: (original(l, b), rec.begin_batch(b))
+    try:
+        H.run_sim(inv, wh, mgr, log, n_batches=3)
+    finally:
+        H.begin_batch = original
+
+    keys = [(r.batch_id, r.seq) for r in rec.placements]
+    assert keys, 'no placements recorded — the scenario is vacuous'
+    assert len(keys) == len(set(keys)), (
+        'duplicate (batch_id, seq): INSERT OR REPLACE would silently drop a placement')
+    # Ordering must survive the change: seq ascending within a batch is what makes
+    # `ORDER BY batch_id, seq` the application order.
+    for batch in {b for b, _ in keys}:
+        seqs = [s for b, s in keys if b == batch]
+        assert seqs == sorted(seqs), f'batch {batch}: seq not ascending'
