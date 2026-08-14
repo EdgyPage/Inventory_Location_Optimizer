@@ -386,6 +386,12 @@ files:
       - {name: "aisle_workload_components", file: "Optimization/metrics/Workload.py", kind: "function"}
       - {name: "aisle_workload", file: "Optimization/metrics/Workload.py", kind: "function"}
     notes: ""
+  "Optimization/metrics/bin_recorder.py":
+    purpose: "capture every bin mutation the simulation makes."
+    layer: "opt_metrics"
+    key_symbols:
+      - {name: "BinRecorder", file: "Optimization/metrics/bin_recorder.py", kind: "class"}
+    notes: ""
   "Optimization/persistence/Picking_Data.py":
     purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
     layer: "opt_persistence"
@@ -426,6 +432,12 @@ files:
       - {name: "load_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "BinPlacementRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "BinEvictionRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
+      - {name: "save_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Warehouse_Data.py":
     purpose: "SQLite persistence for warehouse sizing stats and aisle distributions."
@@ -758,6 +770,16 @@ files:
       - {name: "test_scope_detects_missing_edge", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
       - {name: "test_boundary_detects_forbidden_edge", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
       - {name: "test_wildcard_boundary_and_layer_mapping", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_bin_mutation_sites.py":
+    purpose: "the bin-mutation log is complete only while this list is."
+    layer: "tests"
+    key_symbols:
+      - {name: "ALLOWED", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "const"}
+      - {name: "test_no_unrecorded_bin_mutation_site_exists", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
+      - {name: "test_every_allowed_site_still_exists", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
+      - {name: "test_the_two_recorded_sites_are_the_ones_the_recorder_wraps", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
+      - {name: "test_the_dead_site_is_still_dead", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_context_sync.py":
     purpose: "test_context_sync.py"

@@ -143,8 +143,11 @@ artifacts:
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "sim_"
     schema_file: Optimization/persistence/Picking_Data.py
+    # bin_placement / bin_eviction are the bin-mutation log: bin_inventory records picks
+    # and never restocks, so those two are what make spatial state reconstructible.
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
-             bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
+             bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores,
+             bin_placement, bin_eviction]
 
   keyframes_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"

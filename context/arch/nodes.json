@@ -2850,6 +2850,60 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/metrics/bin_recorder.py": {
+      "decorators": [],
+      "doc": "bin_recorder.py \u2014 capture every bin mutation the simulation makes.\n\nCloses the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER\nrestocks \u2014 `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in\nit at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a\nproduction arm: **0 rows** with `post_qty > pre_qty` against 20k-42k `reorder_placements` per\nbatch, so replaying the delta stream only ever decays \u2014 losing 59% of the warehouse within five\nbatches of a keyframe.\n\nWhat makes this complete\n------------------------\nBin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to\neither finds six lines across five sites, one of them dead code:\n\n    Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)\n    inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)\n    fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)\n    Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a\n\nSo PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded \u2014\n`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.\n`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live\nsimulation: folding the log reproduces the warehouse's own bins at every batch and at every\nsim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a\nsixth mutation site ever appears.\n\nHow it attaches\n---------------\nBy rebinding two bound methods on the manager **instance** \u2014 no edits to `Warehouse/`, and a\nstrategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint\nall three placement call sites reach through `self.`. Same technique as\n`Diagnostics/trace_lifecycle.py`.\n\nTime resolution\n---------------\n`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`\nruns entirely between one batch's picks and the next batch's simulation, so no finer ordering\nexists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder": {
+      "decorators": [],
+      "doc": "Accumulates PLACE/EVICT records for one arm, drained by the checkpoint flush.\n\nRows are appended to plain lists and handed to the existing per-checkpoint flush, so this\nadds no new write path and no new connection.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, run_id: int)"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.attach": {
+      "decorators": [],
+      "doc": "Wrap `_execute_placement` and `requeue_bin` on this manager instance.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr) -> None"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_placement": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(unit, bin_)"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bin_, *args, **kwargs)"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.begin_batch": {
+      "decorators": [],
+      "doc": "Roll onto a new batch and reset the intra-batch sequence counters.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch_id: int) -> None"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.drain": {
+      "decorators": [],
+      "doc": "Hand over the accumulated rows and clear, mirroring the other checkpoint lists.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[list, list]"
+    },
     "Optimization/persistence/Picking_Data.py": {
       "decorators": [],
       "doc": null,
@@ -2872,7 +2926,23 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::BinEvictionRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
     "Optimization/persistence/Picking_Data.py::BinInventoryRecord": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::BinPlacementRecord": {
       "decorators": [
         "dataclass"
       ],
@@ -2915,7 +2985,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID,)))"
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6')))"
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -2953,6 +3023,20 @@
       "signature": null,
       "value_preview": "'\\n CREATE TABLE IF NOT EXISTS batch_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n duration REAL NOT N..."
     },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_eviction (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- intra-batch order (mgr._reload_mo..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_be_bin\\n ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)\\n'"
+    },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY": {
       "decorators": [],
       "doc": null,
@@ -2987,6 +3071,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_kf_run_batch ON bin_keyframe (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS bin_placement (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- intra-batch fill order (mgr._reo..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bp_bin\\n ON bin_placement (run_id, aisle_id, bayX, bayY, batch_id)\\n'"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_SCORES": {
       "decorators": [],
@@ -3198,12 +3296,26 @@
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[BatchStats]"
     },
+    "Optimization/persistence/Picking_Data.py::load_bin_evictions": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
+    },
     "Optimization/persistence/Picking_Data.py::load_bin_inventory": {
       "decorators": [],
       "doc": "Load BinInventoryRecord rows, optionally filtered to one batch or aisle.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
+    },
+    "Optimization/persistence/Picking_Data.py::load_bin_placements": {
+      "decorators": [],
+      "doc": "PLACE events, ordered as applied.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
     },
     "Optimization/persistence/Picking_Data.py::load_bin_scores": {
       "decorators": [],
@@ -3268,6 +3380,13 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[BatchStats]) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::save_bin_evictions": {
+      "decorators": [],
+      "doc": "Persist EVICT events.  Zero rows on a `norsl` arm, which is every shipped arm today.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::save_bin_inventory": {
       "decorators": [],
       "doc": "Persist pre/post batch bin inventory snapshots.\n\nEach record covers one non-empty bin for one batch: pre_qty is the\nquantity after check_reorders() (before picks), post_qty is the\nquantity after all picks are applied.  Bins empty throughout are omitted.",
@@ -3281,6 +3400,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_bin_placements": {
+      "decorators": [],
+      "doc": "Persist PLACE events \u2014 the term the record was missing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_bin_scores": {
       "decorators": [],

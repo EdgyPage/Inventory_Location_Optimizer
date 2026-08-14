@@ -2876,6 +2876,26 @@
       "src": "Optimization/metrics/Workload.py::aisle_workload_components"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Optimization/metrics/bin_recorder.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::BinPlacementRecord",
+      "kind": "calls",
+      "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_placement"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::BinEvictionRecord",
+      "kind": "calls",
+      "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -2971,9 +2991,19 @@
       "src": "Optimization/persistence/Picking_Data.py::load_batch_stats"
     },
     {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_bin_evictions"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::BinInventoryRecord",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_bin_inventory"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_bin_placements"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::PickerEventRecord",
@@ -2998,12 +3028,22 @@
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_bin_evictions"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_bin_inventory"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_bin_keyframe"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_bin_placements"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -5116,6 +5156,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/metrics/bin_recorder.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -5221,6 +5266,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
     {
+      "dst": "Optimization/metrics/bin_recorder.py::BinRecorder",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::init_keyframe_db",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
@@ -5241,12 +5291,22 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_inventory",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::save_bin_placements",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
@@ -12404,6 +12464,70 @@
       "public": true
     },
     {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py",
+      "kind": "module",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "Optimization.metrics.bin_recorder",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder",
+      "kind": "class",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "BinRecorder",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.__init__",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.attach",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "attach",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_placement",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "_execute_placement",
+      "public": false
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "requeue_bin",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.begin_batch",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "begin_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.drain",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "drain",
+      "public": true
+    },
+    {
       "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py",
       "kind": "module",
@@ -12429,10 +12553,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::BinEvictionRecord",
+      "kind": "class",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "BinEvictionRecord",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::BinInventoryRecord",
       "kind": "class",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "BinInventoryRecord",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::BinPlacementRecord",
+      "kind": "class",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "BinPlacementRecord",
       "public": true
     },
     {
@@ -12517,6 +12657,22 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_BIN_EVICTION",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION_IDX",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_BIN_EVICTION_IDX",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12553,6 +12709,22 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_CREATE_BIN_KEYFRAME_IDX",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_BIN_PLACEMENT",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT_IDX",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_BIN_PLACEMENT_IDX",
       "public": false
     },
     {
@@ -12797,10 +12969,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::load_bin_evictions",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "load_bin_evictions",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::load_bin_inventory",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "load_bin_inventory",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::load_bin_placements",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "load_bin_placements",
       "public": true
     },
     {
@@ -12877,6 +13065,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_bin_evictions",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::save_bin_inventory",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12889,6 +13085,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_bin_keyframe",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_bin_placements",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_bin_placements",
       "public": true
     },
     {

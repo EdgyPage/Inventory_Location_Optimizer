@@ -238,7 +238,8 @@ ARTIFACTS = {
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db',
         'format': 'sqlite', 'scope': 'channel_run',
         'tables': ['simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
-                   'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores'],
+                   'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
+                   'bin_placement', 'bin_eviction'],
         'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db',

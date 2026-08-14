@@ -48,11 +48,13 @@ from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
+from Optimization.metrics.bin_recorder import BinRecorder
 from Optimization.metrics.Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
     build_pre_snapshot, snapshot_bin_inventory, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
+    save_bin_placements, save_bin_evictions,
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
     save_bin_inventory, save_aisle_metrics, save_reorder_queue,
     save_bin_scores, save_sku_scores,
@@ -265,6 +267,11 @@ def _run_strategy_worker(args: dict) -> dict:
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
     mgr._seed = seed_world   # keys the reorder-qty noise (deterministic, off the global stream)
+    # Record every bin mutation.  Installed BEFORE any stocking so the initial fill is captured
+    # too; wraps the manager INSTANCE, so Warehouse/ is untouched.  This is the term the record
+    # was missing — bin_inventory logs picks and never restocks (see bin_recorder's docstring).
+    bin_rec = BinRecorder(run_id)
+    bin_rec.attach(mgr)
 
     # Velocity zoning (per-channel; default off ⇒ byte-identical): band the SKUs by velocity and
     # the aisles by geometry BEFORE any stocking, so _candidates routes hot SKUs to shallow aisles.
@@ -422,6 +429,7 @@ def _run_strategy_worker(args: dict) -> dict:
 
     for i in range(start_i, n_batches):
         _t = time.perf_counter()
+        bin_rec.begin_batch(i)
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
@@ -524,6 +532,9 @@ def _run_strategy_worker(args: dict) -> dict:
             save_picker_events(db_path, run_id, pe)
             save_picks(db_path, run_id, pk)
             save_bin_inventory(db_path, run_id, pi)
+            _bp, _be = bin_rec.drain()
+            save_bin_placements(db_path, run_id, _bp)
+            save_bin_evictions(db_path, run_id, _be)
             save_aisle_metrics(db_path, run_id, pm)
             save_reorder_queue(db_path, run_id, pq)
             save_worker_checkpoint(run_dir, strategy, i + 1)
@@ -599,6 +610,9 @@ def _run_strategy_worker(args: dict) -> dict:
         save_picker_events(db_path, run_id, pe)
         save_picks(db_path, run_id, pk)
         save_bin_inventory(db_path, run_id, pi)
+        _bp, _be = bin_rec.drain()
+        save_bin_placements(db_path, run_id, _bp)
+        save_bin_evictions(db_path, run_id, _be)
         save_aisle_metrics(db_path, run_id, pm)
         save_reorder_queue(db_path, run_id, pq)
         t_save_run += time.perf_counter() - _ts_final

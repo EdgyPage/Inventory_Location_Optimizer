@@ -1,6 +1,6 @@
 {
-  "head": "sha256:6e825081640c87ca7f87affc579570ff57e3183106fc29e1ec8786ad7ff9001a",
-  "source_fingerprint": "sha256:8237f158f28469acffbe2d27b8e664ca432ce5d6627697df40a60f7efa19ac47",
+  "head": "sha256:d8f82c794e89b3974059cf9543622fcb6ee4c215b2cd3a559bf28ed66bde06e4",
+  "source_fingerprint": "sha256:a46df88ecf5aafbecbea392b5b30cba050b5003c26ba09dc665f3dddf06be7d4",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -32,6 +32,16 @@
       "changes": [
         "artifact ADDED: analysis_log -> analysis.log",
         "artifact ADDED: cell_analysis_log -> {cell}/analysis.log"
+      ]
+    },
+    "sha256:d8f82c794e89b3974059cf9543622fcb6ee4c215b2cd3a559bf28ed66bde06e4": {
+      "short": "d8f82c794e89",
+      "parent": "sha256:6e825081640c87ca7f87affc579570ff57e3183106fc29e1ec8786ad7ff9001a",
+      "created": "2026-08-13T22:22:06",
+      "commit": "46d69ed",
+      "label": "",
+      "changes": [
+        "artifact sim_db.tables +['bin_eviction', 'bin_placement']"
       ]
     }
   }

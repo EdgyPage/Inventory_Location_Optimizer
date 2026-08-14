@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from Schema import identity as _identity
 from Schema import shape as _shape
+from Schema.connect import read_only as _ro_conn
 
 
 @dataclass
@@ -446,6 +447,61 @@ _CREATE_SKU_SCORES_IDX = """
     CREATE INDEX IF NOT EXISTS ix_ss_run ON sku_scores (run_id)
 """
 
+# ── The bin-mutation log ──────────────────────────────────────────────────────
+# `bin_inventory` records picks and NEVER restocks: check_reorders() runs before the pre-batch
+# snapshot, so a restocked bin is already in it at its post-restock quantity, and the
+# `post_qty == pre_qty` skip then drops it.  Measured on a production arm: 0 rows with
+# post_qty > pre_qty against 20k-42k reorder_placements per batch.  Rolling the delta stream
+# forward from a keyframe therefore only ever DECAYS — losing 59% of the warehouse in 5 batches.
+#
+# These two tables close the gap.  Bin state changes at exactly five sites in the codebase (one
+# of them dead code), and picks are already fully recorded — verified, SUM(pre_qty-post_qty)
+# equals SUM(picks.quantity) exactly on every arm tested.  So PLACE + EVICT + PICK is complete
+# BY CONSTRUCTION, which Tests/integration/test_bin_log_replay.py checks against a live sim.
+#
+# `(batch_id, seq)` is the true resolution, not a compromise: check_reorders() runs entirely
+# between one batch's picks and the next batch's simulation, so no finer ordering EXISTS to lose.
+# Picks keep sim_time, so intra-batch animation stays exact.
+
+_CREATE_BIN_PLACEMENT = """
+    CREATE TABLE IF NOT EXISTS bin_placement (
+        run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id INTEGER NOT NULL,
+        seq      INTEGER NOT NULL,   -- intra-batch fill order (mgr._reorder_placements)
+        aisle_id INTEGER NOT NULL,
+        bayX     INTEGER NOT NULL,
+        bayY     INTEGER NOT NULL,
+        sku      INTEGER NOT NULL,
+        qty      INTEGER NOT NULL,   -- units placed into this bin
+        cause    TEXT    NOT NULL,   -- 'initial'|'reorder'|'reslot'
+        PRIMARY KEY (run_id, batch_id, seq)
+    ) WITHOUT ROWID
+"""
+
+_CREATE_BIN_PLACEMENT_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_bp_bin
+        ON bin_placement (run_id, aisle_id, bayX, bayY, batch_id)
+"""
+
+_CREATE_BIN_EVICTION = """
+    CREATE TABLE IF NOT EXISTS bin_eviction (
+        run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id INTEGER NOT NULL,
+        seq      INTEGER NOT NULL,   -- intra-batch order (mgr._reload_moves)
+        aisle_id INTEGER NOT NULL,
+        bayX     INTEGER NOT NULL,
+        bayY     INTEGER NOT NULL,
+        sku      INTEGER NOT NULL,
+        qty      INTEGER NOT NULL,   -- units removed; the unit re-enters the stock queue
+        PRIMARY KEY (run_id, batch_id, seq)
+    ) WITHOUT ROWID
+"""
+
+_CREATE_BIN_EVICTION_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_be_bin
+        ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)
+"""
+
 
 def _apply_run_schema(con: sqlite3.Connection) -> None:
     """Issue every CREATE for the run DB on an already-open connection.
@@ -475,6 +531,10 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_BIN_SCORES_IDX)
     con.execute(_CREATE_SKU_SCORES)
     con.execute(_CREATE_SKU_SCORES_IDX)
+    con.execute(_CREATE_BIN_PLACEMENT)
+    con.execute(_CREATE_BIN_PLACEMENT_IDX)
+    con.execute(_CREATE_BIN_EVICTION)
+    con.execute(_CREATE_BIN_EVICTION_IDX)
     _migrate_run_columns(con)
 
 
@@ -557,7 +617,9 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     name='sim_db',
     declared_shape=declared_sim_schema_shape,
     meta_table=None,                 # stamped into simulation_runs.sim_schema_id, not a meta table
-    known_ids=(PRE_STAMP_SIM_SCHEMA_ID,),
+    # 2b7913bcd7e6 = the stamp column, before the bin-mutation log.  Kept so a DB
+    # written between those two commits still opens.
+    known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6'),
 ))
 
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
@@ -1207,5 +1269,94 @@ def load_aisle_metrics(
             )
             for row in rows
         ]
+    finally:
+        con.close()
+
+
+# ── bin-mutation log: records + savers ────────────────────────────────────────
+
+@dataclass
+class BinPlacementRecord:
+    run_id:   int
+    batch_id: int
+    seq:      int
+    aisle_id: int
+    bayX:     int
+    bayY:     int
+    sku:      int
+    qty:      int
+    cause:    str    # 'initial' | 'reorder' | 'reslot'
+
+
+@dataclass
+class BinEvictionRecord:
+    run_id:   int
+    batch_id: int
+    seq:      int
+    aisle_id: int
+    bayX:     int
+    bayY:     int
+    sku:      int
+    qty:      int
+
+
+def save_bin_placements(path: str, run_id: int, records: list) -> None:
+    """Persist PLACE events — the term the record was missing."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_placement '
+            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause) '
+            'VALUES (?,?,?,?,?,?,?,?,?)',
+            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause)
+             for r in records])
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_bin_evictions(path: str, run_id: int, records: list) -> None:
+    """Persist EVICT events.  Zero rows on a `norsl` arm, which is every shipped arm today."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_eviction '
+            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty) VALUES (?,?,?,?,?,?,?,?)',
+            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty)
+             for r in records])
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> list:
+    """PLACE events, ordered as applied."""
+    con = _ro_conn(path)
+    try:
+        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause FROM bin_placement '
+               'WHERE run_id=?')
+        args = [run_id]
+        if batch_id is not None:
+            sql += ' AND batch_id=?'
+            args.append(batch_id)
+        return [dict(r) for r in con.execute(sql + ' ORDER BY batch_id, seq', args)]
+    finally:
+        con.close()
+
+
+def load_bin_evictions(path: str, run_id: int, batch_id: int | None = None) -> list:
+    con = _ro_conn(path)
+    try:
+        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_eviction '
+               'WHERE run_id=?')
+        args = [run_id]
+        if batch_id is not None:
+            sql += ' AND batch_id=?'
+            args.append(batch_id)
+        return [dict(r) for r in con.execute(sql + ' ORDER BY batch_id, seq', args)]
     finally:
         con.close()
