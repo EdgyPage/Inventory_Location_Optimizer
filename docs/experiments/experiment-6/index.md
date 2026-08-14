@@ -36,6 +36,17 @@ sections below.
     comparable measure of *effort* between arms, **not** a wall-clock schedule or a staffing
     estimate. A +13.7 % throughput gain is not a claim that a shift finishes 13.7 % sooner.
 
+!!! note "Absolute throughput here predates commit `753d01e`"
+    This run was produced **before** `753d01e` made bin selection deterministic across processes.
+    That fix lifts **absolute** throughput by about **1.3–1.4 %**, so every items/hour figure on
+    this page — including the values rendered into the images — reads roughly that much low. They
+    are left exactly as the run produced them rather than edited after the fact.
+
+    Two things do not move. **Labor and makespan** are unchanged, beyond the ±2.8 % run-to-run
+    band the nondeterminism itself created and the fix removes. And the throughput **percentages**
+    are second-order: the shift is common to both arms of a ratio, so it largely cancels. The
+    findings stand; the absolute rates will be restated when the sweep is re-run.
+
 ## Lever 1 — the scheduler: the same work, finished sooner
 
 <figure markdown>
@@ -95,7 +106,8 @@ Where these figures come from:
 | **2** — cumulative volume, rr vs LPT | scheduler | cell `{{ experiment().whatif.reference }}` | both | `bell_lt0` | store + fulfillment |
 | **3** — cumulative volume by rule | placement | FIFO baseline | `{{ experiment().run }}` | `bell_lt0` | store |
 
-<small>Run <code>{{ experiment().whatif.source_run }}</code>: {{ experiment().whatif.cells }} cells ×
+<small>Run <code>{{ experiment().whatif.source_run }}</code> ({{ run_commit() }}):
+{{ experiment().whatif.cells }} cells ×
 {{ experiment().whatif.arms }} arms × {{ experiment().whatif.n_batches }} batches. Median deltas are
 quoted from <code>whatif_volume.csv</code>; the per-run figures are rendered by
 <code>Optimization/run_analysis.py</code> from that leaf's own simulation database.</small>

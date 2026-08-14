@@ -4,7 +4,9 @@
     [**Experiment 6**](../experiment-6/index.md) is the current sweep. This page is kept because
     it is the only one that measures the **layout** lever (aisle-split × velocity zoning), which
     Experiment 6 pins off. Its numbers come from a different run and are not directly comparable
-    with Experiment 6's.
+    with Experiment 6's. That run also predates commit `753d01e`, which lifts absolute throughput
+    ~1.4 % and leaves labor unchanged — the percentages quoted here are ratios in which that shift
+    largely cancels.
 
 <!-- Overview / definitions for this experiment. Edit the prose; the data wires up from
      experiment.yml, so there are no hard-coded run IDs below. -->

@@ -79,6 +79,13 @@ records **7,358,481 items** over 100 batches. Feeding that into the measured per
 Experiment 6's committed `config.json` geometry (396,500 bins, 130,885 SKUs), gives **~1.9 GB**
 per store sim DB and ~500 GB for the sweep.
 
+**Vintage of that item count.** The published run predates `753d01e`, which made bin selection
+deterministic across processes and lifts absolute throughput ~1.3–1.4 % (labor and makespan are
+unchanged; the throughput *percentages* the docs quote are ratios in which the shift largely
+cancels). The count above is left exactly as that run produced it — a ~1.4 % move is well inside
+the one-significant-digit precision this model claims, so the ~1.9 GB and ~500 GB figures do not
+change.
+
 **Two independent checks.** Re-running the same model against the tiny run reproduces its measured
 size to within 5 %. And `Tests/bench/smoketest.py`'s `full` profile — production sizing at 10
 batches — declares a 250 GB free-space floor; the model predicts ~59 GB of actual output there,
@@ -312,9 +319,19 @@ python docs/experiments/ingest.py --exp experiment-7 --source <run_dir> --gen-ma
 mkdocs build --strict && mkdocs serve
 ```
 
-Pages carry **no hard-coded run values**: `experiment.yml` plus the `docs/macros.py` helpers read
-the committed `config.json` / `params.json` snapshots, so a published number cannot drift from the
-run that produced it — and a missing JSON is a `--strict` build error rather than a blank.
+**Rendered values cannot drift; prose can.** `experiment.yml` plus the `docs/macros.py` helpers
+render every setup table and the cross-cell what-if matrix from the committed `config.json` /
+`params.json` / `whatif_delta.json` snapshots, and a missing JSON is a `--strict` build error
+rather than a blank. The **narrative around them is not covered by that**: Experiment 6's
+volume-curve prose quotes five values from `whatif_volume.csv` by hand — a file no macro reads and
+which is not committed — so nothing re-derives them at build time.
+
+That bypass is exactly why `753d01e` could shift absolute throughput ~1.4 % with no test failure,
+no build failure and no reader-visible signal. Two things close the gap for now, neither of them
+structural: each experiment page carries a dated note when its run is superseded by a code change,
+and `docs/macros.py:run_commit()` renders the simulator commit beside the run id (from
+`run_spec.json`, via `ingest.py`). The real fix is to route that prose through a macro over a
+committed `whatif_volume.json` — until then, "cannot drift" applies to the rendered tables only.
 
 Two traps. Run folders are named `comparison_*`, which `.gitignore` excludes; the docs image
 subtree is re-included by an explicit negation, so confirm new images are tracked with

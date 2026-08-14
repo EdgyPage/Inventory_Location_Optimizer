@@ -8,6 +8,10 @@ decides. This page is about **labor**: how much work there is in the first place
 *assignment function* decides. They are separate levers, and the scheduler moves this page's
 numbers by essentially nothing.
 
+This run predates commit `753d01e`, which made bin selection deterministic and lifts absolute
+throughput ~1.4 %; labor and makespan — everything on this page — are unaffected, and the
+percentages are ratios in which the shift largely cancels ([detail](comparison.md)).
+
 !!! warning "Modeled hours, not wall-clock"
     "Labor hours" here is Σ task duration ÷ 3.6 M ms — the serial makespan one picker would incur
     working alone. A comparable *effort* figure, **not** a staffing estimate.

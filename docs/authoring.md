@@ -89,7 +89,14 @@ Then edit the Markdown. Common building blocks:
 
 Don't hand-copy run parameters — the [`docs/macros.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py)
 helpers (via `mkdocs-macros-plugin`) read a committed `config.json` / `params.json`
-snapshot and render it. So a page never states a value that can drift from the run.
+snapshot and render it. A **rendered** value cannot drift from the run.
+
+A value quoted in **prose** can, and does: Experiment 6's volume-curve narrative cites
+`whatif_volume.csv`, which no macro reads and which is not committed, so a code change that moves
+those numbers breaks no test and no build. If you must quote a figure by hand, say which file it
+came from, and call `{{ '{{' }} run_commit() {{ '}}' }}` beside the run id so a reader can see
+which simulator commit produced it (`ingest.py` carries it from the run's `run_spec.json` into
+`experiment.yml`). Prefer adding a macro over adding a hand-typed number.
 
 1. **Commit the snapshot.** Copy the run's `config.json` next to its images
    (`docs/experiments/<experiment>/images/<run>/<inv>/<cfg>/config.json`) and, for a new

@@ -21,6 +21,19 @@ if you want the finding; read on for how it was measured and what it does not sh
     (see the [Formula reference](formula-reference.md)). It is a comparable *effort* figure across
     arms and schedulers, **not** a wall-clock schedule or a staffing estimate.
 
+!!! note "Absolute throughput and item counts here predate commit `753d01e`"
+    This run was produced **before** `753d01e` made bin selection deterministic across processes.
+    That fix lifts **absolute** throughput by about **1.3–1.4 %**, so the items/hour and
+    items-picked figures below — in the table, in the span quoted across the 34 store arms, and in
+    the values rendered into the images — read roughly that much low. They are left exactly as the
+    run produced them rather than edited after the fact.
+
+    Two things do not move. **Labor and makespan** are unchanged, beyond the ±2.8 % run-to-run
+    band the nondeterminism itself created and the fix removes — which is what this page's central
+    claim rests on. And every **percentage** here is second-order: the shift is common to both
+    arms of a ratio, so it largely cancels. The absolute rates will be restated when the sweep is
+    re-run.
+
 ## Why throughput and labor are different questions
 
 A warehouse can improve in two unrelated ways, and conflating them is the usual reporting error.

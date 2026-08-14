@@ -87,6 +87,11 @@ for **LPT** load-balancing lifts throughput by a median **+13.7 % (store)** and
 against the FIFO baseline and converts most of that into **+8.5 %** throughput. Two levers, two
 outcomes, one run — and they stack.
 
+Every percentage on this page, and on Experiments 4 and 5, comes from a run made before commit
+`753d01e` made bin selection deterministic: that fix lifts *absolute* throughput ~1.4 % and leaves
+labor unchanged, and these are ratios in which the shift largely cancels — see the
+[throughput page](experiments/experiment-6/comparison.md) for the absolute figures it does move.
+
 ## Earlier experiments (reference)
 
 These are **superseded** by Experiment 6 and kept for reference. Each was a different run with
@@ -134,8 +139,11 @@ each one is self-contained:
 Experiments 1–5 predate this ordering and still use the older page names (*Overview*,
 *Comparison*, *Full results*).
 
-Setup parameters on these pages are rendered from the run's own committed JSON rather than typed
-by hand, so a published number cannot drift from the run that produced it.
+Setup parameters and the cross-cell matrix on these pages are rendered from the run's own committed
+JSON rather than typed by hand. The prose around them is not — a handful of figures are quoted by
+hand from run outputs that are not committed — which is why each experiment page names the commit
+its run was produced with, and why a change to the simulator gets a dated note rather than a silent
+edit.
 
 The **[code map](code-graph.md)** is a separate, offline-capable browser for the simulator's source
 — every module, class, function, and constant, with callers, callees, and layer boundaries. To run
