@@ -65,14 +65,53 @@ from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
 
+# Windows holds a just-written file open for a few hundred ms often enough to matter at this
+# frequency; 5 attempts over ~1.5 s covers every occurrence seen, without masking a real fault.
+_CKPT_REPLACE_ATTEMPTS = 5
+_CKPT_REPLACE_DELAY    = 0.1     # seconds, multiplied by the attempt number
+
 def save_worker_checkpoint(run_dir: str, strategy: str, next_batch_id: int) -> None:
     # Atomic: write to a temp file then os.replace, so a crash mid-write can never leave a
     # truncated checkpoint that would mis-resume (mirrors batch_precompute.write_batches).
+    #
+    # THE RETRY IS NOT DEFENSIVE PADDING.  This fires once per checkpoint per arm, on the external
+    # results drive, with up to 18 workers running — and on Windows `os.replace` raises
+    # PermissionError (WinError 5) whenever anything holds the destination open for even a moment,
+    # which a scanner or the indexer routinely does just after a file is written.  Measured on a
+    # 6-batch tiny sweep: 2 of 8 arms died this way, and because the exception propagates out of
+    # the worker it took the whole ARM with it, not just the checkpoint.  The wreckage then failed
+    # three later smoketest stages — the orphaned `.pkl.tmp.<pid>` showed up as an undeclared path,
+    # the un-finalized `_ckpt_*.pkl` as an artifact the run shape must not have, and the two lost
+    # arms as `channel-run count 6 != expected 8`.
+    #
+    # It still RAISES if every attempt fails: a checkpoint that silently did not land would let a
+    # resume restart from an earlier batch and re-emit bin-log rows under fresh `seq` values,
+    # duplicating them against the (run_id, batch_id, seq) primary key.  Losing the arm is better
+    # than corrupting its log, so the failure stays fatal — the retry only removes the transient.
     path = os.path.join(run_dir, f'_ckpt_{strategy}.pkl')
     tmp = f'{path}.tmp.{os.getpid()}'
     with open(tmp, 'wb') as f:
         pickle.dump({'next_batch_id': next_batch_id}, f)
-    os.replace(tmp, path)
+    try:
+        for attempt in range(_CKPT_REPLACE_ATTEMPTS):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                # ONLY PermissionError.  A full disk or a disconnected drive is not a lock that
+                # clears, and retrying it five times only delays a fault that must surface now.
+                if attempt == _CKPT_REPLACE_ATTEMPTS - 1:
+                    raise
+                time.sleep(_CKPT_REPLACE_DELAY * (attempt + 1))   # linear back-off; locks are brief
+    finally:
+        # However we leave, never leave the temp behind: it outlives the run and
+        # `runschema.preflight.verify` reports it as a path template no consumer knows about.
+        # After a successful replace there is nothing here to remove.
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def load_worker_checkpoint(run_dir: str, strategy: str) -> int:
