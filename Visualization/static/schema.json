@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:122566d8d96962756f1ce41ecaa62cce649d09174ad63c74d1fda8e6b19edc80",
-  "schema_short": "122566d8d969",
+  "schema_id": "sha256:0516f5aab255f419843d698f2931e8a66bb9e816b770de17792e9d4f9d23aca4",
+  "schema_short": "0516f5aab255",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -271,6 +271,12 @@
       "format": "csv",
       "scope": "channel_run",
       "optional": false
+    },
+    "viz_cache_db": {
+      "path": "_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "optional": true
     },
     "warehouse_db": {
       "path": "{cell}/{pair}/warehouse.db",

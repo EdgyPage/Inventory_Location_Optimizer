@@ -318,6 +318,25 @@ ARTIFACTS = {
         'format': 'json', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
 
+    # ── derived sidecars: built by the VIEWER, never by a run ───────────────────
+    # Declared here even though no simulation writes it.  This table is what `preflight.validate`
+    # matches observed files against, so an UNDECLARED family surfaces as one undeclared template
+    # per arm — 272 of them on a full sweep the viewer has been pointed at.  "Nothing in the run
+    # produces it" is a `condition`, not a reason to leave it out: the contract's job is to let a
+    # consumer be told about every file it will meet in the tree.
+    'viz_cache_db': {
+        'path': '_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db',
+        'format': 'sqlite', 'scope': 'channel_run', 'optional': True,
+        'tables': ['cache_meta', 'bin_span', 'sku_rank', 'sku_series', 'final_home',
+                   'aisle_batch_rollup'],
+        'condition': 'built on demand by the viewer, so it is absent from every simulation run '
+                     '(the preflight canaries never produce it) until someone opens that run in '
+                     'Visualization/. Deleting _viz/ costs time, never data.',
+        'writer': 'build_one@Visualization/precompute.py',
+        'note': 'lives under the reserved `_` prefix (RESERVED_PREFIX) so every tree walker skips '
+                'it; named sim_{strategy}.viz.db beside the sim DB it would instead satisfy all '
+                'three predicates of runlayout._sim_dbs_in and surface as an extra ARM.'},
+
     # ── transient per-channel-run state (deleted when the config run finalizes) ──
     'resume_pkl': {
         'path': '{cell}/{pair}/{config}/{channel?}/resume.pkl',
