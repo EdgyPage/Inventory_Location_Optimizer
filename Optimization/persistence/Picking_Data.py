@@ -1,5 +1,8 @@
 import csv
+import hashlib
+import json
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -153,6 +156,7 @@ _CREATE_RUNS = """
         warehouse_fingerprint TEXT,   -- stable hash tying this run to its warehouse.db
         inventory_label       TEXT,   -- planned-inventory profile label
         channel               TEXT,   -- operation/channel ('store'|'fulfillment'); NULL = legacy store-only
+        sim_schema_id         TEXT,   -- THIS file's SQL shape (see sim_schema_id()); NULL = pre-stamp run
         num_pickers       INTEGER,
         x_speed           REAL,
         y_speed           REAL,
@@ -172,8 +176,12 @@ _CREATE_RUNS = """
 # Identity columns set by create_run(identity=...); rename-proof run association.
 # 'channel' distinguishes the store vs fulfillment run subtrees in a mixed warehouse
 # (NULL for legacy store-only runs that don't pass it).
+# 'sim_schema_id' is defaulted by create_run rather than supplied by the caller — it describes
+# the FILE's shape, not the run's provenance.  Runs written before it existed leave it NULL and
+# the reader derives the id instead (Visualization/readers).
 _IDENTITY_COLS = ('strategy_key', 'pair_label', 'config_label',
-                  'warehouse_fingerprint', 'inventory_label', 'channel')
+                  'warehouse_fingerprint', 'inventory_label', 'channel',
+                  'sim_schema_id')
 
 # Run-param columns set by create_run(params=...); order matches the INSERT.
 _RUN_PARAM_COLS = ('num_pickers', 'x_speed', 'y_speed', 'pick_intercept',
@@ -438,34 +446,162 @@ _CREATE_SKU_SCORES_IDX = """
 """
 
 
+def _apply_run_schema(con: sqlite3.Connection) -> None:
+    """Issue every CREATE for the run DB on an already-open connection.
+
+    Split out of init_run_db so sim_schema_id() can build the schema in memory and hash what
+    the writer ACTUALLY creates — the declared id is never a hand-maintained list of columns,
+    so it cannot drift from this function.
+    """
+    con.execute(_CREATE_PICKS)
+    con.execute(_CREATE_PICKS_BATCH_IDX)
+    con.execute(_CREATE_PICKS_SKU_IDX)
+    con.execute(_CREATE_RUNS)
+    con.execute(_CREATE_BATCH_STATS)
+    con.execute(_CREATE_TASK_STATS)
+    con.execute(_CREATE_PICKER_EVENTS)
+    con.execute(_CREATE_PICKER_EVENTS_IDX)
+    con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
+    con.execute(_CREATE_BIN_INVENTORY)
+    con.execute(_CREATE_BIN_INVENTORY_IDX)
+    con.execute(_CREATE_BIN_INVENTORY_AISLE_IDX)
+    con.execute(_CREATE_AISLE_METRICS)
+    con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
+    con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
+    con.execute(_CREATE_REORDER_QUEUE)
+    con.execute(_CREATE_REORDER_QUEUE_IDX)
+    con.execute(_CREATE_BIN_SCORES)
+    con.execute(_CREATE_BIN_SCORES_IDX)
+    con.execute(_CREATE_SKU_SCORES)
+    con.execute(_CREATE_SKU_SCORES_IDX)
+    _migrate_run_columns(con)
+
+
+# Columns added to simulation_runs after runs already existed.  Every CREATE here is
+# IF NOT EXISTS, so reopening an archived DB gains missing TABLES but never missing COLUMNS —
+# without this, the next create_run() dies with "no column named sim_schema_id" on any DB
+# written by an earlier build (which is every DB in the archive).
+_RUN_ADDED_COLS = (('sim_schema_id', 'TEXT'),)
+
+
+def _migrate_run_columns(con: sqlite3.Connection) -> None:
+    """Add any simulation_runs column this build expects but an older file lacks.
+
+    ALTER TABLE ADD COLUMN is O(1) in SQLite (it only rewrites the schema), and adding the
+    column also lifts the file's observed shape onto the current declared id — which is exactly
+    what the reader registry wants.  Existing rows keep NULL, and a NULL stamp is the documented
+    "derive it" path.
+    """
+    have = {r[1] for r in con.execute('PRAGMA table_info(simulation_runs)')}
+    for name, decl in _RUN_ADDED_COLS:
+        if name not in have:
+            con.execute(f'ALTER TABLE simulation_runs ADD COLUMN {name} {decl}')
+
+
 def init_run_db(path: str) -> None:
     """Create all tables and indexes if they don't already exist, and enable WAL mode."""
     con = _open_db(path)
     try:
-        con.execute(_CREATE_PICKS)
-        con.execute(_CREATE_PICKS_BATCH_IDX)
-        con.execute(_CREATE_PICKS_SKU_IDX)
-        con.execute(_CREATE_RUNS)
-        con.execute(_CREATE_BATCH_STATS)
-        con.execute(_CREATE_TASK_STATS)
-        con.execute(_CREATE_PICKER_EVENTS)
-        con.execute(_CREATE_PICKER_EVENTS_IDX)
-        con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
-        con.execute(_CREATE_BIN_INVENTORY)
-        con.execute(_CREATE_BIN_INVENTORY_IDX)
-        con.execute(_CREATE_BIN_INVENTORY_AISLE_IDX)
-        con.execute(_CREATE_AISLE_METRICS)
-        con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
-        con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
-        con.execute(_CREATE_REORDER_QUEUE)
-        con.execute(_CREATE_REORDER_QUEUE_IDX)
-        con.execute(_CREATE_BIN_SCORES)
-        con.execute(_CREATE_BIN_SCORES_IDX)
-        con.execute(_CREATE_SKU_SCORES)
-        con.execute(_CREATE_SKU_SCORES_IDX)
+        _apply_run_schema(con)
         con.commit()
     finally:
         con.close()
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# A sim DB carries no version number (PRAGMA user_version and application_id are 0 on every run
+# ever written), so its identity is DERIVED FROM SHAPE and then stamped — the same trick
+# Optimization/runschema/contract.py uses for the run tree.  Nobody picks the number, two
+# branches cannot both call themselves "v3", and any consumer can re-derive it to check.
+#
+# Runs written before the sim_schema_id column existed leave it NULL; the viewer derives the id
+# from sqlite_master instead and pins the result, so a 500 GB archive stays readable untouched.
+
+_AUTOINCREMENT_RE = re.compile(r'\bAUTOINCREMENT\b', re.IGNORECASE)
+_WITHOUT_ROWID_RE = re.compile(r'\bWITHOUT\s+ROWID\b', re.IGNORECASE)
+_WHITESPACE_RE = re.compile(r'\s+')
+
+_DECLARED_SIM_SCHEMA_ID: str | None = None
+
+
+def canonical_schema_shape(con: sqlite3.Connection) -> dict:
+    """The hashable SQL shape of every user table on this connection.
+
+    Covers, per table: columns (name / normalized type / notnull / pk) in cid order, every
+    index's name + uniqueness + ORDERED columns, and the AUTOINCREMENT and WITHOUT ROWID flags
+    (both invisible to PRAGMA table_info — an INTEGER PRIMARY KEY looks identical to an
+    INTEGER PRIMARY KEY AUTOINCREMENT there, and six of these ten tables use the latter).
+
+    Deliberately EXCLUDED, and not to be "fixed" without reading why:
+      sqlite_sequence     a side effect of AUTOINCREMENT, carrying no shape of its own; the
+                          flag above recovers the only bit that matters.
+      sqlite_stat1..4     created by ANALYZE.  Hashing them would mint a new schema id for a
+                          statistics refresh and orphan every vetted reader — and ANALYZE is a
+                          plausible thing to run here, since one viewer query is an unindexed
+                          24 s scan.
+      foreign keys        declared but never enforced (nothing sets PRAGMA foreign_keys=ON),
+                          so a read-only consumer cannot observe them.
+      views, triggers     none exist; excluding them makes adding one a conscious act.
+
+    Everything is sorted, so the ORDER of the CREATE statements in _apply_run_schema is not a
+    schema change and does not move the id.  Column types are upper-cased and whitespace-collapsed
+    but NOT resolved to SQLite affinities: renaming INTEGER to INT is harmless but real, and
+    should be visible rather than silently absorbed.
+    """
+    tables = {}
+    master = {
+        name: (sql or '')
+        for name, sql in con.execute(
+            "SELECT name, sql FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%'")
+    }
+    for name, sql in master.items():
+        cols = [
+            {'name': r[1], 'type': _WHITESPACE_RE.sub(' ', (r[2] or '').strip()).upper(),
+             'notnull': int(r[3]), 'pk': int(r[5])}
+            for r in con.execute(f'PRAGMA table_info("{name}")')
+        ]
+        indexes = [
+            {'name': idx[1], 'unique': int(idx[2]),
+             'cols': [r[2] for r in con.execute(f'PRAGMA index_info("{idx[1]}")')]}
+            for idx in con.execute(f'PRAGMA index_list("{name}")')
+        ]
+        tables[name] = {
+            'columns': cols,
+            'indexes': sorted(indexes, key=lambda i: i['name']),
+            'autoincrement': bool(_AUTOINCREMENT_RE.search(sql)),
+            'without_rowid': bool(_WITHOUT_ROWID_RE.search(sql)),
+        }
+    return {'tables': dict(sorted(tables.items()))}
+
+
+def schema_shape_id(shape: dict) -> str:
+    """12-hex id of a canonical shape (same truncation as the run-tree contract)."""
+    blob = json.dumps(shape, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    return hashlib.sha256(blob).hexdigest()[:12]
+
+
+def observed_sim_schema_id(con: sqlite3.Connection) -> str:
+    """The id of the schema the database behind *con* actually has."""
+    return schema_shape_id(canonical_schema_shape(con))
+
+
+def declared_sim_schema_shape() -> dict:
+    """Canonical shape of a run DB as _apply_run_schema creates it, built in memory."""
+    con = sqlite3.connect(':memory:')
+    try:
+        _apply_run_schema(con)
+        return canonical_schema_shape(con)
+    finally:
+        con.close()
+
+
+def sim_schema_id() -> str:
+    """The id this build stamps into new run DBs.  Computed once, then cached."""
+    global _DECLARED_SIM_SCHEMA_ID
+    if _DECLARED_SIM_SCHEMA_ID is None:
+        _DECLARED_SIM_SCHEMA_ID = schema_shape_id(declared_sim_schema_shape())
+    return _DECLARED_SIM_SCHEMA_ID
 
 
 def create_run(path: str, run_type: str, params: dict | None = None,
@@ -479,7 +615,9 @@ def create_run(path: str, run_type: str, params: dict | None = None,
     Missing keys are stored NULL.
     """
     params = params or {}
-    identity = identity or {}
+    # sim_schema_id describes the FILE, not the run, so it is defaulted here rather than being
+    # threaded through every caller.  An explicit value still wins (tests pin an older id).
+    identity = {'sim_schema_id': sim_schema_id(), **(identity or {})}
     cols = ('run_type', 'created') + _IDENTITY_COLS + _RUN_PARAM_COLS
     vals = ([run_type, datetime.now(timezone.utc).isoformat()]
             + [identity.get(k) for k in _IDENTITY_COLS]

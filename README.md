@@ -318,6 +318,33 @@ day-to-day work is on `develop`, so the site does not move until a milestone mer
 
 Full detail in [`docs/authoring.md`](docs/authoring.md).
 
+### Optional — look at the warehouse itself
+
+The analysis suite answers *how much*; `Visualization/` answers *where*. It replays a finished run
+spatially: any bin → any aisle → up to 24 aisles at once, two arms side by side, with a restock
+convergence animation coloured by where each item ends up.
+
+```bash
+# 1. build the derived cache for the arms you want (~80 s and ~80 MB per arm)
+python -m Visualization.precompute <run_dir> --cell k1_off_rr --config store --channel store \
+       --arms uni_fifo_norsl,opt_rank_labor_norsl
+#    --pair/--channel/--arms filter; --list shows what would be built; --workers 4; --force
+
+# 2. serve it
+python Visualization/server.py <run_dir>          # --port 5000; bare name resolves against
+#                                                 #   COMPARISON_OUTPUT_DIR, same as every CLI
+```
+
+Both take the **run root** (the directory holding `run_layout.json`), not a cell directory. Step 1
+is optional — the viewer works without a cache, it is just slow on the three queries that need a
+full table scan. A full sweep is 272 arms, so `precompute` filters rather than defaulting to all.
+
+Two things worth knowing before trusting a frame: spatial state is **exact only at keyframe
+batches** (every 5th by default) because `bin_inventory` never records restocks, and the viewer
+labels any frame that is not; and only the arms whose schema has a vetted reader will open at all —
+anything else fails by name rather than guessing. Both are explained in
+[`Visualization/RECONSTRUCTION.md`](Visualization/RECONSTRUCTION.md).
+
 ---
 
 ## Verifying a change
@@ -371,7 +398,7 @@ everything else is organised beneath.
 | Dir | What |
 |-----|------|
 | `scripts/` | maintenance tools: the experiment scaffold, the cold-drive cell archiver |
-| `Visualization/` · `Diagnostics/` | replay viewer, diagnostics dashboards |
+| `Visualization/` · `Diagnostics/` | the spatial run viewer (see below), diagnostics dashboards |
 | `Tests/` | grouped by what a failure means: `unit/`, `integration/`, `e2e/`, `architecture/`, `bench/` |
 | `context/` | the verified spec layer — flows, artifacts, architecture, file catalog, guards, memory |
 | `notebooks/` | exploratory Jupyter notebooks |
