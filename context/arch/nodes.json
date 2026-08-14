@@ -239,7 +239,7 @@
     },
     "Diagnostics/replay_run.py::read_layout": {
       "decorators": [],
-      "doc": null,
+      "doc": "Aisle geometry + per-aisle bin capacity from a run's `warehouse.db`.\n\nHARD FAIL on an unvetted shape (`identity.check` raises `UnsupportedSchema`), unlike the\nviewer, which warns.  Capacity is the DENOMINATOR of every fill percentage this tool\nexports, and the dashboard renders those percentages as a measurement.  A geometry table\nthat is not the one we think it is produces a fill curve that is wrong in a way no reader\ncan see \u2014 the same class of defect as the `bin_inventory` decay documented in `_SOURCES`,\nwhich is why that entry exists at all.  Better to name the differing column and stop.\nBoth archived shapes are vetted (`Warehouse_Data.PRE_STAMP_WAREHOUSE_SCHEMA_ID` and\n`PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID`), so this refuses nothing that exists today.",
       "is_async": false,
       "kind": "function",
       "signature": "(warehouse_db: str) -> tuple[list[dict], dict[int, int]]"
@@ -1442,6 +1442,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(strategies, ss_lo, max_b, n_sample=8)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::_verify_sim_dbs": {
+      "decorators": [],
+      "doc": "Refuse to build a context over an unvetted sim DB.  Raises `UnsupportedSchema`.\n\nOne check per DISTINCT file, ~10 PRAGMA round trips each.  Measured at 28 ms per sim DB on\nthe external results drive, so ~1 s for a 34-arm config \u2014 small beside the `batch_stats`\nload it guards, and paid once per context because `run_analysis` memoizes contexts per\n(config, focus) in `_CFG_CTX`.  Not worth a cache of its own.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, log: logging.Logger) -> None"
     },
     "Optimization/Performance_Evaluations/core/discovery.py": {
       "decorators": [],
@@ -2857,6 +2864,13 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/metrics/Workload.py::WorkloadParams.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
     "Optimization/metrics/Workload.py::WorkloadParams.from_pick_config": {
       "decorators": [
         "classmethod"
@@ -3030,6 +3044,13 @@
       "doc": null,
       "kind": "class",
       "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::UNVETTED_ARCHIVE_SIM_SCHEMA_IDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('5d8a78b74466', '89c7b2babf22', 'e110afa222e3')"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
       "decorators": [],
@@ -3243,7 +3264,7 @@
     },
     "Optimization/persistence/Picking_Data.py::_open_db": {
       "decorators": [],
-      "doc": "Open *path* with WAL journal mode and a generous busy timeout.\n\nWAL allows multiple concurrent readers and one writer without blocking\nreaders.  Writers that arrive while another write is in progress wait up\nto *timeout* seconds before raising OperationalError, giving the three\nparallel strategy workers enough headroom to avoid spurious lock errors\nwhen their 100-batch checkpoints happen to coincide.",
+      "doc": "Open *path* with WAL journal mode and a generous busy timeout.\n\nWAL allows multiple concurrent readers and one writer without blocking\nreaders.  Writers that arrive while another write is in progress wait up\nto *timeout* seconds before raising OperationalError, giving the three\nparallel strategy workers enough headroom to avoid spurious lock errors\nwhen their 100-batch checkpoints happen to coincide.\n\n\u2500\u2500 Why NONE of this module's 28 closes goes through `Schema.connect.close` \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nDeliberate, and measured \u2014 not an oversight.  The closes here fall into three groups:\n\n  13 are `load_*` / `find_run` / `run_identity` / the two `declared_*_shape` helpers.\n     Read-only or `:memory:`.  There is no WAL to fold back; converting them is noise.\n\n  12 are the per-flush writers \u2014 `save_batch_stats`, `save_task_stats`,\n     `save_picker_events`, `save_picks`, `save_bin_placements`, `save_bin_evictions`,\n     `save_aisle_metrics`, `save_reorder_queue`, `save_bin_keyframe`, and the two score\n     writers.  Each opens and closes ONCE PER CHECKPOINT FLUSH (default every 10 batches,\n     `strategy_runner.py:583`) against a sim DB that reaches ~1 GB.  A\n     `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the main file every\n     flush, on the hot path of a 40-minute arm, for no benefit \u2014 see below.\n\n   3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection\n     is finished but the FILE is not; the run writes to it for the next 40 minutes, so a\n     checkpoint changes nothing about the state that is left behind.\n\nAnd the benefit really is nil, because a plain close already does the job here.  Measured:\non a clean single-process write-then-close, SQLite removes `-wal`/`-shm` itself, and\n`connect.close` removes exactly the same set.  What actually strands them is a READER \u2014\na `mode=ro` connection on a WAL database creates `-shm` and cannot delete it on the way\nout, so every archived sim DB grows sidecars the moment anything fingerprints or plots it.\nNo change on the WRITE side can prevent that; only `immutable=1` on the read side can, and\nthat is a promise about the file that a live run cannot make.  The one writer here whose\nclose is genuinely the file's last is in `Warehouse_Data`, which does convert.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
@@ -3471,12 +3492,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/persistence/Warehouse_Data.py::PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'342d31313d08'"
+    },
+    "Optimization/persistence/Warehouse_Data.py::PRE_STAMP_WAREHOUSE_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'46464b5dfff6'"
+    },
     "Optimization/persistence/Warehouse_Data.py::WAREHOUSE_DB_FAMILY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='warehouse_db', declared_shape=declared_warehouse_shape, meta_table='schema_meta'))"
+      "value_preview": "_identity.register(_identity.Family(name='warehouse_db', declared_shape=declared_warehouse_shape, meta_table='schema_meta', known_ids=(PRE_STAMP_WAREHOUSE_SCHEMA_ID, PRE_FINGERPRINT_WAREHOUSE_SCHEM..."
     },
     "Optimization/persistence/Warehouse_Data.py::_ALL_DDL": {
       "decorators": [],
@@ -3567,6 +3602,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/persistence/runtime_metrics.py::PRE_STAMP_RUNTIME_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'a683d2d07c72'"
+    },
     "Optimization/persistence/runtime_metrics.py::RUNTIME_DB": {
       "decorators": [],
       "doc": null,
@@ -3579,7 +3621,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta'))"
+      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=(PRE_STAMP_RUNTIME_SCHEMA_ID,)))"
     },
     "Optimization/persistence/runtime_metrics.py::SECTIONS": {
       "decorators": [],
@@ -3618,7 +3660,7 @@
     },
     "Optimization/persistence/runtime_metrics.py::load_rows": {
       "decorators": [],
-      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.",
+      "doc": "All runtime rows as dicts (empty if the DB is absent) \u2014 for the runtime graphs.\n\nWARNS rather than raising on an unvetted shape, unlike the sim-DB check in\n`Performance_Evaluations/core/context.py`.  The difference is what the number is FOR: these\nrows are wall-clock diagnostics about how long an arm took to compute, never a published\nresult, and this is a `SELECT *` into dicts that the graphs index defensively.  A runtime DB\nfrom a shape we have not seen is worth a named line in the log; it is not worth sinking the\nanalysis of a sweep that has already finished computing.",
       "is_async": false,
       "kind": "function",
       "signature": "(run_root: str) -> list[dict]"
@@ -5018,9 +5060,37 @@
     },
     "Optimization/runschema/sim_manifest.py": {
       "decorators": [],
-      "doc": "sim_manifest.py \u2014 run bookkeeping artifacts.\n\nResume state (resume.pkl) + the top-level run_manifest.json schema index that the\ndocs ingest (docs/experiments/ingest.py) auto-discovers a run from.",
+      "doc": "sim_manifest.py \u2014 run bookkeeping artifacts.\n\nResume state (resume.pkl) + the top-level run_manifest.json schema index that the\ndocs ingest (docs/experiments/ingest.py) auto-discovers a run from.\n\nIt also stamps CODE provenance into run_spec.json (`repo_commit` / `repo_dirty`).  That is a\ndifferent question from the two ids already on a run and neither of them answers it:\n``run_layout.json``'s ``schema_id`` names the run-TREE contract and ``sim_meta.json``'s\n``sim_schema_id`` names the DB TABLE contract, so a change to the simulator that moves no path and\nno column \u2014 `753d01e` moved absolute throughput ~1.4 % without touching either \u2014 leaves both\nbyte-identical and the two runs indistinguishable.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/runschema/sim_manifest.py::_GIT_TIMEOUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10.0"
+    },
+    "Optimization/runschema/sim_manifest.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
+    },
+    "Optimization/runschema/sim_manifest.py::_git_dir": {
+      "decorators": [],
+      "doc": "The `.git` directory for `repo_root`, or None when there is no git metadata at all.\n\n`.git` is a DIRECTORY in a normal clone and a FILE holding `gitdir: <path>` in a linked\nworktree or a submodule, which is why this is not a bare isdir() check.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str) -> str | None"
+    },
+    "Optimization/runschema/sim_manifest.py::_head_commit": {
+      "decorators": [],
+      "doc": "HEAD's full sha by reading files only \u2014 no subprocess, and no git binary required.\n\nA source export (a zip, a docker COPY) has no `.git` and returns None from _git_dir before we\nget here; a SHALLOW clone does have one and resolves normally, which is the case the naive\n`git describe` approach gets wrong.  Three shapes are handled: a detached HEAD (the sha\ninline), a loose ref, and a ref that only exists in `packed-refs` (a fresh clone's usual state).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(git_dir: str) -> str | None"
     },
     "Optimization/runschema/sim_manifest.py::_load_resume": {
       "decorators": [],
@@ -5066,7 +5136,7 @@
     },
     "Optimization/runschema/sim_manifest.py::_write_run_spec": {
       "decorators": [],
-      "doc": "Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved\ninventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a\nbare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags\nand no find_latest_db_pairs drift.",
+      "doc": "Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved\ninventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a\nbare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags\nand no find_latest_db_pairs drift.\n\n`repo_commit` / `repo_dirty` are added HERE rather than by the caller so that every producer of\na run_spec gets them without opting in \u2014 the point of the stamp is that it cannot be forgotten.\nThey are provenance, not run shape: `_apply_run_spec` overlays an explicit whitelist of fields\nonto argv, so a resume ignores them and keeps the ORIGINAL run's commit on record.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, spec: dict) -> None"
@@ -5077,6 +5147,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str)"
+    },
+    "Optimization/runschema/sim_manifest.py::repo_provenance": {
+      "decorators": [],
+      "doc": "{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.\n\nWHY THIS MUST NOT RAISE: it runs at the front of every simulation, and a run that dies because\nprovenance could not be derived is strictly worse than a run that records `unknown`.  A shallow\nclone, a source export with no `.git`, a machine with no git on PATH and a wedged index lock all\nresolve to a recorded value rather than an exception.\n\n`repo_dirty` is deliberately THREE-valued: True/False are answers, `None` means \"not\nestablished\" \u2014 which is what an export or a missing git binary honestly is, and reading it as\n\"clean\" would be the one wrong inference.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> dict"
     },
     "Optimization/runschema/sim_manifest.py::write_run_layout": {
       "decorators": [],
@@ -5421,6 +5498,20 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "5"
+    },
+    "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_DELAY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.1"
+    },
     "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints": {
       "decorators": [],
       "doc": null,
@@ -5567,7 +5658,7 @@
     },
     "Schema/connect.py": {
       "decorators": [],
-      "doc": "connect.py \u2014 the three ways this project should open a SQLite file.\n\nBefore this module there were **seven** distinct connect idioms across 35 production call sites\nand no shared helper, which had two concrete consequences:\n\n  * `Optimization/run_whatif_delta.py` and `run_whatif_labor.py` opened **archived** sim DBs\n    read-WRITE with no pragmas, dropping `-wal`/`-shm` sidecars beside a 1 GB file \u2014 exactly the\n    condition `scripts/archive_cells.py::_quick_check` exists to defend against.\n  * A shape fingerprint is only meaningful if reading a database cannot change it, and a\n    read-write open can (WAL mode is itself a write).\n\nThree intents, named:\n\n    read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way\n                       to fingerprint one.\n    writer(path)       a database being written during a run: WAL + a busy timeout, so parallel\n                       workers do not trip over each other's checkpoints.\n    bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,\n                       because a crash means \"rebuild it\", not \"lose data\".\n\nStdlib only; no imports from anywhere else in the repo.",
+      "doc": "connect.py \u2014 the three ways this project should open a SQLite file.\n\nBefore this module there were **seven** distinct connect idioms across 35 production call sites\nand no shared helper, which had two concrete consequences:\n\n  * `Optimization/run_whatif_delta.py` and `run_whatif_labor.py` opened **archived** sim DBs\n    read-WRITE with no pragmas, dropping `-wal`/`-shm` sidecars beside a 1 GB file \u2014 exactly the\n    condition `scripts/archive_cells.py::_quick_check` exists to defend against.\n  * A shape fingerprint is only meaningful if reading a database cannot change it, and a\n    read-write open can (WAL mode is itself a write).\n\nThree intents, named \u2014 plus the one way to hand a writer back:\n\n    read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way\n                       to fingerprint one.\n    writer(path)       a database being written during a run: WAL + a busy timeout, so parallel\n                       workers do not trip over each other's checkpoints.\n    bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,\n                       because a crash means \"rebuild it\", not \"lose data\".\n    close(con)         finish with a writer and leave no `-wal`/`-shm` beside it.\n\nStdlib only; no imports from anywhere else in the repo.",
       "kind": "module",
       "signature": null
     },
@@ -5598,6 +5689,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str)"
+    },
+    "Schema/connect.py::close": {
+      "decorators": [],
+      "doc": "Close a connection, folding its WAL back into the database file first.\n\nWHY: one archived sweep carried **572** stray `-wal`/`-shm` files.  They are harmless to\ncorrectness, but they are counted as undeclared paths by `runschema.preflight.verify`, they make\nan archived copy differ from its original, and `scripts/archive_cells.py::_sweep_sidecars`\nexists solely to delete the ones that get that far.\n\nWHAT ACTUALLY PRODUCES THEM \u2014 measured, because the intuitive answer is wrong.  \"SQLite removes\nthem when the last connection closes cleanly\" is true, but an unclean close is NOT the main\nsource: a dropped handle, and even a killed worker, still gets finalized by CPython and leaves\nnothing behind.  The dominant producer is a **read-only** connection \u2014 opening a WAL database\n`mode=ro` CREATES the pair and cannot remove them, so an archived run accumulates sidecars just\nby being plotted, fingerprinted or opened in the viewer, long after every writer is gone.  No\nwrite-side change can eliminate those, and `_sweep_sidecars` stays the answer for them.\n\nWhat closing through here fixes is the narrower, real case: folding the WAL back in when this\nwriter is genuinely the file's last, so a finished artifact is a single file.  Measured on a\n`--profile tiny` sweep \u2014 241 finished DBs, zero sidecars, against 249-291 in each archived run.\n\nTWO PROPERTIES THIS DELIBERATELY HAS, because the obvious implementation has neither:\n\n  * **It cannot lose data on a crash.**  A checkpoint only ever moves already-committed frames\n    from the WAL into the main file and fsyncs them; it is a durability *increase*.  Crash\n    mid-checkpoint and the WAL is still there and recovery replays it, exactly as before.  Note\n    it does NOT commit for you \u2014 an open transaction is rolled back by the close below, which\n    is plain `sqlite3` behaviour and must stay visible rather than be papered over here.\n  * **It cannot stall the hot path.**  `wal_checkpoint(TRUNCATE)` normally waits for every\n    reader to finish, and this connection carries a 60 s busy timeout, so the naive version\n    could block a finishing worker for a minute while the viewer holds the file open.  The\n    busy handler is disabled for the checkpoint alone: it then either succeeds immediately or\n    reports busy and is skipped.  Skipping costs a sidecar, which is the outcome we already\n    have; blocking would cost a minute of every worker's wall-clock, which is worse.\n\n`checkpoint=False` closes without any of this \u2014 for a `bulk_writer` (journal_mode=OFF, so\nthere is no WAL) or a `read_only` handle, where the pragma is a no-op or an error either way.\nSafe to call on any connection: nothing here raises.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con, *, checkpoint: bool=True) -> None"
     },
     "Schema/connect.py::read_only": {
       "decorators": [],
@@ -5675,10 +5773,24 @@
     },
     "Schema/identity.py::check": {
       "decorators": [],
-      "doc": "Open `path` read-only, resolve its id, and refuse anything unvetted.\n\nThe one call a consumer needs before trusting a file's columns.",
+      "doc": "Open `path` read-only, resolve its id, and refuse anything unvetted.\n\nThe one call a consumer needs before trusting a file's columns.\n\n**Pass `verify=True` unless you have measured that you cannot afford it.** Without it a\nSTAMPED file is taken at its word, and a stamp is a claim the file makes about itself: a\ndatabase altered after the run that wrote it still carries the old id, so `check` returns a\nvetted answer for a shape that is no longer vetted. Every wired consumer in the repo passes\nit. The stamped fast path is for cheaply IDENTIFYING files in bulk (which reader do these\n272 arms need?), not for deciding whether to trust one \u2014 and the archive is unstamped\nanyway, so for it the two cost exactly the same.\n\nMeasured on the results drive: ~27 ms per archived sim DB, of which the re-derivation\n`verify=True` adds is ~1 ms. The cost is OPENING the file, not reading `sqlite_master`.\n\n**Side effect worth knowing**: opening a WAL database `mode=ro` CREATES its `-shm` (and\n`-wal`), and a read-only connection cannot remove them again \u2014 so fingerprinting an\narchived run leaves sidecars beside it. That is not this function's doing; it is true of\nevery read here, and it is the mechanism behind the sidecars the archive accumulates. Only\n`connect.read_only(..., immutable=True)` avoids it, and only a caller can promise the file\nis not being written. Every current call site opens the same file again immediately\nafterwards, so none of them creates a sidecar that was not coming anyway.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, family_name: str, *, verify: bool=False) -> str"
+    },
+    "Schema/identity.py::check_or_warn": {
+      "decorators": [],
+      "doc": "`check()` for consumers that must DEGRADE rather than die.  Returns None if unvetted.\n\nThe split is deliberate and the choice is per-site, not per-family:\n\n  hard `check()`   a simulation about to WRITE from this file, or an analysis about to\n                   PUBLISH a number from it.  A wrong column there becomes a plausible\n                   `0.0` and a figure nobody can tell is wrong.\n  `check_or_warn`  an interactive, read-only, exploratory consumer, and derived caches that\n                   can rebuild themselves.  Refusing to open a 2026-06 archive outright is a\n                   worse failure than drawing it with a named caveat in the log.\n\nEither way the `UnsupportedSchema` TEXT \u2014 which names the differing tables and columns \u2014 is\nwhat reaches the caller; that message is the whole point of the layer, and a bare `except`\nthat drops it leaves the consumer no better off than before this package existed.\n\n`emit` takes the message (e.g. `log.warning`); the default routes to `warnings.warn`, which\na viewer's logging config already captures and a test can assert on with `pytest.warns`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, family_name: str, *, verify: bool=False, emit=None) -> str | None"
+    },
+    "Schema/identity.py::check_tables": {
+      "decorators": [],
+      "doc": "`check()` for a consumer that can only reach PART of its family's declaration.\n\nA whole-file id needs the family, and a family lives with its WRITER \u2014 which is sometimes a\nmodule the reader must not import (`Warehouse/catalog/Affinity_Store.py` reads a file whose\nfamily is registered in `Warehouse/generation/generate_affinity.py`, a data-gen CLI that\npulls matplotlib and pandas into every simulation worker). Comparing only the tables the\nconsumer actually queries, against the DDL it already mirrors, gives that reader the same\nguarantee without the import \u2014 and turns \"both DDLs must stay in step\" from a comment into\nsomething the file enforces on itself every time it opens a database.\n\nRaises `UnsupportedSchema` naming the differing columns. `label` goes in the message in\nplace of a family name, so it should say which tables were compared.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, expected: dict, tables, *, label: str) -> None"
     },
     "Schema/identity.py::families": {
       "decorators": [],
@@ -5852,6 +5964,13 @@
       "signature": null,
       "value_preview": "('cache_meta', 'bin_span', 'sku_rank', 'sku_series', 'final_home', 'aisle_batch_rollup')"
     },
+    "Visualization/cache_schema.py::V1_KEYFRAME_SPAN_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'28124bfb4f93'"
+    },
     "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY": {
       "decorators": [],
       "doc": null,
@@ -5996,7 +6115,7 @@
     },
     "Visualization/db_reader.py::RunRef.reader": {
       "decorators": [],
-      "doc": "The vetted reader for this arm, bound once and reused.\n\nReaders hold no live connection, so one instance is safe to share across request\nthreads; every query opens and closes its own read-only connection.",
+      "doc": "The vetted reader for this arm, bound once and reused.\n\nReaders hold no live connection, so one instance is safe to share across request\nthreads; every query opens and closes its own read-only connection.\n\nThe sim DB's identity is `reader_for`'s job \u2014 that binding IS the sim-schema check, and\nan unknown shape there raises `UnsupportedSimSchema`.  Its two companion files have no\nsuch gate, so they get one here: geometry read from an unexpected `warehouse.db` draws a\nplausible warehouse that is quietly wrong, which is the same failure in a different\nartifact.\n\nWARNS rather than raising.  The viewer is an interactive, strictly read-only explorer of\nan archive that spans two months of schema evolution; refusing to open a 2026-06 run\noutright is a worse outcome than drawing it with the differing columns named in the log,\nand nothing here is published.  The paths that WRITE from a file, or publish a number\nfrom one, use the hard `identity.check` instead.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, verify: bool=False)"
@@ -7134,9 +7253,18 @@
       "kind": "function",
       "signature": "(self) -> None"
     },
+    "Warehouse/catalog/Affinity_Store.py::AffinityStore._verify_shape": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Refuse a generator-written affinity.db whose tables are not the ones we query.\n\nHARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and\n`delta_lift`/`sum_lift` read the CSR matrix built here \u2014 a `lift` column that is not the\n`lift` column produces placements that look entirely reasonable and are not.\n\nChecked with `identity.check_tables`, not `identity.check`, and that is a deliberate\nscope limit: the `affinity_db` FAMILY is registered by\n`Warehouse/generation/generate_affinity.py`, which is a data-gen CLI importing matplotlib\nand pandas.  Importing it here to reach one dataclass would drag both into every\nProcessPool worker.  Comparing the two tables this class actually reads against the DDL\nit already mirrors gives the same protection for the columns that matter, and makes the\n\"both DDLs must stay in step\" claim above self-enforcing.  That the mirror really does\nmatch the generator's declaration is asserted in\n`Tests/architecture/test_schema_identity.py`, where importing both is free.\n\nSkipped for `:memory:` and for a path this store is about to CREATE: there is no shape to\ndisagree with yet, and `_init_schema` authors it below.  Skipped equally when a table is\ngenuinely absent, which is the one case `_init_schema` still writes \u2014 verifying a shape\nwe are in the middle of completing would reject the legacy/in-memory path it exists for.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, db_path: str) -> None"
+    },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore.close": {
       "decorators": [],
-      "doc": null,
+      "doc": "Close, folding the WAL back into affinity.db so no `-wal`/`-shm` is left beside it.\n\n`load_for_skus` and `index_inventory` both commit, so there is never an open\ntransaction here for `connect.close` to lose \u2014 it checkpoints, it does not commit.\n\nUnder the worker pool this file is SHARED: one affinity.db per inventory pair, opened\nby every arm running that pair at once.  The checkpoint then finds another connection\non the file and skips instantly (the busy handler is disabled for it), so this costs\nnothing in the common case and truncates for whichever worker happens to close last.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -7729,6 +7857,13 @@
       "signature": null,
       "value_preview": "_identity.register(_identity.Family(name='inventory_db', declared_shape=declared_inventory_shape, meta_table='run_metadata'))"
     },
+    "Warehouse/generation/generate_inventory.py::UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'c59cc6aa5fd3'"
+    },
     "Warehouse/generation/generate_inventory.py::_ALL_DDL": {
       "decorators": [],
       "doc": null,
@@ -7941,7 +8076,7 @@
     },
     "Warehouse/generation/generate_inventory.py::load_inventory_from_db": {
       "decorators": [],
-      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nCanonical schema only (no legacy fallbacks).  Every order is rebuilt through\nOrder.build, so the same physical guardrails (integer dims/weight, min-1, caps)\nare enforced on load as on generation.",
+      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nCanonical schema only (no legacy fallbacks).  Every order is rebuilt through\nOrder.build, so the same physical guardrails (integer dims/weight, min-1, caps)\nare enforced on load as on generation.\n\nHARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:\nevery caller is a simulation about to consume ~500 GB of compute and WRITE the result.  The\n`SELECT` below already names its fourteen columns, so a shape mismatch surfaces one way or\nanother \u2014 but as a bare `OperationalError: no such column`, which says nothing about WHICH\nvintage the file is or what else differs.  `UnsupportedSchema` names the id and the whole\nstructural diff before a single row is read.",
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str, limit: int | None=None) -> Inventory"
@@ -9039,6 +9174,13 @@
       "kind": "function",
       "signature": "(x_phys: float, y_phys: float, x_speed: float, y_speed: float) -> float"
     },
+    "Warehouse/kernel/cost_model.py::validate_speeds": {
+      "decorators": [],
+      "doc": "Reject a travel speed that would poison every score with NaN.  Raises ValueError.\n\nTHE TRAP this exists to close.  `sec_per_inch` maps a non-positive speed to `inf`, which\nis the honest answer on its own (never moves \u2192 infinite time).  But the hot loops spend it\nas `pace \u00b7 phys`, and a bin ON the axis origin has `phys == 0` \u2014 so `inf \u00b7 0` yields\n**NaN**, not 0.  NaN then propagates through every travel term, and because every\ncomparison against NaN is False, `min()`/`max()`/`sorted()` silently degrade to \"keep\nwhichever candidate came first\".  Placement quietly becomes insertion order.  No warning,\nno exception, no visibly wrong number \u2014 just a run whose assignment function did nothing.\n\nNothing else catches it: `x_speed`/`y_speed` are read straight out of the config JSON\n(`Optimization/config/sim_config.py`), so one `\"y_speed\": 0` in a config file would do this\nto a whole sweep.  Validating at the two dataclass boundaries (PickConfig, WorkloadParams)\ncosts one call per config rather than per bin, and cannot perturb a valid run \u2014 it only\nraises on input that was already producing NaN.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_speed: float, y_speed: float, *, source: str) -> None"
+    },
     "Warehouse/kernel/regime.py": {
       "decorators": [],
       "doc": "regime.py \u2014 storage-regime identity (store vs fulfillment).\n\nA *regime* is a self-contained ``(handling, storage_type)`` family with its own bin\ncatalog, batch stream, and picker cost.  Fulfillment items/bins/aisles are tagged with\nthe ``'fulfillment'`` handling + storage_type (+ ``unit_category``); everything else is\n``'store'``.  ``regime_of`` duck-types over Orders, StorageUnits, Bins, and Aisles so every\nlayer (Warehouse primitives, planner, placement, cost routing, runner, analysis) can key\non the SAME single-valued regime without importing warehouse internals \u2014 this module has\nno dependencies, so it never introduces an import cycle.\n\nThe single-valued-per-entity property is what keeps the per-regime cost routing cheap:\neach bin's ``_D`` and each order's ``labor_cost`` is one value, computed with that entity's\nregime parameters, not a per-regime dict.",
@@ -9590,6 +9732,13 @@
       "doc": null,
       "kind": "class",
       "signature": ""
+    },
+    "Warehouse/picking/Pick.py::PickConfig.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/picking/Pick.py::PickEvent": {
       "decorators": [
@@ -10654,6 +10803,13 @@
       "kind": "function",
       "signature": "(root, name)"
     },
+    "docs/experiments/ingest.py::_repo_provenance_of": {
+      "decorators": [],
+      "doc": "(commit, dirty) for a run root \u2014 the simulator CODE that produced it.\n\nRead from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the\nonly file on a run that distinguishes two runs of the same tree and the same tables from\ndifferent code.  Runs made before the stamp existed have no such keys and yield\n``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than\nquietly dropped.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(source, log)"
+    },
     "docs/experiments/ingest.py::_short_key": {
       "decorators": [],
       "doc": "Derive a short inventory key from a pair label, e.g.\n'mixed_20260624_083549__mixed_realistic_lt0' -> 'lt0'.",
@@ -10680,7 +10836,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log, cells=None, schema_id=None)"
+      "signature": "(exp_dir, rm, catalogue, top3, full_suite, inv_plots, dry, log, cells=None, schema_id=None, commit=None, dirty=None)"
     },
     "docs/experiments/ingest.py::main": {
       "decorators": [],
@@ -10923,6 +11079,15 @@
       "kind": "function",
       "signature": "(*args)"
     },
+    "docs/macros.py::define_env.run_commit": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "Which simulator CODE produced this experiment's run, rendered for a caption.\n\nThe one ``schema_id`` a page can already cite names the run's DB **table** contract, and a\nchange that moves no table is byte-identical in it: ``753d01e`` shifted absolute throughput\n~1.4 % and left every id on the run unchanged. This reads the commit that\n``Optimization/runschema/sim_manifest.py`` stamps into ``run_spec.json`` and\n``docs/experiments/ingest.py`` carries into ``experiment.yml``.\n\nTwo lookup sites, because a run has two names. A **what-if** experiment's ``run:`` is a\nCELL inside the sweep, so the run root \u2014 and therefore its commit \u2014 lives beside\n``whatif.source_run``; an ordinary experiment's ``run:`` IS the run and its commit sits at\nthe top level next to ``schema_id``, which is where ingest writes it.\n\nRuns that predate the stamp render as *not recorded* rather than silently as nothing: the\nabsence is the point, and a page that quietly omitted it would be the same invisible gap\nthis macro exists to close.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
     "docs/macros.py::define_env.run_config": {
       "decorators": [
         "env.macro"
@@ -11021,6 +11186,13 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "scripts/archive_cells.py::_SIDECAR_SUFFIXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('-wal', '-shm')"
+    },
     "scripts/archive_cells.py::_existing_ancestor": {
       "decorators": [],
       "doc": null,
@@ -11061,7 +11233,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(root: str) -> tuple[int, int]"
+      "signature": "(root: str, *, skip_sidecars: bool=False) -> tuple[int, int]"
     },
     "scripts/archive_cells.py::_verify_copy": {
       "decorators": [],

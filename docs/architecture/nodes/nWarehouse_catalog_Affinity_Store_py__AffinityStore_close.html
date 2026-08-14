@@ -13,10 +13,18 @@
 <nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a> <span class="sep">›</span> <a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore.html"><code>AffinityStore</code></a> <span class="sep">›</span> <span class="here"><code>close</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>close</code></h1>
 <p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def close(self) -&gt; None</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore___exit__.html"><code>__exit__</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li></ul></section>
+<section class="doc">Close, folding the WAL back into affinity.db so no `-wal`/`-shm` is left beside it.
+
+`load_for_skus` and `index_inventory` both commit, so there is never an open
+transaction here for `connect.close` to lose — it checkpoints, it does not commit.
+
+Under the worker pool this file is SHARED: one affinity.db per inventory pair, opened
+by every arm running that pair at once.  The checkpoint then finds another connection
+on the file and skips instantly (the busy handler is disabled for it), so this costs
+nothing in the common case and truncates for whichever worker happens to close last.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py__close.html"><code>close</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore___exit__.html"><code>__exit__</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Affinity_Store_py__AffinityStore_close">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Affinity_Store.py#:~:text=def%20close">Source ↗</a></p>
 </article>
 </main>

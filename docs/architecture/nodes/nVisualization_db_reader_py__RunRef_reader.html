@@ -13,13 +13,25 @@
 <nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a> <span class="sep">›</span> <a href="nVisualization_db_reader_py__RunRef.html"><code>RunRef</code></a> <span class="sep">›</span> <span class="here"><code>reader</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>reader</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def reader(self, verify: bool=False)</code></pre>
 <section class="doc">The vetted reader for this arm, bound once and reused.
 
 Readers hold no live connection, so one instance is safe to share across request
-threads; every query opens and closes its own read-only connection.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nVisualization_db_reader_py___pinned_schema_id.html"><code>_pinned_schema_id</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_readers___init___py__reader_for.html"><code>reader_for</code></a> <span class="dim">Visualization/readers/__init__.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+threads; every query opens and closes its own read-only connection.
+
+The sim DB&#x27;s identity is `reader_for`&#x27;s job — that binding IS the sim-schema check, and
+an unknown shape there raises `UnsupportedSimSchema`.  Its two companion files have no
+such gate, so they get one here: geometry read from an unexpected `warehouse.db` draws a
+plausible warehouse that is quietly wrong, which is the same failure in a different
+artifact.
+
+WARNS rather than raising.  The viewer is an interactive, strictly read-only explorer of
+an archive that spans two months of schema evolution; refusing to open a 2026-06 run
+outright is a worse outcome than drawing it with the differing columns named in the log,
+and nothing here is published.  The paths that WRITE from a file, or publish a number
+from one, use the hard `identity.check` instead.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_identity_py__check_or_warn.html"><code>check_or_warn</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nVisualization_db_reader_py___pinned_schema_id.html"><code>_pinned_schema_id</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_readers___init___py__reader_for.html"><code>reader_for</code></a> <span class="dim">Visualization/readers/__init__.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_db_reader_py__RunRef_reader">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/db_reader.py#:~:text=def%20reader">Source ↗</a></p>
 </article>
 </main>

@@ -13,13 +13,13 @@
 <nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_cache_schema_py.html"><code>Visualization/cache_schema.py</code></a> <span class="sep">›</span> <span class="here"><code>cache_freshness</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>cache_freshness</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_cache_schema_py.html"><code>Visualization/cache_schema.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def cache_freshness(viz_cache: str, sim_db: str, keyframe_db: str, warehouse_db: str) -&gt; str</code></pre>
 <section class="doc">&#x27;fresh&#x27; | &#x27;stale&#x27; | &#x27;absent&#x27; | &#x27;partial&#x27;.
 
 Lives here rather than in `precompute` so the READ path can call it without importing the
 builder (and without `readers -&gt; precompute -&gt; db_reader` becoming an import cycle).</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nVisualization_cache_schema_py__source_stamps.html"><code>source_stamps</code></a> <span class="dim">Visualization/cache_schema.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nVisualization_precompute_py__cache_state.html"><code>cache_state</code></a> <span class="dim">Visualization/precompute.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_cache_status.html"><code>cache_status</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_identity_py__SchemaError.html"><code>SchemaError</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__check.html"><code>check</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nVisualization_cache_schema_py__source_stamps.html"><code>source_stamps</code></a> <span class="dim">Visualization/cache_schema.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nVisualization_precompute_py__cache_state.html"><code>cache_state</code></a> <span class="dim">Visualization/precompute.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_cache_status.html"><code>cache_status</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_cache_schema_py__cache_freshness">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/cache_schema.py#:~:text=def%20cache_freshness">Source ↗</a></p>
 </article>
 </main>
