@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>final_home · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_base_py__SqliteSimReader_final_home" data-id="Visualization/readers/base.py::SqliteSimReader.final_home">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_readers_base_py.html"><code>Visualization/readers/base.py</code></a> <span class="sep">›</span> <a href="nVisualization_readers_base_py__SqliteSimReader.html"><code>SqliteSimReader</code></a> <span class="sep">›</span> <span class="here"><code>final_home</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>final_home</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_base_py.html"><code>Visualization/readers/base.py</code></a></p>
+
+<pre class="sig"><code>def final_home(self) -&gt; dict</code></pre>
+<section class="doc">Per-SKU destination at the LAST keyframe — the colour authority.
+
+`{sku: {aisle_id, bayX, bayY, qty, n_homes, home_aisles: [...]}}`.
+
+A SKU almost never lands in exactly one bin: the warehouse is sized
+``bins &gt;= n_skus * 1.1``, and measured on the production run **64.3% of SKUs hold
+multiple bins at the last keyframe — and only 9.7% of those keep every replica in one
+aisle** (median span 2 aisles, max 8).  So `home_aisles` is the set, and it is what
+&quot;is this item home?&quot; must be tested against; scoring against a single bin would paint
+the majority of perfectly-placed replicas as misplaced.
+
+`aisle_id`/`bayX`/`bayY` are the PRIMARY home — largest qty, ties broken by lowest
+(aisle, bayX, bayY) so the choice is deterministic.  That one is what the hue and
+lightness are derived from; the set is what the chroma is derived from.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nVisualization_readers_base_py__SqliteSimReader__cache_conn.html"><code>_cache_conn</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_keyframe_batches.html"><code>keyframe_batches</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py___better_home.html"><code>_better_home</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py___ro.html"><code>_ro</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_readers_base_py__SqliteSimReader_aisle_rollup.html"><code>aisle_rollup</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_base_py__SqliteSimReader_final_home">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/base.py#:~:text=def%20final_home">Source ↗</a></p>
+</article>
+</main>
+</body></html>

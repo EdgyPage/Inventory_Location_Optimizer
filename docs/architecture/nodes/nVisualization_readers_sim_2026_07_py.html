@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.readers.sim_2026_07 · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_sim_2026_07_py" data-id="Visualization/readers/sim_2026_07.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/readers/sim_2026_07.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.readers.sim_2026_07</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_sim_2026_07_py.html"><code>Visualization/readers/sim_2026_07.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Visualization.readers.sim_2026_07</code></pre>
+<section class="doc">sim_2026_07.py — the vetted reader for the current sim-DB schema.
+
+Covers the ten-table shape carrying `picks`, `picker_events`, `bin_inventory`, `bin_scores`,
+`sku_scores`, `aisle_metrics`, `reorder_queue`, `batch_stats`, `task_stats` and
+`simulation_runs`, alongside the one-table `bin_keyframe` sidecar file.
+
+Two ids, one reader
+-------------------
+`SCHEMA_IDS` holds both the pre- and post-stamp shapes.  They differ by exactly one nullable
+column — `simulation_runs.sim_schema_id`, added so future runs record their own identity — and
+nothing here reads it, so a single implementation is correct for both.  Splitting them into two
+modules would duplicate ~400 lines to express &quot;one column the reader ignores&quot;.
+
+The PRE-stamp id is frozen as a literal on purpose.  Every run in the archive has that shape,
+those files will never be rewritten (the current sweep alone is ~500 GB), and the id cannot be
+recomputed from today&#x27;s source once the column exists.  It is not a magic number: it was derived
+with `Picking_Data.observed_sim_schema_id` against the production run and matched the declared id
+of the source at that commit.
+
+Older shapes are UNSUPPORTED, deliberately.  A viewer that guesses at columns draws a
+plausible-looking warehouse that is quietly wrong; `UnsupportedSimSchema` names what differs.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nVisualization_readers___init___py.html"><code>Visualization.readers</code></a> <span class="dim">Visualization/readers/__init__.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nVisualization_readers_sim_2026_07_py__PRE_STAMP_SCHEMA_ID.html"><code>PRE_STAMP_SCHEMA_ID</code></a> <span class="dim">Visualization/readers/sim_2026_07.py</span></li><li><a href="nVisualization_readers_sim_2026_07_py__Sim2026_07Reader.html"><code>Sim2026_07Reader</code></a> <span class="dim">Visualization/readers/sim_2026_07.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_sim_2026_07_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/sim_2026_07.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

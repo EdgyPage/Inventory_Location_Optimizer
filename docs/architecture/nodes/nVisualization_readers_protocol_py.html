@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.readers.protocol · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_protocol_py" data-id="Visualization/readers/protocol.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/readers/protocol.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.readers.protocol</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_protocol_py.html"><code>Visualization/readers/protocol.py</code></a></p>
+
+<pre class="sig"><code>Visualization.readers.protocol</code></pre>
+<section class="doc">protocol.py — the versioned data interface the views are written against.
+
+`SimReader` is the ONLY surface the HTTP layer touches. When a sim DB&#x27;s schema changes, a new
+module in this package implements the same protocol and no view, route or front-end module
+changes. That is the whole point of the split:
+
+    view (JS)  -&gt;  /api/&lt;verb&gt;  -&gt;  route  -&gt;  ReaderBinding  -&gt;  SimReader  -&gt;  sqlite
+
+A view knows verb names and JSON. It does not know a table name, a column name, or which schema
+it is reading — so redesigning a view cannot break data access, and versioning the data access
+cannot break a view.
+
+Two conventions every implementation must honour:
+
+* **Return plain JSON-serializable data.** Dicts, lists, str/int/float/bool/None. `server.py`
+  calls `jsonify` directly; there is no converter layer and there should not be one.
+* **Be honest about exactness.** Any payload describing bin state carries `exact` and, when
+  False, `restocks_pending` — the number of restock batches the frame is missing. See
+  `RECONSTRUCTION.md` §1: a delta roll silently loses 59% of a real warehouse, and the cure is
+  for the reader to SAY so rather than to draw something plausible.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nVisualization_readers___init___py.html"><code>Visualization.readers</code></a> <span class="dim">Visualization/readers/__init__.py</span></li><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_fingerprint_py.html"><code>Visualization.readers.fingerprint</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(29)</span></h2><ul><li><a href="nVisualization_readers_protocol_py__ALL_CAPABILITIES.html"><code>ALL_CAPABILITIES</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_AISLE_METRICS.html"><code>CAP_AISLE_METRICS</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_BIN_SCORES.html"><code>CAP_BIN_SCORES</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_KEYFRAMES.html"><code>CAP_KEYFRAMES</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_REORDER_QUEUE.html"><code>CAP_REORDER_QUEUE</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_SKU_SCORES.html"><code>CAP_SKU_SCORES</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__CAP_VIZ_CACHE.html"><code>CAP_VIZ_CACHE</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader.html"><code>SimReader</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimSchemaDrift.html"><code>SimSchemaDrift</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimSchemaError.html"><code>SimSchemaError</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__UnsupportedSimSchema.html"><code>UnsupportedSimSchema</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__UnsupportedSimSchema___init__.html"><code>__init__</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_aisle_bins.html"><code>aisle_bins</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_aisle_geometry.html"><code>aisle_geometry</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_aisle_rollup.html"><code>aisle_rollup</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_aisle_state.html"><code>aisle_state</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_batch_index.html"><code>batch_index</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_bin_history.html"><code>bin_history</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_bin_scores.html"><code>bin_scores</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_capabilities.html"><code>capabilities</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_events.html"><code>events</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_final_home.html"><code>final_home</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_run_meta.html"><code>run_meta</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_schema_id.html"><code>schema_id</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_sku_scores.html"><code>sku_scores</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_sku_series.html"><code>sku_series</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_state_at.html"><code>state_at</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_tasks.html"><code>tasks</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_protocol_py__SimReader_top_skus.html"><code>top_skus</code></a> <span class="dim">Visualization/readers/protocol.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_protocol_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/protocol.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1363,7 +1363,7 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_prod_paired"
+      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
@@ -1376,7 +1376,7 @@
       "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_prod_paired",
+      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
     },
@@ -2876,14 +2876,39 @@
       "src": "Optimization/metrics/Workload.py::aisle_workload_components"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::create_run"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::sim_schema_id",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::create_run"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::init_keyframe_db"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::init_run_db"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -2914,6 +2939,16 @@
       "dst": "Optimization/persistence/Picking_Data.py::TaskStats",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::schema_shape_id",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -2964,6 +2999,16 @@
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_task_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::schema_shape_id",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
     },
     {
       "dst": "Optimization/persistence/Warehouse_Data.py::_open_db",
@@ -5486,9 +5531,9 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py",
-      "kind": "imports",
-      "src": "Visualization/db_reader.py"
+      "dst": "Visualization/cache_schema.py::source_stamps",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::cache_freshness"
     },
     {
       "dst": "Optimization/runschema/__init__.py",
@@ -5501,69 +5546,79 @@
       "src": "Visualization/db_reader.py"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py",
+      "dst": "Visualization/readers/__init__.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
     },
     {
-      "dst": "Warehouse/layout/Aisle_Dimensions.py",
+      "dst": "Visualization/readers/base.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
     },
     {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Visualization/db_reader.py::_pinned_schema_id",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_aisle_geom"
+      "src": "Visualization/db_reader.py::RunRef.reader"
     },
     {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Visualization/readers/__init__.py::reader_for",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_aisle_metric_scores"
+      "src": "Visualization/db_reader.py::RunRef.reader"
     },
     {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_compute_layout_scores"
+      "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_compute_layout_scores"
+      "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
+      "dst": "Visualization/db_reader.py::RunRef",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_compute_layout_scores"
+      "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
-      "dst": "Warehouse/layout/Aisle_Dimensions.py::unit_bin_width",
+      "dst": "Visualization/db_reader.py::_nearest_warehouse_db",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_compute_layout_scores"
+      "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Visualization/db_reader.py::_read_run_meta",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::_keyframe_interval"
+      "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Visualization/db_reader.py::_warehouse_fp_index",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_discover_uncached"
+    },
+    {
+      "dst": "Visualization/db_reader.py::viz_cache_path",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_discover_uncached"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_pinned_schema_id"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_read_run_meta"
     },
     {
-      "dst": "Visualization/db_reader.py::_keyframe_interval",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::_state_at_batch_start"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::_state_at_batch_start"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
+      "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_warehouse_fingerprint"
+    },
+    {
+      "dst": "Visualization/db_reader.py::_tree_stamp",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_warehouse_fp_index"
     },
     {
       "dst": "Visualization/db_reader.py::_warehouse_fingerprint",
@@ -5571,119 +5626,14 @@
       "src": "Visualization/db_reader.py::_warehouse_fp_index"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::load_bin_scores",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::bin_scores"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_compute_layout_scores",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::bin_scores"
-    },
-    {
-      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "dst": "Visualization/db_reader.py::_discover_uncached",
       "kind": "calls",
       "src": "Visualization/db_reader.py::discover_runs"
     },
     {
-      "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
+      "dst": "Visualization/db_reader.py::_tree_stamp",
       "kind": "calls",
       "src": "Visualization/db_reader.py::discover_runs"
-    },
-    {
-      "dst": "Visualization/db_reader.py::RunRef",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::discover_runs"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_nearest_warehouse_db",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::discover_runs"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_read_run_meta",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::discover_runs"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_warehouse_fp_index",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::discover_runs"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::read_geometry"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_aisle_geom",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_aisle"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_aisle_metric_scores",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_aisle"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_aisle"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_state_at_batch_start",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_aisle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_reorder_queue",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_batch"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_aisle_geom",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_batch"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_batch"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_state_at_batch_start",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_batch"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_reorder_queue",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_aisle_metric_scores",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_picker_paths",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
-    },
-    {
-      "dst": "Visualization/db_reader.py::_state_at_batch_start",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
-    },
-    {
-      "dst": "Visualization/db_reader.py::read_geometry",
-      "kind": "calls",
-      "src": "Visualization/db_reader.py::reconstruct_overview"
     },
     {
       "dst": "Optimization/runschema/__init__.py::resolver_for",
@@ -5696,9 +5646,539 @@
       "src": "Visualization/db_reader.py::run_index"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::load_sku_scores",
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/cache_schema.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/db_reader.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/precompute.py::main",
       "kind": "calls",
-      "src": "Visualization/db_reader.py::sku_scores"
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Visualization/cache_schema.py::source_stamps",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::_source_stamps"
+    },
+    {
+      "dst": "Visualization/precompute.py::build_one",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::_worker"
+    },
+    {
+      "dst": "Visualization/cache_schema.py::init_cache_db",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::_executemany",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::_keyframe_pass",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::_picks_pass",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::_rollup_rows",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::_source_stamps",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/precompute.py::cache_state",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Visualization/cache_schema.py::cache_freshness",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::cache_state"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/db_reader.py::discover_runs",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/precompute.py::_fmt",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/precompute.py::_select",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/precompute.py::_worker",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/precompute.py::_worker",
+      "kind": "ref",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/precompute.py::cache_state",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::main"
+    },
+    {
+      "dst": "Visualization/readers/__init__.py::register",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/protocol.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/sim_2026_07.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/__init__.py::registered_schema_ids",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::describe_diff",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::diff_shapes",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/readers/protocol.py::UnsupportedSimSchema",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Visualization/cache_schema.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Visualization/readers/protocol.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.cache_status",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._cache_conn"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._cache_conn"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.batch_index",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._pending_restocks"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_bins"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.final_home",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.state_at",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.events",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.state_at",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_scores"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_scores"
+    },
+    {
+      "dst": "Visualization/cache_schema.py::cache_freshness",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.cache_status"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.cache_status",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.events"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_better_home",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.capabilities",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.batch_index",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.capabilities",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_group_by_sku",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/fingerprint.py"
+    },
+    {
+      "dst": "Visualization/readers/protocol.py",
+      "kind": "imports",
+      "src": "Visualization/readers/fingerprint.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::describe_diff",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::diff_shapes",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Visualization/readers/fingerprint.py::read_stamped_id",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Visualization/readers/protocol.py::SimSchemaDrift",
+      "kind": "calls",
+      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/sim_2026_07.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::sim_schema_id",
+      "kind": "calls",
+      "src": "Visualization/readers/sim_2026_07.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py",
+      "kind": "imports",
+      "src": "Visualization/readers/sim_2026_07.py"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
+      "src": "Visualization/server.py"
     },
     {
       "dst": "Optimization/runschema/__init__.py",
@@ -5711,8 +6191,13 @@
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/server.py::_refresh_runs",
-      "kind": "calls",
+      "dst": "Visualization/db_reader.py",
+      "kind": "imports",
+      "src": "Visualization/server.py"
+    },
+    {
+      "dst": "Visualization/readers/__init__.py",
+      "kind": "imports",
       "src": "Visualization/server.py"
     },
     {
@@ -5721,47 +6206,122 @@
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/server.py::_refresh_runs",
+      "dst": "Visualization/server.py::_startup_banner",
+      "kind": "calls",
+      "src": "Visualization/server.py"
+    },
+    {
+      "dst": "Visualization/server.py::_run_or_404",
+      "kind": "calls",
+      "src": "Visualization/server.py::_reader"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "Visualization/server.py::_resolve_base"
+    },
+    {
+      "dst": "Visualization/db_reader.py::discover_runs",
       "kind": "calls",
       "src": "Visualization/server.py::_run_or_404"
     },
     {
-      "dst": "Visualization/server.py::_batch_arg",
+      "dst": "Visualization/db_reader.py::discover_runs",
+      "kind": "calls",
+      "src": "Visualization/server.py::_startup_banner"
+    },
+    {
+      "dst": "Visualization/server.py::_float_arg",
       "kind": "calls",
       "src": "Visualization/server.py::api_aisle"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_int_arg",
       "kind": "calls",
       "src": "Visualization/server.py::api_aisle"
     },
     {
-      "dst": "Visualization/server.py::_batch_arg",
+      "dst": "Visualization/server.py::_reader",
       "kind": "calls",
-      "src": "Visualization/server.py::api_batch"
+      "src": "Visualization/server.py::api_aisle"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_int_arg",
       "kind": "calls",
-      "src": "Visualization/server.py::api_batch"
+      "src": "Visualization/server.py::api_aisle_bins"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_aisle_bins"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_aisle_rollup"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_aisle_rollup"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_batches"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_bin_history"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_bin_history"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_capabilities"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_events"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_events"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_final_home"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_geometry"
     },
     {
-      "dst": "Visualization/server.py::_batch_arg",
+      "dst": "Visualization/server.py::_reader",
       "kind": "calls",
-      "src": "Visualization/server.py::api_overview"
+      "src": "Visualization/server.py::api_meta"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_int_arg",
       "kind": "calls",
-      "src": "Visualization/server.py::api_overview"
+      "src": "Visualization/server.py::api_reorder_queue"
     },
     {
-      "dst": "Visualization/server.py::_refresh_runs",
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_reorder_queue"
+    },
+    {
+      "dst": "Visualization/db_reader.py::run_index",
       "kind": "calls",
       "src": "Visualization/server.py::api_runs"
     },
@@ -5781,14 +6341,74 @@
       "src": "Visualization/server.py::api_schema"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_aisles_arg",
       "kind": "calls",
       "src": "Visualization/server.py::api_scores"
     },
     {
-      "dst": "Visualization/server.py::_run_or_404",
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_scores"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_sku_scores"
+    },
+    {
+      "dst": "Visualization/server.py::_skus_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_sku_scores"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_sku_series"
+    },
+    {
+      "dst": "Visualization/server.py::_skus_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_sku_series"
+    },
+    {
+      "dst": "Visualization/server.py::_aisles_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_state"
+    },
+    {
+      "dst": "Visualization/server.py::_float_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_state"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_state"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_state"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_tasks"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_tasks"
+    },
+    {
+      "dst": "Visualization/server.py::_int_arg",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_top_skus"
+    },
+    {
+      "dst": "Visualization/server.py::_reader",
+      "kind": "calls",
+      "src": "Visualization/server.py::api_top_skus"
     },
     {
       "dst": "Warehouse/catalog/Inventory_Builder.py",
@@ -9624,10 +10244,10 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_prod_paired",
+      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "name": "_prod_paired",
+      "name": "_paired",
       "public": false
     },
     {
@@ -11616,6 +12236,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_AUTOINCREMENT_RE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_AUTOINCREMENT_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -11816,10 +12444,50 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_RUN_ADDED_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_RUN_ADDED_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_RUN_PARAM_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_RUN_PARAM_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_WHITESPACE_RE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_WHITESPACE_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_WITHOUT_ROWID_RE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_WITHOUT_ROWID_RE",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_apply_run_schema",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_migrate_run_columns",
       "public": false
     },
     {
@@ -11832,10 +12500,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::canonical_schema_shape",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "canonical_schema_shape",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "create_run",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "declared_sim_schema_shape",
       "public": true
     },
     {
@@ -11944,6 +12628,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::observed_sim_schema_id",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "observed_sim_schema_id",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::run_identity",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -12028,6 +12720,22 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_task_stats",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::schema_shape_id",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "schema_shape_id",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::sim_schema_id",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "sim_schema_id",
       "public": true
     },
     {
@@ -14399,6 +15107,142 @@
       "public": false
     },
     {
+      "file": "Visualization/__init__.py",
+      "id": "Visualization/__init__.py",
+      "kind": "module",
+      "module": "Visualization/__init__.py",
+      "name": "Visualization",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py",
+      "kind": "module",
+      "module": "Visualization/cache_schema.py",
+      "name": "Visualization.cache_schema",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::CACHE_VERSION",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "CACHE_VERSION",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::TABLES",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "TABLES",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_ALL",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_ALL",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_AISLE_ROLLUP",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_AISLE_ROLLUP",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_AISLE_ROLLUP_IDX",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_AISLE_ROLLUP_IDX",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_BIN_SPAN",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_BIN_SPAN",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_BIN_SPAN_IDX",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_BIN_SPAN_IDX",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_CACHE_META",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_CACHE_META",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_FINAL_HOME",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_FINAL_HOME",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_SKU_RANK",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_SKU_RANK",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_SKU_RANK_IDX",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_SKU_RANK_IDX",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::_CREATE_SKU_SERIES",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "_CREATE_SKU_SERIES",
+      "public": false
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::cache_freshness",
+      "kind": "function",
+      "module": "Visualization/cache_schema.py",
+      "name": "cache_freshness",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::init_cache_db",
+      "kind": "function",
+      "module": "Visualization/cache_schema.py",
+      "name": "init_cache_db",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::source_stamps",
+      "kind": "function",
+      "module": "Visualization/cache_schema.py",
+      "name": "source_stamps",
+      "public": true
+    },
+    {
       "file": "Visualization/db_reader.py",
       "id": "Visualization/db_reader.py",
       "kind": "module",
@@ -14440,42 +15284,18 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_GRID_COLS",
-      "kind": "const",
+      "id": "Visualization/db_reader.py::RunRef.reader",
+      "kind": "function",
       "module": "Visualization/db_reader.py",
-      "name": "_GRID_COLS",
-      "public": false
+      "name": "reader",
+      "public": true
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_aisle_geom",
+      "id": "Visualization/db_reader.py::_discover_uncached",
       "kind": "function",
       "module": "Visualization/db_reader.py",
-      "name": "_aisle_geom",
-      "public": false
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_aisle_metric_scores",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "_aisle_metric_scores",
-      "public": false
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_compute_layout_scores",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "_compute_layout_scores",
-      "public": false
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_keyframe_interval",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "_keyframe_interval",
+      "name": "_discover_uncached",
       "public": false
     },
     {
@@ -14488,10 +15308,10 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_picker_paths",
+      "id": "Visualization/db_reader.py::_pinned_schema_id",
       "kind": "function",
       "module": "Visualization/db_reader.py",
-      "name": "_picker_paths",
+      "name": "_pinned_schema_id",
       "public": false
     },
     {
@@ -14504,18 +15324,10 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_ro",
+      "id": "Visualization/db_reader.py::_tree_stamp",
       "kind": "function",
       "module": "Visualization/db_reader.py",
-      "name": "_ro",
-      "public": false
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::_state_at_batch_start",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "_state_at_batch_start",
+      "name": "_tree_stamp",
       "public": false
     },
     {
@@ -14536,50 +15348,10 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::bin_scores",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "bin_scores",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
       "id": "Visualization/db_reader.py::discover_runs",
       "kind": "function",
       "module": "Visualization/db_reader.py",
       "name": "discover_runs",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::read_geometry",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "read_geometry",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::reconstruct_aisle",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "reconstruct_aisle",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::reconstruct_batch",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "reconstruct_batch",
-      "public": true
-    },
-    {
-      "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::reconstruct_overview",
-      "kind": "function",
-      "module": "Visualization/db_reader.py",
-      "name": "reconstruct_overview",
       "public": true
     },
     {
@@ -14592,10 +15364,754 @@
     },
     {
       "file": "Visualization/db_reader.py",
-      "id": "Visualization/db_reader.py::sku_scores",
+      "id": "Visualization/db_reader.py::viz_cache_path",
       "kind": "function",
       "module": "Visualization/db_reader.py",
+      "name": "viz_cache_path",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py",
+      "kind": "module",
+      "module": "Visualization/precompute.py",
+      "name": "Visualization.precompute",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_BATCH",
+      "kind": "const",
+      "module": "Visualization/precompute.py",
+      "name": "_BATCH",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_executemany",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_executemany",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_fmt",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_fmt",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_keyframe_pass",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_keyframe_pass",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_keyframe_pass.close_missing",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "close_missing",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_picks_pass",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_picks_pass",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_rollup_rows",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_rollup_rows",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_select",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_select",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_select.keep",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "keep",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_source_stamps",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_source_stamps",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::_worker",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "_worker",
+      "public": false
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::build_one",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "build_one",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::cache_state",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "cache_state",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::main",
+      "kind": "function",
+      "module": "Visualization/precompute.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py",
+      "kind": "module",
+      "module": "Visualization/readers/__init__.py",
+      "name": "Visualization.readers",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::__all__",
+      "kind": "const",
+      "module": "Visualization/readers/__init__.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::reader_for",
+      "kind": "function",
+      "module": "Visualization/readers/__init__.py",
+      "name": "reader_for",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::register",
+      "kind": "function",
+      "module": "Visualization/readers/__init__.py",
+      "name": "register",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::registered_schema_ids",
+      "kind": "function",
+      "module": "Visualization/readers/__init__.py",
+      "name": "registered_schema_ids",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py",
+      "kind": "module",
+      "module": "Visualization/readers/base.py",
+      "name": "Visualization.readers.base",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader",
+      "kind": "class",
+      "module": "Visualization/readers/base.py",
+      "name": "SqliteSimReader",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.__init__",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_cache_conn",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_keyframe_at_or_before",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_pending_restocks",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_state_without_keyframes",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_bins",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "aisle_bins",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "aisle_geometry",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "aisle_rollup",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_state",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "aisle_state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.batch_index",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "batch_index",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.bin_history",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "bin_history",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.bin_scores",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "bin_scores",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.cache_status",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "cache_status",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.capabilities",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "capabilities",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.events",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "events",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.final_home",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "final_home",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "keyframe_batches",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.reorder_queue",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "reorder_queue",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.run_meta",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "run_meta",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.schema_id",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.schema_source",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "schema_source",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.sku_scores",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
       "name": "sku_scores",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.sku_series",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "sku_series",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.state_at",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "state_at",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.tasks",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "tasks",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader.top_skus",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "top_skus",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_FAMILY_KEYS",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "_FAMILY_KEYS",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_better_home",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_better_home",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_deplete",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_deplete",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_group_by_sku",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_group_by_sku",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_int_list",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_int_list",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_ro",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_ro",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py",
+      "kind": "module",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "Visualization.readers.fingerprint",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py::__all__",
+      "kind": "const",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py::describe_diff",
+      "kind": "function",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "describe_diff",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py::diff_shapes",
+      "kind": "function",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "diff_shapes",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py::read_stamped_id",
+      "kind": "function",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "read_stamped_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/fingerprint.py",
+      "id": "Visualization/readers/fingerprint.py::resolve_schema_id",
+      "kind": "function",
+      "module": "Visualization/readers/fingerprint.py",
+      "name": "resolve_schema_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py",
+      "kind": "module",
+      "module": "Visualization/readers/protocol.py",
+      "name": "Visualization.readers.protocol",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::ALL_CAPABILITIES",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "ALL_CAPABILITIES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_AISLE_METRICS",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_AISLE_METRICS",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_BIN_SCORES",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_BIN_SCORES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_KEYFRAMES",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_KEYFRAMES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_REORDER_QUEUE",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_REORDER_QUEUE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_SKU_SCORES",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_SKU_SCORES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::CAP_VIZ_CACHE",
+      "kind": "const",
+      "module": "Visualization/readers/protocol.py",
+      "name": "CAP_VIZ_CACHE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader",
+      "kind": "class",
+      "module": "Visualization/readers/protocol.py",
+      "name": "SimReader",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.aisle_bins",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "aisle_bins",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.aisle_geometry",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "aisle_geometry",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.aisle_rollup",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "aisle_rollup",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.aisle_state",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "aisle_state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.batch_index",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "batch_index",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.bin_history",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "bin_history",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.bin_scores",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "bin_scores",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.capabilities",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "capabilities",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.events",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "events",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.final_home",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "final_home",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.run_meta",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "run_meta",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.schema_id",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.sku_scores",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "sku_scores",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.sku_series",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "sku_series",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.state_at",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "state_at",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.tasks",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "tasks",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.top_skus",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "top_skus",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimSchemaDrift",
+      "kind": "class",
+      "module": "Visualization/readers/protocol.py",
+      "name": "SimSchemaDrift",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimSchemaError",
+      "kind": "class",
+      "module": "Visualization/readers/protocol.py",
+      "name": "SimSchemaError",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::UnsupportedSimSchema",
+      "kind": "class",
+      "module": "Visualization/readers/protocol.py",
+      "name": "UnsupportedSimSchema",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::UnsupportedSimSchema.__init__",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/sim_2026_07.py",
+      "id": "Visualization/readers/sim_2026_07.py",
+      "kind": "module",
+      "module": "Visualization/readers/sim_2026_07.py",
+      "name": "Visualization.readers.sim_2026_07",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/sim_2026_07.py",
+      "id": "Visualization/readers/sim_2026_07.py::PRE_STAMP_SCHEMA_ID",
+      "kind": "const",
+      "module": "Visualization/readers/sim_2026_07.py",
+      "name": "PRE_STAMP_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/sim_2026_07.py",
+      "id": "Visualization/readers/sim_2026_07.py::Sim2026_07Reader",
+      "kind": "class",
+      "module": "Visualization/readers/sim_2026_07.py",
+      "name": "Sim2026_07Reader",
       "public": true
     },
     {
@@ -14605,6 +16121,14 @@
       "module": "Visualization/server.py",
       "name": "Visualization.server",
       "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_GZIP_MIN",
+      "kind": "const",
+      "module": "Visualization/server.py",
+      "name": "_GZIP_MIN",
+      "public": false
     },
     {
       "file": "Visualization/server.py",
@@ -14624,18 +16148,50 @@
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::_batch_arg",
+      "id": "Visualization/server.py::_aisles_arg",
       "kind": "function",
       "module": "Visualization/server.py",
-      "name": "_batch_arg",
+      "name": "_aisles_arg",
       "public": false
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::_refresh_runs",
+      "id": "Visualization/server.py::_float_arg",
       "kind": "function",
       "module": "Visualization/server.py",
-      "name": "_refresh_runs",
+      "name": "_float_arg",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_gzip",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_gzip",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_int_arg",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_int_arg",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_json_error",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_json_error",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_reader",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_reader",
       "public": false
     },
     {
@@ -14656,6 +16212,22 @@
     },
     {
       "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_skus_arg",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_skus_arg",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_startup_banner",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_startup_banner",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
       "id": "Visualization/server.py::api_aisle",
       "kind": "function",
       "module": "Visualization/server.py",
@@ -14664,10 +16236,58 @@
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_batch",
+      "id": "Visualization/server.py::api_aisle_bins",
       "kind": "function",
       "module": "Visualization/server.py",
-      "name": "api_batch",
+      "name": "api_aisle_bins",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_aisle_rollup",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_aisle_rollup",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_batches",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_batches",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_bin_history",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_bin_history",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_capabilities",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_capabilities",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_events",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_events",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_final_home",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_final_home",
       "public": true
     },
     {
@@ -14680,10 +16300,18 @@
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_overview",
+      "id": "Visualization/server.py::api_meta",
       "kind": "function",
       "module": "Visualization/server.py",
-      "name": "api_overview",
+      "name": "api_meta",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_reorder_queue",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_reorder_queue",
       "public": true
     },
     {
@@ -14716,6 +16344,38 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_sku_scores",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_sku_series",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_sku_series",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_state",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_state",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_tasks",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_tasks",
+      "public": true
+    },
+    {
+      "file": "Visualization/server.py",
+      "id": "Visualization/server.py::api_top_skus",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "api_top_skus",
       "public": true
     },
     {

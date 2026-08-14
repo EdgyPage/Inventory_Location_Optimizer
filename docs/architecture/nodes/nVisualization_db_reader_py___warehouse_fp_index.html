@@ -15,9 +15,12 @@
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
 
 <pre class="sig"><code>def _warehouse_fp_index(base_dir: str) -&gt; dict[str, str]</code></pre>
-<section class="doc">Map warehouse_fingerprint -&gt; warehouse.db path across the tree, so a run resolves
-its warehouse even if folders were renamed/moved after the run finished.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py___warehouse_fingerprint.html"><code>_warehouse_fingerprint</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py__discover_runs.html"><code>discover_runs</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
+<section class="doc">Map warehouse_fingerprint -&gt; warehouse.db across the tree, so a run resolves its warehouse
+even if folders were renamed or moved after the run finished.
+
+Cached on the tree stamp.  This walks the WHOLE run tree — up to ~500 GB — and it used to run
+on every /api/runs request.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nVisualization_db_reader_py___tree_stamp.html"><code>_tree_stamp</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_db_reader_py___warehouse_fingerprint.html"><code>_warehouse_fingerprint</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py___discover_uncached.html"><code>_discover_uncached</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_db_reader_py___warehouse_fp_index">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/db_reader.py#:~:text=def%20_warehouse_fp_index">Source ↗</a></p>
 </article>
 </main>

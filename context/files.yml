@@ -397,6 +397,11 @@ files:
       - {name: "BinInventoryRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "PickerEventRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "init_run_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "canonical_schema_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "schema_shape_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "observed_sim_schema_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "declared_sim_schema_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "sim_schema_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "run_identity", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1059,18 +1064,50 @@ files:
     purpose: "test_visualization_data.py"
     layer: "tests"
     key_symbols:
-      - {name: "check", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_run_params_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_batch_stats_start_end_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_batch_stats_queue_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_stats_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_reorder_queue_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_bin_scores_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_sku_scores_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_aisle_metrics_pickload_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_aisle_metrics_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_run_identity_and_find_run", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_warehouse_fingerprint_is_order_independent", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_aisle_layout_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_keyframe_db_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_reconstruction_query", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_keyframe_db_path_and_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_pick_depletion_is_fully_accounted", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_untouched_bin_writes_no_row_unless_full_snapshot", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_restock_writes_no_delta_row", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_rolling_deltas_from_a_keyframe_loses_restocked_bins", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_reconstruction_query_is_exact_at_a_keyframe", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_batch_list_comes_from_batch_stats_not_a_range", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_viz_cache.py":
+    purpose: "the derived viewer sidecar (`_viz/**/<arm>.viz.db`)."
+    layer: "tests"
+    key_symbols:
+      - {name: "KEYFRAME_INTERVAL", file: "Tests/integration/test_viz_cache.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/integration/test_viz_cache.py", kind: "const"}
+      - {name: "AISLES", file: "Tests/integration/test_viz_cache.py", kind: "const"}
+      - {name: "KEYFRAMES", file: "Tests/integration/test_viz_cache.py", kind: "const"}
+      - {name: "arm", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_bin_span_reproduces_every_keyframe_bin_for_bin", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_spans_close_on_sku_change_and_on_emptying", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_rollup_occupancy_matches_a_live_state_read", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_rollup_covers_every_batch_including_non_keyframe_ones", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_final_home_records_the_aisle_SET_not_just_one_bin", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_final_home_primary_is_the_largest_qty_bin", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_sku_rank_covers_every_sku_while_series_is_capped", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_sku_series_does_not_drop_skus_outside_the_cached_window", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_a_stale_cache_is_not_used_or_advertised", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_a_cache_built_after_binding_is_picked_up", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_top_skus_orders_by_units", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_cache_state_transitions", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_a_changed_source_makes_the_cache_stale", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_a_version_bump_makes_the_cache_stale", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_an_unfinished_build_is_partial_not_fresh", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_build_is_atomic", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_an_arm_without_keyframes_is_refused", file: "Tests/integration/test_viz_cache.py", kind: "function"}
+      - {name: "test_the_schema_id_is_pinned_so_readers_stop_deriving", file: "Tests/integration/test_viz_cache.py", kind: "function"}
     notes: ""
   "Tests/integration/test_whatif_delta.py":
     purpose: "Locks run_whatif_delta's cross-cell diff \u2014 in particular that STORE-ONLY runs (no <channel> level) are scanned rather than silently skipped, and that whatif_delta.json is emitted in the shape docs/macros.py:whatif_matrix reads."
@@ -1353,6 +1390,30 @@ files:
       - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_sim_schema_id.py":
+    purpose: "the sim DB's derived schema identity."
+    layer: "tests"
+    key_symbols:
+      - {name: "PRE_STAMP_SCHEMA_ID", file: "Tests/unit/test_sim_schema_id.py", kind: "const"}
+      - {name: "test_declared_equals_observed_on_a_fresh_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_declared_shape_covers_every_table_the_viewer_reads", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_create_run_stamps_the_declared_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_an_explicit_identity_still_wins", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_adding_a_column_changes_the_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_changing_a_column_type_changes_the_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_index_columns_are_part_of_the_identity", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_autoincrement_is_part_of_the_identity", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_analyze_does_not_change_the_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_sqlite_sequence_does_not_change_the_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_shape_is_sorted_so_statement_order_is_not_a_schema_change", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_id_is_stable_across_calls", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_picking_data_is_not_a_run_tree_shape_source", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_pre_stamp_db_resolves_by_derivation", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_pinned_id_is_used_without_deriving", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_verify_catches_a_lying_pin", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_diff_names_the_actual_difference", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_diff_is_empty_for_an_unchanged_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
     layer: "tests"
@@ -1414,21 +1475,72 @@ files:
       - {name: "test_batch_min_incremental_drain", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_batch_max_incremental_drain", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
     notes: ""
-  "Visualization/db_reader.py":
-    purpose: "read-only reconstruction of a finished run for the replay viewer."
+  "Visualization/cache_schema.py":
+    purpose: "DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`)."
     layer: "visualization"
     key_symbols:
-      - {name: "RunRef", file: "Visualization/db_reader.py", kind: "class"}
-      - {name: "discover_runs", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "CACHE_VERSION", file: "Visualization/cache_schema.py", kind: "const"}
+      - {name: "TABLES", file: "Visualization/cache_schema.py", kind: "const"}
+      - {name: "source_stamps", file: "Visualization/cache_schema.py", kind: "function"}
+      - {name: "cache_freshness", file: "Visualization/cache_schema.py", kind: "function"}
+      - {name: "init_cache_db", file: "Visualization/cache_schema.py", kind: "function"}
+    notes: ""
+  "Visualization/db_reader.py":
+    purpose: "run discovery across a whole run tree, and the binding from a discovered arm to its versioned reader. Reconstruction itself lives in Visualization/readers/."
+    layer: "visualization"
+    key_symbols:
       - {name: "NAV_AXES", file: "Visualization/db_reader.py", kind: "const"}
       - {name: "AXIS_LABELS", file: "Visualization/db_reader.py", kind: "const"}
+      - {name: "RunRef", file: "Visualization/db_reader.py", kind: "class"}
+      - {name: "viz_cache_path", file: "Visualization/db_reader.py", kind: "function"}
+      - {name: "discover_runs", file: "Visualization/db_reader.py", kind: "function"}
       - {name: "run_index", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "read_geometry", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "reconstruct_batch", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "reconstruct_overview", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "reconstruct_aisle", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "bin_scores", file: "Visualization/db_reader.py", kind: "function"}
-      - {name: "sku_scores", file: "Visualization/db_reader.py", kind: "function"}
+    notes: ""
+  "Visualization/precompute.py":
+    purpose: "build the derived viewer sidecar for one or more arms."
+    layer: "visualization"
+    key_symbols:
+      - {name: "cache_state", file: "Visualization/precompute.py", kind: "function"}
+      - {name: "build_one", file: "Visualization/precompute.py", kind: "function"}
+      - {name: "main", file: "Visualization/precompute.py", kind: "function"}
+    notes: ""
+  "Visualization/readers/base.py":
+    purpose: "the SQLite implementation of `SimReader`, shared by every vetted schema."
+    layer: "visualization"
+    key_symbols:
+      - {name: "SqliteSimReader", file: "Visualization/readers/base.py", kind: "class"}
+    notes: ""
+  "Visualization/readers/fingerprint.py":
+    purpose: "resolving WHICH sim-DB schema a file has, and explaining a mismatch."
+    layer: "visualization"
+    key_symbols:
+      - {name: "read_stamped_id", file: "Visualization/readers/fingerprint.py", kind: "function"}
+      - {name: "resolve_schema_id", file: "Visualization/readers/fingerprint.py", kind: "function"}
+      - {name: "diff_shapes", file: "Visualization/readers/fingerprint.py", kind: "function"}
+      - {name: "describe_diff", file: "Visualization/readers/fingerprint.py", kind: "function"}
+    notes: ""
+  "Visualization/readers/protocol.py":
+    purpose: "the versioned data interface the views are written against."
+    layer: "visualization"
+    key_symbols:
+      - {name: "SimSchemaError", file: "Visualization/readers/protocol.py", kind: "class"}
+      - {name: "UnsupportedSimSchema", file: "Visualization/readers/protocol.py", kind: "class"}
+      - {name: "SimSchemaDrift", file: "Visualization/readers/protocol.py", kind: "class"}
+      - {name: "CAP_KEYFRAMES", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_AISLE_METRICS", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_REORDER_QUEUE", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_BIN_SCORES", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_SKU_SCORES", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "CAP_VIZ_CACHE", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "ALL_CAPABILITIES", file: "Visualization/readers/protocol.py", kind: "const"}
+      - {name: "SimReader", file: "Visualization/readers/protocol.py", kind: "class"}
+    notes: ""
+  "Visualization/readers/sim_2026_07.py":
+    purpose: "the vetted reader for the current sim-DB schema."
+    layer: "visualization"
+    key_symbols:
+      - {name: "PRE_STAMP_SCHEMA_ID", file: "Visualization/readers/sim_2026_07.py", kind: "const"}
+      - {name: "Sim2026_07Reader", file: "Visualization/readers/sim_2026_07.py", kind: "class"}
     notes: ""
   "Visualization/server.py":
     purpose: "DB-backed replay & compare viewer."
@@ -1438,12 +1550,23 @@ files:
       - {name: "static_files", file: "Visualization/server.py", kind: "function"}
       - {name: "api_runs", file: "Visualization/server.py", kind: "function"}
       - {name: "api_schema", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_capabilities", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_meta", file: "Visualization/server.py", kind: "function"}
       - {name: "api_geometry", file: "Visualization/server.py", kind: "function"}
-      - {name: "api_batch", file: "Visualization/server.py", kind: "function"}
-      - {name: "api_overview", file: "Visualization/server.py", kind: "function"}
-      - {name: "api_aisle", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_aisle_bins", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_batches", file: "Visualization/server.py", kind: "function"}
       - {name: "api_scores", file: "Visualization/server.py", kind: "function"}
       - {name: "api_sku_scores", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_final_home", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_state", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_aisle", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_events", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_aisle_rollup", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_reorder_queue", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_tasks", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_bin_history", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_top_skus", file: "Visualization/server.py", kind: "function"}
+      - {name: "api_sku_series", file: "Visualization/server.py", kind: "function"}
     notes: ""
   "Warehouse/catalog/Affinity_Store.py":
     purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."
