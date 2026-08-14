@@ -205,6 +205,17 @@ def declared_cache_shape() -> dict:
         con.close()
 
 
+#: The v1 sidecar shape, DERIVED from a real archived file
+#: (`_viz/**/opt_rank_labor_norsl.viz.db` under `comparison_whatif_20260729_125755`): `bin_span`
+#: carries `kf_from`/`kf_to` where v2 has `t_from`/`t_to`.
+#:
+#: Recorded, and deliberately NOT in `known_ids`.  This is the one family where vetting an old
+#: shape would be actively wrong: `CACHE_VERSION = 2` exists precisely to reject it, and a v1
+#: span sits on the keyframe grid while a v2 reader reports it as exact at every batch.  Because
+#: the file is DERIVED, refusing it costs nothing — `cache_freshness` returns 'stale' and
+#: `precompute` rebuilds it.  A frozen id here would resurrect the bug the version bump fixed.
+V1_KEYFRAME_SPAN_SCHEMA_ID = '28124bfb4f93'
+
 VIZ_CACHE_DB_FAMILY = _identity.register(_identity.Family(
     name='viz_cache_db',
     declared_shape=declared_cache_shape,
@@ -253,6 +264,16 @@ def cache_freshness(viz_cache: str, sim_db: str, keyframe_db: str, warehouse_db:
     if not meta.get('built_utc'):
         return 'partial'                       # a build that died before finishing
     if meta.get('cache_version') != str(CACHE_VERSION):
+        return 'stale'
+    # Shape, not just version.  `cache_version` is a number a human remembers to bump; the
+    # schema id is derived and cannot be forgotten, so this catches the table change that ships
+    # WITHOUT a bump.  Neither raises nor warns, uniquely among the six wired checks, and that
+    # is what "derived" buys: an unvetted sidecar is simply stale, and `precompute` rebuilds it
+    # from sources that are still authoritative.  Failing loudly here would turn a self-healing
+    # cache into an outage.  (See `V1_KEYFRAME_SPAN_SCHEMA_ID` for why no old id is vetted.)
+    try:
+        _identity.check(viz_cache, 'viz_cache_db', verify=True)
+    except (_identity.SchemaError, sqlite3.Error):
         return 'stale'
     want = source_stamps(sim_db, keyframe_db, warehouse_db)
     return 'fresh' if all(meta.get(k) == v for k, v in want.items()) else 'stale'

@@ -357,6 +357,33 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
     to *timeout* seconds before raising OperationalError, giving the three
     parallel strategy workers enough headroom to avoid spurious lock errors
     when their 100-batch checkpoints happen to coincide.
+
+    ── Why NONE of this module's 28 closes goes through `Schema.connect.close` ──────────
+    Deliberate, and measured — not an oversight.  The closes here fall into three groups:
+
+      13 are `load_*` / `find_run` / `run_identity` / the two `declared_*_shape` helpers.
+         Read-only or `:memory:`.  There is no WAL to fold back; converting them is noise.
+
+      12 are the per-flush writers — `save_batch_stats`, `save_task_stats`,
+         `save_picker_events`, `save_picks`, `save_bin_placements`, `save_bin_evictions`,
+         `save_aisle_metrics`, `save_reorder_queue`, `save_bin_keyframe`, and the two score
+         writers.  Each opens and closes ONCE PER CHECKPOINT FLUSH (default every 10 batches,
+         `strategy_runner.py:583`) against a sim DB that reaches ~1 GB.  A
+         `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the main file every
+         flush, on the hot path of a 40-minute arm, for no benefit — see below.
+
+       3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection
+         is finished but the FILE is not; the run writes to it for the next 40 minutes, so a
+         checkpoint changes nothing about the state that is left behind.
+
+    And the benefit really is nil, because a plain close already does the job here.  Measured:
+    on a clean single-process write-then-close, SQLite removes `-wal`/`-shm` itself, and
+    `connect.close` removes exactly the same set.  What actually strands them is a READER —
+    a `mode=ro` connection on a WAL database creates `-shm` and cannot delete it on the way
+    out, so every archived sim DB grows sidecars the moment anything fingerprints or plots it.
+    No change on the WRITE side can prevent that; only `immutable=1` on the read side can, and
+    that is a promise about the file that a live run cannot make.  The one writer here whose
+    close is genuinely the file's last is in `Warehouse_Data`, which does convert.
     """
     con = sqlite3.connect(path, timeout=timeout)
     con.execute('PRAGMA journal_mode=WAL')
@@ -598,13 +625,30 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     # that produced real files; dropping one orphans them, so entries are added, never replaced.
     #   2b7913bcd7e6  the stamp column, before the bin-mutation log
     #   ee5ebabe74fb  the log ADDED, bin_inventory still written (the overlap window)
+    # Both surviving vintages of the live archive re-derive to entries in this list: the
+    # 2026-07-29 runs to PRE_STAMP_SIM_SCHEMA_ID and the 2026-08-13 runs to ee5ebabe74fb.
     known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
 ))
+
+#: Three shapes that ALSO exist in the cold archive and are DELIBERATELY NOT vetted.  Derived
+#: from real files, recorded here so nobody re-derives them and assumes the omission was an
+#: oversight — every one of them is missing a `batch_stats` column that a loader silently
+#: defaults to `0.0`, which is the exact failure this family exists to make loud:
+#:   5d8a78b74466  comparison_whatif_20260709_015101   -.
+#:   89c7b2babf22  comparison_2026070{6,8}_*            |- no task_makespan / thr_task / thr_batch
+#:   e110afa222e3  comparison_20260623_150217          -'  / skus_reordered / units_ordered
+#: Analysing one of those through `Performance_Evaluations` would publish a throughput of zero.
+#: `Diagnostics/replay_run.py` still reads them, and still may: it does not touch batch_stats'
+#: success metrics and captions every curve with the source it actually used.
+UNVETTED_ARCHIVE_SIM_SCHEMA_IDS = ('5d8a78b74466', '89c7b2babf22', 'e110afa222e3')
 
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
     name='keyframes_db',
     declared_shape=declared_keyframe_shape,
     meta_table=None,
+    # No known_ids, and that is a RESULT, not an omission: `bin_keyframe` has never changed.
+    # Every keyframe sidecar in the archive — 24 sampled across nine runs from 2026-06-23 to
+    # 2026-08-13 — re-derives to the current declared id.
 ))
 
 

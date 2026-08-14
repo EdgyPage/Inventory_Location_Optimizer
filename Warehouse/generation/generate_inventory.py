@@ -81,6 +81,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from Schema import identity as _identity
+from Schema import connect as _connect
 from Schema import shape as _shape
 from Warehouse.catalog.Order import Order, StorageHandleConfig
 from Warehouse.catalog.Demand import Demand
@@ -612,10 +613,21 @@ def declared_inventory_shape() -> dict:
 #: shape, and would have to be kept in step by hand for no gain.  (context/artifacts.yml lists
 #: only `tables: [cartons]` for planned_inventory.db because that is the table its READER needs;
 #: that is a subset claim about consumption, not a claim that the other two are absent.)
+#: A shape that exists in the cold archive and is DELIBERATELY NOT vetted.  Derived from the
+#: `planned_inventory.db` of `comparison_20260623_150217`, recorded so nobody re-derives it and
+#: assumes the omission was an oversight: its `cartons` table has `demand_frequency` where every
+#: later one has `relative_frequency` + `subtype`.  `load_inventory_from_db` selects
+#: `relative_frequency` BY NAME, so that file cannot be loaded at all — vetting it would promise
+#: a read that raises `OperationalError` two lines later, with a worse message.
+UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID = 'c59cc6aa5fd3'
+
 INVENTORY_DB_FAMILY = _identity.register(_identity.Family(
     name='inventory_db',
     declared_shape=declared_inventory_shape,
     meta_table='run_metadata',      # already declared above; shared with the params_json row
+    # No known_ids, and that is a RESULT, not an omission: every generated `inventory.db` and
+    # every frozen `planned_inventory.db` from 2026-07-09 onward — 12 files across five runs and
+    # both catalogue pairs — re-derives to the current declared id.
 ))
 
 
@@ -668,8 +680,8 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     if plan:
         _save_creation_plan(conn, plan)
 
-    conn.commit()
-    conn.close()
+    conn.commit()                        # connect.close checkpoints, it does not commit
+    _connect.close(conn)
 
 
 def _save_creation_plan(conn: sqlite3.Connection, plan: list) -> None:
@@ -714,7 +726,15 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     Canonical schema only (no legacy fallbacks).  Every order is rebuilt through
     Order.build, so the same physical guardrails (integer dims/weight, min-1, caps)
     are enforced on load as on generation.
+
+    HARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:
+    every caller is a simulation about to consume ~500 GB of compute and WRITE the result.  The
+    `SELECT` below already names its fourteen columns, so a shape mismatch surfaces one way or
+    another — but as a bare `OperationalError: no such column`, which says nothing about WHICH
+    vintage the file is or what else differs.  `UnsupportedSchema` names the id and the whole
+    structural diff before a single row is read.
     """
+    _identity.check(db_path, 'inventory_db', verify=True)
     conn = sqlite3.connect(db_path)
     select = (
         'SELECT sku, handling, category, length, width, height, weight, '
@@ -1309,7 +1329,10 @@ def generate_run(
     db_path = os.path.join(run_dir, 'inventory.db')
     t0      = time.perf_counter()
     save_inventory_to_db(inventory, db_path, params)
-    _log(f'[inventory:{name}] Saved → {db_path}  ({time.perf_counter()-t0:.2f}s)')
+    # ASCII '->' here and below: U+2192 has no cp1252 mapping and these fire at the END of a
+    # long catalogue build, where a UnicodeEncodeError discards the report of work that
+    # already succeeded.  `_log` is a `print` wrapper, so these reach the console.
+    _log(f'[inventory:{name}] Saved -> {db_path}  ({time.perf_counter()-t0:.2f}s)')
 
     conn = sqlite3.connect(db_path)
     df   = pd.read_sql_query('SELECT * FROM cartons', conn)
@@ -1359,11 +1382,11 @@ def generate_run(
         conn.close()
         cp_dir = os.path.join(plot_dir, 'creation_plan')
         plot_creation_plan(store_df, plan_lookup, cp_dir, sfx)
-        _log(f'[inventory:{name}] creation-plan plots → {cp_dir}  ({len(plan_lookup)} rows)')
+        _log(f'[inventory:{name}] creation-plan plots -> {cp_dir}  ({len(plan_lookup)} rows)')
         if not ff_df.empty:
             ff_dir = os.path.join(plot_dir, 'fulfillment')
             plot_fulfillment_distributions(ff_df, plan_lookup, ff_dir, sfx)
-            _log(f'[inventory:{name}] fulfillment plots → {ff_dir}  '
+            _log(f'[inventory:{name}] fulfillment plots -> {ff_dir}  '
                  f'({ff_df["subtype"].nunique()} sub-families, {len(ff_df):,} SKUs)')
 
     _log(f'[inventory:{name}] Done.')

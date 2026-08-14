@@ -9,7 +9,7 @@ and no shared helper, which had two concrete consequences:
   * A shape fingerprint is only meaningful if reading a database cannot change it, and a
     read-write open can (WAL mode is itself a write).
 
-Three intents, named:
+Three intents, named — plus the one way to hand a writer back:
 
     read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way
                        to fingerprint one.
@@ -17,6 +17,7 @@ Three intents, named:
                        workers do not trip over each other's checkpoints.
     bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,
                        because a crash means "rebuild it", not "lose data".
+    close(con)         finish with a writer and leave no `-wal`/`-shm` beside it.
 
 Stdlib only; no imports from anywhere else in the repo.
 """
@@ -87,3 +88,57 @@ def bulk_writer(path: str):
     con.execute('PRAGMA temp_store=MEMORY')
     con.execute(f'PRAGMA cache_size={_CACHE_PAGES}')
     return con
+
+
+# ── closing a writer ────────────────────────────────────────────────────────────
+
+def close(con, *, checkpoint: bool = True) -> None:
+    """Close a connection, folding its WAL back into the database file first.
+
+    WHY: one archived sweep carried **572** stray `-wal`/`-shm` files.  They are harmless to
+    correctness, but they are counted as undeclared paths by `runschema.preflight.verify`, they make
+    an archived copy differ from its original, and `scripts/archive_cells.py::_sweep_sidecars`
+    exists solely to delete the ones that get that far.
+
+    WHAT ACTUALLY PRODUCES THEM — measured, because the intuitive answer is wrong.  "SQLite removes
+    them when the last connection closes cleanly" is true, but an unclean close is NOT the main
+    source: a dropped handle, and even a killed worker, still gets finalized by CPython and leaves
+    nothing behind.  The dominant producer is a **read-only** connection — opening a WAL database
+    `mode=ro` CREATES the pair and cannot remove them, so an archived run accumulates sidecars just
+    by being plotted, fingerprinted or opened in the viewer, long after every writer is gone.  No
+    write-side change can eliminate those, and `_sweep_sidecars` stays the answer for them.
+
+    What closing through here fixes is the narrower, real case: folding the WAL back in when this
+    writer is genuinely the file's last, so a finished artifact is a single file.  Measured on a
+    `--profile tiny` sweep — 241 finished DBs, zero sidecars, against 249-291 in each archived run.
+
+    TWO PROPERTIES THIS DELIBERATELY HAS, because the obvious implementation has neither:
+
+      * **It cannot lose data on a crash.**  A checkpoint only ever moves already-committed frames
+        from the WAL into the main file and fsyncs them; it is a durability *increase*.  Crash
+        mid-checkpoint and the WAL is still there and recovery replays it, exactly as before.  Note
+        it does NOT commit for you — an open transaction is rolled back by the close below, which
+        is plain `sqlite3` behaviour and must stay visible rather than be papered over here.
+      * **It cannot stall the hot path.**  `wal_checkpoint(TRUNCATE)` normally waits for every
+        reader to finish, and this connection carries a 60 s busy timeout, so the naive version
+        could block a finishing worker for a minute while the viewer holds the file open.  The
+        busy handler is disabled for the checkpoint alone: it then either succeeds immediately or
+        reports busy and is skipped.  Skipping costs a sidecar, which is the outcome we already
+        have; blocking would cost a minute of every worker's wall-clock, which is worse.
+
+    `checkpoint=False` closes without any of this — for a `bulk_writer` (journal_mode=OFF, so
+    there is no WAL) or a `read_only` handle, where the pragma is a no-op or an error either way.
+    Safe to call on any connection: nothing here raises.
+    """
+    try:
+        if checkpoint:
+            try:
+                con.execute('PRAGMA busy_timeout=0')       # never wait on a reader; see above
+                con.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+            except sqlite3.Error:
+                pass                                       # read-only, or busy — the close still runs
+    finally:
+        try:
+            con.close()
+        except sqlite3.Error:
+            pass

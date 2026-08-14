@@ -20,8 +20,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+from Schema import identity as _identity
 from Visualization.readers import reader_for
 from Visualization.readers.base import _ro
+# Imported for their REGISTRATION side effect: `Schema/` imports no writer, so a family exists
+# in the registry only once its own module has been loaded, and `_identity.check_or_warn` below
+# would raise KeyError instead of checking anything.  `Picking_Data` also carries keyframes_db.
+from Optimization.persistence import Picking_Data as _picking_data  # noqa: F401
+from Optimization.persistence import Warehouse_Data as _warehouse_data  # noqa: F401
 
 # The navigation axes the viewer builds its cascading selectors from.  Order = selector order:
 # warehouse -> warehouse type -> pick config -> cell -> assignment function.
@@ -70,8 +76,23 @@ class RunRef:
 
         Readers hold no live connection, so one instance is safe to share across request
         threads; every query opens and closes its own read-only connection.
+
+        The sim DB's identity is `reader_for`'s job — that binding IS the sim-schema check, and
+        an unknown shape there raises `UnsupportedSimSchema`.  Its two companion files have no
+        such gate, so they get one here: geometry read from an unexpected `warehouse.db` draws a
+        plausible warehouse that is quietly wrong, which is the same failure in a different
+        artifact.
+
+        WARNS rather than raising.  The viewer is an interactive, strictly read-only explorer of
+        an archive that spans two months of schema evolution; refusing to open a 2026-06 run
+        outright is a worse outcome than drawing it with the differing columns named in the log,
+        and nothing here is published.  The paths that WRITE from a file, or publish a number
+        from one, use the hard `identity.check` instead.
         """
         if self._reader is None:
+            _identity.check_or_warn(self.warehouse_db, 'warehouse_db', verify=True)
+            if self.keyframe_db:
+                _identity.check_or_warn(self.keyframe_db, 'keyframes_db', verify=True)
             self._reader = reader_for(
                 self.sim_db, self.warehouse_db, self.run_id,
                 keyframe_db=self.keyframe_db, viz_cache=self.viz_cache,

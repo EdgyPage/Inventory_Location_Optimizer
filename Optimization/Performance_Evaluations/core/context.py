@@ -15,6 +15,7 @@ import numpy as np
 
 from Optimization.persistence.Picking_Data import load_batch_stats, load_task_stats, load_picker_events
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
+from Schema import identity as _identity
 
 from Optimization.Performance_Evaluations.common.frames import _bdf, _tdf
 from Optimization.Performance_Evaluations.common.series import _build_series, _aggregate_series
@@ -42,6 +43,36 @@ def _provenance_parts(leaf_dir: str, max_up: int = 6) -> list[str]:
         parts.insert(0, os.path.basename(d))
         d = parent
     return leaf.replace('\\', '/').split('/')[-3:]
+
+
+# ── schema identity: the gate between an archived file and a published number ────────────────
+# THE highest-value check in the repo, and the reason `Schema/` exists.  Every table this
+# context reaches is loaded by a `Picking_Data` function that does `SELECT *` and guards each
+# field with `row.keys()`, so a dropped or renamed column does not raise — it arrives as the
+# dataclass default in `common/frames.py` (`BatchStats.thr_task = 0.0`, `task_makespan = 0.0`,
+# …), flows into `series()`, and is rendered as a figure that is quietly, plausibly wrong.
+#
+# HARD FAIL, not a warning, and deliberately so.  This path PUBLISHES; the output outlives the
+# session that produced it and carries no signal that a column was missing.  A run whose sim DBs
+# are not vetted must stop the analysis, name the columns, and let a human decide — which is
+# exactly what `UnsupportedSchema`'s structural diff is for.  The archive's live vintages
+# (2026-07-29 -> `23d0c7f167bc`, 2026-08-13 -> `ee5ebabe74fb`) are both in `SIM_DB_FAMILY`'s
+# `known_ids`; the older cold-archive shapes are not, and that is the point — see
+# `Picking_Data.UNVETTED_ARCHIVE_SIM_SCHEMA_IDS`.
+
+def _verify_sim_dbs(strategies, log: logging.Logger) -> None:
+    """Refuse to build a context over an unvetted sim DB.  Raises `UnsupportedSchema`.
+
+    One check per DISTINCT file, ~10 PRAGMA round trips each.  Measured at 28 ms per sim DB on
+    the external results drive, so ~1 s for a 34-arm config — small beside the `batch_stats`
+    load it guards, and paid once per context because `run_analysis` memoizes contexts per
+    (config, focus) in `_CFG_CTX`.  Not worth a cache of its own.
+    """
+    for path in dict.fromkeys(s['db_path'] for s in strategies if s.get('db_path')):
+        if not os.path.exists(path):
+            continue                    # absent is the loaders' business, not identity's
+        sid = _identity.check(path, 'sim_db', verify=True)
+        log.debug(f'  schema ok: {os.path.basename(path)} = {sid}')
 
 
 def _strategy_travel_handling(strategies, ss_lo, max_b, n_sample=8):
@@ -81,6 +112,8 @@ class EvalContext:
         # focus filter applied ONCE here, so every graph sees the same strategy set.
         # (BY_INITIAL preset uses focus='all' → no-op filter → both families present.)
         self.strategies = _focus_filter(sim_result['strategies'], focus)
+        # Before ANY of those files is read as numbers.  See `_verify_sim_dbs`.
+        _verify_sim_dbs(self.strategies, log)
         self.base       = self.strategies[0]
         self._by_key    = {s['key']: s for s in self.strategies}
 

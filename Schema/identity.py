@@ -25,7 +25,9 @@ trips per file and an archive holds hundreds:
 """
 from __future__ import annotations
 
+import os
 import sqlite3
+import warnings
 from dataclasses import dataclass, field
 
 from Schema import connect
@@ -158,6 +160,25 @@ def check(path: str, family_name: str, *, verify: bool = False) -> str:
     """Open `path` read-only, resolve its id, and refuse anything unvetted.
 
     The one call a consumer needs before trusting a file's columns.
+
+    **Pass `verify=True` unless you have measured that you cannot afford it.** Without it a
+    STAMPED file is taken at its word, and a stamp is a claim the file makes about itself: a
+    database altered after the run that wrote it still carries the old id, so `check` returns a
+    vetted answer for a shape that is no longer vetted. Every wired consumer in the repo passes
+    it. The stamped fast path is for cheaply IDENTIFYING files in bulk (which reader do these
+    272 arms need?), not for deciding whether to trust one — and the archive is unstamped
+    anyway, so for it the two cost exactly the same.
+
+    Measured on the results drive: ~27 ms per archived sim DB, of which the re-derivation
+    `verify=True` adds is ~1 ms. The cost is OPENING the file, not reading `sqlite_master`.
+
+    **Side effect worth knowing**: opening a WAL database `mode=ro` CREATES its `-shm` (and
+    `-wal`), and a read-only connection cannot remove them again — so fingerprinting an
+    archived run leaves sidecars beside it. That is not this function's doing; it is true of
+    every read here, and it is the mechanism behind the sidecars the archive accumulates. Only
+    `connect.read_only(..., immutable=True)` avoids it, and only a caller can promise the file
+    is not being written. Every current call site opens the same file again immediately
+    afterwards, so none of them creates a sidecar that was not coming anyway.
     """
     family = get(family_name)
     con = connect.read_only(path)
@@ -169,3 +190,72 @@ def check(path: str, family_name: str, *, verify: bool = False) -> str:
         return sid
     finally:
         con.close()
+
+
+def check_tables(path: str, expected: dict, tables, *, label: str) -> None:
+    """`check()` for a consumer that can only reach PART of its family's declaration.
+
+    A whole-file id needs the family, and a family lives with its WRITER — which is sometimes a
+    module the reader must not import (`Warehouse/catalog/Affinity_Store.py` reads a file whose
+    family is registered in `Warehouse/generation/generate_affinity.py`, a data-gen CLI that
+    pulls matplotlib and pandas into every simulation worker). Comparing only the tables the
+    consumer actually queries, against the DDL it already mirrors, gives that reader the same
+    guarantee without the import — and turns "both DDLs must stay in step" from a comment into
+    something the file enforces on itself every time it opens a database.
+
+    Raises `UnsupportedSchema` naming the differing columns. `label` goes in the message in
+    place of a family name, so it should say which tables were compared.
+    """
+    con = connect.read_only(path)
+    try:
+        actual = canonical_shape(con)
+    finally:
+        con.close()
+    want = {'tables': {t: s for t, s in expected['tables'].items() if t in tables}}
+    have = {'tables': {t: s for t, s in actual['tables'].items() if t in tables}}
+    if shape_id(want) == shape_id(have):
+        return
+    raise UnsupportedSchema(label, shape_id(have), (shape_id(want),),
+                            describe_diff(diff_shapes(want, have)))
+
+
+#: Paths already reported by `check_or_warn`, so a walk over 272 arms emits one line per bad
+#: file rather than one per visit.  Keyed by (family, abspath) — the same file may be checked
+#: as two families over a process's life, and both are worth hearing about once.
+_WARNED: set = set()
+
+
+def check_or_warn(path: str, family_name: str, *, verify: bool = False,
+                  emit=None) -> str | None:
+    """`check()` for consumers that must DEGRADE rather than die.  Returns None if unvetted.
+
+    The split is deliberate and the choice is per-site, not per-family:
+
+      hard `check()`   a simulation about to WRITE from this file, or an analysis about to
+                       PUBLISH a number from it.  A wrong column there becomes a plausible
+                       `0.0` and a figure nobody can tell is wrong.
+      `check_or_warn`  an interactive, read-only, exploratory consumer, and derived caches that
+                       can rebuild themselves.  Refusing to open a 2026-06 archive outright is a
+                       worse failure than drawing it with a named caveat in the log.
+
+    Either way the `UnsupportedSchema` TEXT — which names the differing tables and columns — is
+    what reaches the caller; that message is the whole point of the layer, and a bare `except`
+    that drops it leaves the consumer no better off than before this package existed.
+
+    `emit` takes the message (e.g. `log.warning`); the default routes to `warnings.warn`, which
+    a viewer's logging config already captures and a test can assert on with `pytest.warns`.
+    """
+    key = (family_name, os.path.abspath(path))
+    try:
+        return check(path, family_name, verify=verify)
+    except SchemaError as exc:
+        msg = str(exc)
+    except (sqlite3.Error, OSError) as exc:
+        # A truncated / half-copied / locked archive file. Same treatment: say what happened
+        # once, then let the caller carry on with its own tolerance for a missing source.
+        msg = f'{family_name}: {path} could not be fingerprinted ({type(exc).__name__}: {exc})'
+    if key in _WARNED:
+        return None
+    _WARNED.add(key)
+    (emit or (lambda m: warnings.warn(m, RuntimeWarning, stacklevel=3)))(msg)
+    return None

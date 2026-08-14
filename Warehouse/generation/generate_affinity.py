@@ -81,6 +81,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from Schema import identity as _identity
+from Schema import connect as _connect
 from Schema import shape as _shape
 
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
@@ -144,6 +145,12 @@ AFFINITY_DB_FAMILY = _identity.register(_identity.Family(
     name='affinity_db',
     declared_shape=declared_affinity_shape,
     meta_table='run_metadata',      # already declared above; shared with the params_json row
+    # No known_ids, and that is a RESULT, not an omission.  DECLARING `sku_group` here looked
+    # like it must have re-minted this family's id and orphaned the archive — it did not.  Both
+    # archived `affinity.db` files (the 2026-07-08 catalogue pairs; the only ones that exist)
+    # already CONTAIN sku_group + affinity + run_metadata, because the old AffinityStore added
+    # the table the first time anything opened them.  So they re-derive to the current declared
+    # id: the change removed a mutation-on-read, not a column, and nothing needs freezing.
 ))
 
 
@@ -343,7 +350,13 @@ def generate_affinity(
         elapsed   = time.perf_counter() - t_group
         elapsed_t = time.perf_counter() - t_start
         pairs     = rows_written // 2
-        print(f'  [{group_key}]  {n:,} SKUs  top-{eff_top_k}  →  '
+        # ASCII '->' deliberately: U+2192 has no cp1252 mapping (unlike U+2014/2013/2026), so
+        # this print is fatal on a Windows console.  It fires once per SKU group at the end of a
+        # multi-hour job, where a UnicodeEncodeError destroys the summary of work that already
+        # succeeded.  One of the two such lines in this module — the other is the final
+        # `Saved ->` in `generate_run`; every remaining non-ASCII character here is comment or
+        # docstring and never reaches stdout.  Grep for U+2192 before adding a print.
+        print(f'  [{group_key}]  {n:,} SKUs  top-{eff_top_k}  ->  '
               f'{pairs:,} pairs  ({rows_written:,} rows)  {elapsed:.1f}s  '
               f'[total {total_rows:,} / {elapsed_t:.0f}s elapsed]')
 
@@ -708,9 +721,11 @@ def generate_run(
     plot_activity_vs_lift(conn_aff, group_skus, sku_demand, plot_dir)
     plot_degree_distribution(conn_aff, plot_dir)
     plot_cumulative_lift(conn_aff, plot_dir)
-    conn_aff.close()
+    _connect.close(conn_aff)             # every write above is committed; see generate_affinity
 
-    _log(f'[affinity:{name}] Saved → {run_dir}')
+    # ASCII '->': same cp1252 trap as the per-group line, and this one is the LAST thing a
+    # multi-hour affinity build prints.
+    _log(f'[affinity:{name}] Saved -> {run_dir}')
     return run_dir
 
 

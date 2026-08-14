@@ -79,7 +79,11 @@ _OUT_DIR   = os.path.join(_HERE, 'out')
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import identity as _identity
 from Schema.connect import read_only          # the ONE safe way to open a finished artifact
+# Imported for its REGISTRATION side effect: `Schema/` imports no writer, so `warehouse_db`
+# exists in the registry only once its writer module has been loaded.
+from Optimization.persistence import Warehouse_Data as _warehouse_data  # noqa: F401
 
 _GRID_COLS = 6
 
@@ -141,6 +145,18 @@ def _has_rows(conn: sqlite3.Connection, table: str, run_id: int | None = None) -
 # ── warehouse geometry ─────────────────────────────────────────────────────────
 
 def read_layout(warehouse_db: str) -> tuple[list[dict], dict[int, int]]:
+    """Aisle geometry + per-aisle bin capacity from a run's `warehouse.db`.
+
+    HARD FAIL on an unvetted shape (`identity.check` raises `UnsupportedSchema`), unlike the
+    viewer, which warns.  Capacity is the DENOMINATOR of every fill percentage this tool
+    exports, and the dashboard renders those percentages as a measurement.  A geometry table
+    that is not the one we think it is produces a fill curve that is wrong in a way no reader
+    can see — the same class of defect as the `bin_inventory` decay documented in `_SOURCES`,
+    which is why that entry exists at all.  Better to name the differing column and stop.
+    Both archived shapes are vetted (`Warehouse_Data.PRE_STAMP_WAREHOUSE_SCHEMA_ID` and
+    `PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID`), so this refuses nothing that exists today.
+    """
+    _identity.check(warehouse_db, 'warehouse_db', verify=True)
     conn = read_only(warehouse_db)
     rows = conn.execute(
         'SELECT aisle_id, handling_type, category, unit_type, storage_size, '

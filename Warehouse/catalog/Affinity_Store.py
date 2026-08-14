@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import random
 import sqlite3
 from collections import defaultdict
@@ -8,6 +9,9 @@ from typing import TYPE_CHECKING, Collection
 import numpy as np
 from scipy.sparse import csr_matrix
 
+from Schema import connect as _connect
+from Schema import identity as _identity
+from Schema import shape as _shape
 from Warehouse.catalog.Inventory_Builder import AffMatrix
 
 if TYPE_CHECKING:
@@ -30,6 +34,7 @@ class AffinityStore:
     """
 
     def __init__(self, db_path: str = ':memory:', seed: int | None = None) -> None:
+        self._verify_shape(db_path)          # BEFORE the file is opened for writing
         self._conn = sqlite3.connect(db_path)
         self._conn.execute('PRAGMA journal_mode=WAL')
         self._conn.execute('PRAGMA synchronous=NORMAL')
@@ -56,6 +61,41 @@ class AffinityStore:
         CREATE INDEX IF NOT EXISTS idx_affinity_sku_i ON affinity(sku_i);
     '''
     _TABLES = ('sku_group', 'affinity')
+
+    @classmethod
+    def _verify_shape(cls, db_path: str) -> None:
+        """Refuse a generator-written affinity.db whose tables are not the ones we query.
+
+        HARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and
+        `delta_lift`/`sum_lift` read the CSR matrix built here — a `lift` column that is not the
+        `lift` column produces placements that look entirely reasonable and are not.
+
+        Checked with `identity.check_tables`, not `identity.check`, and that is a deliberate
+        scope limit: the `affinity_db` FAMILY is registered by
+        `Warehouse/generation/generate_affinity.py`, which is a data-gen CLI importing matplotlib
+        and pandas.  Importing it here to reach one dataclass would drag both into every
+        ProcessPool worker.  Comparing the two tables this class actually reads against the DDL
+        it already mirrors gives the same protection for the columns that matter, and makes the
+        "both DDLs must stay in step" claim above self-enforcing.  That the mirror really does
+        match the generator's declaration is asserted in
+        `Tests/architecture/test_schema_identity.py`, where importing both is free.
+
+        Skipped for `:memory:` and for a path this store is about to CREATE: there is no shape to
+        disagree with yet, and `_init_schema` authors it below.  Skipped equally when a table is
+        genuinely absent, which is the one case `_init_schema` still writes — verifying a shape
+        we are in the middle of completing would reject the legacy/in-memory path it exists for.
+        """
+        if db_path == ':memory:' or not os.path.exists(db_path):
+            return
+        con = _connect.read_only(db_path)     # never a writer: opening must not change the shape
+        try:
+            have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        finally:
+            con.close()
+        if not all(t in have for t in cls._TABLES):
+            return
+        _identity.check_tables(db_path, _shape.shape_of_ddl((cls._SCHEMA,)), cls._TABLES,
+                               label=f'affinity_db({", ".join(cls._TABLES)})')
 
     def _init_schema(self) -> None:
         """Create the tables ONLY when something is actually missing.
@@ -267,7 +307,17 @@ class AffinityStore:
         return float(sub.sum()) - float(sub.nnz)
 
     def close(self) -> None:
-        self._conn.close()
+        """Close, folding the WAL back into affinity.db so no `-wal`/`-shm` is left beside it.
+
+        `load_for_skus` and `index_inventory` both commit, so there is never an open
+        transaction here for `connect.close` to lose — it checkpoints, it does not commit.
+
+        Under the worker pool this file is SHARED: one affinity.db per inventory pair, opened
+        by every arm running that pair at once.  The checkpoint then finds another connection
+        on the file and skips instantly (the busy handler is disabled for it), so this costs
+        nothing in the common case and truncates for whichever worker happens to close last.
+        """
+        _connect.close(self._conn)
 
     def __enter__(self) -> AffinityStore:
         return self
