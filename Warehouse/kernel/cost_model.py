@@ -91,6 +91,34 @@ def sec_per_inch(speed_ft_per_sec: float) -> float:
     return float('inf') if speed_ft_per_sec <= 0 else 1.0 / (INCHES_PER_FOOT * speed_ft_per_sec)
 
 
+def validate_speeds(x_speed: float, y_speed: float, *, source: str) -> None:
+    """Reject a travel speed that would poison every score with NaN.  Raises ValueError.
+
+    THE TRAP this exists to close.  `sec_per_inch` maps a non-positive speed to `inf`, which
+    is the honest answer on its own (never moves → infinite time).  But the hot loops spend it
+    as `pace · phys`, and a bin ON the axis origin has `phys == 0` — so `inf · 0` yields
+    **NaN**, not 0.  NaN then propagates through every travel term, and because every
+    comparison against NaN is False, `min()`/`max()`/`sorted()` silently degrade to "keep
+    whichever candidate came first".  Placement quietly becomes insertion order.  No warning,
+    no exception, no visibly wrong number — just a run whose assignment function did nothing.
+
+    Nothing else catches it: `x_speed`/`y_speed` are read straight out of the config JSON
+    (`Optimization/config/sim_config.py`), so one `"y_speed": 0` in a config file would do this
+    to a whole sweep.  Validating at the two dataclass boundaries (PickConfig, WorkloadParams)
+    costs one call per config rather than per bin, and cannot perturb a valid run — it only
+    raises on input that was already producing NaN.
+    """
+    for name, speed in (('x_speed', x_speed), ('y_speed', y_speed)):
+        # NaN fails `> 0` too, so this one comparison covers 0, negatives and NaN alike.
+        if not (float(speed) > 0.0) or float(speed) == float('inf'):
+            raise ValueError(
+                f'{source}: {name}={speed!r} is not a positive finite travel speed (ft/s). '
+                f'A non-positive speed makes sec_per_inch() return inf, and inf·0 = NaN for '
+                f'any bin on the axis origin — every travel score becomes NaN and placement '
+                f'silently degrades to insertion order. Use a small positive speed to model '
+                f'"slow"; there is no valid way to spell "this axis is free".')
+
+
 def travel_cost(x_phys: float, y_phys: float,
                 x_speed: float, y_speed: float) -> float:
     """Demand-blind travel time (s) to a bin.  x_speed/y_speed are SPEEDS in ft/s; positions

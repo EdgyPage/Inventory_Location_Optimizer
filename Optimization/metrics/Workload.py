@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 # Single source of truth for the cost primitives (Warehouse/kernel/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch
+from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch, validate_speeds
 from Warehouse.layout.Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
@@ -45,6 +45,12 @@ class WorkloadParams:
     # routing.  Rides on the primary WorkloadParams so the assignment builders resolve the
     # right regime's cost without signature churn.  None ⇒ single-regime (store), unchanged.
     by_regime: dict | None  = None
+
+    def __post_init__(self):
+        # The scorers read THIS dataclass, so this is the boundary that actually protects
+        # placement — see validate_speeds().  Built once per run/regime (inventory_common._wp_for),
+        # never per bin, so the check is free.
+        validate_speeds(self.x_speed, self.y_speed, source='WorkloadParams')
 
     @classmethod
     def from_pick_config(cls, cfg: object) -> WorkloadParams:
