@@ -80,6 +80,13 @@ class TaskStats:
 
 @dataclass
 class BinInventoryRecord:
+    """One archived `bin_inventory` row.  **ARCHIVE-ONLY — no run writes this table any more.**
+
+    Kept, with `load_bin_inventory`, because the ~500 GB archive predates the bin-mutation log
+    and `bin_inventory` is the only depletion record those files will ever have.  New runs record
+    `bin_placement` + `bin_eviction` + `picks` instead, which reconstruct bin state exactly at
+    every batch rather than approximately between keyframes.
+    """
     run_id:       int
     batch_id:     int
     aisle_id:     int
@@ -306,64 +313,32 @@ _CREATE_PICKER_EVENTS_TIME_IDX = """
     ON picker_events (run_id, batch_id, time)
 """
 
-_CREATE_BIN_INVENTORY = """
-    CREATE TABLE IF NOT EXISTS bin_inventory (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
-        batch_id     INTEGER NOT NULL,
-        aisle_id     INTEGER NOT NULL,
-        bayX         INTEGER NOT NULL,
-        bayY         INTEGER NOT NULL,
-        sku          INTEGER NOT NULL,
-        unit_type    TEXT    NOT NULL,
-        storage_size TEXT    NOT NULL,
-        pre_qty      INTEGER NOT NULL,
-        post_qty     INTEGER NOT NULL
-    )
-"""
-
-# Query pattern: load full warehouse snapshot at start of batch B
-#   SELECT * FROM bin_inventory WHERE run_id=? AND batch_id=? ORDER BY aisle_id, bayX, bayY
+# ── bin_inventory — SUNSET.  Read-only, archive-only; no DDL, no writer. ──────
 #
-# Derive inventory at sim-time T mid-batch (join with picker_events):
-#   WITH pre AS (
-#       SELECT aisle_id, bayX, bayY, sku, pre_qty
-#       FROM   bin_inventory WHERE run_id=? AND batch_id=?
-#   ),
-#   picks AS (
-#       SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked
-#       FROM   picker_events
-#       WHERE  run_id=? AND batch_id=? AND event_type='pick' AND time <= ?
-#       GROUP  BY aisle_id, bayX, bayY
-#   )
-#   SELECT p.aisle_id, p.bayX, p.bayY, p.sku,
-#          MAX(0, p.pre_qty - COALESCE(pk.picked, 0)) AS qty_at_t
-#   FROM   pre p LEFT JOIN picks pk
-#          ON p.aisle_id=pk.aisle_id AND p.bayX=pk.bayX AND p.bayY=pk.bayY
+# This build does not create the table and never inserts into it.  It was pure redundancy:
+# it records picks and NEVER restocks, and `picks` already holds every decrement at better
+# (sim_time) resolution — measured, SUM(pre_qty - post_qty) equals SUM(picks.quantity)
+# exactly on every arm tested.  The bin-mutation log below supersedes it outright.
 #
-# Sanity check — total picked per bin must equal pre_qty - post_qty:
-#   SELECT b.aisle_id, b.bayX, b.bayY, b.sku,
-#          b.pre_qty - b.post_qty        AS expected_picked,
-#          COALESCE(SUM(pe.quantity), 0) AS actual_picked,
-#          (b.pre_qty - b.post_qty) - COALESCE(SUM(pe.quantity), 0) AS drift
-#   FROM   bin_inventory b
-#   LEFT JOIN picker_events pe
-#          ON  pe.run_id=b.run_id AND pe.batch_id=b.batch_id
-#          AND pe.aisle_id=b.aisle_id AND pe.bayX=b.bayX AND pe.bayY=b.bayY
-#          AND pe.event_type='pick'
-#   WHERE  b.run_id=? AND b.batch_id=?
-#   GROUP  BY b.aisle_id, b.bayX, b.bayY
-#   HAVING drift != 0
-
-_CREATE_BIN_INVENTORY_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_bi_run_batch
-    ON bin_inventory (run_id, batch_id)
-"""
-
-_CREATE_BIN_INVENTORY_AISLE_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle
-    ON bin_inventory (run_id, batch_id, aisle_id)
-"""
+# `load_bin_inventory` / `BinInventoryRecord` REMAIN because the ~500 GB archive has no log:
+# for those arms this table is the only depletion record they will ever have, and deleting
+# the reader path would make the archive unreadable.  Its shape there, frozen forever:
+#
+#   CREATE TABLE bin_inventory (
+#       id           INTEGER PRIMARY KEY AUTOINCREMENT,
+#       run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+#       batch_id     INTEGER NOT NULL,
+#       aisle_id     INTEGER NOT NULL,   bayX INTEGER NOT NULL,  bayY INTEGER NOT NULL,
+#       sku          INTEGER NOT NULL,
+#       unit_type    TEXT    NOT NULL,   storage_size TEXT NOT NULL,
+#       pre_qty      INTEGER NOT NULL,   -- after check_reorders(), before picks
+#       post_qty     INTEGER NOT NULL)   -- after all picks applied
+#   CREATE INDEX ix_bi_run_batch       ON bin_inventory (run_id, batch_id)
+#   CREATE INDEX ix_bi_run_batch_aisle ON bin_inventory (run_id, batch_id, aisle_id)
+#
+# Two ordering traps when reading an archived one: order by `batch_id, id` (a bin can take
+# rows from two branches in one batch, so `batch_id` alone is not a total order), and the
+# full snapshot sits at the run's FIRST batch, which on a resumed arm is not batch 0.
 
 
 # NOTE: the standalone PickRecord CSV/SQLite pair (load/save_picks_csv, load/save_picks_db) and
@@ -448,16 +423,18 @@ _CREATE_SKU_SCORES_IDX = """
 """
 
 # ── The bin-mutation log ──────────────────────────────────────────────────────
-# `bin_inventory` records picks and NEVER restocks: check_reorders() runs before the pre-batch
-# snapshot, so a restocked bin is already in it at its post-restock quantity, and the
-# `post_qty == pre_qty` skip then drops it.  Measured on a production arm: 0 rows with
-# post_qty > pre_qty against 20k-42k reorder_placements per batch.  Rolling the delta stream
-# forward from a keyframe therefore only ever DECAYS — losing 59% of the warehouse in 5 batches.
+# The record `bin_inventory` could not give: it logged picks and NEVER restocks, because
+# check_reorders() runs before the pre-batch snapshot, so a restocked bin was already in it at
+# its post-restock quantity and the `post_qty == pre_qty` skip then dropped it.  Measured on a
+# production arm: 0 rows with post_qty > pre_qty against 20k-42k reorder_placements per batch.
+# Rolling that delta stream forward from a keyframe only ever DECAYED — losing 59% of the
+# warehouse in 5 batches.  These two tables replace it (see the sunset note above).
 #
-# These two tables close the gap.  Bin state changes at exactly five sites in the codebase (one
-# of them dead code), and picks are already fully recorded — verified, SUM(pre_qty-post_qty)
-# equals SUM(picks.quantity) exactly on every arm tested.  So PLACE + EVICT + PICK is complete
-# BY CONSTRUCTION, which Tests/integration/test_bin_log_replay.py checks against a live sim.
+# Bin state changes at exactly five sites in the codebase (one of them dead code), and picks
+# are already fully recorded — verified, SUM(pre_qty-post_qty) equals SUM(picks.quantity)
+# exactly on every arm tested.  So PLACE + EVICT + PICK is complete BY CONSTRUCTION, which
+# Tests/integration/test_bin_log_replay.py checks against a live sim and the per-batch
+# conservation ledger in strategy_runner re-checks at runtime on every real run.
 #
 # `(batch_id, seq)` is the true resolution, not a compromise: check_reorders() runs entirely
 # between one batch's picks and the next batch's simulation, so no finer ordering EXISTS to lose.
@@ -522,9 +499,6 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_PICKER_EVENTS)
     con.execute(_CREATE_PICKER_EVENTS_IDX)
     con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
-    con.execute(_CREATE_BIN_INVENTORY)
-    con.execute(_CREATE_BIN_INVENTORY_IDX)
-    con.execute(_CREATE_BIN_INVENTORY_AISLE_IDX)
     con.execute(_CREATE_AISLE_METRICS)
     con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
     con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
@@ -620,9 +594,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     name='sim_db',
     declared_shape=declared_sim_schema_shape,
     meta_table=None,                 # stamped into simulation_runs.sim_schema_id, not a meta table
-    # 2b7913bcd7e6 = the stamp column, before the bin-mutation log.  Kept so a DB
-    # written between those two commits still opens.
-    known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6'),
+    # Every shape this build still opens, newest first.  Each entry is a real window of commits
+    # that produced real files; dropping one orphans them, so entries are added, never replaced.
+    #   2b7913bcd7e6  the stamp column, before the bin-mutation log
+    #   ee5ebabe74fb  the log ADDED, bin_inventory still written (the overlap window)
+    known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
 ))
 
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
@@ -1123,31 +1099,13 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
         con.close()
 
 
-# ── BinInventory DB ───────────────────────────────────────────────────────────
-
-def save_bin_inventory(path: str, run_id: int, records: list) -> None:
-    """Persist pre/post batch bin inventory snapshots.
-
-    Each record covers one non-empty bin for one batch: pre_qty is the
-    quantity after check_reorders() (before picks), post_qty is the
-    quantity after all picks are applied.  Bins empty throughout are omitted.
-    """
-    con = _open_db(path)
-    try:
-        con.executemany(
-            'INSERT INTO bin_inventory '
-            '(run_id,batch_id,aisle_id,bayX,bayY,sku,unit_type,storage_size,'
-            'pre_qty,post_qty) VALUES (?,?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.aisle_id, r.bayX, r.bayY,
-                 r.sku, r.unit_type, r.storage_size, r.pre_qty, r.post_qty)
-                for r in records
-            ],
-        )
-        con.commit()
-    finally:
-        con.close()
-
+# ── BinInventory DB — READER ONLY (the table is legacy/archive-only) ──────────
+#
+# There is deliberately no `save_bin_inventory`: this build does not create the table and never
+# writes it.  This loader exists solely so archived runs — written before `bin_placement` /
+# `bin_eviction` existed, and never to be rewritten — stay readable.  On a DB from this build
+# the table is absent and every call here raises `sqlite3.OperationalError: no such table`;
+# callers that may see either vintage must probe first (see `Diagnostics/replay_run._has_rows`).
 
 def load_bin_inventory(
     path     : str,
@@ -1155,7 +1113,11 @@ def load_bin_inventory(
     batch_id : int | None = None,
     aisle_id : int | None = None,
 ) -> list:
-    """Load BinInventoryRecord rows, optionally filtered to one batch or aisle."""
+    """Load BinInventoryRecord rows from an ARCHIVED run, optionally filtered to batch/aisle.
+
+    LEGACY/ARCHIVE-ONLY.  The table is no longer written by any run; a DB produced by this
+    build has no `bin_inventory` at all and this raises `sqlite3.OperationalError`.
+    """
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:

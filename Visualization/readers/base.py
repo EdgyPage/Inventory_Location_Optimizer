@@ -12,9 +12,10 @@ it because a run can carry three different records:
      indexed lookup per frame, exact at every batch.
   2. **live log fold** — the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take
      the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.
-  3. **keyframe + picks** — the pre-log archive.  `bin_inventory` records picks and *never*
-     restocks, so rolling deltas forward loses 59% of a real warehouse within five batches; this
-     path is exact only AT a keyframe and says `exact: false` everywhere else.
+  3. **keyframe + picks** — the pre-log archive.  Its `bin_inventory` (a table no run writes any
+     more) records picks and *never* restocks, so rolling deltas forward loses 59% of a real
+     warehouse within five batches; this path is exact only AT a keyframe and says
+     `exact: false` everywhere else.
 
 Which one served a frame is visible in the payload: `exact` is the honest answer, never the
 convenient one.
@@ -542,9 +543,10 @@ class SqliteSimReader:
                         'exact': False, 'restocks_pending': self._pending_restocks(0, batch),
                         'note': f'batch {batch} precedes the first keyframe ({kfs[0]}); no exact '
                                 f'spatial frame exists below it'}
-            # No keyframes at all (keyframe_interval=0).  The only baseline is the full
-            # bin_inventory snapshot at the run's first batch; deltas cannot rebuild restocks,
-            # so this frame is exact only at that batch.  Reported as such.
+            # No keyframes at all (keyframe_interval=0) AND no log.  The only baseline left is
+            # an ARCHIVED run's bin_inventory snapshot at its first batch; deltas cannot rebuild
+            # restocks, so this frame is exact only at that batch — and the table may itself be
+            # absent, which that method reports rather than raising.
             return self._state_without_keyframes(batch, aisles, t)
 
         bins = self._keyframe_state(kf, aisles)
@@ -574,16 +576,20 @@ class SqliteSimReader:
         }
 
     def _state_without_keyframes(self, batch: int, aisles, t) -> dict:
-        """Last-resort path: a PRE-LOG run written with keyframe_interval=0.
+        """Last-resort path: an ARCHIVED run written with keyframe_interval=0.
 
-        Still reachable, and not dead code: it is the only record such an arm has. A run with a
-        bin-mutation log never lands here — `_state_from_log` folds it from an empty warehouse
-        instead, exactly, with no keyframe needed.
+        Still reachable, and not dead code: it is the only record such an arm has.  A run from
+        this build never lands here twice over — it has a log, so `_state_from_log` folds it from
+        an empty warehouse exactly, and `bin_inventory` is not even in its schema.
 
-        `bin_inventory` holds one full snapshot (at the run's FIRST batch, which is not
-        necessarily 0 on a resumed run) and depletion-only deltas after it.  Ordering is by
-        `batch_id, id`: the loop is last-write-wins and a bin can receive rows from two
-        branches in one batch, so `batch_id` alone is not a total order.
+        `bin_inventory` (archive-only; no longer written) holds one full snapshot at the run's
+        FIRST batch — not necessarily 0 on a resumed run — and depletion-only deltas after it.
+        Ordering is by `batch_id, id`: the loop is last-write-wins and a bin can receive rows
+        from two branches in one batch, so `batch_id` alone is not a total order.
+
+        The table's ABSENCE is a normal outcome, not an error: it means the file is new enough
+        to have no such record and old enough (keyframe_interval=0) to have no keyframe either.
+        Say so, rather than raising `no such table` at a caller three layers up.
         """
         scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
         bins: dict[str, dict] = {}
@@ -600,6 +606,14 @@ class SqliteSimReader:
                     bins[key] = {'sku': int(r['sku']), 'qty': int(r['post_qty'])}
                 else:
                     bins.pop(key, None)
+        except sqlite3.OperationalError:              # no bin_inventory -> nothing to rebuild from
+            return {
+                'batch': batch, 'keyframe': None, 't': t, 'bins': {}, 'exact': False,
+                'restocks_pending': self._pending_restocks(0, batch),
+                'note': 'this run carries no spatial record at all: no keyframes '
+                        '(keyframe_interval=0), no bin-mutation log, and no bin_inventory. '
+                        'Re-run the arm to get one.',
+            }
         finally:
             con.close()
         return {

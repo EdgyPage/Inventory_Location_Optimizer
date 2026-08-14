@@ -2856,11 +2856,6 @@
       "src": "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::BinInventoryRecord",
-      "kind": "calls",
-      "src": "Optimization/metrics/Simulation_Analytics.py::snapshot_bin_inventory"
-    },
-    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Optimization/metrics/Workload.py"
@@ -3054,11 +3049,6 @@
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_bin_evictions"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_bin_inventory"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -5306,11 +5296,6 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
     {
-      "dst": "Optimization/metrics/Simulation_Analytics.py::snapshot_bin_inventory",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
-    },
-    {
       "dst": "Optimization/metrics/bin_recorder.py::BinRecorder",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
@@ -5337,11 +5322,6 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_bin_inventory",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
@@ -6678,11 +6658,6 @@
     {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
-      "src": "Visualization/readers/sim_2026_07.py"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::sim_schema_id",
-      "kind": "calls",
       "src": "Visualization/readers/sim_2026_07.py"
     },
     {
@@ -12725,14 +12700,6 @@
     },
     {
       "file": "Optimization/metrics/Simulation_Analytics.py",
-      "id": "Optimization/metrics/Simulation_Analytics.py::snapshot_bin_inventory",
-      "kind": "function",
-      "module": "Optimization/metrics/Simulation_Analytics.py",
-      "name": "snapshot_bin_inventory",
-      "public": true
-    },
-    {
-      "file": "Optimization/metrics/Simulation_Analytics.py",
       "id": "Optimization/metrics/Simulation_Analytics.py::sum_lift",
       "kind": "function",
       "module": "Optimization/metrics/Simulation_Analytics.py",
@@ -13017,30 +12984,6 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_CREATE_BIN_EVICTION_IDX",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_BIN_INVENTORY",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_AISLE_IDX",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_BIN_INVENTORY_AISLE_IDX",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_IDX",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_BIN_INVENTORY_IDX",
       "public": false
     },
     {
@@ -13417,14 +13360,6 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_bin_evictions",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_bin_inventory",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_bin_inventory",
       "public": true
     },
     {
@@ -20626,6 +20561,14 @@
       "module": "Warehouse/picking/Workload_Builder.py",
       "name": "from_batch",
       "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_bin_location",
+      "kind": "const",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_bin_location",
+      "public": false
     },
     {
       "file": "Warehouse/picking/Workload_Builder.py",

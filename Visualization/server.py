@@ -235,9 +235,13 @@ def api_final_home():
 def api_state():
     """Occupied bins at (batch, t).  Carries `exact` and `restocks_pending`.
 
-    Exact only at a keyframe batch: `bin_inventory` never records restocks, so an in-between
-    frame is depletion-exact and missing that stretch's restocks.  The payload says so; the UI
-    must show it rather than drawing a plausible warehouse.
+    Exact at EVERY batch for a run carrying the bin-mutation log — `state_at` folds
+    `bin_placement` + `bin_eviction` + `picks`, which is the complete record of bin state.
+
+    For an ARCHIVED arm (no log) it is exact only at a keyframe batch: that vintage's
+    `bin_inventory` never records restocks, so an in-between frame is depletion-exact and
+    missing that stretch's restocks.  The payload says which it got; the UI must show it rather
+    than drawing a plausible warehouse.
     """
     reader = _reader(request.args.get('run', ''))
     return jsonify(reader.state_at(_int_arg('batch', 0), aisles=_aisles_arg(),

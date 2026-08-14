@@ -157,11 +157,17 @@ def main():
                         help='STORE: JSON file or inline factored basis vector of store bin '
                              'ratios (keys handling/category/size/unit → weight). Scale from '
                              '--s-min-bins (or demand). Fulfillment uses its fixed distribution.')
-    parser.add_argument('--keyframe-interval', type=int, default=5, metavar='K',
-                        help='Write a full bin snapshot to <run>.keyframes.db every K '
-                             'batches so the visualizer can jump between batches '
-                             '(0 disables). A keyframe = all occupied bins; raise K for '
-                             'very large warehouses. Default 5.')
+    # Defaulted FROM CONFIG rather than to a literal: this flag is assigned unconditionally
+    # into g['keyframe_interval'] below, so a literal here would silently override the
+    # declared default and make sim_config's value dead.
+    parser.add_argument('--keyframe-interval', type=int,
+                        default=CONFIG['global']['keyframe_interval'], metavar='K',
+                        help='Write a full bin snapshot to <run>.keyframes.db every K batches '
+                             '(0 disables). Spatial state is reconstructed from the '
+                             'bin-mutation log, not from these — a keyframe is the '
+                             'INDEPENDENT audit of that fold plus a quantity anchor. Lower K '
+                             'buys more audit points, not more accuracy. Default '
+                             f'{CONFIG["global"]["keyframe_interval"]}.')
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')

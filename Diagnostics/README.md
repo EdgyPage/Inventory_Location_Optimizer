@@ -54,9 +54,10 @@ approximate replay shows as `[approx]` in the dashboard's run switcher.
 |---|---|---|
 | `bin_placement` + `bin_eviction` + `picks` | the DB carries the bin-mutation log | **Exact at every batch.** Those are every mutation of `Aisle.Bin.storage` the simulation can make, so folding them (EVICT → PLACE → PICK, per batch) reproduces its own bin state. Reference fold `Tests/bench/bin_log_harness.py::fold`; proof `Tests/integration/test_bin_log_replay.py`. |
 | `aisle_metrics.n_bins` | no log, and the strategy maintains aisle state (the `opt_*` affinity arms) | Approximate. The manager's own counter, sampled *after* restock and *before* the batch's picks — a different instant than the other two — and it lags a bin emptied by a pick. |
-| `bin_inventory` deltas | no log and no aisle state (the `uni_*` arms — `aisle_metrics` is empty there) | Approximate and biased downward. The table records picks and **never** restocks, so rolling it forward can only ever decay. |
+| `bin_inventory` deltas | an ARCHIVED arm with no log and no aisle state (the `uni_*` arms — `aisle_metrics` is empty there). Unreachable on a current DB: the table is retired and no run writes it | Approximate and biased downward. The table records picks and **never** restocks, so rolling it forward can only ever decay. |
 
-Why that last row matters, measured on one production arm (`uni_fifo_norsl`) that carries both the
+Why that last row matters — and why the delta stream was retired rather than kept as a fallback.
+Measured on one production arm (`uni_fifo_norsl`) from the overlap window, which carries both the
 log and the legacy delta stream — occupied bins per batch:
 
 | batch | 0 | 1 | 2 | 3 | 4 | 5 |

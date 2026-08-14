@@ -1,6 +1,6 @@
 {
-  "head": "sha256:d8f82c794e89b3974059cf9543622fcb6ee4c215b2cd3a559bf28ed66bde06e4",
-  "source_fingerprint": "sha256:58ea4d972b23e083a9704d05f4bb868e05007133a75f90c16b145c11f032c871",
+  "head": "sha256:122566d8d96962756f1ce41ecaa62cce649d09174ad63c74d1fda8e6b19edc80",
+  "source_fingerprint": "sha256:d0328acc5b26019c95cc78a56d67fd5281cde832d2d2f736616c10a6ba221059",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -42,6 +42,16 @@
       "label": "",
       "changes": [
         "artifact sim_db.tables +['bin_eviction', 'bin_placement']"
+      ]
+    },
+    "sha256:122566d8d96962756f1ce41ecaa62cce649d09174ad63c74d1fda8e6b19edc80": {
+      "short": "122566d8d969",
+      "parent": "sha256:d8f82c794e89b3974059cf9543622fcb6ee4c215b2cd3a559bf28ed66bde06e4",
+      "created": "2026-08-14T03:18:18",
+      "commit": "78ecd74",
+      "label": "",
+      "changes": [
+        "artifact sim_db.tables -['bin_inventory']"
       ]
     }
   }

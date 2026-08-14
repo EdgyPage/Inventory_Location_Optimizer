@@ -29,9 +29,10 @@ it because a run can carry three different records:
      indexed lookup per frame, exact at every batch.
   2. **live log fold** — the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take
      the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.
-  3. **keyframe + picks** — the pre-log archive.  `bin_inventory` records picks and *never*
-     restocks, so rolling deltas forward loses 59% of a real warehouse within five batches; this
-     path is exact only AT a keyframe and says `exact: false` everywhere else.
+  3. **keyframe + picks** — the pre-log archive.  Its `bin_inventory` (a table no run writes any
+     more) records picks and *never* restocks, so rolling deltas forward loses 59% of a real
+     warehouse within five batches; this path is exact only AT a keyframe and says
+     `exact: false` everywhere else.
 
 Which one served a frame is visible in the payload: `exact` is the honest answer, never the
 convenient one.</section>

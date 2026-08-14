@@ -113,7 +113,7 @@
     },
     "Diagnostics/replay_run.py": {
       "decorators": [],
-      "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so\nit stays inside cp1252 \u2014 no box drawing here, unlike the section banners below):\n\n    <pair>/warehouse.db            aisle_layout    (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       bin_placement   PLACE  |\n                                   bin_eviction    EVICT  |  the bin-mutation log:\n                                   picks           PICK   |  fold -> EXACT occupancy\n                                   aisle_metrics   (n_bins occupied / aisle / batch)\n                                   bin_inventory   (pick deltas - legacy fallback)\n                                   batch_stats     (duration / batch)\n                                   simulation_runs (run params)\n\nWhere occupancy comes from \u2014 and what it is worth\n-------------------------------------------------\nThree sources, tried best-first.  Only the first is correct, so every export now RECORDS which one\nit used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the\nCLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is\nthe failure this tool shipped with for its whole life.\n\n1. `bin_placement` + `bin_eviction` + `picks`  ->  **EXACT at every batch.**\n   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are\n   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in\n   application order \u2014 EVICT, then PLACE, then PICK, mirroring the runner \u2014 reproduces the\n   simulation's own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof\n   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a\n   production arm's `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690\n   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.\n\n2. `aisle_metrics.n_bins`  ->  **approximate.**  It is the manager's own occupied-bin counter\n   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch's\n   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a\n   pick.  Only strategies that maintain aisle state write it at all \u2014 for a uniform-placement arm\n   the table is empty, which is why the third source is what usually ran.\n\n3. `bin_inventory` deltas  ->  **approximate and biased downward.**  The table records picks and\n   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is\n   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.\n   Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832\n   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy\n   \u2014 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a\n   warehouse that slowly drains, plausibly enough that nothing flagged it for months.\n\nOld runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to\n2/3 and are labelled approximate instead of silently believed.\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
+      "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so\nit stays inside cp1252 \u2014 no box drawing here, unlike the section banners below):\n\n    <pair>/warehouse.db            aisle_layout    (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       bin_placement   PLACE  |\n                                   bin_eviction    EVICT  |  the bin-mutation log:\n                                   picks           PICK   |  fold -> EXACT occupancy\n                                   aisle_metrics   (n_bins occupied / aisle / batch)\n                                   bin_inventory   (pick deltas - ARCHIVED runs only)\n                                   batch_stats     (duration / batch)\n                                   simulation_runs (run params)\n\nWhere occupancy comes from \u2014 and what it is worth\n-------------------------------------------------\nThree sources, tried best-first.  Only the first is correct, so every export now RECORDS which one\nit used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the\nCLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is\nthe failure this tool shipped with for its whole life.\n\n1. `bin_placement` + `bin_eviction` + `picks`  ->  **EXACT at every batch.**\n   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are\n   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in\n   application order \u2014 EVICT, then PLACE, then PICK, mirroring the runner \u2014 reproduces the\n   simulation's own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof\n   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a\n   production arm's `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690\n   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.\n\n2. `aisle_metrics.n_bins`  ->  **approximate.**  It is the manager's own occupied-bin counter\n   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch's\n   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a\n   pick.  Only strategies that maintain aisle state write it at all \u2014 for a uniform-placement arm\n   the table is empty, which is why the third source is what usually ran.\n\n3. `bin_inventory` deltas  ->  **approximate and biased downward**, and no longer written at all:\n   only runs from the archive carry this table, and on a current DB source 1 always answers first.\n   The table records picks and\n   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is\n   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.\n   Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832\n   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy\n   \u2014 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a\n   warehouse that slowly drains, plausibly enough that nothing flagged it for months.\n\nOld runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to\n2/3 and are labelled approximate instead of silently believed.\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
       "kind": "module",
       "signature": null
     },
@@ -225,7 +225,7 @@
     },
     "Diagnostics/replay_run.py::occupied_from_bin_inventory": {
       "decorators": [],
-      "doc": "APPROXIMATE fallback of last resort \u2014 see `_SOURCES['bin_inventory']`.\n\nRolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin\ncount per aisle at the end of each recorded batch.  The stream contains picks and no restocks,\nso the curve it produces can only ever fall; it is kept solely because the pre-`bin_placement`\narchive has nothing better.",
+      "doc": "APPROXIMATE fallback of last resort \u2014 see `_SOURCES['bin_inventory']`.\n\nARCHIVE-ONLY: `bin_inventory` is no longer written, so on a current DB this is unreachable \u2014\n`_occupancy` probes `bin_placement` first and the table is not even in the schema.  Reached\nonly for the ~500 GB of pre-log runs, which is exactly why it is kept.\n\nRolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin\ncount per aisle at the end of each recorded batch.  The stream contains picks and no restocks,\nso the curve it produces can only ever fall.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id) -> dict[int, dict[int, int]]"
@@ -2007,7 +2007,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 5, 'max_skus': None}, 'channels': {'store': {'regime': STORE, 'confi..."
+      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 25, 'max_skus': None}, 'channels': {'store': {'regime': STORE, 'conf..."
     },
     "Optimization/config/sim_config.py::FULFILLMENT_CONFIGS": {
       "decorators": [],
@@ -2754,7 +2754,7 @@
     },
     "Optimization/metrics/Simulation_Analytics.py::build_pre_snapshot": {
       "decorators": [],
-      "doc": "Capture bin quantities before a batch simulation runs.\n\nCall immediately after check_reorders() and before DeferredPickSimulation.\nReturns a dict keyed by id(bin) holding all data needed to build a\nBinInventoryRecord once the post-simulation quantities are known.\n\nOnly non-empty bins are captured; empty bins are implicitly quantity=0\nand are not written to the DB.",
+      "doc": "Capture bin quantities before a batch simulation runs.\n\nCall immediately after check_reorders() and before DeferredPickSimulation: the instant it\ndescribes is \"start of this batch, after the restock pass, before any pick\".\n\nReturns a dict keyed by id(bin).  Two consumers, both live:\n  - the keyframe writer (`save_bin_keyframe`) \u2014 the independent audit of the log;\n  - the per-batch conservation ledger in `strategy_runner`, which sums `pre_qty`.\n\nIts third consumer, `snapshot_bin_inventory`, is GONE \u2014 `bin_inventory` was pure redundancy\nonce `bin_placement` + `bin_eviction` + `picks` existed, and is no longer written.\n\nOnly non-empty bins are captured; empty bins are implicitly quantity=0 and are not written.",
       "is_async": false,
       "kind": "function",
       "signature": "(manager) -> dict"
@@ -2814,13 +2814,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(manager: object, batch_id: int, run_id: int=0) -> list"
-    },
-    "Optimization/metrics/Simulation_Analytics.py::snapshot_bin_inventory": {
-      "decorators": [],
-      "doc": "Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.\n\nCall immediately after DeferredPickSimulation.run() (Phase 2 complete).\n\nCovers three cases:\n  - Picked bins     : were in pre_snap; post_qty < pre_qty \u2014 always recorded.\n  - Untouched bins  : were in pre_snap; post_qty == pre_qty \u2014 only recorded\n                      when full_snapshot=True (first batch only).\n  - Reorder bins    : NOT in pre_snap; newly placed by check_reorders() \u2014\n                      always recorded (they represent a state change).\n\nWriting untouched bins on every batch (~2.4M rows for a large warehouse)\ndominated checkpoint time (~185\u2013308s per 10-batch checkpoint).  Recording\nonly changed bins drops this to ~100K rows/batch while preserving full\nreconstruction: set full_snapshot=True for the first batch of each run to\nestablish a complete baseline, then apply diffs batch-by-batch thereafter.\n\nVisualization query \u2014 inventory of one aisle at sim-time T (mid-batch):\n    WITH pre AS (\n        SELECT aisle_id, bayX, bayY, sku, pre_qty\n        FROM   bin_inventory WHERE run_id=? AND batch_id=?\n    ),\n    picks AS (\n        SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked\n        FROM   picker_events\n        WHERE  run_id=? AND batch_id=? AND aisle_id=? AND event_type='pick'\n          AND  time <= ?\n        GROUP  BY aisle_id, bayX, bayY\n    )\n    SELECT p.*, MAX(0, p.pre_qty - COALESCE(pk.picked,0)) AS qty_at_t\n    FROM   pre p LEFT JOIN picks pk USING (aisle_id, bayX, bayY)",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(manager: object, pre_snap: dict, batch_id: int, run_id: int=0, full_snapshot: bool=False) -> list"
     },
     "Optimization/metrics/Simulation_Analytics.py::sum_lift": {
       "decorators": [],
@@ -2895,7 +2888,7 @@
     },
     "Optimization/metrics/bin_recorder.py": {
       "decorators": [],
-      "doc": "bin_recorder.py \u2014 capture every bin mutation the simulation makes.\n\nCloses the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER\nrestocks \u2014 `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in\nit at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a\nproduction arm: **0 rows** with `post_qty > pre_qty` against 20k-42k `reorder_placements` per\nbatch, so replaying the delta stream only ever decays \u2014 losing 59% of the warehouse within five\nbatches of a keyframe.\n\nWhat makes this complete\n------------------------\nBin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to\neither finds six lines across five sites, one of them dead code:\n\n    Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)\n    inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)\n    fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)\n    Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a\n\nSo PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded \u2014\n`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.\n`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live\nsimulation: folding the log reproduces the warehouse's own bins at every batch and at every\nsim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a\nsixth mutation site ever appears.\n\nHow it attaches\n---------------\nBy rebinding two bound methods on the manager **instance** \u2014 no edits to `Warehouse/`, and a\nstrategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint\nall three placement call sites reach through `self.`. Same technique as\n`Diagnostics/trace_lifecycle.py`.\n\nTime resolution\n---------------\n`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`\nruns entirely between one batch's picks and the next batch's simulation, so no finer ordering\nexists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.",
+      "doc": "bin_recorder.py \u2014 capture every bin mutation the simulation makes.\n\nCloses the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER\nrestocks \u2014 `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in\nit at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a\nproduction arm: **0 rows** with `post_qty > pre_qty` against 20k-42k `reorder_placements` per\nbatch, so replaying the delta stream only ever decays \u2014 losing 59% of the warehouse within five\nbatches of a keyframe.\n\nWhat makes this complete\n------------------------\nBin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to\neither finds six lines across five sites, one of them dead code:\n\n    Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)\n    inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)\n    fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)\n    Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a\n\nSo PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded \u2014\n`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.\n`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live\nsimulation: folding the log reproduces the warehouse's own bins at every batch and at every\nsim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a\nsixth mutation site ever appears.\n\nHow it attaches\n---------------\nBy rebinding two bound methods on the manager **instance** \u2014 no edits to `Warehouse/`, and a\nstrategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint\nall three placement call sites reach through `self.`. Same technique as\n`Diagnostics/trace_lifecycle.py`.\n\nTime resolution\n---------------\n`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`\nruns entirely between one batch's picks and the next batch's simulation, so no finer ordering\nexists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.\n\nChecked at runtime, not only in tests\n-------------------------------------\n`units_placed` / `units_evicted` feed the per-batch conservation ledger in\n`Optimization/simdriver/strategy_runner.py`:\n\n    units_placed - units_evicted - units_picked  ==  units currently sitting in bins\n\non every batch of every real run. The completeness argument above is structural; that ledger is\nwhat turns it into something a production sweep re-proves for itself.",
       "kind": "module",
       "signature": null
     },
@@ -2981,7 +2974,7 @@
       "decorators": [
         "dataclass"
       ],
-      "doc": null,
+      "doc": "One archived `bin_inventory` row.  **ARCHIVE-ONLY \u2014 no run writes this table any more.**\n\nKept, with `load_bin_inventory`, because the ~500 GB archive predates the bin-mutation log\nand `bin_inventory` is the only depletion record those files will ever have.  New runs record\n`bin_placement` + `bin_eviction` + `picks` instead, which reconstruct bin state exactly at\nevery batch rather than approximately between keyframes.",
       "kind": "class",
       "signature": ""
     },
@@ -3028,7 +3021,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6')))"
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb')))"
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -3079,27 +3072,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_be_bin\\n ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)\\n'"
-    },
-    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_inventory (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER ..."
-    },
-    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_AISLE_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle\\n ON bin_inventory (run_id, batch_id, aisle_id)\\n'"
-    },
-    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_INVENTORY_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bi_run_batch\\n ON bin_inventory (run_id, batch_id)\\n'"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_KEYFRAME": {
       "decorators": [],
@@ -3348,7 +3320,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_bin_inventory": {
       "decorators": [],
-      "doc": "Load BinInventoryRecord rows, optionally filtered to one batch or aisle.",
+      "doc": "Load BinInventoryRecord rows from an ARCHIVED run, optionally filtered to batch/aisle.\n\nLEGACY/ARCHIVE-ONLY.  The table is no longer written by any run; a DB produced by this\nbuild has no `bin_inventory` at all and this raises `sqlite3.OperationalError`.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int | None=None, aisle_id: int | None=None) -> list"
@@ -3426,13 +3398,6 @@
     "Optimization/persistence/Picking_Data.py::save_bin_evictions": {
       "decorators": [],
       "doc": "Persist EVICT events.  Zero rows on a `norsl` arm, which is every shipped arm today.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, run_id: int, records: list) -> None"
-    },
-    "Optimization/persistence/Picking_Data.py::save_bin_inventory": {
-      "decorators": [],
-      "doc": "Persist pre/post batch bin inventory snapshots.\n\nEach record covers one non-empty bin for one batch: pre_qty is the\nquantity after check_reorders() (before picks), post_qty is the\nquantity after all picks are applied.  Bins empty throughout are omitted.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list) -> None"
@@ -3621,7 +3586,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'inv-snapshot'), ('save_s', 'DB-save')]"
+      "value_preview": "[('reord_s', 'reorder'), ('build_s', 'batch-build'), ('pre_s', 'pre-snapshot'), ('sim_s', 'sim'), ('extract_s', 'extract'), ('inv_s', 'bin-accounting'), ('save_s', 'DB-save')]"
     },
     "Optimization/persistence/runtime_metrics.py::_ALL_DDL": {
       "decorators": [],
@@ -5441,7 +5406,7 @@
       "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).",
       "is_async": false,
       "kind": "function",
-      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=5, warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -> dict"
+      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=CONFIG['global']['keyframe_interval'], warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -> dict"
     },
     "Optimization/simdriver/sim_assets.py::build_shared_assets._agg_cap": {
       "decorators": [],
@@ -6274,7 +6239,7 @@
     },
     "Visualization/readers/base.py": {
       "decorators": [],
-      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71, and `state_at` has three implementations of\nit because a run can carry three different records:\n\n  1. **span index** \u2014 a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One\n     indexed lookup per frame, exact at every batch.\n  2. **live log fold** \u2014 the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take\n     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.\n  3. **keyframe + picks** \u2014 the pre-log archive.  `bin_inventory` records picks and *never*\n     restocks, so rolling deltas forward loses 59% of a real warehouse within five batches; this\n     path is exact only AT a keyframe and says `exact: false` everywhere else.\n\nWhich one served a frame is visible in the payload: `exact` is the honest answer, never the\nconvenient one.",
+      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71, and `state_at` has three implementations of\nit because a run can carry three different records:\n\n  1. **span index** \u2014 a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One\n     indexed lookup per frame, exact at every batch.\n  2. **live log fold** \u2014 the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take\n     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.\n  3. **keyframe + picks** \u2014 the pre-log archive.  Its `bin_inventory` (a table no run writes any\n     more) records picks and *never* restocks, so rolling deltas forward loses 59% of a real\n     warehouse within five batches; this path is exact only AT a keyframe and says\n     `exact: false` everywhere else.\n\nWhich one served a frame is visible in the payload: `exact` is the honest answer, never the\nconvenient one.",
       "kind": "module",
       "signature": null
     },
@@ -6363,7 +6328,7 @@
     },
     "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes": {
       "decorators": [],
-      "doc": "Last-resort path: a PRE-LOG run written with keyframe_interval=0.\n\nStill reachable, and not dead code: it is the only record such an arm has. A run with a\nbin-mutation log never lands here \u2014 `_state_from_log` folds it from an empty warehouse\ninstead, exactly, with no keyframe needed.\n\n`bin_inventory` holds one full snapshot (at the run's FIRST batch, which is not\nnecessarily 0 on a resumed run) and depletion-only deltas after it.  Ordering is by\n`batch_id, id`: the loop is last-write-wins and a bin can receive rows from two\nbranches in one batch, so `batch_id` alone is not a total order.",
+      "doc": "Last-resort path: an ARCHIVED run written with keyframe_interval=0.\n\nStill reachable, and not dead code: it is the only record such an arm has.  A run from\nthis build never lands here twice over \u2014 it has a log, so `_state_from_log` folds it from\nan empty warehouse exactly, and `bin_inventory` is not even in its schema.\n\n`bin_inventory` (archive-only; no longer written) holds one full snapshot at the run's\nFIRST batch \u2014 not necessarily 0 on a resumed run \u2014 and depletion-only deltas after it.\nOrdering is by `batch_id, id`: the loop is last-write-wins and a bin can receive rows\nfrom two branches in one batch, so `batch_id` alone is not a total order.\n\nThe table's ABSENCE is a normal outcome, not an error: it means the file is new enough\nto have no such record and old enough (keyframe_interval=0) to have no keyframe either.\nSay so, rather than raising `no such table` at a caller three layers up.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch: int, aisles, t) -> dict"
@@ -6800,7 +6765,7 @@
     },
     "Visualization/readers/sim_2026_07.py": {
       "decorators": [],
-      "doc": "sim_2026_07.py \u2014 the vetted reader for the current sim-DB schema.\n\nCovers the ten-table shape carrying `picks`, `picker_events`, `bin_inventory`, `bin_scores`,\n`sku_scores`, `aisle_metrics`, `reorder_queue`, `batch_stats`, `task_stats` and\n`simulation_runs`, alongside the one-table `bin_keyframe` sidecar file.\n\nTwo ids, one reader\n-------------------\n`SCHEMA_IDS` holds both the pre- and post-stamp shapes.  They differ by exactly one nullable\ncolumn \u2014 `simulation_runs.sim_schema_id`, added so future runs record their own identity \u2014 and\nnothing here reads it, so a single implementation is correct for both.  Splitting them into two\nmodules would duplicate ~400 lines to express \"one column the reader ignores\".\n\nThe PRE-stamp id is frozen as a literal on purpose.  Every run in the archive has that shape,\nthose files will never be rewritten (the current sweep alone is ~500 GB), and the id cannot be\nrecomputed from today's source once the column exists.  It is not a magic number: it was derived\nwith `Picking_Data.observed_sim_schema_id` against the production run and matched the declared id\nof the source at that commit.\n\nOlder shapes are UNSUPPORTED, deliberately.  A viewer that guesses at columns draws a\nplausible-looking warehouse that is quietly wrong; `UnsupportedSimSchema` names what differs.",
+      "doc": "sim_2026_07.py \u2014 the vetted reader for the current sim-DB schema.\n\nCovers the shape carrying `picks`, `picker_events`, `bin_placement`, `bin_eviction`,\n`bin_scores`, `sku_scores`, `aisle_metrics`, `reorder_queue`, `batch_stats`, `task_stats` and\n`simulation_runs`, alongside the one-table `bin_keyframe` sidecar file \u2014 and every earlier shape\nstill sitting in the archive, including the ones carrying `bin_inventory`.\n\nFour ids, one reader\n--------------------\n`SCHEMA_IDS` is `SIM_DB_FAMILY.supported_ids()` rather than a literal tuple, so the reader\nregistry and the family registry cannot disagree about which files are readable \u2014 a divergence\nwould surface as `UnsupportedSimSchema` on a file the writer considers perfectly current.\n\nThe four shapes differ only in tables and columns THIS READER TREATS AS OPTIONAL: the\n`simulation_runs.sim_schema_id` stamp column (nothing here reads it), the `bin_placement` /\n`bin_eviction` log (the reader probes for it and falls back to keyframes), and `bin_inventory`\n(the reverse \u2014 archive-only, probed for on the last-resort path). One implementation is correct\nfor all four; splitting them would duplicate ~400 lines to express \"columns the reader ignores\".\n\nThe PRE-stamp id is frozen as a literal on purpose.  Every run in the ~500 GB archive has that\nshape, those files will never be rewritten, and the id cannot be recomputed from today's source\nonce the column exists.  It is not a magic number: it was derived with\n`Picking_Data.observed_sim_schema_id` against the production run and matched the declared id of\nthe source at that commit.\n\nShapes older still are UNSUPPORTED, deliberately.  A viewer that guesses at columns draws a\nplausible-looking warehouse that is quietly wrong; `UnsupportedSimSchema` names what differs.",
       "kind": "module",
       "signature": null
     },
@@ -7068,7 +7033,7 @@
       "decorators": [
         "app.route('/api/state')"
       ],
-      "doc": "Occupied bins at (batch, t).  Carries `exact` and `restocks_pending`.\n\nExact only at a keyframe batch: `bin_inventory` never records restocks, so an in-between\nframe is depletion-exact and missing that stretch's restocks.  The payload says so; the UI\nmust show it rather than drawing a plausible warehouse.",
+      "doc": "Occupied bins at (batch, t).  Carries `exact` and `restocks_pending`.\n\nExact at EVERY batch for a run carrying the bin-mutation log \u2014 `state_at` folds\n`bin_placement` + `bin_eviction` + `picks`, which is the complete record of bin state.\n\nFor an ARCHIVED arm (no log) it is exact only at a keyframe batch: that vintage's\n`bin_inventory` never records restocks, so an in-between frame is depletion-exact and\nmissing that stretch's restocks.  The payload says which it got; the UI must show it rather\nthan drawing a plausible warehouse.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -9782,10 +9747,17 @@
       "decorators": [
         "staticmethod"
       ],
-      "doc": "Decompose a Batch into one Task per aisle.\n\nFor each SKU in the batch, singleton bins are drained before pallet bins\nso that forward-pick locations are always preferred over reserve locations.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.",
+      "doc": "Decompose a Batch into one Task per aisle.\n\nFor each SKU in the batch, singleton bins are drained before pallet bins\nso that forward-pick locations are always preferred over reserve locations.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.\n\nDETERMINISM \u2014 the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`\ndefines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in\nMEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch\nquantity drains \u2014 the normal case \u2014 that order decides WHICH bins are taken,\nhence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the\naddresses differ per process, so two identical-seed runs of the same arm used to\nproduce different `batch_stats`.  Iterating in `location` order \u2014 the canonical\n(aisle_id, bayX, bayY) spatial key persisted everywhere \u2014 makes the selection a\npure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see\n`Tests/unit/test_task_bin_selection_determinism.py`.",
       "is_async": false,
       "kind": "function",
       "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart) -> list[Task]"
+    },
+    "Warehouse/picking/Workload_Builder.py::_bin_location": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "operator.attrgetter('location')"
     },
     "Warehouse/picking/Workload_Builder.py::_get_partner_map": {
       "decorators": [],

@@ -52,7 +52,17 @@ Time resolution
 ---------------
 `(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`
 runs entirely between one batch&#x27;s picks and the next batch&#x27;s simulation, so no finer ordering
-exists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.</section>
+exists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.
+
+Checked at runtime, not only in tests
+-------------------------------------
+`units_placed` / `units_evicted` feed the per-batch conservation ledger in
+`Optimization/simdriver/strategy_runner.py`:
+
+    units_placed - units_evicted - units_picked  ==  units currently sitting in bins
+
+on every batch of every real run. The completeness argument above is structural; that ledger is
+what turns it into something a production sweep re-proves for itself.</section>
 <section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder.html"><code>BinRecorder</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder___init__.html"><code>__init__</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach__execute_placement.html"><code>_execute_placement</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach.html"><code>attach</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_begin_batch.html"><code>begin_batch</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_drain.html"><code>drain</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_bin_recorder_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/bin_recorder.py">Source ↗</a></p>
 </article>

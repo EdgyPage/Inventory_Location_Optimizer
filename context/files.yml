@@ -372,7 +372,6 @@ files:
       - {name: "build_placed_affinity", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "snapshot_aisle_metrics", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "build_pre_snapshot", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
-      - {name: "snapshot_bin_inventory", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "extract_picker_events", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "task_time_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "task_travel_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
@@ -429,7 +428,6 @@ files:
       - {name: "save_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_picks", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1075,6 +1073,10 @@ files:
       - {name: "test_dropping_placements_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_dropping_evictions_breaks_the_fold", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_placement_seq_never_collides_within_a_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "ledger", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_the_ledger_scenario_exercises_all_three_terms", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_conservation_holds_at_every_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+      - {name: "test_the_ledger_breaks_when_a_mutation_goes_unrecorded", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
     notes: ""
   "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
@@ -1217,10 +1219,10 @@ files:
       - {name: "test_warehouse_fingerprint_is_order_independent", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_aisle_layout_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_keyframe_db_path_and_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_pick_depletion_is_fully_accounted", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_untouched_bin_writes_no_row_unless_full_snapshot", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_restock_writes_no_delta_row", file: "Tests/integration/test_visualization_data.py", kind: "function"}
-      - {name: "test_rolling_deltas_from_a_keyframe_loses_restocked_bins", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_archived_pick_depletion_is_fully_accounted", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_archived_untouched_bin_writes_no_row_unless_full_snapshot", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_archived_restock_writes_no_delta_row", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_archived_rolling_deltas_from_a_keyframe_loses_restocked_bins", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_reconstruction_query_is_exact_at_a_keyframe", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_batch_list_comes_from_batch_stats_not_a_range", file: "Tests/integration/test_visualization_data.py", kind: "function"}
     notes: ""
@@ -1540,6 +1542,7 @@ files:
       - {name: "PRE_STAMP_SCHEMA_ID", file: "Tests/unit/test_sim_schema_id.py", kind: "const"}
       - {name: "test_declared_equals_observed_on_a_fresh_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_declared_shape_covers_every_table_the_viewer_reads", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+      - {name: "test_bin_inventory_is_no_longer_declared", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_create_run_stamps_the_declared_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_an_explicit_identity_still_wins", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_adding_a_column_changes_the_id", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
@@ -1556,6 +1559,16 @@ files:
       - {name: "test_verify_catches_a_lying_pin", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_names_the_actual_difference", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_is_empty_for_an_unchanged_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_task_bin_selection_determinism.py":
+    purpose: "test_task_bin_selection_determinism.py"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_decomposition_is_invariant_to_index_order", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_drains_the_lowest_location_bins_including_the_partial_take", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_singletons_still_drain_before_pallets", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_real_manager_matches_the_canonical_expectation", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_manager_and_fallback_branches_agree", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
     notes: ""
   "Tests/unit/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"

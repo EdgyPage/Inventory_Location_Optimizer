@@ -13,11 +13,16 @@
 <nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a> <span class="sep">›</span> <span class="here"><code>BinInventoryRecord</code></span></nav>
 <h1><span class="kind kind-class">class</span> <code>BinInventoryRecord</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>@dataclass
 class BinInventoryRecord</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__snapshot_bin_inventory.html"><code>snapshot_bin_inventory</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_bin_inventory.html"><code>load_bin_inventory</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
+<section class="doc">One archived `bin_inventory` row.  **ARCHIVE-ONLY — no run writes this table any more.**
+
+Kept, with `load_bin_inventory`, because the ~500 GB archive predates the bin-mutation log
+and `bin_inventory` is the only depletion record those files will ever have.  New runs record
+`bin_placement` + `bin_eviction` + `picks` instead, which reconstruct bin state exactly at
+every batch rather than approximately between keyframes.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__load_bin_inventory.html"><code>load_bin_inventory</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__BinInventoryRecord">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=class%20BinInventoryRecord">Source ↗</a></p>
 </article>
 </main>

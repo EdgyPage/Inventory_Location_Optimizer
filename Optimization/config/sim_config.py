@@ -137,7 +137,14 @@ CONFIG = {
         'n_batches'       : 100,
         'workers'         : 1,
         'checkpoint_frac' : 0.1,     # checkpoint every ceil(n_batches * frac) batches
-        'keyframe_interval': 5,
+        # Keyframes are no longer how spatial state is RECONSTRUCTED — bin_placement +
+        # bin_eviction + picks fold to exact bin state at every batch, with no keyframe
+        # involved.  What a keyframe is now: an INDEPENDENT audit of that fold (the viewer
+        # compares the two) and a quantity anchor that bounds a pick scan to one interval.
+        # Neither job needs 5: that wrote 20 full-warehouse snapshots per 100-batch arm,
+        # ~3.1M rows, to re-answer a question the log answers exactly.  25 keeps both roles
+        # at a fifth of the cost.  0 still disables the sidecar entirely.
+        'keyframe_interval': 25,
         'max_skus'        : None,    # global input-catalog cap (preserves the store/ff mix)
     },
     'channels': {

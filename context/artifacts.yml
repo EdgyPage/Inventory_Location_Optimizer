@@ -143,10 +143,13 @@ artifacts:
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "sim_"
     schema_file: Optimization/persistence/Picking_Data.py
-    # bin_placement / bin_eviction are the bin-mutation log: bin_inventory records picks
-    # and never restocks, so those two are what make spatial state reconstructible.
+    # bin_placement / bin_eviction are the bin-mutation log, and with picks they make spatial
+    # state exactly reconstructible at every batch.  `bin_inventory` is retired: it recorded
+    # picks and never restocks, and picks already hold every decrement at finer resolution.
+    # It is absent here because this list is what a run WRITES — archived DBs still carry the
+    # table and load_bin_inventory still reads them.
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
-             bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores,
+             aisle_metrics, reorder_queue, bin_scores, sku_scores,
              bin_placement, bin_eviction]
 
   keyframes_db:

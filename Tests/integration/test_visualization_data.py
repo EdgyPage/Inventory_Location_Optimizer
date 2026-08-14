@@ -14,14 +14,22 @@ fact* about a production run, pinned here as executable assertions:
      accounts for picks and nothing else.
   3. **A restocked-but-not-picked bin produces NO `bin_inventory` row.**  `check_reorders()` runs
      before `build_pre_snapshot`, so the bin is already in `pre_snap` at its post-restock quantity,
-     and `snapshot_bin_inventory`'s `post_qty == pre_qty` skip then drops it.
+     and the writer's `post_qty == pre_qty` skip then drops it.
   4. Therefore rolling `post_qty` deltas forward from a keyframe **loses every restocked bin** —
      on a real 100-batch run that is 59% of the warehouse by the 5th batch.
 
-(3) and (4) assert the CURRENT, buggy writer behaviour on purpose. The fix (emit a row whenever a
-bin's sku changes, instead of relying on `manager._unavailable`) would make these tests fail — which
-is the point: it must be a deliberate change with the reader updated in the same commit, not a
-silent one that leaves the viewer's keyframe-canonical contract quietly over-conservative.
+(2), (3) and (4) describe the **ARCHIVE**, and they are still true of it
+------------------------------------------------------------------------
+`bin_inventory` is no longer written: `bin_placement` + `bin_eviction` + `picks` reconstruct bin
+state exactly at every batch, so the table was pure redundancy and its writer
+(`Simulation_Analytics.snapshot_bin_inventory`) is deleted. These three tests are **kept, not
+deleted**, because ~500 GB of archived runs carry that table and `load_bin_inventory` still reads
+them — so what these properties describe is what a reader must still expect from those files.
+They are the reason the log exists; deleting them would delete the argument.
+
+They therefore run against `_archived_snapshot_bin_inventory` below — a frozen transcription of
+the retired writer, not a stub. If it ever disagrees with the archive, these tests stop meaning
+anything, which is why it is copied verbatim rather than reimplemented.
 
     python -m pytest Tests/integration/test_visualization_data.py -q
 """
@@ -33,7 +41,7 @@ import tempfile
 
 from Optimization.persistence.Picking_Data import (
     init_run_db, create_run, find_run, run_identity,
-    save_batch_stats, load_batch_stats, BatchStats,
+    save_batch_stats, load_batch_stats, BatchStats, BinInventoryRecord,
     init_keyframe_db, save_bin_keyframe, keyframe_db_path,
     save_reorder_queue, load_reorder_queue,
     save_bin_scores, load_bin_scores, save_sku_scores, load_sku_scores,
@@ -42,11 +50,60 @@ from Optimization.persistence.Picking_Data import (
 from Optimization.persistence.Warehouse_Data import (
     init_warehouse_db, save_aisle_layout, compute_warehouse_fingerprint,
 )
-from Optimization.metrics.Simulation_Analytics import (
-    build_pre_snapshot, snapshot_bin_inventory,
-)
+from Optimization.metrics.Simulation_Analytics import build_pre_snapshot
 
 _TOL = 1e-9
+
+
+# ── the retired writer, frozen ───────────────────────────────────────────────────
+#
+# Verbatim transcription of `Simulation_Analytics.snapshot_bin_inventory` as it stood when it was
+# deleted — the function that wrote every `bin_inventory` table in the archive.  It lives here
+# because the properties below are claims about THOSE FILES, and a claim about a file needs the
+# code that produced it, not a paraphrase.  It must never be "improved": the archive cannot be
+# rewritten, so a fix here would only make the tests describe a run that does not exist.
+#
+# `build_pre_snapshot` is imported from production, not copied, because it is still live — the
+# keyframe writer and the runner's conservation ledger both use it.
+
+def _archived_snapshot_bin_inventory(manager, pre_snap, batch_id, run_id=0, full_snapshot=False):
+    """Merge pre-snapshot with post-simulation bin state into BinInventoryRecords.
+
+    Three cases, exactly as the archive's writer handled them:
+      - Picked bins    : in pre_snap, post_qty < pre_qty — always recorded.
+      - Untouched bins : in pre_snap, post_qty == pre_qty — recorded only on full_snapshot.
+      - Reorder bins   : NOT in pre_snap, newly placed by check_reorders() — always recorded.
+
+    The middle case is the whole bug: a bin restocked between batches is ALREADY in pre_snap at
+    its post-restock quantity, so it takes the untouched branch and the restock leaves no trace.
+    """
+    from Warehouse.layout.Storage_Primitive import Singleton
+
+    records = []
+    for _bin_id, info in pre_snap.items():
+        bin_ = info['bin_ref']
+        post_qty = bin_.storage.quantity if bin_.storage is not None else 0
+        if not full_snapshot and post_qty == info['pre_qty']:
+            continue   # unchanged bin — skipped to minimise write volume
+        records.append(BinInventoryRecord(
+            run_id=run_id, batch_id=batch_id,
+            aisle_id=info['aisle_id'], bayX=info['bayX'], bayY=info['bayY'],
+            sku=info['sku'], unit_type=info['unit_type'], storage_size=info['storage_size'],
+            pre_qty=info['pre_qty'], post_qty=post_qty))
+
+    # Bins empty before this batch that received a reorder: in _unavailable, not in pre_snap.
+    for bin_ in manager._unavailable.values():
+        if id(bin_) in pre_snap or bin_.storage is None:
+            continue
+        records.append(BinInventoryRecord(
+            run_id=run_id, batch_id=batch_id,
+            aisle_id=bin_.location[0], bayX=bin_.bayX, bayY=bin_.bayY,
+            sku=bin_.storage.order.sku,
+            unit_type='singleton' if isinstance(bin_.storage, Singleton) else 'pallet',
+            storage_size=bin_.storage_size,
+            pre_qty=bin_.storage.quantity, post_qty=bin_.storage.quantity))
+
+    return records
 
 
 def _tmp(name):
@@ -55,7 +112,7 @@ def _tmp(name):
 
 # ── stubs for the snapshot writers ───────────────────────────────────────────────
 #
-# build_pre_snapshot / snapshot_bin_inventory duck-type over the manager's bins: they read
+# build_pre_snapshot and the archived writer duck-type over the manager's bins: they read
 # `_unavailable.values()`, then `bin_.storage`, `.location[0]`, `.bayX`, `.bayY`,
 # `.storage_size`, and `.storage.order.sku` / `.storage.quantity`.  Standing up a real
 # Inventory_Manager to exercise ~40 lines of snapshot logic would couple this test to placement;
@@ -280,13 +337,23 @@ def test_keyframe_db_path_and_roundtrip():
     assert qty == 16
 
 
-# ── RECONSTRUCTION.md §1 — the invariants the viewer is built on ─────────────────
+# ── RECONSTRUCTION.md §1 — what an ARCHIVED run's bin_inventory means ────────────
+#
+# Everything below is a statement about files already on disk, made with the writer that wrote
+# them (`_archived_snapshot_bin_inventory`).  Nothing here describes a run this build produces:
+# those carry `bin_placement` + `bin_eviction` + `picks` and no `bin_inventory` at all, and their
+# reconstruction is exact — see Tests/integration/test_bin_log_replay.py and
+# test_log_reconstruction.py.  These four remain because the archive is not going to be re-run,
+# and because they are the measured case FOR the log.
 
-def test_pick_depletion_is_fully_accounted():
-    """Invariant 2: a batch's delta stream accounts for picks and nothing else.
+def test_archived_pick_depletion_is_fully_accounted():
+    """Invariant 2, in the archive: a batch's delta stream accounts for picks and nothing else.
 
     Two bins start at 10; one is picked down to 4, one is untouched.  The recorded
     depletion must equal exactly the units picked.
+
+    This is the half `bin_inventory` got right, and the reason it could be retired without
+    losing information: `picks` already carries the same total, at sim_time resolution.
     """
     picked = _Bin(7, 2, 3, _Unit(sku=99, quantity=10))
     quiet = _Bin(7, 2, 4, _Unit(sku=98, quantity=10))
@@ -296,55 +363,67 @@ def test_pick_depletion_is_fully_accounted():
     assert len(pre_snap) == 2, 'both bins are non-empty at batch start'
 
     picked.storage.quantity = 4                       # 6 units picked during the batch
-    recs = snapshot_bin_inventory(mgr, pre_snap, batch_id=1, run_id=1, full_snapshot=False)
+    recs = _archived_snapshot_bin_inventory(mgr, pre_snap, batch_id=1, run_id=1,
+                                            full_snapshot=False)
 
     depletion = sum(r.pre_qty - r.post_qty for r in recs)
     assert depletion == 6, f'recorded depletion {depletion} != 6 units picked'
     assert all(r.post_qty <= r.pre_qty for r in recs), 'a delta row can never show a gain'
 
 
-def test_untouched_bin_writes_no_row_unless_full_snapshot():
-    """The delta table's whole reason to exist: unchanged bins are skipped."""
+def test_archived_untouched_bin_writes_no_row_unless_full_snapshot():
+    """The archived delta table's whole reason to exist: unchanged bins were skipped.
+
+    A reader of an archived file must not read "no row" as "no bin".
+    """
     quiet = _Bin(7, 2, 4, _Unit(sku=98, quantity=10))
     mgr = _Manager([quiet])
     pre_snap = build_pre_snapshot(mgr)
 
-    assert snapshot_bin_inventory(mgr, pre_snap, batch_id=1, run_id=1,
-                                  full_snapshot=False) == []
-    full = snapshot_bin_inventory(mgr, pre_snap, batch_id=0, run_id=1, full_snapshot=True)
+    assert _archived_snapshot_bin_inventory(mgr, pre_snap, batch_id=1, run_id=1,
+                                            full_snapshot=False) == []
+    full = _archived_snapshot_bin_inventory(mgr, pre_snap, batch_id=0, run_id=1,
+                                            full_snapshot=True)
     assert len(full) == 1 and full[0].pre_qty == full[0].post_qty
 
 
-def test_restock_writes_no_delta_row():
-    """Invariant 3 — the documented writer gap, pinned.
+def test_archived_restock_writes_no_delta_row():
+    """Invariant 3 — the writer gap that made the bin-mutation log necessary, pinned.
 
     A bin restocked by check_reorders() is ALREADY in pre_snap (reorders run first), at its
     post-restock quantity.  If nothing then picks from it, `post_qty == pre_qty` and the row is
-    skipped — so the restock is invisible in `bin_inventory`.  On the production run this is
+    skipped — so the restock is invisible in `bin_inventory`.  On the production run this was
     exact: 0 rows with post_qty > pre_qty against 20k-42k reorder_placements per batch.
 
-    If this test fails, the writer was fixed.  Good — but the reader's keyframe-canonical
-    contract (RECONSTRUCTION.md §1) must be revisited in the same commit.
+    This is asserted of the ARCHIVE, and it is permanent: the writer is gone and those files are
+    never rewritten, so anything reading a `bin_inventory` table must assume this forever.  It
+    was NOT "fixed" — it was superseded.  Current runs record `bin_placement`, where a restock
+    is an explicit row rather than an inference from a missing one.
     """
     restocked = _Bin(7, 5, 1, _Unit(sku=42, quantity=25))    # refilled before the snapshot
     mgr = _Manager([restocked])
     pre_snap = build_pre_snapshot(mgr)
 
-    recs = snapshot_bin_inventory(mgr, pre_snap, batch_id=3, run_id=1, full_snapshot=False)
+    recs = _archived_snapshot_bin_inventory(mgr, pre_snap, batch_id=3, run_id=1,
+                                            full_snapshot=False)
 
-    assert recs == [], 'a restocked-but-unpicked bin currently writes no delta row'
+    assert recs == [], 'a restocked-but-unpicked bin wrote no delta row in the archive'
     assert not any(r.post_qty > r.pre_qty for r in recs), (
-        'bin_inventory is a pure depletion log; a row showing a GAIN would mean the writer '
-        'was fixed and the reader must stop treating keyframes as the only restock signal')
+        'bin_inventory is a pure depletion log; a row showing a GAIN would mean this frozen '
+        'transcription has drifted from the writer that produced the archive')
 
 
-def test_rolling_deltas_from_a_keyframe_loses_restocked_bins():
-    """Invariant 4 — why keyframes are canonical, in miniature.
+def test_archived_rolling_deltas_from_a_keyframe_loses_restocked_bins():
+    """Invariant 4 — why keyframes were canonical in the archive, in miniature.
 
     Reproduces the production failure at 2-bin scale: replay the reader's old algorithm
     (keyframe + post_qty deltas) across a batch in which one bin was picked empty and another
     was restocked.  The restocked bin is missing from the rolled state and present in the
     next keyframe.  On the real run this gap is 97,248 of 165,519 bins (59%) after 5 batches.
+
+    For an archived arm this is still the best that record can do, which is why
+    `Visualization/readers/base.py` reports `exact: false` off a keyframe.  For a run from this
+    build the same frame is exact at every batch, folded from the log instead.
     """
     emptied = _Bin(7, 2, 3, _Unit(sku=99, quantity=4))
     restocked = _Bin(7, 5, 1, None)                          # empty at the batch-0 keyframe
@@ -362,7 +441,8 @@ def test_rolling_deltas_from_a_keyframe_loses_restocked_bins():
 
     pre_snap = build_pre_snapshot(mgr)
     emptied.storage.quantity = 0
-    deltas = snapshot_bin_inventory(mgr, pre_snap, batch_id=0, run_id=1, full_snapshot=False)
+    deltas = _archived_snapshot_bin_inventory(mgr, pre_snap, batch_id=0, run_id=1,
+                                              full_snapshot=False)
 
     # --- between batches: check_reorders() refills the other bin
     restocked.storage = _Unit(sku=42, quantity=25)

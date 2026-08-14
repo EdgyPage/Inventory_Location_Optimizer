@@ -69,10 +69,24 @@ def test_declared_equals_observed_on_a_fresh_db():
 def test_declared_shape_covers_every_table_the_viewer_reads():
     tables = declared_sim_schema_shape()['tables']
     expected = {'simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
-                'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores'}
+                'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
+                'bin_placement', 'bin_eviction'}
     assert expected <= set(tables), sorted(expected - set(tables))
     # No sqlite_-internal table may ever enter the hash.
     assert not [t for t in tables if t.startswith('sqlite_')]
+
+
+def test_bin_inventory_is_no_longer_declared():
+    """The sunset, pinned: this build must not CREATE the table it stopped writing.
+
+    `bin_inventory` was pure redundancy — it recorded picks and never restocks, and `picks`
+    already holds every decrement at sim_time resolution.  An empty table left behind by a
+    stray `CREATE TABLE IF NOT EXISTS` would be worse than none: `Diagnostics/replay_run` and
+    `Visualization/readers` both PROBE for it to decide which record a file carries, and an
+    empty one turns "this run has no such record" into "this run's record says nothing
+    happened".
+    """
+    assert 'bin_inventory' not in declared_sim_schema_shape()['tables']
 
 
 def test_create_run_stamps_the_declared_id():

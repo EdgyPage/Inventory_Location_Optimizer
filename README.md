@@ -63,9 +63,14 @@ each, which accounts for **99 %** of every DB:
 |---|---:|---|
 | `picker_events` | ~83 | items picked (≈ 2.14 events per pick) |
 | `bin_scores` | ~71 | total bins — fixed for the run |
-| `bin_inventory` | ~59 | bins × snapshots |
+| `bin_inventory` | ~59 | bins × snapshots — **retired; not written any more** |
 | `picks` | ~52 | items picked |
 | `sku_scores` | ~80 | SKUs in the channel |
+
+These sizes are of the ARCHIVE. Since then `bin_inventory` was dropped (it recorded picks and
+never restocks, and `picks` already held every decrement), `bin_placement` / `bin_eviction` were
+added, and the keyframe interval moved 5 → 25 — net **~36 % fewer rows per arm**, so the figures
+below are now an over-estimate for a fresh run.
 
 **The extrapolation.** Only two of those grow with run length, and at production scale they
 dominate — `picker_events` alone is ~69 % of the total. Rather than extrapolate the pick count
@@ -244,7 +249,7 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--n-batches` | (CONFIG: 100) | batches per run |
 | `--max-skus` | — | cap the catalogue for a smaller/faster warehouse |
 | `--s-max-bins` / `--ff-max-bins` | — | cap store / fulfillment bin counts (also `--s-min-bins`, `--ff-min-bins`, `--s-max-aisles`, `--ff-max-aisles`) |
-| `--keyframe-interval` | 5 | full bin snapshot every K batches (0 disables) |
+| `--keyframe-interval` | (CONFIG: 25) | full bin snapshot every K batches (0 disables). Not the reconstruction mechanism — the bin-mutation log is; a keyframe is its independent audit and a qty anchor |
 | `--max-tasks-per-child` | 1 | recycle a pool worker after N jobs |
 | `--resume` | — | resume from a run directory; flags are read back from `run_spec.json` |
 | `--resume-granularity` | `strategy` | `strategy` restarts a partial arm bit-identically; `batch` continues from checkpoint (faster, not bit-identical) |
@@ -339,10 +344,12 @@ Both take the **run root** (the directory holding `run_layout.json`), not a cell
 is optional — the viewer works without a cache, it is just slow on the three queries that need a
 full table scan. A full sweep is 272 arms, so `precompute` filters rather than defaulting to all.
 
-Two things worth knowing before trusting a frame: spatial state is **exact only at keyframe
-batches** (every 5th by default) because `bin_inventory` never records restocks, and the viewer
-labels any frame that is not; and only the arms whose schema has a vetted reader will open at all —
-anything else fails by name rather than guessing. Both are explained in
+Two things worth knowing before trusting a frame. Spatial state is **exact at every batch** for a
+run carrying the bin-mutation log (`bin_placement` + `bin_eviction` + `picks`), but only at
+keyframe batches for an **archived** arm, whose `bin_inventory` never recorded restocks — the
+payload says which record it used and the viewer labels any frame that is not exact. And only the
+arms whose schema has a vetted reader will open at all: anything else fails by name rather than
+guessing. Both are explained in
 [`Visualization/RECONSTRUCTION.md`](Visualization/RECONSTRUCTION.md).
 
 ---

@@ -18,9 +18,13 @@
 def api_state()</code></pre>
 <section class="doc">Occupied bins at (batch, t).  Carries `exact` and `restocks_pending`.
 
-Exact only at a keyframe batch: `bin_inventory` never records restocks, so an in-between
-frame is depletion-exact and missing that stretch&#x27;s restocks.  The payload says so; the UI
-must show it rather than drawing a plausible warehouse.</section>
+Exact at EVERY batch for a run carrying the bin-mutation log — `state_at` folds
+`bin_placement` + `bin_eviction` + `picks`, which is the complete record of bin state.
+
+For an ARCHIVED arm (no log) it is exact only at a keyframe batch: that vintage&#x27;s
+`bin_inventory` never records restocks, so an in-between frame is depletion-exact and
+missing that stretch&#x27;s restocks.  The payload says which it got; the UI must show it rather
+than drawing a plausible warehouse.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nVisualization_server_py___aisles_arg.html"><code>_aisles_arg</code></a> <span class="dim">Visualization/server.py</span></li><li><a href="nVisualization_server_py___float_arg.html"><code>_float_arg</code></a> <span class="dim">Visualization/server.py</span></li><li><a href="nVisualization_server_py___int_arg.html"><code>_int_arg</code></a> <span class="dim">Visualization/server.py</span></li><li><a href="nVisualization_server_py___reader.html"><code>_reader</code></a> <span class="dim">Visualization/server.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_server_py__api_state">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/server.py#:~:text=def%20api_state">Source ↗</a></p>
 </article>

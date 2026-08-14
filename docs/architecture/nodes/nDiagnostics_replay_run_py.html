@@ -30,7 +30,7 @@ it stays inside cp1252 — no box drawing here, unlike the section banners below
                                    bin_eviction    EVICT  |  the bin-mutation log:
                                    picks           PICK   |  fold -&gt; EXACT occupancy
                                    aisle_metrics   (n_bins occupied / aisle / batch)
-                                   bin_inventory   (pick deltas - legacy fallback)
+                                   bin_inventory   (pick deltas - ARCHIVED runs only)
                                    batch_stats     (duration / batch)
                                    simulation_runs (run params)
 
@@ -56,7 +56,9 @@ the failure this tool shipped with for its whole life.
    pick.  Only strategies that maintain aisle state write it at all — for a uniform-placement arm
    the table is empty, which is why the third source is what usually ran.
 
-3. `bin_inventory` deltas  -&gt;  **approximate and biased downward.**  The table records picks and
+3. `bin_inventory` deltas  -&gt;  **approximate and biased downward**, and no longer written at all:
+   only runs from the archive carry this table, and on a current DB source 1 always answers first.
+   The table records picks and
    NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is
    already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.
    Measured on a production arm: **0 rows** with `post_qty &gt; pre_qty` against 20,662-42,832

@@ -129,7 +129,10 @@ refused rather than drawn with aisle ids that silently mean different things.
 ## Cost, and where the numbers come from
 
 Sized against a production run — 384 aisles, 396,500 bins, 130,885 SKUs, 100 batches,
-`keyframe_interval=5`, ~1.0 GB sim DB + ~240 MB keyframes per arm:
+`keyframe_interval=5`, ~1.0 GB sim DB + ~240 MB keyframes per arm.  Those figures are from the
+ARCHIVE; a run at today's defaults writes no `bin_inventory` and keyframes every 25 batches, so
+both files are smaller (the keyframe sidecar by ~5x) while every frame is exact rather than only
+the keyframe ones:
 
 | Operation | Live | With a sidecar |
 |---|---|---|

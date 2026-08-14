@@ -79,7 +79,11 @@ SECTIONS = [
     ('pre_s',     'pre-snapshot'),
     ('sim_s',     'sim'),
     ('extract_s', 'extract'),
-    ('inv_s',     'inv-snapshot'),
+    # `inv_s` predates the bin-mutation log, when this section wrote the bin_inventory
+    # snapshot.  That table is gone; the section is now the per-batch conservation ledger.
+    # The COLUMN keeps its name so archived rows stay readable (and so relabelling does not
+    # move the runtime_metrics schema id); only the human label tracks what it measures.
+    ('inv_s',     'bin-accounting'),
     ('save_s',    'DB-save'),
 ]
 

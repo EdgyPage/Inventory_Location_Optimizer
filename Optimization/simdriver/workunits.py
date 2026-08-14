@@ -164,7 +164,10 @@ def _prepare_channel_run(
     with open(os.path.join(run_dir, 'config.json'), 'w') as f:
         json.dump(config_record, f, indent=2)
 
-    keyframe_interval = int(shared.get('keyframe_interval', 5) or 0)
+    # Fallback reads the declared default rather than a literal, so sim_config stays the one
+    # place the interval is chosen (see the note there on why it is no longer 5).
+    keyframe_interval = int(
+        shared.get('keyframe_interval', CONFIG['global']['keyframe_interval']) or 0)
     # Run configuration recorded per run for reconstruction/replay.
     run_params = dict(
         num_pickers       = pick_cfg.num_pickers,

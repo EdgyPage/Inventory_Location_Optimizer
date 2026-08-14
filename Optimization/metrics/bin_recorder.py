@@ -36,6 +36,16 @@ Time resolution
 `(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`
 runs entirely between one batch's picks and the next batch's simulation, so no finer ordering
 exists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.
+
+Checked at runtime, not only in tests
+-------------------------------------
+`units_placed` / `units_evicted` feed the per-batch conservation ledger in
+`Optimization/simdriver/strategy_runner.py`:
+
+    units_placed - units_evicted - units_picked  ==  units currently sitting in bins
+
+on every batch of every real run. The completeness argument above is structural; that ledger is
+what turns it into something a production sweep re-proves for itself.
 """
 from __future__ import annotations
 
@@ -53,6 +63,12 @@ class BinRecorder:
         self.run_id = run_id
         self.placements: list[BinPlacementRecord] = []
         self.evictions: list[BinEvictionRecord] = []
+        # Running UNIT totals for the whole arm.  Deliberately not derivable from the lists
+        # above: `drain()` empties those every checkpoint, and the conservation ledger in
+        # strategy_runner is cumulative-since-attach, so it needs a total that survives a flush.
+        # Two integer adds per event — nothing here scales with warehouse size.
+        self.units_placed = 0
+        self.units_evicted = 0
         self._batch = 0
         self._place_seq = 0
         self._evict_seq = 0
@@ -109,6 +125,7 @@ class BinRecorder:
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
                 aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause))
             self._place_seq += 1
+            self.units_placed += qty
 
         def requeue_bin(bin_, *args, **kwargs):
             unit = bin_.storage
@@ -124,6 +141,7 @@ class BinRecorder:
             if rec is not None:
                 self.evictions.append(rec)
                 self._evict_seq += 1
+                self.units_evicted += rec.qty
                 self._evicted_units.add(tag)
             return out
 

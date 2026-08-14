@@ -13,7 +13,7 @@ it stays inside cp1252 — no box drawing here, unlike the section banners below
                                    bin_eviction    EVICT  |  the bin-mutation log:
                                    picks           PICK   |  fold -> EXACT occupancy
                                    aisle_metrics   (n_bins occupied / aisle / batch)
-                                   bin_inventory   (pick deltas - legacy fallback)
+                                   bin_inventory   (pick deltas - ARCHIVED runs only)
                                    batch_stats     (duration / batch)
                                    simulation_runs (run params)
 
@@ -39,7 +39,9 @@ the failure this tool shipped with for its whole life.
    pick.  Only strategies that maintain aisle state write it at all — for a uniform-placement arm
    the table is empty, which is why the third source is what usually ran.
 
-3. `bin_inventory` deltas  ->  **approximate and biased downward.**  The table records picks and
+3. `bin_inventory` deltas  ->  **approximate and biased downward**, and no longer written at all:
+   only runs from the archive carry this table, and on a current DB source 1 always answers first.
+   The table records picks and
    NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is
    already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.
    Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832
@@ -108,7 +110,8 @@ _SOURCES: dict[str, dict] = {
     'bin_inventory': {
         'exact': False,
         'phase': "end-of-batch (after this batch's picks)",
-        'note': ('APPROXIMATE AND BIASED DOWNWARD. bin_inventory records picks and NEVER restocks '
+        'note': ('ARCHIVE-ONLY (no run writes this table any more). APPROXIMATE AND BIASED '
+                 'DOWNWARD. bin_inventory records picks and NEVER restocks '
                  '(check_reorders() runs before the pre-batch snapshot, and the post_qty==pre_qty '
                  'skip then drops the restocked bin): measured on a production arm, 0 rows with '
                  'post_qty > pre_qty against 20,662-42,832 reorder_placements per batch. Rolling '
@@ -272,10 +275,13 @@ def occupied_from_aisle_metrics(conn, run_id) -> dict[int, dict[int, int]]:
 def occupied_from_bin_inventory(conn, run_id) -> dict[int, dict[int, int]]:
     """APPROXIMATE fallback of last resort — see `_SOURCES['bin_inventory']`.
 
+    ARCHIVE-ONLY: `bin_inventory` is no longer written, so on a current DB this is unreachable —
+    `_occupancy` probes `bin_placement` first and the table is not even in the schema.  Reached
+    only for the ~500 GB of pre-log runs, which is exactly why it is kept.
+
     Rolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin
     count per aisle at the end of each recorded batch.  The stream contains picks and no restocks,
-    so the curve it produces can only ever fall; it is kept solely because the pre-`bin_placement`
-    archive has nothing better.
+    so the curve it produces can only ever fall.
     """
     rows = conn.execute(
         'SELECT batch_id, aisle_id, bayX, bayY, post_qty FROM bin_inventory '

@@ -17,12 +17,17 @@
 <pre class="sig"><code>def build_pre_snapshot(manager) -&gt; dict</code></pre>
 <section class="doc">Capture bin quantities before a batch simulation runs.
 
-Call immediately after check_reorders() and before DeferredPickSimulation.
-Returns a dict keyed by id(bin) holding all data needed to build a
-BinInventoryRecord once the post-simulation quantities are known.
+Call immediately after check_reorders() and before DeferredPickSimulation: the instant it
+describes is &quot;start of this batch, after the restock pass, before any pick&quot;.
 
-Only non-empty bins are captured; empty bins are implicitly quantity=0
-and are not written to the DB.</section>
+Returns a dict keyed by id(bin).  Two consumers, both live:
+  - the keyframe writer (`save_bin_keyframe`) — the independent audit of the log;
+  - the per-batch conservation ledger in `strategy_runner`, which sums `pre_qty`.
+
+Its third consumer, `snapshot_bin_inventory`, is GONE — `bin_inventory` was pure redundancy
+once `bin_placement` + `bin_eviction` + `picks` existed, and is no longer written.
+
+Only non-empty bins are captured; empty bins are implicitly quantity=0 and are not written.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py__build_pre_snapshot">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20build_pre_snapshot">Source ↗</a></p>
 </article>

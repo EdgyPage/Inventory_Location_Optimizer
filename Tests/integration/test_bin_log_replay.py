@@ -218,3 +218,95 @@ def test_placement_seq_never_collides_within_a_batch():
     for batch in {b for b, _ in keys}:
         seqs = [s for b, s in keys if b == batch]
         assert seqs == sorted(seqs), f'batch {batch}: seq not ascending'
+
+
+# ── the runtime conservation ledger ──────────────────────────────────────────────
+#
+# `strategy_runner` checks Σplaced − Σevicted − Σpicked == units-in-bins on every batch of every
+# real run, using `BinRecorder.units_placed` / `.units_evicted`.  That check is worth having only
+# if (a) it holds when the log is complete and (b) it FAILS when the log is not — a ledger that
+# cannot break is a ledger that proves nothing.  Both are asserted here, against a live sim, with
+# the same recorder the runner installs.
+
+@pytest.fixture(scope='module')
+def ledger():
+    """A reslotting run recorded by the PRODUCTION `BinRecorder`, with per-batch counter totals.
+
+    Reslot on purpose: eviction is the only term with no production data behind it (every
+    shipped arm is `norsl`), so a ledger tested without it never exercises its middle term.
+    """
+    from Optimization.metrics.bin_recorder import BinRecorder
+
+    inv, wh, mgr = H.build_scenario(n_skus=N_SKUS, seed=7)
+    rec = BinRecorder(run_id=1)
+    rec.attach(mgr)
+    log = H.BinLog()
+    log._state = {'batch': 0, 'place_seq': 0, 'evict_seq': 0, 'evicted_units': set()}
+    original = H.begin_batch
+    H.begin_batch = lambda l, b: (original(l, b), rec.begin_batch(b))
+    try:
+        frames = H.run_sim(inv, wh, mgr, log, n_batches=N_BATCHES,
+                           reloader=H.make_reloader(move_limit_pct=0.5))
+    finally:
+        H.begin_batch = original
+    return rec, log, frames
+
+
+def test_the_ledger_scenario_exercises_all_three_terms(ledger):
+    """Vacuity guard: a ledger of 0 − 0 − 0 == 0 would pass every assertion below."""
+    rec, log, _frames = ledger
+
+    assert rec.units_placed > 0 and rec.units_evicted > 0 and sum(k.qty for k in log.picks) > 0
+    # The running counters must agree with the rows that get persisted — they are maintained
+    # separately (the lists are drained every checkpoint, the counters are not).
+    assert rec.units_placed == sum(p.qty for p in rec.placements)
+    assert rec.units_evicted == sum(e.qty for e in rec.evictions)
+
+
+def test_conservation_holds_at_every_batch(ledger):
+    """Σplaced − Σevicted − Σpicked == units in bins, at the runner's own measurement instant.
+
+    That instant is start-of-batch after the restock pass and before any pick — exactly what
+    `run_sim` captures as `after_reorders`, and exactly where `strategy_runner` sums `pre_snap`.
+    So the terms are: everything placed and evicted up to and including batch `b`, minus
+    everything picked in the batches strictly before it.
+    """
+    rec, log, frames = ledger
+
+    for b, after_reorders, _final, _max_t in frames:
+        occupancy = sum(qty for _sku, qty in after_reorders.values())
+        placed  = sum(p.qty for p in rec.placements if p.batch_id <= b)
+        evicted = sum(e.qty for e in rec.evictions if e.batch_id <= b)
+        picked  = sum(k.qty for k in log.picks if k.batch < b)
+
+        assert placed - evicted - picked == occupancy, (
+            f'batch {b}: ledger {placed - evicted - picked:,} vs {occupancy:,} units in bins '
+            f'(placed {placed:,}, evicted {evicted:,}, picked {picked:,})')
+
+
+def test_the_ledger_breaks_when_a_mutation_goes_unrecorded(ledger):
+    """The negative control — the property that makes the runtime check load-bearing.
+
+    Drop one placement from the record, as an unwrapped sixth mutation site would, and the
+    ledger must stop closing.  Without this the test above could be passing because both sides
+    are computed from the same numbers.
+    """
+    rec, log, frames = ledger
+
+    victim = max(rec.placements, key=lambda p: p.qty)
+    crippled = [p for p in rec.placements if p is not victim]
+    assert len(crippled) == len(rec.placements) - 1
+
+    broken = []
+    for b, after_reorders, _final, _max_t in frames:
+        if b < victim.batch_id:
+            continue                    # the drop cannot affect a batch before it happened
+        occupancy = sum(qty for _sku, qty in after_reorders.values())
+        placed  = sum(p.qty for p in crippled if p.batch_id <= b)
+        evicted = sum(e.qty for e in rec.evictions if e.batch_id <= b)
+        picked  = sum(k.qty for k in log.picks if k.batch < b)
+        broken.append(placed - evicted - picked != occupancy)
+
+    assert broken and all(broken), (
+        'dropping a recorded placement left the ledger balanced — it cannot detect an '
+        'unrecorded bin mutation, which is the only reason it exists')

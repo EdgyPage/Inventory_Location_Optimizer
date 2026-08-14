@@ -3,8 +3,8 @@
 Everything needed to replay a finished run is persisted by `run_simulation.py` — no live sim and no
 warehouse re-plan. This documents **where each piece lives, what is exact, and what is not**.
 
-Read §1 before writing any query against `bin_inventory`. The obvious reading of that table is
-wrong, and it is wrong by ~59% of the warehouse.
+Read §1 before writing any query against `bin_inventory`. That table is **archive-only** — no run
+writes it any more — and the obvious reading of it is wrong by ~59% of the warehouse.
 
 The DB-backed web viewer that consumes these is `server.py` (Flask over the versioned readers in
 `readers/`) + `static/` (canvas views). Run it with:
@@ -23,27 +23,30 @@ falls back to `$COMPARISON_OUTPUT_DIR`.
 
 ## 1. The reconstruction contract — keyframes are canonical
 
-> **Superseded for runs that carry the bin-mutation log.** `sim_<arm>.db` now also holds
+> **SUPERSEDED. This section is now a description of the archive only.** `sim_<arm>.db` holds
 > `bin_placement` + `bin_eviction`, which together with `picks` are the COMPLETE record of bin
 > state (`Optimization/metrics/bin_recorder.py`). Folding them reproduces the simulation's own
 > bins at **every** batch, so `state_at` returns `exact: true` everywhere and
 > `Visualization/precompute.py` builds `bin_span` from the log rather than from the keyframes.
 > Keyframes are retained as the independent audit and as a qty anchor, not as the reconstruction
-> mechanism.
+> mechanism — which is why the interval moved from 5 to 25.
 >
-> Everything below still describes **the archive** — every arm written before that change, which
-> is ~500 GB of runs that will never be rewritten. Both paths ship; `cache_meta.span_source` and
-> the `bin_log` capability say which one a given arm gets, and the reader reports `exact: false`
-> for the second exactly as it always did.
+> `bin_inventory` was then pure redundancy and **is no longer written**: its writer is deleted and
+> the table is not in the schema a current run creates. `load_bin_inventory` and the reader paths
+> below survive because ~500 GB of arms predate the log and will never be rewritten. Both paths
+> ship; `cache_meta.span_source` and the `bin_log` capability say which one a given arm gets, and
+> the reader reports `exact: false` for the archived one exactly as it always did.
 
-### `bin_inventory` is a pure DEPLETION log. It never records a restock.
+### `bin_inventory` is a pure DEPLETION log. It never records a restock.  (archive)
 
 `Optimization/simdriver/strategy_runner.py` calls `check_reorders()` **before**
 `build_pre_snapshot(mgr)`, so a bin restocked this batch is already in `pre_snap` at its
-post-restock quantity. `snapshot_bin_inventory` (`Optimization/metrics/Simulation_Analytics.py`)
-then skips any bin whose `post_qty == pre_qty` — which is exactly a restocked-but-not-picked bin.
-The `manager._unavailable` branch that was meant to catch these never fires, because the bins are
-already in `pre_snap`.
+post-restock quantity. The writer — `snapshot_bin_inventory`, then in
+`Optimization/metrics/Simulation_Analytics.py`, now deleted; frozen verbatim as
+`_archived_snapshot_bin_inventory` in `Tests/integration/test_visualization_data.py` — skipped any
+bin whose `post_qty == pre_qty`, which is exactly a restocked-but-not-picked bin. The
+`manager._unavailable` branch meant to catch these never fired, because the bins were already in
+`pre_snap`.
 
 Measured on a 100-batch, 396,500-bin production run (`opt_fifo_norsl`, fulfillment):
 
@@ -81,20 +84,28 @@ state_at(B, ...)      B % K != 0   ->  nearest keyframe below, minus picks
                                                                                of those batches
 ```
 
-`K = simulation_runs.keyframe_interval` (default 5; `0` means no keyframe DB was written at all).
-A reader **must** return `exact: false` plus the number of pending restock batches for the third
-case, and the UI must label it. A 100-batch run at `K=5` therefore has **20 exact spatial frames**,
-and any animation of restock/convergence must step those, not `range(n_batches)`.
+`K = simulation_runs.keyframe_interval` (5 for archived arms, **25** for new ones; `0` means no
+keyframe DB was written at all — read it from the run, never assume it). A reader **must** return
+`exact: false` plus the number of pending restock batches for the third case, and the UI must
+label it. An archived 100-batch run at `K=5` therefore has **20 exact spatial frames**, and any
+animation of restock/convergence over it must step those, not `range(n_batches)`. A run with the
+log has an exact frame at every batch, so the interval bounds only how far a pick scan reaches.
 
 Empty bins have no row anywhere; they are implicitly qty 0 and drawn from `aisle_layout` geometry.
 
-### Follow-up (not yet done)
+### Resolution — not the follow-up this section used to propose
 
-The writer fix is to record a row whenever a bin's `sku` differs from its previously recorded sku,
-rather than relying on `manager._unavailable`. That would make the delta stream complete and every
-batch exactly reconstructible. It only helps **future** runs, so nothing here depends on it; the
-tests in `Tests/integration/test_visualization_data.py` assert the *current* behaviour so the change
-is caught rather than silently absorbed.
+The fix once planned here was to make `bin_inventory` emit a row whenever a bin's `sku` changed.
+That is **not** what happened, and the difference matters: patching the delta stream would have
+left a record that is complete only as long as nobody adds a sixth way to mutate a bin. Instead
+the mutation sites themselves are recorded (`bin_placement` / `bin_eviction`), which is complete
+*by construction* — see `Optimization/metrics/bin_recorder.py`, guarded by
+`Tests/architecture/test_bin_mutation_sites.py` and re-proved on every real run by the per-batch
+conservation ledger in `strategy_runner`. `bin_inventory` was then redundant and was retired
+rather than repaired.
+
+The tests in `Tests/integration/test_visualization_data.py` still assert the behaviour described
+above, now explicitly as a statement about archived files.
 
 This supersedes the older "reslot-source drift" note, which described a narrower version of the same
 class of bug (an evicted source bin getting no `post_qty=0` row) and understated it by an order of
@@ -144,8 +155,8 @@ walker skips it. A sidecar named `sim_<arm>.viz.db` beside the sim DB would inst
 | Per-batch timing | `sim_X.db` `batch_stats` | duration, `batch_start_time`, `batch_end_time`, avg_concurrent_pickers, and the restock counters (`reorder_placements`, `reload_moves`, `queue_depth`, …) |
 | Per-task timing | `sim_X.db` `task_stats` | aisle_id, picker_id, task_start/end_time, duration, `W`, num_bins_visited. A task = one picker's single-aisle ordered pick sequence. |
 | Event log (replay) | `sim_X.db` `picker_events` | every event (task_start/arrive/cart_swap/pick/task_end/done) with `time`, picker_id, aisle_id, bayX, bayY, sku, quantity. **Times are batch-relative** — each batch restarts near 0. |
-| Bin deltas | `sim_X.db` `bin_inventory` | **depletion only — see §1.** Full snapshot at the run's FIRST batch (`start_i`, not necessarily 0 on a resumed run), changed-bins-only after. |
-| Bin keyframes | `sim_X.keyframes.db` `bin_keyframe` | full occupied-bin snapshot every `keyframe_interval` batches. **The canonical spatial timeline.** |
+| Bin deltas | `sim_X.db` `bin_inventory` | **ARCHIVED RUNS ONLY — no longer written; the table is absent from a current sim DB.** Depletion only, see §1. Full snapshot at the run's FIRST batch (`start_i`, not necessarily 0 on a resumed run), changed-bins-only after. |
+| Bin keyframes | `sim_X.keyframes.db` `bin_keyframe` | full occupied-bin snapshot every `keyframe_interval` batches. The canonical spatial timeline **for archived arms**; for a run with the log, the independent audit of it and a qty anchor. |
 | Per-bin scores | `sim_X.db` `bin_scores` | static, one row/bin: `travel_d`, `height_mult`, `layout_score` (D + height), `map_pref` (NULL unless a `map`/`map_rank` run). |
 | Per-SKU scores | `sim_X.db` `sku_scores` | `map_target`, `labor_cost`, `handle_var`, `expected_popularity`/`expected_labor`, `equilibrium_qty`/`reorder_point`/`lead_time_mean`. |
 | Per-aisle scores | `sim_X.db` `aisle_metrics` | per batch: `demand_sum`, `lift_sum`, `pick_load_sum`, n_skus, n_bins. **Only written by strategies that maintain aisle state — empty for most arms.** |
@@ -232,7 +243,7 @@ WHERE  run_id = :R AND batch_id = :B AND time <= :t
 -- count pickers whose latest event is between task_start and task_end -> concurrency.
 ```
 
-Two ordering traps when reading `bin_inventory` for any purpose: order by `batch_id, id` (never
+Two ordering traps when reading an ARCHIVED `bin_inventory` for any purpose: order by `batch_id, id` (never
 `batch_id` alone — the loop is last-write-wins and a bin can receive rows from two branches in one
 batch), and never assume batch 0 holds the full snapshot (it is `start_i`, which moves on a resumed
 run).
@@ -242,6 +253,9 @@ run).
 ## 7. Batches with no tasks write nothing
 
 `strategy_runner.py` `continue`s before appending stats when a batch produces no tasks. Such a batch
-has a keyframe and reorder-queue rows but **no** `batch_stats`, `picker_events`, `bin_inventory` or
-`aisle_metrics` row. Build the batch list from `SELECT DISTINCT batch_id FROM batch_stats`, never
-from `range(n_batches)`.
+has a keyframe and reorder-queue rows but **no** `batch_stats`, `picker_events` or `aisle_metrics`
+row (nor, on an archived arm, a `bin_inventory` row). Build the batch list from
+`SELECT DISTINCT batch_id FROM batch_stats`, never from `range(n_batches)`.
+
+The conservation ledger is the exception that runs anyway: it is checked before that `continue`,
+so an empty batch is audited like any other.

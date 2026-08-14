@@ -237,8 +237,11 @@ ARTIFACTS = {
     'sim_db': {
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db',
         'format': 'sqlite', 'scope': 'channel_run',
+        # `bin_inventory` is deliberately ABSENT: it is no longer written (bin_placement +
+        # bin_eviction + picks supersede it).  Archived DBs still carry it and are still read
+        # — this list declares what a run WRITES, not what every file on disk contains.
         'tables': ['simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
-                   'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
+                   'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
                    'bin_placement', 'bin_eviction'],
         'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
