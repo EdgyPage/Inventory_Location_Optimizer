@@ -468,13 +468,30 @@ def test_strategy_of_inverts_the_declared_template(tmp_path):
 
 
 def test_by_group_replaces_the_hardcoded_whatif_list(tmp_path):
+    """The point of `group` is that no caller has to keep a name list in sync — so this test must
+    not keep one either.  It originally spelled the six what-if names out and duly broke the moment
+    a seventh joined the group, which is the exact failure mode `by_group` exists to remove.
+
+    The property under test is the ROUND TRIP: a `group` tag written in schema.py survives into the
+    stored contract document and comes back out through the resolver, for every artifact, whatever
+    the group's membership happens to be today.
+    """
     base = tmp_path / 'comparison_grp'
     base.mkdir()
     _write_layout(base)
     rt = runschema.resolver_for(str(base))
-    assert set(rt.by_group('whatif')) == {
-        'whatif_delta_csv', 'whatif_delta_json', 'whatif_delta_png',
-        'whatif_labor_csv', 'whatif_labor_json', 'whatif_labor_pngs'}
+
+    declared = {k for k, v in decl.ARTIFACTS.items() if v.get('group') == 'whatif'}
+    # Non-vacuity: an empty expectation, or one that swept up every artifact, would make the
+    # equality below true without testing anything.
+    assert declared, 'no artifact declares group "whatif" — this test has lost its subject'
+    assert declared < set(decl.ARTIFACTS), 'the whatif group is not a proper subset of ARTIFACTS'
+    assert set(rt.by_group('whatif')) == declared
+
+    # Every group, not just whatif: the resolver must partition by the declared tag exactly.
+    for group in {v['group'] for v in decl.ARTIFACTS.values() if v.get('group')}:
+        assert set(rt.by_group(group)) == {k for k, v in decl.ARTIFACTS.items()
+                                           if v.get('group') == group}
     assert rt.by_group('nonexistent') == []
 
 
