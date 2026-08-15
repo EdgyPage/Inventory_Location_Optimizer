@@ -28,7 +28,7 @@ from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top
 from Optimization.Performance_Evaluations.common.frames import _metric_series
-from Optimization.Performance_Evaluations.stats.plots import _stars
+from Optimization.Performance_Evaluations.common.painters import _stars
 
 # steady-state scalars for the overview bars: (label, ss_field, lower_is_better)
 # All four success metrics: task makespan (a) & batch makespan (b), and the throughput off each.

@@ -5,12 +5,9 @@ import os
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import io
-from Optimization.Performance_Evaluations.comparison import overtime_metrics, top_tag
-from Optimization.Performance_Evaluations.comparison.faceted import _facet_metric
-from Optimization.Performance_Evaluations.comparison.overlay import _overlay_metric
-from Optimization.Performance_Evaluations.comparison.top_metric import _top_metric
-from Optimization.Performance_Evaluations.comparison.pick_vs_travel import _pick_travel_bars
-from Optimization.Performance_Evaluations.comparison.delta_bars import _delta_bars
+from Optimization.Performance_Evaluations.common.painters import (
+    _delta_bars, _facet_metric, _overlay_metric, _pick_travel_bars, _top_metric,
+    overtime_metrics, top_tag)
 
 
 @evaluation(key='agg.cross_profile', label='Cross-profile over-time suite',
