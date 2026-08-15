@@ -1,0 +1,98 @@
+{
+  "family": "affinity_db",
+  "shape_id": "349e081a59fc",
+  "captured": "2026-08-14T21:23:24",
+  "captured_from": "declared (built from the writer DDL)",
+  "note": "The DECLARED shape at the time it was current. Committed by --sync so that when the DDL next moves, this outgoing shape is already on disk and needs no archive lookup to recover.",
+  "shape": {
+    "tables": {
+      "affinity": {
+        "columns": [
+          {
+            "name": "sku_i",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "sku_j",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "lift",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_affinity_sku_i",
+            "unique": 0,
+            "cols": [
+              "sku_i"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_affinity_1",
+            "unique": 1,
+            "cols": [
+              "sku_i",
+              "sku_j"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "run_metadata": {
+        "columns": [
+          {
+            "name": "key",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "value",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_run_metadata_1",
+            "unique": 1,
+            "cols": [
+              "key"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "sku_group": {
+        "columns": [
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "lift_group",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": false,
+        "without_rowid": false
+      }
+    }
+  }
+}

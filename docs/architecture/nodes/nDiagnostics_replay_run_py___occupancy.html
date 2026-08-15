@@ -13,15 +13,23 @@
 <nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_replay_run_py.html"><code>Diagnostics/replay_run.py</code></a> <span class="sep">›</span> <span class="here"><code>_occupancy</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_occupancy</code></h1>
 <p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_replay_run_py.html"><code>Diagnostics/replay_run.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _occupancy(conn, run_id, max_batches: int)</code></pre>
-<section class="doc">Pick the best occupancy source this DB actually carries and name it — (None, None) if none.
+<section class="doc">Fold the best occupancy source this DB carries; return (occ_by_batch, capability).
 
 Probing rather than assuming is what keeps the ~500 GB archive readable: those DBs predate the
 bin-mutation log entirely, so `bin_placement` is not merely empty — the table does not exist.
-`_has_rows` is False for both cases, and the run then falls through to a LABELLED
-approximation.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nDiagnostics_replay_run_py___has_rows.html"><code>_has_rows</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_aisle_metrics.html"><code>occupied_from_aisle_metrics</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_bin_inventory.html"><code>occupied_from_bin_inventory</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_bin_log.html"><code>occupied_from_bin_log</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
+`capability.has_rows` is False for both cases, and the run then falls through to a LABELLED
+approximation.
+
+The probe stays `run_id`-FILTERED. An arm that was resumed or interrupted can leave a table
+created-but-empty for the run being replayed, and an unfiltered probe would then pick a source
+that folds to nothing — not hypothetical: in the 2026-07-29 archive `aisle_metrics` exists on
+every arm and is empty for the uniform ones, which is how `bin_inventory` gets reached at all.
+
+Raises `capability.NoSourceAvailable` when the run carries none of the three; the caller turns
+that into a `SystemExit` naming the file.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__OCCUPANCY_LADDER.html"><code>OCCUPANCY_LADDER</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nSchema_capability_py__probe.html"><code>probe</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__require.html"><code>require</code></a> <span class="dim">Schema/capability.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_replay_run_py___occupancy">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/replay_run.py#:~:text=def%20_occupancy">Source ↗</a></p>
 </article>
 </main>

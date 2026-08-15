@@ -412,6 +412,16 @@ files:
       - {name: "UNVETTED_ARCHIVE_SIM_SCHEMA_IDS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "REQUIRES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CONDITIONAL_READS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_BIN_LOG", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_AISLE_METRICS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_BIN_INVENTORY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_BIN_SCORES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_SKU_SCORES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_REORDER_QUEUE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_KEYFRAMES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_VIZ_CACHE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -690,6 +700,19 @@ files:
     layer: "opt_simdriver"
     key_symbols: []
     notes: ""
+  "Schema/capability.py":
+    purpose: "negotiating for data that only SOME vetted schemas carry."
+    layer: "schema"
+    key_symbols:
+      - {name: "CapabilityError", file: "Schema/capability.py", kind: "class"}
+      - {name: "NoSourceAvailable", file: "Schema/capability.py", kind: "class"}
+      - {name: "Capability", file: "Schema/capability.py", kind: "class"}
+      - {name: "has_rows", file: "Schema/capability.py", kind: "function"}
+      - {name: "probe", file: "Schema/capability.py", kind: "function"}
+      - {name: "best", file: "Schema/capability.py", kind: "function"}
+      - {name: "require", file: "Schema/capability.py", kind: "function"}
+      - {name: "provenance", file: "Schema/capability.py", kind: "function"}
+    notes: ""
   "Schema/compat.py":
     purpose: "what may a consumer READ, given every schema its family still vets?"
     layer: "schema"
@@ -879,11 +902,14 @@ files:
     key_symbols:
       - {name: "MULTI_VINTAGE", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "DECLARED_CONSUMERS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "COMPLETENESS_TARGET", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "LEGACY_COLUMN_ALIASES", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "MAX_UNATTRIBUTED_READS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "test_every_vetted_id_has_a_recoverable_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_gate_sweeps_every_registered_family", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_report_cli_imports_every_family_it_reports_on", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_schema_package_imports_nothing_above_its_own_layer", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
-      - {name: "test_the_store_holds_exactly_the_historical_vetted_ids", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_store_holds_exactly_the_vetted_ids", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_committed_document_hashes_to_its_own_filename", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_corrupted_document_is_refused_rather_than_believed", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_write_shape_refuses_a_document_that_could_never_load", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
@@ -900,6 +926,23 @@ files:
       - {name: "test_every_consumer_that_declares_requirements_is_validated_here", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_every_loader_that_reads_a_conditional_table_is_declared", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_declared_conditional_read_is_still_conditional", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_has_rows_separates_absent_from_empty_from_populated", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_has_rows_answers_per_run_not_per_file", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_probe_reports_only_what_a_row_proves_and_honours_extra", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_best_follows_the_ladder_not_what_happens_to_be_available", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_require_names_every_source_it_tried", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_an_inexact_capability_without_a_caveat_is_refused", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_capability_registry_is_not_thin", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_sim_capability_names_a_table_some_vetted_shape_really_has", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_provenance_is_json_serializable_payload", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_sync_commits_every_declared_shape_and_then_writes_nothing", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_adopt_finds_nothing_outstanding_in_the_committed_store", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_adopt_reports_the_outgoing_shape_a_ddl_change_left_behind", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_every_explicitly_selected_column_is_declared", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_every_row_keys_guarded_column_is_declared", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_every_table_a_loader_reads_is_declared_or_negotiated", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_legacy_column_alias_is_read_but_exists_in_no_vetted_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_identity.py":
     purpose: "every registered DB family must have a trustworthy shape id."
@@ -1773,13 +1816,6 @@ files:
       - {name: "SimSchemaError", file: "Visualization/readers/protocol.py", kind: "class"}
       - {name: "UnsupportedSimSchema", file: "Visualization/readers/protocol.py", kind: "class"}
       - {name: "SimSchemaDrift", file: "Visualization/readers/protocol.py", kind: "class"}
-      - {name: "CAP_KEYFRAMES", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_BIN_LOG", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_AISLE_METRICS", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_REORDER_QUEUE", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_BIN_SCORES", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_SKU_SCORES", file: "Visualization/readers/protocol.py", kind: "const"}
-      - {name: "CAP_VIZ_CACHE", file: "Visualization/readers/protocol.py", kind: "const"}
       - {name: "ALL_CAPABILITIES", file: "Visualization/readers/protocol.py", kind: "const"}
       - {name: "SimReader", file: "Visualization/readers/protocol.py", kind: "class"}
     notes: ""
@@ -2133,5 +2169,7 @@ files:
       - {name: "import_families", file: "scripts/schema_report.py", kind: "function"}
       - {name: "report", file: "scripts/schema_report.py", kind: "function"}
       - {name: "capture", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "sync", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "adopt", file: "scripts/schema_report.py", kind: "function"}
       - {name: "main", file: "scripts/schema_report.py", kind: "function"}
     notes: ""

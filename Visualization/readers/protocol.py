@@ -23,6 +23,11 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from Optimization.persistence.Picking_Data import (          # re-exported; see below
+    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
+    CAP_SKU_SCORES, CAP_VIZ_CACHE,
+)
+
 
 # ── exceptions ───────────────────────────────────────────────────────────────────
 
@@ -54,20 +59,37 @@ class SimSchemaDrift(SimSchemaError):
 
 # ── capabilities ─────────────────────────────────────────────────────────────────
 #
+# RE-EXPORTED, not defined.  These names used to be declared here AND, independently, in
+# `Picking_Data.SIM_CAPABILITIES` — the same seven strings written twice, in two layers, with
+# nothing checking they agreed.  A capability name is a wire value: it is what `/api/capabilities`
+# publishes and what a view's `requires` list is matched against (`static/core/registry.js`), so a
+# one-character drift between the two copies silently hides a tab instead of raising.  The registry
+# lives beside the DDL that defines the tables, which is where the authority belongs; this module
+# keeps the names importable so no view, route or sibling reader has to learn that `Optimization`
+# is where they come from.
+#
+# What the registry adds beyond the string: each name carries a `Capability` — table, `exact`,
+# `phase`, `caveat` — so a consumer that selects a source can attach `capability.provenance(cap)`
+# to whatever it emits.  `base.py` probes with those entries directly.
+#
 # Probed for ROWS, not just for columns.  `aisle_metrics` and `reorder_queue` exist in every sim
 # DB but are only written by strategies that maintain that state — they are EMPTY for most arms,
 # including every arm of the current production run.  A loader that returns {} for both "column
 # missing" and "table empty" makes the UI render 0.0 as though it were a measurement; these flags
 # are what let it hide the panel instead.
+#
+#   CAP_KEYFRAMES       a .keyframes.db exists and has rows -> exact spatial state
+#   CAP_BIN_LOG         bin_placement rows exist -> EVERY batch is exactly rebuildable
+#   CAP_VIZ_CACHE       a FRESH sidecar is bound -> the cheap paths are available
+#
+# `Picking_Data.CAP_BIN_INVENTORY` is deliberately NOT re-exported.  The reader does read that
+# table — `SqliteSimReader._state_without_keyframes` is the archive-only last resort — but it has
+# never been REPORTED as a capability, because no view is gated on it and its answer reaches the UI
+# through the frame's own `exact`/`note` fields instead.  Re-exporting it here would invite it into
+# `ALL_CAPABILITIES` and change the JSON `/api/capabilities` publishes.
 
-CAP_KEYFRAMES = 'keyframes'         # a .keyframes.db exists and has rows -> exact spatial state
-CAP_BIN_LOG = 'bin_log'             # bin_placement rows exist -> EVERY batch is exactly rebuildable
-CAP_AISLE_METRICS = 'aisle_metrics'
-CAP_REORDER_QUEUE = 'reorder_queue'
-CAP_BIN_SCORES = 'bin_scores'
-CAP_SKU_SCORES = 'sku_scores'
-CAP_VIZ_CACHE = 'viz_cache'         # a fresh sidecar is bound -> the cheap paths are available
-
+#: Every capability name this reader layer can report, in reporting order.  A strict subset of
+#: `SIM_CAPABILITIES` — see the note on `bin_inventory` above.
 ALL_CAPABILITIES = (CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE,
                     CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)
 

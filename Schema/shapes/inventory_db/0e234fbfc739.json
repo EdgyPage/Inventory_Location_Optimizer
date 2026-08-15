@@ -1,0 +1,200 @@
+{
+  "family": "inventory_db",
+  "shape_id": "0e234fbfc739",
+  "captured": "2026-08-14T21:23:24",
+  "captured_from": "declared (built from the writer DDL)",
+  "note": "The DECLARED shape at the time it was current. Committed by --sync so that when the DDL next moves, this outgoing shape is already on disk and needs no archive lookup to recover.",
+  "shape": {
+    "tables": {
+      "cartons": {
+        "columns": [
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "handling",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "category",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "length",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "width",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "height",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "weight",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "relative_frequency",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "demand_qty_rate",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "expected_batch_demand",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "equilibrium_qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "reorder_point",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "lead_time_mean",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "supply_cv",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "stock_plan",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "subtype",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "creation_plan": {
+        "columns": [
+          {
+            "name": "handling",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "storage_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "parameter",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "distribution",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "params",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "handling_share",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "family_share",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_creation_plan_1",
+            "unique": 1,
+            "cols": [
+              "handling",
+              "storage_type",
+              "parameter"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "run_metadata": {
+        "columns": [
+          {
+            "name": "key",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "value",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_run_metadata_1",
+            "unique": 1,
+            "cols": [
+              "key"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      }
+    }
+  }
+}

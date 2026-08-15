@@ -23,7 +23,21 @@ What this file locks in
   * `validate` / `check_requirements` name the offending TABLE and COLUMN, not a bare hash;
   * both wired consumers (`Picking_Data.REQUIRES`, the `Performance_Evaluations` context) stay
     inside the guaranteed surface — version-free by construction rather than by accident — and a
-    third consumer cannot appear without being checked here.
+    third consumer cannot appear without being checked here;
+  * `Schema/capability.py` — the negotiation itself, for everything OUTSIDE that surface. A probe
+    answers on ROWS and not on a table's existence (a third of archived arms carry `reorder_queue`
+    with nothing in it); `best` follows the LADDER's order rather than whatever happens to be
+    available; and an inexact source with no caveat is refused at construction, because an
+    approximation whose caveat was never written down is indistinguishable from a measurement;
+  * `--sync` / `--adopt` keep the store complete MECHANICALLY. Committing the declared shape while
+    it is still current is what stops the next DDL change from losing the outgoing one, and
+    `--adopt` is what notices when a change shipped without its `known_ids` entry;
+  * **the completeness gate** — a `Requires` must name everything its loaders actually READ.
+    `compat.validate()` only proves the declaration stays INSIDE the guaranteed surface, which on
+    its own is the wrong direction: an empty `Requires` passes it perfectly. Two real
+    under-declarations reached review that way (`reorder_queue.unit_type`/`storage_size`, and ten
+    `simulation_runs` columns), and neither was visible to any check in this file. The gate reads
+    the loaders' own source with `ast` and fails on the gap.
 
 Everything runs offline from the committed shape store and `tmp_path` fixtures: no archive, no
 results drive, no `.env`, no `COMPARISON_OUTPUT_DIR`.
@@ -33,6 +47,7 @@ results drive, no `.env`, no `COMPARISON_OUTPUT_DIR`.
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import os
 import re
@@ -48,9 +63,15 @@ import pytest
 # `REQUIRES` declaration rather than for a family.
 from Optimization.Performance_Evaluations.core import context as eval_context
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
-from Schema import compat, identity, shape
+from Schema import capability, compat, identity, shape
 from Visualization import cache_schema  # noqa: F401
 from Warehouse.generation import generate_affinity, generate_inventory  # noqa: F401
+
+# `scripts/` is a namespace package under the repo root that `Tests/conftest.py` already puts on
+# sys.path.  Imported IN-PROCESS because `sync`/`adopt` need only the registry, which this module's
+# own imports have already populated; `import_families()` itself is still exercised in a subprocess
+# below, where nothing is pre-imported and a missing entry in `FAMILY_MODULES` therefore shows.
+from scripts import schema_report
 
 # Deliberately imported rather than re-listed: the identity gate owns the roster of families, and
 # two copies of it would drift the moment one is edited.  A sibling helper import inside Tests/ is
@@ -84,6 +105,36 @@ _REQUIRES_CALL = re.compile(r'\bRequires\s*\(')
 #: scanning it would double-count a declaration on any machine that has run `mkdocs build`.
 _SKIP_DIRS = {'.git', '.idea', '.venv', '__pycache__', 'Schema', 'Tests', 'docs', 'node_modules',
               'venv', 'site', 'build', 'dist', '.pytest_cache', '.mypy_cache'}
+
+#: The consumer whose reads are swept COLUMN BY COLUMN against its own declaration.  One file, and
+#: deliberately this one: it is the shared read layer every evaluation reaches the sim DB through,
+#: so an undeclared column here is an undeclared column everywhere downstream.
+COMPLETENESS_TARGET = 'Optimization/persistence/Picking_Data.py'
+
+#: `(table, column)` a loader probes for that exists in NO vetted shape — the far side of a rename
+#: (`sigma_fd` was `sigma_fw`; `W` was `W_a`), kept as a second `row.keys()` branch so a file older
+#: than anything this family still vets keeps loading.  These CANNOT be declared: `compat.validate`
+#: would reject a column absent from the guaranteed surface, and the existing consumer test would
+#: go red.  The exemption is safe only because it is checked from both ends —
+#: `test_a_legacy_column_alias_is_read_but_exists_in_no_vetted_shape` asserts each entry is really
+#: absent everywhere AND really still read, so it can neither hide a live column nor rot in place.
+LEGACY_COLUMN_ALIASES = {('batch_stats', 'sigma_fw'), ('task_stats', 'W_a')}
+
+#: How many read constructs the sweep is allowed to fail to attribute to a table.  **One today**:
+#: `load_picker_events` hoists `cols = set(rows[0].keys())` and then reads through a closure
+#: (`_g(row, 'pick_travel_x')`), so the guard's left operand is a PARAMETER and no static pass can
+#: say which column it stands for.  The number is asserted rather than the constructs ignored: a
+#: sweep that quietly stops attributing things degrades into checking nothing and reports success
+#: forever, which is the same silence this whole file exists to remove.  Lower it, never raise it
+#: without saying why in the commit.
+MAX_UNATTRIBUTED_READS = 1
+
+#: Tables (and single columns) the loaders NEGOTIATE for instead of declaring.  Derived from
+#: `Picking_Data.CONDITIONAL_READS` rather than re-listed — a second copy would drift, and the
+#: `_still_conditional` tests below already hold that list against the real surface.
+_NEGOTIATED_TABLES = frozenset(t for t in Picking_Data.CONDITIONAL_READS.values() if '.' not in t)
+_NEGOTIATED_COLUMNS = frozenset(tuple(t.split('.', 1))
+                                for t in Picking_Data.CONDITIONAL_READS.values() if '.' in t)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
@@ -224,6 +275,218 @@ def _functions_selecting(relpath: str, table: str) -> set:
     return out
 
 
+@contextlib.contextmanager
+def _open(path: str):
+    """A throwaway connection, closed on the way out.
+
+    Closed explicitly rather than left to the collector because an open handle blocks `tmp_path`
+    cleanup on Windows — and because `Schema.connect.read_only` would create `-wal`/`-shm`
+    sidecars, which is exactly the behaviour a probe test should not depend on.
+    """
+    con = sqlite3.connect(str(path))
+    try:
+        yield con
+    finally:
+        con.close()
+
+
+def _capability_db(path, *, populated=(), empty=(), run_id: int = 1) -> str:
+    """A tmp_path database carrying the named capability tables, with rows only in `populated`.
+
+    The empty/populated split is the whole point of the probe: `has_rows` must not answer "yes" for
+    a table that exists and holds nothing, because a consumer would then draw a panel out of it.
+    """
+    stmts = [f'CREATE TABLE "{t}" (run_id INTEGER, batch_id INTEGER)'
+             for t in tuple(empty) + tuple(populated)]
+    stmts += [f'INSERT INTO "{t}" (run_id, batch_id) VALUES ({run_id}, 0)' for t in populated]
+    return _tiny_db(path, stmts)
+
+
+def _store_snapshot(root) -> dict:
+    """`{'<family>/<sid>.json': bytes}` for a whole shape store — a byte-level fingerprint."""
+    out = {}
+    for family in sorted(os.listdir(root)):
+        d = os.path.join(str(root), family)
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            with open(os.path.join(d, fn), 'rb') as fh:
+                out[f'{family}/{fn}'] = fh.read()
+    return out
+
+
+# ── the completeness sweep: what a loader READS, recovered from its own source ────
+# Everything below reads `COMPLETENESS_TARGET` with `ast` and never imports it for this purpose —
+# same reasoning as `_columns_by_table` and `_functions_selecting`: a structural sweep that reuses
+# the machinery it is checking cannot catch a bug in it, and one that ran the loaders would need a
+# database of every vintage to say anything at all.
+
+_SELECT_FROM = re.compile(r'\bSELECT\b\s+(?P<cols>.+?)\s+\bFROM\b\s+(?P<table>[A-Za-z_]\w*)',
+                          re.IGNORECASE | re.DOTALL)
+_BARE_NAME = re.compile(r'^[A-Za-z_]\w*$')
+
+
+def _source_tree(relpath: str) -> ast.Module:
+    with open(os.path.join(_ROOT, *relpath.split('/')), encoding='utf-8') as fh:
+        return ast.parse(fh.read(), filename=relpath)
+
+
+def _sql_literals(node) -> list:
+    """Every string constant under `node` that holds a `SELECT ... FROM <table>`.
+
+    Adjacent string literals are concatenated by the PARSER, so a query split across source lines
+    arrives here as one constant — which is why the column list and its table are still together.
+    """
+    return [n for n in ast.walk(node)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and _SELECT_FROM.search(n.value)]
+
+
+def _single_assignments(nodes) -> dict:
+    """`{name: value_node}` for names bound EXACTLY ONCE by a plain `NAME = ...`.
+
+    A name assigned twice is dropped rather than guessed at: resolving it to one of its two values
+    would be a fabrication, and the sweep counts what it cannot resolve instead.
+    """
+    count, value = {}, {}
+    for node in nodes:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)):
+            name = node.targets[0].id
+            count[name] = count.get(name, 0) + 1
+            value[name] = node.value
+    return {n: v for n, v in value.items() if count[n] == 1}
+
+
+def _comprehension_bindings(func) -> dict:
+    """`{loop_var: iterable_node}` for every comprehension target in `func`.
+
+    `{k: row[k] for k in wanted if k in row.keys()}` is the shape `run_identity` uses, and the
+    columns it reads are the ELEMENTS of `wanted` — so binding the target to its iterable makes the
+    same resolver answer both cases.
+    """
+    out = {}
+    for node in ast.walk(func):
+        for gen in getattr(node, 'generators', ()):
+            if isinstance(gen.target, ast.Name):
+                out[gen.target.id] = gen.iter
+    return out
+
+
+def _resolve_strings(node, scope: dict, seen: tuple = ()) -> frozenset | None:
+    """The set of string literals `node` can stand for, or None when that is not decidable.
+
+    Names are followed through `scope`, so `wanted = (...literals...) + _IDENTITY_COLS` resolves —
+    and that matters: `run_identity` reaches thirteen `simulation_runs` columns exactly that way,
+    and ten of them went undeclared for months precisely because nothing followed the name.
+    """
+    if isinstance(node, ast.Constant):
+        return frozenset({node.value}) if isinstance(node.value, str) else None
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        parts = [_resolve_strings(e, scope, seen) for e in node.elts]
+    elif isinstance(node, ast.Dict):
+        parts = [_resolve_strings(k, scope, seen) for k in node.keys]
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        parts = [_resolve_strings(node.left, scope, seen),
+                 _resolve_strings(node.right, scope, seen)]
+    elif isinstance(node, ast.Name):
+        if node.id in seen or node.id not in scope:      # a parameter, or a cycle
+            return None
+        return _resolve_strings(scope[node.id], scope, seen + (node.id,))
+    else:
+        return None
+    return (frozenset().union(*parts)
+            if parts and all(p is not None for p in parts) else None)
+
+
+def _is_keys_call(node) -> bool:
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == 'keys')
+
+
+def _keys_aliases(func) -> set:
+    """Local names holding a `row.keys()` result — `keys = set(row.keys())` and friends.
+
+    Without this, only the inline `'col' in row.keys()` form is visible, and the hoisted form
+    (which is what `run_identity` and `load_picker_events` both use) would sweep as nothing.
+    """
+    return {node.targets[0].id
+            for node in ast.walk(func)
+            if isinstance(node, ast.Assign) and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and any(_is_keys_call(c) for c in ast.walk(node.value))}
+
+
+def _guard_records(func, scope: dict, aliases: set) -> list:
+    """`(lineno, source_text, columns|None)` for every `<x> in <row.keys()>` test in `func`."""
+    out = []
+    for node in ast.walk(func):
+        if not (isinstance(node, ast.Compare) and len(node.ops) == 1
+                and isinstance(node.ops[0], ast.In)):
+            continue
+        probe = node.comparators[0]
+        if not (_is_keys_call(probe) or (isinstance(probe, ast.Name) and probe.id in aliases)):
+            continue                                     # an unrelated membership test
+        out.append((node.lineno, ast.unparse(node), _resolve_strings(node.left, scope)))
+    return out
+
+
+def _sweep_reads(relpath: str = COMPLETENESS_TARGET) -> dict:
+    """What every top-level function in `relpath` reads, as far as it can be attributed.
+
+    `{function: {'tables', 'selected', 'guarded', 'unattributed'}}` where `selected`/`guarded` are
+    `{table: {column, ...}}`.  A guarded read is attributed only when the function's SELECTs name
+    exactly ONE table; anything else — an unresolvable column expression, an aggregate or aliased
+    SELECT term, a guard in a function that touches two tables — lands in `unattributed` and is
+    counted, never dropped.
+    """
+    tree = _source_tree(relpath)
+    module_scope = _single_assignments(tree.body)
+    out = {}
+    for func in [n for n in tree.body
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+        scope = dict(module_scope)
+        scope.update(_single_assignments(list(ast.walk(func))))       # locals shadow module names
+        scope.update(_comprehension_bindings(func))
+        tables, selected, guarded, unattributed = set(), {}, {}, []
+
+        for lit in _sql_literals(func):
+            for m in _SELECT_FROM.finditer(lit.value):
+                table = m.group('table')
+                tables.add(table)
+                terms = [t.strip() for t in m.group('cols').split(',')]
+                if terms == ['*']:                       # a `SELECT *` names no column at all
+                    continue
+                for term in terms:
+                    if _BARE_NAME.match(term):
+                        selected.setdefault(table, set()).add(term)
+                    else:                                # `COUNT(*)`, `am.batch_id`, an alias …
+                        unattributed.append(
+                            (func.name, lit.lineno, f'SELECT term {term!r} from {table}'))
+
+        for lineno, text, columns in _guard_records(func, scope, _keys_aliases(func)):
+            if columns is None or len(tables) != 1:
+                unattributed.append((func.name, lineno, text))
+            else:
+                guarded.setdefault(next(iter(tables)), set()).update(columns)
+
+        if tables or unattributed:
+            out[func.name] = {'tables': tables, 'selected': selected, 'guarded': guarded,
+                              'unattributed': unattributed}
+    return out
+
+
+def _classify(table: str, column: str) -> str:
+    """`'negotiated' | 'declared' | 'legacy-alias' | 'undeclared'` for one read."""
+    if table in _NEGOTIATED_TABLES or (table, column) in _NEGOTIATED_COLUMNS:
+        return 'negotiated'                              # probed for, with a recorded decision
+    if column in set(Picking_Data.REQUIRES.tables.get(table, ())):
+        return 'declared'
+    if (table, column) in LEGACY_COLUMN_ALIASES:
+        return 'legacy-alias'
+    return 'undeclared'
+
+
 # ── the committed store must be COMPLETE ─────────────────────────────────────────
 # Everything else in this file computes an intersection.  An intersection over an incomplete set
 # of shapes is not a smaller answer, it is a wrong one — larger than the truth, and therefore
@@ -331,22 +594,36 @@ def test_the_schema_package_imports_nothing_above_its_own_layer():
 
 # ── the committed store must be TRUSTWORTHY ──────────────────────────────────────
 
-def test_the_store_holds_exactly_the_historical_vetted_ids():
-    """No uncaptured id, and no orphan document — and the non-vacuity guard for the sweep below.
+def test_the_store_holds_exactly_the_vetted_ids():
+    """One document per vetted id — DECLARED included — and no orphans.
 
-    Both directions matter. A missing document is the gate above. An ORPHAN — a document for an id
-    no family vets any more — is worse than useless: it looks like evidence, `--report` never
-    prints it, and the next reader assumes the store is the list of supported vintages.
+    Both directions matter, and they fail for opposite reasons.
+
+    **Uncaptured** is the gate above: a vetted id with no shape makes the guaranteed surface a
+    guess, and a guess taken over the shapes we happen to hold is always too LARGE.
+
+    **Orphaned** — a document for an id no family vets any more — is not a mess to tidy. It is the
+    OUTGOING shape of a DDL change that has not been adopted yet, which is precisely what
+    `scripts/schema_report.py --adopt` reports and why it exits 1. Left unadopted, every file
+    written with that shape stops being readable.
+
+    The declared shape is committed too, even though it is always rebuildable from the writer's
+    DDL. That is the whole mechanism behind `--sync`: capturing it WHILE IT IS CURRENT is what
+    means the next DDL change cannot lose it. The first version of this store held only historical
+    shapes, and recovering one then required finding a real file of that exact vintage —
+    `sim_db/2b7913bcd7e6` had none, and had to be reconstructed and hash-verified.
 
     This also fixes the count of the parametrized hash check below. An empty store would collect
-    ZERO of those tests and report success, which is the exact failure mode `CLAUDE.md` calls out.
+    ZERO of those tests and report success, the exact failure mode `CLAUDE.md` calls out.
     """
-    committed, historical = _committed_documents(), _historical_ids()
-    assert committed == historical, (
+    committed = _committed_documents()
+    vetted = {(name, sid) for name in sorted(EXPECTED_FAMILIES)
+              for sid in identity.get(name).supported_ids()}
+    assert committed == vetted, (
         f'shape store out of step with the registry — uncaptured: '
-        f'{sorted(historical - committed)}; orphaned documents: {sorted(committed - historical)}. '
-        f'The store must hold one document per vetted HISTORICAL id and nothing else (the '
-        f'declared shape is always rebuilt from the writer, so it is never committed).')
+        f'{sorted(vetted - committed)} (run `python scripts/schema_report.py --sync`); '
+        f'orphaned: {sorted(committed - vetted)} (these are OUTGOING shapes a DDL change left '
+        f'behind — run `python scripts/schema_report.py --adopt` and add them to `known_ids`).')
 
 
 @pytest.mark.parametrize('family, sid', sorted(_committed_documents()))
@@ -734,3 +1011,501 @@ def test_a_declared_conditional_read_is_still_conditional(reader, target):
         assert table in conditional, (
             f'{reader}: {table} is in no vetted shape at all; the entry names a table that does '
             f'not exist.')
+
+
+# ── negotiating for what is NOT guaranteed ───────────────────────────────────────
+# `Schema/capability.py` is how the conditional surface is reached at all: probe, then degrade
+# with a recorded caveat.  Everything here runs on throwaway `tmp_path` databases; the archived
+# arms that motivated each rule are named in the docstrings, not opened.
+
+def test_has_rows_separates_absent_from_empty_from_populated(tmp_path):
+    """Three cases, and the MIDDLE one is why the probe exists.
+
+    "The table is there" is not the question a consumer is asking — it is asking whether it can
+    draw a panel. `aisle_metrics` and `reorder_queue` are in every vetted shape and are written
+    only by strategies that maintain that state: measured across two archived what-if cells,
+    `reorder_queue` carries rows in 68 of 166 arms. A probe that checked for the TABLE would report
+    a capability on all 166, and the other 98 would render 0.0 as though it were a measurement.
+    """
+    path = _capability_db(tmp_path / 'probe.db', populated=('full_t',), empty=('empty_t',))
+    with _open(path) as con:
+        assert capability.has_rows(con, 'full_t') is True, (
+            'a table with a row is the only case that may answer True')
+        assert capability.has_rows(con, 'empty_t') is False, (
+            'a table that EXISTS but holds no row must answer False — this is the whole reason '
+            'the probe counts rows rather than asking sqlite_master, and the case that turns an '
+            'unwritten table into a published 0.0')
+        assert capability.has_rows(con, 'never_created_t') is False, (
+            'a missing table answers False rather than raising: to a consumer deciding whether it '
+            'can draw something, "the schema predates this" and "this arm wrote none" are one fact')
+
+
+def test_has_rows_answers_per_run_not_per_file(tmp_path):
+    """A resumed or interrupted arm leaves rows for one run and none for the next.
+
+    Without the filter the probe would select a source that folds to nothing for the run actually
+    being replayed — the same silent zero, arrived at from the other direction.
+    """
+    path = _capability_db(tmp_path / 'runs.db', populated=('aisle_metrics',), run_id=2)
+    with _open(path) as con:
+        assert capability.has_rows(con, 'aisle_metrics') is True, (
+            'precondition: the table does carry a row when nothing is filtered')
+        assert capability.has_rows(con, 'aisle_metrics', run_id=2) is True, (
+            'the run that wrote the rows must still see them')
+        assert capability.has_rows(con, 'aisle_metrics', run_id=1) is False, (
+            'run 1 wrote nothing here, so the capability is NOT available to run 1 however full '
+            'the file looks')
+        assert capability.has_rows(con, 'no_such_table', run_id=2) is False, (
+            'the filtered path must swallow a missing table exactly like the unfiltered one')
+
+
+def test_probe_reports_only_what_a_row_proves_and_honours_extra(tmp_path):
+    """The registry sweep, against the real `SIM_CAPABILITIES` and a file with one live table.
+
+    `table=None` marks a capability no row can settle — a sibling keyframe DB, a fresh derived
+    cache. Those are the CALLER's evidence, supplied through `extra=`, and the probe must neither
+    invent them nor drop them; the negotiation then stays uniform even when the evidence is not a
+    table.
+    """
+    caps = Picking_Data.SIM_CAPABILITIES
+    path = _capability_db(tmp_path / 'sim.db', populated=('bin_placement',),
+                          empty=('aisle_metrics',), run_id=7)
+    with _open(path) as con:
+        found = capability.probe(con, caps.values(), run_id=7)
+        assert found == {Picking_Data.CAP_BIN_LOG}, (
+            f'only the populated table may be reported: {sorted(found)} — `aisle_metrics` exists '
+            f'and is empty, and the keyframe/viz-cache capabilities carry no table at all')
+
+        with_extra = capability.probe(con, caps.values(), run_id=7,
+                                      extra=(Picking_Data.CAP_KEYFRAMES,))
+        assert with_extra == {Picking_Data.CAP_BIN_LOG, Picking_Data.CAP_KEYFRAMES}, (
+            f'`extra` must be carried through untouched: {sorted(with_extra)}')
+
+    # NON-VACUITY: the capability `extra` supplied is genuinely unprobeable, so the assertion
+    # above cannot have been satisfied by the row probe finding a `keyframes` table.
+    assert caps[Picking_Data.CAP_KEYFRAMES].table is None, (
+        'CAP_KEYFRAMES grew a table, so `extra=` is no longer the only way it can be reported '
+        'and this test stopped covering the table=None path')
+
+
+def test_best_follows_the_ladder_not_what_happens_to_be_available():
+    """"Best" is a question about what is being ASKED, so the order is the answer.
+
+    The case that matters is an arm where the exact source is missing and two approximate ones
+    remain. `bin_inventory` is available, later in the ladder, and would be WRONG to pick: it
+    records picks and never restocks, so rolling its deltas forward can only decay occupancy —
+    68,271 occupied bins against a true 165,519 five batches past a keyframe. A "use whatever is
+    available" implementation has no way to express that.
+    """
+    ladder = Picking_Data.OCCUPANCY_LADDER
+    assert len(ladder) >= 3, f'the occupancy ladder collapsed to {len(ladder)} source(s)'
+
+    available = frozenset({Picking_Data.CAP_AISLE_METRICS, Picking_Data.CAP_BIN_INVENTORY})
+    chosen = capability.best(available, ladder)
+    assert chosen.name == Picking_Data.CAP_AISLE_METRICS, (
+        f'with the exact source absent the ladder must fall to the start-of-batch counter, not to '
+        f'the biased delta roll: got {chosen.name!r}')
+
+    passed_over = Picking_Data.SIM_CAPABILITIES[Picking_Data.CAP_BIN_INVENTORY]
+    assert not passed_over.exact and 'BIASED' in passed_over.caveat, (
+        f'the source that was passed over is supposed to be the recorded-as-wrong one; its caveat '
+        f'now reads {passed_over.caveat!r}, so this test no longer demonstrates anything')
+
+    # NON-VACUITY: it is the ORDER doing the work, not membership. Same available set, reversed
+    # ladder, different answer — and an implementation that iterated `available` (a set) would
+    # not agree with either.
+    assert capability.best(available, tuple(reversed(ladder))).name == \
+        Picking_Data.CAP_BIN_INVENTORY, 'reversing the ladder must reverse the choice'
+    every = frozenset(c.name for c in ladder)
+    assert capability.best(every, ladder).name == Picking_Data.CAP_BIN_LOG, (
+        'with everything available the ladder must still pick its own first entry')
+    assert sorted(every)[0] != Picking_Data.CAP_BIN_LOG, (
+        'the ladder now happens to agree with alphabetical order, so the assertion above no '
+        'longer distinguishes it from an arbitrary pick')
+    assert capability.best(frozenset(), ladder) is None, 'nothing available -> no capability'
+
+
+def test_require_names_every_source_it_tried():
+    """A consumer that cannot degrade any further must fail LOUDLY, and say what it looked for.
+
+    "No occupancy data" sends someone to the archive with nothing; naming the three tables that
+    were tried says which arm they are looking at and why it cannot answer.
+    """
+    ladder = Picking_Data.OCCUPANCY_LADDER
+    with pytest.raises(capability.NoSourceAvailable, match='occupancy at batch 40') as exc:
+        capability.require(frozenset(), ladder, what='occupancy at batch 40')
+
+    text = str(exc.value)
+    for cap in ladder:
+        assert cap.name in text, f'the message must name every source it tried ({cap.name}): {text}'
+
+    # NON-VACUITY: with one source present it RETURNS rather than raising, so the raise above is
+    # about availability and not about the function always failing.
+    got = capability.require(frozenset({Picking_Data.CAP_BIN_INVENTORY}), ladder, what='occupancy')
+    assert got.name == Picking_Data.CAP_BIN_INVENTORY, got
+
+
+def test_an_inexact_capability_without_a_caveat_is_refused():
+    """The invariant that stops a silent approximation: no caveat, no capability.
+
+    An approximate source whose caveat was never written down is indistinguishable from a
+    measurement by the time it reaches a figure. Refusing it at CONSTRUCTION is what makes
+    `provenance()` worth attaching — the payload can never be empty for an inexact source.
+    """
+    with pytest.raises(ValueError, match='inexact but carries no caveat'):
+        capability.Capability(name='probe_cap', table='probe', exact=False,
+                              phase='end-of-batch', caveat='')
+
+    # NON-VACUITY: the same construction is accepted the moment the caveat is there, and an EXACT
+    # source is allowed to carry none — so it is the pairing being enforced, not `caveat` alone.
+    with_caveat = capability.Capability(name='probe_cap', table='probe', exact=False,
+                                        phase='end-of-batch', caveat='APPROXIMATE: sampled early.')
+    assert with_caveat.caveat, 'an inexact capability WITH a caveat must construct'
+    exact = capability.Capability(name='probe_cap', table='probe', exact=True,
+                                  phase='static (per run)', caveat='')
+    assert exact.exact and exact.caveat == '', 'an exact capability needs no caveat'
+
+
+def test_the_capability_registry_is_not_thin():
+    """Non-vacuity for both parametrized sweeps below, and for the `extra=` path above.
+
+    Every property asserted per capability is trivially true of an empty registry, and a
+    parametrize over an empty source collects zero tests and reports success.
+    """
+    caps = Picking_Data.SIM_CAPABILITIES
+    assert len(caps) >= 8, f'SIM_CAPABILITIES has shrunk to {len(caps)}: {sorted(caps)}'
+    assert all(name == cap.name for name, cap in caps.items()), (
+        f'the registry must be keyed by each capability\'s own name: {sorted(caps)}')
+    assert any(not c.exact for c in caps.values()), (
+        'no capability is inexact any more, so the caveat sweep below asserts nothing')
+    assert any(c.table is None for c in caps.values()), (
+        'every capability is table-backed now, so the `extra=` path is no longer covered')
+    assert set(Picking_Data.OCCUPANCY_LADDER) <= set(caps.values()), (
+        'the occupancy ladder must be built FROM the registry, not beside it')
+
+
+@pytest.mark.parametrize('name', sorted(Picking_Data.SIM_CAPABILITIES))
+def test_a_sim_capability_names_a_table_some_vetted_shape_really_has(name):
+    """A capability pointing at a table (or column) no vintage carries is a probe that never fires.
+
+    It fails in the quietest possible way: `has_rows` swallows `no such table`, so the capability
+    is simply never available, every consumer degrades forever, and nothing anywhere says why.
+    """
+    cap = Picking_Data.SIM_CAPABILITIES[name]
+    assert cap.phase, f'{name} records no phase; a source with no instant cannot be compared'
+    if not cap.exact:
+        assert cap.caveat.strip(), (
+            f'{name} is inexact and its caveat is blank — the constructor forbids that, so this '
+            f'has been mutated after construction')
+    if cap.table is None:
+        assert not cap.columns, f'{name} has no table but names columns {cap.columns}'
+        return
+
+    shapes = compat.known_shapes('sim_db')
+    holders = sorted(sid for sid, shp in shapes.items() if cap.table in shp['tables'])
+    assert holders, (
+        f'{name} probes for table {cap.table!r}, which is in none of the vetted sim_db shapes '
+        f'{sorted(shapes)}. The probe can never succeed; either the table name is wrong or the '
+        f'vintage that had it was retired without retiring the capability.')
+
+    common = set.intersection(*[{c['name'] for c in shapes[sid]['tables'][cap.table]['columns']}
+                                for sid in holders])
+    absent = sorted(set(cap.columns) - common)
+    assert not absent, (
+        f'{name} names column(s) {absent} that {cap.table} does not carry in every shape that has '
+        f'the table ({holders}) — a consumer selecting this capability would read them as absent.')
+
+
+@pytest.mark.parametrize('name', sorted(Picking_Data.SIM_CAPABILITIES))
+def test_provenance_is_json_serializable_payload(name):
+    """The caveat has to be able to reach a figure caption, an API response and an export.
+
+    `Diagnostics/replay_run.py` copies this dict verbatim into exported JSON; anything that needed
+    a converter would be dropped by the first consumer that forgot one — and dropping the caveat
+    leaves the number looking exactly like a measurement.
+    """
+    cap = Picking_Data.SIM_CAPABILITIES[name]
+    payload = capability.provenance(cap)
+
+    assert set(payload) == {'source', 'exact', 'phase', 'caveat'}, sorted(payload)
+    assert json.loads(json.dumps(payload)) == payload, (
+        f'{name}: provenance does not survive a JSON round trip: {payload}')
+    assert payload['source'] == name and payload['phase'] == cap.phase, payload
+    assert payload['exact'] is cap.exact, payload
+    assert payload['caveat'] == cap.caveat, (
+        f'{name}: the caveat must be carried VERBATIM, not summarised: {payload["caveat"]!r}')
+
+
+# ── keeping the store complete: --sync / --adopt ─────────────────────────────────
+# `--sync` commits the DECLARED shape while it is still current, which is what stops the NEXT DDL
+# change from losing the outgoing one; `--adopt` names what a change already left behind.  Neither
+# test writes into the real `Schema/shapes/`: the store is `monkeypatch`ed onto tmp_path, exactly
+# as `_register_probe` does.
+
+def test_sync_commits_every_declared_shape_and_then_writes_nothing(tmp_path, monkeypatch):
+    """Idempotence is the property that makes "run it always" safe advice.
+
+    If a second run rewrote the documents, `--sync` would churn the store on every invocation and
+    nobody would run it before a DDL change — which is the one moment it has to have been run.
+    Proved by spying on the WRITE, not by comparing bytes: `write_shape` stamps `captured` to the
+    second, so two writes inside the same second would be byte-identical and prove nothing.
+    """
+    monkeypatch.setattr(compat, 'SHAPES_DIR', str(tmp_path))
+    writes = []
+    real_write = compat.write_shape
+    monkeypatch.setattr(compat, 'write_shape',
+                        lambda family, sid, shp, **kw: (writes.append(f'{family}/{sid}'),
+                                                        real_write(family, sid, shp, **kw))[1])
+
+    first: list = []
+    assert schema_report.sync(out=first.append) == 0, first
+    assert set(writes) == {f'{n}/{identity.get(n).declared_id()}' for n in EXPECTED_FAMILIES}, (
+        f'the first sync must commit exactly one declared shape per family: {sorted(writes)}')
+
+    # Every family's declared id now HAS a document, and it is the shape the writer's DDL builds.
+    for name in sorted(EXPECTED_FAMILIES):
+        fam = identity.get(name)
+        assert compat.load_shape(name, fam.declared_id()) == fam.declared_shape(), (
+            f'{name}: the committed declared shape is not what the writer declares')
+    assert compat.unrecoverable_ids('keyframes_db') == (), 'a synced family must be recoverable'
+
+    snapshot = _store_snapshot(tmp_path)
+    assert len(snapshot) == len(EXPECTED_FAMILIES), sorted(snapshot)
+
+    writes.clear()
+    second: list = []
+    assert schema_report.sync(out=second.append) == 0, second
+    assert writes == [], f'the second sync rewrote {writes}; --sync must be idempotent'
+    assert _store_snapshot(tmp_path) == snapshot, 'the store changed on a no-op sync'
+    assert 'already current' in ' '.join(second), (
+        f'a no-op sync must say so rather than reporting a count: {second}')
+
+
+def test_adopt_finds_nothing_outstanding_in_the_committed_store():
+    """The real store, read-only: a green `--adopt` is the claim every consumer rests on.
+
+    An orphaned document is the OUTGOING shape of a DDL change that has not been adopted — and
+    until its id is back in `known_ids`, every file already written with that shape is unreadable
+    by `identity.check`. Exiting non-zero here is how a hook catches that on the commit that
+    caused it rather than months later, on the archive.
+    """
+    lines: list = []
+    rc = schema_report.adopt(out=lines.append)
+    assert rc == 0, (
+        'shapes are waiting to be adopted:\n' + '\n'.join(lines) +
+        '\nAdd each id to its family\'s `known_ids` (entries are ADDED, never replaced).')
+    assert 'nothing to adopt' in ' '.join(lines), f'expected the clean message, got {lines}'
+
+
+def test_adopt_reports_the_outgoing_shape_a_ddl_change_left_behind(tmp_path, monkeypatch):
+    """The failing direction, on a synthetic family — the real store is never touched.
+
+    A committed document whose id no family vets any more IS the outgoing shape, and it names
+    itself. The report has to carry that id and the `known_ids=` line to paste, because the whole
+    point of `--sync`/`--adopt` is that adopting a shape stopped being archaeology.
+    """
+    fam = _register_probe(monkeypatch, tmp_path)              # declares the 3-column probe shape
+    outgoing = _probe_shape(('id INTEGER', 'kept TEXT'))      # what the DDL looked like before
+    outgoing_id = shape.shape_id(outgoing)
+    compat.write_shape(_PROBE_FAMILY, outgoing_id, outgoing, captured_from='comparison_probe')
+
+    # NON-VACUITY: the document really is committed, and the family really has moved past it.
+    assert compat.load_shape(_PROBE_FAMILY, outgoing_id) == outgoing, 'the document must load'
+    assert outgoing_id not in fam.supported_ids(), (
+        f'{outgoing_id} is still vetted, so there is nothing to adopt and this test is vacuous')
+
+    lines: list = []
+    rc = schema_report.adopt(out=lines.append)
+    text = '\n'.join(lines)
+
+    assert rc == 1, f'an unadopted shape must exit non-zero so a hook can catch it:\n{text}'
+    assert outgoing_id in text, f'the report must name the orphaned id: {text}'
+    assert fam.declared_id() in text, f'and the id that replaced it: {text}'
+    assert 'known_ids' in text, f'and the line to paste into the family: {text}'
+    assert 'nothing to adopt' not in text, text
+    assert not any(name in text for name in EXPECTED_FAMILIES), (
+        f'only the synthetic family may be reported — the real store is monkeypatched away and '
+        f'must not appear at all:\n{text}')
+
+
+# ── the completeness gate: a declaration must name what its loaders READ ─────────
+# `compat.validate()` proves a `Requires` stays INSIDE the guaranteed surface.  That is only half
+# the question, and on its own it is the wrong half: an EMPTY declaration passes it perfectly.
+# Nothing proved that a declaration names everything its loaders actually read, and two real
+# under-declarations reached review through that gap — `reorder_queue.unit_type`/`storage_size`,
+# named in a primary SELECT, and ten `simulation_runs` columns reached through `row.keys()`.
+#
+# The sweep reads `COMPLETENESS_TARGET`'s own source with `ast`.  Not by importing it: a structural
+# check must not share a bug with the thing it checks, and a runtime check would need a database of
+# every vintage before it could say anything at all.
+
+def test_every_explicitly_selected_column_is_declared():
+    """`SELECT a, b, c FROM t` — the loud half, and still worth catching statically.
+
+    An explicit column list against a vintage that lacks one of them raises `OperationalError`,
+    which is better than a silent zero and still arrives only after a long analysis has run. The
+    columns `load_reorder_queue` asks for are exactly this case: `unit_type` and `storage_size`
+    were in the SELECT and not in the declaration, so nothing in CI knew they were being read.
+    """
+    sweep = _sweep_reads()
+    undeclared: dict = {}
+    checked = set()
+    for func, rec in sorted(sweep.items()):
+        for table, columns in sorted(rec['selected'].items()):
+            for column in sorted(columns):
+                verdict = _classify(table, column)
+                if verdict == 'undeclared':
+                    undeclared.setdefault(f'{func} -> {table}', []).append(column)
+                elif verdict == 'declared':
+                    checked.add((func, table, column))
+
+    assert not undeclared, (
+        'columns read by a SELECT but absent from `Picking_Data.REQUIRES`: '
+        + '; '.join(f'{where}: {", ".join(cols)}' for where, cols in sorted(undeclared.items()))
+        + '. Add them to the declaration (and if `compat.validate` then fails, the read is '
+          'genuinely not guaranteed and belongs behind a capability probe with a caveat).')
+
+    # NON-VACUITY: name the reads this gate was written for. A sweep that found nothing would
+    # pass the assertion above without ever looking at a column.
+    assert len(checked) >= 12, (
+        f'the SELECT sweep only attributed {len(checked)} declared column(s) across '
+        f'{len(sweep)} function(s) — it has stopped finding the queries: {sorted(checked)}')
+    for anchor in (('load_reorder_queue', 'reorder_queue', 'unit_type'),
+                   ('load_reorder_queue', 'reorder_queue', 'storage_size'),
+                   ('load_bin_scores', 'bin_scores', 'travel_d')):
+        assert anchor in checked, (
+            f'{anchor} is no longer swept, and it is one of the reads this gate exists for; '
+            f'found: {sorted(checked)}')
+
+
+def test_every_row_keys_guarded_column_is_declared():
+    """The DANGEROUS half: a missing guarded column becomes 0.0 and gets published.
+
+    `row['x'] if 'x' in row.keys() else 0.0` cannot raise. On a vintage without `x` the loader
+    returns the dataclass default, `common/frames.py` carries it into a frame, and a figure comes
+    out with a number nobody can tell is wrong — seven of `load_batch_stats`' guarded columns flow
+    straight into a published figure or CSV. Declaring them turns that into a CI failure.
+
+    `run_identity` is the reason the resolver follows NAMES: its columns come from
+    `('run_id', ...) + _IDENTITY_COLS`, and ten of them went undeclared for months because nothing
+    followed the concatenation.
+    """
+    sweep = _sweep_reads()
+    undeclared: dict = {}
+    checked = set()
+    for func, rec in sorted(sweep.items()):
+        for table, columns in sorted(rec['guarded'].items()):
+            for column in sorted(columns):
+                verdict = _classify(table, column)
+                if verdict == 'undeclared':
+                    undeclared.setdefault(f'{func} -> {table}', []).append(column)
+                elif verdict == 'declared':
+                    checked.add((func, table, column))
+
+    assert not undeclared, (
+        'columns read behind a `row.keys()` guard but absent from `Picking_Data.REQUIRES`: '
+        + '; '.join(f'{where}: {", ".join(cols)}' for where, cols in sorted(undeclared.items()))
+        + '. A guard means the failure is SILENT, not that it is safe: on a vintage without the '
+          'column the loader returns its default and the value is published as a measurement.')
+
+    assert len(checked) >= 24, (
+        f'the guard sweep only attributed {len(checked)} declared column(s) — it has stopped '
+        f'finding the `row.keys()` reads: {sorted(checked)}')
+    for anchor in (('run_identity', 'simulation_runs', 'channel'),
+                   ('run_identity', 'simulation_runs', 'warehouse_fingerprint'),
+                   ('load_batch_stats', 'batch_stats', 'queue_depth'),
+                   ('load_task_stats', 'task_stats', 'W')):
+        assert anchor in checked, (
+            f'{anchor} is no longer swept, and it is one of the reads this gate exists for; '
+            f'found: {sorted(checked)}')
+
+
+def test_every_table_a_loader_reads_is_declared_or_negotiated():
+    """Table-level completeness, which also covers the `SELECT *` loaders.
+
+    A `SELECT *` names no column, so the two sweeps above see nothing in it — but the TABLE is
+    still a read, and a table in neither `REQUIRES` nor `CONDITIONAL_READS` is one nobody decided
+    about. It is also where a cross-family read would show up: `REQUIRES` speaks for `sim_db`
+    only, and a loader reaching into a keyframe sidecar's tables cannot be validated by it.
+    """
+    sweep = _sweep_reads()
+    read = {(func, table) for func, rec in sweep.items() for table in rec['tables']}
+    assert len(read) >= 10, f'the sweep found only {len(read)} loader/table pair(s): {sorted(read)}'
+
+    undecided = sorted({t for _f, t in read
+                        if t not in Picking_Data.REQUIRES.tables and t not in _NEGOTIATED_TABLES})
+    assert not undecided, (
+        f'tables read by a loader but in neither `REQUIRES` nor `CONDITIONAL_READS`: {undecided}. '
+        f'Declare the table (every vetted vintage has it) or list it in CONDITIONAL_READS with '
+        f'the decision about callers that cannot negotiate.')
+
+    surface = compat.guaranteed_surface('sim_db')
+    surface = set(surface) | set(compat.conditional_surface('sim_db'))
+    foreign = sorted({t for _f, t in read if t not in surface})
+    assert not foreign, (
+        f'tables read here that no vetted sim_db shape has at all: {foreign}. `REQUIRES` speaks '
+        f'for sim_db, so either the name is a typo or this loader reads another family\'s file '
+        f'and needs its own declaration.')
+
+
+def test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs():
+    """The gate's own honesty check: a sweep that stops finding things reports success forever.
+
+    Some constructs genuinely cannot be attributed to a table by reading the source, and skipping
+    them is correct — pretending otherwise would mean inventing an answer. Counting them is what
+    keeps the skip honest: if a refactor moved every loader behind a closure like
+    `load_picker_events._g`, the two gates above would pass while checking nothing at all.
+    """
+    sweep = _sweep_reads()
+    skipped = [rec for func in sorted(sweep) for rec in sweep[func]['unattributed']]
+    assert len(skipped) <= MAX_UNATTRIBUTED_READS, (
+        f'{len(skipped)} read construct(s) could not be attributed to a table, above the recorded '
+        f'MAX_UNATTRIBUTED_READS={MAX_UNATTRIBUTED_READS}: '
+        + '; '.join(f'{f}:{ln} {txt}' for f, ln, txt in skipped)
+        + '. Each one is a column nobody is checking. Make the read static (a literal column name '
+          'at the guard) or raise the constant and say in the commit what stopped being checked.')
+
+    # NON-VACUITY, the other direction: no loader may escape the sweep by moving into a class or a
+    # nested helper. Every SELECT literal in the file must be reachable from a TOP-LEVEL function,
+    # because that is the only thing `_sweep_reads` walks.
+    tree = _source_tree(COMPLETENESS_TARGET)
+    everywhere = {id(n) for n in _sql_literals(tree)}
+    swept = {id(n) for node in tree.body
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+             for n in _sql_literals(node)}
+    assert everywhere and everywhere == swept, (
+        f'{len(everywhere - swept)} SELECT literal(s) in {COMPLETENESS_TARGET} live outside a '
+        f'top-level function (a method, a module-level constant), where `_sweep_reads` never '
+        f'looks. Every loader must stay a module-level function or the sweep must learn to walk '
+        f'classes.')
+
+
+def test_a_legacy_column_alias_is_read_but_exists_in_no_vetted_shape():
+    """The exemption must be unable to hide a live column — checked from BOTH ends.
+
+    `LEGACY_COLUMN_ALIASES` lets `sigma_fw`/`W_a` past the gates above, and an exemption list is
+    exactly how a real gap gets waved through. So each entry must be (a) absent from every vetted
+    shape, which is what makes it undeclarable — `compat.validate` would reject it — and (b) still
+    actually read, so a stale entry cannot sit there blessing a name that has come back into use.
+    """
+    assert LEGACY_COLUMN_ALIASES, 'the alias list is empty, so this test asserts nothing'
+    union = {t: set(c) for t, c in compat.guaranteed_surface('sim_db').items()}
+    for table, columns in compat.conditional_surface('sim_db').items():
+        union[table] = union.get(table, set()) | set(columns)
+
+    for table, column in sorted(LEGACY_COLUMN_ALIASES):
+        assert column not in union.get(table, set()), (
+            f'{table}.{column} IS present in a vetted shape, so it is not a legacy alias — it is '
+            f'a real column being read while exempted from the completeness gate. Declare it in '
+            f'`Picking_Data.REQUIRES` and drop the entry.')
+
+    sweep = _sweep_reads()
+    read = {(table, column)
+            for rec in sweep.values()
+            for source in ('selected', 'guarded')
+            for table, columns in rec[source].items()
+            for column in columns}
+    stale = sorted(LEGACY_COLUMN_ALIASES - read)
+    assert not stale, (
+        f'{stale} is exempted but no loader reads it any more. Drop the entry: an exemption for a '
+        f'read that no longer exists is a hole waiting for a column of the same name.')

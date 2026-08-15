@@ -120,6 +120,79 @@ def capture(family: str, path: str, note: str = '', out=print) -> int:
     return 0
 
 
+# ── sync / adopt: why adding a known_id stopped being archaeology ────────────────
+#
+# The first version of this store held only HISTORICAL shapes, and that made every DDL change an
+# excavation: once `declared_id()` moved, the outgoing shape existed nowhere except in files on a
+# drive, and recovering it meant finding one of that exact vintage (`sim_db/2b7913bcd7e6` had no
+# surviving file at all and had to be reconstructed).
+#
+# `--sync` removes the problem instead of automating the dig: commit the DECLARED shape too, every
+# time. Then the moment a DDL edit moves the id, the PREVIOUS shape is already on disk — captured
+# while it was still the current one, from the writer's own DDL, with no archive involved. The
+# outgoing shape can never be lost again, because it was never only in the past.
+#
+# `--adopt` is then just bookkeeping: a document whose id no family vets any more IS the outgoing
+# shape, and it names itself.
+
+def sync(out=print) -> int:
+    """Commit the DECLARED shape of every family that has not been committed yet. Idempotent.
+
+    Run this BEFORE changing any DDL — and it is safe to run always, which is the point. A
+    declared shape is re-derivable today and gone tomorrow; committing it is what makes the next
+    change adoptable without an archive.
+    """
+    import_families()
+    wrote = []
+    for name in identity.families():
+        fam = identity.get(name)
+        sid = fam.declared_id()
+        if compat.load_shape(name, sid) is not None:
+            continue
+        compat.write_shape(
+            name, sid, fam.declared_shape(), captured_from='declared (built from the writer DDL)',
+            note='The DECLARED shape at the time it was current. Committed by --sync so that when '
+                 'the DDL next moves, this outgoing shape is already on disk and needs no archive '
+                 'lookup to recover.')
+        wrote.append(f'{name}/{sid}')
+    out(f'sync: committed {len(wrote)} declared shape(s)' + (f' - {", ".join(wrote)}' if wrote
+                                                             else ' (already current)'))
+    return 0
+
+
+def adopt(out=print) -> int:
+    """Report every committed shape no family vets any more - the outgoing shapes to adopt.
+
+    Exit 1 when there is something to adopt, so a hook or CI can catch a DDL change that shipped
+    without its `known_ids` entry.
+    """
+    import_families()
+    pending = 0
+    for name in identity.families():
+        fam = identity.get(name)
+        supported = set(fam.supported_ids())
+        d = os.path.join(compat.SHAPES_DIR, name)
+        on_disk = ({fn[:-len('.json')] for fn in os.listdir(d) if fn.endswith('.json')}
+                   if os.path.isdir(d) else set())
+        orphans = sorted(on_disk - supported)
+        if not orphans:
+            continue
+        pending += len(orphans)
+        out(f'\n{name}: declared id is now {fam.declared_id()}, and {len(orphans)} committed '
+            f'shape(s) are no longer vetted:')
+        for sid in orphans:
+            out(f'    {sid}')
+        out('  These ARE the outgoing shapes. Add them to the family\'s `known_ids`, with a '
+            'comment naming the window of commits each covers:')
+        out(f'    known_ids=({", ".join(repr(s) for s in orphans + sorted(fam.known_ids))},)')
+        out('  Entries are ADDED, never replaced - dropping one orphans every file written with '
+            'it. If a shape genuinely should stop being readable, delete its document too and say '
+            'why in the commit.')
+    if not pending:
+        out('adopt: nothing to adopt - every committed shape is still vetted.')
+    return 1 if pending else 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='Report or capture DB-shape compatibility surfaces.')
     ap.add_argument('--report', action='store_true',
@@ -127,10 +200,20 @@ def main(argv=None) -> int:
                          'vetted id has no committed shape')
     ap.add_argument('--capture', nargs=2, metavar=('FAMILY', 'DB'),
                     help='commit the shape of a real file of a vetted historical vintage')
+    ap.add_argument('--sync', action='store_true',
+                    help="commit every family's CURRENT declared shape (idempotent). Run before "
+                         'changing a DDL so the outgoing shape survives the change.')
+    ap.add_argument('--adopt', action='store_true',
+                    help='list committed shapes no family vets any more - the outgoing shapes '
+                         'a DDL change left behind. Exits 1 when there is something to adopt.')
     ap.add_argument('--note', default='', help='why this vintage exists, for the document')
     args = ap.parse_args(argv)
     if args.capture:
         return capture(args.capture[0], args.capture[1], args.note)
+    if args.sync:
+        return sync()
+    if args.adopt:
+        return adopt()
     return report()
 
 

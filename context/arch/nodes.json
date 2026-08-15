@@ -146,6 +146,13 @@
       "kind": "function",
       "signature": "(self, batch: int)"
     },
+    "Diagnostics/replay_run.py::_FOLD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{_picking_data.CAP_BIN_LOG: lambda conn, run_id, max_batches: occupied_from_bin_log(conn, run_id, max_batches), _picking_data.CAP_AISLE_METRICS: lambda conn, run_id, max_batches: occupied_from_aisl..."
+    },
     "Diagnostics/replay_run.py::_GRID_COLS": {
       "decorators": [],
       "doc": null,
@@ -174,12 +181,12 @@
       "signature": null,
       "value_preview": "os.path.dirname(_HERE)"
     },
-    "Diagnostics/replay_run.py::_has_rows": {
+    "Diagnostics/replay_run.py::_RERUN_ADVICE": {
       "decorators": [],
-      "doc": "Does `table` exist AND carry at least one row (for `run_id`, when given)?\n\nThe run_id filter is not decoration: an arm that was resumed or interrupted can leave a table\ncreated-but-empty for the run being replayed, and an unfiltered probe would then select a\nsource that folds to nothing.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(conn: sqlite3.Connection, table: str, run_id: int | None=None) -> bool"
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'Re-run the arm to get bin_placement and an exact curve.'"
     },
     "Diagnostics/replay_run.py::_nearest_warehouse_db": {
       "decorators": [],
@@ -188,9 +195,16 @@
       "kind": "function",
       "signature": "(sim_db: str) -> str | None"
     },
+    "Diagnostics/replay_run.py::_note": {
+      "decorators": [],
+      "doc": "The `occupancy_note` an export carries for `cap`: the registry's caveat, then ours.\n\nJoined with a single space, skipping either half when it is empty.  The exported key stays\n`occupancy_note` and not `occupancy_caveat` \u2014 the dashboard and every replay JSON already on\ndisk read `meta.occupancy_note`, and renaming it to match the shared type's field name would\nbreak the output contract for no gain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cap) -> str"
+    },
     "Diagnostics/replay_run.py::_occupancy": {
       "decorators": [],
-      "doc": "Pick the best occupancy source this DB actually carries and name it \u2014 (None, None) if none.\n\nProbing rather than assuming is what keeps the ~500 GB archive readable: those DBs predate the\nbin-mutation log entirely, so `bin_placement` is not merely empty \u2014 the table does not exist.\n`_has_rows` is False for both cases, and the run then falls through to a LABELLED\napproximation.",
+      "doc": "Fold the best occupancy source this DB carries; return (occ_by_batch, capability).\n\nProbing rather than assuming is what keeps the ~500 GB archive readable: those DBs predate the\nbin-mutation log entirely, so `bin_placement` is not merely empty \u2014 the table does not exist.\n`capability.has_rows` is False for both cases, and the run then falls through to a LABELLED\napproximation.\n\nThe probe stays `run_id`-FILTERED. An arm that was resumed or interrupted can leave a table\ncreated-but-empty for the run being replayed, and an unfiltered probe would then pick a source\nthat folds to nothing \u2014 not hypothetical: in the 2026-07-29 archive `aisle_metrics` exists on\nevery arm and is empty for the uniform ones, which is how `bin_inventory` gets reached at all.\n\nRaises `capability.NoSourceAvailable` when the run carries none of the three; the caller turns\nthat into a `SystemExit` naming the file.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id, max_batches: int)"
@@ -218,14 +232,14 @@
     },
     "Diagnostics/replay_run.py::occupied_from_aisle_metrics": {
       "decorators": [],
-      "doc": "APPROXIMATE fallback \u2014 see `_SOURCES['aisle_metrics']`.\n\n`n_bins` is the manager's own occupied-bin counter sampled after the restock pass and BEFORE\nthe batch's picks, so this is the start-of-batch frame, not the end-of-batch one the log and\n`bin_inventory` produce.",
+      "doc": "APPROXIMATE fallback \u2014 see `Picking_Data.SIM_CAPABILITIES['aisle_metrics']`.\n\n`n_bins` is the manager's own occupied-bin counter sampled after the restock pass and BEFORE\nthe batch's picks, so this is the start-of-batch frame, not the end-of-batch one the log and\n`bin_inventory` produce.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id) -> dict[int, dict[int, int]]"
     },
     "Diagnostics/replay_run.py::occupied_from_bin_inventory": {
       "decorators": [],
-      "doc": "APPROXIMATE fallback of last resort \u2014 see `_SOURCES['bin_inventory']`.\n\nARCHIVE-ONLY: `bin_inventory` is no longer written, so on a current DB this is unreachable \u2014\n`_occupancy` probes `bin_placement` first and the table is not even in the schema.  Reached\nonly for the ~500 GB of pre-log runs, which is exactly why it is kept.\n\nRolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin\ncount per aisle at the end of each recorded batch.  The stream contains picks and no restocks,\nso the curve it produces can only ever fall.",
+      "doc": "APPROXIMATE fallback of last resort \u2014 see `Picking_Data.SIM_CAPABILITIES['bin_inventory']`.\n\nARCHIVE-ONLY: `bin_inventory` is no longer written, so on a current DB this is unreachable \u2014\n`_occupancy` probes `bin_placement` first and the table is not even in the schema.  Reached\nonly for the ~500 GB of pre-log runs, which is exactly why it is kept.\n\nRolls bin_inventory deltas (full snapshot at batch 0 + changed bins after) into an occupied-bin\ncount per aisle at the end of each recorded batch.  The stream contains picks and no restocks,\nso the curve it produces can only ever fall.",
       "is_async": false,
       "kind": "function",
       "signature": "(conn, run_id) -> dict[int, dict[int, int]]"
@@ -239,7 +253,7 @@
     },
     "Diagnostics/replay_run.py::read_layout": {
       "decorators": [],
-      "doc": "Aisle geometry + per-aisle bin capacity from a run's `warehouse.db`.\n\nHARD FAIL on an unvetted shape (`identity.check` raises `UnsupportedSchema`), unlike the\nviewer, which warns.  Capacity is the DENOMINATOR of every fill percentage this tool\nexports, and the dashboard renders those percentages as a measurement.  A geometry table\nthat is not the one we think it is produces a fill curve that is wrong in a way no reader\ncan see \u2014 the same class of defect as the `bin_inventory` decay documented in `_SOURCES`,\nwhich is why that entry exists at all.  Better to name the differing column and stop.\nBoth archived shapes are vetted (`Warehouse_Data.PRE_STAMP_WAREHOUSE_SCHEMA_ID` and\n`PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID`), so this refuses nothing that exists today.",
+      "doc": "Aisle geometry + per-aisle bin capacity from a run's `warehouse.db`.\n\nHARD FAIL on an unvetted shape (`identity.check` raises `UnsupportedSchema`), unlike the\nviewer, which warns.  Capacity is the DENOMINATOR of every fill percentage this tool\nexports, and the dashboard renders those percentages as a measurement.  A geometry table\nthat is not the one we think it is produces a fill curve that is wrong in a way no reader\ncan see \u2014 the same class of defect as the `bin_inventory` decay carried in that capability's\ncaveat, which is why that entry exists at all.  Better to name the differing column and stop.\nBoth archived shapes are vetted (`Warehouse_Data.PRE_STAMP_WAREHOUSE_SCHEMA_ID` and\n`PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID`), so this refuses nothing that exists today.",
       "is_async": false,
       "kind": "function",
       "signature": "(warehouse_db: str) -> tuple[list[dict], dict[int, int]]"
@@ -3007,6 +3021,62 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::CAP_AISLE_METRICS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'aisle_metrics'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_BIN_INVENTORY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'bin_inventory'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_BIN_LOG": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'bin_log'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_BIN_SCORES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'bin_scores'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_KEYFRAMES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'keyframes'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_REORDER_QUEUE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'reorder_queue'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_SKU_SCORES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'sku_scores'"
+    },
+    "Optimization/persistence/Picking_Data.py::CAP_VIZ_CACHE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'viz_cache'"
+    },
     "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS": {
       "decorators": [],
       "doc": null,
@@ -3020,6 +3090,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_identity.register(_identity.Family(name='keyframes_db', declared_shape=declared_keyframe_shape, meta_table=None))"
+    },
+    "Optimization/persistence/Picking_Data.py::OCCUPANCY_LADDER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "tuple((SIM_CAPABILITIES[n] for n in (CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_INVENTORY)))"
     },
     "Optimization/persistence/Picking_Data.py::PRE_STAMP_SIM_SCHEMA_ID": {
       "decorators": [],
@@ -3050,6 +3127,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_compat.Requires(family='sim_db', label='Picking_Data shared read layer', tables={'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', 'picking_pc..."
+    },
+    "Optimization/persistence/Picking_Data.py::SIM_CAPABILITIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{c.name: c for c in (_capability.Capability(name=CAP_BIN_LOG, table='bin_placement', exact=True, phase=\"end-of-batch (after this batch's picks)\", caveat='', columns=('run_id', 'batch_id', 'seq', 'a..."
     },
     "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY": {
       "decorators": [],
@@ -5677,6 +5761,74 @@
       "kind": "module",
       "signature": null
     },
+    "Schema/capability.py": {
+      "decorators": [],
+      "doc": "capability.py \u2014 negotiating for data that only SOME vetted schemas carry.\n\n`compat.py` splits a family's tables into a guaranteed surface (present in every vetted shape, so\na consumer may read it unconditionally) and a conditional one. This module is how the conditional\nhalf is reached: **probe, then degrade with a recorded caveat.** Never assume, and never quietly\nreturn something plausible.\n\nTwo things make that more than a `try/except`:\n\n  * **A table that EXISTS can still be empty, and empty is common.** `aisle_metrics` and\n    `reorder_queue` are in every vetted shape but are only written by strategies that maintain\n    that state. Measured across two archived what-if cells: `aisle_metrics` carries rows in 52 of\n    60 arms, `reorder_queue` in 68 of 166 \u2014 so a third of arms have the table and none of the\n    data. A probe that checks for the TABLE rather than for ROWS reports a capability that yields\n    nothing, and the UI then renders 0.0 as though it were a measurement.\n  * **Sources are not interchangeable.** Three different tables can answer \"which bins were\n    occupied at batch N\" with different fidelity AND at different instants of a batch. Picking the\n    best available one is only safe if the answer carries which one it was, so a number cannot be\n    read without its caveat.\n\nThis module owns the TYPE and the PROBE. It does not own any particular family's capabilities:\nthose live next to the DDL that defines the tables (see `Picking_Data.SIM_CAPABILITIES`), because\n`Schema/` is the stdlib-only leaf and must not learn what a warehouse is.\n\nBefore this existed the same idea was hand-rolled twice, independently, and could not be shared:\n`Visualization/readers/protocol.py` (`CAP_*` + `SqliteSimReader.capabilities`) and\n`Diagnostics/replay_run.py` (`_SOURCES` + `_has_rows` + `_occupancy`). `context/architecture.yml`\nforbids `optimization -> visualization`, so the analysis layer could not reuse either and had no\nway to negotiate at all \u2014 it could only hard-fail.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/capability.py::Capability": {
+      "decorators": [
+        "dataclass(frozen=True, eq=False)"
+      ],
+      "doc": "One optional data source, and what it is worth.\n\n`exact`, `phase` and `caveat` are not documentation \u2014 they are the payload. A consumer that\nselects a source is expected to carry them into whatever it emits, so the number cannot be\nread without them. `Diagnostics/replay_run.py` copies them verbatim into its exported JSON;\nthat is the pattern.\n\n`table=None` marks a capability whose availability cannot be answered by a row probe (a\nsibling file exists; a derived cache is fresh). The caller supplies those to `probe(extra=...)`\n\u2014 the negotiation stays uniform even when the evidence is not a table.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/capability.py::Capability.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Schema/capability.py::CapabilityError": {
+      "decorators": [],
+      "doc": "Base for capability-negotiation failures.",
+      "kind": "class",
+      "signature": "(Exception)"
+    },
+    "Schema/capability.py::NoSourceAvailable": {
+      "decorators": [],
+      "doc": "Nothing in the ladder is available, and the caller declared no acceptable fallback.",
+      "kind": "class",
+      "signature": "(CapabilityError)"
+    },
+    "Schema/capability.py::best": {
+      "decorators": [],
+      "doc": "The first capability in `ladder` whose name is available, else None.\n\n`ladder` is ordered BEST-FIRST by the consumer, because \"best\" is a question about what is\nbeing asked: an exact end-of-batch source beats an approximate one for occupancy, and the\nordering is not a property of the capabilities themselves.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(available, ladder)"
+    },
+    "Schema/capability.py::has_rows": {
+      "decorators": [],
+      "doc": "Does `table` exist AND carry at least one row (for `run_id`, when given)?\n\nThe `run_id` filter is not decoration: an arm that was resumed or interrupted can leave a\ntable created-but-empty for the run being replayed, and an unfiltered probe would then select\na source that folds to nothing.\n\nA missing table and an empty one both answer False, deliberately \u2014 to a consumer deciding\nwhether it can draw a panel, \"the schema predates this\" and \"this arm never wrote any\" are\nthe same fact.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, table: str, run_id: int | None=None) -> bool"
+    },
+    "Schema/capability.py::probe": {
+      "decorators": [],
+      "doc": "Names of the capabilities this database actually HAS.\n\n`extra` names capabilities the caller has already established by other means (a keyframe\nsidecar exists; a derived cache is fresh) \u2014 anything whose `table` is None.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, capabilities, run_id: int | None=None, extra=()) -> frozenset"
+    },
+    "Schema/capability.py::provenance": {
+      "decorators": [],
+      "doc": "The caveat payload to attach to whatever a consumer emits from `cap`.\n\nReturned as plain JSON-serializable data so it can go straight into an API response, an\nexported JSON file, or a figure caption without a converter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cap) -> dict"
+    },
+    "Schema/capability.py::require": {
+      "decorators": [],
+      "doc": "`best`, but raising `NoSourceAvailable` naming every source that was tried.\n\nFor a consumer that cannot degrade any further and must fail loudly rather than emit\nsomething shaped like an answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(available, ladder, *, what: str)"
+    },
     "Schema/compat.py": {
       "decorators": [],
       "doc": "compat.py \u2014 what may a consumer READ, given every schema its family still vets?\n\n`identity.py` answers \"is this file one we know\". That is a whole-file question, and it is the\nwrong granularity for a consumer, which reads a handful of tables out of a dozen. The gap between\nthose two granularities is where this project's remaining schema babysitting lives:\n\n    SIM_DB_FAMILY vets four ids. Three of them exist on the results drive and they differ by\n    three whole tables (bin_eviction, bin_placement, bin_inventory) and one column\n    (simulation_runs.sim_schema_id). `check()` passes all three. Nothing adapts. Today that is\n    safe only because no evaluation happens to read those tables \u2014 an accident, not a guarantee.\n    An evaluation that read `bin_placement` would be certified against the 2026-07-29 run that\n    Experiment 6 is published from, and would then fail on it.\n\n    HOW it fails depends on the loader, and both ways are bad:\n      * `load_bin_placements` has NO OperationalError guard, so it RAISES `no such table:\n        bin_placement` \u2014 loud, but only after a long analysis has already run;\n      * a `SELECT *` loader guarded with `row.keys()` (which is most of them) yields the\n        `common/frames.py` default 0.0 and PUBLISHES it \u2014 silent, and indistinguishable from a\n        measurement.\n    Declaring the read up front collapses both into one CI failure, before anything runs.\n\nSo a consumer declares what it needs (`Requires`), and two checks enforce it:\n\n  STATIC   `validate(req)` \u2014 offline, no database. Is every table/column this consumer reads\n           present in EVERY id the family vets? Runs in CI with no archive, and is the check\n           that turns \"safe by accident\" into \"safe by construction\".\n  RUNTIME  `check_requirements(path, req)` \u2014 this file, right now, at the consumer's own\n           granularity. Names the missing COLUMN, not the file's hash.\n\nAnything outside the guaranteed surface is reachable only by NEGOTIATION \u2014 probe for it and\ndegrade with a recorded caveat (`Diagnostics/replay_run._SOURCES` and\n`Visualization/readers/protocol.CAP_*` are both this pattern, hand-rolled independently).\n\nWHY HISTORICAL SHAPES ARE COMMITTED, NOT COMPUTED\n-------------------------------------------------\nA family's declared shape is BUILT from its writer's own DDL, so it is always re-derivable. A\nHISTORICAL shape is not: `Picking_Data.PRE_STAMP_SIM_SCHEMA_ID` is frozen precisely because the\nsource that produced it is gone. The intersection therefore cannot be computed from declarations\nalone, and a store of committed documents is the only way to make it computable offline \u2014 the\nsame reasoning, and the same layout, as `Optimization/schemas/run_tree/<short>.json`.\n\nAn id in `known_ids` with no committed document is UNRECOVERABLE: its shape is unknown, so the\ntrue intersection is unknowable and any surface computed without it is over-optimistic. Every\nfunction here reports that rather than quietly computing the smaller intersection.\n\nThe CLI over this module lives in `scripts/schema_report.py`, NOT here: reporting on every family\nmeans importing every writer, and `context/architecture.yml` forbids the `schema` layer from\nimporting `opt_persistence`, `generation` or `visualization`. This module takes a family NAME and\nreads the committed store; it never learns who writes what.\n\n    python scripts/schema_report.py --report                     # the surface, per family\n    python scripts/schema_report.py --capture sim_db <file.db>   # commit a historical shape",
@@ -6489,7 +6641,7 @@
     },
     "Visualization/readers/base.py": {
       "decorators": [],
-      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71, and `state_at` has three implementations of\nit because a run can carry three different records:\n\n  1. **span index** \u2014 a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One\n     indexed lookup per frame, exact at every batch.\n  2. **live log fold** \u2014 the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take\n     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.\n  3. **keyframe + picks** \u2014 the pre-log archive.  Its `bin_inventory` (a table no run writes any\n     more) records picks and *never* restocks, so rolling deltas forward loses 59% of a real\n     warehouse within five batches; this path is exact only AT a keyframe and says\n     `exact: false` everywhere else.\n\nWhich one served a frame is visible in the payload: `exact` is the honest answer, never the\nconvenient one.",
+      "doc": "base.py \u2014 the SQLite implementation of `SimReader`, shared by every vetted schema.\n\nOne instance per arm.  Holds paths and small memos, never a live connection: `server.py` runs\nthreaded and `sqlite3.Connection` objects are `check_same_thread=True`, so a cached connection\ncrossing a request boundary raises.  Read-only URI opens are sub-millisecond against a 1 GB file\n\u2014 trivial next to the ~0.5 s keyframe read they precede \u2014 so every query opens and closes its own.\n\nThe reconstruction contract is `RECONSTRUCTION.md` \u00a71, and `state_at` has three implementations of\nit because a run can carry three different records:\n\n  1. **span index** \u2014 a fresh sidecar whose `bin_span` was built from the bin-mutation log.  One\n     indexed lookup per frame, exact at every batch.\n  2. **live log fold** \u2014 the run has `bin_placement`/`bin_eviction` but no (fresh) sidecar: take\n     the nearest keyframe and apply the log forward.  Exact, and bounded by the keyframe interval.\n  3. **keyframe + picks** \u2014 the pre-log archive.  Its `bin_inventory` (a table no run writes any\n     more) records picks and *never* restocks, so rolling deltas forward loses 59% of a real\n     warehouse within five batches; this path is exact only AT a keyframe and says\n     `exact: false` everywhere else.\n\nWhich one served a frame is visible in the payload: `exact` is the honest answer, never the\nconvenient one.\n\nThat `exact` is NOT `capability.provenance(cap)['exact']`, and the two must not be conflated.  A\ncapability's `exact` grades the SOURCE at its own phase \u2014 `CAP_KEYFRAMES.exact` is True because a\nkeyframe is an exact snapshot OF ITS OWN BATCH.  The payload's `exact` grades THIS FRAME, which for\nthe same source is `batch == kf` and false everywhere in between.  So the frame payload keeps its\nown `exact` / `restocks_pending` / `note` contract (`protocol.py`, and `static/views/aisle.js` and\n`diff.js` read those three by name); provenance is for a consumer that reports which source it\nchose, which the reader does through `capabilities()` instead.",
       "kind": "module",
       "signature": null
     },
@@ -6641,7 +6793,7 @@
     },
     "Visualization/readers/base.py::SqliteSimReader.capabilities": {
       "decorators": [],
-      "doc": "Which optional data this arm actually HAS \u2014 probed for ROWS, then memoised.\n\nA present-but-empty table is the common case, not an edge case: `aisle_metrics` and\n`reorder_queue` are only written by strategies that maintain that state, and are empty\nfor every arm of the current production run.  Reporting them as absent is what lets the\nUI hide a panel instead of rendering 0.0 as though it were a measurement.",
+      "doc": "Which optional data this arm actually HAS \u2014 probed for ROWS, then memoised.\n\nA present-but-empty table is the common case, not an edge case: `aisle_metrics` and\n`reorder_queue` are only written by strategies that maintain that state, and are empty\nfor every arm of the current production run.  Reporting them as absent is what lets the\nUI hide a panel instead of rendering 0.0 as though it were a measurement.  That is why\nthe sweep is `Schema.capability.probe` \u2014 whose `has_rows` answers False for a missing\ntable and for an empty one alike \u2014 and not an introspection of `sqlite_master`.\n\nThree capabilities are not table questions and reach the probe through `extra`:\n\n  * **keyframes** \u2014 a sibling `.keyframes.db` with rows for this run;\n  * **bin_log** \u2014 `_log_start()`, i.e. `MIN(batch_id) FROM bin_placement`.  Semantically\n    this is the row probe (`batch_id` is in the primary key, so it is never NULL and a\n    non-None MIN means at least one row) \u2014 but it is also MEMOISED and shared with\n    `_state_from_log`, which needs the value itself and not merely its existence.  Letting\n    `probe` re-derive it would issue a second query, and would leave `_memo['log_start']`\n    cold for the request that needs it.  Behaviour first: the existing call stays, and its\n    answer is handed in;\n  * **viz_cache** \u2014 sidecar FRESHNESS, which is not a property of the sim DB at all.\n\nOnly the table probes are memoised.  `viz_cache` is deliberately re-checked on every call:\na cache built while the viewer is running must appear without a restart.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> frozenset[str]"
@@ -6737,6 +6889,13 @@
       "signature": null,
       "value_preview": "('handling_type', 'unit_type', 'storage_size')"
     },
+    "Visualization/readers/base.py::_PROBED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "tuple((SIM_CAPABILITIES[name] for name in (CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES)))"
+    },
     "Visualization/readers/base.py::_better_home": {
       "decorators": [],
       "doc": "Largest qty wins; ties broken by lowest (aisle, bayX, bayY) so the choice is stable.",
@@ -6811,55 +6970,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "(CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)"
-    },
-    "Visualization/readers/protocol.py::CAP_AISLE_METRICS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'aisle_metrics'"
-    },
-    "Visualization/readers/protocol.py::CAP_BIN_LOG": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'bin_log'"
-    },
-    "Visualization/readers/protocol.py::CAP_BIN_SCORES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'bin_scores'"
-    },
-    "Visualization/readers/protocol.py::CAP_KEYFRAMES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'keyframes'"
-    },
-    "Visualization/readers/protocol.py::CAP_REORDER_QUEUE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'reorder_queue'"
-    },
-    "Visualization/readers/protocol.py::CAP_SKU_SCORES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'sku_scores'"
-    },
-    "Visualization/readers/protocol.py::CAP_VIZ_CACHE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'viz_cache'"
     },
     "Visualization/readers/protocol.py::SimReader": {
       "decorators": [
@@ -11511,6 +11621,13 @@
       "signature": null,
       "value_preview": "('Optimization.persistence.Picking_Data', 'Optimization.persistence.Warehouse_Data', 'Optimization.persistence.runtime_metrics', 'Visualization.cache_schema', 'Warehouse.generation.generate_invento..."
     },
+    "scripts/schema_report.py::adopt": {
+      "decorators": [],
+      "doc": "Report every committed shape no family vets any more - the outgoing shapes to adopt.\n\nExit 1 when there is something to adopt, so a hook or CI can catch a DDL change that shipped\nwithout its `known_ids` entry.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out=print) -> int"
+    },
     "scripts/schema_report.py::capture": {
       "decorators": [],
       "doc": "Commit the shape of a real file of a vetted historical vintage.",
@@ -11535,6 +11652,13 @@
     "scripts/schema_report.py::report": {
       "decorators": [],
       "doc": "Print each family's guaranteed/conditional surface. Exit 1 if any id is unrecoverable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out=print) -> int"
+    },
+    "scripts/schema_report.py::sync": {
+      "decorators": [],
+      "doc": "Commit the DECLARED shape of every family that has not been committed yet. Idempotent.\n\nRun this BEFORE changing any DDL \u2014 and it is safe to run always, which is the point. A\ndeclared shape is re-derivable today and gone tomorrow; committing it is what makes the next\nchange adoptable without an archive.",
       "is_async": false,
       "kind": "function",
       "signature": "(out=print) -> int"

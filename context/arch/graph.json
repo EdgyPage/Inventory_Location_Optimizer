@@ -236,7 +236,17 @@
       "src": "Diagnostics/replay_run.py"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Diagnostics/replay_run.py"
+    },
+    {
       "dst": "Optimization/persistence/Warehouse_Data.py",
+      "kind": "imports",
+      "src": "Diagnostics/replay_run.py"
+    },
+    {
+      "dst": "Schema/capability.py",
       "kind": "imports",
       "src": "Diagnostics/replay_run.py"
     },
@@ -251,27 +261,42 @@
       "src": "Diagnostics/replay_run.py"
     },
     {
-      "dst": "Diagnostics/replay_run.py::_has_rows",
-      "kind": "calls",
-      "src": "Diagnostics/replay_run.py::_occupancy"
-    },
-    {
       "dst": "Diagnostics/replay_run.py::occupied_from_aisle_metrics",
       "kind": "calls",
-      "src": "Diagnostics/replay_run.py::_occupancy"
+      "src": "Diagnostics/replay_run.py::_FOLD"
     },
     {
       "dst": "Diagnostics/replay_run.py::occupied_from_bin_inventory",
       "kind": "calls",
-      "src": "Diagnostics/replay_run.py::_occupancy"
+      "src": "Diagnostics/replay_run.py::_FOLD"
     },
     {
       "dst": "Diagnostics/replay_run.py::occupied_from_bin_log",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_FOLD"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::OCCUPANCY_LADDER",
+      "kind": "ref",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Schema/capability.py::probe",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Schema/capability.py::require",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::_occupancy"
     },
     {
       "dst": "Diagnostics/replay_run.py::_nearest_warehouse_db",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::main"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::_note",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::main"
     },
@@ -301,7 +326,7 @@
       "src": "Diagnostics/replay_run.py::read_layout"
     },
     {
-      "dst": "Diagnostics/replay_run.py::_has_rows",
+      "dst": "Diagnostics/replay_run.py::_note",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
@@ -317,6 +342,16 @@
     },
     {
       "dst": "Diagnostics/replay_run.py::read_layout",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::replay_sim_db"
+    },
+    {
+      "dst": "Schema/capability.py::has_rows",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::replay_sim_db"
+    },
+    {
+      "dst": "Schema/capability.py::provenance",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::replay_sim_db"
     },
@@ -2956,6 +2991,11 @@
       "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin"
     },
     {
+      "dst": "Schema/capability.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
       "dst": "Schema/compat.py",
       "kind": "imports",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -2994,6 +3034,11 @@
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::REQUIRES"
+    },
+    {
+      "dst": "Schema/capability.py::Capability",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::SIM_CAPABILITIES"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
@@ -5841,6 +5886,21 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks"
     },
     {
+      "dst": "Schema/capability.py::has_rows",
+      "kind": "calls",
+      "src": "Schema/capability.py::probe"
+    },
+    {
+      "dst": "Schema/capability.py::NoSourceAvailable",
+      "kind": "calls",
+      "src": "Schema/capability.py::require"
+    },
+    {
+      "dst": "Schema/capability.py::best",
+      "kind": "calls",
+      "src": "Schema/capability.py::require"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Schema/compat.py"
@@ -6491,6 +6551,16 @@
       "src": "Visualization/readers/__init__.py::reader_for"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/capability.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
       "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/readers/base.py"
@@ -6761,6 +6831,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.cache_status"
     },
     {
+      "dst": "Schema/capability.py::probe",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader._log_start",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
@@ -6949,6 +7024,11 @@
       "dst": "Visualization/readers/protocol.py::SimSchemaDrift",
       "kind": "calls",
       "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/protocol.py"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py",
@@ -9878,6 +9958,26 @@
     {
       "dst": "Schema/compat.py::SHAPES_DIR",
       "kind": "ref",
+      "src": "scripts/schema_report.py::adopt"
+    },
+    {
+      "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::adopt"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::adopt"
+    },
+    {
+      "dst": "scripts/schema_report.py::import_families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::adopt"
+    },
+    {
+      "dst": "Schema/compat.py::SHAPES_DIR",
+      "kind": "ref",
       "src": "scripts/schema_report.py::capture"
     },
     {
@@ -9921,12 +10021,22 @@
       "src": "scripts/schema_report.py::capture"
     },
     {
+      "dst": "scripts/schema_report.py::adopt",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::main"
+    },
+    {
       "dst": "scripts/schema_report.py::capture",
       "kind": "calls",
       "src": "scripts/schema_report.py::main"
     },
     {
       "dst": "scripts/schema_report.py::report",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::main"
+    },
+    {
+      "dst": "scripts/schema_report.py::sync",
       "kind": "calls",
       "src": "scripts/schema_report.py::main"
     },
@@ -9964,6 +10074,31 @@
       "dst": "scripts/schema_report.py::import_families",
       "kind": "calls",
       "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
+    },
+    {
+      "dst": "Schema/compat.py::write_shape",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
+    },
+    {
+      "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
+    },
+    {
+      "dst": "scripts/schema_report.py::import_families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
     }
   ],
   "nodes": [
@@ -10137,6 +10272,14 @@
     },
     {
       "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_FOLD",
+      "kind": "const",
+      "module": "Diagnostics/replay_run.py",
+      "name": "_FOLD",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
       "id": "Diagnostics/replay_run.py::_GRID_COLS",
       "kind": "const",
       "module": "Diagnostics/replay_run.py",
@@ -10169,10 +10312,10 @@
     },
     {
       "file": "Diagnostics/replay_run.py",
-      "id": "Diagnostics/replay_run.py::_has_rows",
-      "kind": "function",
+      "id": "Diagnostics/replay_run.py::_RERUN_ADVICE",
+      "kind": "const",
       "module": "Diagnostics/replay_run.py",
-      "name": "_has_rows",
+      "name": "_RERUN_ADVICE",
       "public": false
     },
     {
@@ -10181,6 +10324,14 @@
       "kind": "function",
       "module": "Diagnostics/replay_run.py",
       "name": "_nearest_warehouse_db",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_note",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "_note",
       "public": false
     },
     {
@@ -13401,6 +13552,70 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_AISLE_METRICS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_AISLE_METRICS",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_BIN_INVENTORY",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_BIN_INVENTORY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_BIN_LOG",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_BIN_LOG",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_BIN_SCORES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_BIN_SCORES",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_KEYFRAMES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_KEYFRAMES",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_REORDER_QUEUE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_REORDER_QUEUE",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_SKU_SCORES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_SKU_SCORES",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_VIZ_CACHE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_VIZ_CACHE",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -13413,6 +13628,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "KEYFRAME_DB_FAMILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::OCCUPANCY_LADDER",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "OCCUPANCY_LADDER",
       "public": true
     },
     {
@@ -13445,6 +13668,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::SIM_CAPABILITIES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "SIM_CAPABILITIES",
       "public": true
     },
     {
@@ -16472,6 +16703,86 @@
       "public": true
     },
     {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py",
+      "kind": "module",
+      "module": "Schema/capability.py",
+      "name": "Schema.capability",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::Capability",
+      "kind": "class",
+      "module": "Schema/capability.py",
+      "name": "Capability",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::Capability.__post_init__",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::CapabilityError",
+      "kind": "class",
+      "module": "Schema/capability.py",
+      "name": "CapabilityError",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::NoSourceAvailable",
+      "kind": "class",
+      "module": "Schema/capability.py",
+      "name": "NoSourceAvailable",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::best",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "best",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::has_rows",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "has_rows",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::probe",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "probe",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::provenance",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "provenance",
+      "public": true
+    },
+    {
+      "file": "Schema/capability.py",
+      "id": "Schema/capability.py::require",
+      "kind": "function",
+      "module": "Schema/capability.py",
+      "name": "require",
+      "public": true
+    },
+    {
       "file": "Schema/compat.py",
       "id": "Schema/compat.py",
       "kind": "module",
@@ -17697,6 +18008,14 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_PROBED",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "_PROBED",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::_better_home",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -17781,62 +18100,6 @@
       "kind": "const",
       "module": "Visualization/readers/protocol.py",
       "name": "ALL_CAPABILITIES",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_AISLE_METRICS",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_AISLE_METRICS",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_BIN_LOG",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_BIN_LOG",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_BIN_SCORES",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_BIN_SCORES",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_KEYFRAMES",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_KEYFRAMES",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_REORDER_QUEUE",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_REORDER_QUEUE",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_SKU_SCORES",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_SKU_SCORES",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::CAP_VIZ_CACHE",
-      "kind": "const",
-      "module": "Visualization/readers/protocol.py",
-      "name": "CAP_VIZ_CACHE",
       "public": true
     },
     {
@@ -23041,6 +23304,14 @@
     },
     {
       "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::adopt",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "adopt",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
       "id": "scripts/schema_report.py::capture",
       "kind": "function",
       "module": "scripts/schema_report.py",
@@ -23069,6 +23340,14 @@
       "kind": "function",
       "module": "scripts/schema_report.py",
       "name": "report",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::sync",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "sync",
       "public": true
     }
   ],

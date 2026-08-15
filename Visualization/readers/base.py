@@ -19,16 +19,41 @@ it because a run can carry three different records:
 
 Which one served a frame is visible in the payload: `exact` is the honest answer, never the
 convenient one.
+
+That `exact` is NOT `capability.provenance(cap)['exact']`, and the two must not be conflated.  A
+capability's `exact` grades the SOURCE at its own phase — `CAP_KEYFRAMES.exact` is True because a
+keyframe is an exact snapshot OF ITS OWN BATCH.  The payload's `exact` grades THIS FRAME, which for
+the same source is `batch == kf` and false everywhere in between.  So the frame payload keeps its
+own `exact` / `restocks_pending` / `note` contract (`protocol.py`, and `static/views/aisle.js` and
+`diff.js` read those three by name); provenance is for a consumer that reports which source it
+chose, which the reader does through `capabilities()` instead.
 """
 from __future__ import annotations
 
 import os
 import sqlite3
 
+from Optimization.persistence.Picking_Data import SIM_CAPABILITIES
+from Schema.capability import probe
 from Visualization.readers.protocol import (
     CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
     CAP_SKU_SCORES, CAP_VIZ_CACHE,
 )
+
+# ── what `capabilities()` probes the sim DB for ──────────────────────────────────────────────
+# Deliberately NOT `SIM_CAPABILITIES.values()`.  `Schema.capability.probe` skips every entry whose
+# `table` is None, so the two sidecar capabilities drop out on their own — but two table-backed
+# entries would NOT, and neither belongs in a table sweep here:
+#
+#   bin_log         answered by `_log_start()` and passed through `probe(extra=...)`, so the
+#                   MIN(batch_id) this reader needs anyway serves both questions (see below);
+#   bin_inventory   read by `_state_without_keyframes`, never reported.  Probing it would add a
+#                   name to `/api/capabilities` that no view requires and nothing has ever seen.
+#
+# So this is the reporting subset, taken BY NAME from the shared registry rather than by writing
+# the table names out a second time.
+_PROBED = tuple(SIM_CAPABILITIES[name] for name in
+                (CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES))
 
 # Hue anchors are assigned per FAMILY, and a family is (handling_type, unit_type, storage_size).
 # Measured on the production warehouse: that is 13 families across 384 aisles, which fits the
@@ -96,38 +121,45 @@ class SqliteSimReader:
         A present-but-empty table is the common case, not an edge case: `aisle_metrics` and
         `reorder_queue` are only written by strategies that maintain that state, and are empty
         for every arm of the current production run.  Reporting them as absent is what lets the
-        UI hide a panel instead of rendering 0.0 as though it were a measurement.
+        UI hide a panel instead of rendering 0.0 as though it were a measurement.  That is why
+        the sweep is `Schema.capability.probe` — whose `has_rows` answers False for a missing
+        table and for an empty one alike — and not an introspection of `sqlite_master`.
+
+        Three capabilities are not table questions and reach the probe through `extra`:
+
+          * **keyframes** — a sibling `.keyframes.db` with rows for this run;
+          * **bin_log** — `_log_start()`, i.e. `MIN(batch_id) FROM bin_placement`.  Semantically
+            this is the row probe (`batch_id` is in the primary key, so it is never NULL and a
+            non-None MIN means at least one row) — but it is also MEMOISED and shared with
+            `_state_from_log`, which needs the value itself and not merely its existence.  Letting
+            `probe` re-derive it would issue a second query, and would leave `_memo['log_start']`
+            cold for the request that needs it.  Behaviour first: the existing call stays, and its
+            answer is handed in;
+          * **viz_cache** — sidecar FRESHNESS, which is not a property of the sim DB at all.
+
+        Only the table probes are memoised.  `viz_cache` is deliberately re-checked on every call:
+        a cache built while the viewer is running must appear without a restart.
         """
         if 'caps' in self._memo:
             # The cache flag is re-checked on every call; only the table probes are memoised,
             # since those need a full sim-DB open and cannot change for a finished run.
             fixed = self._memo['caps'] - {CAP_VIZ_CACHE}
             return fixed | ({CAP_VIZ_CACHE} if self.cache_status() == 'fresh' else set())
-        caps = set()
-        con = _ro(self.sim_db)
-        try:
-            for table, cap in (('aisle_metrics', CAP_AISLE_METRICS),
-                               ('reorder_queue', CAP_REORDER_QUEUE),
-                               ('bin_scores', CAP_BIN_SCORES),
-                               ('sku_scores', CAP_SKU_SCORES)):
-                try:
-                    if con.execute(f'SELECT 1 FROM {table} WHERE run_id=? LIMIT 1',
-                                   (self.run_id,)).fetchone():
-                        caps.add(cap)
-                except sqlite3.OperationalError:      # table absent in an older shape
-                    pass
-        finally:
-            con.close()
+        extra = set()
         if self.keyframe_db and self.keyframe_batches():
-            caps.add(CAP_KEYFRAMES)
+            extra.add(CAP_KEYFRAMES)
         if self._log_start() is not None:
-            caps.add(CAP_BIN_LOG)
+            extra.add(CAP_BIN_LOG)
         # Freshness, not mere existence: a stale sidecar is not a capability, it is a hazard.
         # Deliberately NOT memoised with the rest — a cache built while the viewer is running
         # must become visible without a restart.
         if self.cache_status() == 'fresh':
-            caps.add(CAP_VIZ_CACHE)
-        self._memo['caps'] = frozenset(caps)
+            extra.add(CAP_VIZ_CACHE)
+        con = _ro(self.sim_db)
+        try:
+            self._memo['caps'] = probe(con, _PROBED, self.run_id, extra=extra)
+        finally:
+            con.close()
         return self._memo['caps']
 
     # ── static, per run ──────────────────────────────────────────────────────────

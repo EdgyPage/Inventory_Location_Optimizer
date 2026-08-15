@@ -28,25 +28,37 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
    - any `_CREATE_*` / `*_DDL` / `declared_*_shape` change, or a `Family(...)` registration
    - `Optimization/runschema/schema.py` (`LEVELS`, `ARTIFACTS`, `FEATURES`)
    - a writer that begins or stops writing a table
-2. **Run both contracts' own checks first** — they are authoritative, you are not:
+2. **Run every contract's own check first** — they are authoritative, you are not:
    ```bash
-   python scripts/schema_report.py --report                      # exits 1 on an unrecoverable id
+   python scripts/schema_report.py --sync      # commit any declared shape not yet captured
+   python scripts/schema_report.py --adopt     # exits 1 when a DDL change left an outgoing shape
+   python scripts/schema_report.py --report    # exits 1 on an unrecoverable id
    python -m Optimization.runschema.preflight --check     # exits 1 on tree-source drift
    python -m pytest Tests/architecture/test_schema_identity.py Tests/architecture/test_schema_compatibility.py -q
    ```
+   **`--sync` before you touch a DDL, always.** It commits each family's CURRENT declared shape,
+   and that is the whole mechanism: a shape captured while it is current cannot be lost when it
+   stops being current. Skipping it is what turns the next change into archaeology.
 3. **DB shape changed** (a family's `declared_id()` moved):
-   - The OUTGOING id must not be orphaned. Before adding it to `known_ids`, **capture its shape**
-     so the surface stays computable:
-     `python scripts/schema_report.py --capture <family> <a real file of that vintage>`
-   - No surviving file? Try a **hash-verified reconstruction**: rebuild the outgoing shape from an
-     adjacent committed shape plus the one documented delta, and accept it ONLY if it hashes to the
-     target id. Record in the document's `note` that it was reconstructed, not captured, and what
-     the delta was. Never write a shape document you could not make hash correctly.
-   - Add the id to `known_ids` with a comment naming the real window of commits it covers.
-     Entries are **added, never replaced** — dropping one orphans real files.
+   - `--adopt` names the outgoing id and prints the exact `known_ids` line. If `--sync` was run
+     beforehand the shape is already committed and there is nothing to hunt for. Paste the line,
+     and add a comment naming the real window of commits it covers.
+   - Entries are **added, never replaced** — dropping one orphans every file written with it.
+   - Only if the outgoing shape was never captured (a change that predates `--sync`) do you need
+     `--capture <family> <a real file of that vintage>`, or a **hash-verified reconstruction**:
+     rebuild it from an adjacent committed shape plus the one documented delta, and accept it ONLY
+     if it hashes to the target id. Record in the document's `note` that it was reconstructed, not
+     captured, and what the delta was. Never write a shape document you could not make hash
+     correctly.
    - If you genuinely cannot recover the shape, say so and stop. Do NOT relax `strict=` anywhere,
      and do NOT delete the `known_ids` entry to make the report green — that trades a loud failure
      for the silent one this whole layer exists to prevent.
+   - **A new table or column that only SOME vetted vintages have is a capability, not a
+     requirement.** Register it in `Picking_Data.SIM_CAPABILITIES` with an honest `exact`, `phase`
+     and — if inexact — a `caveat` carrying the MECHANISM and the MEASUREMENT, not a summary.
+     `Capability.__post_init__` rejects an inexact capability with an empty caveat. When merging
+     caveat prose from an existing consumer, diff it; do not paraphrase. A caveat that loses its
+     evidence is decoration.
 4. **Re-derive the surface and check the consumers.** `python scripts/schema_report.py --report`. If a
    table or column moved from guaranteed to conditional, every `Requires(...)` that names it now
    fails `validate()`. For each: either the consumer stops reading it, or the read moves behind a

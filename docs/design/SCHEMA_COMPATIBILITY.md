@@ -1,6 +1,6 @@
 # Schema compatibility — keeping a version change from becoming a manual sweep
 
-**Status:** the guardrail described in §4 is implemented. §6 is proposed, not built.
+**Status:** §4, §5b implemented. §6 is proposed, not built.
 
 This repo has four schema-ish layers. Three of them are good, and one asymmetry between them is
 where the remaining manual work lives. This document says what each owns, where the gap is, and
@@ -10,7 +10,7 @@ the pattern that closes it.
 
 | Layer | Answers | Identity |
 |---|---|---|
-| `Schema/` (`shape`, `identity`, `connect`) | *what is inside one file* | sha256 of the canonical SQL shape, 12 hex |
+| `Schema/` (`shape`, `identity`, `connect`, `compat`, `capability`) | *what is inside one file, and may I read it* | sha256 of the canonical SQL shape, 12 hex |
 | `Optimization/runschema/` | *where do a run's files live* | sha256 of `schema.py`'s `LEVELS` + `ARTIFACTS` |
 | `Visualization/readers/` | *how do I read this vintage* | registry: `schema_id` → reader class |
 | `Visualization/cache_schema.py` | *is this derived cache stale* | source pin + own stamp + `cache_freshness()` |
@@ -51,16 +51,18 @@ sim_db vets four ids.  They differ by three whole tables and one column:
 ```
 
 `check()` passes all four. **Nothing adapts.** Today that is safe only because no evaluation reads
-those tables — an accident, not a guarantee. The first evaluation that reads `bin_placement`
-returns silently nothing for the 2026-07-29 run that Experiment 6 is published from, and passes
-vetting on the way.
+those tables — an accident, not a guarantee. An evaluation that read `bin_placement` would be
+certified against the 2026-07-29 run Experiment 6 is published from, and would then fail on it.
 
-This is the same silent failure `Schema/` was built to stop, displaced one level up. Loaders do
-`SELECT *` and guard with `row.keys()`, so a dropped column becomes `0.0` in `common/frames.py`
-and a published figure is quietly wrong — and seven of the guarded columns (`sigma_fd`, `W`,
-`queue_depth`, `reorder_placements`, `reload_moves`, `lead_queue_depth`, `in_transit_qty`) flow
-straight into a figure or CSV. Only `task_makespan` fails safe, because `frames.py` turns its
+**How it fails depends on the loader, and both ways are bad.** `load_bin_placements` has no
+`OperationalError` guard, so it *raises* — loud, but only after a long analysis has already run.
+The other loaders do `SELECT *` and guard with `row.keys()`, so a dropped column does not raise:
+it becomes `0.0` in `common/frames.py` and is published. Seven of the guarded columns (`sigma_fd`,
+`W`, `queue_depth`, `reorder_placements`, `reload_moves`, `lead_queue_depth`, `in_transit_qty`)
+flow straight into a figure or CSV. Only `task_makespan` fails safe, because `frames.py` turns its
 `0.0` into `NaN`.
+
+That is the same silent failure `Schema/` was built to stop, displaced one level up.
 
 ## 4. The guardrail (implemented)
 
@@ -113,25 +115,13 @@ no surviving file — inserting `sim_schema_id TEXT` at ordinal 9 of the pre-sta
 reproduces the id exactly, which a wrong shape could not do. A shape document you cannot make hash
 correctly is a guess, and must not be written.
 
-### Negotiation, where it already happens twice
+### Negotiation
 
-Two consumers already do this by hand, independently:
-
-- `Visualization/readers/protocol.py` — `CAP_BIN_LOG` etc., probed for **rows**, not just columns,
-  because `aisle_metrics` and `reorder_queue` exist everywhere and are empty for most arms.
-- `Diagnostics/replay_run.py` — `_SOURCES`, a best-first fidelity ladder carrying `exact`, `phase`
-  and a caveat that is copied into the exported JSON so the number cannot be read without it.
-
-Both are the right pattern. Neither is shared, and `context/architecture.yml` forbids
-`optimization -> visualization`, so the analysis layer cannot reuse either.
-
-## 5. Where filepath versioning is still missing
-
-Run trees are versioned; **derived** trees are not. `docs/experiments/<exp>/images/{run}/{inv}/{cfg}/`
-is built by `docs/experiments/ingest.py` and consumed by `docs/macros.py` through hand-joined
-path strings. `experiment.yml` records a `schema_id` that `macros.py` never reads. A tree-shape
-change therefore breaks the site at `mkdocs build --strict` with a `FileNotFoundError` — loud, but
-not negotiated, and the failure names a missing file rather than a schema delta.
+Anything on the conditional surface is reached by probing and degrading with a recorded caveat.
+`Visualization/readers/protocol.py` and `Diagnostics/replay_run.py` each hand-rolled that
+independently — `CAP_*` and `_SOURCES` — and neither could be shared, because
+`context/architecture.yml` forbids `optimization -> visualization`. Both now read one registry;
+see §5b.
 
 ### Why the CLI is not in `Schema/`
 
@@ -155,29 +145,75 @@ It was wrong twice, and the second reason is the general lesson:
 now asserts this statically, including the dynamic forms, because the extractor structurally
 cannot.
 
+## 5. Where filepath versioning is still missing
+
+Run trees are versioned; **derived** trees are not. `docs/experiments/<exp>/images/{run}/{inv}/{cfg}/`
+is built by `docs/experiments/ingest.py` and consumed by `docs/macros.py` through hand-joined
+path strings. `experiment.yml` records a `schema_id` that `macros.py` never reads. A tree-shape
+change therefore breaks the site at `mkdocs build --strict` with a `FileNotFoundError` — loud, but
+not negotiated, and the failure names a missing file rather than a schema delta.
+
+## 5b. Negotiation, and why adoption stopped being archaeology
+
+Two things landed after the first pass, and they are what make the pattern usable rather than just
+enforceable.
+
+### `Schema/capability.py` — one vocabulary, three consumers
+
+The conditional surface is reached by **probing for ROWS, then degrading with a recorded caveat**.
+`Capability` carries `exact`, `phase` and `caveat` as *payload*, not documentation: a consumer that
+selects a source is expected to carry `provenance(cap)` into whatever it emits, so a number cannot
+be read without its caveat.
+
+Probing for rows rather than for the table is the load-bearing part. A table that exists can still
+be empty, and empty is common — `aisle_metrics` carries rows in 52 of 60 arms, `reorder_queue` in
+68 of 166. On the archive there is a real arm whose `aisle_metrics` table exists with zero rows for
+the run being replayed, and it correctly falls through to the next rung; an unfiltered probe would
+have selected a source that folds to nothing.
+
+The registry lives in `Picking_Data.SIM_CAPABILITIES`, beside the DDL that defines the tables,
+because `Schema/` must not learn what a warehouse is. `Visualization/readers/protocol.py` and
+`Diagnostics/replay_run.py` both had their own copy — `CAP_*` and `_SOURCES` — and neither could be
+shared, since `architecture.yml` forbids `optimization → visualization`. Both now read the one
+registry, verified byte-identical in output across 166 viewer arms and all three occupancy rungs.
+
+One lesson from that merge: the first registry text was a *lossy paraphrase* of the caveat it
+replaced, having dropped the mechanism (`check_reorders()` runs before the pre-batch snapshot) and
+the measurement (0 rows with `post_qty > pre_qty` against 20,662–42,832 reorder placements). A
+caveat that loses its evidence is decoration. When consolidating prose into a shared registry,
+diff it, do not summarise it.
+
+### `--sync` / `--adopt` — commit the declared shape *while it is current*
+
+The first store held only historical shapes, which made every DDL change an excavation: once
+`declared_id()` moved, the outgoing shape existed only in files on a drive.
+
+`--sync` removes the problem instead of automating the dig: commit the **declared** shape too, on
+every run. When a DDL edit then moves the id, the previous shape is already on disk — captured from
+the writer's own DDL, no archive involved. `--adopt` reports any committed shape no family vets any
+more (that *is* the outgoing shape), prints the exact `known_ids` line, and exits 1.
+
+Demonstrated end to end: adding one column moved `runtime_metrics_db` from `c033ff9c85a5` to
+`12d1a5939a9f`, and `--adopt` named `c033ff9c85a5` and emitted the line to paste, with no archive
+lookup. `Tests/architecture/test_schema_compatibility.py` enforces that the store holds exactly the
+vetted ids, so a DDL change that skips adoption fails CI.
+
 ## 6. Proposed, not built
 
-1. **Move the capability vocabulary to `Schema/capability.py`.** `Schema/` is stdlib-only,
-   top-level, and importable by every layer — the only legal home. `readers/protocol.CAP_*` and
-   `replay_run._SOURCES` become registrations against it; analysis gains the ability to negotiate
-   at all.
-2. **`Schema/preflight.py --adopt`,** mirroring the run-tree ADOPT stage: canary-write a DB from
-   the family's own DDL, derive the outgoing id, capture its shape, and append to `known_ids` with
-   a generated comment. Today that step is manual archaeology.
-3. **Teach `docs/macros.py` the `experiment.yml` `schema_id`,** so a staged snapshot resolves
+1. **Teach `docs/macros.py` the `experiment.yml` `schema_id`,** so a staged snapshot resolves
    through a contract instead of a joined string.
-4. **`describe_diff` reports "no structural difference found (the ids differ for another reason)"
+2. **`describe_diff` reports "no structural difference found (the ids differ for another reason)"
    when the shapes are identical** — misleading; it should say the shapes match.
-5. **Teach `context/arch/extract.py` the dynamic-import forms** (`importlib.import_module`,
+3. **Teach `context/arch/extract.py` the dynamic-import forms** (`importlib.import_module`,
    `__import__`) on string literals. Until then every layer boundary in `architecture.yml` is
    enforced only against static imports, and the local test above is the only thing covering
    `Schema/`. Other layers have no equivalent.
-6. **Nothing checks a `Requires` for COMPLETENESS.** `validate()` proves a declaration is *inside*
+4. **Nothing checks a `Requires` for COMPLETENESS.** `validate()` proves a declaration is *inside*
    the guaranteed surface; no test proves it names everything its loaders actually read. Both
    current declarations were found under-declared by inspection (`reorder_queue.unit_type`,
    `storage_size`, and ten `simulation_runs` columns), not by a gate. A structural sweep pairing
    each loader's SELECT and `row.keys()` guards against its declaration would close it.
-7. **`_functions_selecting` only matches single-literal SQL,** so a loader that interpolates its
+5. **`_functions_selecting` only matches single-literal SQL,** so a loader that interpolates its
    table name is invisible to the conditional-reader exhaustiveness test.
 
 ## 7. The rule

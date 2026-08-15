@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_capability_py__Capability" data-id="Schema/capability.py::Capability">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_capability_py.html"><code>Schema/capability.py</code></a> <span class="sep">›</span> <span class="here"><code>Capability</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>Capability</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_capability_py.html"><code>Schema/capability.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@dataclass(frozen=True, eq=False)
+class Capability</code></pre>
+<section class="doc">One optional data source, and what it is worth.
+
+`exact`, `phase` and `caveat` are not documentation — they are the payload. A consumer that
+selects a source is expected to carry them into whatever it emits, so the number cannot be
+read without them. `Diagnostics/replay_run.py` copies them verbatim into its exported JSON;
+that is the pattern.
+
+`table=None` marks a capability whose availability cannot be answered by a row probe (a
+sibling file exists; a derived cache is fresh). The caller supplies those to `probe(extra=...)`
+— the negotiation stays uniform even when the evidence is not a table.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__SIM_CAPABILITIES.html"><code>SIM_CAPABILITIES</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_capability_py__Capability">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/capability.py#:~:text=class%20Capability">Source ↗</a></p>
+</article>
+</main>
+</body></html>

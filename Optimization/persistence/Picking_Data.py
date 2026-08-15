@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from Schema import capability as _capability
 from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import shape as _shape
@@ -713,6 +714,79 @@ CONDITIONAL_READS = {
     'load_bin_evictions':  'bin_eviction',     # added 2026-08-13
     'run_identity':        'simulation_runs.sim_schema_id',
 }
+
+# ── the sim DB's capabilities: what a consumer may NEGOTIATE for ────────────────────────────
+# The registry lives here, beside the DDL that defines these tables, because `Schema/` is the
+# stdlib-only leaf and must not learn what a warehouse is.  It owns the TYPE and the row probe;
+# this owns which tables exist and what each is worth.
+#
+# Every entry is either on the conditional surface (some vetted vintages lack the table) or is
+# present-everywhere-but-usually-EMPTY, which for a consumer deciding whether it can draw
+# something is the same fact.  Both are why the probe checks for ROWS, not for the table.
+#
+# `exact`, `phase` and `caveat` are payload, not prose: a consumer that selects one of these is
+# expected to carry `capability.provenance(cap)` into whatever it emits.
+CAP_BIN_LOG = 'bin_log'
+CAP_AISLE_METRICS = 'aisle_metrics'
+CAP_BIN_INVENTORY = 'bin_inventory'
+CAP_BIN_SCORES = 'bin_scores'
+CAP_SKU_SCORES = 'sku_scores'
+CAP_REORDER_QUEUE = 'reorder_queue'
+CAP_KEYFRAMES = 'keyframes'          # a sibling .keyframes.db — not table-probed
+CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-probed
+
+SIM_CAPABILITIES = {c.name: c for c in (
+    _capability.Capability(
+        name=CAP_BIN_LOG, table='bin_placement', exact=True,
+        phase="end-of-batch (after this batch's picks)",
+        caveat='',
+        columns=('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty', 'cause')),
+    _capability.Capability(
+        name=CAP_AISLE_METRICS, table='aisle_metrics', exact=False,
+        phase="start-of-batch (after restock, BEFORE this batch's picks)",
+        caveat="APPROXIMATE. n_bins is the manager's own occupied-bin counter, sampled after the "
+               "restock pass and before the batch's picks, so it describes a different instant "
+               'than the pick-based sources and it lags a bin emptied by a pick. Only strategies '
+               'that maintain aisle state write this table at all.',
+        columns=('run_id', 'batch_id', 'aisle_id', 'n_bins')),
+    _capability.Capability(
+        name=CAP_BIN_INVENTORY, table='bin_inventory', exact=False,
+        phase="end-of-batch (after this batch's picks)",
+        # Carries the MECHANISM and the measurement, not just the verdict.  An earlier draft
+        # trimmed both, and a caveat that asserts a bias without the evidence for it is the kind
+        # of sentence a reader talks themselves out of.  This is also the exact body
+        # `Diagnostics/replay_run.py` has always exported, so the registry can be its one source.
+        caveat='ARCHIVE-ONLY (no run writes this table any more). APPROXIMATE AND BIASED '
+               'DOWNWARD. bin_inventory records picks and NEVER restocks '
+               '(check_reorders() runs before the pre-batch snapshot, and the post_qty==pre_qty '
+               'skip then drops the restocked bin): measured on a production arm, 0 rows with '
+               'post_qty > pre_qty against 20,662-42,832 reorder_placements per batch. Rolling '
+               'these deltas forward can only DECAY occupancy - 68,271 occupied bins against a '
+               'true 165,519 five batches past a keyframe. Treat the SHAPE of this curve as '
+               'wrong, not merely noisy.',
+        columns=('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'pre_qty', 'post_qty')),
+    _capability.Capability(
+        name=CAP_BIN_SCORES, table='bin_scores', exact=True,
+        phase='static (per run)', caveat=''),
+    _capability.Capability(
+        name=CAP_SKU_SCORES, table='sku_scores', exact=True,
+        phase='static (per run)', caveat=''),
+    _capability.Capability(
+        name=CAP_REORDER_QUEUE, table='reorder_queue', exact=True,
+        phase='start-of-batch', caveat=''),
+    _capability.Capability(
+        name=CAP_KEYFRAMES, table=None, exact=True,
+        phase='the keyframe batch itself', caveat=''),
+    _capability.Capability(
+        name=CAP_VIZ_CACHE, table=None, exact=True,
+        phase='derived (rebuildable)', caveat=''),
+)}
+
+#: Occupancy sources, BEST FIRST.  Ordering is a property of the QUESTION, not of the sources, so
+#: it lives with the consumer's intent rather than in the registry: an exact end-of-batch fold
+#: beats a start-of-batch counter, which beats a downward-biased delta roll.
+OCCUPANCY_LADDER = tuple(SIM_CAPABILITIES[n] for n in
+                         (CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_INVENTORY))
 
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
     name='keyframes_db',

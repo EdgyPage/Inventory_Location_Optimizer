@@ -79,67 +79,58 @@ _OUT_DIR   = os.path.join(_HERE, 'out')
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import capability                # the shared TYPE + row probe (stdlib-only leaf)
 from Schema import identity as _identity
 from Schema.connect import read_only          # the ONE safe way to open a finished artifact
-# Imported for its REGISTRATION side effect: `Schema/` imports no writer, so `warehouse_db`
-# exists in the registry only once its writer module has been loaded.
+# `Picking_Data` is imported for the capability REGISTRY as well as for its registration side
+# effect: `Schema/` imports no writer, so `sim_db`/`warehouse_db` exist in the identity registry
+# only once their writer modules have been loaded.  `diagnostics -> optimization` is legal —
+# `context/architecture.yml` forbids only warehouse_core -> diagnostics and schema -> diagnostics.
+from Optimization.persistence import Picking_Data as _picking_data
 from Optimization.persistence import Warehouse_Data as _warehouse_data  # noqa: F401
 
 _GRID_COLS = 6
 
 # ── what each occupancy source is worth ────────────────────────────────────────
-# Consulted best-first by `_occupancy`, and copied verbatim into the exported JSON so the number
-# can never be read without its caveat.  `phase` matters as much as `exact`: the three sources do
-# not describe the same instant of a batch.  Text is plain ASCII because it is printed to a
-# console (Windows cp1252) as well as written to JSON.
-_SOURCES: dict[str, dict] = {
-    'bin_log': {
-        'exact': True,
-        'phase': "end-of-batch (after this batch's picks)",
-        'note': ('EXACT. Folded from the complete bin-mutation log: bin_placement (PLACE) + '
-                 'bin_eviction (EVICT) + picks (PICK), applied in that order within each batch. '
-                 'Those are every mutation of Aisle.Bin.storage the simulation can make, so the '
-                 'fold reproduces its own bin state bin-for-bin instead of approximating it. See '
-                 'Tests/integration/test_bin_log_replay.py.'),
-    },
-    'aisle_metrics': {
-        'exact': False,
-        'phase': "start-of-batch (after restock, BEFORE this batch's picks)",
-        'note': ("APPROXIMATE. n_bins is the manager's own occupied-bin counter, sampled after "
-                 "the restock pass and before the batch's picks, so it describes a different "
-                 'instant than the pick-based sources and it lags a bin emptied by a pick. Only '
-                 'strategies that maintain aisle state write this table at all. Re-run the arm to '
-                 'get bin_placement and an exact curve.'),
-    },
-    'bin_inventory': {
-        'exact': False,
-        'phase': "end-of-batch (after this batch's picks)",
-        'note': ('ARCHIVE-ONLY (no run writes this table any more). APPROXIMATE AND BIASED '
-                 'DOWNWARD. bin_inventory records picks and NEVER restocks '
-                 '(check_reorders() runs before the pre-batch snapshot, and the post_qty==pre_qty '
-                 'skip then drops the restocked bin): measured on a production arm, 0 rows with '
-                 'post_qty > pre_qty against 20,662-42,832 reorder_placements per batch. Rolling '
-                 'these deltas forward can only DECAY occupancy - 68,271 occupied bins against a '
-                 'true 165,519 five batches past a keyframe. Treat the SHAPE of this curve as '
-                 'wrong, not merely noisy. Re-run the arm to get bin_placement and an exact '
-                 'curve.'),
-    },
+# `exact`, `phase` and the caveat BODY now come from `Picking_Data.SIM_CAPABILITIES`, beside the
+# DDL that defines these tables; the best-first order comes from `OCCUPANCY_LADDER`.  This file
+# used to carry its own `_SOURCES` copy of all of it, which is the duplication the shared
+# vocabulary exists to end.
+#
+# What stays here is only the half the registry cannot own — what a REPLAY, specifically, must add:
+#
+#   * `bin_log` is exact, so its registry caveat is '' and must stay '' — every exact capability
+#     in the registry has an empty caveat, and a consumer that warns on a non-empty one would
+#     start warning about the correct source.  But an export still has to record WHY the curve is
+#     believable, so the provenance paragraph lives here, where it is not a duplicate of anything.
+#   * the re-run advice is about this tool's situation (you are replaying an archived arm and can
+#     re-run it), not a property of the table, so it does not belong in a shared registry either.
+#
+# Text is plain ASCII because it is printed to a console (Windows cp1252) as well as written to
+# JSON.  See commit 71a4873.
+_RERUN_ADVICE = 'Re-run the arm to get bin_placement and an exact curve.'
+
+_REPLAY_NOTE: dict[str, str] = {
+    _picking_data.CAP_BIN_LOG:
+        ('EXACT. Folded from the complete bin-mutation log: bin_placement (PLACE) + '
+         'bin_eviction (EVICT) + picks (PICK), applied in that order within each batch. '
+         'Those are every mutation of Aisle.Bin.storage the simulation can make, so the '
+         'fold reproduces its own bin state bin-for-bin instead of approximating it. See '
+         'Tests/integration/test_bin_log_replay.py.'),
+    _picking_data.CAP_AISLE_METRICS: _RERUN_ADVICE,
+    _picking_data.CAP_BIN_INVENTORY: _RERUN_ADVICE,
 }
 
 
-def _has_rows(conn: sqlite3.Connection, table: str, run_id: int | None = None) -> bool:
-    """Does `table` exist AND carry at least one row (for `run_id`, when given)?
+def _note(cap) -> str:
+    """The `occupancy_note` an export carries for `cap`: the registry's caveat, then ours.
 
-    The run_id filter is not decoration: an arm that was resumed or interrupted can leave a table
-    created-but-empty for the run being replayed, and an unfiltered probe would then select a
-    source that folds to nothing.
+    Joined with a single space, skipping either half when it is empty.  The exported key stays
+    `occupancy_note` and not `occupancy_caveat` — the dashboard and every replay JSON already on
+    disk read `meta.occupancy_note`, and renaming it to match the shared type's field name would
+    break the output contract for no gain.
     """
-    sql = f'SELECT 1 FROM {table} LIMIT 1' if run_id is None else \
-          f'SELECT 1 FROM {table} WHERE run_id=? LIMIT 1'
-    try:
-        return conn.execute(sql, () if run_id is None else (run_id,)).fetchone() is not None
-    except sqlite3.OperationalError:                  # no such table -> this run predates it
-        return False
+    return ' '.join(part for part in (cap.caveat, _REPLAY_NOTE.get(cap.name, '')) if part)
 
 
 # ── warehouse geometry ─────────────────────────────────────────────────────────
@@ -151,8 +142,8 @@ def read_layout(warehouse_db: str) -> tuple[list[dict], dict[int, int]]:
     viewer, which warns.  Capacity is the DENOMINATOR of every fill percentage this tool
     exports, and the dashboard renders those percentages as a measurement.  A geometry table
     that is not the one we think it is produces a fill curve that is wrong in a way no reader
-    can see — the same class of defect as the `bin_inventory` decay documented in `_SOURCES`,
-    which is why that entry exists at all.  Better to name the differing column and stop.
+    can see — the same class of defect as the `bin_inventory` decay carried in that capability's
+    caveat, which is why that entry exists at all.  Better to name the differing column and stop.
     Both archived shapes are vetted (`Warehouse_Data.PRE_STAMP_WAREHOUSE_SCHEMA_ID` and
     `PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID`), so this refuses nothing that exists today.
     """
@@ -273,7 +264,7 @@ def occupied_from_bin_log(conn, run_id, max_batches: int = 0) -> dict[int, dict[
 
 
 def occupied_from_aisle_metrics(conn, run_id) -> dict[int, dict[int, int]]:
-    """APPROXIMATE fallback — see `_SOURCES['aisle_metrics']`.
+    """APPROXIMATE fallback — see `Picking_Data.SIM_CAPABILITIES['aisle_metrics']`.
 
     `n_bins` is the manager's own occupied-bin counter sampled after the restock pass and BEFORE
     the batch's picks, so this is the start-of-batch frame, not the end-of-batch one the log and
@@ -289,7 +280,7 @@ def occupied_from_aisle_metrics(conn, run_id) -> dict[int, dict[int, int]]:
 
 
 def occupied_from_bin_inventory(conn, run_id) -> dict[int, dict[int, int]]:
-    """APPROXIMATE fallback of last resort — see `_SOURCES['bin_inventory']`.
+    """APPROXIMATE fallback of last resort — see `Picking_Data.SIM_CAPABILITIES['bin_inventory']`.
 
     ARCHIVE-ONLY: `bin_inventory` is no longer written, so on a current DB this is unreachable —
     `_occupancy` probes `bin_placement` first and the table is not even in the schema.  Reached
@@ -318,21 +309,39 @@ def occupied_from_bin_inventory(conn, run_id) -> dict[int, dict[int, int]]:
     return out
 
 
+#: Which fold answers for which capability.  The SELECTION is `Picking_Data.OCCUPANCY_LADDER`'s
+#: business — bin_log, then aisle_metrics, then bin_inventory — and this is only the map from the
+#: name it chose back to the code that reads that table.
+_FOLD = {
+    _picking_data.CAP_BIN_LOG:
+        lambda conn, run_id, max_batches: occupied_from_bin_log(conn, run_id, max_batches),
+    _picking_data.CAP_AISLE_METRICS:
+        lambda conn, run_id, max_batches: occupied_from_aisle_metrics(conn, run_id),
+    _picking_data.CAP_BIN_INVENTORY:
+        lambda conn, run_id, max_batches: occupied_from_bin_inventory(conn, run_id),
+}
+
+
 def _occupancy(conn, run_id, max_batches: int):
-    """Pick the best occupancy source this DB actually carries and name it — (None, None) if none.
+    """Fold the best occupancy source this DB carries; return (occ_by_batch, capability).
 
     Probing rather than assuming is what keeps the ~500 GB archive readable: those DBs predate the
     bin-mutation log entirely, so `bin_placement` is not merely empty — the table does not exist.
-    `_has_rows` is False for both cases, and the run then falls through to a LABELLED
+    `capability.has_rows` is False for both cases, and the run then falls through to a LABELLED
     approximation.
+
+    The probe stays `run_id`-FILTERED. An arm that was resumed or interrupted can leave a table
+    created-but-empty for the run being replayed, and an unfiltered probe would then pick a source
+    that folds to nothing — not hypothetical: in the 2026-07-29 archive `aisle_metrics` exists on
+    every arm and is empty for the uniform ones, which is how `bin_inventory` gets reached at all.
+
+    Raises `capability.NoSourceAvailable` when the run carries none of the three; the caller turns
+    that into a `SystemExit` naming the file.
     """
-    if _has_rows(conn, 'bin_placement', run_id):
-        return occupied_from_bin_log(conn, run_id, max_batches), 'bin_log'
-    if _has_rows(conn, 'aisle_metrics', run_id):
-        return occupied_from_aisle_metrics(conn, run_id), 'aisle_metrics'
-    if _has_rows(conn, 'bin_inventory', run_id):
-        return occupied_from_bin_inventory(conn, run_id), 'bin_inventory'
-    return None, None
+    have = capability.probe(conn, _picking_data.OCCUPANCY_LADDER, run_id)
+    cap = capability.require(have, _picking_data.OCCUPANCY_LADDER,
+                             what=f'occupancy of run {run_id}')
+    return _FOLD[cap.name](conn, run_id, max_batches), cap
 
 
 # ── per-batch records ───────────────────────────────────────────────────────────
@@ -373,35 +382,43 @@ def replay_sim_db(sim_db: str, warehouse_db: str, max_batches: int) -> dict:
     durations = {r['batch_id']: r['duration']
                  for r in conn.execute(
                      'SELECT batch_id, duration FROM batch_stats WHERE run_id=?',
-                     (run_id,)).fetchall()} if _has_rows(conn, 'batch_stats', run_id) else {}
+                     (run_id,)).fetchall()} if capability.has_rows(conn, 'batch_stats',
+                                                                   run_id) else {}
 
-    occ, src = _occupancy(conn, run_id, max_batches)
+    try:
+        occ, cap = _occupancy(conn, run_id, max_batches)
+    except capability.NoSourceAvailable as exc:
+        conn.close()                                  # the archive is opened read-only; still close
+        # `require` names the ladder it tried by CAPABILITY; a reader goes looking for TABLES, so
+        # add those — derived from the ladder, so a new rung cannot leave this message stale.
+        raise SystemExit(f'{sim_db}: {exc} Tables tried: '
+                         + ', '.join(c.table for c in _picking_data.OCCUPANCY_LADDER)
+                         + '.') from None
     conn.close()
-    if src is None:
-        raise SystemExit(f'{sim_db}: no occupancy source — run {run_id} has no bin_placement, '
-                         f'aisle_metrics or bin_inventory rows.')
 
     batches = build_batches(occ, capacity, aisles, durations, max_batches)
     if not batches:
         raise SystemExit(f'{sim_db}: no per-batch fill could be derived.')
 
-    info = _SOURCES[src]
     # Tagged on EVERY arm line, not just in the JSON.  The defect being fixed here was never a
     # wrong number as such — it was a wrong number that looked like a measurement.  `main` prints
     # the full reason once per source at the end, so 34 arms do not repeat one paragraph 34 times.
     print(f'  {os.path.basename(sim_db)}: run_id={run_id} type={run_type}  '
-          f'{len(batches)} batches via {src} '
-          f'[{"EXACT" if info["exact"] else "APPROXIMATE"}, {info["phase"]}]  '
+          f'{len(batches)} batches via {cap.name} '
+          f'[{"EXACT" if cap.exact else "APPROXIMATE"}, {cap.phase}]  '
           f'final fill={batches[-1]["fill_overall"]:.1%}')
+    prov = capability.provenance(cap)                 # {'source', 'exact', 'phase', 'caveat'}
     return {
         'meta': {'source': 'replay', 'strategy': str(run_type),
                  'label': str(run_type), 'n_skus': None,
                  'total_bins': sum(capacity.values()), 'target_fill': None,
                  'n_batches': len(batches),
-                 'occupancy_source': src,
-                 'occupancy_exact': info['exact'],
-                 'occupancy_phase': info['phase'],
-                 'occupancy_note': info['note']},
+                 'occupancy_source': prov['source'],
+                 'occupancy_exact': prov['exact'],
+                 'occupancy_phase': prov['phase'],
+                 # The shared type calls this field `caveat`; the EXPORTED key stays
+                 # `occupancy_note` — see `_note`.
+                 'occupancy_note': _note(cap)},
         'warehouse': {'aisles': aisles, 'grid_cols': _GRID_COLS},
         'batches': batches,
     }
@@ -485,7 +502,8 @@ def main() -> None:
               f'bin_placement table, so they predate the bin-mutation log. They are marked '
               f'[approx] in the dashboard run switcher; re-run the arm for an exact curve.')
         for src in sorted({r['occupancy_source'] for r in approx}):
-            print(f'  {src} ({_SOURCES[src]["phase"]}):\n    {_SOURCES[src]["note"]}')
+            cap = _picking_data.SIM_CAPABILITIES[src]
+            print(f'  {src} ({cap.phase}):\n    {_note(cap)}')
 
 
 if __name__ == '__main__':
