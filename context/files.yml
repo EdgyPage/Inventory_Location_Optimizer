@@ -63,6 +63,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "set_footer", file: "Optimization/Performance_Evaluations/common/io.py", kind: "function"}
+      - {name: "set_current_eval", file: "Optimization/Performance_Evaluations/common/io.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/common/series.py":
     purpose: "Per-strategy time-series construction, the series.json dump, top-N selection, and the"
@@ -173,6 +174,16 @@ files:
       - {name: "gain_vs_base", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/comparison/volume_curve.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/core/artifact_map.py":
+    purpose: "which directories each evaluation's outputs land in, derived, not retyped."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "owned_artifacts", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "findings", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "figure_subdir", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "save_in_bounds", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "config_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/core/context.py":
     purpose: "the per-config (and per-aggregate-group) data hub."
     layer: "evaluations"
@@ -193,6 +204,21 @@ files:
     key_symbols:
       - {name: "Evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "class"}
       - {name: "evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/core/requests.py":
+    purpose: "consumers ask for a resource BY NAME; this module gets it or says why not."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "Denied", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
+      - {name: "Request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
+      - {name: "request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "resolve_needs", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "tally_snapshot", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "sql", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/driver.py":
     purpose: "scope dispatch + output-dir preparation for the registry."
@@ -583,7 +609,6 @@ files:
     layer: "opt_runschema"
     key_symbols:
       - {name: "SUPPORTED_FEATURES", file: "Optimization/runschema/resolver.py", kind: "const"}
-      - {name: "render", file: "Optimization/runschema/resolver.py", kind: "function"}
       - {name: "RunTree", file: "Optimization/runschema/resolver.py", kind: "class"}
     notes: ""
   "Optimization/runschema/runlayout.py":
@@ -612,7 +637,6 @@ files:
     purpose: "run bookkeeping artifacts."
     layer: "opt_runschema"
     key_symbols:
-      - {name: "repo_provenance", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_manifest", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
@@ -756,6 +780,7 @@ files:
       - {name: "register_query", file: "Schema/dataset.py", kind: "function"}
       - {name: "override", file: "Schema/dataset.py", kind: "function"}
       - {name: "queries_for", file: "Schema/dataset.py", kind: "function"}
+      - {name: "sql_for", file: "Schema/dataset.py", kind: "function"}
       - {name: "bind", file: "Schema/dataset.py", kind: "function"}
       - {name: "Dataset", file: "Schema/dataset.py", kind: "class"}
     notes: ""
@@ -784,6 +809,53 @@ files:
       - {name: "check", file: "Schema/identity.py", kind: "function"}
       - {name: "check_tables", file: "Schema/identity.py", kind: "function"}
       - {name: "check_or_warn", file: "Schema/identity.py", kind: "function"}
+    notes: ""
+  "Schema/pathtpl.py":
+    purpose: "the contract path-template vocabulary: render, and invert-with-capture."
+    layer: "schema"
+    key_symbols:
+      - {name: "render", file: "Schema/pathtpl.py", kind: "function"}
+    notes: ""
+  "Schema/profile_resolver.py":
+    purpose: "the generic resolver over the profiles-tree contract."
+    layer: "schema"
+    key_symbols:
+      - {name: "ProfileTree", file: "Schema/profile_resolver.py", kind: "class"}
+    notes: ""
+  "Schema/profile_tree.py":
+    purpose: "THE DECLARATION of the generated-catalogue (profiles) tree, and its store."
+    layer: "schema"
+    key_symbols:
+      - {name: "SHORT_LEN", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "DESCRIPTOR", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "FEATURES", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "LEVELS", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "AXES", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "ARTIFACTS", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "SHAPE_SOURCES", file: "Schema/profile_tree.py", kind: "const"}
+      - {name: "short_id", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "contract_path", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "schema_id", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "build", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "load", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "load_all", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "read_index", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "head", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "source_fingerprint", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "adopt", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "verify_store", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "stale_reasons", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "write_profile_layout", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "entries_from_disk", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "params_digest", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "read_profile_layout", file: "Schema/profile_tree.py", kind: "function"}
+      - {name: "main", file: "Schema/profile_tree.py", kind: "function"}
+    notes: ""
+  "Schema/provenance.py":
+    purpose: "which CODE produced an artifact, derived without raising, git binary optional."
+    layer: "schema"
+    key_symbols:
+      - {name: "repo_provenance", file: "Schema/provenance.py", kind: "function"}
     notes: ""
   "Schema/shape.py":
     purpose: "the canonical SQL shape of a SQLite database, and the diff between two."
@@ -858,6 +930,18 @@ files:
       - {name: "test_boundary_detects_forbidden_edge", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
       - {name: "test_wildcard_boundary_and_layer_mapping", file: "Tests/architecture/test_architecture_sync.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_artifact_map.py":
+    purpose: "the output map stays derived, honest, and equal to history."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_out_subdir_declarations_agree_with_the_contract", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_every_attributed_evaluation_is_registered", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_config_dirs_derive_exactly_the_historical_literals", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_single_owner_subdirs_stay_out_of_the_prepare_list", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_save_in_bounds_matches_subdir_segments_not_substrings", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_root_declaring_evaluations_make_no_checkable_claim", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_bin_mutation_sites.py":
     purpose: "the bin-mutation log is complete only while this list is."
     layer: "tests"
@@ -921,6 +1005,22 @@ files:
       - {name: "test_every_tracked_file_is_clean", file: "Tests/architecture/test_path_guard.py", kind: "function"}
       - {name: "test_allowlist_is_small_and_points_at_real_files", file: "Tests/architecture/test_path_guard.py", kind: "function"}
       - {name: "test_username_is_never_hardcoded", file: "Tests/architecture/test_path_guard.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_profiletree_consumption.py":
+    purpose: "the profiles-tree contract: ratchet, store, and honesty gates."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_baseline_is_armed", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_no_new_handwritten_profile_paths", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_tokens_are_still_derived_and_distinctive", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_store_holds_exactly_the_head_document", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_committed_store_is_clean_and_current_now", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_stale_reasons_flag_an_empty_store", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_source_fingerprint_matches_the_runtree_implementation", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_schema_id_ignores_prose_but_tracks_every_shape_field", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_write_profile_layout_roundtrips_and_replaces_atomically", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_read_profile_layout_is_none_for_absent_or_malformed", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_params_digest_is_the_sha256_of_the_file_bytes", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_registry_discovery.py":
     purpose: "Locks the two pkgutil.walk_packages auto-discovery registries against SILENT loss \u2014 a module outside pkg.__path__ or in a directory missing __init__.py is never imported, so its @evaluation/@pick_config never fires and the registry is quietly short an entry (fewer plots, or a pick-config vanishing from the sweep and changing output dir names). Scans declarations with ast, independently of the discovery machinery it checks."
@@ -1025,6 +1125,15 @@ files:
       - {name: "test_the_affinity_mirror_matches_the_family", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
       - {name: "test_a_dropped_column_is_rejected_by_name_through_a_real_consumer", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
       - {name: "test_check_or_warn_reports_once_and_returns_none", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_site_tree.py":
+    purpose: "the staged docs tree declaration stays tied to both its sides."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_templates_render_the_committed_snapshot_literals", file: "Tests/architecture/test_site_tree.py", kind: "function"}
+      - {name: "test_missing_part_fails_by_name", file: "Tests/architecture/test_site_tree.py", kind: "function"}
+      - {name: "test_macros_fstring_joins_equal_the_templates", file: "Tests/architecture/test_site_tree.py", kind: "function"}
+      - {name: "test_ingest_renders_destinations_from_site_tree_only", file: "Tests/architecture/test_site_tree.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
@@ -1322,6 +1431,21 @@ files:
       - {name: "test_without_the_log_a_non_keyframe_batch_is_wrong_AND_says_so", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
       - {name: "test_without_the_log_a_keyframe_batch_is_still_exact", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_profile_tree_golden.py":
+    purpose: "ProfileTree vs the legacy walk, pinned on synthetic catalogues."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_pairs_on_a_pre_contract_catalogue_match_the_hardcoded_golden", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_discover_and_find_latest_match_profiletree_end_to_end", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_descriptor_pairs_equal_the_walk_and_existence_check_the_claims", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_binding_of_returns_exactly_the_recorded_binding", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_binding_is_none_for_pre_contract_runs_and_malformed_labels", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_a_newer_descriptor_created_beats_the_lexicographic_order_and_warns", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_latest_is_lexicographic_and_silent_without_descriptors", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_latest_is_none_on_an_empty_root", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_path_renders_the_contract_templates_exactly", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+      - {name: "test_path_with_a_missing_required_part_fails_loudly", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
     layer: "tests"
@@ -1493,6 +1617,7 @@ files:
       - {name: "test_leaf_docs_render_the_old_literals_on_both_tree_shapes", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_aggregate_dir_store_only_group_key_is_byte_identical", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_aggregate_dir_slash_group_key_lands_in_the_old_directory", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_aggregate_stats_pair_renders_the_render_stats_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_volume_outputs_render_on_a_run_predating_their_artifacts", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_runtime_png_dir_renders_the_old_literal", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
     notes: ""
@@ -1736,6 +1861,20 @@ files:
       - {name: "test_reorders_actually_fire_during_the_pick_loop", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
       - {name: "test_fill_rate_holds_up_under_sustained_picking", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
       - {name: "test_both_pallet_and_singleton_bins_are_occupied", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_request_broker.py":
+    purpose: "the request broker's grant/deny/tally contract (core/requests.py)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_denied_is_falsy_and_carries_its_reason", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_missing_sim_db_denies_every_config_request", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_aggregate_series_denies_on_an_empty_group", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_aggregate_series_grants_the_list_itself", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_unknown_need_is_denied_not_raised", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_driver_skips_the_render_on_denial_and_logs_it", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_driver_renders_and_logs_granted_when_needs_are_met", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_tally_counts_grants_and_denials_per_eval_and_resets", file: "Tests/unit/test_request_broker.py", kind: "function"}
+      - {name: "test_sql_facade_serves_the_head_vintage_and_refuses_unknown_ids", file: "Tests/unit/test_request_broker.py", kind: "function"}
     notes: ""
   "Tests/unit/test_rng_determinism.py":
     purpose: "test_rng_determinism.py"
@@ -2231,6 +2370,13 @@ files:
       - {name: "DEFAULT_WHATIF_DATA", file: "docs/experiments/ingest.py", kind: "const"}
       - {name: "DEFAULT_WHATIF_PNG_GLOB", file: "docs/experiments/ingest.py", kind: "const"}
       - {name: "main", file: "docs/experiments/ingest.py", kind: "function"}
+    notes: ""
+  "docs/experiments/site_tree.py":
+    purpose: "the staged docs tree, declared as data."
+    layer: "docs"
+    key_symbols:
+      - {name: "TEMPLATES", file: "docs/experiments/site_tree.py", kind: "const"}
+      - {name: "path", file: "docs/experiments/site_tree.py", kind: "function"}
     notes: ""
   "docs/macros.py":
     purpose: "mkdocs-macros helpers: inject run parameters and formulas into the docs."

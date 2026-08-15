@@ -566,9 +566,16 @@
     },
     "Optimization/Performance_Evaluations/common/io.py": {
       "decorators": [],
-      "doc": "Figure-save + fresh-directory helpers (deduped from the two retired monoliths).\n\n`_save_close` stamps a process-global footer (set per context by the driver) onto every\nfigure, so all graphs carry the origin simulation folder + inventory provenance without\neach graph having to opt in.",
+      "doc": "Figure-save + fresh-directory helpers (deduped from the two retired monoliths).\n\n`_save_close` stamps a process-global footer (set per context by the driver) onto every\nfigure, so all graphs carry the origin simulation folder + inventory provenance without\neach graph having to opt in.  It also VALIDATES every save against the current evaluation's\ndeclared `out_subdir` (set per render by the driver, same pattern as the footer): a figure\nlanding outside its owner's directory is logged as a warning \u2014 once per (eval, dir) \u2014 and\nthe e2e tests assert zero such warnings, so the declarations cannot rot into fiction.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/io.py::_CURRENT_EVAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/Performance_Evaluations/common/io.py::_FOOTER": {
       "decorators": [],
@@ -590,6 +597,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(fig, path)"
+    },
+    "Optimization/Performance_Evaluations/common/io.py::set_current_eval": {
+      "decorators": [],
+      "doc": "Name the evaluation whose render is executing (None clears it).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key)"
     },
     "Optimization/Performance_Evaluations/common/io.py::set_footer": {
       "decorators": [],
@@ -1307,6 +1321,54 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/core/artifact_map.py": {
+      "decorators": [],
+      "doc": "The output map \u2014 which directories each evaluation's outputs land in, derived, not retyped.\n\nTwo sources, cross-checked against each other and against the run-tree contract:\n\n  * every `@evaluation`'s `out_subdir=` declaration (core/registry.py) \u2014 the dormant field,\n    now VALIDATED: `io._save_close` warns when a figure lands outside its evaluation's\n    declared subdir, and `findings()` fails the consistency test when a declaration\n    contradicts the contract;\n  * the HEAD run-tree contract's `evaluation:` attributions (Optimization/runschema/schema.py)\n    \u2014 the CSV/JSON artifacts each evaluation owns, with their full path templates.\n\nDerived, memoised lazily (the registry is populated by Performance_Evaluations.import_all(),\nso nothing here may run at import time).  `config_dirs()` replaces the hand-typed literals in\n`driver.prepare_config_dirs` with a rule instead of a list:\n\n    a top-level subdir is PRE-WIPED by the parent iff two or more evaluations write under it\n    (no single owner may wipe a shared dir \u2014 the worker-race rule the driver docstring states);\n    a subdir with exactly one owner is that evaluation's own to wipe (`_fresh_dir` in its\n    render), which is what stats/ and stats_by_initial/ have always done.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir": {
+      "decorators": [],
+      "doc": "A template's directory relative to its stage root \u2014 the segments after the tree levels\n(`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`\naggregate).  Level placeholders are exactly the `{...}`-braced segments; `{initial_group}`\nis NOT a level (it is a subdir the eval creates), so braced segments only strip from the\nFRONT.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(template: str) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::config_dirs": {
+      "decorators": [],
+      "doc": "(wipe_tops, nested_creates) for the parent pre-pass over one config leaf.\n\nwipe_tops: top-level out_subdir segments shared by >= 2 config-stage evaluations \u2014\npre-wiped once by the parent so no worker races.  nested_creates: every declared\nmulti-level out_subdir under a wiped top, created empty after the wipe (workers only ever\nwrite files into them).  Single-owner tops (stats/, stats_by_initial/) are absent: their\nowner wipes its own leaf, as the driver docstring has always promised.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir": {
+      "decorators": [],
+      "doc": "The subdir (relative to the context root) evaluation `eval_key`'s FIGURES belong in \u2014\nits `out_subdir`, '' meaning the root itself, None for an unregistered key.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(eval_key: str) -> str | None"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::findings": {
+      "decorators": [],
+      "doc": "Inconsistencies between `out_subdir=` declarations and the contract's attributions.\nEmpty when honest; the consistency test asserts exactly that.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts": {
+      "decorators": [],
+      "doc": "{eval_key: ((artifact_name, path_template), ...)} from the HEAD run-tree contract's\nunhashed `evaluation:` attributions.  Artifacts with no attribution belong to no\nevaluation (sim writers, run-root docs) and do not appear.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds": {
+      "decorators": [],
+      "doc": "Is a figure save into `save_dir` consistent with `eval_key`'s declared out_subdir?\n\nTrue when the declared subdir's segments appear as a contiguous run in the save path \u2014\nchecked WITHOUT knowing the context root, because `_save_close` only sees the path.  An\neval declaring the root ('') makes no checkable claim; unknown evals are not this\nfunction's problem (the driver only sets registered keys).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(eval_key: str, save_dir: str) -> bool"
+    },
     "Optimization/Performance_Evaluations/core/context.py": {
       "decorators": [],
       "doc": "EvalContext / AggregateContext \u2014 the per-config (and per-aggregate-group) data hub.\n\nBuilt once by the driver and passed to every graph's render(ctx, params).  Lazily loads\nand caches exactly what each graph touches (batch/task frames per strategy, the series\ndict, the travel/handling breakdown, steady-state cutoffs), so the duplicated per-graph\nreloading of the old monolith is gone.  A graph never reloads a DB the context already\nholds; it just calls ctx.batch_df(key) / ctx.series() / ctx.breakdown().",
@@ -1464,13 +1526,6 @@
       "kind": "function",
       "signature": "(leaf_dir: str, max_up: int=6) -> list[str]"
     },
-    "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling": {
-      "decorators": [],
-      "doc": "Per-strategy (travel, handling) picker-time totals over a sample of steady-state\nbatches, reconstructed from picker_events.  Returns {key: (travel, handling)}.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, ss_lo, max_b, n_sample=8)"
-    },
     "Optimization/Performance_Evaluations/core/context.py::_verify_sim_dbs": {
       "decorators": [],
       "doc": "Refuse to build a context over an unvetted sim DB.  Raises `UnsupportedSchema`.\n\nOne check per DISTINCT file, ~10 PRAGMA round trips each.  Measured at 28 ms per sim DB on\nthe external results drive, so ~1 s for a 34-arm config \u2014 small beside the `batch_stats`\nload it guards, and paid once per context because `run_analysis` memoizes contexts per\n(config, focus) in `_CFG_CTX`.  Not worth a cache of its own.",
@@ -1519,9 +1574,188 @@
       "kind": "function",
       "signature": "(fn)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py": {
+      "decorators": [],
+      "doc": "The request broker \u2014 consumers ask for a resource BY NAME; this module gets it or says why not.\n\nThe `needs=` vocabulary every `@evaluation` already declares ('batch', 'task', 'events',\n'series', 'breakdown') is the request vocabulary.  A graph's render never navigates the\nversioned inputs itself: the broker is the hard-coded intermediary that knows where each\nresource lives (sim DBs via the `Picking_Data` loaders, which serve every vetted vintage\nthrough `Schema.dataset`'s named queries; series/breakdown composed from those frames) and\nreturns the composed resource \u2014 or a `Denied(reason)` when the resource does not exist.\n\nThree rules, in tension and resolved deliberately:\n\n  * A MISSING resource never raises.  `resolve_needs` returns `Denied` sentinels; the driver\n    logs `[access] <eval> requested ... -> DENIED (<reason>); render skipped` and moves on.\n    Exceptions remain for real corruption \u2014 an unvetted schema, an unreadable file \u2014 which\n    must stop a publish, not be skipped politely (see core/context.py's identity gate).\n  * When everything is present, behavior is byte-identical to the pre-broker code: the compose\n    functions ARE the old `EvalContext` method bodies, memoised into the same per-context\n    caches, so a granted render costs nothing extra and produces the same frames.\n  * An EMPTY resource is granted, not denied: `breakdown()` returning `{}` (no steady-state\n    batches, a failed reconstruction) is a degraded product its consumers are written to\n    tolerate \u2014 `travel_handling` renders nothing, the stats suites skip those rows.  Denial is\n    reserved for absence of the SOURCE (a sim DB not on disk, no series.json for a group).\n\nThe per-process tally (`tally_snapshot`) is what makes \"did every consumer get what it asked\nfor\" answerable from the log alone: run_analysis collects each worker's counts and prints a\nrun-end summary.  Process-global is safe for the same reason `io.set_footer` is \u2014 workers are\nseparate spawned processes, and within one, jobs run sequentially.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::Denied": {
+      "decorators": [],
+      "doc": "Falsy sentinel carrying the reason the broker actually hit.  Never an exception.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::Denied.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::Denied.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, reason: str) -> None"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::Denied.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::Request": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One named request: bespoke, hard-coded navigation from versioned sources to a resource.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_absent_dbs": {
+      "decorators": [],
+      "doc": "Arm keys whose sim DB is not on disk \u2014 THE denial condition for every config request.\n(An unreadable or unvetted file that IS on disk still raises; that is corruption, not\nabsence, and must stop the publish.)",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx) -> list"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_agg_series": {
+      "decorators": [
+        "request('series', 'aggregate')"
+      ],
+      "doc": "The per-profile series.json list the aggregate stage was built from.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_batch": {
+      "decorators": [
+        "request('batch', 'config')"
+      ],
+      "doc": "Every strategy's batch frame, materialized (memoised \u2014 the render re-reads for free).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_breakdown": {
+      "decorators": [
+        "request('breakdown', 'config')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_deny_absent": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_events": {
+      "decorators": [
+        "request('events', 'config')"
+      ],
+      "doc": "Picker events are streamed per-batch by their consumers, so the grant is the probe:\nevery arm's DB present.  Materializing full event lists here would defeat the streaming.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_series": {
+      "decorators": [
+        "request('series', 'config')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling": {
+      "decorators": [],
+      "doc": "Per-strategy (travel, handling) picker-time totals over a sample of steady-state\nbatches, reconstructed from picker_events.  Returns {key: (travel, handling)}.\n(Moved from core/context.py \u2014 the broker owns resource navigation.)",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, ss_lo, max_b, n_sample=8)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_task": {
+      "decorators": [
+        "request('task', 'config')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::batch_frame": {
+      "decorators": [],
+      "doc": "One strategy's batch frame, memoised in ctx._bcache \u2014 EvalContext.batch_df delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict": {
+      "decorators": [],
+      "doc": "{key: (travel, handling)}, memoised in ctx._breakdown; {} (logged) on failure so\ndependent graphs degrade gracefully \u2014 EvalContext.breakdown delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::request": {
+      "decorators": [],
+      "doc": "Decorator: register `fn` as the compose function for (scope, name).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, scope: str)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::request._wrap": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fn)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::resolve_needs": {
+      "decorators": [],
+      "doc": "Resolve every request `ev.needs` declares against `ctx`.  Returns {} when all granted\n(resources are materialized into the context's caches as a side effect), else\n{need: Denied} for exactly the requests that could not be served.  Tallies either way.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, ev) -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::series_dict": {
+      "decorators": [],
+      "doc": "The composed series dict, memoised in ctx._series \u2014 EvalContext.series delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::sql": {
+      "decorators": [],
+      "doc": "The composed SQL statement that would serve named query `name` on `schema_id` \u2014 for\nconsumers that want the statement rather than frames (the run_whatif_* trio pattern).\nDelegates to `Schema.dataset.sql_for`; raises `UnsupportedQuery` rather than guessing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, schema_id: str, family: str='sim_db') -> str"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::tally_snapshot": {
+      "decorators": [],
+      "doc": "A picklable copy of this process's access tally; optionally reset (per-job snapshots).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(reset: bool=False) -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::task_frame": {
+      "decorators": [],
+      "doc": "One strategy's task frame, memoised in ctx._tcache \u2014 EvalContext.task_df delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
     "Optimization/Performance_Evaluations/driver.py": {
       "decorators": [],
-      "doc": "Driver \u2014 scope dispatch + output-dir preparation for the registry.\n\nThe flat-pool worker in run_analysis.py builds an EvalContext (config stage) or an\nAggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)\nor run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass\n(prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each\nevaluation only writes its own files (stats/aggregate graphs wipe their own private leaf).",
+      "doc": "Driver \u2014 scope dispatch + output-dir preparation for the registry.\n\nThe flat-pool worker in run_analysis.py builds an EvalContext (config stage) or an\nAggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)\nor run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass\n(prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each\nevaluation only writes its own files (stats/aggregate graphs wipe their own private leaf).\n\n`_run_one` is the sole render entry, which makes it the access-control choke point: every\nevaluation's declared `needs=` is resolved through the request broker (core/requests.py)\nBEFORE its render runs.  All granted -> render exactly as before (the resolution warmed the\ncontext caches the render reads).  Any denied -> the render is SKIPPED, gracefully, and the\n`[access]` log line carries the reason the broker actually hit \u2014 a missing resource is an\nanswerable event, never a crash and never a silent half-figure.",
       "kind": "module",
       "signature": null
     },
@@ -1562,7 +1796,7 @@
     },
     "Optimization/Performance_Evaluations/driver.py::prepare_config_dirs": {
       "decorators": [],
-      "doc": "Wipe + recreate the per-config shared output dirs exactly once (parent pre-pass).",
+      "doc": "Wipe + recreate the per-config shared output dirs exactly once (parent pre-pass).\n\nThe dir list is DERIVED from the registry's `out_subdir` declarations (see\n`artifact_map.config_dirs` for the rule); a golden test pins it to the historical\nliterals so the derivation can never silently relocate an output.",
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir)"
@@ -3883,10 +4117,17 @@
     },
     "Optimization/run_analysis.py::_drain": {
       "decorators": [],
-      "doc": "Run jobs on the flat pool (or inline if no pool); log per-job errors.",
+      "doc": "Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the\nmerged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pool, jobs, log)"
+      "signature": "(pool, jobs, log) -> dict"
+    },
+    "Optimization/run_analysis.py::_merge_tally": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(total: dict, part: dict) -> None"
     },
     "Optimization/run_analysis.py::_parse_set": {
       "decorators": [],
@@ -3897,7 +4138,7 @@
     },
     "Optimization/run_analysis.py::_run_job": {
       "decorators": [],
-      "doc": "Picklable unit of work.  job['stage'] is 'config' or 'aggregate'; job['eval_keys']\nis the list of evaluation keys to run against the job's context.",
+      "doc": "Picklable unit of work.  job['stage'] is 'config' or 'aggregate'; job['eval_keys']\nis the list of evaluation keys to run against the job's context.  Returns\n(target, error, access_tally) \u2014 the tally is this job's broker grant/denial counts,\ncarried back to the parent for the run-end `[access]` summary.",
       "is_async": false,
       "kind": "function",
       "signature": "(job: dict)"
@@ -5225,20 +5466,6 @@
       "signature": null,
       "value_preview": "frozenset({'optional-segments', 'globs', 'resolves-via', 'strategy-capture'})"
     },
-    "Optimization/runschema/resolver.py::_capture_regex": {
-      "decorators": [],
-      "doc": "Compile a template into a matcher that CAPTURES one placeholder from a concrete path.\n\nEvery other `{part}` becomes a wildcard; `{part?}` becomes an optional segment.  This is how the\nresolver inverts `\u2026/sim_{strategy}.db` back to the arm name without hardcoding `len('sim_')`.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(template: str, placeholder: str) -> re.Pattern"
-    },
-    "Optimization/runschema/resolver.py::render": {
-      "decorators": [],
-      "doc": "Render a contract path template to a relative path.\n\n`{name}` substitutes parts[name]; `{name?}` is an OPTIONAL segment that is dropped along with\nits separator when parts.get(name) is None.  Raises KeyError for a missing required part, so a\ntypo fails loudly instead of producing a path with a literal brace in it.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(template: str, **parts) -> str"
-    },
     "Optimization/runschema/runlayout.py": {
       "decorators": [],
       "doc": "runlayout.py \u2014 single owner of the on-disk run-tree layout.\n\nTwo trees, one vocabulary:\n\n  * profiles tree (generation output):   <profiles>/<run>/<profile>/{inventory,affinity}/*.db\n  * comparison tree (simulation output): <base>/<cell>/<pair>/<config>[/<channel>]/{sim_*.db,\n                                          sim_meta.json, series.json, ...}\n\nEvery run is a CELL matrix: even a plain run is one cell (``k1_off``).  A cell dir is\nitself a self-contained comparison root (``<cell>/<pair>/<config>[/<channel>]/\u2026``), so the\nper-cell walkers below take a *cell dir* (or a legacy flat base) and are unchanged; only the\ntop-level ``cells()`` iterator is cell-aware.  ``iter_channel_runs`` / ``iter_sim_dbs`` therefore\nrun PER CELL \u2014 pass a cell dir, or loop ``cells(base_dir)`` to span a whole run.\n\nEvery walker that used to re-encode these shapes (run_simulation's pair discovery +\nblank-arm scan, run_analysis's config/aggregate walks, run_channel_rollup's series\nwalk, Visualization/db_reader's run discovery) now goes through here, so a layout\nchange is a one-file edit.  All listings are ``sorted(os.listdir(...))`` \u2014\ndeterministic order, matching the original sites.\n\nA *channel run* is the leaf directory an analyzed run lives in: ``<config>/`` itself\nfor store-only runs, or ``<config>/<channel>/`` per channel on mixed-catalog runs.",
@@ -5264,7 +5491,7 @@
     },
     "Optimization/runschema/runlayout.py::_profile_pairs": {
       "decorators": [],
-      "doc": "(label, inventory_db, affinity_db) for every valid profile under one run dir.",
+      "doc": "(label, inventory_db, affinity_db) for every valid profile under one run dir.\n\nDescriptor-first since the profiles-tree contract (`Schema/profile_tree.py`): a run carrying\n`profile_layout.json` is served through `ProfileTree` (which existence-checks the\ndescriptor's claims); a pre-contract run \u2014 every catalogue generated before the contract,\nforever, per the no-backfill decision \u2014 takes the legacy walk below unchanged.  Signature\nand label format are load-bearing (`context/` anchors; the run tree's `<pair>` level).",
       "is_async": false,
       "kind": "function",
       "signature": "(run_path: str, run_name: str) -> list[tuple[str, str, str]]"
@@ -5292,7 +5519,7 @@
     },
     "Optimization/runschema/runlayout.py::find_latest_db_pairs": {
       "decorators": [],
-      "doc": "Return DB pairs from the most recently generated profile run only.\n\nProfile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy\nbatch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is\nalways the newest.  Walks backwards until a run with valid pairs is found.",
+      "doc": "Return DB pairs from the most recently generated profile run only.\n\n\"Latest\" is `ProfileTree.latest()` \u2014 descriptor `created` timestamps for contract runs,\nthe historical lexicographic name order for pre-contract ones, a logged warning when the\ntwo disagree.  On a tree with no descriptors anywhere this is byte-for-byte the old\nbehavior (the timestamped names make the lexicographic order correct).",
       "is_async": false,
       "kind": "function",
       "signature": "(profiles_dir: str) -> list[tuple[str, str, str]]"
@@ -5365,33 +5592,12 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/runschema/sim_manifest.py::_GIT_TIMEOUT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "10.0"
-    },
     "Optimization/runschema/sim_manifest.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
-    },
-    "Optimization/runschema/sim_manifest.py::_git_dir": {
-      "decorators": [],
-      "doc": "The `.git` directory for `repo_root`, or None when there is no git metadata at all.\n\n`.git` is a DIRECTORY in a normal clone and a FILE holding `gitdir: <path>` in a linked\nworktree or a submodule, which is why this is not a bare isdir() check.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(repo_root: str) -> str | None"
-    },
-    "Optimization/runschema/sim_manifest.py::_head_commit": {
-      "decorators": [],
-      "doc": "HEAD's full sha by reading files only \u2014 no subprocess, and no git binary required.\n\nA source export (a zip, a docker COPY) has no `.git` and returns None from _git_dir before we\nget here; a SHALLOW clone does have one and resolves normally, which is the case the naive\n`git describe` approach gets wrong.  Three shapes are handled: a detached HEAD (the sha\ninline), a loose ref, and a ref that only exists in `packed-refs` (a fresh clone's usual state).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(git_dir: str) -> str | None"
     },
     "Optimization/runschema/sim_manifest.py::_load_resume": {
       "decorators": [],
@@ -5406,6 +5612,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str)"
+    },
+    "Optimization/runschema/sim_manifest.py::_pair_bindings": {
+      "decorators": [],
+      "doc": "{label: binding | None} \u2014 WHICH catalogue version each pair label resolves to.\n\nThe binding comes from the pair's profile run's own `profile_layout.json` (via\n`ProfileTree.binding_of`); `None` records that discovery used the pre-contract legacy walk \u2014\nwith descriptors forward-only, that is every catalogue generated before the profiles\ncontract, and recording the absence honestly beats inventing provenance.  A regenerated-in-\nplace catalogue mints new params digests, so a recorded binding is what makes silent\nre-pointing DETECTABLE after the fact.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pairs) -> dict"
     },
     "Optimization/runschema/sim_manifest.py::_resume_path": {
       "decorators": [],
@@ -5448,13 +5661,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str)"
-    },
-    "Optimization/runschema/sim_manifest.py::repo_provenance": {
-      "decorators": [],
-      "doc": "{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.\n\nWHY THIS MUST NOT RAISE: it runs at the front of every simulation, and a run that dies because\nprovenance could not be derived is strictly worse than a run that records `unknown`.  A shallow\nclone, a source export with no `.git`, a machine with no git on PATH and a wedged index lock all\nresolve to a recorded value rather than an exception.\n\n`repo_dirty` is deliberately THREE-valued: True/False are answers, `None` means \"not\nestablished\" \u2014 which is what an export or a missing git binary honestly is, and reading it as\n\"clean\" would be the one wrong inference.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(repo_root: str=_REPO_ROOT) -> dict"
     },
     "Optimization/runschema/sim_manifest.py::write_run_layout": {
       "decorators": [],
@@ -6347,6 +6553,13 @@
       "kind": "function",
       "signature": "(q: Query) -> Query"
     },
+    "Schema/dataset.py::sql_for": {
+      "decorators": [],
+      "doc": "The composed SQL that would serve named query `name` on vintage `schema_id` \u2014 no file.\n\nSame resolution as `Dataset.query` (an `override(...)` for the id wins, else the canonical\nSQL if the COMMITTED shape for that id carries the tables/columns it declares), answered\nfrom the store instead of a bound connection.  For consumers that want the statement itself\nrather than rows \u2014 the run_whatif_* trio pattern, where one composed query fans out over\nmany files.  Raises `UnsupportedQuery` rather than guessing, exactly like the bound path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, name: str, schema_id: str) -> str"
+    },
     "Schema/hook_check.py": {
       "decorators": [],
       "doc": "hook_check.py \u2014 Stop-hook backstop that nudges a DB-shape store sync on drift.\n\nWired via .claude/settings.json (Stop hook), beside Optimization/runschema/hook_check.py \u2014 the\nsame bargain for the OTHER contract.  It compares the DDL source fingerprint recorded in\n``Schema/shapes/INDEX.json`` against the working tree and stats the per-family committed\ndocuments.  It NEVER imports the writers (that pulls ~1350 modules, matplotlib and pandas\nincluded) and ALWAYS exits 0: advisory, never blocking, never slow.\n\nThe nag it prints is the whole point.  A DDL edit that ships without ``--sync`` opens the\nwindow `Schema.compat.UncommittedShape` documents: the new shape is unrecoverable at the next\nchange, and the outgoing one silently orphans the archive.  Catching it at the END OF THE TURN\nthat edited the DDL costs one line; catching it at the next run's precheck costs a blocked run;\ncatching it at analysis time costs an unreadable archive.\n\nRun standalone:  python Schema/hook_check.py",
@@ -6496,6 +6709,381 @@
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, family: Family) -> str | None"
+    },
+    "Schema/pathtpl.py": {
+      "decorators": [],
+      "doc": "pathtpl.py \u2014 the contract path-template vocabulary: render, and invert-with-capture.\n\nMOVED here from ``Optimization/runschema/resolver.py`` (which re-exports): the profiles-tree\nresolver lives in ``Schema/`` \u2014 the only layer both the generation writers and the run-harness\nconsumers may import \u2014 and must interpret the SAME template vocabulary the run tree uses.  Two\ncopies of a template engine is how the two contracts drift apart; one copy in the stdlib-only\nleaf is how they cannot.\n\nThe vocabulary (shared by both contracts' FEATURES declarations):\n  `{name}`   required segment/part\n  `{name?}`  OPTIONAL segment \u2014 dropped with its separator when the part is None\n  `*` / `**` globs; `**` as a whole segment means ZERO or more directories (glob semantics \u2014\n             compiling it as one-or-more once silently disowned zero-depth files)",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/pathtpl.py::_capture_regex": {
+      "decorators": [],
+      "doc": "Compile a template into a matcher that CAPTURES one placeholder from a concrete path.\n\nEvery other `{part}` becomes a wildcard; `{part?}` becomes an optional segment.  This is how\na resolver inverts `\u2026/sim_{strategy}.db` back to the arm name without hardcoding `len('sim_')`.\nPass a placeholder that appears in no template (any non-identifier string) to get a pure\nmatcher with nothing captured.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(template: str, placeholder: str) -> re.Pattern"
+    },
+    "Schema/pathtpl.py::render": {
+      "decorators": [],
+      "doc": "Render a contract path template to a relative path.\n\n`{name}` substitutes parts[name]; `{name?}` is an OPTIONAL segment that is dropped along with\nits separator when parts.get(name) is None.  Raises KeyError for a missing required part, so a\ntypo fails loudly instead of producing a path with a literal brace in it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(template: str, **parts) -> str"
+    },
+    "Schema/profile_resolver.py": {
+      "decorators": [],
+      "doc": "profile_resolver.py \u2014 the generic resolver over the profiles-tree contract.\n\nThe catalogue analogue of ``runschema.resolver.RunTree``, deliberately NOT a subclass (Schema\nmust not import Optimization): one class interpreting the ``Schema.profile_tree`` declaration\nvia the shared ``Schema.pathtpl`` vocabulary.\n\nDescriptor-first, walk-fallback: a profile run carrying ``profile_layout.json`` is served from\nthe descriptor (which also carries the binding a simulation records); a pre-contract run \u2014 every\ncatalogue generated before the descriptor existed, forever, per the no-backfill decision \u2014 is\nserved by a walk that mirrors ``runschema.runlayout._profile_pairs`` byte-for-byte.  The label\nformat ``f'{run}__{profile}'`` is the run tree's ``<pair>`` level and must never drift.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/profile_resolver.py::ProfileTree": {
+      "decorators": [],
+      "doc": "Resolver for one profiles ROOT (the directory holding profile-run dirs).\n\nConstruct via ``ProfileTree(profiles_root)``; each accessor takes the profile-run name where\nscope demands it.  Existence is not implied \u2014 optional artifacts legitimately do not exist.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/profile_resolver.py::ProfileTree.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, profiles_root: str, contract: dict | None=None)"
+    },
+    "Schema/profile_resolver.py::ProfileTree.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Schema/profile_resolver.py::ProfileTree.binding_of": {
+      "decorators": [],
+      "doc": "The catalogue-version binding a RUN should record for one pair label, or None.\n\nNone whenever the label's profile run has no descriptor \u2014 with descriptors forward-only,\nthat is every pre-contract catalogue, and recording `null` is honest (absence of\nevidence, never fabricated evidence).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, label: str) -> dict | None"
+    },
+    "Schema/profile_resolver.py::ProfileTree.latest": {
+      "decorators": [],
+      "doc": "The newest profile run with at least one complete pair.\n\nDescriptor `created` timestamps order the descriptor-bearing runs; runs WITHOUT a\ndescriptor order by name (the historical lexicographic behavior, which their timestamped\nnames make correct).  When both kinds exist, the maximum across the merged order wins;\nif that disagrees with the pure lexicographic answer, a warning names both \u2014 the\nsituation is legal (a backdated --name) but worth a human glance.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str | None"
+    },
+    "Schema/profile_resolver.py::ProfileTree.latest._key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run: str)"
+    },
+    "Schema/profile_resolver.py::ProfileTree.layout_of": {
+      "decorators": [],
+      "doc": "The run's own descriptor, or None for a pre-contract catalogue (normal, not an error).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, profile_run: str) -> dict | None"
+    },
+    "Schema/profile_resolver.py::ProfileTree.pairs": {
+      "decorators": [],
+      "doc": "(label, inventory_db, affinity_db) for every complete profile in one run.\n\nDescriptor-first: profiles listed in `profile_layout.json`, resolved through the\ncontract templates, existence-checked (a descriptor is a claim; the DB is the fact).\nFallback: the byte-for-byte mirror of `runlayout._profile_pairs` \u2014 sorted listdir,\nliteral `inventory/inventory.db` + `affinity/affinity.db`, both-exist filter.\nThe label is ALWAYS `f'{profile_run}__{profile}'` \u2014 the run tree's pair level.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, profile_run: str) -> list"
+    },
+    "Schema/profile_resolver.py::ProfileTree.path": {
+      "decorators": [],
+      "doc": "Absolute path of any contract artifact within one profile run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str, profile_run: str, **parts) -> str"
+    },
+    "Schema/profile_resolver.py::ProfileTree.runs": {
+      "decorators": [],
+      "doc": "Profile-run names under the root, ascending.  Disk is the authority for EXISTENCE\n(a descriptor names only what its generator wrote; a run dir is real either way).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Schema/profile_resolver.py::ProfileTree.schema_id": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Schema/profile_resolver.py::log": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "logging.getLogger(__name__)"
+    },
+    "Schema/profile_tree.py": {
+      "decorators": [],
+      "doc": "profile_tree.py \u2014 THE DECLARATION of the generated-catalogue (profiles) tree, and its store.\n\nThe run tree got its contract first (``Optimization/runschema/schema.py``); this is the same\ntreatment for the tree the INVENTORY GENERATORS write \u2014 the catalogue every simulation consumes.\nBefore this module existed the profiles tree had no descriptor, no declaration, and no version\nof any kind on disk: four writers hand-composed the layout, \"latest catalogue\" was a\nlexicographic directory-name sort, and a run recorded only WHERE its catalogue was, never WHICH \u2014\na catalogue regenerated in place silently re-pointed every prior run, undetectably.\n\nThree things live here and nowhere else:\n\n  * ``FEATURES`` / ``LEVELS`` / ``ARTIFACTS`` \u2014 the declaration (hashed \u2192 the schema id);\n  * the committed store at ``Schema/schemas/profile_tree/<short>.json`` + ``INDEX.json``\n    (immutable content-addressed documents + a mutable head, the run-tree layout exactly);\n  * ``write_profile_layout(...)`` \u2014 the descriptor every generator stamps at the profile-run\n    root, carrying the schema id, repo provenance, and per-profile params digests.\n\nWHY THIS LIVES IN ``Schema/`` AND IS A PATTERN COPY, NOT A SHARED ABSTRACTION\n-----------------------------------------------------------------------------\nThe writers are in ``Warehouse/generation`` and the consumers in ``Optimization/runschema`` \u2014\nthe only layer both may import is ``Schema/``.  The store machinery deliberately COPIES\n``runschema/contract.py`` (~its hashing, store, and adopt shapes) rather than refactoring the two\nonto a shared base: ``schema \u2192 optimization`` is forbidden, and an abstraction serving two\ncontracts is exactly the coupling both were built to avoid.  An honesty test pins this module's\nhashing against ``runschema.contract`` on shared input so the copy cannot drift\n(the ``store_index.source_fingerprint`` precedent).\n\nDESCRIPTORS ARE FORWARD-ONLY (user decision).  Existing catalogues have no descriptor and never\nget one fabricated; every consumer keeps a byte-for-byte legacy walk for them.  A descriptor is\nevidence a GENERATOR wrote it, or it is nothing.\n\nCLI:\n    python -m Schema.profile_tree --write    # mint/refresh the document for this declaration\n    python -m Schema.profile_tree --check    # exit 1 if the committed store is stale",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/profile_tree.py::ARTIFACTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'profile_layout': {'path': DESCRIPTOR, 'format': 'json', 'scope': 'run', 'writer': 'write_profile_layout@Schema/profile_tree.py', 'note': 'the descriptor; carries schema_id, provenance, and per-pr..."
+    },
+    "Schema/profile_tree.py::AXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('profile_run', 'profile')"
+    },
+    "Schema/profile_tree.py::DESCRIPTOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'profile_layout.json'"
+    },
+    "Schema/profile_tree.py::FEATURES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('optional-segments', 'globs')"
+    },
+    "Schema/profile_tree.py::LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[{'name': 'profile_run', 'optional': False, 'note': 'one generation invocation: mixed_<YYYYMMDD_HHMMSS>, or the --name given to it. The legacy suite generator used profile_<ts>.'}, {'name': 'profil..."
+    },
+    "Schema/profile_tree.py::SHAPE_SOURCES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('Schema/profile_tree.py', 'Schema/profile_resolver.py', 'Schema/pathtpl.py', 'Warehouse/generation/generate_mixed_profile.py', 'Warehouse/generation/generate_inventory.py', 'Warehouse/generation/g..."
+    },
+    "Schema/profile_tree.py::SHORT_LEN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "12"
+    },
+    "Schema/profile_tree.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Schema/profile_tree.py::_INDEX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_TREE_DIR, 'INDEX.json')"
+    },
+    "Schema/profile_tree.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
+    },
+    "Schema/profile_tree.py::_TREE_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_HERE, 'schemas', 'profile_tree')"
+    },
+    "Schema/profile_tree.py::_sha": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(blob: bytes) -> str"
+    },
+    "Schema/profile_tree.py::_shape_only": {
+      "decorators": [],
+      "doc": "The projection that DEFINES the tree \u2014 exactly what `schema_id` hashes.\n\nSame exclusion rules as `runschema.contract._shape_only`: no schema_id (an identity cannot\nfeed its own hash), no note/condition/description/writer (prose and attribution never mint a\nschema), no provenance.  `family` is attribution too \u2014 unhashed, per the run-tree precedent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> dict"
+    },
+    "Schema/profile_tree.py::_write_index": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(index: dict) -> str"
+    },
+    "Schema/profile_tree.py::adopt": {
+      "decorators": [],
+      "doc": "Store `doc`, set it as head, record provenance + the current source fingerprint.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict, *, label: str='') -> str"
+    },
+    "Schema/profile_tree.py::build": {
+      "decorators": [],
+      "doc": "Generate the contract document for the CURRENT declaration above.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> dict"
+    },
+    "Schema/profile_tree.py::contract_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sid: str) -> str"
+    },
+    "Schema/profile_tree.py::entries_from_disk": {
+      "decorators": [],
+      "doc": "Descriptor `profiles` entries derived from a run dir the CALLER JUST WROTE.\n\nFor generators whose write path does not thread per-side metadata through one loop (the\nlegacy suite; the preflight canary): the generator claims what it wrote by walking its own\noutput.  This is NOT backfill \u2014 a generator deriving its own just-written tree is the writer\nspeaking; deriving someone else's old tree would be fabricated provenance, and stays banned.\nSides without a params.json record `params_digest: None` (the canary writes none) \u2014 absence\nstays honest.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str) -> dict"
+    },
+    "Schema/profile_tree.py::head": {
+      "decorators": [],
+      "doc": "The schema id a NEW catalogue stamps.  A named pointer \u2014 hashes have no order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> str | None"
+    },
+    "Schema/profile_tree.py::load": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sid: str) -> dict | None"
+    },
+    "Schema/profile_tree.py::load_all": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Schema/profile_tree.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Schema/profile_tree.py::params_digest": {
+      "decorators": [],
+      "doc": "sha256 over the params.json FILE BYTES as written.\n\nNo canonicalisation, deliberately: the params timestamp participating in the digest is a\nFEATURE \u2014 a regeneration mints a new digest even under identical parameters, which is\nexactly what makes silent in-place re-pointing detectable from a run's recorded binding.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(params_json_path: str) -> str"
+    },
+    "Schema/profile_tree.py::read_index": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Schema/profile_tree.py::read_profile_layout": {
+      "decorators": [],
+      "doc": "The descriptor at a profile-run root, or None (a pre-contract catalogue \u2014 the normal\nanswer for everything generated before this module existed; never an error).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str) -> dict | None"
+    },
+    "Schema/profile_tree.py::schema_id": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> str"
+    },
+    "Schema/profile_tree.py::short_id": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sid: str) -> str"
+    },
+    "Schema/profile_tree.py::source_fingerprint": {
+      "decorators": [],
+      "doc": "Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).\n\nSame algorithm as `runschema.contract.source_fingerprint` / `store_index.source_fingerprint`\n(copied \u2014 importing the former is schema\u2192optimization, forbidden); the honesty test pins the\nthree against each other on shared input.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> str"
+    },
+    "Schema/profile_tree.py::stale_reasons": {
+      "decorators": [],
+      "doc": "Cheap staleness findings for the Stop hook \u2014 file hashes and stats only.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Schema/profile_tree.py::verify_store": {
+      "decorators": [],
+      "doc": "Findings for the committed store, empty when clean (id-vs-filename, head present).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Schema/profile_tree.py::write_profile_layout": {
+      "decorators": [],
+      "doc": "Stamp `profile_layout.json` at a profile-run root.  Atomic (tmp + os.replace).\n\n`profiles` maps profile name -> its per-side entries, e.g.\n    {'mixed_realistic_bell_lt0': {\n        'inventory': {'db': 'inventory/inventory.db', 'params_digest': 'sha256:...',\n                      'db_schema_id': '...', 'db_bytes': 12345678},\n        'affinity':  {..., 'source_inventory': '../inventory/inventory.db'}}}\nCallers REWRITE after every completed profile, so a crashed multi-profile generation still\nleaves a valid partial descriptor covering what finished.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_dir: str, profiles: dict, *, generator: str, argv=None, created: str | None=None) -> str"
+    },
+    "Schema/provenance.py": {
+      "decorators": [],
+      "doc": "provenance.py \u2014 which CODE produced an artifact, derived without raising, git binary optional.\n\nMOVED here from ``Optimization/runschema/sim_manifest.py`` (which re-exports for its existing\ncallers): the profiles-tree descriptor is written by ``Warehouse/generation`` \u2014 a layer that must\nnot import the run harness \u2014 and provenance stamping is not a run-tree concern to begin with.\n``Schema/`` is the stdlib-only leaf every layer may import, and \"what code wrote this file\" is a\nsibling question to \"what shape is this file\".\n\nWHY THIS MUST NOT RAISE: it runs at the front of every simulation and every catalogue generation,\nand a producer that dies because provenance could not be derived is strictly worse than one that\nrecords ``unknown``.  A shallow clone, a source export with no ``.git``, a machine with no git on\nPATH and a wedged index lock all resolve to a recorded value rather than an exception.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/provenance.py::_GIT_TIMEOUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10.0"
+    },
+    "Schema/provenance.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "Schema/provenance.py::_git_dir": {
+      "decorators": [],
+      "doc": "The `.git` directory for `repo_root`, or None when there is no git metadata at all.\n\n`.git` is a DIRECTORY in a normal clone and a FILE holding `gitdir: <path>` in a linked\nworktree or a submodule, which is why this is not a bare isdir() check.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str) -> str | None"
+    },
+    "Schema/provenance.py::_head_commit": {
+      "decorators": [],
+      "doc": "HEAD's full sha by reading files only \u2014 no subprocess, and no git binary required.\n\nA source export (a zip, a docker COPY) has no `.git` and returns None from _git_dir before we\nget here; a SHALLOW clone does have one and resolves normally, which is the case the naive\n`git describe` approach gets wrong.  Three shapes are handled: a detached HEAD (the sha\ninline), a loose ref, and a ref that only exists in `packed-refs` (a fresh clone's usual state).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(git_dir: str) -> str | None"
+    },
+    "Schema/provenance.py::repo_provenance": {
+      "decorators": [],
+      "doc": "{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.\n\n`repo_dirty` is deliberately THREE-valued: True/False are answers, `None` means \"not\nestablished\" \u2014 which is what an export or a missing git binary honestly is, and reading it as\n\"clean\" would be the one wrong inference.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> dict"
     },
     "Schema/shape.py": {
       "decorators": [],
@@ -9008,6 +9596,13 @@
       "kind": "function",
       "signature": "() -> None"
     },
+    "Warehouse/generation/generate_mixed_profile.py::main._side_entry": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(side_dir: str, db_name: str, extra: dict | None=None) -> dict"
+    },
     "Warehouse/generation/generate_profile_suite.py": {
       "decorators": [],
       "doc": "Run generate_inventory + generate_affinity for a suite of order profiles.\n\nEach profile varies the dimension and / or weight distribution to produce\ninventories with meaningfully different physical characteristics \u2014 from\ntight unimodal clusters to bimodal, trimodal, and heavy-tailed mixtures.\nThe goal is to build a library of inventory \u00d7 affinity pairs that capture\ndiverse warehouse scenarios without regenerating them at simulation runtime.\n\nOutput layout\n-------------\n<PROFILE_INPUT_DIR>/<profile_name>/\n    profile_manifest.json   written at start with all profile specs\n    profile_summary.json    written at end with timing and stats\n    <carton_profile_name>/\n        inventory/          \u2192 inventory.db, params.json, stats.json, plots/\n        affinity/           \u2192 affinity.db,  params.json, stats.json, plots/\n    cross_profile/\n        dim_length_overlay.png      length KDE across all profiles\n        dim_volume_overlay.png      volume KDE across all profiles\n        weight_overlay.png          weight KDE across all profiles\n        profile_stats_table.png     summary table image\n\nUsage\n-----\n# dry run \u2014 print profile list and estimated affinity sizes, then exit\npython generate_profile_suite.py --estimate\n\n# full overnight run\npython generate_profile_suite.py\n\n# run only selected profiles\npython generate_profile_suite.py --profiles default bimodal_size heavy_tail_weight\n\nOptions\n-------\n--name NAME             profile run folder name (default: profile_<timestamp>)\n--num-skus N            SKU count for all inventories (default: 76500)\n--seed INT              base seed; profile i uses seed + i (default: 42)\n--max-per-group INT     affinity SKU cap per group (default: no cap)\n--skip-affinity         generate inventories only\n--profiles NAME [...]   subset of profiles to run (default: all)\n--out-dir PATH          root output directory (overrides PROFILE_INPUT_DIR env var)\n--affinity-seed INT     base seed for affinity generation (default: 0)\n--affinity-min-lift F   (default: 1.5)\n--affinity-max-lift F   (default: 5.0)\n--estimate              print profile specs and size estimates, then exit",
@@ -11451,6 +12046,13 @@
       "signature": null,
       "value_preview": "os.path.dirname(os.path.dirname(os.path.abspath(__file__)))"
     },
+    "docs/experiments/ingest.py::_FIGURE_DIR_PREFERENCE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('compare', 'compare/breakdown', 'compare/faceted', 'compare/overlay', 'compare/top', 'per_strategy', 'stats', 'stats_by_initial')"
+    },
     "docs/experiments/ingest.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
@@ -11486,9 +12088,16 @@
       "kind": "function",
       "signature": "(root, name)"
     },
+    "docs/experiments/ingest.py::_inv_root_from_bindings": {
+      "decorators": [],
+      "doc": "Resolve the catalogue's inventory dir BY NAME from the run's recorded pair binding.\n\nThe binding (the run-layout descriptor's `pair_bindings`, v2) names the profile_run +\nprofile, so the catalogue resolves under ANY profiles root \u2014 including after the tree moved\ndrives, which is exactly when the sim_meta absolute path (the fallback below) goes dead.\nNone when the run predates v2, the binding is null (pre-contract catalogue), or the resolved\ndir does not exist under this root.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, inv, profiles_root, log)"
+    },
     "docs/experiments/ingest.py::_leaf_file": {
       "decorators": [],
-      "doc": "One curated file at a (cell, inventory, config) leaf, or None if absent.\n\nWith a resolver, `config.json` is the contract's `config_json` artifact, and a figure is\nlooked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) \u2014 the resolver\nconsumes the `<channel>` level, so this function never has to guess whether one exists.  The\nbasename search WITHIN the leaf stays a walk on purpose: which subtree a curated figure sits\nin (compare/top, compare/faceted, \u2026) is analysis-output nesting the docs deliberately\nflatten, not a run-tree level \u2014 and it keeps the pick identical, e.g.\nproduction_time_over_time.png exists under both compare/faceted/ and compare/overlay/ and\nevery committed snapshot staged the faceted copy (f < o in the walk).  Without a resolver\n(pre-descriptor run, `--source` at a single cell dir) or for a leaf not yet finalized,\n`_find` over the config dir is the unchanged fallback.",
+      "doc": "One curated file at a (cell, inventory, config) leaf, or None if absent.\n\nWith a resolver, `config.json` is the contract's `config_json` artifact, and a figure is\nlooked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) \u2014 the resolver\nconsumes the `<channel>` level, so this function never has to guess whether one exists.\nWithin a leaf the pick is by the EXPLICIT dir preference above (which analysis subtree owns\na duplicated basename is now data, not walk order); `_find` remains for figures outside\nthat vocabulary, and \u2014 without a resolver (pre-descriptor run, `--source` at a single cell\ndir) or for a leaf not yet finalized \u2014 over the config dir, the unchanged legacy route.",
       "is_async": false,
       "kind": "function",
       "signature": "(rt, cell, inv, cfg, name, cfg_src)"
@@ -11509,7 +12118,7 @@
     },
     "docs/experiments/ingest.py::_stage_inventory_assets": {
       "decorators": [],
-      "doc": "params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.\n\nOnly the sim_meta lookup is contract-resolvable (`sim_meta`, first leaf of this pair).  The\n`inv_root` lookups below stay on `_find`: they walk the PROFILES tree on the input drive,\nwhich has no run-tree contract at all.",
+      "doc": "params.json + the inventory distribution plots.\n\nLocated, in preference order: (1) BY NAME via the run's recorded `pair_bindings` under\n--profiles-root (v2 run_layout + a descriptor-bearing catalogue \u2014 survives drive moves);\n(2) via a sim_meta.json's recorded inv_db ABSOLUTE path \u2014 the frozen legacy route, load-\nbearing for every pre-v2 run.  The `_find` walks on the resolved root remain: the profile\nplots live in generator-owned subtrees the docs deliberately flatten.",
       "is_async": false,
       "kind": "function",
       "signature": "(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None)"
@@ -11541,6 +12150,33 @@
       "kind": "const",
       "signature": null,
       "value_preview": "None"
+    },
+    "docs/experiments/site_tree.py": {
+      "decorators": [],
+      "doc": "site_tree.py \u2014 the staged docs tree, declared as data.\n\nThe website's file layout under ``docs/experiments/<exp>/`` is a five-template contract with\none writer (ingest.py, which copies files IN) and one reader (docs/macros.py, which renders\npaths OUT at mkdocs build time).  Both sides historically retyped the joins; this module is\nthe single declaration, rendered through the same ``Schema.pathtpl`` vocabulary as the run\ntree and the profiles tree, so a site path can only move by editing a template here \u2014 where\na golden test and the committed snapshots will notice.\n\nmacros.py deliberately does NOT import this module: it runs inside mkdocs (mkdocs-macros\nloads it standalone, and the site must build from a bare checkout with no guarantee about\nsys.path).  Its f-string joins stay, PINNED to these templates by\n``Tests/architecture/test_site_tree.py`` \u2014 the same literal-equals-render tie the ingest\ndestinations get by construction.\n\nAll paths are RELATIVE to the experiment dir (``docs/experiments/<exp>/``); ingest joins them\nonto its ``exp_dir``, macros onto the site root.  ``{figure}``/``{plot}``/``{fname}`` are\nbasenames from the curated lists in ``experiment.yml``.",
+      "kind": "module",
+      "signature": null
+    },
+    "docs/experiments/site_tree.py::TEMPLATES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'config_json': 'images/{run}/{inv}/{cfg}/config.json', 'figure_png': 'images/{run}/{inv}/{cfg}/{figure}', 'pair_params': 'data/{inv}/params.json', 'whatif_data': 'data/{fname}', 'whatif_delta': 'i..."
+    },
+    "docs/experiments/site_tree.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
+    },
+    "docs/experiments/site_tree.py::path": {
+      "decorators": [],
+      "doc": "Render template `name` with `parts`, joined under `exp_dir` (native separators).\nA missing part raises KeyError by name \u2014 same contract as every other tree resolver.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, exp_dir: str='', **parts) -> str"
     },
     "docs/macros.py": {
       "decorators": [],

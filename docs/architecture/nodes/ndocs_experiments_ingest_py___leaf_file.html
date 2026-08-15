@@ -19,14 +19,11 @@
 
 With a resolver, `config.json` is the contract&#x27;s `config_json` artifact, and a figure is
 looked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) — the resolver
-consumes the `&lt;channel&gt;` level, so this function never has to guess whether one exists.  The
-basename search WITHIN the leaf stays a walk on purpose: which subtree a curated figure sits
-in (compare/top, compare/faceted, …) is analysis-output nesting the docs deliberately
-flatten, not a run-tree level — and it keeps the pick identical, e.g.
-production_time_over_time.png exists under both compare/faceted/ and compare/overlay/ and
-every committed snapshot staged the faceted copy (f &lt; o in the walk).  Without a resolver
-(pre-descriptor run, `--source` at a single cell dir) or for a leaf not yet finalized,
-`_find` over the config dir is the unchanged fallback.</section>
+consumes the `&lt;channel&gt;` level, so this function never has to guess whether one exists.
+Within a leaf the pick is by the EXPLICIT dir preference above (which analysis subtree owns
+a duplicated basename is now data, not walk order); `_find` remains for figures outside
+that vocabulary, and — without a resolver (pre-descriptor run, `--source` at a single cell
+dir) or for a leaf not yet finalized — over the config dir, the unchanged legacy route.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___find.html"><code>_find</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___leaf_file">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_leaf_file">Source ↗</a></p>
 </article>

@@ -776,6 +776,21 @@
       "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/common/io.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/io.py::_save_close"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/io.py::_save_close"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/common/series.py"
@@ -1571,9 +1586,44 @@
       "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py",
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/core/context.py"
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::findings"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::findings"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::build",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
@@ -1586,12 +1636,7 @@
       "src": "Optimization/Performance_Evaluations/core/context.py"
     },
     {
-      "dst": "Optimization/metrics/Simulation_Analytics.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/core/context.py"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/context.py"
     },
@@ -1626,12 +1671,7 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.__init__"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_bdf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.batch_df"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.batch_df"
     },
@@ -1641,17 +1681,7 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.batch_frames"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.maxb",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.breakdown"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.ss_lo",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.breakdown"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.breakdown"
     },
@@ -1666,17 +1696,7 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.maxb"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/series.py::_build_series",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.series"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.batch_frames",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.series"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_frames",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::series_dict",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.series"
     },
@@ -1686,12 +1706,7 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.ss_lo"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_tdf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_df"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_task_stats",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_df"
     },
@@ -1704,16 +1719,6 @@
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::REQUIRES"
-    },
-    {
-      "dst": "Optimization/metrics/Simulation_Analytics.py::task_time_breakdown",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_picker_events",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling"
     },
     {
       "dst": "Schema/identity.py::check",
@@ -1731,7 +1736,192 @@
       "src": "Optimization/Performance_Evaluations/core/registry.py::evaluation._wrap"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/metrics/Simulation_Analytics.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::Denied",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_agg_series"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_agg_series"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_batch"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_batch"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_batch"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_breakdown"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_breakdown"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_breakdown"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::Denied",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_absent_dbs",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_events"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_events"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_series"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_series"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::series_dict",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_series"
+    },
+    {
+      "dst": "Optimization/metrics/Simulation_Analytics.py::task_time_breakdown",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_picker_events",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_task"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_task"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_task"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_bdf",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::batch_frame"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::batch_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::Request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::request._wrap"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::Denied",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::resolve_needs"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py::_build_series",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
+      "dst": "Schema/dataset.py::sql_for",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::sql"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_tdf",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::task_frame"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_task_stats",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::task_frame"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/driver.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/driver.py"
     },
@@ -1741,7 +1931,22 @@
       "src": "Optimization/Performance_Evaluations/driver.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/driver.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::set_current_eval",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/driver.py::_run_one"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/io.py::set_footer",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/driver.py::_run_one"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::resolve_needs",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/driver.py::_run_one"
     },
@@ -1757,6 +1962,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/driver.py::prepare_config_dirs"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::config_dirs",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/driver.py::prepare_config_dirs"
     },
@@ -3441,6 +3651,11 @@
       "src": "Optimization/run_analysis.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/driver.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
@@ -3531,6 +3746,11 @@
       "src": "Optimization/run_analysis.py::_config_jobs"
     },
     {
+      "dst": "Optimization/run_analysis.py::_merge_tally",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_drain"
+    },
+    {
       "dst": "Optimization/run_analysis.py::_run_job",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_drain"
@@ -3552,6 +3772,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_run_job"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::tally_snapshot",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_run_job"
     },
@@ -3617,6 +3842,11 @@
     },
     {
       "dst": "Optimization/run_analysis.py::_drain",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::run_analysis"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_merge_tally",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::run_analysis"
     },
@@ -3982,6 +4212,11 @@
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_load_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_pair_bindings",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -4806,6 +5041,11 @@
       "src": "Optimization/runschema/preflight.py"
     },
     {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
       "dst": "Warehouse/generation/generate_affinity.py",
       "kind": "imports",
       "src": "Optimization/runschema/preflight.py"
@@ -4819,6 +5059,16 @@
       "dst": "Optimization/runschema/preflight.py::_write_canary_catalog",
       "kind": "calls",
       "src": "Optimization/runschema/preflight.py::_run_canary"
+    },
+    {
+      "dst": "Schema/profile_tree.py::entries_from_disk",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
+    },
+    {
+      "dst": "Schema/profile_tree.py::write_profile_layout",
+      "kind": "calls",
+      "src": "Optimization/runschema/preflight.py::_write_canary_catalog"
     },
     {
       "dst": "Warehouse/generation/generate_affinity.py::_init_db",
@@ -5026,12 +5276,17 @@
       "src": "Optimization/runschema/resolver.py"
     },
     {
+      "dst": "Schema/pathtpl.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/resolver.py"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py::read_run_layout",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.__init__"
     },
     {
-      "dst": "Optimization/runschema/resolver.py::_capture_regex",
+      "dst": "Schema/pathtpl.py::_capture_regex",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree._owner_of"
     },
@@ -5091,7 +5346,7 @@
       "src": "Optimization/runschema/resolver.py::RunTree.glob"
     },
     {
-      "dst": "Optimization/runschema/resolver.py::render",
+      "dst": "Schema/pathtpl.py::render",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.glob"
     },
@@ -5111,12 +5366,12 @@
       "src": "Optimization/runschema/resolver.py::RunTree.keyframe_db"
     },
     {
-      "dst": "Optimization/runschema/resolver.py::render",
+      "dst": "Schema/pathtpl.py::render",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.leaf_path"
     },
     {
-      "dst": "Optimization/runschema/resolver.py::render",
+      "dst": "Schema/pathtpl.py::render",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.path"
     },
@@ -5171,7 +5426,7 @@
       "src": "Optimization/runschema/resolver.py::RunTree.sim_dbs"
     },
     {
-      "dst": "Optimization/runschema/resolver.py::_capture_regex",
+      "dst": "Schema/pathtpl.py::_capture_regex",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.strategy_of"
     },
@@ -5206,6 +5461,26 @@
       "src": "Optimization/runschema/runlayout.py"
     },
     {
+      "dst": "Schema/profile_resolver.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/runlayout.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/runlayout.py"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree",
+      "kind": "calls",
+      "src": "Optimization/runschema/runlayout.py::_profile_pairs"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_profile_layout",
+      "kind": "calls",
+      "src": "Optimization/runschema/runlayout.py::_profile_pairs"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
       "kind": "calls",
       "src": "Optimization/runschema/runlayout.py::cells"
@@ -5221,7 +5496,7 @@
       "src": "Optimization/runschema/runlayout.py::discover_db_pairs"
     },
     {
-      "dst": "Optimization/runschema/runlayout.py::_profile_pairs",
+      "dst": "Schema/profile_resolver.py::ProfileTree",
       "kind": "calls",
       "src": "Optimization/runschema/runlayout.py::find_latest_db_pairs"
     },
@@ -5251,6 +5526,16 @@
       "src": "Optimization/runschema/sim_manifest.py"
     },
     {
+      "dst": "Schema/profile_resolver.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/sim_manifest.py"
+    },
+    {
+      "dst": "Schema/provenance.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/sim_manifest.py"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::_load_resume"
@@ -5259,6 +5544,11 @@
       "dst": "Optimization/runschema/sim_manifest.py::_run_spec_path",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::_load_run_spec"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::_pair_bindings"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
@@ -5271,7 +5561,7 @@
       "src": "Optimization/runschema/sim_manifest.py::_write_run_spec"
     },
     {
-      "dst": "Optimization/runschema/sim_manifest.py::repo_provenance",
+      "dst": "Schema/provenance.py::repo_provenance",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::_write_run_spec"
     },
@@ -5281,22 +5571,17 @@
       "src": "Optimization/runschema/sim_manifest.py::read_run_layout"
     },
     {
-      "dst": "Optimization/runschema/sim_manifest.py::_git_dir",
-      "kind": "calls",
-      "src": "Optimization/runschema/sim_manifest.py::repo_provenance"
-    },
-    {
-      "dst": "Optimization/runschema/sim_manifest.py::_head_commit",
-      "kind": "calls",
-      "src": "Optimization/runschema/sim_manifest.py::repo_provenance"
-    },
-    {
       "dst": "Optimization/runschema/contract.py::build",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::write_run_layout"
     },
     {
       "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::write_run_layout"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_pair_bindings",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::write_run_layout"
     },
@@ -6561,14 +6846,54 @@
       "src": "Schema/dataset.py::bind"
     },
     {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
+      "dst": "Schema/dataset.py::DatasetError",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
+      "dst": "Schema/dataset.py::UnsupportedQuery",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
+      "dst": "Schema/dataset.py::queries_for",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/dataset.py::sql_for"
+    },
+    {
       "dst": "Schema/hook_check.py::main",
       "kind": "calls",
+      "src": "Schema/hook_check.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
       "src": "Schema/hook_check.py"
     },
     {
       "dst": "Schema/store_index.py",
       "kind": "imports",
       "src": "Schema/hook_check.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py::stale_reasons",
+      "kind": "calls",
+      "src": "Schema/hook_check.py::main"
     },
     {
       "dst": "Schema/store_index.py::stale_reasons",
@@ -6699,6 +7024,296 @@
       "dst": "Schema/identity.py::meta_ddl",
       "kind": "calls",
       "src": "Schema/identity.py::stamp"
+    },
+    {
+      "dst": "Schema/pathtpl.py",
+      "kind": "imports",
+      "src": "Schema/profile_resolver.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
+      "src": "Schema/profile_resolver.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py::build",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.__init__"
+    },
+    {
+      "dst": "Schema/profile_tree.py::head",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.__init__"
+    },
+    {
+      "dst": "Schema/profile_tree.py::load",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.__init__"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.__repr__"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.layout_of",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.binding_of"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.pairs",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.latest"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.runs",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.latest"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.layout_of",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.latest._key"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_profile_layout",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.layout_of"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.layout_of",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.pairs"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree.path",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.pairs"
+    },
+    {
+      "dst": "Schema/pathtpl.py::render",
+      "kind": "calls",
+      "src": "Schema/profile_resolver.py::ProfileTree.path"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Schema/profile_tree.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Schema/profile_tree.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py::main",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py"
+    },
+    {
+      "dst": "Schema/provenance.py",
+      "kind": "imports",
+      "src": "Schema/profile_tree.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py::_write_index",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::contract_path",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::load",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_index",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::schema_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/provenance.py::repo_provenance",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::adopt"
+    },
+    {
+      "dst": "Schema/profile_tree.py::schema_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::build"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::contract_path"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::entries_from_disk"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::entries_from_disk"
+    },
+    {
+      "dst": "Schema/identity.py::read_stamp",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::entries_from_disk"
+    },
+    {
+      "dst": "Schema/profile_tree.py::params_digest",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::entries_from_disk"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_index",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::head"
+    },
+    {
+      "dst": "Schema/profile_tree.py::contract_path",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::load"
+    },
+    {
+      "dst": "Schema/profile_tree.py::adopt",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::build",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::load_all",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_index",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::stale_reasons",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::_sha",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::params_digest"
+    },
+    {
+      "dst": "Schema/profile_tree.py::_sha",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::schema_id"
+    },
+    {
+      "dst": "Schema/profile_tree.py::_shape_only",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::schema_id"
+    },
+    {
+      "dst": "Schema/profile_tree.py::build",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/profile_tree.py::read_index",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/profile_tree.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/profile_tree.py::verify_store",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/profile_tree.py::head",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::verify_store"
+    },
+    {
+      "dst": "Schema/profile_tree.py::load",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::verify_store"
+    },
+    {
+      "dst": "Schema/profile_tree.py::load_all",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::verify_store"
+    },
+    {
+      "dst": "Schema/profile_tree.py::schema_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::verify_store"
+    },
+    {
+      "dst": "Schema/profile_tree.py::short_id",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::verify_store"
+    },
+    {
+      "dst": "Schema/profile_tree.py::build",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::write_profile_layout"
+    },
+    {
+      "dst": "Schema/profile_tree.py::head",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::write_profile_layout"
+    },
+    {
+      "dst": "Schema/provenance.py::repo_provenance",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::write_profile_layout"
+    },
+    {
+      "dst": "Schema/provenance.py::_git_dir",
+      "kind": "calls",
+      "src": "Schema/provenance.py::repo_provenance"
+    },
+    {
+      "dst": "Schema/provenance.py::_head_commit",
+      "kind": "calls",
+      "src": "Schema/provenance.py::repo_provenance"
     },
     {
       "dst": "Schema/shape.py::shape_id",
@@ -8461,6 +9076,21 @@
       "src": "Warehouse/generation/generate_inventory.py::save_inventory_to_db"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_mixed_profile.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_mixed_profile.py"
+    },
+    {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_mixed_profile.py"
+    },
+    {
       "dst": "Warehouse/generation/generate_affinity.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_mixed_profile.py"
@@ -8531,6 +9161,11 @@
       "src": "Warehouse/generation/generate_mixed_profile.py::_build_plan"
     },
     {
+      "dst": "Schema/profile_tree.py::write_profile_layout",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main"
+    },
+    {
       "dst": "Warehouse/generation/generate_affinity.py::generate_run",
       "kind": "calls",
       "src": "Warehouse/generation/generate_mixed_profile.py::main"
@@ -8566,6 +9201,31 @@
       "src": "Warehouse/generation/generate_mixed_profile.py::main"
     },
     {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main._side_entry"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main._side_entry"
+    },
+    {
+      "dst": "Schema/identity.py::read_stamp",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main._side_entry"
+    },
+    {
+      "dst": "Schema/profile_tree.py::params_digest",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main._side_entry"
+    },
+    {
+      "dst": "Schema/profile_tree.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_profile_suite.py"
+    },
+    {
       "dst": "Warehouse/generation/generate_affinity.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_profile_suite.py"
@@ -8589,6 +9249,21 @@
       "dst": "Warehouse/generation/generate_profile_suite.py::_clean_path",
       "kind": "calls",
       "src": "Warehouse/generation/generate_profile_suite.py::_DEFAULT_PROFILES_DIR"
+    },
+    {
+      "dst": "Schema/profile_tree.py::DESCRIPTOR",
+      "kind": "ref",
+      "src": "Warehouse/generation/generate_profile_suite.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::entries_from_disk",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_profile_suite.py::main"
+    },
+    {
+      "dst": "Schema/profile_tree.py::write_profile_layout",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_profile_suite.py::main"
     },
     {
       "dst": "Warehouse/generation/generate_affinity.py::generate_run",
@@ -10261,6 +10936,11 @@
       "src": "docs/experiments/ingest.py"
     },
     {
+      "dst": "Schema/profile_resolver.py",
+      "kind": "imports",
+      "src": "docs/experiments/ingest.py"
+    },
+    {
       "dst": "docs/experiments/ingest.py::main",
       "kind": "calls",
       "src": "docs/experiments/ingest.py"
@@ -10269,6 +10949,11 @@
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_cells_of"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_inv_root_from_bindings"
     },
     {
       "dst": "docs/experiments/ingest.py::_find",
@@ -10282,6 +10967,11 @@
     },
     {
       "dst": "docs/experiments/ingest.py::_find",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_inventory_assets"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_inv_root_from_bindings",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_stage_inventory_assets"
     },
@@ -10334,6 +11024,16 @@
       "dst": "docs/experiments/ingest.py::_write_starter_manifest",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "Schema/pathtpl.py",
+      "kind": "imports",
+      "src": "docs/experiments/site_tree.py"
+    },
+    {
+      "dst": "Schema/pathtpl.py::render",
+      "kind": "calls",
+      "src": "docs/experiments/site_tree.py::path"
     },
     {
       "dst": "docs/macros.py::_verify_manifest_schema",
@@ -11420,6 +12120,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/io.py",
+      "id": "Optimization/Performance_Evaluations/common/io.py::_CURRENT_EVAL",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/common/io.py",
+      "name": "_CURRENT_EVAL",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/io.py",
       "id": "Optimization/Performance_Evaluations/common/io.py::_FOOTER",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/common/io.py",
@@ -11441,6 +12149,14 @@
       "module": "Optimization/Performance_Evaluations/common/io.py",
       "name": "_save_close",
       "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/io.py",
+      "id": "Optimization/Performance_Evaluations/common/io.py::set_current_eval",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/io.py",
+      "name": "set_current_eval",
+      "public": true
     },
     {
       "file": "Optimization/Performance_Evaluations/common/io.py",
@@ -12251,6 +12967,62 @@
       "public": true
     },
     {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "Optimization.Performance_Evaluations.core.artifact_map",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "_rel_dir",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::config_dirs",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "config_dirs",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "figure_subdir",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::findings",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "findings",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "owned_artifacts",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "id": "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/artifact_map.py",
+      "name": "save_in_bounds",
+      "public": true
+    },
+    {
       "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py",
       "kind": "module",
@@ -12428,14 +13200,6 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
-      "id": "Optimization/Performance_Evaluations/core/context.py::_strategy_travel_handling",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/core/context.py",
-      "name": "_strategy_travel_handling",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::_verify_sim_dbs",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
@@ -12489,6 +13253,198 @@
       "module": "Optimization/Performance_Evaluations/core/registry.py",
       "name": "_wrap",
       "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "Optimization.Performance_Evaluations.core.requests",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::Denied",
+      "kind": "class",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "Denied",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::Denied.__bool__",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::Denied.__init__",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::Denied.__repr__",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::Request",
+      "kind": "class",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "Request",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_absent_dbs",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_absent_dbs",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_agg_series",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_agg_series",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_batch",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_batch",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_breakdown",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_breakdown",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_deny_absent",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_events",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_events",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_series",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_series",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_strategy_travel_handling",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_task",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_task",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "batch_frame",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "breakdown_dict",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "request",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::request._wrap",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_wrap",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::resolve_needs",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "resolve_needs",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::series_dict",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "series_dict",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::sql",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "sql",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::tally_snapshot",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "tally_snapshot",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "task_frame",
+      "public": true
     },
     {
       "file": "Optimization/Performance_Evaluations/driver.py",
@@ -15204,6 +16160,14 @@
     },
     {
       "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_merge_tally",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_merge_tally",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py::_parse_set",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
@@ -16739,22 +17703,6 @@
       "public": true
     },
     {
-      "file": "Optimization/runschema/resolver.py",
-      "id": "Optimization/runschema/resolver.py::_capture_regex",
-      "kind": "function",
-      "module": "Optimization/runschema/resolver.py",
-      "name": "_capture_regex",
-      "public": false
-    },
-    {
-      "file": "Optimization/runschema/resolver.py",
-      "id": "Optimization/runschema/resolver.py::render",
-      "kind": "function",
-      "module": "Optimization/runschema/resolver.py",
-      "name": "render",
-      "public": true
-    },
-    {
       "file": "Optimization/runschema/runlayout.py",
       "id": "Optimization/runschema/runlayout.py",
       "kind": "module",
@@ -16900,34 +17848,10 @@
     },
     {
       "file": "Optimization/runschema/sim_manifest.py",
-      "id": "Optimization/runschema/sim_manifest.py::_GIT_TIMEOUT",
-      "kind": "const",
-      "module": "Optimization/runschema/sim_manifest.py",
-      "name": "_GIT_TIMEOUT",
-      "public": false
-    },
-    {
-      "file": "Optimization/runschema/sim_manifest.py",
       "id": "Optimization/runschema/sim_manifest.py::_REPO_ROOT",
       "kind": "const",
       "module": "Optimization/runschema/sim_manifest.py",
       "name": "_REPO_ROOT",
-      "public": false
-    },
-    {
-      "file": "Optimization/runschema/sim_manifest.py",
-      "id": "Optimization/runschema/sim_manifest.py::_git_dir",
-      "kind": "function",
-      "module": "Optimization/runschema/sim_manifest.py",
-      "name": "_git_dir",
-      "public": false
-    },
-    {
-      "file": "Optimization/runschema/sim_manifest.py",
-      "id": "Optimization/runschema/sim_manifest.py::_head_commit",
-      "kind": "function",
-      "module": "Optimization/runschema/sim_manifest.py",
-      "name": "_head_commit",
       "public": false
     },
     {
@@ -16944,6 +17868,14 @@
       "kind": "function",
       "module": "Optimization/runschema/sim_manifest.py",
       "name": "_load_run_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::_pair_bindings",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "_pair_bindings",
       "public": false
     },
     {
@@ -16992,14 +17924,6 @@
       "kind": "function",
       "module": "Optimization/runschema/sim_manifest.py",
       "name": "read_run_layout",
-      "public": true
-    },
-    {
-      "file": "Optimization/runschema/sim_manifest.py",
-      "id": "Optimization/runschema/sim_manifest.py::repo_provenance",
-      "kind": "function",
-      "module": "Optimization/runschema/sim_manifest.py",
-      "name": "repo_provenance",
       "public": true
     },
     {
@@ -18043,6 +18967,14 @@
       "public": true
     },
     {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::sql_for",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "sql_for",
+      "public": true
+    },
+    {
       "file": "Schema/hook_check.py",
       "id": "Schema/hook_check.py",
       "kind": "module",
@@ -18216,6 +19148,438 @@
       "kind": "function",
       "module": "Schema/identity.py",
       "name": "stamp",
+      "public": true
+    },
+    {
+      "file": "Schema/pathtpl.py",
+      "id": "Schema/pathtpl.py",
+      "kind": "module",
+      "module": "Schema/pathtpl.py",
+      "name": "Schema.pathtpl",
+      "public": true
+    },
+    {
+      "file": "Schema/pathtpl.py",
+      "id": "Schema/pathtpl.py::_capture_regex",
+      "kind": "function",
+      "module": "Schema/pathtpl.py",
+      "name": "_capture_regex",
+      "public": false
+    },
+    {
+      "file": "Schema/pathtpl.py",
+      "id": "Schema/pathtpl.py::render",
+      "kind": "function",
+      "module": "Schema/pathtpl.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py",
+      "kind": "module",
+      "module": "Schema/profile_resolver.py",
+      "name": "Schema.profile_resolver",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree",
+      "kind": "class",
+      "module": "Schema/profile_resolver.py",
+      "name": "ProfileTree",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.__init__",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.__repr__",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.binding_of",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "binding_of",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.latest",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "latest",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.latest._key",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "_key",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.layout_of",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "layout_of",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.pairs",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "pairs",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.path",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "path",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.runs",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "runs",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::ProfileTree.schema_id",
+      "kind": "function",
+      "module": "Schema/profile_resolver.py",
+      "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_resolver.py",
+      "id": "Schema/profile_resolver.py::log",
+      "kind": "const",
+      "module": "Schema/profile_resolver.py",
+      "name": "log",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py",
+      "kind": "module",
+      "module": "Schema/profile_tree.py",
+      "name": "Schema.profile_tree",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::ARTIFACTS",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "ARTIFACTS",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::AXES",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "AXES",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::DESCRIPTOR",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "DESCRIPTOR",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::FEATURES",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "FEATURES",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::LEVELS",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "LEVELS",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::SHAPE_SOURCES",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "SHAPE_SOURCES",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::SHORT_LEN",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "SHORT_LEN",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_HERE",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_INDEX",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "_INDEX",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_TREE_DIR",
+      "kind": "const",
+      "module": "Schema/profile_tree.py",
+      "name": "_TREE_DIR",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_sha",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "_sha",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_shape_only",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "_shape_only",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::_write_index",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "_write_index",
+      "public": false
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::adopt",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "adopt",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::build",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "build",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::contract_path",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "contract_path",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::entries_from_disk",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "entries_from_disk",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::head",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "head",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::load",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "load",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::load_all",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "load_all",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::main",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::params_digest",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "params_digest",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::read_index",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "read_index",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::read_profile_layout",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "read_profile_layout",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::schema_id",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::short_id",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "short_id",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::source_fingerprint",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "source_fingerprint",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::stale_reasons",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "stale_reasons",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::verify_store",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "verify_store",
+      "public": true
+    },
+    {
+      "file": "Schema/profile_tree.py",
+      "id": "Schema/profile_tree.py::write_profile_layout",
+      "kind": "function",
+      "module": "Schema/profile_tree.py",
+      "name": "write_profile_layout",
+      "public": true
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py",
+      "kind": "module",
+      "module": "Schema/provenance.py",
+      "name": "Schema.provenance",
+      "public": true
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::_GIT_TIMEOUT",
+      "kind": "const",
+      "module": "Schema/provenance.py",
+      "name": "_GIT_TIMEOUT",
+      "public": false
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Schema/provenance.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::_git_dir",
+      "kind": "function",
+      "module": "Schema/provenance.py",
+      "name": "_git_dir",
+      "public": false
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::_head_commit",
+      "kind": "function",
+      "module": "Schema/provenance.py",
+      "name": "_head_commit",
+      "public": false
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::repo_provenance",
+      "kind": "function",
+      "module": "Schema/provenance.py",
+      "name": "repo_provenance",
       "public": true
     },
     {
@@ -21043,6 +22407,14 @@
       "public": true
     },
     {
+      "file": "Warehouse/generation/generate_mixed_profile.py",
+      "id": "Warehouse/generation/generate_mixed_profile.py::main._side_entry",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_mixed_profile.py",
+      "name": "_side_entry",
+      "public": false
+    },
+    {
       "file": "Warehouse/generation/generate_profile_suite.py",
       "id": "Warehouse/generation/generate_profile_suite.py",
       "kind": "module",
@@ -23804,6 +25176,14 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_FIGURE_DIR_PREFERENCE",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "_FIGURE_DIR_PREFERENCE",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_REPO_ROOT",
       "kind": "const",
       "module": "docs/experiments/ingest.py",
@@ -23840,6 +25220,14 @@
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_find",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_inv_root_from_bindings",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_inv_root_from_bindings",
       "public": false
     },
     {
@@ -23904,6 +25292,38 @@
       "kind": "const",
       "module": "docs/experiments/ingest.py",
       "name": "yaml",
+      "public": true
+    },
+    {
+      "file": "docs/experiments/site_tree.py",
+      "id": "docs/experiments/site_tree.py",
+      "kind": "module",
+      "module": "docs/experiments/site_tree.py",
+      "name": "docs.experiments.site_tree",
+      "public": true
+    },
+    {
+      "file": "docs/experiments/site_tree.py",
+      "id": "docs/experiments/site_tree.py::TEMPLATES",
+      "kind": "const",
+      "module": "docs/experiments/site_tree.py",
+      "name": "TEMPLATES",
+      "public": true
+    },
+    {
+      "file": "docs/experiments/site_tree.py",
+      "id": "docs/experiments/site_tree.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "docs/experiments/site_tree.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/site_tree.py",
+      "id": "docs/experiments/site_tree.py::path",
+      "kind": "function",
+      "module": "docs/experiments/site_tree.py",
+      "name": "path",
       "public": true
     },
     {

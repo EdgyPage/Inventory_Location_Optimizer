@@ -17,10 +17,11 @@
 <pre class="sig"><code>def find_latest_db_pairs(profiles_dir: str) -&gt; list[tuple[str, str, str]]</code></pre>
 <section class="doc">Return DB pairs from the most recently generated profile run only.
 
-Profile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy
-batch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is
-always the newest.  Walks backwards until a run with valid pairs is found.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py___profile_pairs.html"><code>_profile_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+&quot;Latest&quot; is `ProfileTree.latest()` — descriptor `created` timestamps for contract runs,
+the historical lexicographic name order for pre-contract ones, a logged warning when the
+two disagree.  On a tree with no descriptors anywhere this is byte-for-byte the old
+behavior (the timestamped names make the lexicographic order correct).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_profile_resolver_py__ProfileTree.html"><code>ProfileTree</code></a> <span class="dim">Schema/profile_resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_runlayout_py__find_latest_db_pairs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/runlayout.py#:~:text=def%20find_latest_db_pairs">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.pathtpl · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_pathtpl_py" data-id="Schema/pathtpl.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/pathtpl.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.pathtpl</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_pathtpl_py.html"><code>Schema/pathtpl.py</code></a></p>
+
+<pre class="sig"><code>Schema.pathtpl</code></pre>
+<section class="doc">pathtpl.py — the contract path-template vocabulary: render, and invert-with-capture.
+
+MOVED here from ``Optimization/runschema/resolver.py`` (which re-exports): the profiles-tree
+resolver lives in ``Schema/`` — the only layer both the generation writers and the run-harness
+consumers may import — and must interpret the SAME template vocabulary the run tree uses.  Two
+copies of a template engine is how the two contracts drift apart; one copy in the stdlib-only
+leaf is how they cannot.
+
+The vocabulary (shared by both contracts&#x27; FEATURES declarations):
+  `{name}`   required segment/part
+  `{name?}`  OPTIONAL segment — dropped with its separator when the part is None
+  `*` / `**` globs; `**` as a whole segment means ZERO or more directories (glob semantics —
+             compiling it as one-or-more once silently disowned zero-depth files)</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_resolver_py.html"><code>Optimization.runschema.resolver</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nSchema_profile_resolver_py.html"><code>Schema.profile_resolver</code></a> <span class="dim">Schema/profile_resolver.py</span></li><li><a href="ndocs_experiments_site_tree_py.html"><code>docs.experiments.site_tree</code></a> <span class="dim">docs/experiments/site_tree.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nSchema_pathtpl_py___capture_regex.html"><code>_capture_regex</code></a> <span class="dim">Schema/pathtpl.py</span></li><li><a href="nSchema_pathtpl_py__render.html"><code>render</code></a> <span class="dim">Schema/pathtpl.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_pathtpl_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/pathtpl.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
