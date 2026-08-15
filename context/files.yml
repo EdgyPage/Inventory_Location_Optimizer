@@ -177,6 +177,7 @@ files:
     purpose: "the per-config (and per-aggregate-group) data hub."
     layer: "evaluations"
     key_symbols:
+      - {name: "REQUIRES", file: "Optimization/Performance_Evaluations/core/context.py", kind: "const"}
       - {name: "EvalContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
       - {name: "AggregateContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
     notes: ""
@@ -409,6 +410,8 @@ files:
       - {name: "PRE_STAMP_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "UNVETTED_ARCHIVE_SIM_SCHEMA_IDS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "REQUIRES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CONDITIONAL_READS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -687,6 +690,24 @@ files:
     layer: "opt_simdriver"
     key_symbols: []
     notes: ""
+  "Schema/compat.py":
+    purpose: "what may a consumer READ, given every schema its family still vets?"
+    layer: "schema"
+    key_symbols:
+      - {name: "SHAPES_DIR", file: "Schema/compat.py", kind: "const"}
+      - {name: "UnrecoverableShape", file: "Schema/compat.py", kind: "class"}
+      - {name: "RequirementUnmet", file: "Schema/compat.py", kind: "class"}
+      - {name: "shape_path", file: "Schema/compat.py", kind: "function"}
+      - {name: "load_shape", file: "Schema/compat.py", kind: "function"}
+      - {name: "write_shape", file: "Schema/compat.py", kind: "function"}
+      - {name: "known_shapes", file: "Schema/compat.py", kind: "function"}
+      - {name: "unrecoverable_ids", file: "Schema/compat.py", kind: "function"}
+      - {name: "guaranteed_surface", file: "Schema/compat.py", kind: "function"}
+      - {name: "conditional_surface", file: "Schema/compat.py", kind: "function"}
+      - {name: "Requires", file: "Schema/compat.py", kind: "class"}
+      - {name: "validate", file: "Schema/compat.py", kind: "function"}
+      - {name: "check_requirements", file: "Schema/compat.py", kind: "function"}
+    notes: ""
   "Schema/connect.py":
     purpose: "the three ways this project should open a SQLite file."
     layer: "schema"
@@ -851,6 +872,34 @@ files:
       - {name: "test_every_declared_pick_config_is_registered", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_schema_compatibility.py":
+    purpose: "a consumer's columns must survive EVERY schema its family vets."
+    layer: "tests"
+    key_symbols:
+      - {name: "MULTI_VINTAGE", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "DECLARED_CONSUMERS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "test_every_vetted_id_has_a_recoverable_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_gate_sweeps_every_registered_family", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_report_cli_imports_every_family_it_reports_on", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_schema_package_imports_nothing_above_its_own_layer", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_store_holds_exactly_the_historical_vetted_ids", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_committed_document_hashes_to_its_own_filename", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_corrupted_document_is_refused_rather_than_believed", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_write_shape_refuses_a_document_that_could_never_load", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_at_least_one_family_really_has_several_shapes", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_guaranteed_surface_is_present_in_every_vetted_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_two_surfaces_partition_the_union_of_every_vetted_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_an_uncaptured_vetted_id_refuses_to_produce_a_surface", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_capturing_the_missing_shape_shrinks_the_surface_to_the_intersection", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_missing_from_names_the_absent_table_and_the_absent_column", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_validate_reports_a_read_only_some_vintages_can_serve", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_check_requirements_accepts_a_file_that_can_answer_the_consumer", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_check_requirements_names_the_column_the_file_cannot_serve", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_declared_consumer_stays_inside_the_guaranteed_surface", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_every_consumer_that_declares_requirements_is_validated_here", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_every_loader_that_reads_a_conditional_table_is_declared", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_declared_conditional_read_is_still_conditional", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_identity.py":
     purpose: "every registered DB family must have a trustworthy shape id."
@@ -2075,4 +2124,14 @@ files:
     layer: "scripts"
     key_symbols:
       - {name: "main", file: "scripts/new_experiment.py", kind: "function"}
+    notes: ""
+  "scripts/schema_report.py":
+    purpose: "the CLI over `Schema/compat.py`, and the one place that knows every family."
+    layer: "scripts"
+    key_symbols:
+      - {name: "FAMILY_MODULES", file: "scripts/schema_report.py", kind: "const"}
+      - {name: "import_families", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "report", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "capture", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "main", file: "scripts/schema_report.py", kind: "function"}
     notes: ""

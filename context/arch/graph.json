@@ -1546,6 +1546,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/context.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/context.py"
@@ -1644,6 +1649,11 @@
       "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_df",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_frames"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::REQUIRES"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::task_time_breakdown",
@@ -2946,6 +2956,11 @@
       "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -2974,6 +2989,11 @@
       "dst": "Schema/identity.py::register",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::REQUIRES"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
@@ -5819,6 +5839,131 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Schema/compat.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Schema/compat.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Schema/compat.py"
+    },
+    {
+      "dst": "Schema/compat.py::RequirementUnmet",
+      "kind": "calls",
+      "src": "Schema/compat.py::check_requirements"
+    },
+    {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/compat.py::check_requirements"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Schema/compat.py::check_requirements"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/compat.py::check_requirements"
+    },
+    {
+      "dst": "Schema/shape.py::observed_id",
+      "kind": "calls",
+      "src": "Schema/compat.py::check_requirements"
+    },
+    {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/compat.py::conditional_surface"
+    },
+    {
+      "dst": "Schema/compat.py::guaranteed_surface",
+      "kind": "calls",
+      "src": "Schema/compat.py::conditional_surface"
+    },
+    {
+      "dst": "Schema/compat.py::known_shapes",
+      "kind": "calls",
+      "src": "Schema/compat.py::conditional_surface"
+    },
+    {
+      "dst": "Schema/compat.py::UnrecoverableShape",
+      "kind": "calls",
+      "src": "Schema/compat.py::guaranteed_surface"
+    },
+    {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/compat.py::guaranteed_surface"
+    },
+    {
+      "dst": "Schema/compat.py::known_shapes",
+      "kind": "calls",
+      "src": "Schema/compat.py::guaranteed_surface"
+    },
+    {
+      "dst": "Schema/compat.py::unrecoverable_ids",
+      "kind": "calls",
+      "src": "Schema/compat.py::guaranteed_surface"
+    },
+    {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "Schema/compat.py::known_shapes"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/compat.py::known_shapes"
+    },
+    {
+      "dst": "Schema/compat.py::UnrecoverableShape",
+      "kind": "calls",
+      "src": "Schema/compat.py::load_shape"
+    },
+    {
+      "dst": "Schema/compat.py::shape_path",
+      "kind": "calls",
+      "src": "Schema/compat.py::load_shape"
+    },
+    {
+      "dst": "Schema/shape.py::shape_id",
+      "kind": "calls",
+      "src": "Schema/compat.py::load_shape"
+    },
+    {
+      "dst": "Schema/compat.py::known_shapes",
+      "kind": "calls",
+      "src": "Schema/compat.py::unrecoverable_ids"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/compat.py::unrecoverable_ids"
+    },
+    {
+      "dst": "Schema/compat.py::guaranteed_surface",
+      "kind": "calls",
+      "src": "Schema/compat.py::validate"
+    },
+    {
+      "dst": "Schema/compat.py::shape_path",
+      "kind": "calls",
+      "src": "Schema/compat.py::write_shape"
+    },
+    {
+      "dst": "Schema/shape.py::shape_id",
+      "kind": "calls",
+      "src": "Schema/compat.py::write_shape"
     },
     {
       "dst": "Schema/connect.py::_uri",
@@ -9704,6 +9849,121 @@
       "dst": "scripts/new_experiment.py::_nav_block",
       "kind": "calls",
       "src": "scripts/new_experiment.py::main"
+    },
+    {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "scripts/schema_report.py::main",
+      "kind": "calls",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Schema/compat.py::SHAPES_DIR",
+      "kind": "ref",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/compat.py::write_shape",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "Schema/shape.py::observed_id",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "scripts/schema_report.py::import_families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "scripts/schema_report.py::capture",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::main"
+    },
+    {
+      "dst": "scripts/schema_report.py::report",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::main"
+    },
+    {
+      "dst": "Schema/compat.py::conditional_surface",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/compat.py::guaranteed_surface",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/compat.py::unrecoverable_ids",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
+    },
+    {
+      "dst": "scripts/schema_report.py::import_families",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::report"
     }
   ],
   "nodes": [
@@ -11329,6 +11589,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
       "name": "title",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::REQUIRES",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "REQUIRES",
       "public": true
     },
     {
@@ -13133,6 +13401,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CONDITIONAL_READS",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -13161,6 +13437,14 @@
       "kind": "class",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "PickerEventRecord",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::REQUIRES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "REQUIRES",
       "public": true
     },
     {
@@ -16185,6 +16469,134 @@
       "kind": "module",
       "module": "Schema/__init__.py",
       "name": "Schema",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py",
+      "kind": "module",
+      "module": "Schema/compat.py",
+      "name": "Schema.compat",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::RequirementUnmet",
+      "kind": "class",
+      "module": "Schema/compat.py",
+      "name": "RequirementUnmet",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::Requires",
+      "kind": "class",
+      "module": "Schema/compat.py",
+      "name": "Requires",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::Requires.missing_from",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "missing_from",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::SHAPES_DIR",
+      "kind": "const",
+      "module": "Schema/compat.py",
+      "name": "SHAPES_DIR",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::UnrecoverableShape",
+      "kind": "class",
+      "module": "Schema/compat.py",
+      "name": "UnrecoverableShape",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::_surface",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "_surface",
+      "public": false
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::check_requirements",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "check_requirements",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::conditional_surface",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "conditional_surface",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::guaranteed_surface",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "guaranteed_surface",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::known_shapes",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "known_shapes",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::load_shape",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "load_shape",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::shape_path",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "shape_path",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::unrecoverable_ids",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "unrecoverable_ids",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::validate",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "validate",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::write_shape",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "write_shape",
       "public": true
     },
     {
@@ -22609,6 +23021,54 @@
       "kind": "function",
       "module": "scripts/new_experiment.py",
       "name": "main",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py",
+      "kind": "module",
+      "module": "scripts/schema_report.py",
+      "name": "scripts.schema_report",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::FAMILY_MODULES",
+      "kind": "const",
+      "module": "scripts/schema_report.py",
+      "name": "FAMILY_MODULES",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::capture",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "capture",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::import_families",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "import_families",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::main",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::report",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "report",
       "public": true
     }
   ],

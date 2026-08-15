@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import shape as _shape
 from Schema.connect import read_only as _ro_conn
@@ -641,6 +642,77 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
 #: `Diagnostics/replay_run.py` still reads them, and still may: it does not touch batch_stats'
 #: success metrics and captions every curve with the source it actually used.
 UNVETTED_ARCHIVE_SIM_SCHEMA_IDS = ('5d8a78b74466', '89c7b2babf22', 'e110afa222e3')
+
+# ── what the shared read layer needs, and what it may only ASK for ──────────────────────────
+# `SIM_DB_FAMILY` above vets a whole FILE; these say what a caller may read out of one.  The gap
+# between those two granularities is where the silent failure lives: every vetted vintage differs,
+# and `check()` passing tells a loader nothing about whether its own columns survived.
+#
+# Everything here is inside `Schema.compat.guaranteed_surface('sim_db')` — present in EVERY vetted
+# shape — so these loaders are version-free by construction and
+# `Tests/architecture/test_schema_compatibility.py` fails if a schema change makes that untrue.
+#
+# The guarded columns are listed DELIBERATELY. `load_batch_stats`/`load_task_stats` default them to
+# 0.0 when absent, and seven of them (`sigma_fd`, `W`, `queue_depth`, `reorder_placements`,
+# `reload_moves`, `lead_queue_depth`, `in_transit_qty`) flow straight into a published figure or
+# CSV — so "guarded" means the failure is silent, not that it is safe.  Declaring them turns a
+# dropped column into a CI failure instead of a plausible zero.  (`task_makespan` is the one that
+# fails safe: `common/frames.py` converts its 0.0 to NaN, which drops out of summaries.)
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='Picking_Data shared read layer',
+    tables={
+        'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+                        'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
+                        'task_makespan', 'thr_task', 'thr_batch', 'batch_start_time',
+                        'batch_end_time', 'sigma_fd', 'reload_moves', 'reorder_placements',
+                        'skus_reordered', 'units_ordered', 'queue_depth', 'lead_queue_depth',
+                        'in_transit_qty'),
+        'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+                       'task_end_time', 'duration', 'lift_sum', 'num_bins_visited', 'total_items',
+                       'is_outlier', 'W'),
+        'picker_events': ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+                          'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins',
+                          'items_picked', 'total_items', 'pick_travel_x', 'pick_travel_y',
+                          'non_pick_travel_x', 'non_pick_travel_y', 'cart_move'),
+        'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum',
+                          'lift_sum', 'pick_load_sum'),
+        # `unit_type`/`storage_size` are in the PRIMARY select; the inner OperationalError
+        # fallback re-queries without them for a pre-enrichment file.  Both are nonetheless in
+        # the guaranteed surface — every vetted vintage has them — so the fallback is dead code
+        # against anything this family still vets, and declaring them says so.
+        'reorder_queue': ('run_id', 'batch_id', 'kind', 'sku', 'qty', 'remaining_lead',
+                          'unit_type', 'storage_size'),
+        'bin_scores': ('run_id', 'aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult',
+                       'layout_score', 'map_pref'),
+        # `SELECT *` -> dict(row); no column is indexed here, so the requirement is the table.
+        'sku_scores': _compat.ANY_COLUMNS,
+        # `run_identity` does `SELECT *` and indexes 13 columns off the row, each behind an
+        # `if k in row.keys()` guard — so a missing one is dropped from the returned dict rather
+        # than raising, and the caller sees an absence it cannot distinguish from a NULL.  All of
+        # these are guaranteed; the fourteenth, `sim_schema_id`, is NOT, which is why it is in
+        # CONDITIONAL_READS below instead of here.  `find_run` adds `strategy_key`.
+        'simulation_runs': ('run_id', 'run_type', 'n_batches', 'keyframe_interval',
+                            'optimal_sigma_fd', 'optimal_work', 'strategy_key', 'pair_label',
+                            'config_label', 'warehouse_fingerprint', 'inventory_label',
+                            'channel'),
+    })
+
+#: Loaders that read the CONDITIONAL surface — a table only SOME vetted vintages have.  Kept as
+#: data so the compatibility test can assert the list is exhaustive: a NEW conditional reader added
+#: without a decision fails there rather than raising `no such table` months later, on the archive.
+#:
+#: None of the first three is guarded at all.  That is correct — they are the archive-replay and
+#: viewer paths, whose callers already negotiate (`Diagnostics/replay_run._SOURCES` probes before
+#: reading, and degrades with a recorded caveat).  A caller that cannot negotiate must not call
+#: them.  `run_identity` is the exception: its `sim_schema_id` read is guarded by `row.keys()` and
+#: simply omits the key on a pre-stamp file.
+CONDITIONAL_READS = {
+    'load_bin_inventory':  'bin_inventory',    # retired; archive-only
+    'load_bin_placements': 'bin_placement',    # added 2026-08-13
+    'load_bin_evictions':  'bin_eviction',     # added 2026-08-13
+    'run_identity':        'simulation_runs.sim_schema_id',
+}
 
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
     name='keyframes_db',

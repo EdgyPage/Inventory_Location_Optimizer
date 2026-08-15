@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.compat · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_compat_py" data-id="Schema/compat.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/compat.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.compat</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a></p>
+
+<pre class="sig"><code>Schema.compat</code></pre>
+<section class="doc">compat.py — what may a consumer READ, given every schema its family still vets?
+
+`identity.py` answers &quot;is this file one we know&quot;. That is a whole-file question, and it is the
+wrong granularity for a consumer, which reads a handful of tables out of a dozen. The gap between
+those two granularities is where this project&#x27;s remaining schema babysitting lives:
+
+    SIM_DB_FAMILY vets four ids. Three of them exist on the results drive and they differ by
+    three whole tables (bin_eviction, bin_placement, bin_inventory) and one column
+    (simulation_runs.sim_schema_id). `check()` passes all three. Nothing adapts. Today that is
+    safe only because no evaluation happens to read those tables — an accident, not a guarantee.
+    An evaluation that read `bin_placement` would be certified against the 2026-07-29 run that
+    Experiment 6 is published from, and would then fail on it.
+
+    HOW it fails depends on the loader, and both ways are bad:
+      * `load_bin_placements` has NO OperationalError guard, so it RAISES `no such table:
+        bin_placement` — loud, but only after a long analysis has already run;
+      * a `SELECT *` loader guarded with `row.keys()` (which is most of them) yields the
+        `common/frames.py` default 0.0 and PUBLISHES it — silent, and indistinguishable from a
+        measurement.
+    Declaring the read up front collapses both into one CI failure, before anything runs.
+
+So a consumer declares what it needs (`Requires`), and two checks enforce it:
+
+  STATIC   `validate(req)` — offline, no database. Is every table/column this consumer reads
+           present in EVERY id the family vets? Runs in CI with no archive, and is the check
+           that turns &quot;safe by accident&quot; into &quot;safe by construction&quot;.
+  RUNTIME  `check_requirements(path, req)` — this file, right now, at the consumer&#x27;s own
+           granularity. Names the missing COLUMN, not the file&#x27;s hash.
+
+Anything outside the guaranteed surface is reachable only by NEGOTIATION — probe for it and
+degrade with a recorded caveat (`Diagnostics/replay_run._SOURCES` and
+`Visualization/readers/protocol.CAP_*` are both this pattern, hand-rolled independently).
+
+WHY HISTORICAL SHAPES ARE COMMITTED, NOT COMPUTED
+-------------------------------------------------
+A family&#x27;s declared shape is BUILT from its writer&#x27;s own DDL, so it is always re-derivable. A
+HISTORICAL shape is not: `Picking_Data.PRE_STAMP_SIM_SCHEMA_ID` is frozen precisely because the
+source that produced it is gone. The intersection therefore cannot be computed from declarations
+alone, and a store of committed documents is the only way to make it computable offline — the
+same reasoning, and the same layout, as `Optimization/schemas/run_tree/&lt;short&gt;.json`.
+
+An id in `known_ids` with no committed document is UNRECOVERABLE: its shape is unknown, so the
+true intersection is unknowable and any surface computed without it is over-optimistic. Every
+function here reports that rather than quietly computing the smaller intersection.
+
+The CLI over this module lives in `scripts/schema_report.py`, NOT here: reporting on every family
+means importing every writer, and `context/architecture.yml` forbids the `schema` layer from
+importing `opt_persistence`, `generation` or `visualization`. This module takes a family NAME and
+reads the committed store; it never learns who writes what.
+
+    python scripts/schema_report.py --report                     # the surface, per family
+    python scripts/schema_report.py --capture sim_db &lt;file.db&gt;   # commit a historical shape</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nSchema_connect_py.html"><code>Schema.connect</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_shape_py.html"><code>Schema.shape</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization.Performance_Evaluations.core.context</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(15)</span></h2><ul><li><a href="nSchema_compat_py__RequirementUnmet.html"><code>RequirementUnmet</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__Requires.html"><code>Requires</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__SHAPES_DIR.html"><code>SHAPES_DIR</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__UnrecoverableShape.html"><code>UnrecoverableShape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py___surface.html"><code>_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__check_requirements.html"><code>check_requirements</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__conditional_surface.html"><code>conditional_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__guaranteed_surface.html"><code>guaranteed_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__known_shapes.html"><code>known_shapes</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__load_shape.html"><code>load_shape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__Requires_missing_from.html"><code>missing_from</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__shape_path.html"><code>shape_path</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__unrecoverable_ids.html"><code>unrecoverable_ids</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__validate.html"><code>validate</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__write_shape.html"><code>write_shape</code></a> <span class="dim">Schema/compat.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_compat_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/compat.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

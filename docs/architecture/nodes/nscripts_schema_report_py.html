@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scripts.schema_report · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_schema_report_py" data-id="scripts/schema_report.py">
+<nav class="crumbs"><a href="../layers.html">scripts</a> <span class="sep">›</span> <span class="here"><code>scripts/schema_report.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>scripts.schema_report</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_schema_report_py.html"><code>scripts/schema_report.py</code></a></p>
+
+<pre class="sig"><code>scripts.schema_report</code></pre>
+<section class="doc">schema_report — the CLI over `Schema/compat.py`, and the one place that knows every family.
+
+    python scripts/schema_report.py --report                     # the surface, per family
+    python scripts/schema_report.py --capture sim_db &lt;file.db&gt;   # commit a historical shape
+
+WHY THIS IS NOT IN `Schema/`
+----------------------------
+`Schema/` is the stdlib-only leaf every layer may import, and `context/architecture.yml` forbids
+it from importing `opt_persistence`, `optimization`, `generation`, `evaluations`, `visualization`
+and `warehouse_core`. But a family exists only once its WRITER&#x27;s module has been imported, so
+anything that reports on *all* families must import all of them — which is exactly what the
+`schema` layer may not do.
+
+That import list lived in `Schema/compat.py` briefly, behind `importlib.import_module` on string
+literals. It worked, and it was wrong twice over:
+
+  * `context/arch/extract.py` only visits `ast.Import` / `ast.ImportFrom`, so a string-literal
+    dynamic import records NO edge. `verify_architecture.py` reported OK on a real violation —
+    the gate was green because it could not see, not because the import was legal. (A plain
+    `from Optimization.persistence import Picking_Data` in the same function WOULD have produced
+    the edge and failed the boundary.)
+  * it made the leaf heavy in fact if not in form: the call pulls ~1350 modules, matplotlib,
+    pandas, numpy and scipy included, into the package whose own README advertises &quot;stdlib-only,
+    imports nothing else in the repo, so every layer may use it&quot;. `identity.check_tables` exists
+    precisely to stop `Warehouse/catalog/Affinity_Store.py` dragging a data-gen CLI into every
+    simulation worker; this would have re-opened that door one level down.
+
+There is also a genuine cycle: `Optimization/persistence/Picking_Data.py` imports `Schema.compat`
+at module scope, and the family list imports `Picking_Data` back. Deferring it inside a function
+survives, but only by accident of ordering. Here, in the `scripts` layer, importing downward is
+simply legal and the cycle does not exist.
+
+`Schema/compat.py` stays a pure library: it takes a family NAME and reads the committed shape
+store, and never learns who writes what.</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_connect_py.html"><code>Schema.connect</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_shape_py.html"><code>Schema.shape</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nscripts_schema_report_py__FAMILY_MODULES.html"><code>FAMILY_MODULES</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__capture.html"><code>capture</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__import_families.html"><code>import_families</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__main.html"><code>main</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__report.html"><code>report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_schema_report_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/schema_report.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

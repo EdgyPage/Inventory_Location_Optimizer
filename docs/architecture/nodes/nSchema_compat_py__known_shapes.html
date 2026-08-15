@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>known_shapes · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_compat_py__known_shapes" data-id="Schema/compat.py::known_shapes">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a> <span class="sep">›</span> <span class="here"><code>known_shapes</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>known_shapes</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a></p>
+
+<pre class="sig"><code>def known_shapes(family: str) -&gt; dict</code></pre>
+<section class="doc">`{schema_id: shape}` for every id this family vets, as far as it is recoverable.
+
+The DECLARED shape is always present (it is built from the writer&#x27;s DDL); historical ids come
+from the committed store. Missing ones are reported by `unrecoverable_ids`, not silently
+dropped — see the module docstring.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nSchema_compat_py__load_shape.html"><code>load_shape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_identity_py__get.html"><code>get</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nSchema_compat_py__conditional_surface.html"><code>conditional_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__guaranteed_surface.html"><code>guaranteed_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__unrecoverable_ids.html"><code>unrecoverable_ids</code></a> <span class="dim">Schema/compat.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_compat_py__known_shapes">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/compat.py#:~:text=def%20known_shapes">Source ↗</a></p>
+</article>
+</main>
+</body></html>

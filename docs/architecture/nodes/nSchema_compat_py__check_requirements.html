@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>check_requirements · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_compat_py__check_requirements" data-id="Schema/compat.py::check_requirements">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a> <span class="sep">›</span> <span class="here"><code>check_requirements</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>check_requirements</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def check_requirements(path: str, req: Requires, *, verify: bool=True) -&gt; str</code></pre>
+<section class="doc">RUNTIME check against one real file. Returns its schema id; raises `RequirementUnmet`.
+
+Complements `identity.check()` rather than replacing it: that one asks whether the FILE is
+vetted, this one asks whether it can answer THIS consumer&#x27;s questions. A file can be vetted
+and still lack a table a particular caller needs — which is exactly the case `known_ids`
+creates and the reason this function exists.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nSchema_compat_py__RequirementUnmet.html"><code>RequirementUnmet</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py___surface.html"><code>_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_shape_py__canonical_shape.html"><code>canonical_shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__observed_id.html"><code>observed_id</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_compat_py__check_requirements">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/compat.py#:~:text=def%20check_requirements">Source ↗</a></p>
+</article>
+</main>
+</body></html>

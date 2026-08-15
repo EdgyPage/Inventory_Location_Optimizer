@@ -1429,6 +1429,13 @@
       "kind": "function",
       "signature": "(self) -> str"
     },
+    "Optimization/Performance_Evaluations/core/context.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='Performance_Evaluations analysis context', tables={'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', '..."
+    },
     "Optimization/Performance_Evaluations/core/context.py::_provenance_parts": {
       "decorators": [],
       "doc": "Directory names from the RUN ROOT down to `leaf_dir`, for a figure's provenance footer.\n\nThe run root is the dir holding run_layout.json (the run-tree descriptor).  Anchoring on that\nmarker keeps the label correct whether the leaf is `<cell>/<pair>/<config>` (store-only) or\n`<cell>/<pair>/<config>/<channel>` (mixed) \u2014 a fixed dirname-hop count cannot be right for both.\nFalls back to the last three components when no descriptor is found (e.g. an ad-hoc dir under\ntest), so this never raises inside a plotting call.",
@@ -3000,6 +3007,13 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'load_bin_inventory': 'bin_inventory', 'load_bin_placements': 'bin_placement', 'load_bin_evictions': 'bin_eviction', 'run_identity': 'simulation_runs.sim_schema_id'}"
+    },
     "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY": {
       "decorators": [],
       "doc": null,
@@ -3029,6 +3043,13 @@
       "doc": null,
       "kind": "class",
       "signature": ""
+    },
+    "Optimization/persistence/Picking_Data.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='Picking_Data shared read layer', tables={'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', 'picking_pc..."
     },
     "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY": {
       "decorators": [],
@@ -5655,6 +5676,116 @@
       "doc": "Schema \u2014 the shape and identity of this project's SQLite databases.\n\n`Schema/` owns the shape of each **database**.\n`Optimization/runschema/` owns the shape of the run **directory tree**.\nThey are different questions and neither imports the other. See README.md.\n\nStdlib only, and importable from every layer \u2014 which is the reason it is a top-level package\nrather than living under `Optimization/`: `context/architecture.yml` forbids\n`warehouse_core -> optimization`, and `Warehouse/generation/` writes two of the DB families.\n\nNothing is imported eagerly; take what you need:\n\n    from Schema import connect          # read_only / writer / bulk_writer\n    from Schema import shape            # canonical_shape / shape_id / diff_shapes\n    from Schema import identity         # Family / register / resolve / check",
       "kind": "module",
       "signature": null
+    },
+    "Schema/compat.py": {
+      "decorators": [],
+      "doc": "compat.py \u2014 what may a consumer READ, given every schema its family still vets?\n\n`identity.py` answers \"is this file one we know\". That is a whole-file question, and it is the\nwrong granularity for a consumer, which reads a handful of tables out of a dozen. The gap between\nthose two granularities is where this project's remaining schema babysitting lives:\n\n    SIM_DB_FAMILY vets four ids. Three of them exist on the results drive and they differ by\n    three whole tables (bin_eviction, bin_placement, bin_inventory) and one column\n    (simulation_runs.sim_schema_id). `check()` passes all three. Nothing adapts. Today that is\n    safe only because no evaluation happens to read those tables \u2014 an accident, not a guarantee.\n    An evaluation that read `bin_placement` would be certified against the 2026-07-29 run that\n    Experiment 6 is published from, and would then fail on it.\n\n    HOW it fails depends on the loader, and both ways are bad:\n      * `load_bin_placements` has NO OperationalError guard, so it RAISES `no such table:\n        bin_placement` \u2014 loud, but only after a long analysis has already run;\n      * a `SELECT *` loader guarded with `row.keys()` (which is most of them) yields the\n        `common/frames.py` default 0.0 and PUBLISHES it \u2014 silent, and indistinguishable from a\n        measurement.\n    Declaring the read up front collapses both into one CI failure, before anything runs.\n\nSo a consumer declares what it needs (`Requires`), and two checks enforce it:\n\n  STATIC   `validate(req)` \u2014 offline, no database. Is every table/column this consumer reads\n           present in EVERY id the family vets? Runs in CI with no archive, and is the check\n           that turns \"safe by accident\" into \"safe by construction\".\n  RUNTIME  `check_requirements(path, req)` \u2014 this file, right now, at the consumer's own\n           granularity. Names the missing COLUMN, not the file's hash.\n\nAnything outside the guaranteed surface is reachable only by NEGOTIATION \u2014 probe for it and\ndegrade with a recorded caveat (`Diagnostics/replay_run._SOURCES` and\n`Visualization/readers/protocol.CAP_*` are both this pattern, hand-rolled independently).\n\nWHY HISTORICAL SHAPES ARE COMMITTED, NOT COMPUTED\n-------------------------------------------------\nA family's declared shape is BUILT from its writer's own DDL, so it is always re-derivable. A\nHISTORICAL shape is not: `Picking_Data.PRE_STAMP_SIM_SCHEMA_ID` is frozen precisely because the\nsource that produced it is gone. The intersection therefore cannot be computed from declarations\nalone, and a store of committed documents is the only way to make it computable offline \u2014 the\nsame reasoning, and the same layout, as `Optimization/schemas/run_tree/<short>.json`.\n\nAn id in `known_ids` with no committed document is UNRECOVERABLE: its shape is unknown, so the\ntrue intersection is unknowable and any surface computed without it is over-optimistic. Every\nfunction here reports that rather than quietly computing the smaller intersection.\n\nThe CLI over this module lives in `scripts/schema_report.py`, NOT here: reporting on every family\nmeans importing every writer, and `context/architecture.yml` forbids the `schema` layer from\nimporting `opt_persistence`, `generation` or `visualization`. This module takes a family NAME and\nreads the committed store; it never learns who writes what.\n\n    python scripts/schema_report.py --report                     # the surface, per family\n    python scripts/schema_report.py --capture sim_db <file.db>   # commit a historical shape",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/compat.py::RequirementUnmet": {
+      "decorators": [],
+      "doc": "A consumer's declared tables/columns are not all present.",
+      "kind": "class",
+      "signature": "(SchemaError)"
+    },
+    "Schema/compat.py::Requires": {
+      "decorators": [
+        "dataclass(frozen=True, eq=False)"
+      ],
+      "doc": "The tables and columns ONE consumer reads out of ONE family.\n\nDeclared next to the code that does the reading, so the declaration and the query move\ntogether. `label` names the consumer and goes in every message \u2014 \"Performance_Evaluations\ncontext\" is what a reader needs to see, not a stack trace.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/compat.py::Requires.missing_from": {
+      "decorators": [],
+      "doc": "Which of this consumer's needs `surface` does not satisfy, as readable clauses.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, surface: dict) -> list"
+    },
+    "Schema/compat.py::SHAPES_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapes')"
+    },
+    "Schema/compat.py::UnrecoverableShape": {
+      "decorators": [],
+      "doc": "A vetted id has no committed shape document, so the guaranteed surface is unknowable.",
+      "kind": "class",
+      "signature": "(SchemaError)"
+    },
+    "Schema/compat.py::_surface": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shape: dict) -> dict"
+    },
+    "Schema/compat.py::check_requirements": {
+      "decorators": [],
+      "doc": "RUNTIME check against one real file. Returns its schema id; raises `RequirementUnmet`.\n\nComplements `identity.check()` rather than replacing it: that one asks whether the FILE is\nvetted, this one asks whether it can answer THIS consumer's questions. A file can be vetted\nand still lack a table a particular caller needs \u2014 which is exactly the case `known_ids`\ncreates and the reason this function exists.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, req: Requires, *, verify: bool=True) -> str"
+    },
+    "Schema/compat.py::conditional_surface": {
+      "decorators": [],
+      "doc": "`{table: frozenset(columns)}` present in SOME vetted shape but not all.\n\nEverything here must be negotiated at runtime \u2014 probed for, and degraded from with a caveat\nthe consumer records. Nothing may read it unconditionally.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, *, strict: bool=True) -> dict"
+    },
+    "Schema/compat.py::guaranteed_surface": {
+      "decorators": [],
+      "doc": "`{table: frozenset(columns)}` present in EVERY vetted shape \u2014 the version-free surface.\n\nA consumer that stays inside this reads every vetted vintage identically and needs no\nper-version code at all. That is the whole point: bespoke compatibility should be required\nonly for what genuinely varies.\n\nWith `strict` (the default) an unrecoverable id raises, because an intersection taken over\nthe ids we happen to have is larger than the truth and would bless reads that are not\nactually safe.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, *, strict: bool=True) -> dict"
+    },
+    "Schema/compat.py::known_shapes": {
+      "decorators": [],
+      "doc": "`{schema_id: shape}` for every id this family vets, as far as it is recoverable.\n\nThe DECLARED shape is always present (it is built from the writer's DDL); historical ids come\nfrom the committed store. Missing ones are reported by `unrecoverable_ids`, not silently\ndropped \u2014 see the module docstring.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str) -> dict"
+    },
+    "Schema/compat.py::load_shape": {
+      "decorators": [],
+      "doc": "The committed shape for one historical id, or None if it was never captured.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, sid: str) -> dict | None"
+    },
+    "Schema/compat.py::shape_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, sid: str) -> str"
+    },
+    "Schema/compat.py::unrecoverable_ids": {
+      "decorators": [],
+      "doc": "Vetted ids whose shape was never captured. Non-empty \u21d2 the surface is a guess.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str) -> tuple"
+    },
+    "Schema/compat.py::validate": {
+      "decorators": [],
+      "doc": "STATIC check, no database: is `req` inside its family's guaranteed surface?\n\nEmpty list \u21d2 this consumer is version-free by construction. Anything returned is a read that\nonly some vetted vintages can serve, and must move behind a runtime capability probe.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(req: Requires) -> list"
+    },
+    "Schema/compat.py::write_shape": {
+      "decorators": [],
+      "doc": "Commit one historical shape. `captured_from` is a RUN NAME, never a path.\n\nA machine-local path here would be written into a tracked file and blocked by\n`context/guards/path_guard.py` \u2014 and would be useless to anyone else besides.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, sid: str, shape: dict, *, captured_from: str, note: str='') -> str"
     },
     "Schema/connect.py": {
       "decorators": [],
@@ -11366,6 +11497,47 @@
       "is_async": false,
       "kind": "function",
       "signature": "(argv=None)"
+    },
+    "scripts/schema_report.py": {
+      "decorators": [],
+      "doc": "schema_report \u2014 the CLI over `Schema/compat.py`, and the one place that knows every family.\n\n    python scripts/schema_report.py --report                     # the surface, per family\n    python scripts/schema_report.py --capture sim_db <file.db>   # commit a historical shape\n\nWHY THIS IS NOT IN `Schema/`\n----------------------------\n`Schema/` is the stdlib-only leaf every layer may import, and `context/architecture.yml` forbids\nit from importing `opt_persistence`, `optimization`, `generation`, `evaluations`, `visualization`\nand `warehouse_core`. But a family exists only once its WRITER's module has been imported, so\nanything that reports on *all* families must import all of them \u2014 which is exactly what the\n`schema` layer may not do.\n\nThat import list lived in `Schema/compat.py` briefly, behind `importlib.import_module` on string\nliterals. It worked, and it was wrong twice over:\n\n  * `context/arch/extract.py` only visits `ast.Import` / `ast.ImportFrom`, so a string-literal\n    dynamic import records NO edge. `verify_architecture.py` reported OK on a real violation \u2014\n    the gate was green because it could not see, not because the import was legal. (A plain\n    `from Optimization.persistence import Picking_Data` in the same function WOULD have produced\n    the edge and failed the boundary.)\n  * it made the leaf heavy in fact if not in form: the call pulls ~1350 modules, matplotlib,\n    pandas, numpy and scipy included, into the package whose own README advertises \"stdlib-only,\n    imports nothing else in the repo, so every layer may use it\". `identity.check_tables` exists\n    precisely to stop `Warehouse/catalog/Affinity_Store.py` dragging a data-gen CLI into every\n    simulation worker; this would have re-opened that door one level down.\n\nThere is also a genuine cycle: `Optimization/persistence/Picking_Data.py` imports `Schema.compat`\nat module scope, and the family list imports `Picking_Data` back. Deferring it inside a function\nsurvives, but only by accident of ordering. Here, in the `scripts` layer, importing downward is\nsimply legal and the cycle does not exist.\n\n`Schema/compat.py` stays a pure library: it takes a family NAME and reads the committed shape\nstore, and never learns who writes what.",
+      "kind": "module",
+      "signature": null
+    },
+    "scripts/schema_report.py::FAMILY_MODULES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('Optimization.persistence.Picking_Data', 'Optimization.persistence.Warehouse_Data', 'Optimization.persistence.runtime_metrics', 'Visualization.cache_schema', 'Warehouse.generation.generate_invento..."
+    },
+    "scripts/schema_report.py::capture": {
+      "decorators": [],
+      "doc": "Commit the shape of a real file of a vetted historical vintage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, path: str, note: str='', out=print) -> int"
+    },
+    "scripts/schema_report.py::import_families": {
+      "decorators": [],
+      "doc": "Populate `Schema.identity`'s registry by importing every writer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "scripts/schema_report.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "scripts/schema_report.py::report": {
+      "decorators": [],
+      "doc": "Print each family's guaranteed/conditional surface. Exit 1 if any id is unrecoverable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out=print) -> int"
     }
   },
   "version": 1
