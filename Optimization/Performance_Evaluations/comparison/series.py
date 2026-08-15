@@ -10,10 +10,13 @@ from Optimization.Performance_Evaluations.common.series import _dump_series
 
 
 @evaluation(key='config.series', label='series.json (trajectories + ss scalars)',
-            scope='config', needs=('batch', 'task'), out_subdir='')
+            scope='config', needs=('series',), out_subdir='')
 def render(ctx, params):
+    # The optimal floors come off the CONTEXT (ctx.optimal_work / ctx.optimal), not the raw
+    # sim_result job dict — the context already derives them once for every consumer, and
+    # renders never reach past the facade.
     _dump_series(
         ctx.strategies, ctx.series(),
         os.path.join(ctx.run_dir, 'series.json'),
-        extra={'optimal_work': float(ctx.sim_result.get('optimal_work') or 0.0),
-               'optimal_sigma_fd': float(ctx.sim_result.get('optimal_sigma_fd') or 0.0)})
+        extra={'optimal_work': ctx.optimal_work,
+               'optimal_sigma_fd': ctx.optimal})

@@ -270,7 +270,7 @@ Every item once listed here landed; each entry now records where and what to kno
 
 The analysis suite's last hand-navigation moved behind an intermediary,
 `Optimization/Performance_Evaluations/core/requests.py`: every `@evaluation`'s dormant `needs=`
-declaration ('batch', 'task', 'events', 'series', 'breakdown') is now resolved through the
+declaration ('batch', 'task', 'series', 'breakdown') is now resolved through the
 broker in `driver._run_one` BEFORE the render.  Granted → render exactly as before (the compose
 functions ARE the old `EvalContext` method bodies, memoised into the same caches — the context
 methods are now a facade over them).  Denied → the render is skipped and

@@ -16,7 +16,7 @@ class Evaluation:
     key:        str                          # 'compare.top_metric'
     label:      str
     scope:      str                          # 'per_strategy' | 'config' | 'aggregate'
-    needs:      tuple = ()                    # subset of {'batch','task','events','series','breakdown'}
+    needs:      tuple = ()                    # subset of {'batch','task','series','breakdown'}
     defaults:   dict = field(default_factory=dict)
     out_subdir: str = ''                     # relative dir under the run/agg root
     by_initial: bool = False                 # stats-only structural fork (uni-vs-opt per fn)

@@ -1,7 +1,9 @@
 """The request broker — consumers ask for a resource BY NAME; this module gets it or says why not.
 
-The `needs=` vocabulary every `@evaluation` already declares ('batch', 'task', 'events',
-'series', 'breakdown') is the request vocabulary.  A graph's render never navigates the
+The `needs=` vocabulary every `@evaluation` already declares ('batch', 'task', 'series',
+'breakdown') is the request vocabulary.  (An 'events' request once existed with no declarer —
+picker events are streamed per-batch INSIDE the 'breakdown' compose, so a separate grant had
+nothing to grant.  Re-adding it is six lines if a consumer ever streams events directly.)  A graph's render never navigates the
 versioned inputs itself: the broker is the hard-coded intermediary that knows where each
 resource lives (sim DBs via the `Picking_Data` loaders, which serve every vetted vintage
 through `Schema.dataset`'s named queries; series/breakdown composed from those frames) and
@@ -178,16 +180,6 @@ def _task(ctx):
     return {s['key']: task_frame(ctx, s['key']) for s in ctx.strategies}
 
 
-@request('events', 'config')
-def _events(ctx):
-    """Picker events are streamed per-batch by their consumers, so the grant is the probe:
-    every arm's DB present.  Materializing full event lists here would defeat the streaming."""
-    denied = _deny_absent(ctx)
-    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
-        return denied
-    return True
-
-
 @request('series', 'config')
 def _series(ctx):
     denied = _deny_absent(ctx)
@@ -208,7 +200,13 @@ def _breakdown(ctx):
 
 @request('series', 'aggregate')
 def _agg_series(ctx):
-    """The per-profile series.json list the aggregate stage was built from."""
+    """The per-profile series.json list the aggregate stage was built from.
+
+    The grant validates `ctx.profile_series_list` — THAT is the resource.  Consumers may read
+    it raw (the aggregate stats suite feeds it to the pairing machinery per profile) or
+    composed via `ctx.agg_series()` (cross_profile's merged view); both are the same granted
+    resource, and the composed form is a memoised transform of the raw one, not a second
+    request."""
     if not ctx.profile_series_list:
         return Denied('no series.json found for this group '
                       '(config.series never ran, or every profile lacked it)')

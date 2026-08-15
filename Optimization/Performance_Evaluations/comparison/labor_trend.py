@@ -152,7 +152,7 @@ def _plot(selected, gof, frames, baseline, top_n, top_by, win, title, path):
 
 @evaluation(key='compare.labor_trend',
             label='Labor hours per batch and % saved vs FIFO, over batch order',
-            scope='config', needs=('task',), out_subdir='compare/breakdown',
+            scope='config', needs=('task', 'series'), out_subdir='compare/breakdown',
             defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN})
 def render(ctx, params):
     top_n  = int(params.get('top_n', 3) or 3)

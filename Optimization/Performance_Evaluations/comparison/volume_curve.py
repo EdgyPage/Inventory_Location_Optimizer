@@ -170,7 +170,7 @@ def _plot(selected, gof, frames, baseline, top_n, top_by, title, path):
 
 @evaluation(key='compare.volume_curve',
             label='Cumulative pick volume vs elapsed time, with rate + lead-over-FIFO metrics',
-            scope='config', needs=('batch',), out_subdir='compare/top',
+            scope='config', needs=('batch', 'series'), out_subdir='compare/top',
             defaults={'top_n': 3, 'top_by': 'initial'})
 def render(ctx, params):
     top_n  = int(params.get('top_n', 3) or 3)
@@ -182,6 +182,10 @@ def render(ctx, params):
     os.makedirs(out, exist_ok=True)
     tag = top_tag(top_n, top_by)
     frames = {s['key']: ctx.batch_df(s['key']) for s in list(selected) + [ctx.base]}
+    # _plot returns a per-arm metrics dict (mean_thr_items_hr, auc_gain_vs_fifo_pct,
+    # shape_index) that is INTENTIONALLY unconsumed here: persisting it would add a run-tree
+    # artifact (a hashed contract change), and the cross-cell layer (run_whatif_volume)
+    # already derives the published numbers from batch_stats itself.
     _plot(selected, gof, frames, ctx.base, top_n, top_by,
           f'Cumulative pick volume vs elapsed time  [{ctx.title}]',
           os.path.join(out, f'{tag}_volume_curve.png'))
