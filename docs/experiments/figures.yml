@@ -1,0 +1,141 @@
+# docs/experiments/figures.yml — THE figure registry: every curated figure the site stages
+# and renders, in one declaration.
+#
+# Before this file the same vocabulary lived in three places that drifted independently —
+# ingest.py's DEFAULT_* lists (what gets staged), each experiment.yml's figures:/
+# inventory_plots: (what one experiment shows), and macros.py's caption tables (what the
+# reader is told).  A figure renamed at the producer silently staged nothing for months
+# (param_frequency -> param_relative_frequency), because only ingest's MISSING log ever
+# noticed.  Now: ingest derives its defaults from here, macros looks captions up here, and
+# Tests/architecture/test_figure_registry.py ties every entry back to the code that writes
+# it — a stale name fails CI instead of logging.
+#
+# Fields:
+#   name      figure basename, exactly as the analysis/generator writes it (never renamed
+#             here — committed experiment snapshots pin these bytes)
+#   eval      the @evaluation key that owns the figure; null = generator-owned (the
+#             catalogue plots from Warehouse/generation/generate_inventory.py)
+#   section   top3 | full_suite | inventory — which curated list it belongs to
+#   default   true = in the DEFAULT_* starter lists AND rendered by legacy-mode
+#             (no-manifest) experiments; false = opt-in per experiment.yml only.
+#             The default sets are FROZEN to the historical lists — the registry
+#             golden test pins them byte-for-byte.
+#   width     image width in the rendered section (omit = 820)
+#   caption   the reader-facing caption; null for inventory plots (rendered caption-less)
+#
+# Ordered: order within a section is the render/starter order.
+version: 1
+figures:
+  # ── top3 (the curated per-config comparison set) ────────────────────────────────
+  - name: top3_by_initial_prodtime_cum_improvement.png
+    eval: compare.delta_over_time
+    section: top3
+    default: true
+    caption: >-
+      Cumulative production-time improvement vs FIFO — top 3 initial-placement strategies.
+  - name: top3_by_initial_production_time_over_time.png
+    eval: compare.top_metric
+    section: top3
+    default: true
+    caption: >-
+      Production time per batch over the run.
+  - name: top3_by_initial_prodtime_delta_trend.png
+    eval: compare.delta_over_time
+    section: top3
+    default: true
+    caption: >-
+      Production-time delta vs FIFO — smoothed trend.
+  - name: top_vs_baseline_table.png
+    eval: compare.top_vs_baseline
+    section: top3
+    default: true
+    caption: >-
+      Top runs vs the FIFO baseline — total task time (labor) and throughput side by side,
+      both paired over every batch the run shares with FIFO, with the task-time Wilcoxon p.
+  - name: top_vs_baseline.png
+    eval: compare.top_vs_baseline
+    section: top3
+    default: true
+    caption: >-
+      Top runs vs the FIFO baseline — grouped bars of % improvement across the five headline
+      metrics (task makespan, batch makespan, throughput off each, and layout total f·D),
+      measured on the steady-state window.
+  # opt-in (experiment-6 leads with these; kept out of the defaults so legacy-mode
+  # Experiment 1 never demands an image its sweep predates)
+  - name: top3_by_initial_volume_curve.png
+    eval: compare.volume_curve
+    section: top3
+    default: false
+    caption: >-
+      Cumulative items picked against elapsed hours — the slope is throughput. Left: the
+      selected arms against the FIFO baseline. Right: each arm's lead over FIFO at matched
+      elapsed time.
+  - name: top3_by_initial_labor_per_batch.png
+    eval: compare.labor_per_batch
+    section: top3
+    default: false
+    caption: >-
+      Labor hours per batch over the run. Left: raw per-batch line plus a 5-batch mean, with
+      each arm's last-window mean and fitted trend in the legend. Right: the same arms as a
+      percentage against FIFO on the same batch, which cancels the demand swing.
+
+  # ── full_suite (every strategy arm, for the compiled Full-results report) ───────
+  # Captions are shared by every experiment, so they must not hard-code a family count —
+  # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
+  - name: task_duration_by_strategy.png
+    eval: compare.task_duration_by_strategy
+    section: full_suite
+    default: true
+    caption: >-
+      Steady-state task duration for every strategy arm (Uni|… and Opt|… across the whole
+      restock-family suite); diamond = mean. The full suite, ranked.
+  - name: production_time_over_time.png
+    eval: compare.faceted
+    section: full_suite
+    default: true
+    caption: >-
+      Production time per batch, every assignment function overlaid
+      (Opt = solid, Uni = dashed).
+
+  # ── inventory (catalogue distribution plots; generator-owned, caption-less) ─────
+  - name: group_sizes.png
+    eval: null
+    section: inventory
+    default: true
+    caption: null
+  - name: demand.png
+    eval: null
+    section: inventory
+    default: true
+    caption: null
+  - name: param_relative_frequency.png
+    eval: null
+    section: inventory
+    default: true
+    caption: null
+  - name: param_quantity.png
+    eval: null
+    section: inventory
+    default: true
+    caption: null
+  - name: equilibrium_qty.png
+    eval: null
+    section: inventory
+    default: true
+    caption: null
+  # opt-in extras every committed manifest since experiment-2 lists
+  - name: weight.png
+    eval: null
+    section: inventory
+    default: false
+    caption: null
+  - name: volume_vs_weight.png
+    eval: null
+    section: inventory
+    default: false
+    caption: null
+  - name: dimensions.png
+    eval: null
+    section: inventory
+    default: false
+    caption: null

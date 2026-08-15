@@ -60,24 +60,31 @@ import site_tree                          # noqa: E402
 # Curated figure schema — the filenames the docs macros render. Kept here (not in the
 # run output) because which plots are "curated" is a docs decision. Override per
 # experiment via experiment.yml `figures:` / `inventory_plots:`.
-DEFAULT_TOP3 = [
-    "top3_by_initial_prodtime_cum_improvement.png",
-    "top3_by_initial_production_time_over_time.png",
-    "top3_by_initial_prodtime_delta_trend.png",
-    "top_vs_baseline_table.png",
-    "top_vs_baseline.png",
-]
-DEFAULT_FULL_SUITE = [
-    "task_duration_by_strategy.png",
-    "production_time_over_time.png",
-]
-DEFAULT_INVENTORY_PLOTS = [
-    # NB param_relative_frequency, not param_frequency: generate_inventory writes these as
-    # f'param_{pname}.png' over _CP_PARAMS, and 418d6bf renamed that parameter. Because a missing
-    # file here only logs MISSING and returns 0, the stale name silently staged nothing for months.
-    "group_sizes.png", "demand.png", "param_relative_frequency.png",
-    "param_quantity.png", "equilibrium_qty.png",
-]
+#
+# The default lists are DERIVED from the figure registry (figures.yml, beside this
+# script): section membership + default: true, in registry order.  They were literals
+# here once, and the same names lived independently in macros'
+# caption tables and every experiment.yml — the param_frequency -> param_relative_frequency
+# rename silently staged nothing for months because only the MISSING log ever noticed the
+# drift.  Tests/architecture/test_figure_registry.py pins the derived defaults to those
+# historical literals byte-for-byte and ties every registry name back to its writer.
+
+def _registry_defaults():
+    """(top3, full_suite, inventory_plots) from figures.yml, or None if pyyaml is absent."""
+    if yaml is None:
+        return None
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
+    with open(path, encoding='utf-8') as fh:
+        figs = (yaml.safe_load(fh) or {}).get('figures', [])
+    by = {'top3': [], 'full_suite': [], 'inventory': []}
+    for f in figs:
+        if f.get('default'):
+            by[f['section']].append(f['name'])
+    return by['top3'], by['full_suite'], by['inventory']
+
+
+_DEFAULTS = _registry_defaults()
+DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
 # Cross-cell what-if artifacts at the RUN ROOT. whatif_delta.json is what docs/macros.py's
 # whatif_matrix() renders; the PNGs are the scatter/bar set.  Both used to be copied by hand.
 DEFAULT_WHATIF_DATA = ["whatif_delta.json"]
@@ -156,6 +163,10 @@ def _copy(src, dst, dry, log):
 
 
 def main(argv=None):
+    if _DEFAULTS is None:
+        sys.exit('ingest needs pyyaml to read the figure registry (docs/experiments/'
+                 'figures.yml): pip install pyyaml.  (This is a local staging tool; CI '
+                 'never runs it.)')
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exp", required=True, help="experiment folder name, e.g. experiment-2")

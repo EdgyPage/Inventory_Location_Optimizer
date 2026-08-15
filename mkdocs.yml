@@ -67,6 +67,8 @@ exclude_docs: |
   experiments/_template/
   experiments/*/experiment.yml
   experiments/ingest.py
+  experiments/site_tree.py
+  experiments/figures.yml
 
 nav:
   - Home: index.md
