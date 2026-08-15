@@ -49,6 +49,7 @@ from Optimization.runschema.runlayout import iter_channel_runs
 from Optimization import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
 from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
 from Optimization.Performance_Evaluations.core.context import EvalContext, AggregateContext
+from Optimization.Performance_Evaluations.core import requests
 from Optimization.Performance_Evaluations import driver
 from Optimization.Performance_Evaluations.presets import PRESETS
 
@@ -89,12 +90,15 @@ def _sim_result_from_meta(meta: dict) -> dict:
 
 def _run_job(job: dict):
     """Picklable unit of work.  job['stage'] is 'config' or 'aggregate'; job['eval_keys']
-    is the list of evaluation keys to run against the job's context."""
+    is the list of evaluation keys to run against the job's context.  Returns
+    (target, error, access_tally) — the tally is this job's broker grant/denial counts,
+    carried back to the parent for the run-end `[access]` summary."""
     log = _worker_log()
     preset = PRESETS[job['preset']]
     # registry must be populated in this (child) process
     assert len(EVAL_BY_KEY) >= len(preset['keys']), 'evaluation registry not populated'
     overrides, cli_set = preset['overrides'], job['set']
+    requests.tally_snapshot(reset=True)                 # this job's counts only
     try:
         if job['stage'] == 'config':
             ctx = _CFG_CTX.get(job['run_dir'])
@@ -103,7 +107,7 @@ def _run_job(job: dict):
                 _CFG_CTX[job['run_dir']] = ctx
             for k in job['eval_keys']:
                 driver.run_one(ctx, k, overrides, cli_set)
-            return (job['run_dir'], None)
+            return (job['run_dir'], None, requests.tally_snapshot())
         else:
             ctx = _AGG_CTX.get(job['out_dir'])
             if ctx is None:
@@ -112,25 +116,37 @@ def _run_job(job: dict):
                 _AGG_CTX[job['out_dir']] = ctx
             for k in job['eval_keys']:
                 driver.run_one(ctx, k, overrides, cli_set)
-            return (job['out_dir'], None)
+            return (job['out_dir'], None, requests.tally_snapshot())
     except Exception as exc:  # noqa: BLE001 — report, don't kill the pool
-        return (job.get('run_dir') or job.get('out_dir'), repr(exc))
+        return (job.get('run_dir') or job.get('out_dir'), repr(exc),
+                requests.tally_snapshot())
 
 
-def _drain(pool, jobs, log):
-    """Run jobs on the flat pool (or inline if no pool); log per-job errors."""
+def _merge_tally(total: dict, part: dict) -> None:
+    for bucket in ('granted', 'denied'):
+        for key, n in part.get(bucket, {}).items():
+            total[bucket][key] = total[bucket].get(key, 0) + n
+
+
+def _drain(pool, jobs, log) -> dict:
+    """Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the
+    merged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs."""
+    tally = {'granted': {}, 'denied': {}}
     if pool is None:
         for job in jobs:
-            tgt, err = _run_job(job)
+            tgt, err, part = _run_job(job)
+            _merge_tally(tally, part)
             if err:
                 log.error(f'  Analysis failed for {tgt}: {err}')
-        return
+        return tally
     futures = [pool.submit(_run_job, job) for job in jobs]
     log.info(f'  Running {len(futures)} jobs across the pool...')
     for fut in concurrent.futures.as_completed(futures):
-        tgt, err = fut.result()
+        tgt, err, part = fut.result()
+        _merge_tally(tally, part)
         if err:
             log.error(f'  Analysis failed for {tgt}: {err}')
+    return tally
 
 
 # ── job-list construction ────────────────────────────────────────────────────────
@@ -255,19 +271,30 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     rt, cell = _tree_for(base_dir)
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
+    tally = {'granted': {}, 'denied': {}}
     try:
         cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log)
         log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
                  f'(preset={preset}, granularity={granularity}, workers={workers})')
-        _drain(pool, cfg_jobs, log)
+        _merge_tally(tally, _drain(pool, cfg_jobs, log))
 
         # aggregate stage needs every series doc on disk first
         log.info('  Building cross-profile aggregate suites...')
         agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log)
-        _drain(pool, agg_jobs, log)
+        _merge_tally(tally, _drain(pool, agg_jobs, log))
     finally:
         if pool is not None:
             pool.shutdown()
+
+    # Run-end access summary — "did every consumer get what it asked for", from the log alone.
+    n_granted = sum(tally['granted'].values())
+    n_denied = sum(tally['denied'].values())
+    if n_denied:
+        per_eval = ', '.join(f'{k} x{n}' for k, n in sorted(tally['denied'].items()))
+        log.warning(f'[access] run summary: {n_granted} granted, {n_denied} DENIED '
+                    f'({per_eval}) — see the DENIED lines above for reasons')
+    else:
+        log.info(f'[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────

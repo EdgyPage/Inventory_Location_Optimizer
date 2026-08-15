@@ -15,7 +15,7 @@ verified anchors in `context/` — see the last section before adding anything h
 
 ## 1. Commands that actually work
 
-The eight gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
+The nine gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
 `runschema` CLIs run as modules:
 
 ```bash
@@ -24,6 +24,7 @@ python context/arch/verify_architecture.py            # graph fresh + boundaries
 python context/arch/verify_site.py --fast             # generated HTML integrity
 python -m Optimization.runschema.contract  --check    # run-tree schema not stale
 python -m Optimization.runschema.preflight --check    # output tree hasn't moved
+python -m Schema.profile_tree --check                 # profiles-tree (catalogue) schema not stale
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve

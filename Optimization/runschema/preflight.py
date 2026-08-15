@@ -134,6 +134,15 @@ def _write_canary_catalog(profiles_root: str, profile: str, *, mixed: bool, num_
     conn.executemany('INSERT OR REPLACE INTO affinity (sku_i, sku_j, lift) VALUES (?,?,?)', rows)
     conn.commit()
     conn.close()
+
+    # The canary catalogue carries a descriptor too — every preflight run therefore exercises
+    # the PROFILES contract for free, exactly as the canaries exercise the run-tree one.  The
+    # entries derive from what this function just wrote (a generator may claim its own output;
+    # params_digest is None where the canary writes no params.json — honest absence).
+    from Schema import profile_tree as _profile_tree
+    run_dir = os.path.dirname(prof_dir)
+    _profile_tree.write_profile_layout(run_dir, _profile_tree.entries_from_disk(run_dir),
+                                       generator='canary')
     return inv_db, aff_db
 
 

@@ -145,13 +145,31 @@ It was wrong twice, and the second reason is the general lesson:
 now asserts this statically, including the dynamic forms, because the extractor structurally
 cannot.
 
-## 5. Where filepath versioning is still missing
+## 5. Filepath versioning — all three trees now declared
 
-Run trees are versioned; **derived** trees are not. `docs/experiments/<exp>/images/{run}/{inv}/{cfg}/`
-is built by `docs/experiments/ingest.py` and consumed by `docs/macros.py` through hand-joined
-path strings. `experiment.yml` records a `schema_id` that `macros.py` never reads. A tree-shape
-change therefore breaks the site at `mkdocs build --strict` with a `FileNotFoundError` — loud, but
-not negotiated, and the failure names a missing file rather than a schema delta.
+Run trees were versioned first; the other two trees joined 2026-08-15.
+
+**The profiles tree** (catalogue generation output) is declared by `Schema/profile_tree.py` —
+same machinery as the run-tree contract, second committed store at `Schema/schemas/profile_tree/`
+(head `b001a32ba844`).  Every generator (`generate_mixed_profile`, `generate_inventory`,
+`generate_affinity`, `generate_profile_suite`, and preflight's canary catalogue) stamps a
+`profile_layout.json` descriptor at the profile-run root: schema id, repo commit, and per-side
+`params_digest` (sha256 of the params.json FILE BYTES — timestamp inclusion is a feature, it is
+what makes in-place regeneration detectable).  `Schema/profile_resolver.py:ProfileTree` is the
+consumer: `runlayout.find_latest_db_pairs` delegates to it on descriptor-bearing trees and keeps
+the legacy walk byte-for-byte for everything else — **descriptors are forward-only; never
+fabricate one for an old catalogue**.  A simulation records WHICH catalogue it ran on as
+`pair_bindings` in `run_layout.json` (v2, additive; `null` = discovery walked), so a
+regenerated-in-place catalogue is detectable from the run's recorded digests after the fact.
+Regeneration itself is truncate-fresh: `--name` reuse removes the DB first, loudly, instead of
+letting `INSERT OR REPLACE` leave stale rows.
+
+**The staged docs tree** is declared by `docs/experiments/site_tree.py` (six templates on
+`Schema.pathtpl`).  `ingest.py` renders every destination from it; `docs/macros.py` deliberately
+does not import it (mkdocs loads macros standalone) and its f-string joins are pinned
+character-identical by `Tests/architecture/test_site_tree.py`.  `experiment.yml` records a
+`schema_id` that macros verifies once per build when present; a plain ingest that finds a legacy
+manifest without one prints the exact paste-lines and never edits the curated YAML.
 
 ## 5b. Negotiation, and why adoption stopped being archaeology
 
@@ -248,10 +266,33 @@ Every item once listed here landed; each entry now records where and what to kno
    table name is visible. Deliberately coarse in the safe direction — a false positive fails
    toward declaring a conditional read, where invisibility failed silently away from it.
 
+## 6b. The request broker — consumers ask by name (implemented)
+
+The analysis suite's last hand-navigation moved behind an intermediary,
+`Optimization/Performance_Evaluations/core/requests.py`: every `@evaluation`'s dormant `needs=`
+declaration ('batch', 'task', 'events', 'series', 'breakdown') is now resolved through the
+broker in `driver._run_one` BEFORE the render.  Granted → render exactly as before (the compose
+functions ARE the old `EvalContext` method bodies, memoised into the same caches — the context
+methods are now a facade over them).  Denied → the render is skipped and
+`[access] <eval> requested … -> DENIED (<reason>); render skipped` lands in the analysis log; a
+run-end summary counts grants/denials per evaluation, so "did every consumer get what it asked
+for" is answerable from the log alone.  A missing resource never raises; exceptions remain for
+corruption (unvetted schema, unreadable file).  `requests.sql(name, schema_id)` returns the
+composed per-vintage SQL statement (via `dataset.sql_for`) for consumers that want the statement
+rather than frames.
+
+The output half is `core/artifact_map.py`: each evaluation's `out_subdir=` is validated against
+the head contract's `evaluation:` attributions (`findings()` must be empty), the driver's
+`prepare_config_dirs` list is DERIVED from the declarations (shared-top rule, pinned to the
+historical literals by `Tests/architecture/test_artifact_map.py`), and `io._save_close` warns —
+once per (eval, dir) — when a figure lands outside its owner's declared subdir, with the e2e
+suite asserting zero warnings.
+
 ## 7. The rule
 
-> A change to a `*_DDL`, a `declared_*_shape`, or `runschema/schema.py` is not finished until the
-> outgoing shape is captured, the surface is re-derived, and every `Requires` still validates.
+> A change to a `*_DDL`, a `declared_*_shape`, `runschema/schema.py`, or `Schema/profile_tree.py`
+> is not finished until the outgoing shape is captured, the surface is re-derived, and every
+> `Requires` still validates.
 
 `.claude/agents/schema-maintainer.md` owns that procedure; `code-reviewer` rejects a DDL change
 that ships without it. Neither is a substitute for

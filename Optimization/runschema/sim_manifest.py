@@ -13,7 +13,6 @@ byte-identical and the two runs indistinguishable.
 import json
 import os
 import pickle
-import subprocess
 
 
 # ── resume helpers ─────────────────────────────────────────────────────────────
@@ -51,91 +50,13 @@ def _load_resume(run_dir: str):
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 #: `git status` is a subprocess at the front of a run.  Bounded so a wedged git (a stale index.lock,
-#: a network-backed worktree) costs seconds, never the run.
-_GIT_TIMEOUT = 10.0
 
 
-def _git_dir(repo_root: str) -> str | None:
-    """The `.git` directory for `repo_root`, or None when there is no git metadata at all.
-
-    `.git` is a DIRECTORY in a normal clone and a FILE holding `gitdir: <path>` in a linked
-    worktree or a submodule, which is why this is not a bare isdir() check.
-    """
-    p = os.path.join(repo_root, '.git')
-    if os.path.isdir(p):
-        return p
-    if os.path.isfile(p):
-        try:
-            with open(p, encoding='utf-8') as f:
-                head = f.read().strip()
-        except OSError:
-            return None
-        if head.startswith('gitdir:'):
-            target = head.split(':', 1)[1].strip()
-            target = target if os.path.isabs(target) else os.path.join(repo_root, target)
-            return os.path.normpath(target)
-    return None
-
-
-def _head_commit(git_dir: str) -> str | None:
-    """HEAD's full sha by reading files only — no subprocess, and no git binary required.
-
-    A source export (a zip, a docker COPY) has no `.git` and returns None from _git_dir before we
-    get here; a SHALLOW clone does have one and resolves normally, which is the case the naive
-    `git describe` approach gets wrong.  Three shapes are handled: a detached HEAD (the sha
-    inline), a loose ref, and a ref that only exists in `packed-refs` (a fresh clone's usual state).
-    """
-    try:
-        with open(os.path.join(git_dir, 'HEAD'), encoding='utf-8') as f:
-            head = f.read().strip()
-    except OSError:
-        return None
-    if not head.startswith('ref:'):
-        return head or None                                  # detached: HEAD is the sha itself
-    ref = head.split(':', 1)[1].strip()
-    try:
-        with open(os.path.join(git_dir, *ref.split('/')), encoding='utf-8') as f:
-            return f.read().strip() or None
-    except OSError:
-        pass
-    try:
-        with open(os.path.join(git_dir, 'packed-refs'), encoding='utf-8') as f:
-            for line in f:
-                if line.startswith(('#', '^')):
-                    continue
-                sha, _, name = line.strip().partition(' ')
-                if name == ref:
-                    return sha or None
-    except OSError:
-        pass
-    return None
-
-
-def repo_provenance(repo_root: str = _REPO_ROOT) -> dict:
-    """{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.
-
-    WHY THIS MUST NOT RAISE: it runs at the front of every simulation, and a run that dies because
-    provenance could not be derived is strictly worse than a run that records `unknown`.  A shallow
-    clone, a source export with no `.git`, a machine with no git on PATH and a wedged index lock all
-    resolve to a recorded value rather than an exception.
-
-    `repo_dirty` is deliberately THREE-valued: True/False are answers, `None` means "not
-    established" — which is what an export or a missing git binary honestly is, and reading it as
-    "clean" would be the one wrong inference.
-    """
-    git_dir = _git_dir(repo_root)
-    if git_dir is None:
-        return {'repo_commit': 'unknown', 'repo_dirty': None}
-    sha = _head_commit(git_dir)
-    dirty: bool | None = None
-    try:
-        r = subprocess.run(['git', 'status', '--porcelain'], cwd=repo_root,
-                           capture_output=True, text=True, timeout=_GIT_TIMEOUT)
-        if r.returncode == 0:
-            dirty = bool(r.stdout.strip())
-    except Exception:                        # noqa: BLE001 - provenance is best-effort, always
-        dirty = None
-    return {'repo_commit': (sha[:12] if sha else 'unknown'), 'repo_dirty': dirty}
+# _git_dir / _head_commit / repo_provenance MOVED to Schema/provenance.py: the profiles-tree
+# descriptor is stamped by Warehouse/generation, which must not import the run harness, and
+# provenance is a Schema-layer question.  Re-exported here so every existing caller (and the
+# context/ anchors) keeps working unchanged.
+from Schema.provenance import _git_dir, _head_commit, repo_provenance  # noqa: F401
 
 
 # ── run spec (run_spec.json) — the resolved run invocation, for zero-param --resume ─────
@@ -176,6 +97,29 @@ def _run_layout_path(base_dir: str) -> str:
     return os.path.join(base_dir, 'run_layout.json')
 
 
+def _pair_bindings(pairs) -> dict:
+    """{label: binding | None} — WHICH catalogue version each pair label resolves to.
+
+    The binding comes from the pair's profile run's own `profile_layout.json` (via
+    `ProfileTree.binding_of`); `None` records that discovery used the pre-contract legacy walk —
+    with descriptors forward-only, that is every catalogue generated before the profiles
+    contract, and recording the absence honestly beats inventing provenance.  A regenerated-in-
+    place catalogue mints new params digests, so a recorded binding is what makes silent
+    re-pointing DETECTABLE after the fact.
+    """
+    from Schema.profile_resolver import ProfileTree
+    out: dict = {}
+    for label, inv_db, _aff in pairs:
+        # profiles_root = two levels above inventory.db's side dir: <root>/<run>/<profile>/inventory/
+        profile_dir = os.path.dirname(os.path.dirname(os.path.abspath(inv_db)))
+        run_dir = os.path.dirname(profile_dir)
+        try:
+            out[label] = ProfileTree(os.path.dirname(run_dir)).binding_of(label)
+        except Exception:                    # noqa: BLE001 - a binding must never block a run
+            out[label] = None
+    return out
+
+
 def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs,
                      channels, arms, created) -> None:
     """Write <base>/run_layout.json — the descriptor of a run's unified cell tree
@@ -197,7 +141,9 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
     """
     from Optimization.runschema import contract as _contract
     layout = {
-        'version'       : 1,
+        # version 2: + pair_bindings (additive — `pairs` stays labels, so every pre-v2 reader
+        # including resolver.axes() is untouched; absence of the key on old files is normal).
+        'version'       : 2,
         'schema_id'     : _contract.head() or _contract.build()['schema_id'],
         'kind'         : 'single' if len(cells) <= 1 else 'sweep',
         'spec'         : spec,
@@ -210,6 +156,7 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
         'cells'        : [{'name': name, 'split': split, 'zoning': zoning, 'scheduler': sched}
                           for (name, split, zoning, sched) in cells],
         'pairs'        : [label for label, _inv, _aff in pairs],
+        'pair_bindings': _pair_bindings(pairs),
         'configs'      : {'store'      : [c['name'] for c in store_cfgs],
                           'fulfillment': [c['name'] for c in ff_cfgs]},
         'arms'         : list(arms) if arms is not None else None,

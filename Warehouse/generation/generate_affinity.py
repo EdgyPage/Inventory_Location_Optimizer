@@ -156,6 +156,17 @@ AFFINITY_DB_FAMILY = _identity.register(_identity.Family(
 
 
 def _init_db(db_path: str) -> sqlite3.Connection:
+    # TRUNCATE-FRESH — see generate_inventory._init_db: IF-NOT-EXISTS + INSERT OR REPLACE never
+    # shrink, so a regenerated-smaller affinity matrix would keep stale (sku_i, sku_j) pairs.
+    if os.path.exists(db_path):
+        print(f'[affinity] regenerating {db_path} FRESH (stale-row guard: existing file removed)')
+        try:
+            os.remove(db_path)
+        except PermissionError as exc:
+            raise SystemExit(
+                f'cannot regenerate {db_path}: the file is open in another process '
+                f'(a viewer, a notebook, an analysis run?). Close it and retry. ({exc})'
+            ) from exc
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')
@@ -663,11 +674,20 @@ def generate_run(
     plot_dir = os.path.join(run_dir, 'plots')
     os.makedirs(plot_dir, exist_ok=True)
 
+    # The parent link is RELATIVE to this params.json's own directory: the absolute form died the
+    # first time the tree moved drives (the archive evacuation left every recorded H:\ path
+    # dangling).  `_abs` is kept for one transition so older tooling that read the absolute key
+    # keeps limping; new consumers use `source_inventory_db` + their own root.
+    try:
+        _rel_inv = os.path.relpath(inv_db, run_dir).replace(os.sep, '/')
+    except ValueError:                        # different drive (test fixtures) — keep the abs form
+        _rel_inv = inv_db
     params = {
         'name'               : name,
         'timestamp'          : datetime.now().strftime('%Y%m%d_%H%M%S'),
         'seed'               : seed,
-        'source_inventory_db': inv_db,
+        'source_inventory_db': _rel_inv,
+        'source_inventory_db_abs': inv_db,
         'top_k'              : top_k,
         'candidate_k'        : candidate_k,
         'min_lift'           : min_lift,

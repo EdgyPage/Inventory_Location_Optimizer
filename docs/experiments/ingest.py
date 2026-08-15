@@ -52,6 +52,11 @@ try:
 except ImportError:                       # pragma: no cover
     yaml = None
 
+# The staged-tree declaration (docs/experiments/site_tree.py): every destination this script
+# writes renders from its five templates, so a site path can only move by editing the contract.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import site_tree                          # noqa: E402
+
 # Curated figure schema — the filenames the docs macros render. Kept here (not in the
 # run output) because which plots are "curated" is a docs decision. Override per
 # experiment via experiment.yml `figures:` / `inventory_plots:`.
@@ -95,19 +100,30 @@ def _find(root, name):
     return None
 
 
+# Which analysis subdir wins when the same figure basename exists in more than one — the
+# `@evaluation` out_subdir vocabulary in EXPLICIT preference order, replacing alphabetical
+# luck with reviewable data.  production_time_over_time.png exists under BOTH compare/faceted/
+# (eval compare.faceted) and compare/overlay/ (compare.overlay); every committed snapshot
+# staged the faceted copy because f < o in the walk, so faceted-first encodes exactly the
+# historical pick.  A figure in none of these dirs falls to the `_find` walk unchanged.
+# Cross-checked against the registry's declared out_subdirs by an architecture test — kept a
+# literal here so ingest does not import the matplotlib-heavy analysis package.
+_FIGURE_DIR_PREFERENCE = (
+    'compare', 'compare/breakdown', 'compare/faceted', 'compare/overlay', 'compare/top',
+    'per_strategy', 'stats', 'stats_by_initial',
+)
+
+
 def _leaf_file(rt, cell, inv, cfg, name, cfg_src):
     """One curated file at a (cell, inventory, config) leaf, or None if absent.
 
     With a resolver, `config.json` is the contract's `config_json` artifact, and a figure is
     looked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) — the resolver
-    consumes the `<channel>` level, so this function never has to guess whether one exists.  The
-    basename search WITHIN the leaf stays a walk on purpose: which subtree a curated figure sits
-    in (compare/top, compare/faceted, …) is analysis-output nesting the docs deliberately
-    flatten, not a run-tree level — and it keeps the pick identical, e.g.
-    production_time_over_time.png exists under both compare/faceted/ and compare/overlay/ and
-    every committed snapshot staged the faceted copy (f < o in the walk).  Without a resolver
-    (pre-descriptor run, `--source` at a single cell dir) or for a leaf not yet finalized,
-    `_find` over the config dir is the unchanged fallback.
+    consumes the `<channel>` level, so this function never has to guess whether one exists.
+    Within a leaf the pick is by the EXPLICIT dir preference above (which analysis subtree owns
+    a duplicated basename is now data, not walk order); `_find` remains for figures outside
+    that vocabulary, and — without a resolver (pre-descriptor run, `--source` at a single cell
+    dir) or for a leaf not yet finalized — over the config dir, the unchanged legacy route.
     """
     if rt is not None:
         if name == "config.json":
@@ -117,6 +133,10 @@ def _leaf_file(rt, cell, inv, cfg, name, cfg_src):
                   if cr.pair == inv and cr.config == cfg]
         if leaves:
             for leaf in leaves:
+                for sub in _FIGURE_DIR_PREFERENCE:
+                    p = os.path.join(leaf, *sub.split('/'), name)
+                    if os.path.isfile(p):
+                        return p
                 hit = _find(leaf, name)
                 if hit:
                     return hit
@@ -149,6 +169,10 @@ def main(argv=None):
     ap.add_argument("--gen-manifest", action="store_true",
                     help="also write a starter experiment.yml from run_manifest.json")
     ap.add_argument("--dry-run", action="store_true", help="print actions, copy nothing")
+    ap.add_argument("--profiles-root", default=os.getenv("PROFILE_INPUT_DIR") or None,
+                    help="profiles root for BY-NAME catalogue resolution via the run's recorded "
+                         "pair_bindings (default: $PROFILE_INPUT_DIR). Pre-v2 runs and "
+                         "pre-contract catalogues fall back to the sim_meta absolute path.")
     args = ap.parse_args(argv)
 
     source = os.path.abspath(args.source)
@@ -178,6 +202,17 @@ def main(argv=None):
         full_suite = figs.get("full_suite", full_suite)
         inv_plots = ymldoc.get("inventory_plots", inv_plots)
         args.catalogue = ymldoc.get("catalogue", args.catalogue)
+        # schema_id is stamped only by a REAL re-ingest (--gen-manifest); a plain ingest never
+        # edits the curated YAML.  But a legacy manifest without it keeps the macros verifier
+        # dormant for this experiment, so print the exact paste-lines — a human decision with
+        # zero transcription effort.
+        if schema_id and not ymldoc.get("schema_id"):
+            log.append(f"  NOTE     {os.path.relpath(yml, _DOCS)} carries no schema_id, so the")
+            log.append(f"           macros run-tree check stays dormant for this experiment.")
+            log.append(f"           If these figures come from THIS run, paste into it:")
+            log.append(f"             schema_id: {schema_id}")
+            if commit:
+                log.append(f"             repo_commit: {commit}")
 
     figset = list(dict.fromkeys(top3 + full_suite))     # de-dup, keep order
     last_rm = None
@@ -201,14 +236,16 @@ def main(argv=None):
                 cfg_src = os.path.join(inv_src, cfg)
                 if not os.path.isdir(cfg_src):
                     continue          # a config that this channel/cell didn't run — not an error
-                dst_dir = os.path.join(exp_dir, "images", cell_name, inv, cfg)
                 # config.json sits at <config>/; the figures may be one <channel>/ deeper, which
                 # both routes of _leaf_file absorb — so both tree shapes stage identically.
                 n += _copy(_leaf_file(rt, cell_name, inv, cfg, "config.json", cfg_src),
-                           os.path.join(dst_dir, "config.json"), args.dry_run, log)
+                           site_tree.path('config_json', exp_dir, run=cell_name,
+                                          inv=inv, cfg=cfg), args.dry_run, log)
                 for fname in figset:
                     n += _copy(_leaf_file(rt, cell_name, inv, cfg, fname, cfg_src),
-                               os.path.join(dst_dir, fname), args.dry_run, log)
+                               site_tree.path('figure_png', exp_dir, run=cell_name,
+                                              inv=inv, cfg=cfg, figure=fname),
+                               args.dry_run, log)
             n += _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log,
                                          rt=rt, cell=cell_name)
 
@@ -287,34 +324,62 @@ def _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log, rt=None, cell=None):
     return None, [], []
 
 
-def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None):
-    """params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.
+def _inv_root_from_bindings(rt, inv, profiles_root, log):
+    """Resolve the catalogue's inventory dir BY NAME from the run's recorded pair binding.
 
-    Only the sim_meta lookup is contract-resolvable (`sim_meta`, first leaf of this pair).  The
-    `inv_root` lookups below stay on `_find`: they walk the PROFILES tree on the input drive,
-    which has no run-tree contract at all."""
-    if rt is not None:
-        metas = rt.glob('sim_meta', cell=cell, pair=inv)
-        meta = metas[0] if metas else None
-    else:
-        meta = _find(inv_src, "sim_meta.json")
-    inv_root = None
-    if meta:
-        try:
-            with open(meta, encoding="utf-8") as fh:
-                inv_db = json.load(fh).get("inv_db")
-            if inv_db:
-                inv_root = os.path.dirname(inv_db)      # …/inventory
-        except Exception:                               # noqa: BLE001
-            inv_root = None
+    The binding (the run-layout descriptor's `pair_bindings`, v2) names the profile_run +
+    profile, so the catalogue resolves under ANY profiles root — including after the tree moved
+    drives, which is exactly when the sim_meta absolute path (the fallback below) goes dead.
+    None when the run predates v2, the binding is null (pre-contract catalogue), or the resolved
+    dir does not exist under this root.
+    """
+    binding = ((rt.layout.get('pair_bindings') or {}).get(inv)) if rt is not None else None
+    if not binding or not profiles_root:
+        return None
+    from Schema.profile_resolver import ProfileTree
+    pt = ProfileTree(profiles_root)
+    inv_db = pt.path('inventory_db', binding['profile_run'], profile=binding['profile'])
+    if os.path.exists(inv_db):
+        log.append(f"  resolve  {inv}: catalogue by NAME via pair_bindings "
+                   f"({binding['profile_run']}/{binding['profile']})")
+        return os.path.dirname(inv_db)
+    log.append(f"  NOTE     pair_bindings names {binding['profile_run']}/{binding['profile']} "
+               f"but it is not under {profiles_root}; falling back to sim_meta")
+    return None
+
+
+def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None):
+    """params.json + the inventory distribution plots.
+
+    Located, in preference order: (1) BY NAME via the run's recorded `pair_bindings` under
+    --profiles-root (v2 run_layout + a descriptor-bearing catalogue — survives drive moves);
+    (2) via a sim_meta.json's recorded inv_db ABSOLUTE path — the frozen legacy route, load-
+    bearing for every pre-v2 run.  The `_find` walks on the resolved root remain: the profile
+    plots live in generator-owned subtrees the docs deliberately flatten."""
+    inv_root = _inv_root_from_bindings(rt, inv, getattr(args, 'profiles_root', None), log)
+    if not inv_root:
+        if rt is not None:
+            metas = rt.glob('sim_meta', cell=cell, pair=inv)
+            meta = metas[0] if metas else None
+        else:
+            meta = _find(inv_src, "sim_meta.json")
+        if meta:
+            try:
+                with open(meta, encoding="utf-8") as fh:
+                    inv_db = json.load(fh).get("inv_db")
+                if inv_db:
+                    inv_root = os.path.dirname(inv_db)      # …/inventory
+            except Exception:                               # noqa: BLE001
+                inv_root = None
     if not inv_root:
         log.append(f"  NOTE     no sim_meta.json under {inv_src}; skipped params/plots")
         return 0
     n = _copy(os.path.join(inv_root, "params.json"),
-              os.path.join(exp_dir, "data", inv, "params.json"), args.dry_run, log)
+              site_tree.path('pair_params', exp_dir, inv=inv), args.dry_run, log)
     for fname in inv_plots:
         n += _copy(_find(inv_root, fname),
-                   os.path.join(exp_dir, "images", args.catalogue, fname), args.dry_run, log)
+                   site_tree.path('catalogue_png', exp_dir, catalogue=args.catalogue,
+                                  plot=fname), args.dry_run, log)
     return n
 
 
@@ -337,17 +402,19 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
         for fname in DEFAULT_WHATIF_DATA:
             src = by_name.get(fname)
             if src:
-                n += _copy(src, os.path.join(exp_dir, "data", fname), dry, log)
+                n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=fname), dry, log)
         for src in sorted(p for p in outs
                           if fnmatch.fnmatch(os.path.basename(p), DEFAULT_WHATIF_PNG_GLOB)):
-            n += _copy(src, os.path.join(exp_dir, "images", os.path.basename(src)), dry, log)
+            n += _copy(src, site_tree.path('whatif_delta', exp_dir,
+                                           fname=os.path.basename(src)), dry, log)
         return n
     for fname in DEFAULT_WHATIF_DATA:
         src = os.path.join(source, fname)
         if os.path.isfile(src):
-            n += _copy(src, os.path.join(exp_dir, "data", fname), dry, log)
+            n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=fname), dry, log)
     for src in sorted(glob.glob(os.path.join(source, DEFAULT_WHATIF_PNG_GLOB))):
-        n += _copy(src, os.path.join(exp_dir, "images", os.path.basename(src)), dry, log)
+        n += _copy(src, site_tree.path('whatif_delta', exp_dir,
+                                       fname=os.path.basename(src)), dry, log)
     return n
 
 

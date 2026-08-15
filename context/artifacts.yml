@@ -29,6 +29,22 @@ artifacts:
     # generator, so the file's shape no longer changes the first time the store opens it.
     tables: [affinity, run_metadata, sku_group]
 
+  profile_layout:
+    # The profiles-tree descriptor — the catalogue-side analogue of run_layout.json.  Stamped
+    # (and re-stamped after every leaf) by all four generators + the preflight canary via
+    # write_profile_layout; ProfileTree resolves pairs/latest/bindings from it, and the legacy
+    # walk serves descriptor-less trees permanently (descriptors are forward-only — never
+    # fabricated for an old catalogue).  Contract: Schema/profile_tree.py, committed store
+    # Schema/schemas/profile_tree/.
+    path_pattern: "<profiles>/<run>/profile_layout.json"
+    format: json
+    writer: {function: write_profile_layout, file: Schema/profile_tree.py}
+    readers:
+      - {function: read_profile_layout, file: Schema/profile_tree.py}
+      - {function: layout_of, file: Schema/profile_resolver.py}
+    match: "profile_layout.json"
+    fields: [version, schema_id, created, generator, argv, repo_commit, repo_dirty, profiles]
+
   # ── simulation outputs ──────────────────────────────────────────────────────────
   run_manifest:
     path_pattern: "comparison_<ts>/<cell>/run_manifest.json"
@@ -72,7 +88,7 @@ artifacts:
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
     fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
-             channels, cells, pairs, configs, arms]
+             channels, cells, pairs, pair_bindings, configs, arms]
 
   warehouse_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"
@@ -319,3 +335,18 @@ artifacts:
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor_throughput_scatter"
+
+  # ── diagnostics exports (outside every contracted tree — deliberately) ──────────
+  replay_trace_json:
+    # Lives under the SOURCE tree (Diagnostics/out/), not the run tree or the profiles tree:
+    # it is a derived dashboard trace, regenerable from any run's DBs, and the static dashboard
+    # (Diagnostics/static/app.js — a JS reader, hence no reader anchor) fetches it relative to
+    # its own directory.  Neither tree contract claims it, and none should: adding it to a tree
+    # would make a run dir or catalogue dir appear stale whenever a dashboard export exists.
+    # The sibling manifest.json (merged, shared with trace_lifecycle traces) rides along.
+    path_pattern: "Diagnostics/out/replay_<arm>.json"
+    format: json
+    writer: {function: main, file: Diagnostics/replay_run.py}
+    readers: []
+    match: "replay_"
+    fields: [meta, batches]

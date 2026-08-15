@@ -31,7 +31,18 @@ from typing import Iterator
 # ── profiles tree (generation output) ───────────────────────────────────────────
 
 def _profile_pairs(run_path: str, run_name: str) -> list[tuple[str, str, str]]:
-    """(label, inventory_db, affinity_db) for every valid profile under one run dir."""
+    """(label, inventory_db, affinity_db) for every valid profile under one run dir.
+
+    Descriptor-first since the profiles-tree contract (`Schema/profile_tree.py`): a run carrying
+    `profile_layout.json` is served through `ProfileTree` (which existence-checks the
+    descriptor's claims); a pre-contract run — every catalogue generated before the contract,
+    forever, per the no-backfill decision — takes the legacy walk below unchanged.  Signature
+    and label format are load-bearing (`context/` anchors; the run tree's `<pair>` level).
+    """
+    from Schema import profile_tree as _pt
+    from Schema.profile_resolver import ProfileTree
+    if _pt.read_profile_layout(run_path) is not None:
+        return ProfileTree(os.path.dirname(run_path)).pairs(run_name)
     pairs: list[tuple[str, str, str]] = []
     for profile_name in sorted(os.listdir(run_path)):
         profile_path = os.path.join(run_path, profile_name)
@@ -60,21 +71,15 @@ def discover_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
 def find_latest_db_pairs(profiles_dir: str) -> list[tuple[str, str, str]]:
     """Return DB pairs from the most recently generated profile run only.
 
-    Profile run directories are named profile_YYYYMMDD_HHMMSS (or the legacy
-    batch_YYYYMMDD_HHMMSS), so the last entry when sorted lexicographically is
-    always the newest.  Walks backwards until a run with valid pairs is found.
+    "Latest" is `ProfileTree.latest()` — descriptor `created` timestamps for contract runs,
+    the historical lexicographic name order for pre-contract ones, a logged warning when the
+    two disagree.  On a tree with no descriptors anywhere this is byte-for-byte the old
+    behavior (the timestamped names make the lexicographic order correct).
     """
-    if not os.path.isdir(profiles_dir):
-        return []
-    run_names = sorted([
-        d for d in os.listdir(profiles_dir)
-        if os.path.isdir(os.path.join(profiles_dir, d))
-    ])
-    for run_name in reversed(run_names):
-        pairs = _profile_pairs(os.path.join(profiles_dir, run_name), run_name)
-        if pairs:
-            return pairs
-    return []
+    from Schema.profile_resolver import ProfileTree
+    pt = ProfileTree(profiles_dir)
+    latest = pt.latest()
+    return pt.pairs(latest) if latest else []
 
 
 # ── comparison tree (simulation output) ─────────────────────────────────────────

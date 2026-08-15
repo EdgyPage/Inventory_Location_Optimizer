@@ -41,56 +41,10 @@ SUPPORTED_FEATURES = frozenset({
 
 
 # ── template rendering ──────────────────────────────────────────────────────────
-
-def render(template: str, **parts) -> str:
-    """Render a contract path template to a relative path.
-
-    `{name}` substitutes parts[name]; `{name?}` is an OPTIONAL segment that is dropped along with
-    its separator when parts.get(name) is None.  Raises KeyError for a missing required part, so a
-    typo fails loudly instead of producing a path with a literal brace in it.
-    """
-    out = []
-    for seg in template.split('/'):
-        if seg.startswith('{') and seg.endswith('?}'):
-            val = parts.get(seg[1:-2])
-            if val is None:
-                continue                      # optional segment absent (e.g. store-only channel)
-            out.append(str(val))
-            continue
-        out.append(seg.format(**parts) if '{' in seg else seg)
-    return '/'.join(out)
-
-
-def _capture_regex(template: str, placeholder: str) -> re.Pattern:
-    """Compile a template into a matcher that CAPTURES one placeholder from a concrete path.
-
-    Every other `{part}` becomes a wildcard; `{part?}` becomes an optional segment.  This is how the
-    resolver inverts `…/sim_{strategy}.db` back to the arm name without hardcoding `len('sim_')`.
-    """
-    segs = []
-    for seg in template.split('/'):
-        opt = seg.startswith('{') and seg.endswith('?}')
-        body = seg[1:-2] if opt else seg
-        if opt:
-            segs.append('(?:[^/]+/)?')
-            continue
-        if body == '**':
-            # ZERO-or-more segments, matching glob's semantics for a bare `**` level: a file at
-            # the template's zero-depth position (e.g. `compare/top_vs_baseline.png` under
-            # `.../compare/**/*.png`) is owned by the template too.  Compiling this as `.*/'
-            # required at least one directory and silently disowned exactly those files.
-            segs.append('(?:[^/]+/)*')
-            continue
-        pat = ''
-        for tok in re.split(r'(\{\w+\})', body):
-            if tok == '{%s}' % placeholder:
-                pat += r'(?P<capture>.+)'
-            elif tok.startswith('{') and tok.endswith('}'):
-                pat += r'[^/]+'
-            else:
-                pat += re.escape(tok).replace(r'\*\*', '.*').replace(r'\*', '[^/]*')
-        segs.append(pat + '/')
-    return re.compile('^' + ''.join(segs)[:-1] + '$')
+# render/_capture_regex MOVED to Schema/pathtpl.py: the profiles-tree resolver (Schema layer)
+# must interpret the SAME template vocabulary, and two copies of a template engine is how two
+# contracts drift apart.  Re-exported here so every existing caller and anchor stays valid.
+from Schema.pathtpl import _capture_regex, render  # noqa: F401
 
 
 class RunTree:

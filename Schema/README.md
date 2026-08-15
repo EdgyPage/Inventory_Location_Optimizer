@@ -1,6 +1,6 @@
 # Schema — what shape is this database, and is it the one we expect?
 
-Seven things live here, and nothing else:
+These things live here, and nothing else:
 
 | Module | Owns |
 |---|---|
@@ -9,10 +9,15 @@ Seven things live here, and nothing else:
 | `connect.py` | the three sanctioned ways to open a SQLite file |
 | `compat.py` | what a CONSUMER may read given every shape its family still vets, and the write-time gate (`stamp_checked` / `verify_family_store`) |
 | `capability.py` | negotiating for data only SOME vetted shapes carry — probe for rows, degrade with a recorded caveat |
-| `dataset.py` | `bind()` a file to its OWN version + the named-query registry with LOGICAL output columns |
+| `dataset.py` | `bind()` a file to its OWN version + the named-query registry with LOGICAL output columns (+ `sql_for`, the statement without the file) |
+| `pathtpl.py` | the contract path-template vocabulary (`{name}`, `{name?}`, globs) — render + invert, shared by every tree contract |
+| `provenance.py` | `repo_provenance()` — the git commit/dirty stamp every descriptor and run spec carries (never raises) |
+| `profile_tree.py` | the PROFILES-tree contract: what a generated catalogue contains, its content-addressed id, and the `profile_layout.json` descriptor writers stamp |
+| `profile_resolver.py` | `ProfileTree` — descriptor-first navigation of a profiles root (`pairs`, `latest`, `binding_of`), legacy walk byte-for-byte otherwise |
 | `store_index.py` | `shapes/INDEX.json` — the store's mutable head + the DDL source fingerprint the Stop hook compares |
 | `shapes/` | committed shape documents, one JSON per vetted id — declared ids included, since `--sync` |
-| `hook_check.py` | the advisory Stop hook (fingerprint + document stats; never imports writers; always exit 0) |
+| `schemas/profile_tree/` | the profiles-tree contract's own committed store (documents + INDEX), second of the two stores here |
+| `hook_check.py` | the advisory Stop hook, watching BOTH stores (fingerprint + document stats; never imports writers; always exit 0) |
 
 `identity.py` asks whether a FILE is one we know; `compat.py` asks whether it can answer a
 particular caller's questions; `dataset.py` answers them by NAME, whatever the file's vintage.
@@ -21,9 +26,13 @@ column used to go unnoticed — see `docs/design/SCHEMA_COMPATIBILITY.md`.
 
 **Not to be confused with `Optimization/runschema/`.** That package answers *where do a run's
 files live* — it content-addresses the directory **tree**. This one answers *what is inside one
-file*. Both derive an id from a declared shape rather than letting anyone choose a version number,
-and both follow the same store layout (immutable content-addressed documents + a mutable INDEX);
-they are not layered on each other and neither imports the other.
+file* — plus, since `profile_tree.py`, *where do a CATALOGUE's files live*: the profiles tree is
+declared here rather than in runschema because its writers are `Warehouse/generation/`, which
+must not import the run harness. All three contracts derive an id from a declared shape rather
+than letting anyone choose a version number, and all follow the same store layout (immutable
+content-addressed documents + a mutable INDEX); they are not layered on each other, and
+runschema and Schema share only the template vocabulary (`pathtpl.py`, which runschema
+re-exports).
 
 ## Why it is top-level
 
@@ -67,6 +76,10 @@ python scripts/schema_report.py --accept    # adopts the outgoing shape + re-syn
 If the change renames or removes a column a named query reads, register a per-vintage
 `dataset.override(...)` for the OUTGOING id beside the family — never edit a consumer.
 The `schema-maintainer` agent owns the whole procedure.
+
+The profiles-tree contract has the same two commands in one CLI: `python -m Schema.profile_tree
+--check` (the gate) and `--write` (mint/refresh; the id only moves on a real shape change —
+descriptors are forward-only, never fabricated for an old catalogue).
 
 ## Why anyone should care
 

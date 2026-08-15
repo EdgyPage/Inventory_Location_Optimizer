@@ -32,6 +32,11 @@ def main() -> int:
 
         for reason in store_index.stale_reasons():
             print(f'[schema-db] {reason}')
+
+        from Schema import profile_tree
+
+        for reason in profile_tree.stale_reasons():
+            print(f'[profile-tree] {reason}')
     except SystemExit:          # an argparse/exit deep in an import — stay silent, never block
         return 0
     except Exception:           # never let the hook error out a turn

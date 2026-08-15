@@ -180,6 +180,30 @@ def test_aggregate_dir_slash_group_key_lands_in_the_old_directory(tmp_path):
         assert got == old_literal
 
 
+def test_aggregate_stats_pair_renders_the_render_stats_literals(tmp_path):
+    """The 21e7a11ff40b adopt declared the previously-UNDECLARED aggregate-stats pair.  Its two
+    templates must render exactly what `render_stats` (stats_aggregate.py:116) has always
+    written — `os.path.join(ctx.out_dir, 'stats', <basename>)` with ctx.out_dir the aggregate
+    dir — on BOTH tree shapes, since {channel?} rides the group key."""
+    mixed = _mixed_tree(tmp_path)
+    rt = resolver_for(mixed)
+    agg = rt.aggregate_dir('k1_off_rr', 'store/store')           # mixed group_key = cfg/channel
+    assert rt.path('aggregate_stats_summary_csv', cell='k1_off_rr',
+                   config='store', channel='store') == \
+        os.path.join(agg, 'stats', 'aggregate_summary.csv')
+    assert rt.path('aggregate_stats_tests_json', cell='k1_off_rr',
+                   config='store', channel='store') == \
+        os.path.join(agg, 'stats', 'aggregate_tests.json')
+
+    store_only = _store_only_tree(tmp_path)
+    rt2 = resolver_for(store_only)
+    agg2 = rt2.aggregate_dir('k1_off', 'store')                  # store-only: no channel segment
+    assert rt2.path('aggregate_stats_summary_csv', cell='k1_off', config='store') == \
+        os.path.join(agg2, 'stats', 'aggregate_summary.csv')
+    assert rt2.path('aggregate_stats_tests_json', cell='k1_off', config='store') == \
+        os.path.join(agg2, 'stats', 'aggregate_tests.json')
+
+
 # ── a run whose OWN contract predates the volume artifacts ───────────────────────
 
 def test_volume_outputs_render_on_a_run_predating_their_artifacts(tmp_path):

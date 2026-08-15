@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:0516f5aab255f419843d698f2931e8a66bb9e816b770de17792e9d4f9d23aca4",
-  "schema_short": "0516f5aab255",
+  "schema_id": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
+  "schema_short": "21e7a11ff40b",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -47,6 +47,18 @@
     "aggregate_pngs": {
       "path": "{cell}/_aggregate/{config}/{channel?}/**/*.png",
       "format": "png",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_stats_summary_csv": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_stats_tests_json": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json",
+      "format": "json",
       "scope": "cell",
       "optional": false
     },

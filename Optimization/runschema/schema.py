@@ -193,18 +193,31 @@ ARTIFACTS = {
         'writer': 'run_aggregate@Optimization/Performance_Evaluations/driver.py',
         'note': 'faceted/, overlay/, top/, breakdown/, stats_by_initial/<group>/.'},
     'aggregate_by_initial_csv': {
+        'evaluation': 'agg.stats_by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'cell',
         'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_summary_csv': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_summary.csv',
-        'format': 'csv', 'scope': 'cell',
-        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
+        # Attribution CORRECTED: the by-initial variant is written by render_stats_by_initial
+        # (via _run_aggregate_stats); render_stats writes the flat stats/ pair declared below.
+        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_tests_json': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_tests.json',
-        'format': 'json', 'scope': 'cell',
+        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
+        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+    # The FLAT aggregate-stats pair (same writer helper, different out_dir) was produced on every
+    # aggregate stats run and never declared — the audit's one genuine contract gap.
+    'aggregate_stats_summary_csv': {
+        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv',
+        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats',
+        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+    'aggregate_stats_tests_json': {
+        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json',
+        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats',
         'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
@@ -262,6 +275,7 @@ ARTIFACTS = {
         'writer': '_finalize_config_run@Optimization/simdriver/supervisor.py',
         'note': 'the completeness marker iter_channel_runs walks on.'},
     'series_json': {
+        'evaluation': 'config.series',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/series.json',
         'format': 'json', 'scope': 'channel_run',
         'writer': '_dump_series@Optimization/Performance_Evaluations/common/series.py'},
@@ -286,41 +300,50 @@ ARTIFACTS = {
         'format': 'png', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'batches_long_csv': {
+        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'per_run_summary_csv': {
+        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'summary_batch_csv': {
+        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'summary_task_csv': {
+        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'stats_summary_csv': {
+        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
         'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'stats_tests_json': {
+        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats/tests.json',
         'format': 'json', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
         'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_summary_csv': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_stats_summary_csv': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_tests_json': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json',
         'format': 'json', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},

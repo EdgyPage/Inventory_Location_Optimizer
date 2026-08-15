@@ -636,6 +636,20 @@ def _init_db(db_path: str) -> sqlite3.Connection:
     parent = os.path.dirname(os.path.abspath(db_path))
     if parent:
         os.makedirs(parent, exist_ok=True)   # sqlite can't create missing dirs
+    # TRUNCATE-FRESH (user decision): the DDL is CREATE IF NOT EXISTS and every write is
+    # INSERT OR REPLACE, so regenerating a SMALLER catalogue over an existing --name dir would
+    # silently keep the stale rows beyond the new range.  The exact hazard sim_assets guards for
+    # planned_inventory.db with the same os.remove; the descriptor's fresh params_digest is what
+    # makes the regeneration detectable downstream.
+    if os.path.exists(db_path):
+        print(f'[inventory] regenerating {db_path} FRESH (stale-row guard: existing file removed)')
+        try:
+            os.remove(db_path)
+        except PermissionError as exc:
+            raise SystemExit(
+                f'cannot regenerate {db_path}: the file is open in another process '
+                f'(a viewer, a notebook, an analysis run?). Close it and retry. ({exc})'
+            ) from exc
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')

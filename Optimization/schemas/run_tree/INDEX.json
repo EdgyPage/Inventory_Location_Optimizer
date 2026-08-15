@@ -1,6 +1,6 @@
 {
-  "head": "sha256:0516f5aab255f419843d698f2931e8a66bb9e816b770de17792e9d4f9d23aca4",
-  "source_fingerprint": "sha256:16ff49acb4fb7ed294287f145235ccb5338200dc12372885d95268f284d2e69a",
+  "head": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
+  "source_fingerprint": "sha256:a6ddce1643a4c26213525154ab0c3a12fb49555f2320eeb08f30aaea5bca316a",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -62,6 +62,17 @@
       "label": "declare the viewer's derived _viz sidecar",
       "changes": [
         "artifact ADDED: viz_cache_db -> _viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db"
+      ]
+    },
+    "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de": {
+      "short": "21e7a11ff40b",
+      "parent": "sha256:0516f5aab255f419843d698f2931e8a66bb9e816b770de17792e9d4f9d23aca4",
+      "created": "2026-08-15T12:54:17",
+      "commit": "e61d4e3",
+      "label": "",
+      "changes": [
+        "artifact ADDED: aggregate_stats_summary_csv -> {cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
+        "artifact ADDED: aggregate_stats_tests_json -> {cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json"
       ]
     }
   }

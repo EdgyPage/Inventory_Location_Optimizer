@@ -49,7 +49,7 @@ from Optimization.config.sim_config import (            # noqa: F401
 from Optimization.simdriver.sim_assets import build_shared_assets                    # noqa: F401
 from Optimization.runschema.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
-    _write_run_spec, _load_run_spec, _run_spec_path,
+    _write_run_spec, _load_run_spec, _run_spec_path, _pair_bindings,
     write_run_layout, read_run_layout, _run_layout_path,
 )
 
@@ -331,6 +331,10 @@ def main():
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
             'pairs'        : [list(p) for p in pairs],
+            # WHICH catalogue version each pinned pair is (None = pre-contract catalogue).
+            # `pairs` above answers WHERE and drives resume; this answers WHICH, so a catalogue
+            # regenerated in place after this run is detectable from the recorded digests.
+            'pair_bindings': _pair_bindings(pairs),
         })
         log.info('  Wrote run_spec.json — zero-param `--resume` enabled')
 

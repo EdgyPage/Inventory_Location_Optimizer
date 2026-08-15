@@ -132,6 +132,37 @@ def queries_for(family: str) -> tuple:
     return tuple(sorted(n for f, n in _QUERIES if f == family))
 
 
+def sql_for(family: str, name: str, schema_id: str) -> str:
+    """The composed SQL that would serve named query `name` on vintage `schema_id` — no file.
+
+    Same resolution as `Dataset.query` (an `override(...)` for the id wins, else the canonical
+    SQL if the COMMITTED shape for that id carries the tables/columns it declares), answered
+    from the store instead of a bound connection.  For consumers that want the statement itself
+    rather than rows — the run_whatif_* trio pattern, where one composed query fans out over
+    many files.  Raises `UnsupportedQuery` rather than guessing, exactly like the bound path.
+    """
+    q = _QUERIES.get((family, name))
+    if q is None:
+        raise DatasetError(f'no query {name!r} registered for family {family!r} '
+                           f'(known: {", ".join(queries_for(family)) or "none"})')
+    sql = _OVERRIDES.get((family, name, schema_id))
+    if sql is not None:
+        return sql
+    fam = _identity.get(family)
+    shape = (fam.declared_shape() if schema_id == fam.declared_id()
+             else _compat.load_shape(family, schema_id))
+    if shape is None:
+        raise UnsupportedQuery(name, schema_id,
+                               'No committed shape document for that id, so canonical '
+                               'servability cannot be checked.')
+    surface = _compat._surface(shape)
+    unmet = [f'{t}.{c}' for t, cs in q.tables.items() for c in cs
+             if not (surface.get(t) is not None and c in surface[t])]
+    if unmet:
+        raise UnsupportedQuery(name, schema_id, f'Missing: {", ".join(sorted(unmet))}.')
+    return q.sql
+
+
 # ── binding ──────────────────────────────────────────────────────────────────────
 
 def bind(path: str, family: str, *, requires=None, pinned: str | None = None,

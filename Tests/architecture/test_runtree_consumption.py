@@ -32,8 +32,18 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 #: Directories swept.  Tests/ is excluded (golden tests hardcode the literals on purpose), and so
 #: is Optimization/runschema/ (the contract's own layer legitimately spells its templates).
-_SWEPT = ('Optimization', 'Visualization', 'Diagnostics', 'docs', 'scripts')
+#: notebooks/ joined the sweep 2026-08-15: the raw-text count works on .ipynb JSON exactly as on
+#: .py, and the calibration notebook's hand-glob was THE store-only silent-drop bug class hiding
+#: from this ratchet.
+_SWEPT = ('Optimization', 'Visualization', 'Diagnostics', 'docs', 'scripts', 'notebooks')
 _ALLOWED_DIRS = ('Optimization/runschema',)
+#: Contract/broker-layer FILES whose job is naming artifacts — the same exemption class as
+#: runschema/, granted per-file so the rest of their directories stay swept: the output map
+#: derives dirs from the contract (and must spell `_aggregate` to strip the level), the request
+#: broker names resources in its denial reasons, and site_tree IS the docs-tree declaration.
+_ALLOWED_FILES = ('Optimization/Performance_Evaluations/core/artifact_map.py',
+                  'Optimization/Performance_Evaluations/core/requests.py',
+                  'docs/experiments/site_tree.py')
 _SKIP_DIRS = {'.git', '__pycache__', 'node_modules', 'site', '_build'}
 
 _PLACEHOLDER = re.compile(r'\{\w+\??\}')
@@ -104,9 +114,13 @@ def _sweep() -> dict:
             if any(rel_dir == a or rel_dir.startswith(a + '/') for a in _ALLOWED_DIRS):
                 continue
             for fn in sorted(files):
-                if not fn.endswith('.py'):
+                # .ipynb counts too: a notebook cell hand-joining a contract path teaches the
+                # same bad pattern as a module, and the raw-text count reads its JSON as-is.
+                if not fn.endswith(('.py', '.ipynb')):
                     continue
                 rel = f'{rel_dir}/{fn}'
+                if rel in _ALLOWED_FILES:
+                    continue
                 for tok, n in _count(os.path.join(dirpath, fn), tokens).items():
                     found[(rel, tok)] = n
     return found
@@ -118,6 +132,9 @@ def _sweep() -> dict:
 #:                import pprint; pprint.pprint(t._sweep())"
 #: and paste the result here.  Counts may only go DOWN.
 _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
+ # The calibration notebook keeps its raw-glob FALLBACK (for dirs with no descriptor) beside
+ # the resolver route added 2026-08-15 — these 8 are that fallback + its prose.  Shrink-only.
+ ('notebooks/pick_time_calibration.ipynb', 'stats_summary.csv'): 8,
  ('Diagnostics/replay_run.py', 'run_layout.json'): 1,
  ('Diagnostics/replay_run.py', 'warehouse.db'): 4,
  ('Optimization/Performance_Evaluations/aggregate/stats_aggregate.py', '_aggregate'): 6,

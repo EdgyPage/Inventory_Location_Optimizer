@@ -11,15 +11,11 @@ from __future__ import annotations
 import logging
 import os
 
-import numpy as np
-
-from Optimization.persistence.Picking_Data import load_batch_stats, load_task_stats, load_picker_events
-from Optimization.metrics.Simulation_Analytics import task_time_breakdown
 from Schema import compat as _compat
 from Schema import identity as _identity
 
-from Optimization.Performance_Evaluations.common.frames import _bdf, _tdf
-from Optimization.Performance_Evaluations.common.series import _build_series, _aggregate_series
+from Optimization.Performance_Evaluations.core import requests as _requests
+from Optimization.Performance_Evaluations.common.series import _aggregate_series
 from Optimization.Performance_Evaluations.common.style import _focus_filter, _WIN
 
 
@@ -68,9 +64,10 @@ def _provenance_parts(leaf_dir: str, max_up: int = 6) -> list[str]:
 # context is version-free across all four vetted vintages by construction rather than by accident;
 # `Tests/architecture/test_schema_compatibility.py` fails if a schema change breaks that.
 #
-# Only three tables, because ALL of this package's DB access is the three loaders imported above —
-# no graph module under comparison/, per_strategy/, stats/, breakdown/ or aggregate/ opens a
-# database itself.  Keep it that way: a graph that opens its own connection escapes this check.
+# Only three tables, because ALL of this package's DB access is the three Picking_Data loaders
+# the request broker (core/requests.py) calls — no graph module under comparison/, per_strategy/,
+# stats/, breakdown/ or aggregate/ opens a database itself.  Keep it that way: a graph that opens
+# its own connection escapes this check AND the broker's access log.
 REQUIRES = _compat.Requires(
     family='sim_db',
     label='Performance_Evaluations analysis context',
@@ -109,23 +106,6 @@ def _verify_sim_dbs(strategies, log: logging.Logger) -> None:
             continue                    # absent is the loaders' business, not identity's
         sid = _identity.check(path, 'sim_db', verify=True)
         log.debug(f'  schema ok: {os.path.basename(path)} = {sid}')
-
-
-def _strategy_travel_handling(strategies, ss_lo, max_b, n_sample=8):
-    """Per-strategy (travel, handling) picker-time totals over a sample of steady-state
-    batches, reconstructed from picker_events.  Returns {key: (travel, handling)}."""
-    lo, hi = max(0, ss_lo), max_b
-    if hi < lo:
-        return {}
-    batch_ids = sorted({int(round(x)) for x in np.linspace(lo, hi, min(n_sample, hi - lo + 1))})
-    out = {}
-    for s in strategies:
-        tr = hd = 0.0
-        for b in batch_ids:
-            t, h, _ = task_time_breakdown(load_picker_events(s['db_path'], s['run_id'], b))
-            tr += t; hd += h
-        out[s['key']] = (tr, hd)
-    return out
 
 
 class EvalContext:
@@ -184,23 +164,15 @@ class EvalContext:
         bits = [self.inv, s.get('initial', ''), s.get('assignment', ''), s.get('reslot', '')]
         return '_'.join(b for b in bits if b)
 
-    # ── lazy per-strategy frames ──────────────────────────────────────────────
+    # ── lazy per-strategy frames — the BROKER FACADE ──────────────────────────
+    # Same signatures, same return shapes, same memoisation as always; the bodies live in
+    # core/requests.py, the intermediary that owns navigation from versioned sources to
+    # composed resources.  Graph modules keep calling these and never learn the difference.
     def batch_df(self, key):
-        df = self._bcache.get(key)
-        if df is None:
-            s = self._by_key[key]
-            df = _bdf(load_batch_stats(s['db_path'], s['run_id']))
-            self._bcache[key] = df
-        return df
+        return _requests.batch_frame(self, key)
 
     def task_df(self, key):
-        df = self._tcache.get(key)
-        if df is None:
-            s = self._by_key[key]
-            df = _tdf(load_task_stats(s['db_path'], s['run_id']),
-                      self.aisle_unittype_map, self.aisle_handling_map)
-            self._tcache[key] = df
-        return df
+        return _requests.task_frame(self, key)
 
     def batch_frames(self) -> dict:
         return {s['key']: self.batch_df(s['key']) for s in self.strategies}
@@ -208,12 +180,9 @@ class EvalContext:
     def task_frames(self) -> dict:
         return {s['key']: self.task_df(s['key']) for s in self.strategies}
 
-    # ── memoized derived products ─────────────────────────────────────────────
+    # ── memoized derived products (broker facade, continued) ──────────────────
     def series(self) -> dict:
-        if self._series is None:
-            self._series = _build_series(self.strategies, self.batch_frames(),
-                                         self.task_frames())
-        return self._series
+        return _requests.series_dict(self)
 
     def maxb(self) -> int:
         if self._maxb is None:
@@ -228,14 +197,7 @@ class EvalContext:
     def breakdown(self) -> dict:
         """{key: (travel, handling)} from picker_events over a steady-state sample.
         Memoized; returns {} (logged) on failure so dependent graphs degrade gracefully."""
-        if self._breakdown is None:
-            try:
-                self._breakdown = _strategy_travel_handling(self.strategies,
-                                                            self.ss_lo(), self.maxb())
-            except Exception as exc:                                    # noqa: BLE001
-                self.log.error(f'  task-time breakdown failed for {self.name}: {exc!r}')
-                self._breakdown = {}
-        return self._breakdown
+        return _requests.breakdown_dict(self)
 
 
 class AggregateContext:

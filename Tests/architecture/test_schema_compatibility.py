@@ -2164,11 +2164,15 @@ def test_the_stop_hook_exits_zero_and_is_wired_into_settings():
                        capture_output=True, text=True, cwd=_ROOT)
     assert r.returncode == 0, (
         f'the hook must ALWAYS exit 0 — it nags, it never blocks:\n{r.stdout}{r.stderr}')
+    # One tag per store the hook watches — the point is that a turn transcript says WHO nagged,
+    # not that there is exactly one store.  [profile-tree] joined when Schema/profile_tree.py
+    # gained its own committed store; any new store's nag must register its tag here.
+    _TAGS = ('[schema-db] ', '[profile-tree] ')
     for line in r.stdout.splitlines():
         if line.strip():
-            assert line.startswith('[schema-db] '), (
-                f'every hook line must carry the [schema-db] tag so a turn transcript says who '
-                f'nagged: {line!r}')
+            assert line.startswith(_TAGS), (
+                f'every hook line must carry a registered store tag {_TAGS} so a turn '
+                f'transcript says who nagged: {line!r}')
 
     with open(os.path.join(_ROOT, '.claude', 'settings.json'), encoding='utf-8') as fh:
         settings = json.load(fh)

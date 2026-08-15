@@ -1,6 +1,6 @@
 ---
 name: schema-maintainer
-description: Keeps the two schema contracts and their compatibility surface honest — the DB-shape layer (Schema/, its committed shape store, and every registered Family) and the run-tree layer (Optimization/runschema/). Use proactively whenever a commit touches a *_DDL constant, a declared_*_shape function, a Family registration, Optimization/runschema/schema.py, or any writer that adds/drops a table or column. It derives the new id, captures or reconstructs the shape of the outgoing one, re-derives the guaranteed surface, and fails loudly if a consumer now reads something not every vetted schema has.
+description: Keeps the three schema contracts and their compatibility surface honest — the DB-shape layer (Schema/, its committed shape store, and every registered Family), the run-tree layer (Optimization/runschema/), and the profiles-tree layer (Schema/profile_tree.py + its committed store). Use proactively whenever a commit touches a *_DDL constant, a declared_*_shape function, a Family registration, Optimization/runschema/schema.py, Schema/profile_tree.py, or any writer that adds/drops a table or column. It derives the new id, captures or reconstructs the shape of the outgoing one, re-derives the guaranteed surface, and fails loudly if a consumer now reads something not every vetted schema has.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
 effort: medium
@@ -27,6 +27,8 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
 1. **Detect.** `git diff --name-status <base>..HEAD`. You care about:
    - any `_CREATE_*` / `*_DDL` / `declared_*_shape` change, or a `Family(...)` registration
    - `Optimization/runschema/schema.py` (`LEVELS`, `ARTIFACTS`, `FEATURES`)
+   - `Schema/profile_tree.py` (`LEVELS`, `ARTIFACTS`, `SHAPE_SOURCES`) or any
+     `Warehouse/generation/` writer that moves what a catalogue contains
    - a writer that begins or stops writing a table
 2. **Run every contract's own check first** — they are authoritative, you are not:
    ```bash
@@ -35,7 +37,8 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
    python scripts/schema_report.py --report    # exits 1 on an unrecoverable id
    python Schema/hook_check.py                 # the Stop hook's own view (always exit 0; read the nag)
    python -m Optimization.runschema.preflight --check     # exits 1 on tree-source drift
-   python -m pytest Tests/architecture/test_schema_identity.py Tests/architecture/test_schema_compatibility.py -q
+   python -m Schema.profile_tree --check       # exits 1 on profiles-store drift
+   python -m pytest Tests/architecture/test_schema_identity.py Tests/architecture/test_schema_compatibility.py Tests/architecture/test_profiletree_consumption.py -q
    ```
    **`--sync` before you touch a DDL, always.** It commits each family's CURRENT declared shape
    AND refreshes `Schema/shapes/INDEX.json` (whose fingerprint is what the Stop hook compares).
@@ -77,6 +80,14 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
    detects, runs the two canaries (mixed + store-only; one alone would encode "channel always
    present"), validates, and ADOPTS, regenerating `INDEX.json`, `context/artifacts.yml` and
    `Visualization/static/schema.json`. Do not hand-edit any of those three.
+   **Profiles-tree shape changed** (a catalogue gains/loses/moves a file):
+   `python -m Schema.profile_tree --write` mints + adopts the new id into the SECOND committed
+   store, `Schema/schemas/profile_tree/` (the run-tree store is `Optimization/schemas/run_tree/`
+   — do not cross them).  A prose-only edit to a `SHAPE_SOURCES` member refreshes the fingerprint
+   with the SAME id — that is the common case, not a shape change.  Descriptors
+   (`profile_layout.json`) are **forward-only: never fabricate one for an old catalogue** — the
+   legacy walk serves descriptor-less trees permanently, and `pair_bindings: null` on a run is
+   the honest record that discovery walked.
 6. **A new reader for a new shape**, if the change is not backward-compatible: one module under
    `Visualization/readers/` implementing the `SimReader` protocol with its `SCHEMA_IDS`, registered
    in `readers/__init__.py`. No route, view or front-end change is permitted for a schema bump — if

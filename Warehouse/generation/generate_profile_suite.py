@@ -552,6 +552,15 @@ def main() -> None:
     with open(os.path.join(profile_dir, 'profile_summary.json'), 'w') as f:
         json.dump(summary_out, f, indent=2)
     print(f'[profiles] Summary → {os.path.join(profile_dir, "profile_summary.json")}')
+
+    # The contract descriptor, beside this generator's own legacy manifest — the two generators
+    # stop disagreeing about whether a profile run is self-describing.  Entries derive from what
+    # this run just wrote (a generator may claim its own output).
+    from Schema import profile_tree as _profile_tree
+    _profile_tree.write_profile_layout(
+        profile_dir, _profile_tree.entries_from_disk(profile_dir),
+        generator='generate_profile_suite', argv=sys.argv[1:])
+    print(f'[profiles] Descriptor → {os.path.join(profile_dir, _profile_tree.DESCRIPTOR)}')
     print(f'[profiles] Done.')
 
 
