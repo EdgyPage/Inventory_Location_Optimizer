@@ -42,6 +42,30 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
   mutated class/global state (`Aisle.next_aisle_id`, `Order.next_sku`) is reset where it matters.
 - Concurrency/pickling: `run_simulation` uses a spawn ProcessPoolExecutor — worker entry points and
   their args must be module-level and picklable.
+- **A schema change must ship its compatibility handling — Critical if it does not.** This applies to
+  any diff touching a `_CREATE_*` / `*_DDL` constant, a `declared_*_shape`, a `Family(...)`
+  registration, or `Optimization/runschema/schema.py`. Nothing in this repo raises when a column
+  disappears — loaders `SELECT *` and guard with `row.keys()`, so it becomes `0.0` in
+  `common/frames.py` and a published figure is quietly wrong. Require all of:
+  1. the OUTGOING shape captured under `Schema/shapes/<family>/<short>.json` before its id is added
+     to `known_ids` (a `known_ids` entry with no committed shape makes the guaranteed surface
+     unknowable, and `python scripts/schema_report.py --report` exits 1);
+  2. every `Requires(...)` still passing `compat.validate()` — a table or column that moved from the
+     guaranteed to the conditional surface must either stop being read, or move behind a runtime
+     probe that degrades with a recorded caveat (`Diagnostics/replay_run._SOURCES`,
+     `Visualization/readers/protocol.CAP_*`);
+  3. a new unguarded read of the conditional surface declared in `Picking_Data.CONDITIONAL_READS`.
+  Flag as Critical any hand-typed schema id, any hand-listed column set in a `declared_*_shape` (it
+  must BUILD from the writer's own DDL), and any relaxation of `strict=` or deletion of a
+  `known_ids` entry done to make the report green. See `docs/design/SCHEMA_COMPATIBILITY.md`; the
+  `schema-maintainer` agent owns the fix.
+- **Contract-driven access is not optional.** A new DB writer must call `Schema.compat.stamp_checked`
+  at creation (never bare `identity.stamp`). New SQL belongs in a named `dataset.Query` beside the
+  family (or a per-vintage `dataset.override` for an old id) — inline SQL in a consumer script is a
+  Warning; a consumer BRANCHING on a schema id/version is Critical (that is the layer's job). New
+  path construction against a run tree goes through `runschema.resolver_for` accessors
+  (`path`/`leaf_path`/`glob`/`parts_of`); a hand-joined path matching a contract template is a
+  Warning (the ratchet test will also catch it).
 
 ## Reuse / simplification / efficiency (secondary)
 Dead code; redundant recomputation in hot pick/assignment loops; needless O(n²); special-cases that

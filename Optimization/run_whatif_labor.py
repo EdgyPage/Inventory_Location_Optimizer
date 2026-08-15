@@ -16,8 +16,11 @@ converts leftover picker imbalance into throughput at ~flat labor (batch_hours �
     staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***
 
 Reuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run
-sums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json
-(whatif_matrix()-compatible), and four PNGs.
+sums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON
+(whatif_matrix()-compatible), and four PNGs.  All output paths render through the run-tree
+contract (`rt.path(...)` / the whatif PNG glob's directory) — this module is the declared writer
+of those artifacts, and Tests/integration/test_writer_paths_golden.py pins the rendered strings
+to the literals the old hand-joins produced.
 
   python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]
          [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]
@@ -28,17 +31,36 @@ import argparse
 import csv
 import json
 import os
-import sqlite3
 import statistics
+import sys
+
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_whatif_labor.py <dir>); `-m` form needs none.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from Schema import compat as _compat
+from Schema import connect
 from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
 
 MS_PER_HOUR = 3.6e6
 _SCHED = {'rr': 'round_robin', 'lpt': 'lpt'}
+
+#: Every table/column THIS module's own SQL reads out of a sim DB (`_hours`); the steady-state
+#: means it merges in come through `run_whatif_delta._metrics`, which is covered by THAT module's
+#: declaration.  Validated against the sim_db guaranteed surface in CI
+#: (Tests/architecture/test_schema_compatibility.py).
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='run_whatif_labor hours reader',
+    tables={
+        'batch_stats': ('duration', 'task_makespan', 'total_items'),
+    })
 
 
 def _scheduler_of(cell: str) -> str:
@@ -55,8 +77,12 @@ def _parse_arm(arm: str):
 
 
 def _hours(db: str):
-    """Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches."""
-    con = sqlite3.connect(db)
+    """Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
+
+    Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
+    any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.
+    """
+    con = connect.read_only(db, row_factory=False, immutable=True)
     try:
         row = con.execute('SELECT SUM(task_makespan), SUM(duration), SUM(total_items), COUNT(*) '
                           'FROM batch_stats').fetchone()
@@ -214,8 +240,8 @@ def _uplift_bars(uplift, out_path):
 
 
 def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None):
-    """Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +
-    the four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process
+    """Engine: cross-cell throughput / labor-hours over base_dir; write the whatif_labor CSV/JSON
+    + the four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process
     (no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits
     the CSV/JSON (its cross-cell deltas are empty)."""
     import types
@@ -263,7 +289,7 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
         b = base.get((r['cell'], r['pair'], r['pickcfg'], r['channel'], bi))
         r['labor_saved'] = (b - r['labor_hours']) if b is not None else float('nan')
 
-    csv_path = os.path.join(args.base_dir, 'whatif_labor.csv')
+    csv_path = rt.path('whatif_labor_csv')
     cols = ['cell', 'scheduler', 'pair', 'pickcfg', 'channel', 'arm', 'initial', 'assignment',
             'labor_hours', 'batch_hours', 'thr_items_hr', 'thr_task_items_hr', 'labor_saved',
             'items', 'n_batches']
@@ -328,19 +354,25 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
         'labor_baseline': args.baseline, 'hours_note': _HOURS_NOTE,
         'cells': json_cells,
     }
-    json_path = os.path.join(args.base_dir, 'whatif_labor.json')
+    json_path = rt.path('whatif_labor_json')
     with open(json_path, 'w') as f:
         json.dump(summary, f, indent=2)
     print(f'wrote {json_path}')
 
     # ── charts ─────────────────────────────────────────────────────────────────────────────
-    _throughput_scatter(rows, os.path.join(args.base_dir, 'whatif_labor_throughput_scatter.png'))
-    _labor_saved_bars(rows, args.baseline, os.path.join(args.base_dir, 'whatif_labor_saved_bars.png'))
-    _batch_hours_bars(rows, os.path.join(args.base_dir, 'whatif_batch_hours_rr_vs_lpt.png'))
-    _uplift_bars(uplift, os.path.join(args.base_dir, 'whatif_scheduler_uplift.png'))
-    for p in ('whatif_labor_throughput_scatter.png', 'whatif_labor_saved_bars.png',
-              'whatif_batch_hours_rr_vs_lpt.png', 'whatif_scheduler_uplift.png'):
-        print(f'wrote {os.path.join(args.base_dir, p)}')
+    # The PNGs live under the whatif_labor_pngs artifact, a glob whose star sits in the FILENAME
+    # segment — so the template's directory is the contract-rendered home and only the concrete
+    # basenames are spelled here.
+    png_dir = os.path.dirname(rt.path('whatif_labor_pngs'))
+    pngs = {name: os.path.join(png_dir, name) for name in (
+        'whatif_labor_throughput_scatter.png', 'whatif_labor_saved_bars.png',
+        'whatif_batch_hours_rr_vs_lpt.png', 'whatif_scheduler_uplift.png')}
+    _throughput_scatter(rows, pngs['whatif_labor_throughput_scatter.png'])
+    _labor_saved_bars(rows, args.baseline, pngs['whatif_labor_saved_bars.png'])
+    _batch_hours_bars(rows, pngs['whatif_batch_hours_rr_vs_lpt.png'])
+    _uplift_bars(uplift, pngs['whatif_scheduler_uplift.png'])
+    for p in pngs.values():
+        print(f'wrote {p}')
 
     # ── console headline ───────────────────────────────────────────────────────────────────
     print(f'\nHeadline (baseline={args.baseline}, {_HOURS_NOTE}):')
@@ -364,7 +396,7 @@ def main():
                     help="baseline arm's initial placement: 'match' compares opt-vs-opt / uni-vs-uni "
                          "(isolates the assignment fn); 'uni'/'opt' pins it (default 'match')")
     ap.add_argument('--reference', default=None,
-                    help="scheduler reference cell (default: the run's own run_layout.json "
+                    help="scheduler reference cell (default: the run's own descriptor "
                          "reference, else WHATIF['reference'])")
     ap.add_argument('--pairs', default='sum', choices=('sum', 'median'),
                     help='how to blend the two catalogs for hours (sum = additive workload; default sum)')

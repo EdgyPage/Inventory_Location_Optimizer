@@ -15,8 +15,13 @@
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def load_batch_stats(path: str, run_id: int) -&gt; list[BatchStats]</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__BatchStats.html"><code>BatchStats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext_batch_df.html"><code>batch_df</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section>
+<section class="doc">One BatchStats per batch, version-adaptive.
+
+A VETTED file is served by the `batch_frame` named query (per-vintage overrides and
+optional-fill included), so a consumer of this loader is version-free without knowing it.
+An unvetted file — the cold archive `Diagnostics/replay_run.py` deliberately reads — falls
+through to the frozen pre-registry body below, byte-for-byte the historical behavior.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__BatchStats.html"><code>BatchStats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___query_rows.html"><code>_query_rows</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__batch_frame.html"><code>batch_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_batch_stats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_batch_stats">Source ↗</a></p>
 </article>
 </main>

@@ -49,7 +49,7 @@ from Optimization.config.sim_config import (            # noqa: F401
 from Optimization.simdriver.sim_assets import build_shared_assets                    # noqa: F401
 from Optimization.runschema.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
-    _write_run_spec, _load_run_spec, _run_spec_path,
+    _write_run_spec, _load_run_spec, _run_spec_path, _pair_bindings,
     write_run_layout, read_run_layout, _run_layout_path,
 )
 
@@ -115,6 +115,15 @@ def _apply_run_spec(args, spec, explicit):
 
 
 def main():
+    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
+    # INSIDE parse_args, so anything placed after it never runs on that path.  U+2192 (in
+    # --s-composition's help) has no cp1252 mapping — unlike the em/en dashes and ellipses
+    # elsewhere here — so `--help` on a legacy console died with UnicodeEncodeError.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -157,11 +166,17 @@ def main():
                         help='STORE: JSON file or inline factored basis vector of store bin '
                              'ratios (keys handling/category/size/unit → weight). Scale from '
                              '--s-min-bins (or demand). Fulfillment uses its fixed distribution.')
-    parser.add_argument('--keyframe-interval', type=int, default=5, metavar='K',
-                        help='Write a full bin snapshot to <run>.keyframes.db every K '
-                             'batches so the visualizer can jump between batches '
-                             '(0 disables). A keyframe = all occupied bins; raise K for '
-                             'very large warehouses. Default 5.')
+    # Defaulted FROM CONFIG rather than to a literal: this flag is assigned unconditionally
+    # into g['keyframe_interval'] below, so a literal here would silently override the
+    # declared default and make sim_config's value dead.
+    parser.add_argument('--keyframe-interval', type=int,
+                        default=CONFIG['global']['keyframe_interval'], metavar='K',
+                        help='Write a full bin snapshot to <run>.keyframes.db every K batches '
+                             '(0 disables). Spatial state is reconstructed from the '
+                             'bin-mutation log, not from these — a keyframe is the '
+                             'INDEPENDENT audit of that fold plus a quantity anchor. Lower K '
+                             'buys more audit points, not more accuracy. Default '
+                             f'{CONFIG["global"]["keyframe_interval"]}.')
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
@@ -316,6 +331,10 @@ def main():
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
             'pairs'        : [list(p) for p in pairs],
+            # WHICH catalogue version each pinned pair is (None = pre-contract catalogue).
+            # `pairs` above answers WHERE and drives resume; this answers WHICH, so a catalogue
+            # regenerated in place after this run is detectable from the recorded digests.
+            'pair_bindings': _pair_bindings(pairs),
         })
         log.info('  Wrote run_spec.json — zero-param `--resume` enabled')
 
@@ -337,6 +356,26 @@ def main():
                 shutil.rmtree(base_dir, ignore_errors=True)
             sys.exit(f'Schema preflight stopped the run (exit {_pf}). Resolve the run-tree contract '
                      f'above, or re-run with --no-preflight to proceed anyway.')
+
+        # ── DB-shape precheck — the same bargain for the OTHER contract.  Every family this run
+        # can write is already registered (registration happens at import, and this process
+        # imports every writer), so the sweep below is "what this run writes" by construction.
+        # Cost: a few os.listdir + in-memory DDL builds.  Blocking HERE is what lets the workers
+        # stay warn-once: a store gap stops the run before hour 0, never at hour N.
+        from Schema import compat as _schema_compat
+        from Schema import identity as _schema_identity
+        _db_problems = [p for name in _schema_identity.families()
+                        for p in _schema_compat.verify_family_store(name)]
+        if _db_problems:
+            for _p in _db_problems:
+                log.error(f'  DB-shape precheck: {_p}')
+            _stub = not any(os.path.isdir(os.path.join(base_dir, d)) for d in os.listdir(base_dir))
+            logging.shutdown()
+            if _stub and not args.resume:
+                shutil.rmtree(base_dir, ignore_errors=True)
+            sys.exit('DB-shape precheck stopped the run: a schema this run would write is not on '
+                     'the committed record (details above). Run the named command(s), or re-run '
+                     'with --no-preflight to proceed anyway.')
 
     # run_layout.json — the unified cell-tree descriptor (cells/reference/configs/pairs), so tools
     # INFER the tree instead of directory-guessing.  Written for a new run; a resumed LEGACY run

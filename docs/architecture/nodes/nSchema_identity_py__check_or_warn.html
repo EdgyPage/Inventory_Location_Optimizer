@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>check_or_warn · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_identity_py__check_or_warn" data-id="Schema/identity.py::check_or_warn">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_identity_py.html"><code>Schema/identity.py</code></a> <span class="sep">›</span> <span class="here"><code>check_or_warn</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>check_or_warn</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_identity_py.html"><code>Schema/identity.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def check_or_warn(path: str, family_name: str, *, verify: bool=False, emit=None) -&gt; str | None</code></pre>
+<section class="doc">`check()` for consumers that must DEGRADE rather than die.  Returns None if unvetted.
+
+The split is deliberate and the choice is per-site, not per-family:
+
+  hard `check()`   a simulation about to WRITE from this file, or an analysis about to
+                   PUBLISH a number from it.  A wrong column there becomes a plausible
+                   `0.0` and a figure nobody can tell is wrong.
+  `check_or_warn`  an interactive, read-only, exploratory consumer, and derived caches that
+                   can rebuild themselves.  Refusing to open a 2026-06 archive outright is a
+                   worse failure than drawing it with a named caveat in the log.
+
+Either way the `UnsupportedSchema` TEXT — which names the differing tables and columns — is
+what reaches the caller; that message is the whole point of the layer, and a bare `except`
+that drops it leaves the consumer no better off than before this package existed.
+
+`emit` takes the message (e.g. `log.warning`); the default routes to `warnings.warn`, which
+a viewer&#x27;s logging config already captures and a test can assert on with `pytest.warns`.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_identity_py__check.html"><code>check</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py__load_rows.html"><code>load_rows</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nVisualization_db_reader_py__RunRef_reader.html"><code>reader</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_identity_py__check_or_warn">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/identity.py#:~:text=def%20check_or_warn">Source ↗</a></p>
+</article>
+</main>
+</body></html>

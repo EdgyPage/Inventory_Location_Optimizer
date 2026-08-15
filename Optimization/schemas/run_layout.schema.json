@@ -56,6 +56,33 @@
       }
     },
     "pairs": {"type": "array", "items": {"type": "string"}},
+    "pair_bindings": {
+      "type": "object",
+      "description": "version 2 (additive): {pair label -> WHICH catalogue version it resolved to, or null when discovery used the pre-contract legacy walk}. A regenerated-in-place catalogue mints new params digests, so a recorded binding makes silent re-pointing detectable after the fact. Written by _pair_bindings@Optimization/runschema/sim_manifest.py from the catalogue's own profile_layout.json.",
+      "additionalProperties": {
+        "oneOf": [
+          {"type": "null"},
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["profile_run", "profile", "profile_schema_id", "params_digest"],
+            "properties": {
+              "profile_run": {"type": "string"},
+              "profile": {"type": "string"},
+              "profile_schema_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "params_digest": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "inventory": {"type": ["string", "null"]},
+                  "affinity": {"type": ["string", "null"]}
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
     "configs": {
       "type": "object",
       "additionalProperties": false,

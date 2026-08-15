@@ -1,9 +1,14 @@
 """run_analysis.py — registry-driven graph generator for completed simulation runs.
 
-Reads sim_meta.json files written by run_simulation.py, rebuilds warehouse aisle maps via
+Reads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via
 build_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations
 (selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by
 editing Performance_Evaluations/presets.py — not this file.
+
+Per-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the
+run-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join — the resolver is
+rooted at the RUN root (this module receives a CELL dir from analyze_run), and
+Tests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.
 
 Parallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across
 all pairs × configs fed to one ProcessPoolExecutor, then a second flat pool for the
@@ -44,6 +49,7 @@ from Optimization.runschema.runlayout import iter_channel_runs
 from Optimization import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
 from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
 from Optimization.Performance_Evaluations.core.context import EvalContext, AggregateContext
+from Optimization.Performance_Evaluations.core import requests
 from Optimization.Performance_Evaluations import driver
 from Optimization.Performance_Evaluations.presets import PRESETS
 
@@ -84,12 +90,15 @@ def _sim_result_from_meta(meta: dict) -> dict:
 
 def _run_job(job: dict):
     """Picklable unit of work.  job['stage'] is 'config' or 'aggregate'; job['eval_keys']
-    is the list of evaluation keys to run against the job's context."""
+    is the list of evaluation keys to run against the job's context.  Returns
+    (target, error, access_tally) — the tally is this job's broker grant/denial counts,
+    carried back to the parent for the run-end `[access]` summary."""
     log = _worker_log()
     preset = PRESETS[job['preset']]
     # registry must be populated in this (child) process
     assert len(EVAL_BY_KEY) >= len(preset['keys']), 'evaluation registry not populated'
     overrides, cli_set = preset['overrides'], job['set']
+    requests.tally_snapshot(reset=True)                 # this job's counts only
     try:
         if job['stage'] == 'config':
             ctx = _CFG_CTX.get(job['run_dir'])
@@ -98,7 +107,7 @@ def _run_job(job: dict):
                 _CFG_CTX[job['run_dir']] = ctx
             for k in job['eval_keys']:
                 driver.run_one(ctx, k, overrides, cli_set)
-            return (job['run_dir'], None)
+            return (job['run_dir'], None, requests.tally_snapshot())
         else:
             ctx = _AGG_CTX.get(job['out_dir'])
             if ctx is None:
@@ -107,42 +116,79 @@ def _run_job(job: dict):
                 _AGG_CTX[job['out_dir']] = ctx
             for k in job['eval_keys']:
                 driver.run_one(ctx, k, overrides, cli_set)
-            return (job['out_dir'], None)
+            return (job['out_dir'], None, requests.tally_snapshot())
     except Exception as exc:  # noqa: BLE001 — report, don't kill the pool
-        return (job.get('run_dir') or job.get('out_dir'), repr(exc))
+        return (job.get('run_dir') or job.get('out_dir'), repr(exc),
+                requests.tally_snapshot())
 
 
-def _drain(pool, jobs, log):
-    """Run jobs on the flat pool (or inline if no pool); log per-job errors."""
+def _merge_tally(total: dict, part: dict) -> None:
+    for bucket in ('granted', 'denied'):
+        for key, n in part.get(bucket, {}).items():
+            total[bucket][key] = total[bucket].get(key, 0) + n
+
+
+def _drain(pool, jobs, log) -> dict:
+    """Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the
+    merged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs."""
+    tally = {'granted': {}, 'denied': {}}
     if pool is None:
         for job in jobs:
-            tgt, err = _run_job(job)
+            tgt, err, part = _run_job(job)
+            _merge_tally(tally, part)
             if err:
                 log.error(f'  Analysis failed for {tgt}: {err}')
-        return
+        return tally
     futures = [pool.submit(_run_job, job) for job in jobs]
     log.info(f'  Running {len(futures)} jobs across the pool...')
     for fut in concurrent.futures.as_completed(futures):
-        tgt, err = fut.result()
+        tgt, err, part = fut.result()
+        _merge_tally(tally, part)
         if err:
             log.error(f'  Analysis failed for {tgt}: {err}')
+    return tally
 
 
 # ── job-list construction ────────────────────────────────────────────────────────
 
-def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
+def _tree_for(cell_dir: str):
+    """(RunTree, cell_name) for the run this CELL directory belongs to.
+
+    run_analysis receives a CELL dir (analyze_run calls it once per cell), so the resolver is
+    rooted at the PARENT — where the run descriptor lives — and the cell name is the dir's own
+    basename.  A tree with NO descriptor (the e2e scratch trees, ad-hoc analyses) falls back to
+    the HEAD contract rooted at the same parent: the head templates render exactly the strings
+    the old hand-joins assumed, so the fallback is behavior-preserving while keeping the tree
+    shape declared in one place.
+    """
+    from Optimization import runschema
+    from Optimization.runschema import contract as _rt_contract
+    from Optimization.runschema.resolver import RunTree
+    cell_dir = os.path.abspath(cell_dir)
+    root, cell = os.path.dirname(cell_dir), os.path.basename(cell_dir)
+    try:
+        return runschema.resolver_for(root), cell
+    except runschema.UnsupportedRunTree:
+        head = _rt_contract.head()
+        doc = _rt_contract.load(head) if head else None
+        if doc is None:
+            raise
+        return RunTree(root, doc, layout={}), cell
+
+
+def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log):
     """Parent pre-pass: build slim shared assets per pair, prepare each config's output
     dirs once, and emit the flat config-stage job list."""
     preset = PRESETS[preset_name]
     cfg_keys = driver.config_keys(preset)
     jobs = []
-    # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
-    # <config>/<channel>/sim_meta.json.  iter_channel_runs discovers both — each meta
-    # carries its own run_dir, so the whole plot suite replicates per channel with no
-    # plot changes.  Group by pair (shared assets are per-pair).
+    # Store-only writes its sim_meta at <config>/; a mixed run writes one per channel at
+    # <config>/<channel>/.  iter_channel_runs discovers both (its default marker is the
+    # sim_meta basename) — each meta carries its own run_dir, so the whole plot suite
+    # replicates per channel with no plot changes.  Group by pair (shared assets are per-pair).
     metas_by_pair: dict[str, list] = {}
-    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
-        with open(os.path.join(run.path, 'sim_meta.json')) as f:
+    for run in iter_channel_runs(base_dir):
+        with open(rt.leaf_path(run, 'sim_meta')) as f:
             metas_by_pair.setdefault(run.pair, []).append(json.load(f))
     for pair_name, config_metas in metas_by_pair.items():
         inv_db = next((m.get('inv_db') for m in config_metas if m.get('inv_db')), None)
@@ -173,27 +219,33 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
     return jobs
 
 
-def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
-    """Group every config's series.json by leaf pick-config name across profiles, prepare
-    each _aggregate/<pickcfg>/ dir once, and emit the flat aggregate-stage job list."""
+def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log):
+    """Group every config's series doc by leaf pick-config name across profiles, prepare
+    each aggregate group dir once, and emit the flat aggregate-stage job list."""
     preset = PRESETS[preset_name]
     agg_keys = driver.aggregate_keys(preset)
     if not agg_keys:
         return []
-    # store-only: <config>/series.json (group by config); mixed: <config>/<channel>/
-    # series.json (group by config/channel so the cross-profile aggregate stays within
-    # one channel).  ChannelRun.group_key encodes exactly that.
+    # store-only: the series doc sits at <config>/ (group by config); mixed: at
+    # <config>/<channel>/ (group by config/channel so the cross-profile aggregate stays
+    # within one channel).  ChannelRun.group_key encodes exactly that.  The walk marks on
+    # sim_meta (the default) and skips leaves whose series doc was never written — the same
+    # set the old marker='series' walk yielded, without spelling the basename here.
     groups: dict = {}
-    for run in iter_channel_runs(base_dir, marker='series.json'):
-        sp = os.path.join(run.path, 'series.json')
+    for run in iter_channel_runs(base_dir):
+        sp = rt.leaf_path(run, 'series_json')
+        if not os.path.exists(sp):
+            continue
         try:
             with open(sp) as f:
                 groups.setdefault(run.group_key, []).append(json.load(f))
         except (OSError, ValueError) as exc:
-            log.error(f'  bad series.json {sp}: {exc}')
+            log.error(f'  bad series doc {sp}: {exc}')
     jobs = []
     for cfg, plist in groups.items():
-        out_dir = os.path.join(base_dir, '_aggregate', cfg)
+        # group_key already folds the optional channel level in (`<config>` store-only,
+        # `<config>/<channel>` mixed) — aggregate_dir splits it back onto the template.
+        out_dir = rt.aggregate_dir(cell, cfg)
         driver.prepare_aggregate_dir(out_dir)
         common = dict(stage='aggregate', preset=preset_name, set=cli_set,
                       profile_series_list=plist, out_dir=out_dir, pickcfg=cfg)
@@ -216,21 +268,33 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     if preset not in PRESETS:
         raise ValueError(f'unknown preset {preset!r}; choices: {sorted(PRESETS)}')
 
+    rt, cell = _tree_for(base_dir)
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
+    tally = {'granted': {}, 'denied': {}}
     try:
-        cfg_jobs = _config_jobs(base_dir, preset, granularity, cli_set, log)
+        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log)
         log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
                  f'(preset={preset}, granularity={granularity}, workers={workers})')
-        _drain(pool, cfg_jobs, log)
+        _merge_tally(tally, _drain(pool, cfg_jobs, log))
 
-        # aggregate stage needs every series.json on disk first
+        # aggregate stage needs every series doc on disk first
         log.info('  Building cross-profile aggregate suites...')
-        agg_jobs = _aggregate_jobs(base_dir, preset, granularity, cli_set, log)
-        _drain(pool, agg_jobs, log)
+        agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log)
+        _merge_tally(tally, _drain(pool, agg_jobs, log))
     finally:
         if pool is not None:
             pool.shutdown()
+
+    # Run-end access summary — "did every consumer get what it asked for", from the log alone.
+    n_granted = sum(tally['granted'].values())
+    n_denied = sum(tally['denied'].values())
+    if n_denied:
+        per_eval = ', '.join(f'{k} x{n}' for k, n in sorted(tally['denied'].items()))
+        log.warning(f'[access] run summary: {n_granted} granted, {n_denied} DENIED '
+                    f'({per_eval}) — see the DENIED lines above for reasons')
+    else:
+        log.info(f'[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────

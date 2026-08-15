@@ -134,6 +134,15 @@ def _write_canary_catalog(profiles_root: str, profile: str, *, mixed: bool, num_
     conn.executemany('INSERT OR REPLACE INTO affinity (sku_i, sku_j, lift) VALUES (?,?,?)', rows)
     conn.commit()
     conn.close()
+
+    # The canary catalogue carries a descriptor too — every preflight run therefore exercises
+    # the PROFILES contract for free, exactly as the canaries exercise the run-tree one.  The
+    # entries derive from what this function just wrote (a generator may claim its own output;
+    # params_digest is None where the canary writes no params.json — honest absence).
+    from Schema import profile_tree as _profile_tree
+    run_dir = os.path.dirname(prof_dir)
+    _profile_tree.write_profile_layout(run_dir, _profile_tree.entries_from_disk(run_dir),
+                                       generator='canary')
     return inv_db, aff_db
 
 
@@ -226,6 +235,19 @@ def _generalize_file(segments: list[str], axes: dict[str, set]) -> str:
             out.extend([seg, '{pair}'])
             j += 2
             continue
+        if seg == '_viz' and j + 1 < len(mid):
+            # The viewer's derived subtree MIRRORS the run tree beneath its reserved prefix, so the
+            # same four levels follow it — and `<config>/<channel>` is again `store/store` on a
+            # store-only-named channel, so they are consumed positionally exactly as above.  Without
+            # this branch every arm's sidecar generalizes to a fully LITERAL template, which no
+            # declaration can ever match: 272 permanent "undeclared" findings on a full sweep.
+            out.append(seg)
+            j += 1
+            for ax in ('cell', 'pair', 'config', 'channel'):
+                if j < len(mid) and mid[j] in axes[ax]:
+                    out.append('{%s}' % ax)
+                    j += 1
+            continue
         if seg == '_aggregate' and j + 1 < len(mid):
             out.append(seg)
             if mid[j + 1] in axes['config']:
@@ -249,7 +271,12 @@ def _generalize_file(segments: list[str], axes: dict[str, set]) -> str:
 
     fn = segments[-1]
     m = _STRATEGY_RE.match(fn)
-    if m and m.group('strategy'):
+    if fn.endswith('.viz.db') and out and out[0] == '_viz':
+        # Checked BEFORE the sim-DB pattern and anchored to the `_viz` subtree: `<arm>.viz.db`
+        # carries no `sim_` prefix, so it is the arm axis under a different spelling, and the
+        # anchor stops the rule leaking to any other location.
+        fn = '{strategy}.viz.db'
+    elif m and m.group('strategy'):
         fn = 'sim_{strategy}.keyframes.db' if m.group('kf') else 'sim_{strategy}.db'
     elif _CKPT_RE.match(fn):
         fn = '_ckpt_{strategy}.pkl'
@@ -283,6 +310,14 @@ def observe(base_dir: str) -> dict:
                 if seg in axes[axis] and depth == ('cell', 'pair', 'config', 'channel').index(axis):
                     levels_seen.add(axis)
         for fn in files:
+            # SQLite reader litter is not tree shape.  A mode=ro open CREATES `-wal`/`-shm`
+            # beside any WAL database and cannot remove them (see the wal-sidecars memory), so
+            # whether a canary tree carries one depends on connection-close ORDER during the
+            # canary's own analysis — nondeterministic, and never something a consumer resolves.
+            # Writers checkpoint-clean on close (183b1e6); declaring these would freeze an
+            # accident into the contract, and observing them fails validation spuriously.
+            if fn.endswith(('-wal', '-shm', '-journal')):
+                continue
             tmpl = _generalize_file(parts + [fn], axes)
             templates[tmpl] = templates.get(tmpl, 0) + 1
     return {'templates': templates, 'levels_seen': sorted(levels_seen), 'layout': layout,

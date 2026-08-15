@@ -14,12 +14,17 @@
 <h1><span class="kind kind-function">function</span> <code>_stage_whatif</code></h1>
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
 
-<pre class="sig"><code>def _stage_whatif(source, exp_dir, dry, log)</code></pre>
+<pre class="sig"><code>def _stage_whatif(source, exp_dir, dry, log, rt=None)</code></pre>
 <section class="doc">Cross-cell what-if outputs from the RUN ROOT into data/ + images/.
 
 whatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no
 producer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.
-Absent on a single-cell run, which is not an error.</section>
+Absent on a single-cell run, which is not an error.
+
+With a resolver the candidates come from the contract&#x27;s `whatif` group tag
+(`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED stays
+the docs&#x27; own selection (DEFAULT_WHATIF_DATA + the PNG set).  The literal joins below remain
+the pre-descriptor route.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___copy.html"><code>_copy</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___stage_whatif">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_stage_whatif">Source ↗</a></p>
 </article>

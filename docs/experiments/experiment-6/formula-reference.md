@@ -1,7 +1,7 @@
 # Formula reference
 
 Every calculation in this experiment in one place: the pick-time cost model, the labor
-decomposition, the per-bin placement primitive, and the scoring objective of each of the 16
+decomposition, the per-bin placement primitive, and the scoring objective of each of the 17
 assignment functions. The [simulation lifecycle](comparison-overview.md) shows **when** each of
 these runs during a simulation; this page is the canonical **what**. Symbols are in the
 [Glossary](glossary.md).
@@ -82,7 +82,7 @@ $$\text{priority} \;=\; f_i\,(t_0 + h) \;+\; \beta\,\text{co-occur}$$
 The suite is built as **brackets**: for each lever there is a maximiser and a minimiser that
 bound how much the lever is worth. **The maximising controls (`tmax`, `cmin`, `expn`,
 `rank_maxlabor`) are *designed to lose*** — they deliberately place badly, so they read *worse*
-than FIFO. This is the general lesson the [Full results](full-results.md) make concrete: an
+than FIFO. This is the general lesson the [labor page](full-results.md) makes concrete: an
 "optimization" pointed the wrong way (or at the wrong objective) can make cumulative task time
 **worse**, not better.
 
@@ -112,6 +112,23 @@ expected labor is $L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$; each unit is placed
 raises the busiest aisle, costliest SKU first:
 
 $$\arg\min_{(a,\,b)}\ \bigl(L_a + f_s\,q_s\,\ell(b)\bigr).$$
+
+### Rank_cartlabor — `rank_cartlabor` { #rank-cartlabor }
+**Rank_labor plus a cart-swap term — a top-3 winner, and the best store arm in this run.**
+Identical to Rank_labor except that the load being balanced also carries each aisle's *expected
+cart-swap* cost, so demand mass that would overflow a picker's cart gets dispersed rather than
+concentrated. Writing $V_a = \sum_{s\in a} f_s\,q_s\,v_s$ for the aisle's raw expected picked
+volume and $\hat{V}$ for the cart capacity rescaled to the same units
+($\hat{V} = \text{cart\_capacity}\cdot\sum_s f_s / k$, with $k$ the expected SKUs per batch):
+
+$$C_a = c_{\text{swap}} \cdot \max\!\left(0,\ \frac{V_a}{\hat{V}} - 1\right),
+\qquad
+\arg\min_{(a,\,b)}\ \bigl(L_a + C_a + f_s\,q_s\,\ell(b)\bigr).$$
+
+With the store's large cart $C_a$ is ≈ 0 — aisles rarely fill it — so store plans barely differ
+from Rank_labor, which is why the two sit adjacent at the top of the results table. With the small
+fulfillment cart the term bites. Setting the cart tuple to `None` makes this **byte-identical** to
+Rank_labor (`build_ranked_cartlabor_fn`, `Warehouse/placement/Assignment_Functions.py`).
 
 ### Rank_minlabor — `rank_minlabor` { #rank-minlabor }
 Greedy **minimiser** of expected total task labor — fuses golden-zone height, effort-to-front,

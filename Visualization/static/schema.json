@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:6e825081640c87ca7f87affc579570ff57e3183106fc29e1ec8786ad7ff9001a",
-  "schema_short": "6e825081640c",
+  "schema_id": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
+  "schema_short": "21e7a11ff40b",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -47,6 +47,18 @@
     "aggregate_pngs": {
       "path": "{cell}/_aggregate/{config}/{channel?}/**/*.png",
       "format": "png",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_stats_summary_csv": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_stats_tests_json": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json",
+      "format": "json",
       "scope": "cell",
       "optional": false
     },
@@ -271,6 +283,12 @@
       "format": "csv",
       "scope": "channel_run",
       "optional": false
+    },
+    "viz_cache_db": {
+      "path": "_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "optional": true
     },
     "warehouse_db": {
       "path": "{cell}/{pair}/warehouse.db",

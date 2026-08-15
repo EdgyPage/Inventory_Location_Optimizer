@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>read · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_dataset_py__Dataset_read" data-id="Schema/dataset.py::Dataset.read">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a> <span class="sep">›</span> <a href="nSchema_dataset_py__Dataset.html"><code>Dataset</code></a> <span class="sep">›</span> <span class="here"><code>read</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>read</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def read(self, table: str, cols, where: str=&#x27;&#x27;, params=(), order_by: str=&#x27;&#x27;)</code></pre>
+<section class="doc">Rows from one table, identifiers validated against the bound shape.
+
+`table`/`cols`/`order_by` columns must exist in THIS file&#x27;s shape — a typo or a
+wrong-vintage read fails by name at the call site instead of returning silent defaults.
+`where` stays a caller-written parameterized fragment: the expressive part of SQL is
+never generated here (see the module docstring&#x27;s SQL POLICY).</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_dataset_py__Dataset_has.html"><code>has</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_dataset_py__DatasetError.html"><code>DatasetError</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_dataset_py___q.html"><code>_q</code></a> <span class="dim">Schema/dataset.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_dataset_py__Dataset_read">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/dataset.py#:~:text=def%20read">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -15,8 +15,12 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_driver_py.html"><code>Optimization/Performance_Evaluations/driver.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def prepare_config_dirs(run_dir)</code></pre>
-<section class="doc">Wipe + recreate the per-config shared output dirs exactly once (parent pre-pass).</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py___fresh_dir.html"><code>_fresh_dir</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py___config_jobs.html"><code>_config_jobs</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
+<section class="doc">Wipe + recreate the per-config shared output dirs exactly once (parent pre-pass).
+
+The dir list is DERIVED from the registry&#x27;s `out_subdir` declarations (see
+`artifact_map.config_dirs` for the rule); a golden test pins it to the historical
+literals so the derivation can never silently relocate an output.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py___fresh_dir.html"><code>_fresh_dir</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_artifact_map_py__config_dirs.html"><code>config_dirs</code></a> <span class="dim">Optimization/Performance_Evaluations/core/artifact_map.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py___config_jobs.html"><code>_config_jobs</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_driver_py__prepare_config_dirs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/driver.py#:~:text=def%20prepare_config_dirs">Source ↗</a></p>
 </article>
 </main>

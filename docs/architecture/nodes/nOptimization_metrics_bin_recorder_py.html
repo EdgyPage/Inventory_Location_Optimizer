@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.metrics.bin_recorder · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_bin_recorder_py" data-id="Optimization/metrics/bin_recorder.py">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <span class="here"><code>Optimization/metrics/bin_recorder.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.metrics.bin_recorder</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_bin_recorder_py.html"><code>Optimization/metrics/bin_recorder.py</code></a></p>
+
+<pre class="sig"><code>Optimization.metrics.bin_recorder</code></pre>
+<section class="doc">bin_recorder.py — capture every bin mutation the simulation makes.
+
+Closes the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER
+restocks — `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in
+it at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a
+production arm: **0 rows** with `post_qty &gt; pre_qty` against 20k-42k `reorder_placements` per
+batch, so replaying the delta stream only ever decays — losing 59% of the warehouse within five
+batches of a keyframe.
+
+What makes this complete
+------------------------
+Bin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to
+either finds six lines across five sites, one of them dead code:
+
+    Inventory_Management._execute_placement   `bin_.storage = unit`    -&gt; PLACE  (recorded here)
+    inventory_reorder.requeue_bin             `bin_.storage = None`    -&gt; EVICT  (recorded here)
+    fast_pick.py / Pick.py                    qty -= / storage = None  -&gt; PICK   (already `picks`)
+    Storage_Primitive.StorageCart             zero callers repo-wide   -&gt; n/a
+
+So PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded —
+`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.
+`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live
+simulation: folding the log reproduces the warehouse&#x27;s own bins at every batch and at every
+sim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a
+sixth mutation site ever appears.
+
+How it attaches
+---------------
+By rebinding two bound methods on the manager **instance** — no edits to `Warehouse/`, and a
+strategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint
+all three placement call sites reach through `self.`. Same technique as
+`Diagnostics/trace_lifecycle.py`.
+
+Time resolution
+---------------
+`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`
+runs entirely between one batch&#x27;s picks and the next batch&#x27;s simulation, so no finer ordering
+exists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.
+
+Checked at runtime, not only in tests
+-------------------------------------
+`units_placed` / `units_evicted` feed the per-batch conservation ledger in
+`Optimization/simdriver/strategy_runner.py`:
+
+    units_placed - units_evicted - units_picked  ==  units currently sitting in bins
+
+on every batch of every real run. The completeness argument above is structural; that ledger is
+what turns it into something a production sweep re-proves for itself.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder.html"><code>BinRecorder</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder___init__.html"><code>__init__</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach__execute_placement.html"><code>_execute_placement</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach.html"><code>attach</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_begin_batch.html"><code>begin_batch</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_drain.html"><code>drain</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_bin_recorder_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/bin_recorder.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

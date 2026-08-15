@@ -35,6 +35,46 @@ import yaml
 _CACHE = {}
 
 
+def _verify_manifest_schema(manifest, docs_dir, exp):
+    """Check the experiment's recorded run-tree contract still matches the macros' path scheme.
+
+    ``ingest.py`` stamps the source run's ``schema_id`` into ``experiment.yml`` — the content
+    address of the run-tree contract the staged snapshot was pulled from
+    (``Optimization/schemas/run_tree/<short>.json``).  Every image path a macro constructs is
+    ``images/<run>/<inv>/<cfg>/…``, i.e. the contract's three REQUIRED levels
+    (cell/pair/config) with the optional ``<channel>`` flattened away by ingest.  If a future
+    contract changes those levels, snapshots staged from it no longer mean what these paths say —
+    so fail the build LOUDLY here, naming the schema, instead of rendering pages whose figures
+    silently come from somewhere else.  Manifests without a ``schema_id`` (Experiments 1–5
+    predate the stamp) are exempt: nothing was recorded, so there is nothing to verify.
+    """
+    sid = manifest.get("schema_id")
+    if not sid:
+        return                                   # pre-stamp manifest — no contract recorded
+    short = str(sid).split(":", 1)[-1][:12]
+    repo_root = os.path.dirname(os.path.abspath(docs_dir))
+    doc_path = os.path.join(repo_root, "Optimization", "schemas", "run_tree", f"{short}.json")
+    if not os.path.isfile(doc_path):
+        raise FileNotFoundError(
+            f"macros: {exp}/experiment.yml records run-tree schema {sid}, but no contract "
+            f"document is committed at Optimization/schemas/run_tree/{short}.json. "
+            f"Check out the commit that produced the run, or re-ingest the experiment."
+        )
+    with open(doc_path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    levels = doc.get("levels", [])
+    required = [lv["name"] for lv in levels if not lv.get("optional")]
+    optional = [lv["name"] for lv in levels if lv.get("optional")]
+    if required != ["cell", "pair", "config"] or optional != ["channel"]:
+        raise ValueError(
+            f"macros: run-tree schema {sid} ({exp}) declares levels "
+            f"required={required} optional={optional}, but the macros build image paths as "
+            f"images/<run(cell)>/<inv(pair)>/<cfg(config)>/... with <channel> flattened. "
+            f"The staged snapshot no longer matches this convention — update docs/macros.py "
+            f"and docs/experiments/ingest.py together before rebuilding."
+        )
+
+
 def define_env(env):
     docs_dir = env.conf["docs_dir"]
 
@@ -60,11 +100,24 @@ def define_env(env):
                 _CACHE[abs_path] = yaml.safe_load(fh)
         return _CACHE[abs_path]
 
+    _schema_checked = set()
+
     def _manifest():
-        """The parsed experiment.yml for the current page's experiment, or None (legacy)."""
-        rel = f"{_exp_dir()}/experiment.yml"
+        """The parsed experiment.yml for the current page's experiment, or None (legacy).
+
+        In manifest mode the manifest's recorded `schema_id` (if any) is verified against the
+        committed run-tree contract ONCE per experiment per build — a mismatch raises, which
+        `mkdocs build --strict` turns into a build failure."""
+        exp = _exp_dir()
+        rel = f"{exp}/experiment.yml"
         abs_path = os.path.join(docs_dir, *rel.split("/"))
-        return _load_yaml(rel) if os.path.isfile(abs_path) else None
+        if not os.path.isfile(abs_path):
+            return None
+        m = _load_yaml(rel)
+        if m and exp not in _schema_checked:
+            _verify_manifest_schema(m, docs_dir, exp)
+            _schema_checked.add(exp)
+        return m
 
     # Argument resolvers: turn a macro's args into full (run, inv, cfg) IDs, honouring
     # legacy explicit args (no manifest) or manifest short-keys (manifest present).
@@ -110,7 +163,7 @@ def define_env(env):
         (captions looked up from the module maps) else the module default list."""
         m = _manifest()
         if m:
-            caps = dict(_FIGURES + _FULL_SUITE_FIGURES)
+            caps = dict(_FIGURES + _FULL_SUITE_FIGURES + _EXTRA_CAPTIONS)
             return [(n, caps.get(n, n)) for n in m.get("figures", {}).get(kind, [])]
         return _FIGURES if kind == "top3" else _FULL_SUITE_FIGURES
 
@@ -153,6 +206,36 @@ def define_env(env):
         manifest-driven template pages loop, e.g.
         ``{% for k, inv in experiment().inventories.items() %}``."""
         return _manifest() or {}
+
+    @env.macro
+    def run_commit():
+        """Which simulator CODE produced this experiment's run, rendered for a caption.
+
+        The one ``schema_id`` a page can already cite names the run's DB **table** contract, and a
+        change that moves no table is byte-identical in it: ``753d01e`` shifted absolute throughput
+        ~1.4 % and left every id on the run unchanged. This reads the commit that
+        ``Optimization/runschema/sim_manifest.py`` stamps into ``run_spec.json`` and
+        ``docs/experiments/ingest.py`` carries into ``experiment.yml``.
+
+        Two lookup sites, because a run has two names. A **what-if** experiment's ``run:`` is a
+        CELL inside the sweep, so the run root — and therefore its commit — lives beside
+        ``whatif.source_run``; an ordinary experiment's ``run:`` IS the run and its commit sits at
+        the top level next to ``schema_id``, which is where ingest writes it.
+
+        Runs that predate the stamp render as *not recorded* rather than silently as nothing: the
+        absence is the point, and a page that quietly omitted it would be the same invisible gap
+        this macro exists to close.
+        """
+        m = _manifest() or {}
+        c = (m.get("whatif") or {}).get("commit") or m.get("commit")
+        dirty = (m.get("whatif") or {}).get("dirty")
+        if dirty is None:
+            dirty = m.get("dirty")
+        if not c or c == "unknown":
+            return "code commit not recorded"
+        # `+ uncommitted changes` is not decoration: a dirty tree means the commit alone does not
+        # identify what ran, so a reader must not treat the sha as reproducible.
+        return f"code <code>{c}</code>" + (" <strong>+ uncommitted changes</strong>" if dirty else "")
 
     # ---- number / spec formatting -------------------------------------------
 
@@ -458,9 +541,12 @@ def define_env(env):
         ("top3_by_initial_prodtime_delta_trend.png",
          "Production-time delta vs FIFO — smoothed trend."),
         ("top_vs_baseline_table.png",
-         "Top strategies vs FIFO baseline — significance table (means, deltas, p-values)."),
+         "Top runs vs the FIFO baseline — total task time (labor) and throughput side by side, "
+         "both paired over every batch the run shares with FIFO, with the task-time Wilcoxon p."),
         ("top_vs_baseline.png",
-         "Top strategies vs FIFO baseline — effect sizes with confidence intervals."),
+         "Top runs vs the FIFO baseline — grouped bars of % improvement across the five headline "
+         "metrics (task makespan, batch makespan, throughput off each, and layout total f·D), "
+         "measured on the steady-state window."),
     ]
 
     @env.macro
@@ -480,13 +566,31 @@ def define_env(env):
 
     # full assignment-function suite figures (every strategy arm), for the compiled
     # Full-results report — filename -> caption.
+    # Captions are shared by every experiment, so they must not hard-code a family count —
+    # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
     _FULL_SUITE_FIGURES = [
         ("task_duration_by_strategy.png",
-         "Steady-state task duration for every strategy arm (Uni|… and Opt|… × 16 families); "
-         "diamond = mean. The full suite, ranked."),
+         "Steady-state task duration for every strategy arm (Uni|… and Opt|… across the whole "
+         "restock-family suite); diamond = mean. The full suite, ranked."),
         ("production_time_over_time.png",
-         "Production time per batch, all 16 assignment functions overlaid "
+         "Production time per batch, every assignment function overlaid "
          "(Opt = solid, Uni = dashed)."),
+    ]
+
+    # Captions for figures that only MANIFEST-mode experiments list.  Deliberately kept out of
+    # _FIGURES / _FULL_SUITE_FIGURES: legacy mode (Experiment 1, no experiment.yml) renders those
+    # two lists verbatim, so a name added there would make Experiment 1's pages demand an image
+    # that sweep never produced and fail `mkdocs build --strict`.  _figs() merges this in for the
+    # caption lookup only.
+    _EXTRA_CAPTIONS = [
+        ("top3_by_initial_volume_curve.png",
+         "Cumulative items picked against elapsed hours — the slope is throughput. Left: the "
+         "selected arms against the FIFO baseline. Right: each arm's lead over FIFO at matched "
+         "elapsed time."),
+        ("top3_by_initial_labor_per_batch.png",
+         "Labor hours per batch over the run. Left: raw per-batch line plus a 5-batch mean, with "
+         "each arm's last-window mean and fitted trend in the legend. Right: the same arms as a "
+         "percentage against FIFO on the same batch, which cancels the demand swing."),
     ]
 
     @env.macro

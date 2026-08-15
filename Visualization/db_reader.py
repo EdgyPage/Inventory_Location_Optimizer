@@ -1,61 +1,69 @@
-"""db_reader.py — read-only reconstruction of a finished run for the replay viewer.
+"""db_reader.py — run DISCOVERY, and the binding from a discovered run to a versioned reader.
 
-No live sim / no warehouse re-plan: everything is reconstructed from the persisted
-SQLite DBs per Visualization/RECONSTRUCTION.md.  Sim DBs are large (~550 MB), so every
-query is scoped to a single (run, batch) via the existing indexes — never a full scan.
+This file owns two things and delegates everything else:
 
-Public API
-----------
-discover_runs(base_dir)                 -> list[RunRef]
-read_geometry(run)                      -> {aisles:[...], grid_cols}
-reconstruct_batch(run, batch)           -> {batch, active_aisles:[...], aisle_geom:{id:{...}},
-                                            bins:{key:{sku,qty}}, events:[...],
-                                            reorder_queue:[...], timing:{...}}
-reconstruct_overview(run, batch)        -> {aisles:[per-aisle aggregates], picker_paths:[...]}
-reconstruct_aisle(run, batch, aisle)    -> {aisle_id, geom:{...}, bins:{...}, events:[...]}
-bin_scores(sim_db, warehouse_db, run_id)-> {key: score}   (cached, static layout cost)
+  * :class:`RunRef` — one arm's coordinate on the five navigation axes, plus its file paths.
+  * :func:`discover_runs` — every arm across a whole run tree, resolved through the run's OWN
+    run-tree contract so an old run stays navigable after the tree shape moves on.
+
+All *reading* lives in `Visualization/readers/`, one vetted implementation per sim-DB schema.
+That split is the point: `discover_runs` answers "what is here", the readers answer "what does it
+say", and a schema change touches only the second.
+
+Both symbols must stay DEFINED IN THIS FILE.  `context/verify_context.py` matches
+``^\\s*(def|class)\\s+discover_runs\\b`` against this exact path, driven by the reader anchors in
+`context/artifacts.yml` for warehouse_db, sim_db and keyframes_db.  A re-export from elsewhere
+does not satisfy that regex.
 """
 from __future__ import annotations
 
 import os
-import sqlite3
-from dataclasses import dataclass
-from functools import lru_cache
+from dataclasses import dataclass, field
 
-# No sys.path bootstrap: imports are package-absolute; the entry script
-# (Visualization/server.py) seeds the repo root.
-from Warehouse.layout.Aisle_Dimensions import unit_bin_width, SIZE_HEIGHTS, SINGLETON_BIN_HEIGHT
-from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier, DEFAULT_HEIGHT_BRACKETS
+from Schema import identity as _identity
+from Visualization.readers import reader_for
+from Visualization.readers.base import _ro
+# Imported for their REGISTRATION side effect: `Schema/` imports no writer, so a family exists
+# in the registry only once its own module has been loaded, and `_identity.check_or_warn` below
+# would raise KeyError instead of checking anything.  `Picking_Data` also carries keyframes_db.
+from Optimization.persistence import Picking_Data as _picking_data  # noqa: F401
+from Optimization.persistence import Warehouse_Data as _warehouse_data  # noqa: F401
 
-from Optimization.persistence.Picking_Data import (
-    load_reorder_queue, load_bin_scores, load_sku_scores,
-)
+# The navigation axes the viewer builds its cascading selectors from.  Order = selector order:
+# warehouse -> warehouse type -> pick config -> cell -> assignment function.
+NAV_AXES = ('pair', 'channel', 'config', 'cell', 'strategy')
 
-_GRID_COLS = 6
+AXIS_LABELS = {
+    'pair': 'Warehouse',
+    'channel': 'Warehouse type',
+    'config': 'Pick config',
+    'cell': 'Layout / scheduler cell',
+    'strategy': 'Assignment function',
+}
 
-
-def _ro(path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-# ── run discovery ────────────────────────────────────────────────────────────────
 
 @dataclass
 class RunRef:
-    id: str            # stable id: "<cell>/<pair>/<config>[/<channel>]/<strategy>"
+    """One arm: where it is on the navigation axes, and which files hold it."""
+
+    id: str              # stable id: "<cell>/<pair>/<config>[/<channel>]/<strategy>"
     label: str
-    cell: str          # what-if cell (aisle-split × zoning × scheduler)
-    pair: str          # the warehouse (inventory+affinity pair label)
-    config: str        # pick-config
+    cell: str            # what-if cell (aisle-split x zoning x scheduler)
+    pair: str            # the warehouse (inventory+affinity pair label)
+    config: str          # pick-config
     channel: str | None  # 'store' | 'fulfillment'; None on a store-only tree (no channel level)
-    strategy: str      # the assignment-function arm
+    strategy: str        # the assignment-function arm
     sim_db: str
     warehouse_db: str
     keyframe_db: str
     run_id: int
     n_batches: int
+    # Two runs may only be compared — or share a colour authority — when this matches.  Arms from
+    # cells with different aisle layouts would otherwise be drawn with aisle ids that silently
+    # mean different things.
+    warehouse_fingerprint: str | None = None
+    viz_cache: str = ''
+    _reader: object = field(default=None, repr=False, compare=False)
 
     @property
     def axis_values(self) -> dict:
@@ -63,8 +71,69 @@ class RunRef:
         return {'cell': self.cell, 'pair': self.pair, 'config': self.config,
                 'channel': self.channel, 'strategy': self.strategy}
 
+    def reader(self, verify: bool = False):
+        """The vetted reader for this arm, bound once and reused.
 
-def _nearest_warehouse_db(sim_db: str) -> str | None:
+        Readers hold no live connection, so one instance is safe to share across request
+        threads; every query opens and closes its own read-only connection.
+
+        The sim DB's identity is `reader_for`'s job — that binding IS the sim-schema check, and
+        an unknown shape there raises `UnsupportedSimSchema`.  Its two companion files have no
+        such gate, so they get one here: geometry read from an unexpected `warehouse.db` draws a
+        plausible warehouse that is quietly wrong, which is the same failure in a different
+        artifact.
+
+        WARNS rather than raising.  The viewer is an interactive, strictly read-only explorer of
+        an archive that spans two months of schema evolution; refusing to open a 2026-06 run
+        outright is a worse outcome than drawing it with the differing columns named in the log,
+        and nothing here is published.  The paths that WRITE from a file, or publish a number
+        from one, use the hard `identity.check` instead.
+        """
+        if self._reader is None:
+            _identity.check_or_warn(self.warehouse_db, 'warehouse_db', verify=True)
+            if self.keyframe_db:
+                _identity.check_or_warn(self.keyframe_db, 'keyframes_db', verify=True)
+            self._reader = reader_for(
+                self.sim_db, self.warehouse_db, self.run_id,
+                keyframe_db=self.keyframe_db, viz_cache=self.viz_cache,
+                pinned_schema_id=_pinned_schema_id(self.viz_cache), verify=verify)
+        return self._reader
+
+
+def _pinned_schema_id(viz_cache: str) -> str | None:
+    """The schema id a previous precompute derived and cached, if any.
+
+    Every DB in the archive predates the `sim_schema_id` column, so without this the id is
+    re-derived (~10 PRAGMA round trips) on every binding, times hundreds of arms.
+    """
+    if not viz_cache or not os.path.exists(viz_cache):
+        return None
+    try:
+        con = _ro(viz_cache)
+        try:
+            row = con.execute(
+                "SELECT value FROM cache_meta WHERE key='sim_schema_id'").fetchone()
+            return row[0] if row else None
+        finally:
+            con.close()
+    except Exception:                            # noqa: BLE001 - a bad cache must never block a read
+        return None
+
+
+def _nearest_warehouse_db(sim_db: str, rt=None, cell: str | None = None,
+                          pair: str | None = None) -> str | None:
+    """The warehouse.db an arm was simulated against.
+
+    With a resolver (`rt` + the arm's cell/pair), the contract answers directly:
+    ``rt.warehouse_db(cell, pair)``.  The walk-up below is the documented NO-CONTRACT fallback —
+    legacy runs have no descriptor, so the nearest `warehouse.db` on the ancestor chain is the
+    best available guess.  It is kept even when the resolver path misses, because a hand-arranged
+    tree (an arm copied out for inspection) answers only to the walk.
+    """
+    if rt is not None and cell and pair:
+        cand = rt.warehouse_db(cell, pair)
+        if os.path.exists(cand):
+            return cand
     d = os.path.dirname(os.path.abspath(sim_db))
     for _ in range(4):
         cand = os.path.join(d, 'warehouse.db')
@@ -76,19 +145,53 @@ def _nearest_warehouse_db(sim_db: str) -> str | None:
 
 def _warehouse_fingerprint(warehouse_db: str) -> str | None:
     try:
-        conn = _ro(warehouse_db)
-        row = conn.execute(
-            'SELECT warehouse_fingerprint FROM warehouse_stats '
-            'ORDER BY id DESC LIMIT 1').fetchone()
-        conn.close()
-        return row['warehouse_fingerprint'] if row else None
-    except sqlite3.OperationalError:
+        con = _ro(warehouse_db)
+        try:
+            row = con.execute('SELECT warehouse_fingerprint FROM warehouse_stats '
+                              'ORDER BY id DESC LIMIT 1').fetchone()
+            return row['warehouse_fingerprint'] if row else None
+        finally:
+            con.close()
+    except Exception:                            # noqa: BLE001 - pre-fingerprint or unreadable
         return None
 
 
+_FP_INDEX_CACHE: dict[tuple, dict[str, str]] = {}
+_DISCOVER_CACHE: dict[tuple, list] = {}
+
+
+def _tree_stamp(base_dir: str) -> tuple:
+    """A cheap key that changes when the tree gains an arm or is replaced.
+
+    One `os.walk` (~0.15 s even on the results drive) over the run descriptor's mtime plus the
+    number of `sim_*.db` files.  A finished run is static, so this is stable; a run still being
+    written gains arms, and the count catches that without re-opening 272 databases.
+    """
+    layout = os.path.join(base_dir, 'run_layout.json')
+    try:
+        stamp = os.stat(layout).st_mtime_ns if os.path.exists(layout) else 0
+    except OSError:
+        stamp = 0
+    n_sim = 0
+    for _root, _dirs, files in os.walk(base_dir):
+        n_sim += sum(1 for f in files
+                     if f.startswith('sim_') and f.endswith('.db')
+                     and not f.endswith('.keyframes.db'))
+    return (os.path.abspath(base_dir), stamp, n_sim)
+
+
 def _warehouse_fp_index(base_dir: str) -> dict[str, str]:
-    """Map warehouse_fingerprint -> warehouse.db path across the tree, so a run resolves
-    its warehouse even if folders were renamed/moved after the run finished."""
+    """Map warehouse_fingerprint -> warehouse.db across the tree, so a run resolves its warehouse
+    even if folders were renamed or moved after the run finished.
+
+    Cached on the tree stamp.  This walks the WHOLE run tree — up to ~500 GB — and it used to run
+    on every /api/runs request.
+    """
+    key = _tree_stamp(base_dir)
+    hit = _FP_INDEX_CACHE.get(key)
+    if hit is not None:
+        return hit
+
     index: dict[str, str] = {}
     for root, _dirs, files in os.walk(base_dir):
         if 'warehouse.db' in files:
@@ -96,22 +199,26 @@ def _warehouse_fp_index(base_dir: str) -> dict[str, str]:
             fp = _warehouse_fingerprint(wh)
             if fp and fp not in index:
                 index[fp] = wh
+    _FP_INDEX_CACHE.clear()                      # only the current tree is ever wanted
+    _FP_INDEX_CACHE[key] = index
     return index
 
 
 def _read_run_meta(sim_db: str) -> dict | None:
     """First run's identity from a sim DB, tolerant of the pre-identity schema."""
     try:
-        conn = _ro(sim_db)
-        row = conn.execute(
-            'SELECT * FROM simulation_runs ORDER BY run_id LIMIT 1').fetchone()
-        conn.close()
-    except sqlite3.OperationalError:
+        con = _ro(sim_db)
+        try:
+            row = con.execute(
+                'SELECT * FROM simulation_runs ORDER BY run_id LIMIT 1').fetchone()
+        finally:
+            con.close()
+    except Exception:                            # noqa: BLE001 - not a sim DB / unreadable
         return None
     if row is None:
         return None
     keys = set(row.keys())
-    get = lambda k: (row[k] if k in keys else None)
+    get = lambda k: (row[k] if k in keys else None)      # noqa: E731 - terse by design
     return {
         'run_id': int(row['run_id']),
         'n_batches': int(get('n_batches') or 0),
@@ -119,30 +226,71 @@ def _read_run_meta(sim_db: str) -> dict | None:
         'pair_label': get('pair_label'),
         'config_label': get('config_label'),
         'warehouse_fingerprint': get('warehouse_fingerprint'),
+        'sim_schema_id': get('sim_schema_id'),
     }
+
+
+def viz_cache_path(base_dir: str, cell: str, pair: str, config: str,
+                   channel: str | None, strategy: str, rt=None) -> str:
+    """Where the derived sidecar for one arm lives.
+
+    ``<run_root>/_viz/<cell>/<pair>/<config>[/<channel>]/<arm>.viz.db`` — under the driver's
+    reserved ``_`` prefix (``runschema.schema.RESERVED_PREFIX``), which every tree walker skips.
+    The sidecar is DECLARED in the run-tree contract (`viz_cache_db`), so with a resolver the
+    template comes from the run's own schema document; the hand-join below is the documented
+    NO-CONTRACT fallback for legacy trees, kept byte-identical to what the template renders.
+
+    NOT ``sim_<arm>.viz.db`` beside the sim DB: that name satisfies all three predicates of
+    ``runlayout._sim_dbs_in`` (starts with ``sim_``, ends ``.db``, does not end
+    ``.keyframes.db``), so it would surface as an extra ARM through ``resolver.sim_dbs()`` and
+    crash ``Diagnostics/replay_run.py`` on a table it does not have.
+    """
+    if rt is not None:
+        try:
+            return rt.path('viz_cache_db', cell=cell, pair=pair, config=config,
+                           channel=channel or None, strategy=strategy)
+        except KeyError:                         # contract predates the viz_cache_db artifact
+            pass
+    parts = [base_dir, '_viz', cell, pair, config] + ([channel] if channel else [])
+    return os.path.join(*parts, f'{strategy}.viz.db')
 
 
 def discover_runs(base_dir: str) -> list[RunRef]:
     """One RunRef per strategy run across the WHOLE run tree, via the versioned resolver.
 
-    base_dir is the RUN ROOT.  This previously called the per-CELL walker
-    (``iter_sim_dbs(base_dir)``) at the run root, so every cell-matrix run — i.e. every run since
-    the cell refactor — surfaced ZERO runs in the viewer.  ``runschema.resolver_for`` reads the
-    run's own ``run_layout.json`` and spans all its cells.
+    `base_dir` is the RUN ROOT (the directory holding `run_layout.json`), not a cell directory:
+    `runschema.resolver_for` reads the run's own `run_layout.json` and spans all its cells.
 
     Rename-proof: strategy/pair/config labels come from the DB's stored identity (falling back to
-    the file/dir names), and each run's warehouse.db is matched by warehouse_fingerprint (falling
-    back to the nearest warehouse.db by path).  The CELL, however, exists only in the path —
-    sim_*.db has no cell column — so it always comes from the resolver.
+    the file and directory names), and each run's warehouse.db is matched by
+    warehouse_fingerprint (falling back to the nearest warehouse.db by path).  The CELL, however,
+    exists only in the path — sim_*.db has no cell column — so it always comes from the resolver.
+
+    Cached on the tree stamp: identifying 272 arms costs ~5.7 s of sim-DB opens on the results
+    drive, and `/api/runs` is hit on every page load.  Cached RunRefs keep their bound readers,
+    which is the point — readers hold no live connection, so sharing one across request threads
+    is safe.
     """
-    runs: list[RunRef] = []
     if not os.path.isdir(base_dir):
-        return runs
+        return []
+    key = _tree_stamp(base_dir)
+    hit = _DISCOVER_CACHE.get(key)
+    if hit is not None:
+        return hit
+    runs = _discover_uncached(base_dir)
+    _DISCOVER_CACHE.clear()
+    _DISCOVER_CACHE[key] = runs
+    return runs
+
+
+def _discover_uncached(base_dir: str) -> list[RunRef]:
+    runs: list[RunRef] = []
+    rt = None
     try:
         from Optimization.runschema import resolver_for
         rt = resolver_for(base_dir)
         walk = rt.sim_dbs()
-    except Exception:                                # noqa: BLE001 - unresolvable/pre-v1 tree
+    except Exception:                            # noqa: BLE001 - unresolvable / pre-contract tree
         # Last resort so a bare cell directory still opens: walk it as a single implicit cell.
         from Optimization.runschema.runlayout import iter_sim_dbs
         cell = os.path.basename(os.path.abspath(base_dir).rstrip('/\\'))
@@ -156,43 +304,35 @@ def discover_runs(base_dir: str) -> list[RunRef]:
             continue
         strategy = meta['strategy_key'] or fn[4:-3]
         pair_lbl = meta['pair_label'] or cr.pair
-        cfg_lbl  = meta['config_label'] or cr.config
+        cfg_lbl = meta['config_label'] or cr.config
+        # cr.pair (the DIRECTORY name), not pair_lbl: the resolver renders paths, and a renamed
+        # pair label from the DB's identity is exactly what a path must not be built from.
         wh = (fp_index.get(meta['warehouse_fingerprint'])
-              or _nearest_warehouse_db(sim_db))
+              or _nearest_warehouse_db(sim_db, rt=rt, cell=cell, pair=cr.pair))
         if not wh:
             continue
-        kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
+        kf = rt.keyframe_db(sim_db) if rt is not None else (
+            os.path.splitext(sim_db)[0] + '.keyframes.db')
         chan = cr.channel
         rid = '/'.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p)
-        label = ' · '.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p)
         runs.append(RunRef(
-            id=rid, label=label,
+            id=rid,
+            label=' · '.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p),
             cell=cell, pair=pair_lbl, config=cfg_lbl, channel=chan, strategy=strategy,
             sim_db=sim_db, warehouse_db=wh,
             keyframe_db=kf if os.path.exists(kf) else '',
             run_id=meta['run_id'], n_batches=meta['n_batches'],
+            warehouse_fingerprint=meta['warehouse_fingerprint'],
+            viz_cache=viz_cache_path(base_dir, cell, pair_lbl, cfg_lbl, chan, strategy, rt=rt),
         ))
     return runs
-
-
-# The navigation axes the viewer builds its cascading selectors from.  Order = selector order:
-# warehouse -> warehouse type -> pick config -> cell -> assignment function.
-NAV_AXES = ('pair', 'channel', 'config', 'cell', 'strategy')
-
-AXIS_LABELS = {
-    'pair'    : 'Warehouse',
-    'channel' : 'Warehouse type',
-    'config'  : 'Pick config',
-    'cell'    : 'Layout / scheduler cell',
-    'strategy': 'Assignment function',
-}
 
 
 def run_index(base_dir: str) -> dict:
     """{schema_id, schema_short, axes, axis_labels, runs} — the navigation contract for the UI.
 
     `axes` holds the distinct values actually present, so the front end never hardcodes a level.
-    A store-only run yields `channel: []`; the UI should HIDE that selector rather than invent a
+    A store-only run yields `channel: []`; the UI HIDES that selector rather than inventing a
     value, which is the same optionality the run-tree contract declares.
     """
     runs = discover_runs(base_dir)
@@ -201,7 +341,7 @@ def run_index(base_dir: str) -> dict:
         from Optimization.runschema import resolver_for
         rt = resolver_for(base_dir)
         schema_id, schema_short = rt.schema_id, rt.schema_short
-    except Exception:                                # noqa: BLE001 - unresolvable/legacy tree
+    except Exception:                            # noqa: BLE001 - unresolvable / legacy tree
         pass
     axes = {a: sorted({getattr(r, a) for r in runs if getattr(r, a)}) for a in NAV_AXES}
     return {
@@ -210,339 +350,8 @@ def run_index(base_dir: str) -> dict:
         'axes': axes,
         'axis_order': list(NAV_AXES),
         'axis_labels': AXIS_LABELS,
-        'runs': [{'id': r.id, 'label': r.label, 'n_batches': r.n_batches, **r.axis_values}
-                 for r in runs],
+        'runs': [{'id': r.id, 'label': r.label, 'n_batches': r.n_batches,
+                  'warehouse_fingerprint': r.warehouse_fingerprint,
+                  'has_cache': bool(r.viz_cache and os.path.exists(r.viz_cache)),
+                  **r.axis_values} for r in runs],
     }
-
-
-# ── geometry ─────────────────────────────────────────────────────────────────────
-
-def read_geometry(run: RunRef) -> dict:
-    """Full aisle + bin grid from aisle_layout.  Every bin in an aisle shares unit_type/
-    storage_size, so the grid (incl. empty bins) is generated from bay_x × bay_y."""
-    conn = _ro(run.warehouse_db)
-    rows = conn.execute(
-        'SELECT aisle_id, handling_type, category, unit_type, storage_size, bay_x, bay_y '
-        'FROM aisle_layout ORDER BY aisle_id').fetchall()
-    conn.close()
-    aisles = []
-    for idx, r in enumerate(rows):
-        bx, by = int(r['bay_x'] or 0), int(r['bay_y'] or 0)
-        bins = [{'x': cx, 'y': cy, 'size': r['storage_size'],
-                 'key': f"{r['aisle_id']},{cx},{cy}"}
-                for cy in range(1, by + 1) for cx in range(1, bx + 1)]
-        aisles.append({
-            'aisle_id': int(r['aisle_id']),
-            'handling_type': r['handling_type'], 'storage_type': r['category'],
-            'unit_type': r['unit_type'], 'storage_size': r['storage_size'],
-            'bay_x': bx, 'bay_y': by,
-            'grid_col': idx % _GRID_COLS, 'grid_row': idx // _GRID_COLS,
-            'bins': bins,
-        })
-    return {'aisles': aisles, 'grid_cols': _GRID_COLS}
-
-
-# ── bin state reconstruction ──────────────────────────────────────────────────────
-
-def _keyframe_interval(run: RunRef) -> int:
-    conn = _ro(run.sim_db)
-    try:
-        row = conn.execute(
-            'SELECT keyframe_interval FROM simulation_runs WHERE run_id=?', (run.run_id,)
-        ).fetchone()
-        k = int(row['keyframe_interval']) if row and row['keyframe_interval'] else 0
-    except sqlite3.OperationalError:
-        k = 0
-    finally:
-        conn.close()
-    return k
-
-
-def _state_at_batch_start(run: RunRef, batch: int, aisles: set[int] | None = None) -> dict[str, dict]:
-    """Occupied-bin {key: {sku, qty}} at the START of `batch`.  Nearest keyframe then roll
-    bin_inventory post_qty deltas for batches [kf, batch-1].  Optionally scope to `aisles`
-    (the active pick aisles) so the payload stays small on 157-aisle warehouses."""
-    state: dict[str, dict] = {}
-    k = _keyframe_interval(run)
-    kf = (batch // k) * k if k else 0
-    in_clause = ''
-    if aisles:
-        ids = ','.join(str(int(a)) for a in aisles)
-        in_clause = f' AND aisle_id IN ({ids})'
-    if run.keyframe_db and kf >= 0:
-        try:
-            kconn = _ro(run.keyframe_db)
-            for r in kconn.execute(
-                f'SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe '
-                f'WHERE run_id=? AND batch_id=?{in_clause}', (run.run_id, kf)).fetchall():
-                if r['qty'] > 0:
-                    state[f"{r['aisle_id']},{r['bayX']},{r['bayY']}"] = {'sku': r['sku'], 'qty': r['qty']}
-            kconn.close()
-        except sqlite3.OperationalError:
-            kf = 0
-            state = {}
-    lo = kf if state or run.keyframe_db else 0
-    conn = _ro(run.sim_db)
-    for r in conn.execute(
-        f'SELECT aisle_id, bayX, bayY, sku, post_qty FROM bin_inventory '
-        f'WHERE run_id=? AND batch_id>=? AND batch_id<?{in_clause} ORDER BY batch_id',
-        (run.run_id, lo, batch)).fetchall():
-        key = f"{r['aisle_id']},{r['bayX']},{r['bayY']}"
-        if r['post_qty'] > 0:
-            state[key] = {'sku': r['sku'], 'qty': r['post_qty']}
-        else:
-            state.pop(key, None)
-    conn.close()
-    return state
-
-
-def _aisle_geom(run: RunRef, aisle_ids) -> dict:
-    """{aisle_id: {bay_x, bay_y, unit_type, storage_size, ...}} for the given aisles — used
-    so the frontend can draw the full bin grid (including empty bins) for active aisles."""
-    ids = [int(a) for a in aisle_ids]
-    if not ids:
-        return {}
-    in_clause = ','.join(str(a) for a in ids)
-    conn = _ro(run.warehouse_db)
-    rows = conn.execute(
-        f'SELECT aisle_id, unit_type, storage_size, bay_x, bay_y, handling_type, category '
-        f'FROM aisle_layout WHERE aisle_id IN ({in_clause})').fetchall()
-    conn.close()
-    return {int(r['aisle_id']): {
-        'bay_x': int(r['bay_x'] or 0), 'bay_y': int(r['bay_y'] or 0),
-        'unit_type': r['unit_type'], 'storage_size': r['storage_size'],
-        'handling_type': r['handling_type'], 'storage_type': r['category'],
-    } for r in rows}
-
-
-def reconstruct_batch(run: RunRef, batch: int) -> dict:
-    """Everything the viewer needs to play one batch, scoped to the ACTIVE pick aisles:
-    bin state at batch start, the timed picker events, per-aisle geometry, the reorder-queue
-    snapshot, timing.  (The frontend highlights restock by diffing consecutive batches; the
-    reorder_queue table carries the queue contents — no expensive per-bin restock here.)"""
-    conn = _ro(run.sim_db)
-    active = sorted({int(r['aisle_id']) for r in conn.execute(
-        'SELECT DISTINCT aisle_id FROM picker_events '
-        'WHERE run_id=? AND batch_id=? AND aisle_id IS NOT NULL',
-        (run.run_id, batch)).fetchall()})
-
-    events = [
-        {'time': round(r['time'], 4), 'picker_id': r['picker_id'],
-         'event_type': r['event_type'], 'aisle_id': r['aisle_id'],
-         'location': ([r['aisle_id'], r['bayX'], r['bayY']]
-                      if r['aisle_id'] is not None and r['bayX'] is not None else None),
-         'sku': r['sku'], 'quantity': r['quantity'],
-         'bins_completed': r['bins_completed'], 'total_bins': r['total_bins'],
-         'items_picked': r['items_picked'], 'total_items': r['total_items']}
-        for r in conn.execute(
-            'SELECT * FROM picker_events WHERE run_id=? AND batch_id=? ORDER BY time, id',
-            (run.run_id, batch)).fetchall()
-    ]
-    n_pickers = (max((e['picker_id'] for e in events), default=-1) + 1) if events else 0
-    max_time = max((e['time'] for e in events), default=0.0)
-
-    brow = conn.execute(
-        'SELECT duration, batch_start_time, batch_end_time, queue_depth, '
-        'lead_queue_depth, in_transit_qty FROM batch_stats WHERE run_id=? AND batch_id=?',
-        (run.run_id, batch)).fetchone()
-    timing = (dict(brow) if brow else {})
-    conn.close()
-
-    start_bins = _state_at_batch_start(run, batch, aisles=set(active))
-    queue = load_reorder_queue(run.sim_db, run.run_id, batch)
-    return {
-        'batch': batch, 'n_pickers': n_pickers, 'max_time': round(max_time, 4),
-        'active_aisles': active, 'aisle_geom': _aisle_geom(run, active),
-        'bins': start_bins, 'events': events,
-        'reorder_queue': queue, 'timing': timing,
-    }
-
-
-# ── downsampled views (canvas: overview heatmap + per-aisle drill-in) ─────────────
-
-def _picker_paths(events: list[dict]) -> list[dict]:
-    """Aisle-level picker trajectories for the overview: each picker's ordered
-    (aisle_id, t) waypoints from 'arrive' events — cheap (~one per task)."""
-    paths: dict[int, list] = {}
-    for e in events:
-        if e['event_type'] == 'arrive' and e['aisle_id'] is not None:
-            paths.setdefault(e['picker_id'], []).append(
-                {'aisle_id': e['aisle_id'], 'bayX': e['location'][1], 'bayY': e['location'][2],
-                 't': e['time']})
-    return [{'picker_id': pid, 'waypoints': wp} for pid, wp in sorted(paths.items())]
-
-
-def reconstruct_overview(run: RunRef, batch: int) -> dict:
-    """Per-aisle aggregates for the zoomed-out heatmap (157 cells = cheap to render),
-    plus aisle-level picker paths.  Full bin state is reconstructed once to count
-    occupancy per aisle; detail bins are fetched lazily per aisle (reconstruct_aisle)."""
-    geom = read_geometry(run)
-    cap = {a['aisle_id']: a['bay_x'] * a['bay_y'] for a in geom['aisles']}
-    state = _state_at_batch_start(run, batch)          # whole warehouse, occupied bins
-    occ: dict[int, int] = {}
-    for key, info in state.items():
-        aid = int(key.split(',', 1)[0])
-        occ[aid] = occ.get(aid, 0) + 1
-
-    conn = _ro(run.sim_db)
-    active = sorted({int(r['aisle_id']) for r in conn.execute(
-        'SELECT DISTINCT aisle_id FROM picker_events '
-        'WHERE run_id=? AND batch_id=? AND aisle_id IS NOT NULL', (run.run_id, batch)).fetchall()})
-    picks = {int(r['aisle_id']): r['n'] for r in conn.execute(
-        "SELECT aisle_id, COUNT(*) n FROM picker_events "
-        "WHERE run_id=? AND batch_id=? AND event_type='pick' GROUP BY aisle_id",
-        (run.run_id, batch)).fetchall()}
-    events = [
-        {'time': round(r['time'], 4), 'picker_id': r['picker_id'], 'event_type': r['event_type'],
-         'aisle_id': r['aisle_id'],
-         'location': ([r['aisle_id'], r['bayX'], r['bayY']] if r['bayX'] is not None else None)}
-        for r in conn.execute(
-            "SELECT picker_id, time, event_type, aisle_id, bayX, bayY FROM picker_events "
-            "WHERE run_id=? AND batch_id=? AND event_type='arrive' ORDER BY time",
-            (run.run_id, batch)).fetchall()
-    ]
-    brow = conn.execute(
-        'SELECT duration, queue_depth, lead_queue_depth, in_transit_qty FROM batch_stats '
-        'WHERE run_id=? AND batch_id=?', (run.run_id, batch)).fetchone()
-    max_time = conn.execute(
-        'SELECT MAX(time) m FROM picker_events WHERE run_id=? AND batch_id=?',
-        (run.run_id, batch)).fetchone()['m'] or 0.0
-    conn.close()
-
-    active_set = set(active)
-    ascore = _aisle_metric_scores(run, batch)          # demand/lift/pick-load per aisle
-    aisles = [{
-        'aisle_id': a['aisle_id'], 'grid_col': a['grid_col'], 'grid_row': a['grid_row'],
-        'handling_type': a['handling_type'], 'storage_type': a['storage_type'],
-        'unit_type': a['unit_type'], 'bay_x': a['bay_x'], 'bay_y': a['bay_y'],
-        'capacity': cap[a['aisle_id']],
-        'occupied': occ.get(a['aisle_id'], 0),
-        'fill': round(occ.get(a['aisle_id'], 0) / (cap[a['aisle_id']] or 1), 4),
-        'picks': picks.get(a['aisle_id'], 0),
-        'active': a['aisle_id'] in active_set,
-        'scores': ascore.get(a['aisle_id']),
-    } for a in geom['aisles']]
-    return {
-        'batch': batch, 'grid_cols': geom['grid_cols'], 'aisles': aisles,
-        'picker_paths': _picker_paths(events), 'max_time': round(max_time, 4),
-        'reorder_queue': load_reorder_queue(run.sim_db, run.run_id, batch),
-        'timing': (dict(brow) if brow else {}),
-    }
-
-
-def reconstruct_aisle(run: RunRef, batch: int, aisle_id: int) -> dict:
-    """Full bin detail + bin-level timed events for ONE aisle (the drill-in canvas).  Includes
-    the aisle geometry so the grid shows every bin (incl. empty) at exact extents."""
-    bins = {k: v for k, v in _state_at_batch_start(run, batch, aisles={aisle_id}).items()}
-    conn = _ro(run.sim_db)
-    events = [
-        {'time': round(r['time'], 4), 'picker_id': r['picker_id'], 'event_type': r['event_type'],
-         'location': [r['aisle_id'], r['bayX'], r['bayY']] if r['bayX'] is not None else None,
-         'sku': r['sku'], 'quantity': r['quantity']}
-        for r in conn.execute(
-            'SELECT * FROM picker_events WHERE run_id=? AND batch_id=? AND aisle_id=? ORDER BY time, id',
-            (run.run_id, batch, aisle_id)).fetchall()
-    ]
-    conn.close()
-    geom = _aisle_geom(run, {aisle_id}).get(aisle_id, {})
-    scores = _aisle_metric_scores(run, batch, aisles={aisle_id}).get(aisle_id)
-    return {'batch': batch, 'aisle_id': aisle_id, 'bins': bins, 'events': events,
-            'geom': geom, 'scores': scores}
-
-
-# ── per-bin / per-SKU scores (saved by the sim; live fallback for older runs) ──────
-
-def _compute_layout_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict[str, float]:
-    """Live per-bin layout cost = travel D + golden-zone height, from geometry + run speeds.
-    Fallback for runs saved before the bin_scores table existed."""
-    conn = _ro(sim_db)
-    row = conn.execute(
-        'SELECT x_speed, y_speed, pick_intercept FROM simulation_runs WHERE run_id=?',
-        (run_id,)).fetchone()
-    conn.close()
-    x_speed = float(row['x_speed']) if row and 'x_speed' in row.keys() else 4.0
-    y_speed = float(row['y_speed']) if row and 'y_speed' in row.keys() else 2.0
-    xp, yp = sec_per_inch(x_speed), sec_per_inch(y_speed)
-
-    wconn = _ro(warehouse_db)
-    rows = wconn.execute(
-        'SELECT aisle_id, unit_type, storage_size, bay_x, bay_y FROM aisle_layout').fetchall()
-    wconn.close()
-    scores: dict[str, float] = {}
-    for r in rows:
-        ut, ss = r['unit_type'], r['storage_size']
-        x_step = unit_bin_width(ut)
-        y_step = SINGLETON_BIN_HEIGHT if ut == 'singleton' else SIZE_HEIGHTS.get(ss, SINGLETON_BIN_HEIGHT)
-        for cy in range(1, int(r['bay_y'] or 0) + 1):
-            y_phys = (cy - 1) * y_step + y_step // 2
-            m = height_multiplier(DEFAULT_HEIGHT_BRACKETS, y_phys)
-            for cx in range(1, int(r['bay_x'] or 0) + 1):
-                x_phys = (cx - 1) * x_step + x_step // 2
-                d = xp * x_phys + yp * y_phys
-                scores[f"{r['aisle_id']},{cx},{cy}"] = round(m * 1.0 + d, 4)
-    return scores
-
-
-@lru_cache(maxsize=64)
-def bin_scores(sim_db: str, warehouse_db: str, run_id: int) -> dict:
-    """Per-bin scores for the heatmap + inspector.  Prefers the saved bin_scores table
-    (authoritative layout_score + optimal-map pref); falls back to a live geometry
-    computation for older runs.  Returns {layout:{key:score}, map_pref:{key:score},
-    has_map:bool, source:'db'|'computed'}.  Lower layout = cheaper to pick."""
-    rows = load_bin_scores(sim_db, run_id)
-    if rows:
-        layout, mp = {}, {}
-        for r in rows:
-            k = f"{r['aisle_id']},{r['bayX']},{r['bayY']}"
-            layout[k] = round(r['layout_score'], 4)
-            if r['map_pref'] is not None:
-                mp[k] = round(r['map_pref'], 4)
-        return {'layout': layout, 'map_pref': mp, 'has_map': bool(mp), 'source': 'db'}
-    return {'layout': _compute_layout_scores(sim_db, warehouse_db, run_id),
-            'map_pref': {}, 'has_map': False, 'source': 'computed'}
-
-
-@lru_cache(maxsize=64)
-def sku_scores(sim_db: str, run_id: int) -> dict:
-    """Per-SKU placement scores keyed by sku (string).  {} for runs predating the table."""
-    out: dict[str, dict] = {}
-    for r in load_sku_scores(sim_db, run_id):
-        out[str(r['sku'])] = {
-            'map_target': r.get('map_target'),
-            'labor_cost': r.get('labor_cost'),
-            'handle_var': r.get('handle_var'),
-            'expected_popularity': r.get('expected_popularity'),
-            'expected_labor': r.get('expected_labor'),
-            'equilibrium_qty': r.get('equilibrium_qty'),
-            'reorder_point': r.get('reorder_point'),
-            'lead_time_mean': r.get('lead_time_mean'),
-        }
-    return out
-
-
-def _aisle_metric_scores(run: RunRef, batch: int, aisles: set[int] | None = None) -> dict:
-    """Per-aisle demand/lift/pick-load scores from aisle_metrics for one batch.
-    {aid: {demand_sum, lift_sum, pick_load_sum, n_skus, n_bins}} (empty if none saved)."""
-    conn = _ro(run.sim_db)
-    try:
-        sql = ('SELECT aisle_id, n_skus, n_bins, demand_sum, lift_sum, pick_load_sum '
-               'FROM aisle_metrics WHERE run_id=? AND batch_id=?')
-        args = [run.run_id, batch]
-        if aisles:
-            sql += ' AND aisle_id IN (%s)' % ','.join(str(int(a)) for a in aisles)
-        rows = conn.execute(sql, args).fetchall()
-    except sqlite3.OperationalError:        # pre-pick_load_sum schema
-        rows = conn.execute(
-            'SELECT aisle_id, n_skus, n_bins, demand_sum, lift_sum '
-            'FROM aisle_metrics WHERE run_id=? AND batch_id=?', (run.run_id, batch)).fetchall()
-    finally:
-        conn.close()
-    out = {}
-    for r in rows:
-        k = r.keys()
-        out[int(r['aisle_id'])] = {
-            'n_skus': r['n_skus'], 'n_bins': r['n_bins'],
-            'demand_sum': round(r['demand_sum'], 4), 'lift_sum': round(r['lift_sum'], 4),
-            'pick_load_sum': round(r['pick_load_sum'], 4) if 'pick_load_sum' in k else 0.0,
-        }
-    return out

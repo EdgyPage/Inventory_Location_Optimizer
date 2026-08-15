@@ -74,16 +74,30 @@ byte-identical, the difference between cells is attributable to the one thing th
   wall-clock and not a staffing estimate. It is a comparable measure of effort between arms, and
   nothing more.
 
-## Experiments
+## The current experiment
 
 Each experiment is self-contained — its own definitions, inventory, strategy catalogue, results,
-and glossary — so a later sweep can change the setup without disturbing earlier ones. Newest
-first.
+and glossary — so a later sweep can change the setup without disturbing earlier ones.
 
-- **[Experiment 6](experiments/experiment-6/index.md)** — throughput measured as a *rate* rather
-  than an end-of-run total. Swapping round-robin for **LPT** load-balancing lifts throughput by a
-  median **+13.7 % (store)** and **+5.6 % (fulfillment)** while total labor moves by at most
-  **±0.07 %**. The gain is removed picker *idle* time, not reduced work.
+**[Experiment 6 — Results](experiments/experiment-6/index.md)** is the current sweep and the place
+to start. Throughput is measured as a *rate* rather than an end-of-run total: swapping round-robin
+for **LPT** load-balancing lifts throughput by a median **+13.7 % (store)** and
+**+5.6 % (fulfillment)** while total labor moves by at most **±0.07 %**. The gain is removed picker
+*idle* time, not reduced work. On the same run the best placement rule cuts labor by **5.5 %**
+against the FIFO baseline and converts most of that into **+8.5 %** throughput. Two levers, two
+outcomes, one run — and they stack.
+
+Every percentage on this page, and on Experiments 4 and 5, comes from a run made before commit
+`753d01e` made bin selection deterministic: that fix lifts *absolute* throughput ~1.4 % and leaves
+labor unchanged, and these are ratios in which the shift largely cancels — see the
+[throughput page](experiments/experiment-6/comparison.md) for the absolute figures it does move.
+
+## Earlier experiments (reference)
+
+These are **superseded** by Experiment 6 and kept for reference. Each was a different run with
+different settings, so their headline numbers are not directly comparable with Experiment 6's or
+with each other — but each one is the only place a particular lever was measured.
+
 - **[Experiment 5](experiments/experiment-5/index.md)** — the scheduler is a throughput lever at
   **zero labor cost**; the assignment function is the labor lever; and **they stack**. The
   deliberately adversarial arm confirms the bound by going the other way.
@@ -101,24 +115,35 @@ first.
   four pick-time calibrations × two replenishment lead-time variants. Establishes that placement
   beats FIFO, that the margin scales with how expensive a pick is (**−1.7 %** to **−9.5 %**), and
   that the restock rule matters far more than the initial layout.
-- **[Future experiment discussion](future-experiments.md)** — what has been answered, and the
-  levers still worth a sweep.
+
+## What comes next
+
+**[Future experiment discussion](future-experiments.md)** — what has been answered, and the levers
+still worth a sweep.
 
 ## What's inside an experiment
 
-Start from any experiment's **Overview**, which links to the rest:
+Start from **Results** and go as deep as you want — the pages are ordered shallowest first, and
+each one is self-contained:
 
 | Page | What it gives you |
 |---|---|
-| **Simulation lifecycle** | how a run works end-to-end, and what this sweep holds constant vs. varies |
+| **Results** | the findings and the three figures they rest on. Read this and stop, if you like |
+| **Throughput** | how fast the work clears, and how the scheduler moves it |
+| **Labor** | how much work there is, and how placement moves it — every arm, including the losers |
+| **How a run works** | the lifecycle end-to-end, and what the sweep holds constant vs. varies |
 | **Formula reference** | the pick-time cost model, the labor decomposition, and every assignment function's scoring objective |
 | **Inventory distributions** | the catalogue this experiment actually used — sizes, weights, demand, and the reorder model |
-| **Comparison** | the headline findings, focused on the top arms versus the baseline |
-| **Full results** | every strategy in the suite, including the ones that lose |
 | **Glossary** | terms and symbols |
 
-Setup parameters on these pages are rendered from the run's own committed JSON rather than typed
-by hand, so a published number cannot drift from the run that produced it.
+Experiments 1–5 predate this ordering and still use the older page names (*Overview*,
+*Comparison*, *Full results*).
+
+Setup parameters and the cross-cell matrix on these pages are rendered from the run's own committed
+JSON rather than typed by hand. The prose around them is not — a handful of figures are quoted by
+hand from run outputs that are not committed — which is why each experiment page names the commit
+its run was produced with, and why a change to the simulator gets a dated note rather than a silent
+edit.
 
 The **[code map](code-graph.md)** is a separate, offline-capable browser for the simulator's source
 — every module, class, function, and constant, with callers, callees, and layer boundaries. To run

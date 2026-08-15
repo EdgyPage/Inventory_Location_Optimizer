@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bind · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_dataset_py__bind" data-id="Schema/dataset.py::bind">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a> <span class="sep">›</span> <span class="here"><code>bind</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>bind</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a></p>
+<div class="badges"><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def bind(path: str, family: str, *, requires=None, pinned: str | None=None, verify: bool=True, immutable: bool=False) -&gt; &#x27;Dataset&#x27;</code></pre>
+<section class="doc">Open `path` read-only and bind it to ITS OWN schema version.
+
+Resolution is stamped -&gt; pinned -&gt; derived (`identity.resolve`); an id the family does not
+vet raises `UnsupportedSchema` with the structural diff, exactly like `identity.check`.  The
+bound shape is the file&#x27;s own — the declared shape when the id is current, else the committed
+document (`UnrecoverableShape` if the store lacks it, which the write-time gates now prevent).
+
+`requires` (a `compat.Requires`) is validated against the BOUND shape at bind time, so a
+consumer fails at open with the missing column named, not mid-analysis with a default 0.0.
+`immutable=True` is for finished archives only — it skips WAL sidecar creation but the caller
+must promise nothing is writing (see `Schema.connect.read_only`).</section>
+<section class="rel"><h2>Callees <span class="count">(12)</span></h2><ul><li><a href="nSchema_compat_py__RequirementUnmet.html"><code>RequirementUnmet</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__UnrecoverableShape.html"><code>UnrecoverableShape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py___surface.html"><code>_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__load_shape.html"><code>load_shape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_dataset_py__Dataset.html"><code>Dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_identity_py__UnsupportedSchema.html"><code>UnsupportedSchema</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__get.html"><code>get</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__resolve.html"><code>resolve</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_shape_py__canonical_shape.html"><code>canonical_shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__describe_diff.html"><code>describe_diff</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__diff_shapes.html"><code>diff_shapes</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___query_rows.html"><code>_query_rows</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_run_whatif_delta_py___bind.html"><code>_bind</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_volume_py___series.html"><code>_series</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_dataset_py__bind">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/dataset.py#:~:text=def%20bind">Source ↗</a></p>
+</article>
+</main>
+</body></html>

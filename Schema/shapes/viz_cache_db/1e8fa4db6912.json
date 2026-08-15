@@ -1,0 +1,400 @@
+{
+  "family": "viz_cache_db",
+  "shape_id": "1e8fa4db6912",
+  "captured": "2026-08-14T21:23:24",
+  "captured_from": "declared (built from the writer DDL)",
+  "note": "The DECLARED shape at the time it was current. Committed by --sync so that when the DDL next moves, this outgoing shape is already on disk and needs no archive lookup to recover.",
+  "shape": {
+    "tables": {
+      "aisle_batch_rollup": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "occupied",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "capacity",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_skus",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picks",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "units_picked",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "visits",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "task_secs",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "home_match",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_rollup_aisle",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "aisle_id",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_aisle_batch_rollup_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "aisle_id"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      },
+      "bin_span": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 4
+          },
+          {
+            "name": "t_from",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 5
+          },
+          {
+            "name": "t_to",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "qty_at_from",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_span_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "t_from",
+              "t_to",
+              "aisle_id",
+              "bayX",
+              "bayY",
+              "sku",
+              "qty_at_from"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_bin_span_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "aisle_id",
+              "bayX",
+              "bayY",
+              "t_from"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      },
+      "cache_meta": {
+        "columns": [
+          {
+            "name": "key",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "value",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_cache_meta_1",
+            "unique": 1,
+            "cols": [
+              "key"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "final_home": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_homes",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "home_aisles",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_final_home_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "sku"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      },
+      "sku_rank": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "rank",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picks",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "units",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "first_batch",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "last_batch",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_sku_rank",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "rank"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_sku_rank_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "sku"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "sku_series": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "picks",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "units",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_sku_series_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "sku",
+              "batch_id"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      }
+    }
+  }
+}

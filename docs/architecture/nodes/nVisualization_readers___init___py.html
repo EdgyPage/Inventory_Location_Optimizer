@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.readers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers___init___py" data-id="Visualization/readers/__init__.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/readers/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.readers</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers___init___py.html"><code>Visualization/readers/__init__.py</code></a></p>
+
+<pre class="sig"><code>Visualization.readers</code></pre>
+<section class="doc">readers — the versioned data layer.
+
+`reader_for(...)` is the ONE entry point.  It resolves a sim DB&#x27;s schema id, looks up the vetted
+reader registered for it, and binds it to the arm&#x27;s files.  Everything above this line — routes,
+views, the front end — sees only the `SimReader` protocol and never learns which schema it read.
+
+Adding support for a new schema is one module: subclass `SqliteSimReader` (or implement the
+protocol outright), set `SCHEMA_IDS`, and register it here.  No route and no view changes.</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_fingerprint_py.html"><code>Visualization.readers.fingerprint</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li><li><a href="nVisualization_readers_protocol_py.html"><code>Visualization.readers.protocol</code></a> <span class="dim">Visualization/readers/protocol.py</span></li><li><a href="nVisualization_readers_sim_2026_07_py.html"><code>Visualization.readers.sim_2026_07</code></a> <span class="dim">Visualization/readers/sim_2026_07.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nVisualization_db_reader_py.html"><code>Visualization.db_reader</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nVisualization_server_py.html"><code>Visualization.server</code></a> <span class="dim">Visualization/server.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nVisualization_readers___init___py____all__.html"><code>__all__</code></a> <span class="dim">Visualization/readers/__init__.py</span></li><li><a href="nVisualization_readers___init___py__reader_for.html"><code>reader_for</code></a> <span class="dim">Visualization/readers/__init__.py</span></li><li><a href="nVisualization_readers___init___py__register.html"><code>register</code></a> <span class="dim">Visualization/readers/__init__.py</span></li><li><a href="nVisualization_readers___init___py__registered_schema_ids.html"><code>registered_schema_ids</code></a> <span class="dim">Visualization/readers/__init__.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

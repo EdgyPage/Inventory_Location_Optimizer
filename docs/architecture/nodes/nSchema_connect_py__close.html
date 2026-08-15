@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>close · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_connect_py__close" data-id="Schema/connect.py::close">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a> <span class="sep">›</span> <span class="here"><code>close</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>close</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def close(con, *, checkpoint: bool=True) -&gt; None</code></pre>
+<section class="doc">Close a connection, folding its WAL back into the database file first.
+
+WHY: one archived sweep carried **572** stray `-wal`/`-shm` files.  They are harmless to
+correctness, but they are counted as undeclared paths by `runschema.preflight.verify`, they make
+an archived copy differ from its original, and `scripts/archive_cells.py::_sweep_sidecars`
+exists solely to delete the ones that get that far.
+
+WHAT ACTUALLY PRODUCES THEM — measured, because the intuitive answer is wrong.  &quot;SQLite removes
+them when the last connection closes cleanly&quot; is true, but an unclean close is NOT the main
+source: a dropped handle, and even a killed worker, still gets finalized by CPython and leaves
+nothing behind.  The dominant producer is a **read-only** connection — opening a WAL database
+`mode=ro` CREATES the pair and cannot remove them, so an archived run accumulates sidecars just
+by being plotted, fingerprinted or opened in the viewer, long after every writer is gone.  No
+write-side change can eliminate those, and `_sweep_sidecars` stays the answer for them.
+
+What closing through here fixes is the narrower, real case: folding the WAL back in when this
+writer is genuinely the file&#x27;s last, so a finished artifact is a single file.  Measured on a
+`--profile tiny` sweep — 241 finished DBs, zero sidecars, against 249-291 in each archived run.
+
+TWO PROPERTIES THIS DELIBERATELY HAS, because the obvious implementation has neither:
+
+  * **It cannot lose data on a crash.**  A checkpoint only ever moves already-committed frames
+    from the WAL into the main file and fsyncs them; it is a durability *increase*.  Crash
+    mid-checkpoint and the WAL is still there and recovery replays it, exactly as before.  Note
+    it does NOT commit for you — an open transaction is rolled back by the close below, which
+    is plain `sqlite3` behaviour and must stay visible rather than be papered over here.
+  * **It cannot stall the hot path.**  `wal_checkpoint(TRUNCATE)` normally waits for every
+    reader to finish, and this connection carries a 60 s busy timeout, so the naive version
+    could block a finishing worker for a minute while the viewer holds the file open.  The
+    busy handler is disabled for the checkpoint alone: it then either succeeds immediately or
+    reports busy and is skipped.  Skipping costs a sidecar, which is the outcome we already
+    have; blocking would cost a minute of every worker&#x27;s wall-clock, which is worse.
+
+`checkpoint=False` closes without any of this — for a `bulk_writer` (journal_mode=OFF, so
+there is no WAL) or a `read_only` handle, where the pragma is a no-op or an error either way.
+Safe to call on any connection: nothing here raises.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(7)</span></h2><ul><li><a href="nOptimization_persistence_Warehouse_Data_py__init_warehouse_db.html"><code>init_warehouse_db</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py__save_aisle_layout.html"><code>save_aisle_layout</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py__save_warehouse_stats.html"><code>save_warehouse_stats</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py__record_arm.html"><code>record_arm</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore_close.html"><code>close</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li><li><a href="nWarehouse_generation_generate_affinity_py__generate_run.html"><code>generate_run</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__save_inventory_to_db.html"><code>save_inventory_to_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_connect_py__close">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/connect.py#:~:text=def%20close">Source ↗</a></p>
+</article>
+</main>
+</body></html>

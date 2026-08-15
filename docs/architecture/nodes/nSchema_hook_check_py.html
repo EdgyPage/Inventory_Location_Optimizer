@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.hook_check · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_hook_check_py" data-id="Schema/hook_check.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/hook_check.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.hook_check</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_hook_check_py.html"><code>Schema/hook_check.py</code></a></p>
+
+<pre class="sig"><code>Schema.hook_check</code></pre>
+<section class="doc">hook_check.py — Stop-hook backstop that nudges a DB-shape store sync on drift.
+
+Wired via .claude/settings.json (Stop hook), beside Optimization/runschema/hook_check.py — the
+same bargain for the OTHER contract.  It compares the DDL source fingerprint recorded in
+``Schema/shapes/INDEX.json`` against the working tree and stats the per-family committed
+documents.  It NEVER imports the writers (that pulls ~1350 modules, matplotlib and pandas
+included) and ALWAYS exits 0: advisory, never blocking, never slow.
+
+The nag it prints is the whole point.  A DDL edit that ships without ``--sync`` opens the
+window `Schema.compat.UncommittedShape` documents: the new shape is unrecoverable at the next
+change, and the outgoing one silently orphans the archive.  Catching it at the END OF THE TURN
+that edited the DDL costs one line; catching it at the next run&#x27;s precheck costs a blocked run;
+catching it at analysis time costs an unreadable archive.
+
+Run standalone:  python Schema/hook_check.py</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_tree_py.html"><code>Schema.profile_tree</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_store_index_py.html"><code>Schema.store_index</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nSchema_hook_check_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Schema/hook_check.py</span></li><li><a href="nSchema_hook_check_py__main.html"><code>main</code></a> <span class="dim">Schema/hook_check.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_hook_check_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/hook_check.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

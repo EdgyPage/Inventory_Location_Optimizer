@@ -41,7 +41,7 @@ def build_shared_assets(
     min_bins          : int | None = None,
     composition       : dict | None = None,
     regime_sizing     : dict | None = None,
-    keyframe_interval : int = 5,
+    keyframe_interval : int = CONFIG['global']['keyframe_interval'],
     warehouse_db_path : str | None = None,
     frozen_inventory_db : str | None = None,
 ) -> dict:

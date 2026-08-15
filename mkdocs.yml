@@ -72,15 +72,23 @@ nav:
   - Home: index.md
   - Code map: code-graph.md
   - Future experiment discussion: future-experiments.md
+  # Experiment 6 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
+  # numbers before any method page.  Everything after "Labor" is progressively deeper
+  # background — the lifecycle and formula pages used to sit above the results and made the
+  # section read as methodology with findings buried inside it.
   - Experiment 6:
-      - Overview: experiments/experiment-6/index.md
-      - Simulation lifecycle: experiments/experiment-6/comparison-overview.md
+      - Results: experiments/experiment-6/index.md
+      - Throughput — the scheduler lever: experiments/experiment-6/comparison.md
+      - Labor — the placement lever: experiments/experiment-6/full-results.md
+      - How a run works: experiments/experiment-6/comparison-overview.md
       - Formula reference: experiments/experiment-6/formula-reference.md
-      - Comparison: experiments/experiment-6/comparison.md
-      - Full results: experiments/experiment-6/full-results.md
       - Inventory distributions: experiments/experiment-6/inventory.md
       - Glossary: experiments/experiment-6/glossary.md
-  - Experiment 5:
+  # Experiments 1-5 are superseded by Experiment 6 and kept for reference only.  Nesting them
+  # under one section keeps the sidebar dominated by the current sweep; each landing page
+  # carries a "Superseded" banner saying the same thing in prose.
+  - Earlier experiments (reference):
+    - Experiment 5:
       - Overview: experiments/experiment-5/index.md
       - Simulation lifecycle: experiments/experiment-5/comparison-overview.md
       - Formula reference: experiments/experiment-5/formula-reference.md
@@ -88,7 +96,7 @@ nav:
       - Full results: experiments/experiment-5/full-results.md
       - Inventory distributions: experiments/experiment-5/inventory.md
       - Glossary: experiments/experiment-5/glossary.md
-  - Experiment 4:
+    - Experiment 4:
       - Overview: experiments/experiment-4/index.md
       - Simulation lifecycle: experiments/experiment-4/comparison-overview.md
       - Formula reference: experiments/experiment-4/formula-reference.md
@@ -96,7 +104,7 @@ nav:
       - Full results: experiments/experiment-4/full-results.md
       - Inventory distributions: experiments/experiment-4/inventory.md
       - Glossary: experiments/experiment-4/glossary.md
-  - Experiment 3:
+    - Experiment 3:
       - Overview: experiments/experiment-3/index.md
       - Simulation lifecycle: experiments/experiment-3/comparison-overview.md
       - Formula reference: experiments/experiment-3/formula-reference.md
@@ -104,7 +112,7 @@ nav:
       - Full results: experiments/experiment-3/full-results.md
       - Inventory distributions: experiments/experiment-3/inventory.md
       - Glossary: experiments/experiment-3/glossary.md
-  - Experiment 2:
+    - Experiment 2:
       - Overview: experiments/experiment-2/index.md
       - Simulation lifecycle: experiments/experiment-2/comparison-overview.md
       - Inventory baselines: experiments/experiment-2/inventory.md
@@ -112,7 +120,7 @@ nav:
       - Highlights: experiments/experiment-2/highlights.md
       - Everything else: experiments/experiment-2/everything-else.md
       - Glossary: experiments/experiment-2/glossary.md
-  - Experiment 1:
+    - Experiment 1:
       - Overview: experiments/experiment-1/index.md
       - Simulation lifecycle: experiments/experiment-1/comparison-overview.md
       - Inventory distributions: experiments/experiment-1/inventory.md

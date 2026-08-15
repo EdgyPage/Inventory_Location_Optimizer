@@ -63,9 +63,14 @@ each, which accounts for **99 %** of every DB:
 |---|---:|---|
 | `picker_events` | ~83 | items picked (≈ 2.14 events per pick) |
 | `bin_scores` | ~71 | total bins — fixed for the run |
-| `bin_inventory` | ~59 | bins × snapshots |
+| `bin_inventory` | ~59 | bins × snapshots — **retired; not written any more** |
 | `picks` | ~52 | items picked |
 | `sku_scores` | ~80 | SKUs in the channel |
+
+These sizes are of the ARCHIVE. Since then `bin_inventory` was dropped (it recorded picks and
+never restocks, and `picks` already held every decrement), `bin_placement` / `bin_eviction` were
+added, and the keyframe interval moved 5 → 25 — net **~36 % fewer rows per arm**, so the figures
+below are now an over-estimate for a fresh run.
 
 **The extrapolation.** Only two of those grow with run length, and at production scale they
 dominate — `picker_events` alone is ~69 % of the total. Rather than extrapolate the pick count
@@ -73,6 +78,13 @@ dominate — `picker_events` alone is ~69 % of the total. Rather than extrapolat
 records **7,358,481 items** over 100 batches. Feeding that into the measured per-row costs, with
 Experiment 6's committed `config.json` geometry (396,500 bins, 130,885 SKUs), gives **~1.9 GB**
 per store sim DB and ~500 GB for the sweep.
+
+**Vintage of that item count.** The published run predates `753d01e`, which made bin selection
+deterministic across processes and lifts absolute throughput ~1.3–1.4 % (labor and makespan are
+unchanged; the throughput *percentages* the docs quote are ratios in which the shift largely
+cancels). The count above is left exactly as that run produced it — a ~1.4 % move is well inside
+the one-significant-digit precision this model claims, so the ~1.9 GB and ~500 GB figures do not
+change.
 
 **Two independent checks.** Re-running the same model against the tiny run reproduces its measured
 size to within 5 %. And `Tests/bench/smoketest.py`'s `full` profile — production sizing at 10
@@ -244,7 +256,7 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--n-batches` | (CONFIG: 100) | batches per run |
 | `--max-skus` | — | cap the catalogue for a smaller/faster warehouse |
 | `--s-max-bins` / `--ff-max-bins` | — | cap store / fulfillment bin counts (also `--s-min-bins`, `--ff-min-bins`, `--s-max-aisles`, `--ff-max-aisles`) |
-| `--keyframe-interval` | 5 | full bin snapshot every K batches (0 disables) |
+| `--keyframe-interval` | (CONFIG: 25) | full bin snapshot every K batches (0 disables). Not the reconstruction mechanism — the bin-mutation log is; a keyframe is its independent audit and a qty anchor |
 | `--max-tasks-per-child` | 1 | recycle a pool worker after N jobs |
 | `--resume` | — | resume from a run directory; flags are read back from `run_spec.json` |
 | `--resume-granularity` | `strategy` | `strategy` restarts a partial arm bit-identically; `batch` continues from checkpoint (faster, not bit-identical) |
@@ -307,9 +319,19 @@ python docs/experiments/ingest.py --exp experiment-7 --source <run_dir> --gen-ma
 mkdocs build --strict && mkdocs serve
 ```
 
-Pages carry **no hard-coded run values**: `experiment.yml` plus the `docs/macros.py` helpers read
-the committed `config.json` / `params.json` snapshots, so a published number cannot drift from the
-run that produced it — and a missing JSON is a `--strict` build error rather than a blank.
+**Rendered values cannot drift; prose can.** `experiment.yml` plus the `docs/macros.py` helpers
+render every setup table and the cross-cell what-if matrix from the committed `config.json` /
+`params.json` / `whatif_delta.json` snapshots, and a missing JSON is a `--strict` build error
+rather than a blank. The **narrative around them is not covered by that**: Experiment 6's
+volume-curve prose quotes five values from `whatif_volume.csv` by hand — a file no macro reads and
+which is not committed — so nothing re-derives them at build time.
+
+That bypass is exactly why `753d01e` could shift absolute throughput ~1.4 % with no test failure,
+no build failure and no reader-visible signal. Two things close the gap for now, neither of them
+structural: each experiment page carries a dated note when its run is superseded by a code change,
+and `docs/macros.py:run_commit()` renders the simulator commit beside the run id (from
+`run_spec.json`, via `ingest.py`). The real fix is to route that prose through a macro over a
+committed `whatif_volume.json` — until then, "cannot drift" applies to the rendered tables only.
 
 Two traps. Run folders are named `comparison_*`, which `.gitignore` excludes; the docs image
 subtree is re-included by an explicit negation, so confirm new images are tracked with
@@ -317,6 +339,35 @@ subtree is re-included by an explicit negation, so confirm new images are tracke
 day-to-day work is on `develop`, so the site does not move until a milestone merge.
 
 Full detail in [`docs/authoring.md`](docs/authoring.md).
+
+### Optional — look at the warehouse itself
+
+The analysis suite answers *how much*; `Visualization/` answers *where*. It replays a finished run
+spatially: any bin → any aisle → up to 24 aisles at once, two arms side by side, with a restock
+convergence animation coloured by where each item ends up.
+
+```bash
+# 1. build the derived cache for the arms you want (~80 s and ~80 MB per arm)
+python -m Visualization.precompute <run_dir> --cell k1_off_rr --config store --channel store \
+       --arms uni_fifo_norsl,opt_rank_labor_norsl
+#    --pair/--channel/--arms filter; --list shows what would be built; --workers 4; --force
+
+# 2. serve it
+python Visualization/server.py <run_dir>          # --port 5000; bare name resolves against
+#                                                 #   COMPARISON_OUTPUT_DIR, same as every CLI
+```
+
+Both take the **run root** (the directory holding `run_layout.json`), not a cell directory. Step 1
+is optional — the viewer works without a cache, it is just slow on the three queries that need a
+full table scan. A full sweep is 272 arms, so `precompute` filters rather than defaulting to all.
+
+Two things worth knowing before trusting a frame. Spatial state is **exact at every batch** for a
+run carrying the bin-mutation log (`bin_placement` + `bin_eviction` + `picks`), but only at
+keyframe batches for an **archived** arm, whose `bin_inventory` never recorded restocks — the
+payload says which record it used and the viewer labels any frame that is not exact. And only the
+arms whose schema has a vetted reader will open at all: anything else fails by name rather than
+guessing. Both are explained in
+[`Visualization/RECONSTRUCTION.md`](Visualization/RECONSTRUCTION.md).
 
 ---
 
@@ -371,7 +422,7 @@ everything else is organised beneath.
 | Dir | What |
 |-----|------|
 | `scripts/` | maintenance tools: the experiment scaffold, the cold-drive cell archiver |
-| `Visualization/` · `Diagnostics/` | replay viewer, diagnostics dashboards |
+| `Visualization/` · `Diagnostics/` | the spatial run viewer (see below), diagnostics dashboards |
 | `Tests/` | grouped by what a failure means: `unit/`, `integration/`, `e2e/`, `architecture/`, `bench/` |
 | `context/` | the verified spec layer — flows, artifacts, architecture, file catalog, guards, memory |
 | `notebooks/` | exploratory Jupyter notebooks |

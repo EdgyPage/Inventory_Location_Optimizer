@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>guaranteed_surface · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_compat_py__guaranteed_surface" data-id="Schema/compat.py::guaranteed_surface">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a> <span class="sep">›</span> <span class="here"><code>guaranteed_surface</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>guaranteed_surface</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_compat_py.html"><code>Schema/compat.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def guaranteed_surface(family: str, *, strict: bool=True) -&gt; dict</code></pre>
+<section class="doc">`{table: frozenset(columns)}` present in EVERY vetted shape — the version-free surface.
+
+A consumer that stays inside this reads every vetted vintage identically and needs no
+per-version code at all. That is the whole point: bespoke compatibility should be required
+only for what genuinely varies.
+
+With `strict` (the default) an unrecoverable id raises, because an intersection taken over
+the ids we happen to have is larger than the truth and would bless reads that are not
+actually safe.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nSchema_compat_py__UnrecoverableShape.html"><code>UnrecoverableShape</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py___surface.html"><code>_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__known_shapes.html"><code>known_shapes</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__unrecoverable_ids.html"><code>unrecoverable_ids</code></a> <span class="dim">Schema/compat.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nSchema_compat_py__conditional_surface.html"><code>conditional_surface</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_compat_py__validate.html"><code>validate</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nscripts_schema_report_py__report.html"><code>report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_compat_py__guaranteed_surface">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/compat.py#:~:text=def%20guaranteed_surface">Source ↗</a></p>
+</article>
+</main>
+</body></html>

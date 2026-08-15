@@ -80,6 +80,10 @@
           },
           {
             "type": "command",
+            "command": "python Schema/hook_check.py"
+          },
+          {
+            "type": "command",
             "command": "python context/memory/hook_check.py --stop"
           },
           {

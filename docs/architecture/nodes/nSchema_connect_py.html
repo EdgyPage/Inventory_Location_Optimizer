@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.connect · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_connect_py" data-id="Schema/connect.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/connect.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.connect</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a></p>
+
+<pre class="sig"><code>Schema.connect</code></pre>
+<section class="doc">connect.py — the three ways this project should open a SQLite file.
+
+Before this module there were **seven** distinct connect idioms across 35 production call sites
+and no shared helper, which had two concrete consequences:
+
+  * `Optimization/run_whatif_delta.py` and `run_whatif_labor.py` opened **archived** sim DBs
+    read-WRITE with no pragmas, dropping `-wal`/`-shm` sidecars beside a 1 GB file — exactly the
+    condition `scripts/archive_cells.py::_quick_check` exists to defend against.
+  * A shape fingerprint is only meaningful if reading a database cannot change it, and a
+    read-write open can (WAL mode is itself a write).
+
+Three intents, named — plus the one way to hand a writer back:
+
+    read_only(path)    a finished artifact.  Cannot mutate the file, so it is the only safe way
+                       to fingerprint one.
+    writer(path)       a database being written during a run: WAL + a busy timeout, so parallel
+                       workers do not trip over each other&#x27;s checkpoints.
+    bulk_writer(path)  a DERIVED file being rebuilt from scratch.  Durability pragmas off,
+                       because a crash means &quot;rebuild it&quot;, not &quot;lose data&quot;.
+    close(con)         finish with a writer and leave no `-wal`/`-shm` beside it.
+
+Stdlib only; no imports from anywhere else in the repo.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(16)</span></h2><ul><li><a href="nDiagnostics_replay_run_py.html"><code>Diagnostics.replay_run</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py.html"><code>Optimization.persistence.Warehouse_Data</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py.html"><code>Optimization.persistence.runtime_metrics</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nOptimization_run_whatif_delta_py.html"><code>Optimization.run_whatif_delta</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_labor_py.html"><code>Optimization.run_whatif_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li><li><a href="nOptimization_run_whatif_volume_py.html"><code>Optimization.run_whatif_volume</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_dataset_py.html"><code>Schema.dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_profile_tree_py.html"><code>Schema.profile_tree</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse.catalog.Affinity_Store</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li><li><a href="nWarehouse_generation_generate_affinity_py.html"><code>Warehouse.generation.generate_affinity</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py.html"><code>Warehouse.generation.generate_inventory</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py.html"><code>Warehouse.generation.generate_mixed_profile</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nSchema_connect_py___BUSY_TIMEOUT.html"><code>_BUSY_TIMEOUT</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py___CACHE_PAGES.html"><code>_CACHE_PAGES</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py___uri.html"><code>_uri</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__bulk_writer.html"><code>bulk_writer</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__close.html"><code>close</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_connect_py__writer.html"><code>writer</code></a> <span class="dim">Schema/connect.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_connect_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/connect.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

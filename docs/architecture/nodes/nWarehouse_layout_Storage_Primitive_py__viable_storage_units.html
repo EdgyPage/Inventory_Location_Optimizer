@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_layout</a> <span class="sep">›</span> <a href="../files/nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse/layout/Storage_Primitive.py</code></a> <span class="sep">›</span> <span class="here"><code>viable_storage_units</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>viable_storage_units</code></h1>
 <p class="meta">layer <span class="chip">wh_layout</span> · file <a href="../files/nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse/layout/Storage_Primitive.py</code></a></p>
-<div class="badges"><span class="badge fanin">high fan-in</span><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>def viable_storage_units(order: Order, quantity: int) -&gt; list[StorageUnit]</code></pre>
 <section class="doc">Pack *quantity* items using the minimum number of full pallets, with any
 remainder routed to a singleton unit.

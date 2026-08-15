@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.shape · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_shape_py" data-id="Schema/shape.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/shape.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.shape</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_shape_py.html"><code>Schema/shape.py</code></a></p>
+
+<pre class="sig"><code>Schema.shape</code></pre>
+<section class="doc">shape.py — the canonical SQL shape of a SQLite database, and the diff between two.
+
+Stdlib only, and deliberately family-agnostic: every function here takes a bare
+`sqlite3.Connection` and knows nothing about which of the project&#x27;s databases it is looking at.
+That is what lets one implementation serve all eight families.
+
+What the shape covers, per table (excluding `sqlite_%`):
+  * `PRAGMA table_info`  -&gt; (name, normalized type, notnull, pk) in cid order
+  * `PRAGMA index_list` + `index_info` -&gt; each index&#x27;s name, uniqueness, and ORDERED columns
+  * AUTOINCREMENT / WITHOUT ROWID, regexed out of `sqlite_master.sql`
+
+Deliberately EXCLUDED — do not &quot;fix&quot; these without reading why:
+  `sqlite_sequence`     a side effect of AUTOINCREMENT carrying no shape of its own, and not
+                        reliably present on a database rebuilt by another path.  The bit that
+                        matters is recovered by the AUTOINCREMENT flag instead.
+  `sqlite_stat1..4`     created by ANALYZE.  Hashing them would mint a new id for a statistics
+                        refresh and orphan every vetted reader — and ANALYZE is a plausible
+                        thing to run here, since one viewer query is an unindexed 24 s scan.
+  foreign keys          declared but never enforced (nothing sets `PRAGMA foreign_keys=ON`),
+                        so a read-only consumer cannot observe them.
+  views, triggers       none exist; excluding them makes adding one a conscious act.
+
+Everything is sorted, so the ORDER of CREATE statements is not a schema change. Column types are
+upper-cased and whitespace-collapsed but NOT resolved to SQLite affinities: renaming `INTEGER` to
+`INT` is harmless but real, and should be visible rather than silently absorbed.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(12)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py.html"><code>Optimization.persistence.Warehouse_Data</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py.html"><code>Optimization.persistence.runtime_metrics</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_dataset_py.html"><code>Schema.dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nVisualization_cache_schema_py.html"><code>Visualization.cache_schema</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_readers_fingerprint_py.html"><code>Visualization.readers.fingerprint</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li><li><a href="nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse.catalog.Affinity_Store</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li><li><a href="nWarehouse_generation_generate_affinity_py.html"><code>Warehouse.generation.generate_affinity</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py.html"><code>Warehouse.generation.generate_inventory</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(11)</span></h2><ul><li><a href="nSchema_shape_py__SHORT_LEN.html"><code>SHORT_LEN</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py___AUTOINCREMENT_RE.html"><code>_AUTOINCREMENT_RE</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py___WHITESPACE_RE.html"><code>_WHITESPACE_RE</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py___WITHOUT_ROWID_RE.html"><code>_WITHOUT_ROWID_RE</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__canonical_shape.html"><code>canonical_shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__describe_diff.html"><code>describe_diff</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__diff_shapes.html"><code>diff_shapes</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__is_same_shape.html"><code>is_same_shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__observed_id.html"><code>observed_id</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__shape_id.html"><code>shape_id</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__shape_of_ddl.html"><code>shape_of_ddl</code></a> <span class="dim">Schema/shape.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_shape_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/shape.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

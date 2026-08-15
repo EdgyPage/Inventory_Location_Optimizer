@@ -1,0 +1,1074 @@
+{
+  "family": "sim_db",
+  "shape_id": "6ad0b34af9f1",
+  "captured": "2026-08-14T21:23:24",
+  "captured_from": "declared (built from the writer DDL)",
+  "note": "The DECLARED shape at the time it was current. Committed by --sync so that when the DDL next moves, this outgoing shape is already on disk and needs no archive lookup to recover.",
+  "shape": {
+    "tables": {
+      "aisle_metrics": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "n_skus",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "demand_sum",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "lift_sum",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "pick_load_sum",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_am_run_aisle",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "aisle_id"
+            ]
+          },
+          {
+            "name": "ix_am_run_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_aisle_metrics_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "aisle_id"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "batch_stats": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "duration",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "num_tasks",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_items",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "task_makespan",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "thr_task",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "thr_batch",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "avg_concurrent_pickers",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picking_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "traveling_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_start_time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_end_time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sigma_fd",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "reload_moves",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "reorder_placements",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "skus_reordered",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "units_ordered",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "queue_depth",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "lead_queue_depth",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "in_transit_qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "is_outlier",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": true,
+        "without_rowid": false
+      },
+      "bin_eviction": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "seq",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_be_bin",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "aisle_id",
+              "bayX",
+              "bayY",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_bin_eviction_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "seq"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      },
+      "bin_placement": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "seq",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "cause",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_bp_bin",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "aisle_id",
+              "bayX",
+              "bayY",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_bin_placement_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "seq"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": true
+      },
+      "bin_scores": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 4
+          },
+          {
+            "name": "travel_d",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "height_mult",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "layout_score",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "map_pref",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_bs_run",
+            "unique": 0,
+            "cols": [
+              "run_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_bin_scores_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "aisle_id",
+              "bayX",
+              "bayY"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "picker_events": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picker_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "event_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "quantity",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "bins_completed",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "items_picked",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_items",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "pick_travel_x",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "pick_travel_y",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "non_pick_travel_x",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "non_pick_travel_y",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "cart_move",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_pe_run_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "ix_pe_run_batch_time",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "time"
+            ]
+          }
+        ],
+        "autoincrement": true,
+        "without_rowid": false
+      },
+      "picks": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picker_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sim_time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "quantity",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_picks_run_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "ix_picks_run_sku",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "sku"
+            ]
+          }
+        ],
+        "autoincrement": true,
+        "without_rowid": false
+      },
+      "reorder_queue": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "kind",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "remaining_lead",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "unit_type",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "storage_size",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_rq_run_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "simulation_runs": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "run_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "created",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "strategy_key",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "pair_label",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "config_label",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "warehouse_fingerprint",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "inventory_label",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "channel",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "sim_schema_id",
+            "type": "TEXT",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "num_pickers",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "x_speed",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "y_speed",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "pick_intercept",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "pick_weight_coef",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "pick_volume_coef",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "cart_swap_coef",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "k_pickers",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "n_batches",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "seed_world",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "keyframe_interval",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "optimal_sigma_fd",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "optimal_work",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": true,
+        "without_rowid": false
+      },
+      "sku_scores": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "map_target",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "labor_cost",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "handle_var",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "expected_popularity",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "expected_labor",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "equilibrium_qty",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "reorder_point",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "lead_time_mean",
+            "type": "REAL",
+            "notnull": 0,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_ss_run",
+            "unique": 0,
+            "cols": [
+              "run_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_sku_scores_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "sku"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "task_stats": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "picker_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "task_start_time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "task_end_time",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "duration",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "W",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "lift_sum",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "num_bins_visited",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_items",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "is_outlier",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": true,
+        "without_rowid": false
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>run_commit · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="ndocs_macros_py__define_env_run_commit" data-id="docs/macros.py::define_env.run_commit">
+<nav class="crumbs"><a href="../layers.html">docs</a> <span class="sep">›</span> <a href="../files/ndocs_macros_py.html"><code>docs/macros.py</code></a> <span class="sep">›</span> <span class="here"><code>run_commit</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>run_commit</code></h1>
+<p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_macros_py.html"><code>docs/macros.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>@env.macro
+def run_commit()</code></pre>
+<section class="doc">Which simulator CODE produced this experiment&#x27;s run, rendered for a caption.
+
+The one ``schema_id`` a page can already cite names the run&#x27;s DB **table** contract, and a
+change that moves no table is byte-identical in it: ``753d01e`` shifted absolute throughput
+~1.4 % and left every id on the run unchanged. This reads the commit that
+``Optimization/runschema/sim_manifest.py`` stamps into ``run_spec.json`` and
+``docs/experiments/ingest.py`` carries into ``experiment.yml``.
+
+Two lookup sites, because a run has two names. A **what-if** experiment&#x27;s ``run:`` is a
+CELL inside the sweep, so the run root — and therefore its commit — lives beside
+``whatif.source_run``; an ordinary experiment&#x27;s ``run:`` IS the run and its commit sits at
+the top level next to ``schema_id``, which is where ingest writes it.
+
+Runs that predate the stamp render as *not recorded* rather than silently as nothing: the
+absence is the point, and a page that quietly omitted it would be the same invisible gap
+this macro exists to close.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_run_commit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20run_commit">Source ↗</a></p>
+</article>
+</main>
+</body></html>

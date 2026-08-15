@@ -1,33 +1,31 @@
-"""
-test_palletizing.py — Verify that initial orders go through the palletizing
-function (viable_storage_units) and that the correct StorageUnit type and
-storage_size are assigned to each placed bin.
+"""test_palletizing.py — `viable_storage_units` and the packing it drives at enqueue time.
 
-Two key rules (from Storage_Primitive.viable_storage_units with qty=1):
-  - Singleton wins when it fits (tie goes to singleton — smaller footprint)
-    ->Singleton fits if at least one permutation of dims has w≤16, l≤16, h≤48
-    ->Concretely: fits when at most one dim exceeds 16
-  - Pallet wins only when singleton CANNOT fit
-    ->Singleton fails when ≥ 2 dims exceed 16 (no permutation puts both large
-       dims in the height slot simultaneously)
+Palletizing is the first irreversible decision in a run: it turns "SKU 42, 25 units" into a
+concrete list of StorageUnits, and each unit's `unit_category` + `storage_size` fixes which
+BinKey group it can ever occupy.  Get it wrong and the symptom is never an exception — it is
+a bucket with no capacity, a queue that never drains, and a warehouse plan sized for the
+wrong tiers.
 
-Usage
------
-    cd Tests
-    python test_palletizing.py
+The two rules (`Storage_Primitive.viable_storage_units`, qty=1)
+---------------------------------------------------------------
+  - **Singleton wins when it fits**, and a tie goes to singleton (smaller footprint).
+    A singleton fits if SOME permutation of (l, w, h) satisfies w<=16, l<=16, h<=48 —
+    concretely, when at most ONE dimension exceeds 16.
+  - **Pallet wins only when a singleton cannot fit** — i.e. when >= 2 dimensions exceed 16,
+    since no permutation can put both large dims in the height slot at once.
+
+At quantities above one unit's capacity the packing splits: bulk onto full pallets, the
+remainder into a single singleton.  That min-pallets split is what keeps a high-quantity SKU
+from consuming a whole aisle of singleton bins.
+
+    python -m pytest Tests/unit/test_palletizing.py -q
+
+History: this file used a `check()` harness whose `fail()` body was a `print` — its 39
+assertions could not fail the suite.  Tests here use real `assert`; do not re-introduce it.
 """
 from __future__ import annotations
 
-import os
 import random
-import sys
-import itertools
-
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(os.path.dirname(_HERE))
-if _ROOT not in sys.path:          # direct-run (__main__ harness) support;
-    sys.path.insert(0, _ROOT)      # pytest gets this from Tests/conftest.py
-
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Order import Order
@@ -39,25 +37,9 @@ from Warehouse.layout.Storage_Primitive import (
 )
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 
-# ── output helpers ────────────────────────────────────────────────────────────
-_passed = 0
-_failed = 0
+_SIZES       = Storage_Size.available_sizes_heights   # {'small': 12, 'medium': 24, ...}
+_VALID_SIZES = set(_SIZES)
 
-def ok(name: str) -> None:
-    global _passed; _passed += 1
-    print(f'  PASS  {name}')
-
-def fail(name: str, detail: str = '') -> None:
-    global _failed; _failed += 1
-    print(f'  FAIL  {name}')
-    if detail:
-        print(f'        {detail}')
-
-def check(name: str, cond: bool, detail: str = '') -> None:
-    ok(name) if cond else fail(name, detail)
-
-def section(title: str) -> None:
-    print(f'\n-- {title} --')
 
 # ── order factory ────────────────────────────────────────────────────────────
 
@@ -65,323 +47,310 @@ def _carton(sku: int, length: int, width: int, height: int,
             equilibrium_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Order:
+    """A bare Order with known dimensions — no DB, no profile generation.
+
+    `object.__new__` skips Order.__init__ because that path draws demand from the generator;
+    every attribute the palletizer and the manager read is set explicitly below.
+    """
     from Warehouse.catalog.Order import StorageHandleConfig
-    c                        = object.__new__(Order)
-    c._sku                   = sku
-    c.storage_type           = (handling, category)
-    c.storage_handle_config  = StorageHandleConfig(handling, category)
-    c.lift_group             = (handling, category)
-    c.length       = length
-    c.width        = width
-    c.height       = height
-    c.weight       = 5
-    c.demand       = Demand.from_rates(0.8, 2.0)
-    c.equilibrium_qty = equilibrium_qty; c.reorder_point = max(1, equilibrium_qty // 2); c.lead_time_mean = 0.0
+    c = object.__new__(Order)
+    c._sku                  = sku
+    c.storage_type          = (handling, category)
+    c.storage_handle_config = StorageHandleConfig(handling, category)
+    c.lift_group            = (handling, category)
+    c.length          = length
+    c.width           = width
+    c.height          = height
+    c.weight          = 5
+    c.demand          = Demand.from_rates(0.8, 2.0)
+    c.equilibrium_qty = equilibrium_qty
+    c.reorder_point   = max(1, equilibrium_qty // 2)
+    c.lead_time_mean  = 0.0
     return c
+
 
 # ── warehouse factory ─────────────────────────────────────────────────────────
 
-_SIZES  = Storage_Size.available_sizes_heights  # {'small':12, 'medium':24, ...}
-_VALID_SIZES = set(_SIZES.keys())
-
 def _build_warehouse() -> tuple:
-    """Small warehouse with both pallet aisles (all sizes) and singleton aisles."""
-    Aisle.next_aisle_id = 1
-    random.seed(0)
-    # 10 pallet-width columns × 8 extra_large-height levels → 480 × 384 physical units
+    """Small warehouse with one pallet aisle per size tier plus a singleton aisle.
+
+    One aisle per tier (rather than mixed-tier aisles) means a unit's landing tier is
+    unambiguous: the bin it occupies names the tier the palletizer chose for it.
+    """
+    Aisle.next_aisle_id = 1        # class counter — reset or aisle ids leak between tests
+    random.seed(0)                 # Warehouse_Builder draws from the module-level random
+    # 10 pallet-width columns x 8 extra_large-height levels -> 480 x 384 physical units
     _W, _H = 10 * 48, 8 * 48
     cfgs = [
-        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['small'],      None),
-        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['medium'],     None),
-        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['large'],      None),
-        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['extra_large'],None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['small'],       None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['medium'],      None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['large'],       None),
+        AisleConfig('conveyable', 'food', 'pallet',    _W, _H, ['extra_large'], None),
         AisleConfig('conveyable', 'food', 'singleton', _W, _H,
                     ['small', 'medium', 'large'], [0.34, 0.33, 0.33]),
     ]
-    wh_cfg = WarehouseConfig(
-        total_aisles  = 5,
-        aisle_splits  = [0.2] * 5,
-        aisle_configs = cfgs,
-    )
+    wh_cfg = WarehouseConfig(total_aisles=5, aisle_splits=[0.2] * 5, aisle_configs=cfgs)
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
-    mgr = Inventory_Manager(wh)
-    return wh, mgr
+    return wh, Inventory_Manager(wh)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Part A: viable_storage_units direct assertions
-# ─────────────────────────────────────────────────────────────────────────────
 
-def _singleton_fits(order: Order, qty: int = 1) -> bool:
-    return _can_fit(order, Singleton, qty)
+def _bins_for(mgr, sku):
+    """Every bin the manager indexes for a SKU, across both unit families."""
+    return (list(mgr._sku_singleton_bins.get(sku, set()))
+            + list(mgr._sku_pallet_bins.get(sku, set())))
 
-def _pallet_fits(order: Order, qty: int = 1) -> bool:
-    return _can_fit(order, Pallet, qty)
 
-def test_viable_storage_units_direct() -> None:
-    section('Part A: viable_storage_units direct logic')
+def _total_qty(bins):
+    return sum(b.storage.quantity for b in bins if b.storage is not None)
 
-    # ── A1: small order — singleton fits, tie ->singleton wins ───────────────
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part A: viable_storage_units in isolation
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_a_small_order_becomes_a_single_singleton():
+    """(8, 8, 6) fits a singleton on every axis, so the tie rule sends it to singleton.
+
+    Getting the tie the other way would push every small SKU onto pallets and starve the
+    singleton aisles that exist for exactly this stock.
+    """
     small = _carton(1, length=8, width=8, height=6)
+    assert _can_fit(small, Singleton, 1), 'a (8,8,6) carton must fit a singleton'
+
     units = viable_storage_units(small, quantity=1)
-    check('A1a  small order (8,8,6): singleton fits',
-          _singleton_fits(small))
-    check('A1b  small order: viable_storage_units returns 1 unit',
-          len(units) == 1)
-    check('A1c  small order: returned unit is Singleton (tie goes to singleton)',
-          isinstance(units[0], Singleton),
-          f'got {type(units[0]).__name__}')
-    check('A1d  small order: unit.quantity == 1 before equilibrium_qty override',
-          units[0].quantity == 1)
+    assert len(units) == 1, f'expected 1 unit, got {len(units)}: {units}'
+    assert isinstance(units[0], Singleton), (
+        f'tie goes to singleton (smaller footprint); got {type(units[0]).__name__}')
+    assert units[0].quantity == 1, f'quantity should be the requested 1, got {units[0].quantity}'
 
-    # ── A2: large order (2 dims > 16) — singleton impossible ->pallet ────────
+
+def test_two_oversized_dimensions_force_a_pallet():
+    """(30, 25, 10) has TWO dims over 16, so no permutation fits a singleton.
+
+    This is the boundary the whole rule turns on: the height slot is 48 and can absorb one
+    large dimension, never two.
+    """
     large = _carton(2, length=30, width=25, height=10)
-    check('A2a  large order (30,25,10): singleton does NOT fit',
-          not _singleton_fits(large),
-          'expected singleton to fail when >=2 dims > 16')
-    check('A2b  large order: pallet fits',
-          _pallet_fits(large))
-    units2 = viable_storage_units(large, quantity=1)
-    check('A2c  large order: returns 1 unit',
-          len(units2) == 1)
-    check('A2d  large order: returned unit is Pallet',
-          isinstance(units2[0], Pallet),
-          f'got {type(units2[0]).__name__}')
-    check('A2e  large order: Pallet has valid storage_size',
-          units2[0].storage_size in _VALID_SIZES,
-          f'storage_size={units2[0].storage_size}')
+    assert not _can_fit(large, Singleton, 1), (
+        'a singleton must NOT fit when >= 2 dims exceed 16 (30, 25 both do)')
+    assert _can_fit(large, Pallet, 1), 'a pallet must fit (30, 25, 10)'
 
-    # ── A3: boundary — exactly one dim > 16 ->singleton still fits ───────────
+    units = viable_storage_units(large, quantity=1)
+    assert len(units) == 1, f'expected 1 unit, got {len(units)}'
+    assert isinstance(units[0], Pallet), f'got {type(units[0]).__name__}, expected Pallet'
+    assert units[0].storage_size in _VALID_SIZES, (
+        f'storage_size={units[0].storage_size!r} is not one of {sorted(_VALID_SIZES)}')
+
+
+def test_exactly_one_oversized_dimension_still_fits_a_singleton():
+    """(20, 10, 8) — the near-miss case, and the one a naive `max(dims) <= 16` gets wrong.
+
+    Only the permutation (h=20, w=8, l=10) fits: 20 goes in the 48-inch height slot and both
+    remaining dims are under 16.  The other five permutations all put 20 in a 16-inch slot.
+    """
     boundary = _carton(3, length=20, width=10, height=8)
-    # permutation (8, 10, 20): h=8, w=10<=16, l=20 >16 — fails
-    # permutation (8, 20, 10): w=20 >16 — fails
-    # permutation (10, 8, 20): l=20 >16 — fails
-    # permutation (10, 20, 8): w=20 >16 — fails
-    # permutation (20, 8, 10): h=20, w=8<=16, l=10<=16 — FITS
-    check('A3a  boundary order (20,10,8): singleton still fits (one large dim)',
-          _singleton_fits(boundary))
-    units3 = viable_storage_units(boundary, quantity=1)
-    check('A3b  boundary order: returns Singleton (singleton fits ->tie ->singleton wins)',
-          isinstance(units3[0], Singleton),
-          f'got {type(units3[0]).__name__}')
+    assert _can_fit(boundary, Singleton, 1), (
+        'one large dim can go in the 48-inch height slot; a singleton must still fit')
 
-    # ── A4: pallet storage_size tiers ─────────────────────────────────────────
-    # stacked height = carton_height * qty; must fit in named size tier
-    # height=10 ->stacked=10 ->fits 'small' (<=12)
-    c_small = _carton(4, length=25, width=20, height=10)
-    u_small = viable_storage_units(c_small, quantity=1)
-    check('A4a  pallet storage_size=small for stacked_height=10',
-          isinstance(u_small[0], Pallet) and u_small[0].storage_size == 'small',
-          f'got type={type(u_small[0]).__name__} size={getattr(u_small[0], "storage_size", None)}')
-
-    # height=20 ->stacked=20 ->fits 'medium' (<=24)
-    c_medium = _carton(5, length=25, width=20, height=20)
-    u_medium = viable_storage_units(c_medium, quantity=1)
-    check('A4b  pallet storage_size=medium for stacked_height=20',
-          isinstance(u_medium[0], Pallet) and u_medium[0].storage_size == 'medium',
-          f'got type={type(u_medium[0]).__name__} size={getattr(u_medium[0], "storage_size", None)}')
-
-    # All 3 dims > 24 forces 'large': Pallet._fit picks smallest fitting tier by
-    # choosing the best orientation — min stacked_h = min(dims) > 24 = medium_max
-    # (30, 28, 26): min=26 > 24, 26 <= 36=large_max -> storage_size='large'
-    c_large = _carton(6, length=30, width=28, height=26)
-    u_large = viable_storage_units(c_large, quantity=1)
-    check('A4c  pallet storage_size=large when all dims > 24 (min stacked_h=26 > 24)',
-          isinstance(u_large[0], Pallet) and u_large[0].storage_size == 'large',
-          f'got type={type(u_large[0]).__name__} size={getattr(u_large[0], "storage_size", None)}')
-
-    # ── A5: multi-unit reorder qty — large qty may force multiple pallet units ─
-    # Small order, qty=50: max_qty_for_singleton limited by stacking
-    # With (8,8,6): stack along height axis: max = 48//6 = 8 ->needs 7 singleton units for 50
-    # Pallet: dims 8,8,6 all ≤ 48 ->stack height = 6*qty ≤ 48 ->max_qty = 8 too
-    # Both produce same unit count and volume ->singleton wins (tie)
-    small_multi = _carton(7, length=8, width=8, height=6)
-    units_multi = viable_storage_units(small_multi, quantity=50)
-    check('A5a  small order qty=50: palletizing produces multiple units',
-          len(units_multi) > 1,
-          f'got {len(units_multi)} units')
-    # New packing: bulk goes to full pallets, remainder to singleton.
-    # At least one pallet unit should exist for qty=50 > max_per_pallet.
-    n_pallets   = sum(1 for u in units_multi if not isinstance(u, Singleton))
-    n_singletons = sum(1 for u in units_multi if isinstance(u, Singleton))
-    check('A5b  small order qty=50: bulk on pallets + at most 1 singleton remainder',
-          n_pallets >= 1 and n_singletons <= 1,
-          f'pallets={n_pallets} singletons={n_singletons}')
-    check('A5c  small order qty=50: total quantity across all units == 50',
-          sum(u.quantity for u in units_multi) == 50,
-          f'got {sum(u.quantity for u in units_multi)}')
+    units = viable_storage_units(boundary, quantity=1)
+    assert isinstance(units[0], Singleton), (
+        f'singleton fits, so the tie rule applies; got {type(units[0]).__name__}')
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Part B: enqueue_all routes through palletizing ->bin reflects StorageUnit type
-# ─────────────────────────────────────────────────────────────────────────────
+def test_pallet_storage_size_is_the_smallest_tier_the_stack_fits():
+    """`Pallet._fit` picks the orientation that MINIMISES stacked height, then the smallest
+    tier that holds it.  A tier too large wastes a bin; too small is unplaceable.
 
-def test_enqueue_routes_through_palletizer() -> None:
-    section('Part B: enqueue_all routes through viable_storage_units')
-    random.seed(42)
+    Tier ceilings: small <= 12, medium <= 24, large <= 36.
+    """
+    cases = [
+        # (dims, qty, expected tier, why)
+        ((25, 20, 10), 1, 'small',  'stacked height 10 fits the 12-inch small tier'),
+        ((25, 20, 20), 1, 'medium', 'stacked height 20 needs medium (>12, <=24)'),
+        # All three dims over 24, so the BEST orientation still stacks 26 -> large.
+        ((30, 28, 26), 1, 'large',  'min dim 26 > 24 = medium ceiling, <= 36 = large'),
+    ]
+    for (l, w, h), qty, want, why in cases:
+        u = viable_storage_units(_carton(4, length=l, width=w, height=h), quantity=qty)[0]
+        assert isinstance(u, Pallet), f'({l},{w},{h}) should palletize; got {type(u).__name__}'
+        assert u.storage_size == want, f'({l},{w},{h}) -> {u.storage_size!r}, expected {want!r} ({why})'
+
+
+def test_a_large_quantity_splits_into_bulk_pallets_plus_one_singleton_remainder():
+    """min-pallets packing: fill whole pallets first, then AT MOST one singleton.
+
+    50 units of a (8,8,6) carton exceed one unit's capacity either way, so the packer must
+    split.  The invariant that matters downstream is conservation — the split must move
+    every unit, not round any away.
+    """
+    units = viable_storage_units(_carton(7, length=8, width=8, height=6), quantity=50)
+    assert len(units) > 1, f'qty=50 exceeds one unit; expected a split, got {len(units)} unit(s)'
+
+    n_pallets    = sum(1 for u in units if not isinstance(u, Singleton))
+    n_singletons = sum(1 for u in units if isinstance(u, Singleton))
+    assert n_pallets >= 1, f'bulk must go on pallets; got {n_pallets} pallets, {n_singletons} singletons'
+    assert n_singletons <= 1, (
+        f'at most ONE singleton remainder; got {n_singletons} — the bulk is not being '
+        f'consolidated onto pallets')
+
+    total = sum(u.quantity for u in units)
+    assert total == 50, f'packing lost or invented units: {total} != 50'
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part B: enqueue_all routes through the palletizer
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_enqueue_places_a_small_order_as_bulk_pallets_plus_remainder():
+    """`enqueue_all` must use `viable_storage_units`, not a default one-unit-per-SKU scheme.
+
+    25 units of a small carton exceed one pallet's capacity, so at least one PALLET bin must
+    be used even though the SKU palletizes to a singleton at qty=1.  If enqueue bypassed the
+    packer, this SKU would land entirely in singleton bins.
+    """
     wh, mgr = _build_warehouse()
-
     stock_qty = 25
-    small_carton = _carton(10, length=8,  width=8,  height=6,  equilibrium_qty=stock_qty)
-    large_carton = _carton(11, length=30, width=25, height=10, equilibrium_qty=stock_qty)
+    small = _carton(10, length=8, width=8, height=6, equilibrium_qty=stock_qty)
+    mgr.enqueue_all([small])                 # quantity=None -> use each order's equilibrium_qty
 
-    # Use equilibrium_qty from order (quantity=None default) so viable_storage_units
-    # creates the full packing: pallets for bulk + singleton for remainder.
-    mgr.enqueue_all([small_carton, large_carton])
+    bins = _bins_for(mgr, 10)
+    assert bins, 'small order was not placed in any bin'
+    assert _total_qty(bins) == stock_qty, (
+        f'placed quantity {_total_qty(bins)} != equilibrium_qty {stock_qty}')
 
-    def _all_bins(mgr, sku):
-        return list(mgr._sku_singleton_bins.get(sku, set())) + \
-               list(mgr._sku_pallet_bins.get(sku, set()))
-
-    def _total_qty(bins):
-        return sum(b.storage.quantity for b in bins if b.storage is not None)
-
-    # ── B1: small order placed across pallet + singleton bins ────────────────
-    small_bins = _all_bins(mgr, 10)
-    check('B1a  small order (8,8,6) placed in at least one bin',
-          len(small_bins) > 0)
-    check('B1b  small order: total quantity across all bins == equilibrium_qty',
-          _total_qty(small_bins) == stock_qty,
-          f'expected {stock_qty}  got {_total_qty(small_bins)}')
-    pallet_bins_small = [b for b in small_bins if b.unit_type == 'pallet']
-    sing_bins_small   = [b for b in small_bins if b.unit_type == 'singleton']
-    check('B1c  small order qty=25 > max_per_pallet: at least one pallet bin used',
-          len(pallet_bins_small) >= 1,
-          f'pallet_bins={len(pallet_bins_small)}  singleton_bins={len(sing_bins_small)}')
-
-    # ── B2: large order lands in pallet bins ─────────────────────────────────
-    large_bins = _all_bins(mgr, 11)
-    check('B2a  large order (30,25,10) placed in at least one bin',
-          len(large_bins) > 0)
-    check('B2b  large order: total quantity across all bins == equilibrium_qty',
-          _total_qty(large_bins) == stock_qty,
-          f'expected {stock_qty}  got {_total_qty(large_bins)}')
-    pallet_bins_large = [b for b in large_bins if b.unit_type == 'pallet']
-    check('B2c  large order: at least one pallet bin used',
-          len(pallet_bins_large) >= 1,
-          f'pallet_bins={len(pallet_bins_large)}')
-    if pallet_bins_large:
-        bin_ = pallet_bins_large[0]
-        check('B2d  large order: pallet bin storage is Pallet',
-              isinstance(bin_.storage, Pallet),
-              f'got {type(bin_.storage).__name__}')
-        check('B2e  large order: Pallet has valid storage_size',
-              bin_.storage.storage_size in _VALID_SIZES,
-              f'storage_size={bin_.storage.storage_size}')
-        check('B2f  large order: bin storage_size accommodates pallet storage_size',
-              _SIZES.get(bin_.storage_size, 0) >= _SIZES.get(bin_.storage.storage_size, 0),
-              f'bin_size={bin_.storage_size}  pallet_size={bin_.storage.storage_size}')
+    pallet_bins = [b for b in bins if b.unit_type == 'pallet']
+    assert len(pallet_bins) >= 1, (
+        f'qty {stock_qty} exceeds max_per_pallet but no pallet bin was used '
+        f'({len(bins)} bins, all singleton) — enqueue is not routing through the packer')
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Part C: equilibrium_qty override applied correctly, _is_reorder absent
-# ─────────────────────────────────────────────────────────────────────────────
+def test_enqueue_places_a_pallet_only_order_in_a_tier_that_accommodates_it():
+    """A bin's tier must be >= the unit's tier (smallest-fit, spilling UP only).
 
-def test_equilibrium_qty_and_no_reorder_flag() -> None:
-    section('Part C: equilibrium_qty override and absence of _is_reorder on initial stock')
-    random.seed(0)
+    A medium pallet in a small bin is a physical impossibility the placement code is
+    responsible for preventing; this is the assertion that would catch it.
+    """
     wh, mgr = _build_warehouse()
+    stock_qty = 25
+    large = _carton(11, length=30, width=25, height=10, equilibrium_qty=stock_qty)
+    mgr.enqueue_all([large])
 
+    bins = _bins_for(mgr, 11)
+    assert bins, 'large order was not placed in any bin'
+    assert _total_qty(bins) == stock_qty, (
+        f'placed quantity {_total_qty(bins)} != equilibrium_qty {stock_qty}')
+
+    pallet_bins = [b for b in bins if b.unit_type == 'pallet']
+    assert pallet_bins, (
+        f'a (30,25,10) order cannot be a singleton, yet {len(bins)} bins are all singleton')
+
+    for bin_ in pallet_bins:
+        assert isinstance(bin_.storage, Pallet), (
+            f'a pallet bin holds {type(bin_.storage).__name__}, not a Pallet')
+        assert bin_.storage.storage_size in _VALID_SIZES, (
+            f'storage_size={bin_.storage.storage_size!r} not in {sorted(_VALID_SIZES)}')
+        assert _SIZES[bin_.storage_size] >= _SIZES[bin_.storage.storage_size], (
+            f'bin tier {bin_.storage_size!r} ({_SIZES[bin_.storage_size]}in) is SMALLER than '
+            f'the pallet tier {bin_.storage.storage_size!r} '
+            f'({_SIZES[bin_.storage.storage_size]}in) it holds')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Part C: initial stock is not flagged as a reorder
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_initial_stock_conserves_quantity_and_carries_no_reorder_flag():
+    """Four orders spanning both unit families and a 10x quantity range.
+
+    `_is_reorder` is what `check_reorders` uses to tell a restock from initial stock; if it
+    leaked onto initial stock, the reorder accounting would double-count the entire opening
+    inventory.  Quantity conservation is checked per SKU because a packing bug that drops
+    the remainder unit is otherwise invisible — the SKU is still "placed".
+    """
+    wh, mgr = _build_warehouse()
     orders = [
-        _carton(20, 8, 8, 6,   equilibrium_qty=10),
-        _carton(21, 8, 8, 6,   equilibrium_qty=50),
+        _carton(20, 8,  8,  6,  equilibrium_qty=10),
+        _carton(21, 8,  8,  6,  equilibrium_qty=50),
         _carton(22, 30, 25, 10, equilibrium_qty=7),
         _carton(23, 30, 25, 10, equilibrium_qty=99),
     ]
-    # quantity=None (default): use equilibrium_qty from each order so packing is correct.
     mgr.enqueue_all(orders)
 
     for c in orders:
-        bins_for = list(mgr._sku_singleton_bins.get(c.sku, set())) + \
-                   list(mgr._sku_pallet_bins.get(c.sku, set()))
-        if not bins_for:
-            fail(f'C-{c.sku}  order sku={c.sku} was not placed (no compatible bin?)')
-            continue
+        bins = _bins_for(mgr, c.sku)
+        # A masked-failure guard used to sit here (`if not bins: print(FAIL); continue`).
+        # This warehouse has room for all four orders, so an empty result is a real defect.
+        assert bins, (
+            f'sku={c.sku} ({c.length}x{c.width}x{c.height}, eq={c.equilibrium_qty}) was not '
+            f'placed in any bin — no compatible tier had capacity')
+        assert _total_qty(bins) == c.equilibrium_qty, (
+            f'sku={c.sku}: placed {_total_qty(bins)} across {len(bins)} bins, '
+            f'expected equilibrium_qty {c.equilibrium_qty}')
 
-        # Each bin carries at most max_per_pallet items; total must equal equilibrium_qty.
-        total_qty = sum(b.storage.quantity for b in bins_for if b.storage is not None)
-        check(f'C-{c.sku}  total quantity across all bins == equilibrium_qty ({c.equilibrium_qty})',
-              total_qty == c.equilibrium_qty,
-              f'expected {c.equilibrium_qty}  got {total_qty}')
-
-        for bin_ in bins_for:
-            u = bin_.storage
-            if u is None:
-                continue
-            check(f'C-{c.sku}  _is_reorder absent on initial order',
-                  not getattr(u.order, '_is_reorder', False),
-                  f'_is_reorder={getattr(u.order, "_is_reorder", False)}')
-            check(f'C-{c.sku}  order reference preserved (same sku)',
-                  u.order.sku == c.sku,
-                  f'expected sku={c.sku}  got {u.order.sku}')
+        for bin_ in bins:
+            assert bin_.storage is not None, (
+                f'sku={c.sku}: bin {bin_.location} is indexed for the SKU but holds nothing')
+            assert not getattr(bin_.storage.order, '_is_reorder', False), (
+                f'sku={c.sku}: initial stock is flagged _is_reorder')
+            assert bin_.storage.order.sku == c.sku, (
+                f'bin indexed under sku={c.sku} holds sku={bin_.storage.order.sku}')
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Part D: _originals stores non-reorder order (needed for future reorders)
-# ─────────────────────────────────────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# Part D: _originals is the template every future reorder is built from
+# ═════════════════════════════════════════════════════════════════════════════
 
-def test_originals_stored_correctly() -> None:
-    section('Part D: _originals set for reorder use')
-    random.seed(0)
+def test_originals_hold_the_unflagged_template_a_reorder_is_copied_from():
+    """`check_reorders` reads `_originals[sku]` and calls `.reorder()` on it.
+
+    So `_originals` must hold the ORIGINAL (unflagged) order: if a reorder copy ever landed
+    there, every subsequent restock would copy a copy, and any attribute `.reorder()` does
+    not carry forward would decay one generation per restock.
+    """
     wh, mgr = _build_warehouse()
-
-    c_small = _carton(30, 8, 8, 6,   equilibrium_qty=20)
+    c_small = _carton(30, 8,  8,  6,  equilibrium_qty=20)
     c_large = _carton(31, 30, 25, 10, equilibrium_qty=15)
     mgr.enqueue_all([c_small, c_large])
 
-    for c in [c_small, c_large]:
-        check(f'D-{c.sku}  _originals contains sku={c.sku}',
-              c.sku in mgr._originals,
-              f'keys={list(mgr._originals.keys())}')
-        if c.sku in mgr._originals:
-            orig = mgr._originals[c.sku]
-            check(f'D-{c.sku}  _originals[{c.sku}] has correct sku',
-                  orig.sku == c.sku)
-            check(f'D-{c.sku}  _originals[{c.sku}] is NOT flagged _is_reorder',
-                  not getattr(orig, '_is_reorder', False))
-            check(f'D-{c.sku}  _originals[{c.sku}].stock_qty == {c.equilibrium_qty}',
-                  orig.equilibrium_qty == c.equilibrium_qty,
-                  f'got {orig.equilibrium_qty}')
-
-            # Verify reorder() works correctly from _originals
-            rc = orig.reorder()
-            check(f'D-{c.sku}  reorder() produces _is_reorder=True',
-                  rc._is_reorder is True)
-            check(f'D-{c.sku}  reorder() preserves sku',
-                  rc.sku == c.sku)
-            check(f'D-{c.sku}  reorder() preserves equilibrium_qty',
-                  rc.equilibrium_qty == c.equilibrium_qty)
-            check(f'D-{c.sku}  reorder() preserves dimensions',
-                  (rc.length, rc.width, rc.height) == (c.length, c.width, c.height))
-
-            # Verify reorder() palletizes the same way as the original
-            units_orig   = viable_storage_units(c,  quantity=1)
-            units_reorder= viable_storage_units(rc, quantity=1)
-            check(f'D-{c.sku}  reorder palletizes to same StorageUnit type as original',
-                  type(units_orig[0]) == type(units_reorder[0]),
-                  f'orig={type(units_orig[0]).__name__}  '
-                  f'reorder={type(units_reorder[0]).__name__}')
+    for c in (c_small, c_large):
+        assert c.sku in mgr._originals, (
+            f'sku={c.sku} missing from _originals (keys={sorted(mgr._originals)}) — it can '
+            f'never be restocked')
+        orig = mgr._originals[c.sku]
+        assert orig.sku == c.sku, f'_originals[{c.sku}] holds sku={orig.sku}'
+        assert not getattr(orig, '_is_reorder', False), (
+            f'_originals[{c.sku}] is a REORDER copy, not the original template')
+        assert orig.equilibrium_qty == c.equilibrium_qty, (
+            f'_originals[{c.sku}].equilibrium_qty={orig.equilibrium_qty}, '
+            f'expected {c.equilibrium_qty}')
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Runner
-# ─────────────────────────────────────────────────────────────────────────────
+def test_reorder_copies_preserve_everything_the_palletizer_reads():
+    """`.reorder()` must be a faithful copy plus the flag — a restock has to palletize into
+    the SAME unit family, or it targets a bucket the warehouse was never sized for.
 
-if __name__ == '__main__':
-    print('\n' + '=' * 60)
-    print('  Palletizing Function Tests')
-    print('=' * 60)
+    Dimensions are the direct input to `viable_storage_units`, so they are checked both
+    literally and through their consequence (the resulting unit type).
+    """
+    wh, mgr = _build_warehouse()
+    c_small = _carton(30, 8,  8,  6,  equilibrium_qty=20)
+    c_large = _carton(31, 30, 25, 10, equilibrium_qty=15)
+    mgr.enqueue_all([c_small, c_large])
 
-    test_viable_storage_units_direct()
-    test_enqueue_routes_through_palletizer()
-    test_equilibrium_qty_and_no_reorder_flag()
-    test_originals_stored_correctly()
+    for c in (c_small, c_large):
+        orig = mgr._originals[c.sku]
+        rc   = orig.reorder()
 
-    print('\n' + '=' * 60)
-    total = _passed + _failed
-    if _failed == 0:
-        print(f'  All {total} checks passed.')
-    else:
-        print(f'  {_passed} passed  {_failed} failed  ({total} total)')
-    print('=' * 60 + '\n')
+        assert rc._is_reorder is True, f'reorder() of sku={c.sku} did not set _is_reorder'
+        assert rc.sku == c.sku, f'reorder() changed sku: {rc.sku} != {c.sku}'
+        assert rc.equilibrium_qty == c.equilibrium_qty, (
+            f'sku={c.sku}: reorder() eq={rc.equilibrium_qty}, expected {c.equilibrium_qty}')
+        assert (rc.length, rc.width, rc.height) == (c.length, c.width, c.height), (
+            f'sku={c.sku}: reorder() dims {(rc.length, rc.width, rc.height)} != '
+            f'{(c.length, c.width, c.height)}')
 
-    sys.exit(0 if _failed == 0 else 1)
+        t_orig = type(viable_storage_units(c,  quantity=1)[0])
+        t_re   = type(viable_storage_units(rc, quantity=1)[0])
+        assert t_orig is t_re, (
+            f'sku={c.sku}: original palletizes to {t_orig.__name__} but its reorder copy to '
+            f'{t_re.__name__} — the restock targets a different BinKey family')

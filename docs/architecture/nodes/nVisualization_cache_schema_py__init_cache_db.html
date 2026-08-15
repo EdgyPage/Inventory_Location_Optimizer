@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>init_cache_db · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_cache_schema_py__init_cache_db" data-id="Visualization/cache_schema.py::init_cache_db">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_cache_schema_py.html"><code>Visualization/cache_schema.py</code></a> <span class="sep">›</span> <span class="here"><code>init_cache_db</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>init_cache_db</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_cache_schema_py.html"><code>Visualization/cache_schema.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def init_cache_db(path: str) -&gt; sqlite3.Connection</code></pre>
+<section class="doc">Create the sidecar and return an OPEN connection tuned for bulk writing.
+
+The pragmas are safe precisely because this file is derived: a crash mid-build leaves a
+cache with no `built_utc`, which `precompute` treats as absent and rebuilds.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_compat_py__stamp_checked.html"><code>stamp_checked</code></a> <span class="dim">Schema/compat.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py__build_one.html"><code>build_one</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_cache_schema_py__init_cache_db">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/cache_schema.py#:~:text=def%20init_cache_db">Source ↗</a></p>
+</article>
+</main>
+</body></html>

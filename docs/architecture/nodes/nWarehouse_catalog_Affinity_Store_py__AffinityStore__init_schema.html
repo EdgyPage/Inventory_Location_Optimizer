@@ -15,7 +15,14 @@
 <p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse/catalog/Affinity_Store.py</code></a></p>
 
 <pre class="sig"><code>def _init_schema(self) -&gt; None</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">Create the tables ONLY when something is actually missing.
+
+This used to run unconditionally, which meant opening a complete, generator-written
+`affinity.db` — even purely to read it — silently ADDED `sku_group` and changed the
+file&#x27;s shape.  A database whose structure depends on whether it has been opened yet
+cannot be fingerprinted, and the mutation also drifted it away from what
+`context/artifacts.yml` declares.  The generator now declares `sku_group` too, so the
+common path finds everything present and touches nothing.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Affinity_Store_py__AffinityStore__init_schema">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Affinity_Store.py#:~:text=def%20_init_schema">Source ↗</a></p>
 </article>

@@ -80,6 +80,11 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import compat as _compat
+from Schema import identity as _identity
+from Schema import connect as _connect
+from Schema import shape as _shape
+
 _DEFAULT_OUT_DIR     = os.path.join(_WH, 'generated', 'affinities')
 _TOP_K_DEFAULT       = 10
 _CANDIDATE_K_DEFAULT = 60    # legacy (demand-rank model); unused by the latent-cluster model
@@ -104,16 +109,73 @@ _SCHEMA = '''
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );
+    -- Declared here even though only Warehouse/catalog/Affinity_Store.py writes it.  Without
+    -- this the store's _init_schema ADDS the table the first time a generator-written file is
+    -- opened, so the database's shape changed simply by being read — and no stable schema
+    -- fingerprint of this family was possible.  Both DDLs must stay in step.
+    CREATE TABLE IF NOT EXISTS sku_group (
+        sku        INTEGER PRIMARY KEY,
+        lift_group INTEGER NOT NULL
+    );
 '''
 
 
+#: The ONE ordered DDL list: `_init_db` executes it and the declared shape is BUILT from it, so
+#: the declaration cannot drift from what the writer creates.  `_SCHEMA` is a multi-statement
+#: script, hence the single-element tuple — `_shape.shape_of_ddl` dispatches to `executescript`.
+#: No `_identity.meta_ddl(...)` entry: this family stamps into `run_metadata`, which the script
+#: above ALREADY declares.  A meta table created only by `stamp()` would appear in the observed
+#: shape and never in the declared one, so no file could ever verify.
+_ALL_DDL = (_SCHEMA,)
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf that imports no writer
+# (context/architecture.yml forbids `schema -> generation`).
+#
+# This family was UNHASHABLE until `sku_group` moved into `_SCHEMA` above: reading a
+# generator-written file with `Warehouse/catalog/Affinity_Store.py` used to ADD that table, so
+# the observed shape depended on whether the file had ever been opened.  Both DDLs must stay in
+# step — `AffinityStore._init_schema` now creates nothing when every table is already present.
+
+def declared_affinity_shape() -> dict:
+    return _shape.shape_of_ddl(_ALL_DDL)
+
+
+AFFINITY_DB_FAMILY = _identity.register(_identity.Family(
+    name='affinity_db',
+    declared_shape=declared_affinity_shape,
+    meta_table='run_metadata',      # already declared above; shared with the params_json row
+    # No known_ids, and that is a RESULT, not an omission.  DECLARING `sku_group` here looked
+    # like it must have re-minted this family's id and orphaned the archive — it did not.  Both
+    # archived `affinity.db` files (the 2026-07-08 catalogue pairs; the only ones that exist)
+    # already CONTAIN sku_group + affinity + run_metadata, because the old AffinityStore added
+    # the table the first time anything opened them.  So they re-derive to the current declared
+    # id: the change removed a mutation-on-read, not a column, and nothing needs freezing.
+))
+
+
 def _init_db(db_path: str) -> sqlite3.Connection:
+    # TRUNCATE-FRESH — see generate_inventory._init_db: IF-NOT-EXISTS + INSERT OR REPLACE never
+    # shrink, so a regenerated-smaller affinity matrix would keep stale (sku_i, sku_j) pairs.
+    if os.path.exists(db_path):
+        print(f'[affinity] regenerating {db_path} FRESH (stale-row guard: existing file removed)')
+        try:
+            os.remove(db_path)
+        except PermissionError as exc:
+            raise SystemExit(
+                f'cannot regenerate {db_path}: the file is open in another process '
+                f'(a viewer, a notebook, an analysis run?). Close it and retry. ({exc})'
+            ) from exc
     conn = sqlite3.connect(db_path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA synchronous=NORMAL')
     conn.execute('PRAGMA cache_size=-262144')
     conn.execute('PRAGMA temp_store=MEMORY')
-    conn.executescript(_SCHEMA)
+    for stmt in _ALL_DDL:
+        conn.executescript(stmt)
+    # STRICT: interactive data-gen CLI — see generate_inventory._init_db for the reasoning.
+    _compat.stamp_checked(conn, AFFINITY_DB_FAMILY, strict=True)
     conn.commit()
     return conn
 
@@ -301,7 +363,13 @@ def generate_affinity(
         elapsed   = time.perf_counter() - t_group
         elapsed_t = time.perf_counter() - t_start
         pairs     = rows_written // 2
-        print(f'  [{group_key}]  {n:,} SKUs  top-{eff_top_k}  →  '
+        # ASCII '->' deliberately: U+2192 has no cp1252 mapping (unlike U+2014/2013/2026), so
+        # this print is fatal on a Windows console.  It fires once per SKU group at the end of a
+        # multi-hour job, where a UnicodeEncodeError destroys the summary of work that already
+        # succeeded.  One of the two such lines in this module — the other is the final
+        # `Saved ->` in `generate_run`; every remaining non-ASCII character here is comment or
+        # docstring and never reaches stdout.  Grep for U+2192 before adding a print.
+        print(f'  [{group_key}]  {n:,} SKUs  top-{eff_top_k}  ->  '
               f'{pairs:,} pairs  ({rows_written:,} rows)  {elapsed:.1f}s  '
               f'[total {total_rows:,} / {elapsed_t:.0f}s elapsed]')
 
@@ -606,11 +674,20 @@ def generate_run(
     plot_dir = os.path.join(run_dir, 'plots')
     os.makedirs(plot_dir, exist_ok=True)
 
+    # The parent link is RELATIVE to this params.json's own directory: the absolute form died the
+    # first time the tree moved drives (the archive evacuation left every recorded H:\ path
+    # dangling).  `_abs` is kept for one transition so older tooling that read the absolute key
+    # keeps limping; new consumers use `source_inventory_db` + their own root.
+    try:
+        _rel_inv = os.path.relpath(inv_db, run_dir).replace(os.sep, '/')
+    except ValueError:                        # different drive (test fixtures) — keep the abs form
+        _rel_inv = inv_db
     params = {
         'name'               : name,
         'timestamp'          : datetime.now().strftime('%Y%m%d_%H%M%S'),
         'seed'               : seed,
-        'source_inventory_db': inv_db,
+        'source_inventory_db': _rel_inv,
+        'source_inventory_db_abs': inv_db,
         'top_k'              : top_k,
         'candidate_k'        : candidate_k,
         'min_lift'           : min_lift,
@@ -666,9 +743,11 @@ def generate_run(
     plot_activity_vs_lift(conn_aff, group_skus, sku_demand, plot_dir)
     plot_degree_distribution(conn_aff, plot_dir)
     plot_cumulative_lift(conn_aff, plot_dir)
-    conn_aff.close()
+    _connect.close(conn_aff)             # every write above is committed; see generate_affinity
 
-    _log(f'[affinity:{name}] Saved → {run_dir}')
+    # ASCII '->': same cp1252 trap as the per-group line, and this one is the LAST thing a
+    # multi-hour affinity build prints.
+    _log(f'[affinity:{name}] Saved -> {run_dir}')
     return run_dir
 
 

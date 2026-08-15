@@ -14,9 +14,15 @@
 <h1><span class="kind kind-function">function</span> <code>_stage_inventory_assets</code></h1>
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
 
-<pre class="sig"><code>def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log)</code></pre>
-<section class="doc">params.json + the inventory distribution plots, located via a sim_meta.json&#x27;s inv_db path.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___copy.html"><code>_copy</code></a> <span class="dim">docs/experiments/ingest.py</span></li><li><a href="ndocs_experiments_ingest_py___find.html"><code>_find</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
+<pre class="sig"><code>def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None)</code></pre>
+<section class="doc">params.json + the inventory distribution plots.
+
+Located, in preference order: (1) BY NAME via the run&#x27;s recorded `pair_bindings` under
+--profiles-root (v2 run_layout + a descriptor-bearing catalogue — survives drive moves);
+(2) via a sim_meta.json&#x27;s recorded inv_db ABSOLUTE path — the frozen legacy route, load-
+bearing for every pre-v2 run.  The `_find` walks on the resolved root remain: the profile
+plots live in generator-owned subtrees the docs deliberately flatten.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___copy.html"><code>_copy</code></a> <span class="dim">docs/experiments/ingest.py</span></li><li><a href="ndocs_experiments_ingest_py___find.html"><code>_find</code></a> <span class="dim">docs/experiments/ingest.py</span></li><li><a href="ndocs_experiments_ingest_py___inv_root_from_bindings.html"><code>_inv_root_from_bindings</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___stage_inventory_assets">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_stage_inventory_assets">Source ↗</a></p>
 </article>
 </main>

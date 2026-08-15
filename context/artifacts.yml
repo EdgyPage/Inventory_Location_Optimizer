@@ -25,7 +25,25 @@ artifacts:
       - {function: AffinityStore, file: Warehouse/catalog/Affinity_Store.py}
     match: "affinity.db"
     schema_file: Warehouse/generation/generate_affinity.py
-    tables: [affinity, run_metadata]
+    # sku_group is written only by Warehouse/catalog/Affinity_Store.py but is DECLARED by the
+    # generator, so the file's shape no longer changes the first time the store opens it.
+    tables: [affinity, run_metadata, sku_group]
+
+  profile_layout:
+    # The profiles-tree descriptor — the catalogue-side analogue of run_layout.json.  Stamped
+    # (and re-stamped after every leaf) by all four generators + the preflight canary via
+    # write_profile_layout; ProfileTree resolves pairs/latest/bindings from it, and the legacy
+    # walk serves descriptor-less trees permanently (descriptors are forward-only — never
+    # fabricated for an old catalogue).  Contract: Schema/profile_tree.py, committed store
+    # Schema/schemas/profile_tree/.
+    path_pattern: "<profiles>/<run>/profile_layout.json"
+    format: json
+    writer: {function: write_profile_layout, file: Schema/profile_tree.py}
+    readers:
+      - {function: read_profile_layout, file: Schema/profile_tree.py}
+      - {function: layout_of, file: Schema/profile_resolver.py}
+    match: "profile_layout.json"
+    fields: [version, schema_id, created, generator, argv, repo_commit, repo_dirty, profiles]
 
   # ── simulation outputs ──────────────────────────────────────────────────────────
   run_manifest:
@@ -40,15 +58,21 @@ artifacts:
   run_spec:
     # The fully-resolved run invocation (argv + resolved run-shaping params + pinned inventory
     # pairs), written at run start so a crash resumes with `--resume DIR` and zero retyped flags.
+    # repo_commit / repo_dirty are CODE provenance — the only field on a run that distinguishes two
+    # runs of the same tree and the same tables from different simulator code.  repo_commit is
+    # 'unknown' and repo_dirty null where no git metadata exists (a source export, a missing git);
+    # deriving them never fails a run.
     path_pattern: "comparison_<ts>/run_spec.json"
     format: json
     writer: {function: _write_run_spec, file: Optimization/runschema/sim_manifest.py}
     readers:
       - {function: _load_run_spec, file: Optimization/runschema/sim_manifest.py}
+      - {function: main, file: docs/experiments/ingest.py}
     match: "run_spec.json"
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
              ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
-             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs]
+             all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs,
+             repo_commit, repo_dirty]
 
   run_layout:
     # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
@@ -64,7 +88,7 @@ artifacts:
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
     fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
-             channels, cells, pairs, configs, arms]
+             channels, cells, pairs, pair_bindings, configs, arms]
 
   warehouse_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"
@@ -76,7 +100,9 @@ artifacts:
     # the writer's tripwire is its parameter name.
     match: "warehouse_db_path"
     schema_file: Optimization/persistence/Warehouse_Data.py
-    tables: [warehouse_stats, aisle_type_stats]
+    # aisle_layout is the GEOMETRY table every viewer reads (one row per aisle: bay_x x bay_y plus
+    # the BinKey 4-tuple).  It was omitted here while the other two were listed.
+    tables: [warehouse_stats, aisle_type_stats, aisle_layout]
 
   planned_inventory_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/planned_inventory.db"
@@ -139,8 +165,14 @@ artifacts:
       - {function: discover_runs, file: Visualization/db_reader.py}
     match: "sim_"
     schema_file: Optimization/persistence/Picking_Data.py
+    # bin_placement / bin_eviction are the bin-mutation log, and with picks they make spatial
+    # state exactly reconstructible at every batch.  `bin_inventory` is retired: it recorded
+    # picks and never restocks, and picks already hold every decrement at finer resolution.
+    # It is absent here because this list is what a run WRITES — archived DBs still carry the
+    # table and load_bin_inventory still reads them.
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
-             bin_inventory, aisle_metrics, reorder_queue, bin_scores, sku_scores]
+             aisle_metrics, reorder_queue, bin_scores, sku_scores,
+             bin_placement, bin_eviction]
 
   keyframes_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"
@@ -152,6 +184,28 @@ artifacts:
     schema_file: Optimization/persistence/Picking_Data.py
     tables: [bin_keyframe]
 
+  viz_cache_db:
+    # DERIVED, and the only artifact here that no simulation produces — `precompute` builds it
+    # from the sim + keyframe DBs, and deleting it costs time, never data.  It lives under the
+    # driver's reserved `_` prefix (runschema.schema.RESERVED_PREFIX) so every tree walker skips
+    # it; named `sim_<arm>.viz.db` beside the sim DB it would instead satisfy all three predicates
+    # of runlayout._sim_dbs_in and surface as an extra ARM.
+    # ALSO declared in runschema/schema.py ARTIFACTS (`viz_cache_db`, optional).  It was left out
+    # at first on the grounds that a file no run writes should not mint a run-tree schema — but the
+    # contract is what verify_tree matches observed files against, so the omission surfaced as one
+    # undeclared template per arm on any run the viewer had been pointed at.
+    path_pattern: "comparison_<ts>/_viz/<cell>/<pair>/<config>[/<channel>]/<strategy>.viz.db"
+    format: sqlite
+    writer: {function: build_one, file: Visualization/precompute.py}
+    readers:
+      - {function: SqliteSimReader, file: Visualization/readers/base.py}
+      - {function: cache_state, file: Visualization/precompute.py}
+    # The `.viz.db` filename literal is composed in db_reader.viz_cache_path, not here, so — as
+    # with warehouse_db above — the writer's tripwire is the attribute it writes through.
+    match: "viz_cache"
+    schema_file: Visualization/cache_schema.py
+    tables: [cache_meta, bin_span, sku_rank, sku_series, final_home, aisle_batch_rollup]
+
   sim_meta:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_meta.json"
     format: json
@@ -161,8 +215,10 @@ artifacts:
       - {function: _find_series, file: Optimization/run_channel_rollup.py}
       - {function: main, file: docs/experiments/ingest.py}
     match: "sim_meta.json"
+    # sim_schema_id: the Schema/ id of the sim_<arm>.db files beside this file.  The docs site
+    # opens no database, so this JSON is the only route by which schema identity reaches it.
     fields: [name, inventory, run_dir, channel, strategies, optimal_sigma_fd,
-             optimal_work, inv_db, aff_db]
+             optimal_work, inv_db, aff_db, sim_schema_id]
 
   runtime_metrics_db:
     path_pattern: "comparison_<ts>/runtime_metrics.db"
@@ -219,7 +275,7 @@ artifacts:
     format: csv
     writer: {function: rollup, file: Optimization/run_channel_rollup.py}
     readers: []
-    match: "channel_rollup_summary.csv"
+    match: "channel_rollup_summary_csv"
     fields: [pair, channel, best_config, best_plan, baseline_fifo_ss, best_ss, saving_abs,
              saving_pct]
 
@@ -229,7 +285,7 @@ artifacts:
     format: csv
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers: []
-    match: "whatif_delta.csv"
+    match: "whatif_delta_csv"
     fields: [cell, pair, pickcfg, channel, arm,
              ref_task_ms, cell_task_ms, d_task_ms_pct,
              ref_batch_ms, cell_batch_ms, d_batch_ms_pct,
@@ -244,7 +300,7 @@ artifacts:
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers:
       - {function: whatif_matrix, file: docs/macros.py}
-    match: "whatif_delta.json"
+    match: "whatif_delta_json"
     fields: [schema_id, reference, reference_label, metrics, window_batches, arms, pairs,
              channels, cells]
 
@@ -253,14 +309,14 @@ artifacts:
     format: png
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers: []
-    match: "whatif_delta.png"
+    match: "whatif_delta_png"
 
   whatif_labor_csv:
     path_pattern: "comparison_<ts>/whatif_labor.csv"
     format: csv
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
-    match: "whatif_labor.csv"
+    match: "whatif_labor_csv"
     fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
              batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
 
@@ -269,7 +325,7 @@ artifacts:
     format: json
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
-    match: "whatif_labor.json"
+    match: "whatif_labor_json"
     fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
              labor_baseline, hours_note, cells]
 
@@ -279,3 +335,18 @@ artifacts:
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
     match: "whatif_labor_throughput_scatter"
+
+  # ── diagnostics exports (outside every contracted tree — deliberately) ──────────
+  replay_trace_json:
+    # Lives under the SOURCE tree (Diagnostics/out/), not the run tree or the profiles tree:
+    # it is a derived dashboard trace, regenerable from any run's DBs, and the static dashboard
+    # (Diagnostics/static/app.js — a JS reader, hence no reader anchor) fetches it relative to
+    # its own directory.  Neither tree contract claims it, and none should: adding it to a tree
+    # would make a run dir or catalogue dir appear stale whenever a dashboard export exists.
+    # The sibling manifest.json (merged, shared with trace_lifecycle traces) rides along.
+    path_pattern: "Diagnostics/out/replay_<arm>.json"
+    format: json
+    writer: {function: main, file: Diagnostics/replay_run.py}
+    readers: []
+    match: "replay_"
+    fields: [meta, batches]

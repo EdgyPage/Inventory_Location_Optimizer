@@ -8,7 +8,7 @@ from Warehouse.layout.Storage_Primitive import StorageCart, StoreCart
 from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
-from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step
+from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -45,6 +45,10 @@ class PickConfig:
     # byte-identical; 'lpt' = load-balance the fixed work to minimise makespan (higher throughput,
     # unchanged total labor) by minimising the EXACT per-picker load (travel+handling + real cart).
     scheduler: str          = 'round_robin'
+
+    def __post_init__(self):
+        # A non-positive speed is NaN-poison, not a slow picker — see validate_speeds().
+        validate_speeds(self.x_speed, self.y_speed, source='PickConfig')
 
 
 # ── events ───────────────────────────────────────────────────────────────────

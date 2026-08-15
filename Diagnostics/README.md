@@ -30,6 +30,8 @@ Writes `Diagnostics/out/trace_<strategy>.json` (one per strategy) + `manifest.js
 ### 2. Replay a real run's DBs — `replay_run.py`
 Reads the persisted SQLite output of a finished `run_simulation.py` run (copy the
 run dir over from the other machine / external drive) and exports per-batch fill.
+`<run_base_dir>` is a run directory under the `COMPARISON_OUTPUT_DIR` from `.env` — read the
+key, never paste a machine-local path.
 
 ```bash
 python Diagnostics/replay_run.py <run_base_dir>
@@ -37,10 +39,35 @@ python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_nor
 python Diagnostics/replay_run.py <run_base_dir> --max 200
 ```
 
-Occupied bins come from `aisle_metrics.n_bins` when present, otherwise are
-reconstructed from `bin_inventory` deltas. Replays merge into the same `manifest.json`,
-so traces and real runs share the dashboard's run switcher. (Replays have no
-per-unit stage/function detail — that isn't persisted — so those panels hide.)
+Replays merge into the same `manifest.json`, so traces and real runs share the dashboard's run
+switcher. (Replays have no per-unit stage/function detail — that isn't persisted — so those
+panels hide.) The `sim_X.keyframes.db` sidecars are skipped: they hold only `bin_keyframe`.
+
+#### Where the occupancy curve comes from — and what it is worth
+
+Three sources, tried best-first. Which one was used is no longer implicit: the CLI tags every arm
+line `[EXACT]` or `[APPROXIMATE, <phase>]` and prints the full reason once per run, the export
+records `meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`, and an
+approximate replay shows as `[approx]` in the dashboard's run switcher.
+
+| Source | Used when | Worth |
+|---|---|---|
+| `bin_placement` + `bin_eviction` + `picks` | the DB carries the bin-mutation log | **Exact at every batch.** Those are every mutation of `Aisle.Bin.storage` the simulation can make, so folding them (EVICT → PLACE → PICK, per batch) reproduces its own bin state. Reference fold `Tests/bench/bin_log_harness.py::fold`; proof `Tests/integration/test_bin_log_replay.py`. |
+| `aisle_metrics.n_bins` | no log, and the strategy maintains aisle state (the `opt_*` affinity arms) | Approximate. The manager's own counter, sampled *after* restock and *before* the batch's picks — a different instant than the other two — and it lags a bin emptied by a pick. |
+| `bin_inventory` deltas | an ARCHIVED arm with no log and no aisle state (the `uni_*` arms — `aisle_metrics` is empty there). Unreachable on a current DB: the table is retired and no run writes it | Approximate and biased downward. The table records picks and **never** restocks, so rolling it forward can only ever decay. |
+
+Why that last row matters — and why the delta stream was retired rather than kept as a fallback.
+Measured on one production arm (`uni_fifo_norsl`) from the overlap window, which carries both the
+log and the legacy delta stream — occupied bins per batch:
+
+| batch | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| log fold (exact) | 8,440 | 7,675 | 8,066 | 7,376 | 7,865 | 7,031 |
+| `bin_inventory` | 8,440 | 6,878 | 5,995 | 5,025 | 4,416 | 3,623 |
+
+The delta stream draws a warehouse that steadily drains — 48% low by batch 5, and worse the longer
+the run. Runs that predate the log (the whole archive) still replay; they are now labelled instead
+of believed. Re-run an arm to get an exact curve.
 
 ## View the dashboard
 

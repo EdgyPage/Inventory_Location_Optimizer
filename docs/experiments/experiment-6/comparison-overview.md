@@ -1,7 +1,7 @@
 # Simulation lifecycle &amp; method
 
 How a run is built, what every result page holds constant, and what it varies. This is the
-**reference page** for the terms the comparison write-ups cite — every stage below names the
+**reference page** for the terms the results pages cite — every stage below names the
 source code that implements it and reports this experiment's numbers straight from the run's
 committed snapshots. Symbols are defined in the [Glossary](glossary.md).
 
@@ -135,7 +135,7 @@ per batch:  lead_queue[*].remaining -= 1
 
 `{{ experiment().baseline }}` drops arrivals into a uniform-random bin; the ranked/map families
 rank and slot them toward the layout optimum, scoring bins with the placement primitive
-$\ell(b)$ and demand/affinity. All **16 restock families** — their scoring objectives and the
+$\ell(b)$ and demand/affinity. All **17 restock families** — their scoring objectives and the
 winners' equations — are catalogued on the [Formula reference](formula-reference.md#the-families).
 The winners highlighted in this experiment are
 {% for w in experiment().winners %}`{{ w }}`{% if not loop.last %}, {% endif %}{% endfor %}.
@@ -161,6 +161,6 @@ Everything a result page can vary, and everything it holds fixed so a comparison
 |--------|--------|
 | Replenishment lead time | {% for key, inv in experiment().inventories.items() %}`{{ key }}`{% if not loop.last %} · {% endif %}{% endfor %} |
 | Pick-time calibration | {% for c in experiment().configs %}`{{ c.name }}`{% if not loop.last %} · {% endif %}{% endfor %} |
-| Placement strategy | initial layout {uni, opt} × 16 restock families (see [Formula reference](formula-reference.md#the-families)) |
+| Placement strategy | initial layout {uni, opt} × 17 restock families = **34 arms** (see [Formula reference](formula-reference.md#the-families)) |
 
-See the [experiment overview](index.md) for how each strategy performs on these catalogues.
+See the [Results](index.md) page for how each strategy performs on these catalogues.

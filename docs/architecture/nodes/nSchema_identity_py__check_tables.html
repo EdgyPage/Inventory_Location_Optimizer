@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>check_tables · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_identity_py__check_tables" data-id="Schema/identity.py::check_tables">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_identity_py.html"><code>Schema/identity.py</code></a> <span class="sep">›</span> <span class="here"><code>check_tables</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>check_tables</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_identity_py.html"><code>Schema/identity.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def check_tables(path: str, expected: dict, tables, *, label: str) -&gt; None</code></pre>
+<section class="doc">`check()` for a consumer that can only reach PART of its family&#x27;s declaration.
+
+A whole-file id needs the family, and a family lives with its WRITER — which is sometimes a
+module the reader must not import (`Warehouse/catalog/Affinity_Store.py` reads a file whose
+family is registered in `Warehouse/generation/generate_affinity.py`, a data-gen CLI that
+pulls matplotlib and pandas into every simulation worker). Comparing only the tables the
+consumer actually queries, against the DDL it already mirrors, gives that reader the same
+guarantee without the import — and turns &quot;both DDLs must stay in step&quot; from a comment into
+something the file enforces on itself every time it opens a database.
+
+Raises `UnsupportedSchema` naming the differing columns. `label` goes in the message in
+place of a family name, so it should say which tables were compared.</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_identity_py__UnsupportedSchema.html"><code>UnsupportedSchema</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_shape_py__canonical_shape.html"><code>canonical_shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__describe_diff.html"><code>describe_diff</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__diff_shapes.html"><code>diff_shapes</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nSchema_shape_py__shape_id.html"><code>shape_id</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Affinity_Store_py__AffinityStore__verify_shape.html"><code>_verify_shape</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_identity_py__check_tables">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/identity.py#:~:text=def%20check_tables">Source ↗</a></p>
+</article>
+</main>
+</body></html>

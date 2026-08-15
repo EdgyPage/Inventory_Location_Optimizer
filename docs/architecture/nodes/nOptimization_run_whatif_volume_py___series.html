@@ -13,12 +13,17 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_whatif_volume_py.html"><code>Optimization/run_whatif_volume.py</code></a> <span class="sep">›</span> <span class="here"><code>_series</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_series</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_volume_py.html"><code>Optimization/run_whatif_volume.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _series(db: str)</code></pre>
 <section class="doc">(hours, items) cumulative arrays for one arm, ordered by batch.
 
-Read-only + immutable so verifying an archived copy never leaves a -wal/-shm sidecar beside it.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_volume_py__scan.html"><code>scan</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li></ul></section>
+A VETTED file binds to its own schema vintage (`Schema.dataset.bind`, immutable=True — the
+escape-hatch `.con` still carries the same aggregate SQL, unchanged); an unvetted one
+(synthetic fixtures, cold archives) opens through `Schema.connect.read_only` with the same
+read-only + immutable promise, replacing the hand-built `?mode=ro&amp;immutable=1` URI this
+function used to assemble.  Either way no `-wal`/`-shm` sidecar is ever left beside an
+archived copy.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_dataset_py__bind.html"><code>bind</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_identity_py__SchemaError.html"><code>SchemaError</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_volume_py__scan.html"><code>scan</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_volume_py___series">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_volume.py#:~:text=def%20_series">Source ↗</a></p>
 </article>
 </main>

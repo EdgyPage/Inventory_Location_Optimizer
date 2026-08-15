@@ -8,6 +8,11 @@ pair_dir/warehouse.db.  Separate from the per-strategy sim_*.db files.
 import hashlib
 import os
 import sqlite3
+
+from Schema import compat as _compat
+from Schema import identity as _identity
+from Schema import connect as _connect
+from Schema import shape as _shape
 from datetime import datetime, timezone
 
 
@@ -95,20 +100,85 @@ def _open_db(path: str) -> sqlite3.Connection:
     return con
 
 
+# ── why ALL THREE writers below close through `Schema.connect.close` ──────────────
+# warehouse.db is the file the archive actually strands sidecars beside — every `_frozen/
+# <pair>/` in the two 2026-07-29 runs carries a `warehouse.db-wal` and a `-shm`.  It earns the
+# checkpoint where `Picking_Data` does not (see `_open_db` there) for three reasons:
+#
+#   * These three calls are the file's ENTIRE write life.  They run once per inventory pair in
+#     `simdriver/sim_assets.build_shared_assets`, in the PARENT, before any worker spawns —
+#     `save_aisle_layout` is genuinely the last write it will ever take.
+#   * It is tiny: a few hundred `aisle_layout` rows, not the ~1 GB of a sim DB.  Measured, the
+#     checkpointing close costs 1.29 ms against 1.26 ms for a plain one.
+#   * Afterwards it is READ by every arm of that pair at once, and a `mode=ro` connection on a
+#     WAL database creates `-shm` and cannot remove it again.  Leaving the WAL folded in is
+#     what keeps the file clean up to that point.
+#
+# All three commit explicitly first: `connect.close` checkpoints, it does not commit, and an
+# open transaction would still be rolled back.
+
+
 # ── public API ─────────────────────────────────────────────────────────────────
+
+#: The ONE ordered DDL list: init_warehouse_db executes it and the declared shape is built from
+#: it, so the declaration cannot drift from what the writer creates.
+_ALL_DDL = (_CREATE_WAREHOUSE_STATS, _CREATE_AISLE_TYPE_STATS, _CREATE_AISLE_IDX,
+            _CREATE_AISLE_LAYOUT, _identity.meta_ddl('schema_meta'))
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf that imports no writer.
+# The declared shape is BUILT from the same DDL init_warehouse_db executes, never hand-listed.
+
+def declared_warehouse_shape() -> dict:
+    con = sqlite3.connect(':memory:')
+    try:
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+#: The shape every warehouse.db carried before `schema_meta` was declared — i.e. every run from
+#: 2026-06-24 through 2026-07-29 inclusive.  DERIVED from real archived files (the `_frozen/
+#: <pair>/warehouse.db` of `comparison_whatif_20260729_115451`, and 19 more across nine runs),
+#: never chosen.  It differs from the declaration by exactly one absent table — the stamp itself,
+#: which is pure provenance and which no reader selects: `read_stamp` returns None for it and
+#: falls through to derivation, which is the normal path for the whole archive.
+PRE_STAMP_WAREHOUSE_SCHEMA_ID = '46464b5dfff6'
+
+#: Older still — `comparison_20260623_*`, before `warehouse_stats.warehouse_fingerprint` existed.
+#: DERIVED from `_frozen/<pair>/warehouse.db` of `comparison_20260623_150217` (4 files, 2 runs).
+#: Vetted because the ONE table both consumers actually read — `aisle_layout`, the geometry — is
+#: byte-identical to today's, and the single missing column already has a documented fallback on
+#: both read paths (`Visualization/db_reader._warehouse_fingerprint` returns None ->
+#: `_nearest_warehouse_db`).  `Diagnostics/replay_run.py` never selects it at all.
+PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID = '342d31313d08'
+
+WAREHOUSE_DB_FAMILY = _identity.register(_identity.Family(
+    name='warehouse_db',
+    declared_shape=declared_warehouse_shape,
+    meta_table='schema_meta',
+    # Newest first.  Each entry is a real window of commits that produced real files; dropping
+    # one orphans them, so entries are added, never replaced.
+    known_ids=(PRE_STAMP_WAREHOUSE_SCHEMA_ID, PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID),
+))
+
 
 def init_warehouse_db(path: str) -> None:
     """Create warehouse_stats, aisle_type_stats, and aisle_layout tables."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     con = _open_db(path)
     try:
-        con.execute(_CREATE_WAREHOUSE_STATS)
-        con.execute(_CREATE_AISLE_TYPE_STATS)
-        con.execute(_CREATE_AISLE_IDX)
-        con.execute(_CREATE_AISLE_LAYOUT)
-        con.commit()
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        # Stamp + verify the store: worker-safe (warn-once) — this runs inside sim asset
+        # builds; the blocking check for the run path is run_simulation's precheck.
+        _compat.stamp_checked(con, WAREHOUSE_DB_FAMILY, strict=False)
+        con.commit()                     # connect.close checkpoints, it does not commit
     finally:
-        con.close()
+        _connect.close(con)
 
 
 def save_aisle_layout(path: str, rows: list[dict]) -> None:
@@ -131,7 +201,7 @@ def save_aisle_layout(path: str, rows: list[dict]) -> None:
         )
         con.commit()
     finally:
-        con.close()
+        _connect.close(con)
 
 
 def save_warehouse_stats(
@@ -190,7 +260,7 @@ def save_warehouse_stats(
                 for r in aisle_rows
             ],
         )
-        con.commit()
+        con.commit()                     # connect.close checkpoints, it does not commit
         return warehouse_id  # type: ignore[return-value]
     finally:
-        con.close()
+        _connect.close(con)

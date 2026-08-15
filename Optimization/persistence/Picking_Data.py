@@ -1,8 +1,16 @@
 import csv
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from Schema import capability as _capability
+from Schema import compat as _compat
+from Schema import dataset as _dataset
+from Schema import identity as _identity
+from Schema import shape as _shape
+from Schema.connect import read_only as _ro_conn
 
 
 @dataclass
@@ -75,6 +83,13 @@ class TaskStats:
 
 @dataclass
 class BinInventoryRecord:
+    """One archived `bin_inventory` row.  **ARCHIVE-ONLY — no run writes this table any more.**
+
+    Kept, with `load_bin_inventory`, because the ~500 GB archive predates the bin-mutation log
+    and `bin_inventory` is the only depletion record those files will ever have.  New runs record
+    `bin_placement` + `bin_eviction` + `picks` instead, which reconstruct bin state exactly at
+    every batch rather than approximately between keyframes.
+    """
     run_id:       int
     batch_id:     int
     aisle_id:     int
@@ -153,6 +168,7 @@ _CREATE_RUNS = """
         warehouse_fingerprint TEXT,   -- stable hash tying this run to its warehouse.db
         inventory_label       TEXT,   -- planned-inventory profile label
         channel               TEXT,   -- operation/channel ('store'|'fulfillment'); NULL = legacy store-only
+        sim_schema_id         TEXT,   -- THIS file's SQL shape (see sim_schema_id()); NULL = pre-stamp run
         num_pickers       INTEGER,
         x_speed           REAL,
         y_speed           REAL,
@@ -172,8 +188,12 @@ _CREATE_RUNS = """
 # Identity columns set by create_run(identity=...); rename-proof run association.
 # 'channel' distinguishes the store vs fulfillment run subtrees in a mixed warehouse
 # (NULL for legacy store-only runs that don't pass it).
+# 'sim_schema_id' is defaulted by create_run rather than supplied by the caller — it describes
+# the FILE's shape, not the run's provenance.  Runs written before it existed leave it NULL and
+# the reader derives the id instead (Visualization/readers).
 _IDENTITY_COLS = ('strategy_key', 'pair_label', 'config_label',
-                  'warehouse_fingerprint', 'inventory_label', 'channel')
+                  'warehouse_fingerprint', 'inventory_label', 'channel',
+                  'sim_schema_id')
 
 # Run-param columns set by create_run(params=...); order matches the INSERT.
 _RUN_PARAM_COLS = ('num_pickers', 'x_speed', 'y_speed', 'pick_intercept',
@@ -296,64 +316,32 @@ _CREATE_PICKER_EVENTS_TIME_IDX = """
     ON picker_events (run_id, batch_id, time)
 """
 
-_CREATE_BIN_INVENTORY = """
-    CREATE TABLE IF NOT EXISTS bin_inventory (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
-        batch_id     INTEGER NOT NULL,
-        aisle_id     INTEGER NOT NULL,
-        bayX         INTEGER NOT NULL,
-        bayY         INTEGER NOT NULL,
-        sku          INTEGER NOT NULL,
-        unit_type    TEXT    NOT NULL,
-        storage_size TEXT    NOT NULL,
-        pre_qty      INTEGER NOT NULL,
-        post_qty     INTEGER NOT NULL
-    )
-"""
-
-# Query pattern: load full warehouse snapshot at start of batch B
-#   SELECT * FROM bin_inventory WHERE run_id=? AND batch_id=? ORDER BY aisle_id, bayX, bayY
+# ── bin_inventory — SUNSET.  Read-only, archive-only; no DDL, no writer. ──────
 #
-# Derive inventory at sim-time T mid-batch (join with picker_events):
-#   WITH pre AS (
-#       SELECT aisle_id, bayX, bayY, sku, pre_qty
-#       FROM   bin_inventory WHERE run_id=? AND batch_id=?
-#   ),
-#   picks AS (
-#       SELECT aisle_id, bayX, bayY, SUM(quantity) AS picked
-#       FROM   picker_events
-#       WHERE  run_id=? AND batch_id=? AND event_type='pick' AND time <= ?
-#       GROUP  BY aisle_id, bayX, bayY
-#   )
-#   SELECT p.aisle_id, p.bayX, p.bayY, p.sku,
-#          MAX(0, p.pre_qty - COALESCE(pk.picked, 0)) AS qty_at_t
-#   FROM   pre p LEFT JOIN picks pk
-#          ON p.aisle_id=pk.aisle_id AND p.bayX=pk.bayX AND p.bayY=pk.bayY
+# This build does not create the table and never inserts into it.  It was pure redundancy:
+# it records picks and NEVER restocks, and `picks` already holds every decrement at better
+# (sim_time) resolution — measured, SUM(pre_qty - post_qty) equals SUM(picks.quantity)
+# exactly on every arm tested.  The bin-mutation log below supersedes it outright.
 #
-# Sanity check — total picked per bin must equal pre_qty - post_qty:
-#   SELECT b.aisle_id, b.bayX, b.bayY, b.sku,
-#          b.pre_qty - b.post_qty        AS expected_picked,
-#          COALESCE(SUM(pe.quantity), 0) AS actual_picked,
-#          (b.pre_qty - b.post_qty) - COALESCE(SUM(pe.quantity), 0) AS drift
-#   FROM   bin_inventory b
-#   LEFT JOIN picker_events pe
-#          ON  pe.run_id=b.run_id AND pe.batch_id=b.batch_id
-#          AND pe.aisle_id=b.aisle_id AND pe.bayX=b.bayX AND pe.bayY=b.bayY
-#          AND pe.event_type='pick'
-#   WHERE  b.run_id=? AND b.batch_id=?
-#   GROUP  BY b.aisle_id, b.bayX, b.bayY
-#   HAVING drift != 0
-
-_CREATE_BIN_INVENTORY_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_bi_run_batch
-    ON bin_inventory (run_id, batch_id)
-"""
-
-_CREATE_BIN_INVENTORY_AISLE_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_bi_run_batch_aisle
-    ON bin_inventory (run_id, batch_id, aisle_id)
-"""
+# `load_bin_inventory` / `BinInventoryRecord` REMAIN because the ~500 GB archive has no log:
+# for those arms this table is the only depletion record they will ever have, and deleting
+# the reader path would make the archive unreadable.  Its shape there, frozen forever:
+#
+#   CREATE TABLE bin_inventory (
+#       id           INTEGER PRIMARY KEY AUTOINCREMENT,
+#       run_id       INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+#       batch_id     INTEGER NOT NULL,
+#       aisle_id     INTEGER NOT NULL,   bayX INTEGER NOT NULL,  bayY INTEGER NOT NULL,
+#       sku          INTEGER NOT NULL,
+#       unit_type    TEXT    NOT NULL,   storage_size TEXT NOT NULL,
+#       pre_qty      INTEGER NOT NULL,   -- after check_reorders(), before picks
+#       post_qty     INTEGER NOT NULL)   -- after all picks applied
+#   CREATE INDEX ix_bi_run_batch       ON bin_inventory (run_id, batch_id)
+#   CREATE INDEX ix_bi_run_batch_aisle ON bin_inventory (run_id, batch_id, aisle_id)
+#
+# Two ordering traps when reading an archived one: order by `batch_id, id` (a bin can take
+# rows from two branches in one batch, so `batch_id` alone is not a total order), and the
+# full snapshot sits at the run's FIRST batch, which on a resumed arm is not batch 0.
 
 
 # NOTE: the standalone PickRecord CSV/SQLite pair (load/save_picks_csv, load/save_picks_db) and
@@ -372,6 +360,33 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
     to *timeout* seconds before raising OperationalError, giving the three
     parallel strategy workers enough headroom to avoid spurious lock errors
     when their 100-batch checkpoints happen to coincide.
+
+    ── Why NONE of this module's 28 closes goes through `Schema.connect.close` ──────────
+    Deliberate, and measured — not an oversight.  The closes here fall into three groups:
+
+      13 are `load_*` / `find_run` / `run_identity` / the two `declared_*_shape` helpers.
+         Read-only or `:memory:`.  There is no WAL to fold back; converting them is noise.
+
+      12 are the per-flush writers — `save_batch_stats`, `save_task_stats`,
+         `save_picker_events`, `save_picks`, `save_bin_placements`, `save_bin_evictions`,
+         `save_aisle_metrics`, `save_reorder_queue`, `save_bin_keyframe`, and the two score
+         writers.  Each opens and closes ONCE PER CHECKPOINT FLUSH (default every 10 batches,
+         `strategy_runner.py:583`) against a sim DB that reaches ~1 GB.  A
+         `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the main file every
+         flush, on the hot path of a 40-minute arm, for no benefit — see below.
+
+       3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection
+         is finished but the FILE is not; the run writes to it for the next 40 minutes, so a
+         checkpoint changes nothing about the state that is left behind.
+
+    And the benefit really is nil, because a plain close already does the job here.  Measured:
+    on a clean single-process write-then-close, SQLite removes `-wal`/`-shm` itself, and
+    `connect.close` removes exactly the same set.  What actually strands them is a READER —
+    a `mode=ro` connection on a WAL database creates `-shm` and cannot delete it on the way
+    out, so every archived sim DB grows sidecars the moment anything fingerprints or plots it.
+    No change on the WRITE side can prevent that; only `immutable=1` on the read side can, and
+    that is a promise about the file that a live run cannot make.  The one writer here whose
+    close is genuinely the file's last is in `Warehouse_Data`, which does convert.
     """
     con = sqlite3.connect(path, timeout=timeout)
     con.execute('PRAGMA journal_mode=WAL')
@@ -437,35 +452,463 @@ _CREATE_SKU_SCORES_IDX = """
     CREATE INDEX IF NOT EXISTS ix_ss_run ON sku_scores (run_id)
 """
 
+# ── The bin-mutation log ──────────────────────────────────────────────────────
+# The record `bin_inventory` could not give: it logged picks and NEVER restocks, because
+# check_reorders() runs before the pre-batch snapshot, so a restocked bin was already in it at
+# its post-restock quantity and the `post_qty == pre_qty` skip then dropped it.  Measured on a
+# production arm: 0 rows with post_qty > pre_qty against 20k-42k reorder_placements per batch.
+# Rolling that delta stream forward from a keyframe only ever DECAYED — losing 59% of the
+# warehouse in 5 batches.  These two tables replace it (see the sunset note above).
+#
+# Bin state changes at exactly five sites in the codebase (one of them dead code), and picks
+# are already fully recorded — verified, SUM(pre_qty-post_qty) equals SUM(picks.quantity)
+# exactly on every arm tested.  So PLACE + EVICT + PICK is complete BY CONSTRUCTION, which
+# Tests/integration/test_bin_log_replay.py checks against a live sim and the per-batch
+# conservation ledger in strategy_runner re-checks at runtime on every real run.
+#
+# `(batch_id, seq)` is the true resolution, not a compromise: check_reorders() runs entirely
+# between one batch's picks and the next batch's simulation, so no finer ordering EXISTS to lose.
+# Picks keep sim_time, so intra-batch animation stays exact.
+
+_CREATE_BIN_PLACEMENT = """
+    CREATE TABLE IF NOT EXISTS bin_placement (
+        run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id INTEGER NOT NULL,
+        seq      INTEGER NOT NULL,   -- run-scoped monotonic; ascending within a batch.
+                                     -- NOT reset per batch: initial stocking records at
+                                     -- batch 0 before the loop, so a per-batch counter
+                                     -- collided with batch-0 reorders on this PK.
+        aisle_id INTEGER NOT NULL,
+        bayX     INTEGER NOT NULL,
+        bayY     INTEGER NOT NULL,
+        sku      INTEGER NOT NULL,
+        qty      INTEGER NOT NULL,   -- units placed into this bin
+        cause    TEXT    NOT NULL,   -- 'initial'|'reorder'|'reslot'
+        PRIMARY KEY (run_id, batch_id, seq)
+    ) WITHOUT ROWID
+"""
+
+_CREATE_BIN_PLACEMENT_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_bp_bin
+        ON bin_placement (run_id, aisle_id, bayX, bayY, batch_id)
+"""
+
+_CREATE_BIN_EVICTION = """
+    CREATE TABLE IF NOT EXISTS bin_eviction (
+        run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id INTEGER NOT NULL,
+        seq      INTEGER NOT NULL,   -- run-scoped monotonic; ascending within a batch
+        aisle_id INTEGER NOT NULL,
+        bayX     INTEGER NOT NULL,
+        bayY     INTEGER NOT NULL,
+        sku      INTEGER NOT NULL,
+        qty      INTEGER NOT NULL,   -- units removed; the unit re-enters the stock queue
+        PRIMARY KEY (run_id, batch_id, seq)
+    ) WITHOUT ROWID
+"""
+
+_CREATE_BIN_EVICTION_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_be_bin
+        ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)
+"""
+
+
+def _apply_run_schema(con: sqlite3.Connection) -> None:
+    """Issue every CREATE for the run DB on an already-open connection.
+
+    Split out of init_run_db so sim_schema_id() can build the schema in memory and hash what
+    the writer ACTUALLY creates — the declared id is never a hand-maintained list of columns,
+    so it cannot drift from this function.
+    """
+    con.execute(_CREATE_PICKS)
+    con.execute(_CREATE_PICKS_BATCH_IDX)
+    con.execute(_CREATE_PICKS_SKU_IDX)
+    con.execute(_CREATE_RUNS)
+    con.execute(_CREATE_BATCH_STATS)
+    con.execute(_CREATE_TASK_STATS)
+    con.execute(_CREATE_PICKER_EVENTS)
+    con.execute(_CREATE_PICKER_EVENTS_IDX)
+    con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
+    con.execute(_CREATE_AISLE_METRICS)
+    con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
+    con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
+    con.execute(_CREATE_REORDER_QUEUE)
+    con.execute(_CREATE_REORDER_QUEUE_IDX)
+    con.execute(_CREATE_BIN_SCORES)
+    con.execute(_CREATE_BIN_SCORES_IDX)
+    con.execute(_CREATE_SKU_SCORES)
+    con.execute(_CREATE_SKU_SCORES_IDX)
+    con.execute(_CREATE_BIN_PLACEMENT)
+    con.execute(_CREATE_BIN_PLACEMENT_IDX)
+    con.execute(_CREATE_BIN_EVICTION)
+    con.execute(_CREATE_BIN_EVICTION_IDX)
+    _migrate_run_columns(con)
+
+
+# Columns added to simulation_runs after runs already existed.  Every CREATE here is
+# IF NOT EXISTS, so reopening an archived DB gains missing TABLES but never missing COLUMNS —
+# without this, the next create_run() dies with "no column named sim_schema_id" on any DB
+# written by an earlier build (which is every DB in the archive).
+_RUN_ADDED_COLS = (('sim_schema_id', 'TEXT'),)
+
+
+def _migrate_run_columns(con: sqlite3.Connection) -> None:
+    """Add any simulation_runs column this build expects but an older file lacks.
+
+    ALTER TABLE ADD COLUMN is O(1) in SQLite (it only rewrites the schema), and adding the
+    column also lifts the file's observed shape onto the current declared id — which is exactly
+    what the reader registry wants.  Existing rows keep NULL, and a NULL stamp is the documented
+    "derive it" path.
+    """
+    have = {r[1] for r in con.execute('PRAGMA table_info(simulation_runs)')}
+    for name, decl in _RUN_ADDED_COLS:
+        if name not in have:
+            con.execute(f'ALTER TABLE simulation_runs ADD COLUMN {name} {decl}')
+
 
 def init_run_db(path: str) -> None:
     """Create all tables and indexes if they don't already exist, and enable WAL mode."""
     con = _open_db(path)
     try:
-        con.execute(_CREATE_PICKS)
-        con.execute(_CREATE_PICKS_BATCH_IDX)
-        con.execute(_CREATE_PICKS_SKU_IDX)
-        con.execute(_CREATE_RUNS)
-        con.execute(_CREATE_BATCH_STATS)
-        con.execute(_CREATE_TASK_STATS)
-        con.execute(_CREATE_PICKER_EVENTS)
-        con.execute(_CREATE_PICKER_EVENTS_IDX)
-        con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
-        con.execute(_CREATE_BIN_INVENTORY)
-        con.execute(_CREATE_BIN_INVENTORY_IDX)
-        con.execute(_CREATE_BIN_INVENTORY_AISLE_IDX)
-        con.execute(_CREATE_AISLE_METRICS)
-        con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
-        con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
-        con.execute(_CREATE_REORDER_QUEUE)
-        con.execute(_CREATE_REORDER_QUEUE_IDX)
-        con.execute(_CREATE_BIN_SCORES)
-        con.execute(_CREATE_BIN_SCORES_IDX)
-        con.execute(_CREATE_SKU_SCORES)
-        con.execute(_CREATE_SKU_SCORES_IDX)
+        _apply_run_schema(con)
         con.commit()
     finally:
         con.close()
+
+
+# ── Schema identity ───────────────────────────────────────────────────────────
+# The shape normalizer and the id derivation live in `Schema/` so every DB family shares one
+# implementation.  The family REGISTERS ITSELF here rather than Schema/ importing this module:
+# Schema is a stdlib-only leaf and must not depend on any writer.
+#
+# The declared shape is produced by BUILDING the schema this module creates, in memory — never
+# by hand-listing columns, which is exactly the kind of declaration that drifts from its writer.
+
+_DECLARED_SIM_SCHEMA_ID: str | None = None
+
+
+def declared_sim_schema_shape() -> dict:
+    """Canonical shape of a run DB as `_apply_run_schema` creates it, built in memory."""
+    con = sqlite3.connect(':memory:')
+    try:
+        _apply_run_schema(con)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+def sim_schema_id() -> str:
+    """The id this build stamps into new run DBs.  Computed once, then cached."""
+    global _DECLARED_SIM_SCHEMA_ID
+    if _DECLARED_SIM_SCHEMA_ID is None:
+        _DECLARED_SIM_SCHEMA_ID = _shape.shape_id(declared_sim_schema_shape())
+    return _DECLARED_SIM_SCHEMA_ID
+
+
+def declared_keyframe_shape() -> dict:
+    """Canonical shape of the sibling keyframe DB.
+
+    Includes the `schema_meta` stamp table: a family that declares `meta_table` must DECLARE the
+    table in its own shape, or the observed shape (with it, once stamped) would never match the
+    declaration (see `identity.META_TABLE_DDL`).
+    """
+    con = sqlite3.connect(':memory:')
+    try:
+        con.execute(_CREATE_BIN_KEYFRAME)
+        con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        con.execute(_identity.meta_ddl())
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+#: The shape every run in the archive was written with, before `sim_schema_id` existed.  Frozen:
+#: it cannot be recomputed from today's source, and those files are never rewritten.
+PRE_STAMP_SIM_SCHEMA_ID = '23d0c7f167bc'
+
+def _read_sim_stamp(con) -> str | None:
+    """The `simulation_runs.sim_schema_id` a run stamped, or None.
+
+    The sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the
+    generic `identity.read_stamp` cannot find it without this.  Body mirrors
+    `Visualization/readers/fingerprint.read_stamped_id` — that module keeps its own copy because
+    the viewer resolves through a pin cache as well; a test asserts the two stay in step.
+    """
+    row = con.execute(
+        'SELECT sim_schema_id FROM simulation_runs '
+        'WHERE sim_schema_id IS NOT NULL ORDER BY run_id LIMIT 1').fetchone()
+    return row[0] if row else None
+
+
+SIM_DB_FAMILY = _identity.register(_identity.Family(
+    name='sim_db',
+    declared_shape=declared_sim_schema_shape,
+    meta_table=None,                 # stamped into simulation_runs.sim_schema_id, not a meta table
+    stamp_reader=_read_sim_stamp,    # ...which this teaches identity.resolve to read
+    # Every shape this build still opens, newest first.  Each entry is a real window of commits
+    # that produced real files; dropping one orphans them, so entries are added, never replaced.
+    #   2b7913bcd7e6  the stamp column, before the bin-mutation log
+    #   ee5ebabe74fb  the log ADDED, bin_inventory still written (the overlap window)
+    # Both surviving vintages of the live archive re-derive to entries in this list: the
+    # 2026-07-29 runs to PRE_STAMP_SIM_SCHEMA_ID and the 2026-08-13 runs to ee5ebabe74fb.
+    known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
+))
+
+#: Three shapes that ALSO exist in the cold archive and are DELIBERATELY NOT vetted.  Derived
+#: from real files, recorded here so nobody re-derives them and assumes the omission was an
+#: oversight — every one of them is missing a `batch_stats` column that a loader silently
+#: defaults to `0.0`, which is the exact failure this family exists to make loud:
+#:   5d8a78b74466  comparison_whatif_20260709_015101   -.
+#:   89c7b2babf22  comparison_2026070{6,8}_*            |- no task_makespan / thr_task / thr_batch
+#:   e110afa222e3  comparison_20260623_150217          -'  / skus_reordered / units_ordered
+#: Analysing one of those through `Performance_Evaluations` would publish a throughput of zero.
+#: `Diagnostics/replay_run.py` still reads them, and still may: it does not touch batch_stats'
+#: success metrics and captions every curve with the source it actually used.
+UNVETTED_ARCHIVE_SIM_SCHEMA_IDS = ('5d8a78b74466', '89c7b2babf22', 'e110afa222e3')
+
+# ── what the shared read layer needs, and what it may only ASK for ──────────────────────────
+# `SIM_DB_FAMILY` above vets a whole FILE; these say what a caller may read out of one.  The gap
+# between those two granularities is where the silent failure lives: every vetted vintage differs,
+# and `check()` passing tells a loader nothing about whether its own columns survived.
+#
+# Everything here is inside `Schema.compat.guaranteed_surface('sim_db')` — present in EVERY vetted
+# shape — so these loaders are version-free by construction and
+# `Tests/architecture/test_schema_compatibility.py` fails if a schema change makes that untrue.
+#
+# The guarded columns are listed DELIBERATELY. `load_batch_stats`/`load_task_stats` default them to
+# 0.0 when absent, and seven of them (`sigma_fd`, `W`, `queue_depth`, `reorder_placements`,
+# `reload_moves`, `lead_queue_depth`, `in_transit_qty`) flow straight into a published figure or
+# CSV — so "guarded" means the failure is silent, not that it is safe.  Declaring them turns a
+# dropped column into a CI failure instead of a plausible zero.  (`task_makespan` is the one that
+# fails safe: `common/frames.py` converts its 0.0 to NaN, which drops out of summaries.)
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='Picking_Data shared read layer',
+    tables={
+        'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+                        'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
+                        'task_makespan', 'thr_task', 'thr_batch', 'batch_start_time',
+                        'batch_end_time', 'sigma_fd', 'reload_moves', 'reorder_placements',
+                        'skus_reordered', 'units_ordered', 'queue_depth', 'lead_queue_depth',
+                        'in_transit_qty'),
+        'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+                       'task_end_time', 'duration', 'lift_sum', 'num_bins_visited', 'total_items',
+                       'is_outlier', 'W'),
+        'picker_events': ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+                          'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins',
+                          'items_picked', 'total_items', 'pick_travel_x', 'pick_travel_y',
+                          'non_pick_travel_x', 'non_pick_travel_y', 'cart_move'),
+        'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum',
+                          'lift_sum', 'pick_load_sum'),
+        # `unit_type`/`storage_size` are in the PRIMARY select; the inner OperationalError
+        # fallback re-queries without them for a pre-enrichment file.  Both are nonetheless in
+        # the guaranteed surface — every vetted vintage has them — so the fallback is dead code
+        # against anything this family still vets, and declaring them says so.
+        'reorder_queue': ('run_id', 'batch_id', 'kind', 'sku', 'qty', 'remaining_lead',
+                          'unit_type', 'storage_size'),
+        'bin_scores': ('run_id', 'aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult',
+                       'layout_score', 'map_pref'),
+        # `SELECT *` -> dict(row); no column is indexed here, so the requirement is the table.
+        'sku_scores': _compat.ANY_COLUMNS,
+        # `run_identity` does `SELECT *` and indexes 13 columns off the row, each behind an
+        # `if k in row.keys()` guard — so a missing one is dropped from the returned dict rather
+        # than raising, and the caller sees an absence it cannot distinguish from a NULL.  All of
+        # these are guaranteed; the fourteenth, `sim_schema_id`, is NOT, which is why it is in
+        # CONDITIONAL_READS below instead of here.  `find_run` adds `strategy_key`.
+        'simulation_runs': ('run_id', 'run_type', 'n_batches', 'keyframe_interval',
+                            'optimal_sigma_fd', 'optimal_work', 'strategy_key', 'pair_label',
+                            'config_label', 'warehouse_fingerprint', 'inventory_label',
+                            'channel'),
+    })
+
+#: Loaders that read the CONDITIONAL surface — a table only SOME vetted vintages have.  Kept as
+#: data so the compatibility test can assert the list is exhaustive: a NEW conditional reader added
+#: without a decision fails there rather than raising `no such table` months later, on the archive.
+#:
+#: None of the first three is guarded at all.  That is correct — they are the archive-replay and
+#: viewer paths, whose callers already negotiate (`Diagnostics/replay_run._SOURCES` probes before
+#: reading, and degrades with a recorded caveat).  A caller that cannot negotiate must not call
+#: them.  `run_identity` is the exception: its `sim_schema_id` read is guarded by `row.keys()` and
+#: simply omits the key on a pre-stamp file.
+CONDITIONAL_READS = {
+    'load_bin_inventory':  'bin_inventory',    # retired; archive-only
+    'load_bin_placements': 'bin_placement',    # added 2026-08-13
+    'load_bin_evictions':  'bin_eviction',     # added 2026-08-13
+    'run_identity':        'simulation_runs.sim_schema_id',
+}
+
+# ── the sim DB's capabilities: what a consumer may NEGOTIATE for ────────────────────────────
+# The registry lives here, beside the DDL that defines these tables, because `Schema/` is the
+# stdlib-only leaf and must not learn what a warehouse is.  It owns the TYPE and the row probe;
+# this owns which tables exist and what each is worth.
+#
+# Every entry is either on the conditional surface (some vetted vintages lack the table) or is
+# present-everywhere-but-usually-EMPTY, which for a consumer deciding whether it can draw
+# something is the same fact.  Both are why the probe checks for ROWS, not for the table.
+#
+# `exact`, `phase` and `caveat` are payload, not prose: a consumer that selects one of these is
+# expected to carry `capability.provenance(cap)` into whatever it emits.
+CAP_BIN_LOG = 'bin_log'
+CAP_AISLE_METRICS = 'aisle_metrics'
+CAP_BIN_INVENTORY = 'bin_inventory'
+CAP_BIN_SCORES = 'bin_scores'
+CAP_SKU_SCORES = 'sku_scores'
+CAP_REORDER_QUEUE = 'reorder_queue'
+CAP_KEYFRAMES = 'keyframes'          # a sibling .keyframes.db — not table-probed
+CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-probed
+
+SIM_CAPABILITIES = {c.name: c for c in (
+    _capability.Capability(
+        name=CAP_BIN_LOG, table='bin_placement', exact=True,
+        phase="end-of-batch (after this batch's picks)",
+        caveat='',
+        columns=('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty', 'cause')),
+    _capability.Capability(
+        name=CAP_AISLE_METRICS, table='aisle_metrics', exact=False,
+        phase="start-of-batch (after restock, BEFORE this batch's picks)",
+        caveat="APPROXIMATE. n_bins is the manager's own occupied-bin counter, sampled after the "
+               "restock pass and before the batch's picks, so it describes a different instant "
+               'than the pick-based sources and it lags a bin emptied by a pick. Only strategies '
+               'that maintain aisle state write this table at all.',
+        columns=('run_id', 'batch_id', 'aisle_id', 'n_bins')),
+    _capability.Capability(
+        name=CAP_BIN_INVENTORY, table='bin_inventory', exact=False,
+        phase="end-of-batch (after this batch's picks)",
+        # Carries the MECHANISM and the measurement, not just the verdict.  An earlier draft
+        # trimmed both, and a caveat that asserts a bias without the evidence for it is the kind
+        # of sentence a reader talks themselves out of.  This is also the exact body
+        # `Diagnostics/replay_run.py` has always exported, so the registry can be its one source.
+        caveat='ARCHIVE-ONLY (no run writes this table any more). APPROXIMATE AND BIASED '
+               'DOWNWARD. bin_inventory records picks and NEVER restocks '
+               '(check_reorders() runs before the pre-batch snapshot, and the post_qty==pre_qty '
+               'skip then drops the restocked bin): measured on a production arm, 0 rows with '
+               'post_qty > pre_qty against 20,662-42,832 reorder_placements per batch. Rolling '
+               'these deltas forward can only DECAY occupancy - 68,271 occupied bins against a '
+               'true 165,519 five batches past a keyframe. Treat the SHAPE of this curve as '
+               'wrong, not merely noisy.',
+        columns=('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'pre_qty', 'post_qty')),
+    _capability.Capability(
+        name=CAP_BIN_SCORES, table='bin_scores', exact=True,
+        phase='static (per run)', caveat=''),
+    _capability.Capability(
+        name=CAP_SKU_SCORES, table='sku_scores', exact=True,
+        phase='static (per run)', caveat=''),
+    _capability.Capability(
+        name=CAP_REORDER_QUEUE, table='reorder_queue', exact=True,
+        phase='start-of-batch', caveat=''),
+    _capability.Capability(
+        name=CAP_KEYFRAMES, table=None, exact=True,
+        phase='the keyframe batch itself', caveat=''),
+    _capability.Capability(
+        name=CAP_VIZ_CACHE, table=None, exact=True,
+        phase='derived (rebuildable)', caveat=''),
+)}
+
+#: Occupancy sources, BEST FIRST.  Ordering is a property of the QUESTION, not of the sources, so
+#: it lives with the consumer's intent rather than in the registry: an exact end-of-batch fold
+#: beats a start-of-batch counter, which beats a downward-biased delta roll.
+OCCUPANCY_LADDER = tuple(SIM_CAPABILITIES[n] for n in
+                         (CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_INVENTORY))
+
+# ── the sim DB's NAMED QUERIES: the versioned read layer (publisher side) ───────────────────
+# Consumers (the loaders below, and through them all of Performance_Evaluations) bind to the
+# LOGICAL output columns declared here, never to physical schema.  A future vintage that renames
+# or drops a physical column gets a `_dataset.override(...)` registered FOR ITS SCHEMA ID in a
+# small module beside this one — consumers are never edited for a schema change.
+#
+# `optional` is the registry form of the loaders' historical `row.keys()` guards: a vintage whose
+# SQL cannot supply the column has it filled with the declared default, so the output contract is
+# identical on every servable vintage.  Today every column below is in the GUARANTEED surface
+# (compat REQUIRES validates clean), so the canonical SQL serves all four vetted vintages and no
+# override exists yet — the machinery is exercised by tests until the first real rename.
+#
+# The legacy aliases (`sigma_fw`, `W_a`) are NOT here: they exist only in UNVETTED cold-archive
+# shapes, which `dataset.bind` refuses by design.  Those files are served by the loaders' frozen
+# legacy fallback bodies below, never by the registry.
+_BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
+                   'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0,
+                   'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0,
+                   'units_ordered': 0, 'queue_depth': 0, 'lead_queue_depth': 0,
+                   'in_transit_qty': 0}
+_BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+               'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
+               *_BATCH_OPTIONAL)
+
+_dataset.register_query(_dataset.Query(
+    name='batch_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_BATCH_COLS)
+         + ' FROM batch_stats WHERE run_id = :run_id'),
+    columns=_BATCH_COLS,
+    tables={'batch_stats': _BATCH_COLS},
+    optional=_BATCH_OPTIONAL))
+
+_TASK_COLS = ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+              'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited',
+              'total_items', 'is_outlier')
+
+_dataset.register_query(_dataset.Query(
+    name='task_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_TASK_COLS)
+         + ' FROM task_stats WHERE run_id = :run_id'),
+    # `tables` = what the CANONICAL sql reads — `W` included: a vintage without it is unservable
+    # by this SQL and needs an override that omits the column (optional-fill then supplies 0.0).
+    columns=_TASK_COLS,
+    tables={'task_stats': _TASK_COLS},
+    optional={'W': 0.0}))
+
+_EVENT_OPTIONAL = {'pick_travel_x': 0.0, 'pick_travel_y': 0.0, 'non_pick_travel_x': 0.0,
+                   'non_pick_travel_y': 0.0, 'cart_move': 0.0}
+_EVENT_COLS = ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+               'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins',
+               'items_picked', 'total_items', *_EVENT_OPTIONAL)
+
+_dataset.register_query(_dataset.Query(
+    name='picker_events', family='sim_db',
+    # :batch_id IS NULL folds the two legacy query variants into one; within a single batch the
+    # unified ORDER BY is identical to the old per-batch (picker_id, time) ordering.
+    sql=('SELECT ' + ', '.join(_EVENT_COLS)
+         + ' FROM picker_events WHERE run_id = :run_id'
+           ' AND (:batch_id IS NULL OR batch_id = :batch_id)'
+           ' ORDER BY batch_id, picker_id, time'),
+    columns=_EVENT_COLS,
+    tables={'picker_events': _EVENT_COLS},
+    optional=_EVENT_OPTIONAL))
+
+
+def _query_rows(name: str, path: str, **params):
+    """Rows via the named-query registry when this file's vintage is servable, else None.
+
+    None routes the caller to its FROZEN LEGACY body: `Diagnostics/replay_run.py` deliberately
+    reads UNVETTED cold-archive vintages (`UNVETTED_ARCHIVE_SIM_SCHEMA_IDS`), which `bind`
+    refuses by design — for those, the pre-registry `SELECT *` + `row.keys()` behavior is kept
+    verbatim, and a golden test asserts both paths agree on every vetted vintage.
+    """
+    try:
+        # immutable=True, deliberately: the legacy loaders' plain RW connects cleaned their WAL
+        # sidecars up on close, but a mode=ro open CREATES `-wal`/`-shm` and cannot remove them
+        # (see the wal-sidecars memory) — the preflight canaries caught the litter as an
+        # undeclared tree path.  Immutable neither creates sidecars nor reads a hot WAL, and the
+        # promise it requires — nothing is writing — holds here: these loaders serve analysis,
+        # replay and the viewer, all of which read arms whose writer has checkpoint-closed
+        # (see 183b1e6, "close the WAL on a writer").
+        with _dataset.bind(path, 'sim_db', immutable=True) as ds:
+            return ds.query(name, **params)
+    except _identity.SchemaError:
+        return None
+
+
+KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
+    name='keyframes_db',
+    declared_shape=declared_keyframe_shape,
+    # Stamped since 2026-08-15 — the first family whose stamp table arrived through the
+    # --sync -> DDL edit -> --accept pipeline rather than by hand (the dogfood run of the
+    # adoption automation).  Before that this family was deliberately derived-only.
+    meta_table='schema_meta',
+    known_ids=('e1149f95dfed',  # every sidecar before the stamp table (2026-06-23 .. 2026-08-15);
+               # `bin_keyframe` itself never changed — 24 sidecars sampled across nine archived
+               # runs all re-derive to this id.  Adopted by the first `--accept` run.
+               ),
+))
 
 
 def create_run(path: str, run_type: str, params: dict | None = None,
@@ -479,7 +922,9 @@ def create_run(path: str, run_type: str, params: dict | None = None,
     Missing keys are stored NULL.
     """
     params = params or {}
-    identity = identity or {}
+    # sim_schema_id describes the FILE, not the run, so it is defaulted here rather than being
+    # threaded through every caller.  An explicit value still wins (tests pin an older id).
+    identity = {'sim_schema_id': sim_schema_id(), **(identity or {})}
     cols = ('run_type', 'created') + _IDENTITY_COLS + _RUN_PARAM_COLS
     vals = ([run_type, datetime.now(timezone.utc).isoformat()]
             + [identity.get(k) for k in _IDENTITY_COLS]
@@ -492,6 +937,10 @@ def create_run(path: str, run_type: str, params: dict | None = None,
             vals,
         )
         con.commit()
+        # The stamp is the column value above; `stamp_checked` here is the VERIFY half only —
+        # warn-once (never raise) because this runs inside spawned workers, hours into a sweep
+        # the run-start precheck already blessed.  A store gap nags; it must not kill an arm.
+        _compat.stamp_checked(con, SIM_DB_FAMILY, strict=False)
         return cur.lastrowid  # type: ignore[return-value]
     finally:
         con.close()
@@ -575,11 +1024,14 @@ def keyframe_db_path(run_db_path: str) -> str:
 
 
 def init_keyframe_db(path: str) -> None:
-    """Create the bin_keyframe table + index if absent."""
+    """Create the bin_keyframe table + index (and the schema_meta stamp) if absent."""
     con = _open_db(path)
     try:
         con.execute(_CREATE_BIN_KEYFRAME)
         con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        # Stamp + verify the store, worker-safe (warn-once, never raise): keyframes are written
+        # beside the sim DB, deep inside a sweep.  `stamp` creates schema_meta idempotently.
+        _compat.stamp_checked(con, KEYFRAME_DB_FAMILY, strict=False)
         con.commit()
     finally:
         con.close()
@@ -636,6 +1088,16 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
 
 
 def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
+    """One BatchStats per batch, version-adaptive.
+
+    A VETTED file is served by the `batch_frame` named query (per-vintage overrides and
+    optional-fill included), so a consumer of this loader is version-free without knowing it.
+    An unvetted file — the cold archive `Diagnostics/replay_run.py` deliberately reads — falls
+    through to the frozen pre-registry body below, byte-for-byte the historical behavior.
+    """
+    recs = _query_rows('batch_frame', path, run_id=run_id)
+    if recs is not None:
+        return [BatchStats(**{**r, 'is_outlier': bool(r['is_outlier'])}) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -834,6 +1296,10 @@ def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
 
 
 def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
+    """One TaskStats per (batch, aisle) task — version-adaptive; see `load_batch_stats`."""
+    recs = _query_rows('task_frame', path, run_id=run_id)
+    if recs is not None:
+        return [TaskStats(**{**r, 'is_outlier': bool(r['is_outlier'])}) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -908,7 +1374,11 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
     """Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.
 
     Returns records ordered by (batch_id, picker_id, time) for sequential replay.
+    Version-adaptive; see `load_batch_stats`.
     """
+    recs = _query_rows('picker_events', path, run_id=run_id, batch_id=batch_id)
+    if recs is not None:
+        return [PickerEventRecord(**r) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -957,31 +1427,13 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
         con.close()
 
 
-# ── BinInventory DB ───────────────────────────────────────────────────────────
-
-def save_bin_inventory(path: str, run_id: int, records: list) -> None:
-    """Persist pre/post batch bin inventory snapshots.
-
-    Each record covers one non-empty bin for one batch: pre_qty is the
-    quantity after check_reorders() (before picks), post_qty is the
-    quantity after all picks are applied.  Bins empty throughout are omitted.
-    """
-    con = _open_db(path)
-    try:
-        con.executemany(
-            'INSERT INTO bin_inventory '
-            '(run_id,batch_id,aisle_id,bayX,bayY,sku,unit_type,storage_size,'
-            'pre_qty,post_qty) VALUES (?,?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.aisle_id, r.bayX, r.bayY,
-                 r.sku, r.unit_type, r.storage_size, r.pre_qty, r.post_qty)
-                for r in records
-            ],
-        )
-        con.commit()
-    finally:
-        con.close()
-
+# ── BinInventory DB — READER ONLY (the table is legacy/archive-only) ──────────
+#
+# There is deliberately no `save_bin_inventory`: this build does not create the table and never
+# writes it.  This loader exists solely so archived runs — written before `bin_placement` /
+# `bin_eviction` existed, and never to be rewritten — stay readable.  On a DB from this build
+# the table is absent and every call here raises `sqlite3.OperationalError: no such table`;
+# callers that may see either vintage must probe first (see `Diagnostics/replay_run._has_rows`).
 
 def load_bin_inventory(
     path     : str,
@@ -989,7 +1441,11 @@ def load_bin_inventory(
     batch_id : int | None = None,
     aisle_id : int | None = None,
 ) -> list:
-    """Load BinInventoryRecord rows, optionally filtered to one batch or aisle."""
+    """Load BinInventoryRecord rows from an ARCHIVED run, optionally filtered to batch/aisle.
+
+    LEGACY/ARCHIVE-ONLY.  The table is no longer written by any run; a DB produced by this
+    build has no `bin_inventory` at all and this raises `sqlite3.OperationalError`.
+    """
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -1106,5 +1562,94 @@ def load_aisle_metrics(
             )
             for row in rows
         ]
+    finally:
+        con.close()
+
+
+# ── bin-mutation log: records + savers ────────────────────────────────────────
+
+@dataclass
+class BinPlacementRecord:
+    run_id:   int
+    batch_id: int
+    seq:      int
+    aisle_id: int
+    bayX:     int
+    bayY:     int
+    sku:      int
+    qty:      int
+    cause:    str    # 'initial' | 'reorder' | 'reslot'
+
+
+@dataclass
+class BinEvictionRecord:
+    run_id:   int
+    batch_id: int
+    seq:      int
+    aisle_id: int
+    bayX:     int
+    bayY:     int
+    sku:      int
+    qty:      int
+
+
+def save_bin_placements(path: str, run_id: int, records: list) -> None:
+    """Persist PLACE events — the term the record was missing."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_placement '
+            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause) '
+            'VALUES (?,?,?,?,?,?,?,?,?)',
+            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause)
+             for r in records])
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_bin_evictions(path: str, run_id: int, records: list) -> None:
+    """Persist EVICT events.  Zero rows on a `norsl` arm, which is every shipped arm today."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        con.executemany(
+            'INSERT OR REPLACE INTO bin_eviction '
+            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty) VALUES (?,?,?,?,?,?,?,?)',
+            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty)
+             for r in records])
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> list:
+    """PLACE events, ordered as applied."""
+    con = _ro_conn(path)
+    try:
+        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause FROM bin_placement '
+               'WHERE run_id=?')
+        args = [run_id]
+        if batch_id is not None:
+            sql += ' AND batch_id=?'
+            args.append(batch_id)
+        return [dict(r) for r in con.execute(sql + ' ORDER BY batch_id, seq', args)]
+    finally:
+        con.close()
+
+
+def load_bin_evictions(path: str, run_id: int, batch_id: int | None = None) -> list:
+    con = _ro_conn(path)
+    try:
+        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_eviction '
+               'WHERE run_id=?')
+        args = [run_id]
+        if batch_id is not None:
+            sql += ' AND batch_id=?'
+            args.append(batch_id)
+        return [dict(r) for r in con.execute(sql + ' ORDER BY batch_id, seq', args)]
     finally:
         con.close()

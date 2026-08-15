@@ -356,16 +356,36 @@ def _stage_analyze(ctx: _Ctx) -> StageResult:
 
 
 # ── stage 3: verify the tree against the contract ───────────────────────────────────────────
-# Artifacts that exist only on a multi-cell run.
+# Five verdicts. Every artifact in schema.py must be covered by one of them or the stage fails
+# (see `unclassified` below) — the classification IS the assertion, so the question to ask of a
+# new artifact is "which of these five statements is true of it", never "which set is shortest".
+#
+# Artifacts that exist only on a multi-cell run — the whole `whatif` group plus the frozen pair.
+# analyze_run calls every run_whatif_*.run inside its `>1 cell` branch, so on a sweep these are
+# required, not merely allowed; a single-cell run cannot produce them at all.
 _SWEEP_ONLY = ('frozen_inventory_db', 'frozen_warehouse_db', 'whatif_delta_csv',
                'whatif_delta_json', 'whatif_delta_png', 'whatif_labor_csv',
-               'whatif_labor_json', 'whatif_labor_pngs')
+               'whatif_labor_json', 'whatif_labor_pngs', 'whatif_volume_csv',
+               'whatif_volume_json')
 # Written by the flat stats suite; the default BY_INITIAL preset writes stats_by_initial/ instead.
 _FLAT_STATS_ONLY = ('stats_pngs', 'stats_summary_csv', 'stats_tests_json')
 # Present only while an arm/config is in flight; removed on finalize.
 _IN_FLIGHT_ONLY = ('resume_pkl', 'checkpoint_pkl')
 # Not file templates: a directory entry and a resolves_via alias. Checked via the resolver instead.
 _NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory')
+# Genuinely optional: legitimately present OR absent on a correct run, and this stage cannot tell
+# which from the tree alone, so neither presence nor absence is evidence of anything.
+#   batches_cache — written only when the batch-precompute dedup fires; a channel that samples
+#                   inline never produces one.
+#   analysis_log / cell_analysis_log — written ONLY by the standalone CLIs (`python -m
+#                   Optimization.analyze_run DIR`, run_analysis.py). The in-process analysis after
+#                   a simulation logs to run.log instead, so a fresh smoketest never sees them —
+#                   but that makes them absent, NOT forbidden. Putting them in `must_absent` would
+#                   look right here and then fire on any --reuse-run of a re-analysed tree,
+#                   reporting "a freeze or a finalize did not happen", which would be false.
+#   viz_cache_db  — built on demand by the viewer under _viz/, never by a run. Absent until
+#                   someone opens the run in Visualization/, and deletable at any time.
+_EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db')
 
 
 def _stage_verify_tree(ctx: _Ctx) -> StageResult:
@@ -403,7 +423,7 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
         must_absent.add('planned_inventory_db')     # the frozen copy is shared instead
 
     # Force a new artifact in schema.py to be classified here rather than silently ignored.
-    classified = required | cond_req | must_absent | set(_NOT_TEMPLATES) | {'batches_cache'}
+    classified = required | cond_req | must_absent | set(_NOT_TEMPLATES) | set(_EITHER_WAY)
     unclassified = sorted(set(arts) - classified)
     ev['unclassified_artifacts'] = unclassified
 

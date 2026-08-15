@@ -13,10 +13,13 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a> <span class="sep">›</span> <span class="here"><code>_hours</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_hours</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _hours(db: str)</code></pre>
-<section class="doc">Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py___scan_labor.html"><code>_scan_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
+<section class="doc">Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
+
+Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
+any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py___scan_labor.html"><code>_scan_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_labor_py___hours">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_labor.py#:~:text=def%20_hours">Source ↗</a></p>
 </article>
 </main>

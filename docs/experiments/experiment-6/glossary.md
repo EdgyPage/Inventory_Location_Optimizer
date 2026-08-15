@@ -151,7 +151,7 @@ rewarded against travel.
 
 ### Assignment function (restock family) { #assignment-function }
 The rule that places reorder waves each batch — the one thing strategies differ on. The grid
-sweeps 32 arms (2 initial layouts × 16 restock families). The three winners are **Rank_labor /
-Map / Map_rank**; **FIFO** (first-in-first-out) is the uniform-random baseline everything is
+sweeps 34 arms (2 initial layouts × 17 restock families). The three winners are **Rank_labor /
+Rank_cartlabor / Map**; **FIFO** (first-in-first-out) is the uniform-random baseline everything is
 measured against. See the **[Formula reference](formula-reference.md#the-families)** for the full
-catalogue of all 16 families and their scoring equations.
+catalogue of all 17 families and their scoring equations.

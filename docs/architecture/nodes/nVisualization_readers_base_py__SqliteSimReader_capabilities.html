@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>capabilities · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_base_py__SqliteSimReader_capabilities" data-id="Visualization/readers/base.py::SqliteSimReader.capabilities">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_readers_base_py.html"><code>Visualization/readers/base.py</code></a> <span class="sep">›</span> <a href="nVisualization_readers_base_py__SqliteSimReader.html"><code>SqliteSimReader</code></a> <span class="sep">›</span> <span class="here"><code>capabilities</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>capabilities</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_base_py.html"><code>Visualization/readers/base.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def capabilities(self) -&gt; frozenset[str]</code></pre>
+<section class="doc">Which optional data this arm actually HAS — probed for ROWS, then memoised.
+
+A present-but-empty table is the common case, not an edge case: `aisle_metrics` and
+`reorder_queue` are only written by strategies that maintain that state, and are empty
+for every arm of the current production run.  Reporting them as absent is what lets the
+UI hide a panel instead of rendering 0.0 as though it were a measurement.  That is why
+the sweep is `Schema.capability.probe` — whose `has_rows` answers False for a missing
+table and for an empty one alike — and not an introspection of `sqlite_master`.
+
+Three capabilities are not table questions and reach the probe through `extra`:
+
+  * **keyframes** — a sibling `.keyframes.db` with rows for this run;
+  * **bin_log** — `_log_start()`, i.e. `MIN(batch_id) FROM bin_placement`.  Semantically
+    this is the row probe (`batch_id` is in the primary key, so it is never NULL and a
+    non-None MIN means at least one row) — but it is also MEMOISED and shared with
+    `_state_from_log`, which needs the value itself and not merely its existence.  Letting
+    `probe` re-derive it would issue a second query, and would leave `_memo[&#x27;log_start&#x27;]`
+    cold for the request that needs it.  Behaviour first: the existing call stays, and its
+    answer is handed in;
+  * **viz_cache** — sidecar FRESHNESS, which is not a property of the sim DB at all.
+
+Only the table probes are memoised.  `viz_cache` is deliberately re-checked on every call:
+a cache built while the viewer is running must appear without a restart.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nSchema_capability_py__probe.html"><code>probe</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader__log_start.html"><code>_log_start</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_cache_status.html"><code>cache_status</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_keyframe_batches.html"><code>keyframe_batches</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py___ro.html"><code>_ro</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nVisualization_readers_base_py__SqliteSimReader_reorder_queue.html"><code>reorder_queue</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nVisualization_readers_base_py__SqliteSimReader_run_meta.html"><code>run_meta</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_base_py__SqliteSimReader_capabilities">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/base.py#:~:text=def%20capabilities">Source ↗</a></p>
+</article>
+</main>
+</body></html>

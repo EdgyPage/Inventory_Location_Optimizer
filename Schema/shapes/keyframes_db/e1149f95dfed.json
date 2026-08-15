@@ -1,0 +1,92 @@
+{
+  "family": "keyframes_db",
+  "shape_id": "e1149f95dfed",
+  "captured": "2026-08-14T21:23:24",
+  "captured_from": "declared (built from the writer DDL)",
+  "note": "The DECLARED shape at the time it was current. Committed by --sync so that when the DDL next moves, this outgoing shape is already on disk and needs no archive lookup to recover.",
+  "shape": {
+    "tables": {
+      "bin_keyframe": {
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 1
+          },
+          {
+            "name": "batch_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 2
+          },
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 3
+          },
+          {
+            "name": "bayX",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 4
+          },
+          {
+            "name": "bayY",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 5
+          },
+          {
+            "name": "sku",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "unit_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "storage_size",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "qty",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_kf_run_batch",
+            "unique": 0,
+            "cols": [
+              "run_id",
+              "batch_id"
+            ]
+          },
+          {
+            "name": "sqlite_autoindex_bin_keyframe_1",
+            "unique": 1,
+            "cols": [
+              "run_id",
+              "batch_id",
+              "aisle_id",
+              "bayX",
+              "bayY"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      }
+    }
+  }
+}

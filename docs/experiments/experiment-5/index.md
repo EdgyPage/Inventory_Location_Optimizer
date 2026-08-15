@@ -1,5 +1,15 @@
 # {{ experiment().title }}
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 6**](../experiment-6/index.md) is the current sweep and asks this same
+    scheduler question with a better measurement. Read it first. This page is a **different run**
+    — fill was 0.90 store / 0.92 fulfillment here against 0.85 on both there — and it quotes a
+    **different statistic**: steady-state means over the last 50 batches, where Experiment 6
+    quotes full-run cumulative endpoints. The two store numbers are not comparable and must not be
+    read as a change over time. Like Experiment 6, this run predates commit `753d01e`, which lifts
+    absolute throughput ~1.4 % and leaves labor unchanged — the percentages quoted here are ratios
+    in which that shift largely cancels.
+
 <!-- Overview / definitions for this experiment. Edit the prose; the data wires up from
      experiment.yml, so there are no hard-coded run IDs below. -->
 

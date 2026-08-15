@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.identity · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_identity_py" data-id="Schema/identity.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/identity.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.identity</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_identity_py.html"><code>Schema/identity.py</code></a></p>
+
+<pre class="sig"><code>Schema.identity</code></pre>
+<section class="doc">identity.py — which schema is this database, and is it the one we expect?
+
+The registry of DB families and the stamped -&gt; pinned -&gt; derived resolution that turns a file into
+a known shape.
+
+Why a database needs an identity at all
+---------------------------------------
+Nothing in this project raises when a column disappears. Every loader in
+`Optimization/persistence/Picking_Data.py` does `SELECT *` and guards with `row.keys()`, and
+`Optimization/Performance_Evaluations/` reaches all of them through those loaders — so a renamed
+or dropped column does not fail, it silently becomes the dataclass default `0.0`/NaN in
+`common/frames.py`, and a published number quietly changes. That is the quietest failure mode in
+the codebase. An identity check converts it into a loud one.
+
+Identity is DERIVED FROM SHAPE, never chosen — the same trick
+`Optimization/runschema/contract.py` uses for the run tree. Nobody picks a version number, two
+branches cannot both call themselves &quot;v3&quot;, and any consumer can re-derive it to check.
+
+Resolution order is **stamped -&gt; pinned -&gt; derived**, because deriving costs ~10 PRAGMA round
+trips per file and an archive holds hundreds:
+
+    stamped   the writer recorded its own id in the file (families that have a meta table)
+    pinned    a previous derivation was cached alongside (e.g. a derived sidecar)
+    derived   read out of `sqlite_master` now</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nSchema_connect_py.html"><code>Schema.connect</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_shape_py.html"><code>Schema.shape</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(18)</span></h2><ul><li><a href="nDiagnostics_replay_run_py.html"><code>Diagnostics.replay_run</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization.Performance_Evaluations.core.context</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py.html"><code>Optimization.persistence.Warehouse_Data</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py.html"><code>Optimization.persistence.runtime_metrics</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_run_whatif_delta_py.html"><code>Optimization.run_whatif_delta</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li><li><a href="nOptimization_run_whatif_volume_py.html"><code>Optimization.run_whatif_volume</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_dataset_py.html"><code>Schema.dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_profile_tree_py.html"><code>Schema.profile_tree</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nVisualization_cache_schema_py.html"><code>Visualization.cache_schema</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_db_reader_py.html"><code>Visualization.db_reader</code></a> <span class="dim">Visualization/db_reader.py</span></li><li><a href="nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse.catalog.Affinity_Store</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li><li><a href="nWarehouse_generation_generate_affinity_py.html"><code>Warehouse.generation.generate_affinity</code></a> <span class="dim">Warehouse/generation/generate_affinity.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py.html"><code>Warehouse.generation.generate_inventory</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py.html"><code>Warehouse.generation.generate_mixed_profile</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(18)</span></h2><ul><li><a href="nSchema_identity_py__Family.html"><code>Family</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__META_TABLE_DDL.html"><code>META_TABLE_DDL</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__SchemaDrift.html"><code>SchemaDrift</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__SchemaError.html"><code>SchemaError</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__UnsupportedSchema.html"><code>UnsupportedSchema</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__UnsupportedSchema___init__.html"><code>__init__</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__check.html"><code>check</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__check_or_warn.html"><code>check_or_warn</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__check_tables.html"><code>check_tables</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__Family_declared_id.html"><code>declared_id</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__families.html"><code>families</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__get.html"><code>get</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__meta_ddl.html"><code>meta_ddl</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__read_stamp.html"><code>read_stamp</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__register.html"><code>register</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__resolve.html"><code>resolve</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__stamp.html"><code>stamp</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__Family_supported_ids.html"><code>supported_ids</code></a> <span class="dim">Schema/identity.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_identity_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/identity.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

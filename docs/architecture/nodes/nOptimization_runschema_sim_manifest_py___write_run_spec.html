@@ -18,8 +18,13 @@
 <section class="doc">Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved
 inventory pairs) to &lt;base&gt;/run_spec.json, atomically.  On --resume this is read back so a
 bare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags
-and no find_latest_db_pairs drift.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py___run_spec_path.html"><code>_run_spec_path</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+and no find_latest_db_pairs drift.
+
+`repo_commit` / `repo_dirty` are added HERE rather than by the caller so that every producer of
+a run_spec gets them without opting in — the point of the stamp is that it cannot be forgotten.
+They are provenance, not run shape: `_apply_run_spec` overlays an explicit whitelist of fields
+onto argv, so a resume ignores them and keeps the ORIGINAL run&#x27;s commit on record.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py___run_spec_path.html"><code>_run_spec_path</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nSchema_provenance_py__repo_provenance.html"><code>repo_provenance</code></a> <span class="dim">Schema/provenance.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_sim_manifest_py___write_run_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/sim_manifest.py#:~:text=def%20_write_run_spec">Source ↗</a></p>
 </article>
 </main>

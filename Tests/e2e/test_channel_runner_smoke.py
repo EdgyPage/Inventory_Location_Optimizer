@@ -109,10 +109,30 @@ def test_mixed_fanout_writes_per_channel_dbs(tmp_path, monkeypatch):
         assert row and row[0] == ch                         # persisted channel identity
 
 
+class _ListHandler(logging.Handler):
+    """Capture on the 'analysis' logger DIRECTLY: the inline `_run_strategy_worker` calls
+    above do `root.handlers = []` (correct in a spawned worker, where the queue handler must
+    be the only route), which silently removes pytest's caplog handler from the root — so
+    root-based capture sees nothing this test runs after the sim phase."""
+
+    def __init__(self):
+        super().__init__(level=logging.INFO)
+        self.lines: list = []
+
+    def emit(self, record):
+        self.lines.append(record.getMessage())
+
+
 def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     """run_analysis discovers the per-channel run subtrees and replicates the whole graph
-    suite for each channel (store + fulfillment) — no plot-module changes required."""
+    suite for each channel (store + fulfillment) — no plot-module changes required.
+
+    Doubles as the ZERO-WARNING gate for the output map and the access-log gate for the
+    request broker: a full inline analysis over real DBs must save every figure inside its
+    evaluation's declared out_subdir (io._MAP_WARNINGS stays empty) and must get every
+    request granted (no DENIED lines, a 0-denial run summary)."""
     from Optimization import run_analysis as ra
+    from Optimization.Performance_Evaluations.common import io as pe_io
     log = logging.getLogger('chan-an'); log.setLevel(logging.ERROR)
     rs.CONFIG['global']['n_batches'] = 2
     monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [rs.REGRESSION_CONFIGS[0]])
@@ -133,7 +153,15 @@ def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     for sk in sim_skeletons:                      # write each channel's sim_meta.json
         rs._finalize_config_run(sk)
 
-    ra.run_analysis(base_dir, log, workers=1, preset='NO_STATS')
+    pe_io._MAP_WARNINGS.clear()
+    cap = _ListHandler()
+    an_log = logging.getLogger('analysis')
+    an_log.addHandler(cap)
+    an_log.setLevel(logging.INFO)
+    try:
+        ra.run_analysis(base_dir, log, workers=1, preset='NO_STATS')
+    finally:
+        an_log.removeHandler(cap)
 
     # Each channel writes its OWN run subtree (store under its config name, fulfillment under
     # its own) — derive the dir from the skeleton rather than assuming a shared config name.
@@ -143,6 +171,18 @@ def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
         assert os.path.exists(os.path.join(ch_dir, 'sim_meta.json'))
         pngs = glob.glob(os.path.join(ch_dir, '**', '*.png'), recursive=True)
         assert pngs, f'no graphs generated for channel {sk["channel"]}'
+
+    # THE zero-warning gate: every figure landed inside its evaluation's declared out_subdir.
+    assert pe_io._MAP_WARNINGS == set(), (
+        f'figures saved outside their declared out_subdir: {sorted(pe_io._MAP_WARNINGS)}')
+
+    # THE access gate: with every resource present, every request is granted — no denials.
+    access = [m for m in cap.lines if m.startswith('[access]')]
+    assert access, 'the broker logged no [access] lines at all — the choke point is unwired'
+    denied = [m for m in access if 'DENIED' in m]
+    assert not denied, f'unexpected denials on a complete run: {denied}'
+    granted_evals = {m.split()[1] for m in access if '-> granted' in m}
+    assert granted_evals, 'no granted lines recorded'
 
 
 def _mixed_inventory(num_skus=120, seed=2):

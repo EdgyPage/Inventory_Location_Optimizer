@@ -1,0 +1,150 @@
+{
+  "family": "runtime_metrics_db",
+  "shape_id": "a683d2d07c72",
+  "captured": "2026-08-14T18:33:55",
+  "captured_from": "comparison_whatif_20260729_125755",
+  "note": "",
+  "shape": {
+    "tables": {
+      "runtime": {
+        "columns": [
+          {
+            "name": "cell",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "pair",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "config",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "channel",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "arm",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "initial",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "assignment",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "regime_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_aisles",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "batches",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "rate",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "reord_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "build_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "pre_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "sim_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "extract_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "inv_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "save_s",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "sqlite_autoindex_runtime_1",
+            "unique": 1,
+            "cols": [
+              "cell",
+              "pair",
+              "config",
+              "channel",
+              "arm"
+            ]
+          }
+        ],
+        "autoincrement": false,
+        "without_rowid": false
+      }
+    }
+  }
+}

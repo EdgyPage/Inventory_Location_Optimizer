@@ -100,6 +100,7 @@ ARTIFACTS = {
         'path': 'run.log', 'format': 'text', 'scope': 'run',
         'writer': '_setup_logging@Optimization/config/sim_config.py'},
     'runtime_metrics_db': {
+        'family': 'runtime_metrics_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],
         'writer': 'record_arm@Optimization/persistence/runtime_metrics.py',
         'note': 'the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path.'},
@@ -107,12 +108,14 @@ ARTIFACTS = {
         'path': '_runtime/*.png', 'format': 'png', 'scope': 'run',
         'writer': 'run@Optimization/run_runtime_graphs.py'},
     'frozen_inventory_db': {
+        'family': 'inventory_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_frozen/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'run',
         'optional': True,
         'condition': 'MULTI-cell runs only — a single-cell run writes planned_inventory.db under '
                      '<cell>/<pair>/ instead.',
         'writer': '_run_whatif_matrix@Optimization/simdriver/scenario.py'},
     'frozen_warehouse_db': {
+        'family': 'warehouse_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_frozen/{pair}/warehouse.db', 'format': 'sqlite', 'scope': 'run',
         'optional': True, 'condition': 'MULTI-cell runs only (see frozen_inventory_db).',
         'writer': '_run_whatif_matrix@Optimization/simdriver/scenario.py'},
@@ -190,26 +193,41 @@ ARTIFACTS = {
         'writer': 'run_aggregate@Optimization/Performance_Evaluations/driver.py',
         'note': 'faceted/, overlay/, top/, breakdown/, stats_by_initial/<group>/.'},
     'aggregate_by_initial_csv': {
+        'evaluation': 'agg.stats_by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'cell',
         'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_summary_csv': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_summary.csv',
-        'format': 'csv', 'scope': 'cell',
-        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
+        # Attribution CORRECTED: the by-initial variant is written by render_stats_by_initial
+        # (via _run_aggregate_stats); render_stats writes the flat stats/ pair declared below.
+        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
     'aggregate_tests_json': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'aggregate_tests.json',
-        'format': 'json', 'scope': 'cell',
+        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
+        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+    # The FLAT aggregate-stats pair (same writer helper, different out_dir) was produced on every
+    # aggregate stats run and never declared — the audit's one genuine contract gap.
+    'aggregate_stats_summary_csv': {
+        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv',
+        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats',
+        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
+    'aggregate_stats_tests_json': {
+        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json',
+        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats',
         'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats_aggregate.py'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {
+        'family': 'warehouse_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/warehouse.db', 'format': 'sqlite', 'scope': 'pair',
         'tables': ['warehouse_stats', 'aisle_type_stats', 'aisle_layout'],
         'writer': 'build_shared_assets@Optimization/simdriver/sim_assets.py'},
     'planned_inventory_db': {
+        'family': 'inventory_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'pair',
         'optional': True,
         'condition': 'SINGLE-cell runs only — a multi-cell run shares _frozen/<pair>/'
@@ -235,12 +253,18 @@ ARTIFACTS = {
 
     # ── per channel-run (the analysis leaf) ─────────────────────────────────────
     'sim_db': {
+        'family': 'sim_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db',
         'format': 'sqlite', 'scope': 'channel_run',
+        # `bin_inventory` is deliberately ABSENT: it is no longer written (bin_placement +
+        # bin_eviction + picks supersede it).  Archived DBs still carry it and are still read
+        # — this list declares what a run WRITES, not what every file on disk contains.
         'tables': ['simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
-                   'bin_inventory', 'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores'],
+                   'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
+                   'bin_placement', 'bin_eviction'],
         'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
+        'family': 'keyframes_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db',
         'format': 'sqlite', 'scope': 'channel_run', 'tables': ['bin_keyframe'],
         'optional': True, 'condition': 'keyframe_interval > 0.',
@@ -251,6 +275,7 @@ ARTIFACTS = {
         'writer': '_finalize_config_run@Optimization/simdriver/supervisor.py',
         'note': 'the completeness marker iter_channel_runs walks on.'},
     'series_json': {
+        'evaluation': 'config.series',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/series.json',
         'format': 'json', 'scope': 'channel_run',
         'writer': '_dump_series@Optimization/Performance_Evaluations/common/series.py'},
@@ -275,44 +300,73 @@ ARTIFACTS = {
         'format': 'png', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'batches_long_csv': {
+        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'per_run_summary_csv': {
+        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
     'summary_batch_csv': {
+        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'summary_task_csv': {
+        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/comparison/summary_csv.py'},
     'stats_summary_csv': {
+        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
         'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'stats_tests_json': {
+        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats/tests.json',
         'format': 'json', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_pngs).',
         'writer': 'render_suite@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_summary_csv': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_stats_summary_csv': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/'
                 'stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
     'by_initial_tests_json': {
+        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json',
         'format': 'json', 'scope': 'channel_run',
         'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/config_suite.py'},
+
+    # ── derived sidecars: built by the VIEWER, never by a run ───────────────────
+    # Declared here even though no simulation writes it.  This table is what `preflight.validate`
+    # matches observed files against, so an UNDECLARED family surfaces as one undeclared template
+    # per arm — 272 of them on a full sweep the viewer has been pointed at.  "Nothing in the run
+    # produces it" is a `condition`, not a reason to leave it out: the contract's job is to let a
+    # consumer be told about every file it will meet in the tree.
+    'viz_cache_db': {
+        'family': 'viz_cache_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
+        'path': '_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db',
+        'format': 'sqlite', 'scope': 'channel_run', 'optional': True,
+        'tables': ['cache_meta', 'bin_span', 'sku_rank', 'sku_series', 'final_home',
+                   'aisle_batch_rollup'],
+        'condition': 'built on demand by the viewer, so it is absent from every simulation run '
+                     '(the preflight canaries never produce it) until someone opens that run in '
+                     'Visualization/. Deleting _viz/ costs time, never data.',
+        'writer': 'build_one@Visualization/precompute.py',
+        'note': 'lives under the reserved `_` prefix (RESERVED_PREFIX) so every tree walker skips '
+                'it; named sim_{strategy}.viz.db beside the sim DB it would instead satisfy all '
+                'three predicates of runlayout._sim_dbs_in and surface as an extra ARM.'},
 
     # ── transient per-channel-run state (deleted when the config run finalizes) ──
     'resume_pkl': {

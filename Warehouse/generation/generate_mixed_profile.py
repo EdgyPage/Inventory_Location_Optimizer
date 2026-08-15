@@ -66,6 +66,9 @@ _load_env(os.path.join(_REPO_ROOT, '.env'))
 
 from dataclasses import replace
 
+from Schema import connect as _connect
+from Schema import identity as _identity
+from Schema import profile_tree as _profile_tree
 from Warehouse.generation.generate_inventory import (
     generate_run as _inv_run, Family, DEFAULT_FREQ_SPEC, DEFAULT_QTY_SPEC,
     fulfillment_families, DEFAULT_FF_WEIGHT_SPEC,
@@ -209,6 +212,15 @@ def _build_plan(args) -> list:
 # ── driver ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
+    # INSIDE parse_args, so a reconfigure that sits after it never runs on the one path that
+    # needs it most.  U+2192 (in --ff-cube-fraction's help) has no cp1252 mapping, so `--help`
+    # on a legacy console died with UnicodeEncodeError instead of printing usage.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Generate one realistic mixed inventory + affinity profile.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -264,10 +276,6 @@ def main() -> None:
     parser.add_argument('--estimate', action='store_true',
                         help='print the plan + expected conveyable fraction and affinity size, then exit')
     args = parser.parse_args()
-    try:
-        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
-    except Exception:
-        pass
     out_dir = _clean_path(args.out_dir)
 
     demand_override = None
@@ -313,6 +321,27 @@ def main() -> None:
               f'(cube {args.ff_cube_fraction:.0%} / rect {1 - args.ff_cube_fraction:.0%})')
     print(f'{"="*64}\n')
 
+    # profile_layout.json entries, accumulated per completed leaf.  The descriptor is REWRITTEN
+    # after every leaf — a crashed multi-lead run still leaves a valid partial descriptor
+    # covering exactly what finished, which downstream treats the same as a small run.
+    descriptor_profiles: dict = {}
+
+    def _side_entry(side_dir: str, db_name: str, extra: dict | None = None) -> dict:
+        db_path = os.path.join(side_dir, db_name)
+        fam = _identity.get('inventory_db' if db_name == 'inventory.db' else 'affinity_db')
+        con = _connect.read_only(db_path)
+        try:
+            db_schema_id = _identity.read_stamp(con, fam)   # freshly written by _init_db's stamp
+        finally:
+            con.close()
+        entry = {
+            'db': f'{os.path.basename(side_dir)}/{db_name}',
+            'params_digest': _profile_tree.params_digest(os.path.join(side_dir, 'params.json')),
+            'db_schema_id': db_schema_id,
+            'db_bytes': os.path.getsize(db_path),
+        }
+        return {**entry, **(extra or {})}
+
     for prof_name, lead_time, lead_range in lead_specs:
         leaf = os.path.join(run_dir, prof_name)
         os.makedirs(leaf, exist_ok=True)
@@ -335,6 +364,7 @@ def main() -> None:
         inv_db = os.path.join(inv_run, 'inventory.db')
         print(f'  inventory done in {time.perf_counter()-t0:.1f}s → {inv_db}')
 
+        entry = {'inventory': _side_entry(inv_run, 'inventory.db')}
         if not args.skip_affinity:
             t0 = time.perf_counter()
             _aff_run(
@@ -347,9 +377,16 @@ def main() -> None:
                 max_lift     = args.affinity_max_lift,
                 seed         = args.affinity_seed,
             )
+            entry['affinity'] = _side_entry(os.path.join(leaf, 'affinity'), 'affinity.db',
+                                            {'source_inventory': '../inventory/inventory.db'})
             print(f'  affinity done in {time.perf_counter()-t0:.1f}s')
 
-    print(f'\n[mixed] Done → {run_dir}  ({len(args.lead_times)} lead-time profile(s))\n')
+        descriptor_profiles[prof_name] = entry
+        _profile_tree.write_profile_layout(run_dir, descriptor_profiles,
+                                           generator='generate_mixed_profile', argv=sys.argv[1:])
+
+    print(f'\n[mixed] Done → {run_dir}  ({len(args.lead_times)} lead-time profile(s); '
+          f'descriptor: {_profile_tree.DESCRIPTOR})\n')
 
 
 if __name__ == '__main__':

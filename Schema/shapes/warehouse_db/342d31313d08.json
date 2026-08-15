@@ -1,0 +1,238 @@
+{
+  "family": "warehouse_db",
+  "shape_id": "342d31313d08",
+  "captured": "2026-08-14T18:34:01",
+  "captured_from": "comparison_20260623_044257",
+  "note": "",
+  "shape": {
+    "tables": {
+      "aisle_layout": {
+        "columns": [
+          {
+            "name": "aisle_id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "handling_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "category",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "unit_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "storage_size",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bay_x",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "bay_y",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": false,
+        "without_rowid": false
+      },
+      "aisle_type_stats": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "warehouse_id",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "handling_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "category",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "unit_type",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "replica_count",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "eff_bins_per_aisle",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "size_small_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "size_medium_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "size_large_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "size_xlarge_pct",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_at_warehouse_id",
+            "unique": 0,
+            "cols": [
+              "warehouse_id"
+            ]
+          }
+        ],
+        "autoincrement": true,
+        "without_rowid": false
+      },
+      "warehouse_stats": {
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 1
+          },
+          {
+            "name": "inventory_db",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "timestamp",
+            "type": "TEXT",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_skus",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_pallet_units",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "n_singleton_units",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_aisles",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "total_bins",
+            "type": "INTEGER",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "expected_fill",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "target_fill",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "max_aisles_cap",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "max_bins_cap",
+            "type": "INTEGER",
+            "notnull": 0,
+            "pk": 0
+          },
+          {
+            "name": "avg_equilibrium_qty",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          },
+          {
+            "name": "avg_reorder_point",
+            "type": "REAL",
+            "notnull": 1,
+            "pk": 0
+          }
+        ],
+        "indexes": [],
+        "autoincrement": true,
+        "without_rowid": false
+      }
+    }
+  }
+}

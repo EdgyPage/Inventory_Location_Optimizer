@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>latest · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_profile_resolver_py__ProfileTree_latest" data-id="Schema/profile_resolver.py::ProfileTree.latest">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_profile_resolver_py.html"><code>Schema/profile_resolver.py</code></a> <span class="sep">›</span> <a href="nSchema_profile_resolver_py__ProfileTree.html"><code>ProfileTree</code></a> <span class="sep">›</span> <span class="here"><code>latest</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>latest</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_profile_resolver_py.html"><code>Schema/profile_resolver.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def latest(self) -&gt; str | None</code></pre>
+<section class="doc">The newest profile run with at least one complete pair.
+
+Descriptor `created` timestamps order the descriptor-bearing runs; runs WITHOUT a
+descriptor order by name (the historical lexicographic behavior, which their timestamped
+names make correct).  When both kinds exist, the maximum across the merged order wins;
+if that disagrees with the pure lexicographic answer, a warning names both — the
+situation is legal (a backdated --name) but worth a human glance.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_resolver_py__ProfileTree_pairs.html"><code>pairs</code></a> <span class="dim">Schema/profile_resolver.py</span></li><li><a href="nSchema_profile_resolver_py__ProfileTree_runs.html"><code>runs</code></a> <span class="dim">Schema/profile_resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_profile_resolver_py__ProfileTree_latest">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/profile_resolver.py#:~:text=def%20latest">Source ↗</a></p>
+</article>
+</main>
+</body></html>

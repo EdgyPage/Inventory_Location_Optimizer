@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.cache_schema · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_cache_schema_py" data-id="Visualization/cache_schema.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/cache_schema.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.cache_schema</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_cache_schema_py.html"><code>Visualization/cache_schema.py</code></a></p>
+
+<pre class="sig"><code>Visualization.cache_schema</code></pre>
+<section class="doc">cache_schema.py — DDL for the derived viewer sidecar (`_viz/**/&lt;arm&gt;.viz.db`).
+
+Everything here is DERIVED. Deleting a sidecar costs time, never data; the viewer runs without
+one, just slowly. It exists because four things are too slow to compute per request on a
+production arm (384 aisles, 396,500 bins, 130,885 SKUs, 100 batches, ~1 GB sim DB):
+
+| Table                | Replaces                                                           |
+|----------------------|--------------------------------------------------------------------|
+| `aisle_batch_rollup` | a ~0.7 s whole-warehouse state rebuild per pane per batch step, run |
+|                      | only to count occupied bins per aisle                               |
+| `sku_rank`           | a measured 24.4 s `GROUP BY sku` full scan of `picks`               |
+| `sku_series`         | the same scan again, per batch                                      |
+| `bin_span`           | a measured ~5-9 s scan for one bin&#x27;s history — `bin_keyframe`&#x27;s PK  |
+|                      | starts `(run_id, batch_id)`, so no per-aisle index is usable        |
+| `final_home`         | the per-SKU destination map the convergence colouring is built on   |
+
+**`bin_span` is built from the LOG — `bin_placement` + `bin_eviction` + `picks`.** Those three
+tables are the complete bin-mutation record (`Optimization/metrics/bin_recorder.py`, proved
+against a live simulation by `Tests/integration/test_bin_log_replay.py`), so a span is exact at
+**every** batch, not merely at the keyframes. `t_from`/`t_to` are therefore arbitrary batch ids.
+
+A span still keys on SKU CHANGE rather than on qty: qty churns every batch and a per-bin-per-batch
+table would be 396,500 x 100 = 39.65M rows, larger than the sim DB it caches. Exact qty at an
+arbitrary `(batch, t)` is `qty_at_from` minus the picks since `t_from`, which the reader already
+does.
+
+Runs written BEFORE the log existed (every arm of the current archive) fall back to spans built
+from the keyframes — exact only on the keyframe grid, which is the old contract
+(`RECONSTRUCTION.md` §1). Which of the two produced a given sidecar is recorded in
+`cache_meta.span_source`, because the reader&#x27;s `exact` flag depends on it and guessing would be
+the same class of silent error the log exists to remove.
+
+This module is DDL and nothing else, so `context/verify_context.py` can point a `schema_file` at
+it and check every declared table actually exists.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_shape_py.html"><code>Schema.shape</code></a> <span class="dim">Schema/shape.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nVisualization_precompute_py.html"><code>Visualization.precompute</code></a> <span class="dim">Visualization/precompute.py</span></li><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(20)</span></h2><ul><li><a href="nVisualization_cache_schema_py__CACHE_VERSION.html"><code>CACHE_VERSION</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__SPAN_SOURCE_KEYFRAME.html"><code>SPAN_SOURCE_KEYFRAME</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__SPAN_SOURCE_LOG.html"><code>SPAN_SOURCE_LOG</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__TABLES.html"><code>TABLES</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__V1_KEYFRAME_SPAN_SCHEMA_ID.html"><code>V1_KEYFRAME_SPAN_SCHEMA_ID</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__VIZ_CACHE_DB_FAMILY.html"><code>VIZ_CACHE_DB_FAMILY</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___ALL.html"><code>_ALL</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_AISLE_ROLLUP.html"><code>_CREATE_AISLE_ROLLUP</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_AISLE_ROLLUP_IDX.html"><code>_CREATE_AISLE_ROLLUP_IDX</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_BIN_SPAN.html"><code>_CREATE_BIN_SPAN</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_BIN_SPAN_IDX.html"><code>_CREATE_BIN_SPAN_IDX</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_CACHE_META.html"><code>_CREATE_CACHE_META</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_FINAL_HOME.html"><code>_CREATE_FINAL_HOME</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_SKU_RANK.html"><code>_CREATE_SKU_RANK</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_SKU_RANK_IDX.html"><code>_CREATE_SKU_RANK_IDX</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py___CREATE_SKU_SERIES.html"><code>_CREATE_SKU_SERIES</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__cache_freshness.html"><code>cache_freshness</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__declared_cache_shape.html"><code>declared_cache_shape</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__init_cache_db.html"><code>init_cache_db</code></a> <span class="dim">Visualization/cache_schema.py</span></li><li><a href="nVisualization_cache_schema_py__source_stamps.html"><code>source_stamps</code></a> <span class="dim">Visualization/cache_schema.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_cache_schema_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/cache_schema.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

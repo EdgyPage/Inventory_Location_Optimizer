@@ -14,12 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>_write_delta_json</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_delta_py.html"><code>Optimization/run_whatif_delta.py</code></a></p>
 
-<pre class="sig"><code>def _write_delta_json(base_dir, rt, rows, reference, cell_names) -&gt; str</code></pre>
-<section class="doc">Write whatif_delta.json — the per-cell × per-channel MEDIAN table the docs site renders.
+<pre class="sig"><code>def _write_delta_json(rt, rows, reference, cell_names) -&gt; str</code></pre>
+<section class="doc">Write the whatif_delta_json artifact — the per-cell × per-channel MEDIAN table the docs
+site renders.
 
-Previously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the only
-way to get one was to hand-copy and rename whatif_labor.json.  The four-metric key names
-(dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that macro prefers.</section>
+Previously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the
+only way to get one was to hand-copy and rename the whatif_labor summary JSON.  The
+four-metric key names (dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that
+macro prefers.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py___cell_labels.html"><code>_cell_labels</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_delta_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_delta.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_delta_py___write_delta_json">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_delta.py#:~:text=def%20_write_delta_json">Source ↗</a></p>
 </article>

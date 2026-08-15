@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_bin_spans · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_precompute_py___bin_spans" data-id="Visualization/precompute.py::_bin_spans">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a> <span class="sep">›</span> <span class="here"><code>_bin_spans</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_bin_spans</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_precompute_py.html"><code>Visualization/precompute.py</code></a></p>
+
+<pre class="sig"><code>def _bin_spans(events, picks, last_batch)</code></pre>
+<section class="doc">Fold ONE bin&#x27;s PLACE/EVICT/PICK events into its exact occupancy spans.
+
+`events` are `(batch, kind, seq, sku, qty)` sorted ascending, `kind` 0 = EVICT, 1 = PLACE —
+so the sort itself imposes the runner&#x27;s within-batch order, EVICT -&gt; PLACE -&gt; PICK: the
+reloader runs first, then `check_reorders()`, and only then the pick simulation.
+`picks` is `{batch: units}` for this bin, or None.
+
+A span therefore OPENS at the batch of its PLACE (the bin already holds the unit at that
+batch&#x27;s START, which is the frame every keyframe and every `state_at` is defined on) and
+CLOSES at whichever comes first:
+
+  * the batch before the next PLACE/EVICT — a span that opens and closes inside one batch is
+    never visible at start-of-batch resolution and is dropped (`t_to &lt; t_from`);
+  * the batch whose picks drain it to zero.
+
+Returns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the
+`[(batch, units)]` actually consumed inside the span — the caller needs it to keep the
+per-aisle qty rollup exact without re-reading `picks`.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py___log_pass.html"><code>_log_pass</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___bin_spans">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_bin_spans">Source ↗</a></p>
+</article>
+</main>
+</body></html>

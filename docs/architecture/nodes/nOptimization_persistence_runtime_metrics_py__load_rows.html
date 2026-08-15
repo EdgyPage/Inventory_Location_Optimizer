@@ -15,8 +15,15 @@
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_runtime_metrics_py.html"><code>Optimization/persistence/runtime_metrics.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def load_rows(run_root: str) -&gt; list[dict]</code></pre>
-<section class="doc">All runtime rows as dicts (empty if the DB is absent) — for the runtime graphs.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py__runtime_db_path.html"><code>runtime_db_path</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_runtime_graphs_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_runtime_graphs.py</span></li></ul></section>
+<section class="doc">All runtime rows as dicts (empty if the DB is absent) — for the runtime graphs.
+
+WARNS rather than raising on an unvetted shape, unlike the sim-DB check in
+`Performance_Evaluations/core/context.py`.  The difference is what the number is FOR: these
+rows are wall-clock diagnostics about how long an arm took to compute, never a published
+result, and this is a `SELECT *` into dicts that the graphs index defensively.  A runtime DB
+from a shape we have not seen is worth a named line in the log; it is not worth sinking the
+analysis of a sweep that has already finished computing.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py__runtime_db_path.html"><code>runtime_db_path</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nSchema_identity_py__check_or_warn.html"><code>check_or_warn</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_runtime_graphs_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_runtime_graphs.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_runtime_metrics_py__load_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/runtime_metrics.py#:~:text=def%20load_rows">Source ↗</a></p>
 </article>
 </main>

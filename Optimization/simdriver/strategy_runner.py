@@ -48,13 +48,15 @@ from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
+from Optimization.metrics.bin_recorder import BinRecorder
 from Optimization.metrics.Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
-    build_pre_snapshot, snapshot_bin_inventory, snapshot_aisle_metrics,
+    build_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
+    save_bin_placements, save_bin_evictions,
     save_batch_stats, save_task_stats, save_picker_events, save_picks,
-    save_bin_inventory, save_aisle_metrics, save_reorder_queue,
+    save_aisle_metrics, save_reorder_queue,
     save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -63,14 +65,53 @@ from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier
 
 # ── checkpoint helpers ────────────────────────────────────────────────────────
 
+# Windows holds a just-written file open for a few hundred ms often enough to matter at this
+# frequency; 5 attempts over ~1.5 s covers every occurrence seen, without masking a real fault.
+_CKPT_REPLACE_ATTEMPTS = 5
+_CKPT_REPLACE_DELAY    = 0.1     # seconds, multiplied by the attempt number
+
 def save_worker_checkpoint(run_dir: str, strategy: str, next_batch_id: int) -> None:
     # Atomic: write to a temp file then os.replace, so a crash mid-write can never leave a
     # truncated checkpoint that would mis-resume (mirrors batch_precompute.write_batches).
+    #
+    # THE RETRY IS NOT DEFENSIVE PADDING.  This fires once per checkpoint per arm, on the external
+    # results drive, with up to 18 workers running — and on Windows `os.replace` raises
+    # PermissionError (WinError 5) whenever anything holds the destination open for even a moment,
+    # which a scanner or the indexer routinely does just after a file is written.  Measured on a
+    # 6-batch tiny sweep: 2 of 8 arms died this way, and because the exception propagates out of
+    # the worker it took the whole ARM with it, not just the checkpoint.  The wreckage then failed
+    # three later smoketest stages — the orphaned `.pkl.tmp.<pid>` showed up as an undeclared path,
+    # the un-finalized `_ckpt_*.pkl` as an artifact the run shape must not have, and the two lost
+    # arms as `channel-run count 6 != expected 8`.
+    #
+    # It still RAISES if every attempt fails: a checkpoint that silently did not land would let a
+    # resume restart from an earlier batch and re-emit bin-log rows under fresh `seq` values,
+    # duplicating them against the (run_id, batch_id, seq) primary key.  Losing the arm is better
+    # than corrupting its log, so the failure stays fatal — the retry only removes the transient.
     path = os.path.join(run_dir, f'_ckpt_{strategy}.pkl')
     tmp = f'{path}.tmp.{os.getpid()}'
     with open(tmp, 'wb') as f:
         pickle.dump({'next_batch_id': next_batch_id}, f)
-    os.replace(tmp, path)
+    try:
+        for attempt in range(_CKPT_REPLACE_ATTEMPTS):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                # ONLY PermissionError.  A full disk or a disconnected drive is not a lock that
+                # clears, and retrying it five times only delays a fault that must surface now.
+                if attempt == _CKPT_REPLACE_ATTEMPTS - 1:
+                    raise
+                time.sleep(_CKPT_REPLACE_DELAY * (attempt + 1))   # linear back-off; locks are brief
+    finally:
+        # However we leave, never leave the temp behind: it outlives the run and
+        # `runschema.preflight.verify` reports it as a path template no consumer knows about.
+        # After a successful replace there is nothing here to remove.
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def load_worker_checkpoint(run_dir: str, strategy: str) -> int:
@@ -265,6 +306,12 @@ def _run_strategy_worker(args: dict) -> dict:
     random.seed(seed_world + 100)
     mgr = Inventory_Manager(warehouse, affinity=None)
     mgr._seed = seed_world   # keys the reorder-qty noise (deterministic, off the global stream)
+    # Record every bin mutation.  Installed BEFORE any stocking so the initial fill is captured
+    # too; wraps the manager INSTANCE, so Warehouse/ is untouched.  This is the term the record
+    # used to be missing — the retired bin_inventory logged picks and never restocks (see
+    # bin_recorder's docstring).
+    bin_rec = BinRecorder(run_id)
+    bin_rec.attach(mgr)
 
     # Velocity zoning (per-channel; default off ⇒ byte-identical): band the SKUs by velocity and
     # the aisles by geometry BEFORE any stocking, so _candidates routes hot SKUs to shallow aisles.
@@ -391,7 +438,6 @@ def _run_strategy_worker(args: dict) -> dict:
     pt: list = []
     pe: list = []
     pk: list = []   # individual pick records
-    pi: list = []   # bin inventory snapshots
     pm: list = []   # aisle metrics snapshots
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
@@ -411,7 +457,27 @@ def _run_strategy_worker(args: dict) -> dict:
     t_pre_ckpt     = 0.0   # build_pre_snapshot + snapshot_aisle_metrics + keyframe write
     t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
     t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
-    t_inv_ckpt     = 0.0   # snapshot_bin_inventory
+    t_inv_ckpt     = 0.0   # bin accounting: the conservation ledger (was: snapshot_bin_inventory)
+
+    # ── conservation ledger ───────────────────────────────────────────────────
+    # The runtime proof that the bin-mutation log is complete.  Over the whole arm,
+    #
+    #     units placed − units evicted − units picked  ==  units sitting in bins right now
+    #
+    # and the right-hand side is read from the WAREHOUSE, not from any counter the recorder
+    # keeps — so a mutation that bypasses the log breaks it, which is the entire point.  It is
+    # asserted cumulatively rather than as a per-batch delta because the cumulative form needs
+    # no special case for the first measured batch (a resumed arm re-stocks from empty) and
+    # localises a break just as well: the first batch that fails names the one that broke it.
+    #
+    # Measured at `build_pre_snapshot` time — start of batch, after restock, before picks —
+    # because that snapshot IS the occupied-bin set, so the occupancy term is a sum over a dict
+    # already materialised rather than a second walk of 396,500 bins.  At full occupancy that
+    # sum is a low-tens-of-ms integer add per batch against the several hundred ms
+    # `build_pre_snapshot` spends allocating the dict it reads.
+    cons_picked   = 0      # units picked, cumulative over the arm
+    cons_breaks   = 0      # batches that INTRODUCED an unaccounted-for unit
+    cons_residual = 0      # last observed (ledger − occupancy); see the report rule below
     # Whole-arm section totals (never reset) → returned so the PARENT writes the runtime-metrics DB
     # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
     # dominance = the recurring valid-aisle recompute suspicion).
@@ -422,6 +488,7 @@ def _run_strategy_worker(args: dict) -> dict:
 
     for i in range(start_i, n_batches):
         _t = time.perf_counter()
+        bin_rec.begin_batch(i)
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
@@ -477,6 +544,41 @@ def _run_strategy_worker(args: dict) -> dict:
             ])
         _now = time.perf_counter(); t_pre_ckpt += _now - _t; _t = _now
 
+        # ── conservation ledger ────────────────────────────────────────────────
+        # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `pre_snap` is
+        # the occupied-bin set at this instant, so the occupancy term is one integer sum over
+        # a dict that has just been built anyway.  Checked BEFORE the `not tasks` skip so an
+        # empty batch is audited like any other.
+        #
+        # LOGGED, NEVER RAISED — deliberately.  A hard raise would kill a 20-minute arm (and
+        # with it the sibling arms of a running comparison) for a diagnostic that is not a
+        # safety interlock: every row involved is already on disk, so a break is fully
+        # re-derivable after the fact from `bin_placement`/`bin_eviction`/`picks` themselves.
+        # There is also one structurally possible BENIGN source of drift — fast_pick's Phase-2
+        # clamp (`actual = min(mut.qty, bin_.storage.quantity)`) can record a pick event larger
+        # than the depletion it applied when two pickers contend for one bin, which is rare but
+        # is a scheduling coincidence, not a corrupt run.  Turning that into a run-killer would
+        # be strictly worse than reporting it.
+        #
+        # The ledger is cumulative, so one bad batch leaves a residual that persists forever.
+        # Reporting every batch after the first would be ~100 identical lines; reporting only
+        # when the residual MOVES names exactly the batches that introduced unaccounted units.
+        occupancy = sum(v['pre_qty'] for v in pre_snap.values())
+        residual  = (bin_rec.units_placed - bin_rec.units_evicted - cons_picked) - occupancy
+        if residual != cons_residual:
+            cons_breaks += 1
+            log.error(
+                f'  CONSERVATION BROKEN at batch {i}: '
+                f'placed={bin_rec.units_placed:,} − evicted={bin_rec.units_evicted:,} − '
+                f'picked={cons_picked:,} = {bin_rec.units_placed - bin_rec.units_evicted - cons_picked:,} '
+                f'but bins hold {occupancy:,} units '
+                f'(new drift {residual - cons_residual:+,}; cumulative {residual:+,}). '
+                f'A bin mutated outside bin_placement/bin_eviction/picks, so spatial '
+                f'reconstruction for this arm is no longer exact — see '
+                f'Optimization/metrics/bin_recorder.py.')
+            cons_residual = residual
+        _now = time.perf_counter(); t_inv_ckpt += _now - _t; _t = _now
+
         if not tasks:
             skipped += 1
             continue
@@ -504,14 +606,15 @@ def _run_strategy_worker(args: dict) -> dict:
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)
         _now = time.perf_counter(); t_extract_ckpt += _now - _t; _t = _now
 
-        inv = snapshot_bin_inventory(mgr, pre_snap, batch_id=i, run_id=run_id,
-                                     full_snapshot=(i == start_i))
+        # Close this batch's pick term.  `picks_b` is what the DB receives, so the ledger
+        # audits the LOG rather than the manager's private counters — a pick the record
+        # over- or under-states shows up here even though the sim itself is self-consistent.
+        cons_picked += sum(p.quantity for p in picks_b)
         _now = time.perf_counter(); t_inv_ckpt += _now - _t
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
         pk.extend(picks_b)
-        pi.extend(inv)
         pm.extend(am)
         last_dur        = bs.duration
         dur_sum_ckpt   += bs.duration
@@ -523,7 +626,9 @@ def _run_strategy_worker(args: dict) -> dict:
             save_task_stats(db_path, run_id, pt)
             save_picker_events(db_path, run_id, pe)
             save_picks(db_path, run_id, pk)
-            save_bin_inventory(db_path, run_id, pi)
+            _bp, _be = bin_rec.drain()
+            save_bin_placements(db_path, run_id, _bp)
+            save_bin_evictions(db_path, run_id, _be)
             save_aisle_metrics(db_path, run_id, pm)
             save_reorder_queue(db_path, run_id, pq)
             save_worker_checkpoint(run_dir, strategy, i + 1)
@@ -554,7 +659,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f'  | reord={t_reord_ckpt:.1f}s build={t_build_ckpt:.1f}s'
                 f' (smpl={t_sample_ckpt:.1f}s task={t_task_ckpt:.1f}s)'
                 f' pre={t_pre_ckpt:.1f}s sim={t_sim_ckpt:.1f}s'
-                f' extr={t_extract_ckpt:.1f}s inv={t_inv_ckpt:.1f}s'
+                f' extr={t_extract_ckpt:.1f}s cons={t_inv_ckpt:.1f}s'
             )
 
             # fold this checkpoint window's section times into the whole-arm totals before reset
@@ -566,7 +671,7 @@ def _run_strategy_worker(args: dict) -> dict:
             t_inv_run     += t_inv_ckpt
             t_save_run    += t_save
 
-            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pi.clear(); pm.clear(); pq.clear()
+            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
             placed_ckpt        = 0
@@ -598,7 +703,9 @@ def _run_strategy_worker(args: dict) -> dict:
         save_task_stats(db_path, run_id, pt)
         save_picker_events(db_path, run_id, pe)
         save_picks(db_path, run_id, pk)
-        save_bin_inventory(db_path, run_id, pi)
+        _bp, _be = bin_rec.drain()
+        save_bin_placements(db_path, run_id, _bp)
+        save_bin_evictions(db_path, run_id, _be)
         save_aisle_metrics(db_path, run_id, pm)
         save_reorder_queue(db_path, run_id, pq)
         t_save_run += time.perf_counter() - _ts_final
@@ -619,6 +726,17 @@ def _run_strategy_worker(args: dict) -> dict:
     log.info('=' * 60)
     log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
              f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
+    # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
+    # from a check that never ran, and "the log is complete" is the claim the whole spatial
+    # record rests on.  The failing form repeats at ERROR so it survives a log tail.
+    if cons_breaks:
+        log.error(f'Strategy {strategy} CONSERVATION: {cons_breaks} batch(es) broke the ledger; '
+                  f'{cons_residual:+,} units unaccounted for at the end. The bin-mutation log '
+                  f'for this arm is INCOMPLETE — spatial reconstruction will not be exact.')
+    else:
+        log.info(f'  conservation OK: placed {bin_rec.units_placed:,} − evicted '
+                 f'{bin_rec.units_evicted:,} − picked {cons_picked:,} balanced against bin '
+                 f'occupancy on every batch')
     log.info('=' * 60)
 
     # Release large per-job state before the worker returns / is recycled.  The pool
@@ -626,7 +744,9 @@ def _run_strategy_worker(args: dict) -> dict:
     # affinity CSR, warehouse, manager state, and the lift memo before the next job
     # so RSS doesn't ratchet across jobs in a reused process.
     lift_cache.clear()
-    del (inventory, affinity, warehouse, mgr, ctx, reloader,
+    # bin_rec goes with them: its wrappers close over the manager's bound methods, so holding
+    # the recorder holds the whole manager (and through it the warehouse) alive.
+    del (inventory, affinity, warehouse, mgr, ctx, reloader, bin_rec,
          freq_by_sku, qty_by_sku, freq_by_idx, batches)
     import gc
     gc.collect()
@@ -638,6 +758,11 @@ def _run_strategy_worker(args: dict) -> dict:
         'done'    : done,
         'skipped' : skipped,
         'last_dur': last_dur,
+        # Conservation verdict for this arm — 0 means the bin-mutation log balanced against
+        # real bin occupancy on every batch.  Surfaced to the parent so a sweep can be judged
+        # from the result dicts without grepping 34 worker logs.
+        'cons_breaks'  : cons_breaks,
+        'cons_residual': cons_residual,
         # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
         #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
         'n_bins'    : n_bins,
@@ -648,6 +773,10 @@ def _run_strategy_worker(args: dict) -> dict:
         't_pre'     : t_pre_run,
         't_sim'     : t_sim_run,
         't_extract' : t_extract_run,
+        # runtime_metrics.inv_s.  Pre-log arms spent this on the bin_inventory snapshot; from
+        # here on it is the conservation ledger, which is ~1000x cheaper.  The column keeps its
+        # name so archived rows stay comparable to themselves — a renamed column would move the
+        # runtime_metrics schema id for a relabelling.
         't_inv'     : t_inv_run,
         't_save'    : t_save_run,
     }

@@ -13,10 +13,16 @@
 <nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_runlayout_py.html"><code>Optimization/runschema/runlayout.py</code></a> <span class="sep">›</span> <span class="here"><code>_profile_pairs</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_profile_pairs</code></h1>
 <p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_runlayout_py.html"><code>Optimization/runschema/runlayout.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _profile_pairs(run_path: str, run_name: str) -&gt; list[tuple[str, str, str]]</code></pre>
-<section class="doc">(label, inventory_db, affinity_db) for every valid profile under one run dir.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py__discover_db_pairs.html"><code>discover_db_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_runlayout_py__find_latest_db_pairs.html"><code>find_latest_db_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li></ul></section>
+<section class="doc">(label, inventory_db, affinity_db) for every valid profile under one run dir.
+
+Descriptor-first since the profiles-tree contract (`Schema/profile_tree.py`): a run carrying
+`profile_layout.json` is served through `ProfileTree` (which existence-checks the
+descriptor&#x27;s claims); a pre-contract run — every catalogue generated before the contract,
+forever, per the no-backfill decision — takes the legacy walk below unchanged.  Signature
+and label format are load-bearing (`context/` anchors; the run tree&#x27;s `&lt;pair&gt;` level).</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_resolver_py__ProfileTree.html"><code>ProfileTree</code></a> <span class="dim">Schema/profile_resolver.py</span></li><li><a href="nSchema_profile_tree_py__read_profile_layout.html"><code>read_profile_layout</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py__discover_db_pairs.html"><code>discover_db_pairs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_runlayout_py___profile_pairs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/runlayout.py#:~:text=def%20_profile_pairs">Source ↗</a></p>
 </article>
 </main>

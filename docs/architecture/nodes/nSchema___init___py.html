@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema___init___py" data-id="Schema/__init__.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema___init___py.html"><code>Schema/__init__.py</code></a></p>
+
+<pre class="sig"><code>Schema</code></pre>
+<section class="doc">Schema — the shape and identity of this project&#x27;s SQLite databases.
+
+`Schema/` owns the shape of each **database**.
+`Optimization/runschema/` owns the shape of the run **directory tree**.
+They are different questions and neither imports the other. See README.md.
+
+Stdlib only, and importable from every layer — which is the reason it is a top-level package
+rather than living under `Optimization/`: `context/architecture.yml` forbids
+`warehouse_core -&gt; optimization`, and `Warehouse/generation/` writes two of the DB families.
+
+Nothing is imported eagerly; take what you need:
+
+    from Schema import connect          # read_only / writer / bulk_writer
+    from Schema import shape            # canonical_shape / shape_id / diff_shapes
+    from Schema import identity         # Family / register / resolve / check</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

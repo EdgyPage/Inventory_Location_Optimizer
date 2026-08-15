@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>build_shared_assets</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_sim_assets_py.html"><code>Optimization/simdriver/sim_assets.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def build_shared_assets(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=5, warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -&gt; dict</code></pre>
+<pre class="sig"><code>def build_shared_assets(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=CONFIG[&#x27;global&#x27;][&#x27;keyframe_interval&#x27;], warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -&gt; dict</code></pre>
 <section class="doc">Load inventory + affinity from DB and build warehouse A.
 
 Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the

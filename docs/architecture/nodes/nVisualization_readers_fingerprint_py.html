@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.readers.fingerprint · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_fingerprint_py" data-id="Visualization/readers/fingerprint.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/readers/fingerprint.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.readers.fingerprint</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_fingerprint_py.html"><code>Visualization/readers/fingerprint.py</code></a></p>
+
+<pre class="sig"><code>Visualization.readers.fingerprint</code></pre>
+<section class="doc">fingerprint.py — resolving WHICH sim-DB schema a file has, and explaining a mismatch.
+
+The normalizer and the structural diff live in `Schema/shape.py`, shared by every DB family;
+the sim DB&#x27;s DECLARED shape comes from `Picking_Data.declared_sim_schema_shape`, which builds the
+schema its own writer builds, so the declaration cannot drift from reality.
+
+This module is the thin sim-specific layer over both, and adds the one thing only a *reader*
+needs: :func:`resolve_schema_id`, the stamped -&gt; pinned -&gt; derived precedence.  Everything else
+here is a re-export, kept so the reader package has a single import surface.
+
+Why the diff matters: ``init_run_db`` is all ``CREATE TABLE IF NOT EXISTS``, so a DB written by
+old code and reopened by new code gains the missing TABLES but never the missing COLUMNS — it
+matches neither declaration.  &quot;hash 4f2a… is unknown&quot; is useless for that; &quot;picks is missing
+column quantity; index ix_pe_run_batch_time absent&quot; is actionable.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nSchema_shape_py.html"><code>Schema.shape</code></a> <span class="dim">Schema/shape.py</span></li><li><a href="nVisualization_readers_protocol_py.html"><code>Visualization.readers.protocol</code></a> <span class="dim">Visualization/readers/protocol.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nVisualization_precompute_py.html"><code>Visualization.precompute</code></a> <span class="dim">Visualization/precompute.py</span></li><li><a href="nVisualization_readers___init___py.html"><code>Visualization.readers</code></a> <span class="dim">Visualization/readers/__init__.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nVisualization_readers_fingerprint_py____all__.html"><code>__all__</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li><li><a href="nVisualization_readers_fingerprint_py__read_stamped_id.html"><code>read_stamped_id</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li><li><a href="nVisualization_readers_fingerprint_py__resolve_schema_id.html"><code>resolve_schema_id</code></a> <span class="dim">Visualization/readers/fingerprint.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_fingerprint_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/fingerprint.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

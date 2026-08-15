@@ -15,7 +15,7 @@ verified anchors in `context/` — see the last section before adding anything h
 
 ## 1. Commands that actually work
 
-The eight gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
+The nine gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
 `runschema` CLIs run as modules:
 
 ```bash
@@ -24,6 +24,7 @@ python context/arch/verify_architecture.py            # graph fresh + boundaries
 python context/arch/verify_site.py --fast             # generated HTML integrity
 python -m Optimization.runschema.contract  --check    # run-tree schema not stale
 python -m Optimization.runschema.preflight --check    # output tree hasn't moved
+python -m Schema.profile_tree --check                 # profiles-tree (catalogue) schema not stale
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
@@ -77,6 +78,13 @@ Or hand the whole chain to the `architecture-maintainer` agent.
 - **Never commit `*.db` or `comparison_*/`.** Run output is ~500 GB per sweep (measured; see the
   README's size section). Only curated PNGs and config/params JSON belong in git.
 - **Tests use real `assert`.** Never add a legacy `check()`-based test (see §3).
+- **Schema changes ride the pipeline, never a consumer edit.** `--sync` before a DDL edit,
+  `--accept` after (adopts the outgoing shape; you write the commit-window comment). A new DB
+  writer calls `Schema.compat.stamp_checked` at creation; a new DB consumer declares a
+  `Requires` or uses `Schema.dataset.bind`; SQL belongs in a named query beside the family,
+  with a per-vintage `dataset.override` when a shape moves. New run-tree consumers resolve paths
+  via `runschema.resolver_for` accessors (`path`/`leaf_path`/`glob`) — never join strings.
+  `docs/design/SCHEMA_COMPATIBILITY.md` is the full pattern; `schema-maintainer` owns it.
 
 ## 3. Silent traps — each of these fails with no error message
 
@@ -89,10 +97,14 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   are conditional: `<channel>/` exists only on a mixed catalogue, `_frozen/<pair>/` only on a
   multi-cell run. Assuming otherwise silently dropped every store-only run from the what-if scanners.
   Use `runschema.resolver_for(base_dir)`; never join path strings.
-- **7 legacy `check()`-harness test files print PASS/FAIL but never raise** — they pass under pytest
-  while failing. `Tests/unit/test_reorder_queue.py` has zero `def test_` functions at all.
-- **Every `Tests/architecture/*` file does `pytest.importorskip('yaml')`.** Without pyyaml, all eight
-  drift gates *skip* and the suite is green while the docs rot.
+- **A `check()`-harness test passes under pytest while failing** — its `fail()` body is a `print`
+  plus a counter, so nothing raises. The legacy files that did this were converted to real
+  `assert`s; the pattern is **gone from `Tests/` and must not return**. Same failure mode, same
+  silence: a test module with no `def test_` function at all collects nothing and reports success.
+- **Without pyyaml, 6 of the 13 `Tests/architecture/*` files `importorskip` and vanish** — and they
+  are exactly the sync gates (architecture, HTML site, graph extract, coverage, files-catalog,
+  context). The other seven still run, so the suite looks healthy while the generated docs and the
+  `context/` anchors rot unchecked.
 - **`nbstripout` is a git filter whose command lives in uncommitted `.git/config`.** A fresh clone
   needs `pip install nbstripout && nbstripout --install` or notebook checkout fails.
 

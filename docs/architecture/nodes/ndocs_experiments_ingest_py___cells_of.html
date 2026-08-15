@@ -15,12 +15,13 @@
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _cells_of(source, log)</code></pre>
-<section class="doc">[(cell_name, cell_dir), …] for a run root, plus the run&#x27;s tree schema id.
+<section class="doc">(resolver|None, [(cell_name, cell_dir), …], schema_id|None) for a run root.
 
-Uses the versioned run-tree resolver.  When the descriptor is missing (a pre-v1 run, or a
-single CELL directory passed the old way), fall back to treating `source` itself as one cell
-so an existing workflow still stages — but say so, because the cell name then comes from the
-directory name rather than the run.</section>
+Uses the versioned run-tree resolver, and hands it back so every later lookup (run_spec,
+run_manifest, figures, what-if outputs) resolves through the run&#x27;s OWN contract.  When the
+descriptor is missing (a pre-v1 run, or a single CELL directory passed the old way), fall
+back to treating `source` itself as one cell so an existing workflow still stages — but say
+so, because the cell name then comes from the directory name rather than the run.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema___init___py__resolver_for.html"><code>resolver_for</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___cells_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_cells_of">Source ↗</a></p>
 </article>

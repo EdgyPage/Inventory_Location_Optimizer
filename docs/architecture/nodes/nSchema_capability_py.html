@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.capability · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_capability_py" data-id="Schema/capability.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/capability.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.capability</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_capability_py.html"><code>Schema/capability.py</code></a></p>
+
+<pre class="sig"><code>Schema.capability</code></pre>
+<section class="doc">capability.py — negotiating for data that only SOME vetted schemas carry.
+
+`compat.py` splits a family&#x27;s tables into a guaranteed surface (present in every vetted shape, so
+a consumer may read it unconditionally) and a conditional one. This module is how the conditional
+half is reached: **probe, then degrade with a recorded caveat.** Never assume, and never quietly
+return something plausible.
+
+Two things make that more than a `try/except`:
+
+  * **A table that EXISTS can still be empty, and empty is common.** `aisle_metrics` and
+    `reorder_queue` are in every vetted shape but are only written by strategies that maintain
+    that state. Measured across two archived what-if cells: `aisle_metrics` carries rows in 52 of
+    60 arms, `reorder_queue` in 68 of 166 — so a third of arms have the table and none of the
+    data. A probe that checks for the TABLE rather than for ROWS reports a capability that yields
+    nothing, and the UI then renders 0.0 as though it were a measurement.
+  * **Sources are not interchangeable.** Three different tables can answer &quot;which bins were
+    occupied at batch N&quot; with different fidelity AND at different instants of a batch. Picking the
+    best available one is only safe if the answer carries which one it was, so a number cannot be
+    read without its caveat.
+
+This module owns the TYPE and the PROBE. It does not own any particular family&#x27;s capabilities:
+those live next to the DDL that defines the tables (see `Picking_Data.SIM_CAPABILITIES`), because
+`Schema/` is the stdlib-only leaf and must not learn what a warehouse is.
+
+Before this existed the same idea was hand-rolled twice, independently, and could not be shared:
+`Visualization/readers/protocol.py` (`CAP_*` + `SqliteSimReader.capabilities`) and
+`Diagnostics/replay_run.py` (`_SOURCES` + `_has_rows` + `_occupancy`). `context/architecture.yml`
+forbids `optimization -&gt; visualization`, so the analysis layer could not reuse either and had no
+way to negotiate at all — it could only hard-fail.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(4)</span></h2><ul><li><a href="nDiagnostics_replay_run_py.html"><code>Diagnostics.replay_run</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nSchema_dataset_py.html"><code>Schema.dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nSchema_capability_py__Capability.html"><code>Capability</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__CapabilityError.html"><code>CapabilityError</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__NoSourceAvailable.html"><code>NoSourceAvailable</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__Capability___post_init__.html"><code>__post_init__</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__best.html"><code>best</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__has_rows.html"><code>has_rows</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__probe.html"><code>probe</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__provenance.html"><code>provenance</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_capability_py__require.html"><code>require</code></a> <span class="dim">Schema/capability.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_capability_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/capability.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

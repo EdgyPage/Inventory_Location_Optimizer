@@ -41,7 +41,8 @@ _HINTS_PATH = os.path.join(_HERE, 'resolver_hints.yml')
 
 # Product source roots for the call/import graph.  Tests/ is intentionally excluded from
 # the graph (it is in the file catalog's scope, not the call graph's).
-GRAPH_ROOTS = ('Warehouse', 'Optimization', 'Diagnostics', 'Visualization', 'scripts', 'docs')
+GRAPH_ROOTS = ('Warehouse', 'Optimization', 'Diagnostics', 'Visualization', 'Schema',
+               'scripts', 'docs')
 
 # Receivers we can type without full inference (repo-specific, kept tiny + explicit).
 # `self` is resolved structurally via the enclosing class MRO; these named receivers map
@@ -95,10 +96,31 @@ class _ModuleIndex:
         self.methods: dict[str, set[str]] = {}      # class name -> {method names}
         self.import_sym: dict[str, tuple[str, str]] = {}   # name -> (target_relpath, target_symbol)
         self.import_mod: dict[str, str] = {}        # alias -> target module relpath
+        # Dynamic imports resolved from LITERALS: `importlib.import_module('pkg.mod')`, and the
+        # loop form `for m in ('pkg.a', 'pkg.b'): import_module(m)` (directly or via a
+        # module-level tuple of string constants).  These produce real coupling that
+        # `visit_Import` cannot see — a string-literal dynamic import once crossed three declared
+        # `schema` boundaries while verify_architecture reported OK, green because it was blind.
+        # A TRULY dynamic argument (a pkgutil walk's `mod.name`) stays invisible; that is a
+        # documented limit, not a target — the literal form is the evasion that actually happened.
+        self.dynamic_imports: set[str] = set()      # target module relpaths
 
 
 def _node_id(relpath: str, qualname: str) -> str:
     return f'{relpath}::{qualname}'
+
+
+def _str_seq(node) -> tuple | None:
+    """The literal string tuple behind a Tuple/List of constants, else None.
+
+    The resolvable feed for dynamic-import detection: `('pkg.a', 'pkg.b')` bound to a name or
+    iterated directly.  Anything with a non-constant element returns None — half-resolving a
+    list would claim edges the code might not make.
+    """
+    if isinstance(node, (ast.Tuple, ast.List)) and node.elts and all(
+            isinstance(e, ast.Constant) and isinstance(e.value, str) for e in node.elts):
+        return tuple(e.value for e in node.elts)
+    return None
 
 
 class _Collector(ast.NodeVisitor):
@@ -111,6 +133,8 @@ class _Collector(ast.NodeVisitor):
         self.nodes: list[dict] = []
         self._scope: list[str] = []            # qualname components
         self._class_stack: list[str] = []
+        self._str_seqs: dict[str, tuple] = {}  # NAME -> literal string tuple (dynamic-import feed)
+        self._loop_strs: dict[str, tuple] = {} # loop var -> literal string tuple
 
     # -- node emission ----------------------------------------------------------------
     def _emit(self, name: str, kind: str) -> str:
@@ -161,6 +185,46 @@ class _Collector(ast.NodeVisitor):
                     nid = self._emit(tgt.id, 'const')
                     self.idx.top_defs.setdefault(tgt.id, nid)
                     self.idx.top_kind.setdefault(tgt.id, 'const')
+        # Remember NAME = ('pkg.a', 'pkg.b', ...) at any scope — the shape a dynamic-import
+        # loop iterates (schema_report.FAMILY_MODULES).  Feeds visit_For/_dynamic_import below.
+        seq = _str_seq(node.value)
+        if seq is not None:
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    self._str_seqs[tgt.id] = seq
+        self.generic_visit(node)
+
+    # -- dynamic imports (literal-resolvable only) --------------------------------------
+    def visit_For(self, node: ast.For) -> None:
+        # `for m in FAMILY_MODULES:` / `for m in ('pkg.a', 'pkg.b'):` — bind the loop variable
+        # to the literal sequence so `import_module(m)` inside the body resolves.
+        if isinstance(node.target, ast.Name):
+            seq = _str_seq(node.iter)
+            if seq is None and isinstance(node.iter, ast.Name):
+                seq = self._str_seqs.get(node.iter.id)
+            if seq is not None:
+                self._loop_strs[node.target.id] = seq
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        # `importlib.import_module(X)` / `__import__(X)` where X resolves to literals.  The
+        # static visitors above cannot see these, and a boundary crossed this way once left
+        # `verify_architecture` green on a real violation.  Unresolvable arguments (a variable
+        # from a pkgutil walk) are skipped — the literal form is the evasion this closes.
+        fn = node.func
+        is_dyn = ((isinstance(fn, ast.Attribute) and fn.attr == 'import_module')
+                  or (isinstance(fn, ast.Name) and fn.id in ('import_module', '__import__')))
+        if is_dyn and node.args:
+            arg = node.args[0]
+            names: tuple = ()
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                names = (arg.value,)
+            elif isinstance(arg, ast.Name):
+                names = self._loop_strs.get(arg.id) or self._str_seqs.get(arg.id) or ()
+            for dotted in names:
+                target = self.dotted2relpath.get(dotted)
+                if target:
+                    self.idx.dynamic_imports.add(target)
         self.generic_visit(node)
 
     # -- imports ----------------------------------------------------------------------
@@ -383,7 +447,10 @@ def _kind_of(node_id: str) -> str:
 
 def _import_edges(relpath: str, idx: _ModuleIndex, node_ids: set[str]) -> set[tuple[str, str, str]]:
     edges = set()
-    targets = set(idx.import_mod.values()) | {r for r, _ in idx.import_sym.values()}
+    # dynamic_imports: literal-resolved `importlib.import_module` targets — same edge kind, so
+    # layer-boundary verification covers them with no downstream change.
+    targets = (set(idx.import_mod.values()) | {r for r, _ in idx.import_sym.values()}
+               | idx.dynamic_imports)
     for tgt in targets:
         if tgt != relpath and tgt in node_ids:
             edges.add((relpath, tgt, 'imports'))

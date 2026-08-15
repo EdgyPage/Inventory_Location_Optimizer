@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import operator
 import random
 from collections import defaultdict
 from dataclasses import dataclass
@@ -162,6 +163,15 @@ class Batch:
         self.aff: AffMatrix = affinity if isinstance(affinity, dict) else {}
 
 
+# ── deterministic bin ordering ───────────────────────────────────────────────
+# Sort key for the `Task.from_batch` drain loops.  `Aisle.Bin.location` is the canonical
+# (aisle_id, bayX, bayY) spatial triple — the key the run tree, every DB and the viewer
+# already index bins by — so ordering on it needs no extra state and is stable under any
+# insertion order.  `attrgetter` keeps the hot loop at C speed; a Python lambda pays an
+# interpreter frame per bin, and this runs once per SKU per batch.
+_bin_location = operator.attrgetter('location')
+
+
 class Task:
     """Single-aisle ordered pick sequence derived from a Batch."""
 
@@ -225,6 +235,17 @@ class Task:
         If manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins
         dicts are used directly, skipping the O(N_all_bins) warehouse scan that
         would otherwise rebuild the index on every batch.
+
+        DETERMINISM — the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`
+        defines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in
+        MEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch
+        quantity drains — the normal case — that order decides WHICH bins are taken,
+        hence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the
+        addresses differ per process, so two identical-seed runs of the same arm used to
+        produce different `batch_stats`.  Iterating in `location` order — the canonical
+        (aisle_id, bayX, bayY) spatial key persisted everywhere — makes the selection a
+        pure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see
+        `Tests/unit/test_task_bin_selection_determinism.py`.
         """
         # Distribute each batch quantity: drain singleton bins before pallet bins
         bin_pick: defaultdict[Aisle.Bin, int] = defaultdict(int)
@@ -233,7 +254,8 @@ class Task:
             # O(N_batch_skus) — uses maintained index, no full warehouse scan
             for sku, qty in batch.items.items():
                 remaining: int = qty
-                for bin_ in manager._sku_singleton_bins.get(sku, []):
+                for bin_ in sorted(manager._sku_singleton_bins.get(sku, ()),
+                                   key=_bin_location):
                     if remaining <= 0:
                         break
                     available: int = bin_.storage.quantity if bin_.storage is not None else 0
@@ -241,7 +263,8 @@ class Task:
                     if take > 0:
                         bin_pick[bin_] += take
                         remaining -= take
-                for bin_ in manager._sku_pallet_bins.get(sku, []):
+                for bin_ in sorted(manager._sku_pallet_bins.get(sku, ()),
+                                   key=_bin_location):
                     if remaining <= 0:
                         break
                     available = bin_.storage.quantity if bin_.storage is not None else 0
@@ -250,7 +273,12 @@ class Task:
                         bin_pick[bin_] += take
                         remaining -= take
         else:
-            # Fallback: O(N_all_bins) scan — used when no manager is available
+            # Fallback: O(N_all_bins) scan — used when no manager is available.
+            # Already deterministic, and it now agrees with the branch above: `warehouse.bins`
+            # is emitted in `location` order, and the singleton-first sort below is STABLE,
+            # so this yields singletons in location order then pallets in location order —
+            # the same rule the sorted index drain applies.  (Before the sort was added the
+            # two branches disagreed, so a manager-less caller saw a different selection.)
             sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
             for bin_ in warehouse.bins:
                 if bin_.storage is not None:

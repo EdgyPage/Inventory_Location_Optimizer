@@ -287,6 +287,16 @@ def runtime_view(planned_inv, warehouse, affinity, batch_cfg, n_batches: int,
 # ── driver ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # First statement in main, so it covers argparse's own output AND every print below.
+    # sizing_view's closing summary carries a U+2192, which has no cp1252 mapping — on a legacy
+    # console that raised UnicodeEncodeError at the very END, after the whole probe had run,
+    # discarding the report it exists to produce.  Guarded: reconfigure is 3.7+ and stdout may
+    # be a plain pipe under some launchers.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     ap = argparse.ArgumentParser()
     ap.add_argument('profile', nargs='?', default=None,
                     help='profile label, inventory .db path, or omit for latest in PROFILE_INPUT_DIR')

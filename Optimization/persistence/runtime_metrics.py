@@ -16,6 +16,11 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import compat as _compat
+from Schema import identity as _identity
+from Schema import connect as _connect
+from Schema import shape as _shape
+
 RUNTIME_DB = 'runtime_metrics.db'
 
 _DDL = """
@@ -46,13 +51,50 @@ CREATE TABLE IF NOT EXISTS runtime (
 
 # The named sections a runtime row breaks down into (column, human label) — the stacked-breakdown
 # order.  Kept here so the DB and the graphs agree on the section set.
+# ── Schema identity ───────────────────────────────────────────────────────────
+# Registered here, in the writer, so `Schema/` stays a stdlib-only leaf importing no writer.
+# The declared shape is BUILT from the same DDL `record_arm` executes, never hand-listed.
+
+_ALL_DDL = (_DDL, _identity.meta_ddl('schema_meta'))
+
+
+def declared_runtime_shape() -> dict:
+    con = sqlite3.connect(':memory:')
+    try:
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+#: The shape every archived runtime_metrics.db carried before `schema_meta` was declared — the
+#: 2026-07-29 vintage (`comparison_whatif_20260729_115451` and `_125755`; no earlier run wrote
+#: this DB at all).  DERIVED from those files, never chosen.  It differs from the declaration by
+#: exactly one absent table, the stamp itself: `runtime`'s twenty columns are identical, so
+#: `load_rows` returns the same dicts from either shape.  The 2026-08-13 runs already match the
+#: current declaration, which is what makes this a two-entry list and not a growing one.
+PRE_STAMP_RUNTIME_SCHEMA_ID = 'a683d2d07c72'
+
+RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
+    name='runtime_metrics_db',
+    declared_shape=declared_runtime_shape,
+    meta_table='schema_meta',
+    known_ids=(PRE_STAMP_RUNTIME_SCHEMA_ID,),
+))
+
+
 SECTIONS = [
     ('reord_s',   'reorder'),
     ('build_s',   'batch-build'),
     ('pre_s',     'pre-snapshot'),
     ('sim_s',     'sim'),
     ('extract_s', 'extract'),
-    ('inv_s',     'inv-snapshot'),
+    # `inv_s` predates the bin-mutation log, when this section wrote the bin_inventory
+    # snapshot.  That table is gone; the section is now the per-batch conservation ledger.
+    # The COLUMN keeps its name so archived rows stay readable (and so relabelling does not
+    # move the runtime_metrics schema id); only the human label tracks what it measures.
+    ('inv_s',     'bin-accounting'),
     ('save_s',    'DB-save'),
 ]
 
@@ -78,7 +120,11 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
     batches = int(res.get('done', 0) or 0)
     con = sqlite3.connect(runtime_db_path(run_root))
     try:
-        con.execute(_DDL)
+        for stmt in _ALL_DDL:
+            con.execute(stmt)
+        # Stamp + verify the store: worker-safe (warn-once) — record_arm runs per arm, deep
+        # inside a sweep; a store gap must nag, not kill the arm.
+        _compat.stamp_checked(con, RUNTIME_DB_FAMILY, strict=False)
         con.execute(
             'INSERT OR REPLACE INTO runtime '
             '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'
@@ -92,16 +138,25 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
              float(res.get('t_pre', 0.0) or 0.0), float(res.get('t_sim', 0.0) or 0.0),
              float(res.get('t_extract', 0.0) or 0.0), float(res.get('t_inv', 0.0) or 0.0),
              float(res.get('t_save', 0.0) or 0.0)))
-        con.commit()
+        con.commit()                     # connect.close checkpoints, it does not commit
     finally:
-        con.close()
+        _connect.close(con)
 
 
 def load_rows(run_root: str) -> list[dict]:
-    """All runtime rows as dicts (empty if the DB is absent) — for the runtime graphs."""
+    """All runtime rows as dicts (empty if the DB is absent) — for the runtime graphs.
+
+    WARNS rather than raising on an unvetted shape, unlike the sim-DB check in
+    `Performance_Evaluations/core/context.py`.  The difference is what the number is FOR: these
+    rows are wall-clock diagnostics about how long an arm took to compute, never a published
+    result, and this is a `SELECT *` into dicts that the graphs index defensively.  A runtime DB
+    from a shape we have not seen is worth a named line in the log; it is not worth sinking the
+    analysis of a sweep that has already finished computing.
+    """
     path = runtime_db_path(run_root)
     if not os.path.exists(path):
         return []
+    _identity.check_or_warn(path, 'runtime_metrics_db', verify=True)
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:

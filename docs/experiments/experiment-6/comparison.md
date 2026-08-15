@@ -1,4 +1,7 @@
-# {{ experiment().title }} — comparison
+# Throughput — the scheduler lever
+
+*This is the evidence page for the throughput half of the [Results](index.md) summary. Start there
+if you want the finding; read on for how it was measured and what it does not show.*
 
 !!! note "Summary"
     The picker **scheduler** and the **assignment function** move two different quantities, and this
@@ -17,6 +20,19 @@
     Every "hour" here is **modeled sim pick-time** — batch-stats milliseconds ÷ 3.6 M
     (see the [Formula reference](formula-reference.md)). It is a comparable *effort* figure across
     arms and schedulers, **not** a wall-clock schedule or a staffing estimate.
+
+!!! note "Absolute throughput and item counts here predate commit `753d01e`"
+    This run was produced **before** `753d01e` made bin selection deterministic across processes.
+    That fix lifts **absolute** throughput by about **1.3–1.4 %**, so the items/hour and
+    items-picked figures below — in the table, in the span quoted across the 34 store arms, and in
+    the values rendered into the images — read roughly that much low. They are left exactly as the
+    run produced them rather than edited after the fact.
+
+    Two things do not move. **Labor and makespan** are unchanged, beyond the ±2.8 % run-to-run
+    band the nondeterminism itself created and the fix removes — which is what this page's central
+    claim rests on. And every **percentage** here is second-order: the shift is common to both
+    arms of a ratio, so it largely cancels. The absolute rates will be restated when the sweep is
+    re-run.
 
 ## Why throughput and labor are different questions
 
@@ -102,6 +118,14 @@ Across the store's 34 arms, total items span **6.8 %** and elapsed hours span **
 and why the right-hand panel compares at *matched* time rather than at the finish.
 
 {{ whatif_matrix() }}
+
+!!! note "Why this table says +12.8 % and the summary above says +13.7 %"
+    They are the same effect measured over two windows, and the difference is the whole gap
+    between them. This table is generated from `data/whatif_delta.json`, whose medians are taken
+    over the **last 50 batches** — the steady-state window. The **+13.7 %** headline comes from
+    `whatif_volume.csv` and is the **full-run** chord slope, every batch included. Neither is a
+    correction of the other; a page quoting both must say which window it means, and the ~0.9 pp
+    between them is the size of the early-run transient.
 
 ## Scheduler uplift across every assignment function
 

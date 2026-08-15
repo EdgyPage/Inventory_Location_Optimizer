@@ -22,15 +22,52 @@ Diagnostics/out/replay_&lt;label&gt;.json with per-batch warehouse fill (overall
 aisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run
 — including the warehouses that settle at ~70% instead of the target ~85%.
 
-Per Visualization/RECONSTRUCTION.md the relevant files are:
-    &lt;pair&gt;/warehouse.db            aisle_layout   (geometry -&gt; per-aisle capacity)
-    &lt;pair&gt;/&lt;config&gt;/sim_X.db       aisle_metrics  (n_bins occupied / aisle / batch)
-                                   bin_inventory  (universal fallback)
-                                   batch_stats    (duration / batch)
+Per Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so
+it stays inside cp1252 — no box drawing here, unlike the section banners below):
+
+    &lt;pair&gt;/warehouse.db            aisle_layout    (geometry -&gt; per-aisle capacity)
+    &lt;pair&gt;/&lt;config&gt;/sim_X.db       bin_placement   PLACE  |
+                                   bin_eviction    EVICT  |  the bin-mutation log:
+                                   picks           PICK   |  fold -&gt; EXACT occupancy
+                                   aisle_metrics   (n_bins occupied / aisle / batch)
+                                   bin_inventory   (pick deltas - ARCHIVED runs only)
+                                   batch_stats     (duration / batch)
                                    simulation_runs (run params)
 
-Occupied bins come from `aisle_metrics.n_bins` when present (affinity strategies);
-otherwise they are reconstructed from `bin_inventory` deltas (works for any run).
+Where occupancy comes from — and what it is worth
+-------------------------------------------------
+Three sources, tried best-first.  Only the first is correct, so every export now RECORDS which one
+it used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the
+CLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is
+the failure this tool shipped with for its whole life.
+
+1. `bin_placement` + `bin_eviction` + `picks`  -&gt;  **EXACT at every batch.**
+   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are
+   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in
+   application order — EVICT, then PLACE, then PICK, mirroring the runner — reproduces the
+   simulation&#x27;s own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof
+   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a
+   production arm&#x27;s `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690
+   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.
+
+2. `aisle_metrics.n_bins`  -&gt;  **approximate.**  It is the manager&#x27;s own occupied-bin counter
+   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch&#x27;s
+   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a
+   pick.  Only strategies that maintain aisle state write it at all — for a uniform-placement arm
+   the table is empty, which is why the third source is what usually ran.
+
+3. `bin_inventory` deltas  -&gt;  **approximate and biased downward**, and no longer written at all:
+   only runs from the archive carry this table, and on a current DB source 1 always answers first.
+   The table records picks and
+   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is
+   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.
+   Measured on a production arm: **0 rows** with `post_qty &gt; pre_qty` against 20,662-42,832
+   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy
+   — 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a
+   warehouse that slowly drains, plausibly enough that nothing flagged it for months.
+
+Old runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to
+2/3 and are labelled approximate instead of silently believed.
 
 Usage
 -----
@@ -40,7 +77,7 @@ Usage
 
 Then view with the dashboard:
     cd Diagnostics &amp;&amp; python -m http.server 8009  -&gt; http://localhost:8009/static/</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(13)</span></h2><ul><li><a href="nDiagnostics_replay_run_py___GRID_COLS.html"><code>_GRID_COLS</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___OUT_DIR.html"><code>_OUT_DIR</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___connect.html"><code>_connect</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___has_rows.html"><code>_has_rows</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___nearest_warehouse_db.html"><code>_nearest_warehouse_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__build_batches.html"><code>build_batches</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__discover_sim_dbs.html"><code>discover_sim_dbs</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_aisle_metrics.html"><code>occupied_from_aisle_metrics</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_bin_inventory.html"><code>occupied_from_bin_inventory</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__read_layout.html"><code>read_layout</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(6)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Warehouse_Data_py.html"><code>Optimization.persistence.Warehouse_Data</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nSchema_capability_py.html"><code>Schema.capability</code></a> <span class="dim">Schema/capability.py</span></li><li><a href="nSchema_connect_py.html"><code>Schema.connect</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_identity_py.html"><code>Schema.identity</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(22)</span></h2><ul><li><a href="nDiagnostics_replay_run_py___BatchStream.html"><code>_BatchStream</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___FOLD.html"><code>_FOLD</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___GRID_COLS.html"><code>_GRID_COLS</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___OUT_DIR.html"><code>_OUT_DIR</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___RERUN_ADVICE.html"><code>_RERUN_ADVICE</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___BatchStream___init__.html"><code>__init__</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___contract_resolver.html"><code>_contract_resolver</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___nearest_warehouse_db.html"><code>_nearest_warehouse_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___note.html"><code>_note</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___occupancy.html"><code>_occupancy</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___BatchStream_batch.html"><code>batch</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__build_batches.html"><code>build_batches</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__discover_sim_dbs.html"><code>discover_sim_dbs</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_aisle_metrics.html"><code>occupied_from_aisle_metrics</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_bin_inventory.html"><code>occupied_from_bin_inventory</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__occupied_from_bin_log.html"><code>occupied_from_bin_log</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__read_layout.html"><code>read_layout</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py__replay_sim_db.html"><code>replay_sim_db</code></a> <span class="dim">Diagnostics/replay_run.py</span></li><li><a href="nDiagnostics_replay_run_py___BatchStream_take.html"><code>take</code></a> <span class="dim">Diagnostics/replay_run.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_replay_run_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/replay_run.py">Source ↗</a></p>
 </article>
 </main>

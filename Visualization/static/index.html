@@ -1,93 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Warehouse Replay &amp; Compare</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouse spatial viewer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header id="topbar">
-    <div class="title">Warehouse Replay &amp; Compare</div>
-
-    <!-- Cascading run picker.  The filter row is BUILT AT RUNTIME from /api/runs `axes`, so the
-         navigable levels follow the run-tree schema version instead of being hardcoded here. -->
-    <div class="run-picker">
-      <div id="run-filters" class="run-filters"></div>
-      <div class="run-pick-row">
-        <select id="run-select"><option value="">— loading runs —</option></select>
-        <button id="add-run" title="Add to a free pane (up to 4)">+ pane</button>
-        <span id="run-count" class="hint">0 / 4 panes</span>
-        <span id="schema-badge" class="hint schema-badge" title="run-tree schema id"></span>
-      </div>
+  <header>
+    <div class="row">
+      <strong>Warehouse viewer</strong>
+      <span id="base" class="dim"></span>
+      <span id="schema" class="dim"></span>
     </div>
-
-    <div class="controls">
-      <button id="batch-prev" title="Previous batch">&#10216; batch</button>
-      <span id="batch-label" class="batch-label">batch —</span>
-      <button id="batch-next" title="Next batch">batch &#10217;</button>
-      <button id="play-btn" title="Play / pause">&#9654;</button>
-      <label class="speedwrap">speed
-        <select id="speed-select">
-          <option value="0.25">0.25&times;</option>
-          <option value="1">1&times;</option>
-          <option value="5" selected>5&times;</option>
-          <option value="20">20&times;</option>
-          <option value="100">100&times;</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="view-opts">
-      <button id="queue-btn" title="Show reorder queues + score summary alongside">queues</button>
-      <label><input type="checkbox" id="active-only" checked> active aisles only</label>
-      <label>color
-        <select id="color-mode">
+    <div class="row" id="filters"></div>
+    <div class="row">
+      <label class="filter"><span>Base arm</span><select id="run-base"></select></label>
+      <label class="filter"><span>Comparison arm (colour authority)</span>
+        <select id="run-compare"></select></label>
+      <label class="filter"><span>Colour</span>
+        <select id="colorMode">
+          <option value="home">final home</option>
           <option value="fill">fill</option>
           <option value="picks">pick activity</option>
-          <option value="score">layout score</option>
-          <option value="mappref">map pref</option>
-        </select>
-      </label>
+        </select></label>
     </div>
+    <nav id="tabs"></nav>
+    <div class="row controls">
+      <label>batch <input type="range" id="batch" min="0" max="0" value="0"></label>
+      <label>time <input type="range" id="time" min="0" max="100" value="0"></label>
+      <span id="status" class="dim"></span>
+    </div>
+    <div id="notice" class="notice"></div>
   </header>
-
-  <div id="timeline-row">
-    <span id="phase-label" class="phase-label">&mdash;</span>
-    <input type="range" id="time-slider" min="0" max="1" step="0.001" value="0" disabled>
-    <span id="time-display" class="time-display">t = 0</span>
-  </div>
-
-  <main id="panes"></main>
-
-  <div id="aisle-modal" class="hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <span id="aisle-modal-title">Aisle</span>
-        <button id="aisle-close">&#10005;</button>
-      </div>
-      <div class="modal-body">
-        <div class="modal-canvas-wrap"><canvas id="aisle-canvas"></canvas></div>
-        <aside id="bin-detail" class="bin-detail">
-          <div class="bin-detail-hint">Click a bin to inspect its status.</div>
-        </aside>
-      </div>
-      <div id="aisle-legend" class="legend"></div>
-    </div>
-  </div>
-
-  <div id="queue-modal" class="hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <span>Reorder queues &amp; scores &mdash; <span id="queue-batch"></span></span>
-        <button id="queue-close">&#10005;</button>
-      </div>
-      <div id="queue-body" class="queue-body"></div>
-    </div>
-  </div>
-
-  <div id="loading-msg" class="loading">Pick runs to compare&hellip;</div>
-
-  <script src="app.js"></script>
+  <main><canvas id="canvas"></canvas></main>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

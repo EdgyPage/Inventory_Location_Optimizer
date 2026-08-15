@@ -332,6 +332,16 @@ def plot_profile_stats_table(
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    # First statement in main, so it covers argparse's own output AND every print below.
+    # The two closing lines of a suite run ("Cross-profile plots →", "Summary →") carry a
+    # U+2192, which has no cp1252 mapping — on a legacy console that raised UnicodeEncodeError
+    # after HOURS of generation, discarding the summary of work that had already succeeded.
+    # Guarded: reconfigure is 3.7+ and stdout may be a plain pipe under some launchers.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(
         description='Generate inventory + affinity for a suite of order profiles.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -542,6 +552,15 @@ def main() -> None:
     with open(os.path.join(profile_dir, 'profile_summary.json'), 'w') as f:
         json.dump(summary_out, f, indent=2)
     print(f'[profiles] Summary → {os.path.join(profile_dir, "profile_summary.json")}')
+
+    # The contract descriptor, beside this generator's own legacy manifest — the two generators
+    # stop disagreeing about whether a profile run is self-describing.  Entries derive from what
+    # this run just wrote (a generator may claim its own output).
+    from Schema import profile_tree as _profile_tree
+    _profile_tree.write_profile_layout(
+        profile_dir, _profile_tree.entries_from_disk(profile_dir),
+        generator='generate_profile_suite', argv=sys.argv[1:])
+    print(f'[profiles] Descriptor → {os.path.join(profile_dir, _profile_tree.DESCRIPTOR)}')
     print(f'[profiles] Done.')
 
 
