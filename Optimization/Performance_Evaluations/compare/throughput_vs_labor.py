@@ -1,4 +1,4 @@
-"""compare.throughput_labor — the four success metrics on one figure  (no rerun, no DB touch)
+"""compare.throughput_vs_labor — the four success metrics on one figure  (no rerun, no DB touch)
 
 Three scatter panels, one point per strategy arm, built from the per-arm series scalars in
 series.json.  Vocabulary: TASK makespan = ss_prod_hours = Σ task time = total labor (the serial
@@ -80,7 +80,7 @@ def _panel(ax, xs, ys, colors, labels, base_xy, xlabel, ylabel, title, sizes=Non
     ax.grid(alpha=0.3)
 
 
-@evaluation(key='compare.throughput_labor',
+@evaluation(key='compare.throughput_vs_labor',
             label='Throughput vs total labor (scatter + Spearman ρ)',
             scope='config', needs=('series',), out_subdir='compare')
 def render(ctx, params):

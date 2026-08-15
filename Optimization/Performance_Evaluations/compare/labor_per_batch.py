@@ -1,4 +1,4 @@
-"""compare.labor_trend — labor cost of the scheduled tasks, batch by batch, and how it moves.
+"""compare.labor_per_batch — labor cost of the scheduled tasks, batch by batch, and how it moves.
 Under compare/breakdown.
 
 WHAT "LABOR" IS HERE.  The per-batch sum of task durations, which is exactly batch_stats.
@@ -32,7 +32,7 @@ from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import (
     _stitle, _LINESTYLES, _TOP_DIMS, _WIN, legend_right)
 from Optimization.Performance_Evaluations.common.series import _select_top
-from Optimization.Performance_Evaluations.comparison import top_tag
+from Optimization.Performance_Evaluations.compare import top_tag
 
 MS_PER_HOUR = 3.6e6
 HOURS_NOTE = 'modeled sim pick-time hours (Σ task duration / 3.6e6) — not wall-clock'
@@ -151,7 +151,7 @@ def _plot(selected, gof, frames, baseline, top_n, top_by, win, title, path):
     _save_close(fig, path)
 
 
-@evaluation(key='compare.labor_trend',
+@evaluation(key='compare.labor_per_batch',
             label='Labor hours per batch and % saved vs FIFO, over batch order',
             scope='config', needs=('task', 'series'), out_subdir='compare/breakdown',
             defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN})

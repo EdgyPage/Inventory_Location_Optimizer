@@ -41,7 +41,7 @@ from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import (
     _stitle, _LINESTYLES, _TOP_DIMS, legend_right)
 from Optimization.Performance_Evaluations.common.series import _select_top
-from Optimization.Performance_Evaluations.comparison import top_tag
+from Optimization.Performance_Evaluations.compare import top_tag
 
 MS_PER_HOUR = 3.6e6            # same conversion run_whatif_labor uses, so hours are comparable
 HOURS_NOTE  = ('modeled sim pick-time hours (batch_stats ms / 3.6e6) — not wall-clock')

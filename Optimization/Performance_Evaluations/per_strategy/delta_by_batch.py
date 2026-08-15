@@ -1,5 +1,5 @@
 """per_strategy.delta_by_batch — one panel per strategy: per-batch production-time Δ% vs the
-FIFO baseline (green ≥0 / red <0, matching compare.delta_bars).  Mirror of
+FIFO baseline (green ≥0 / red <0, matching compare.delta_vs_baseline).  Mirror of
 compare.delta_by_batch.  Writes per_strategy/grid_prodtime_delta_by_batch.png."""
 import os
 

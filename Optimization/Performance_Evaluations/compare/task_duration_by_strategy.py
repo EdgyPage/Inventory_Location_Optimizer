@@ -1,4 +1,4 @@
-"""compare.task_box — box plot of steady-state task durations, one box per strategy
+"""compare.task_duration_by_strategy — box plot of steady-state task durations, one box per strategy
 (color = assignment, mean markers).  Writes compare/breakdown/task_duration_by_strategy.png.
 
 Param: win (steady-state tail width in batches)."""
@@ -49,7 +49,7 @@ def _task_box(strategies, df_t, title, path, win=_WIN):
     _save_close(fig, path)
 
 
-@evaluation(key='compare.task_box', label='Steady-state task duration by strategy',
+@evaluation(key='compare.task_duration_by_strategy', label='Steady-state task duration by strategy',
             scope='config', needs=('task',), out_subdir='compare/breakdown',
             defaults={'win': _WIN})
 def render(ctx, params):

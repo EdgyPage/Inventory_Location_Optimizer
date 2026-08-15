@@ -10,7 +10,7 @@ from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.painters import _overlay_metric
 from Optimization.Performance_Evaluations.common.style import _assign_color_map, _ir_style_map, legend_right
-from Optimization.Performance_Evaluations.comparison import overtime_metrics
+from Optimization.Performance_Evaluations.compare import overtime_metrics
 
 
 @evaluation(key='compare.overlay', label='Over-time, all strategies overlaid',

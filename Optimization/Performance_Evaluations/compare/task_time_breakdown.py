@@ -1,4 +1,4 @@
-"""breakdown.travel_handling — stacked travel-vs-handling picker-time bar per strategy,
+"""compare.task_time_breakdown — stacked travel-vs-handling picker-time bar per strategy,
 annotated with travel %.  Consumes ctx.breakdown() (picker-event decomposition, memoized
 and shared with the stats suite).  Writes compare/breakdown/task_time_breakdown.png."""
 import os
@@ -38,7 +38,7 @@ def _task_time_breakdown_plot(strategies, th, title, path):
     _save_close(fig, path)
 
 
-@evaluation(key='breakdown.travel_handling', label='Task time: travel vs handling',
+@evaluation(key='compare.task_time_breakdown', label='Task time: travel vs handling',
             scope='config', needs=('breakdown',), out_subdir='compare/breakdown')
 def render(ctx, params):
     out = io.out_dir(ctx)                       # compare/breakdown, from the declaration

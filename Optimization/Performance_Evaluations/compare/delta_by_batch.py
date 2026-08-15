@@ -12,7 +12,7 @@ from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top, _prodtime_delta
-from Optimization.Performance_Evaluations.comparison import top_tag
+from Optimization.Performance_Evaluations.compare import top_tag
 
 
 @evaluation(key='compare.delta_by_batch',

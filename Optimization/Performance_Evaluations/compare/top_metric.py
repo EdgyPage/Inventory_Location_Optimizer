@@ -12,7 +12,7 @@ from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.painters import _top_metric
 from Optimization.Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top
-from Optimization.Performance_Evaluations.comparison import overtime_metrics, top_tag
+from Optimization.Performance_Evaluations.compare import overtime_metrics, top_tag
 
 
 @evaluation(key='compare.top_metric', label='Top-N strategies vs baseline, over time',

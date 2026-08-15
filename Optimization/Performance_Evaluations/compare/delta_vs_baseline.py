@@ -1,4 +1,4 @@
-"""compare.delta_bars — throughput Δ% and duration-improvement% vs the baseline strategy.
+"""compare.delta_vs_baseline — throughput Δ% and duration-improvement% vs the baseline strategy.
 Writes compare/breakdown/delta_vs_baseline.png."""
 import os
 
@@ -12,7 +12,7 @@ from Optimization.Performance_Evaluations.common.painters import _delta_bars
 from Optimization.Performance_Evaluations.common.style import _stitle, _pct_delta
 
 
-@evaluation(key='compare.delta_bars', label='Δ vs baseline (throughput/duration)',
+@evaluation(key='compare.delta_vs_baseline', label='Δ vs baseline (throughput/duration)',
             scope='config', needs=('series',), out_subdir='compare/breakdown')
 def render(ctx, params):
     out = io.out_dir(ctx)                       # compare/breakdown, from the declaration

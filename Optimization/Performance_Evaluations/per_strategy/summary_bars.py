@@ -1,6 +1,6 @@
 """per_strategy.summary_bars — single rectangular summary: mean batch duration, mean
 throughput, mean Sigma f*D efficiency, side by side across strategies.  Writes
-per_strategy/summary.png."""
+per_strategy/summary_bars.png."""
 import os
 
 import numpy as np
@@ -45,4 +45,4 @@ def render(ctx, params):
     b3.barh(ypos, mean_eff, color=yc); b3.set_title('Mean total f*D efficiency % (higher better)', fontsize=10)
     b3.grid(axis='x', alpha=0.3)
     plt.tight_layout(rect=(0, 0, 1, 0.98))
-    _save_close(fig, os.path.join(ps_dir, 'summary.png'))
+    _save_close(fig, os.path.join(ps_dir, 'summary_bars.png'))
