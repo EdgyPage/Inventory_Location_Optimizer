@@ -154,7 +154,12 @@ def describe_diff(d: dict, limit: int = 6) -> str:
         if i['extra']:
             lines.append(f"{table} has extra index(es): {', '.join(i['extra'])}")
     if not lines:
-        return 'no structural difference found (the ids differ for another reason)'
+        # An empty diff means the two shapes are structurally IDENTICAL — with content-addressed
+        # ids that means the ids are equal too, so a caller seeing this while holding two
+        # different id strings has a bug upstream (e.g. comparing a full sha256:… form against a
+        # 12-hex short form), not a schema mystery.  The old text ("the ids differ for another
+        # reason") implied hashing could disagree with structure; it cannot.
+        return 'the shapes are structurally identical'
     if len(lines) > limit:
         lines = lines[:limit] + [f'... and {len(lines) - limit} more']
     return '; '.join(lines)

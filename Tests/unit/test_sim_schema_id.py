@@ -306,4 +306,6 @@ def test_diff_is_empty_for_an_unchanged_db():
     d = diff_shapes(declared_sim_schema_shape(), declared_sim_schema_shape())
     assert not d['tables_missing'] and not d['tables_extra']
     assert not d['columns'] and not d['indexes']
-    assert 'no structural difference' in describe_diff(d)
+    # The message must say the shapes MATCH — the old wording ("the ids differ for another
+    # reason") implied content-addressed hashing could disagree with structure, which it cannot.
+    assert 'structurally identical' in describe_diff(d)

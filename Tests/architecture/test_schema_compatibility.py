@@ -272,11 +272,20 @@ def _call_name(func: ast.expr) -> str:
 
 
 def _functions_selecting(relpath: str, table: str) -> set:
-    """Every function in `relpath` holding a SELECT literal that names `table`.
+    """Every function in `relpath` whose SQL names `table` — SPLIT literals included.
 
     Read from the SOURCE with `ast` rather than by importing: a structural sweep cannot share a
     bug with the machinery it checks, and it needs no edit when a loader is added — only when one
     is added WITHOUT a decision about the vintages that lack the table.
+
+    The original form matched only a SINGLE literal containing both 'SELECT' and the table name,
+    so `f'SELECT ... FROM {t}'`, `'SELECT ...' + table`, or a query built across two adjacent
+    literals was invisible.  Now the check is per-FUNCTION over the union of its string pieces:
+    a function counts when its string constants (f-string fragments included) contain a SELECT
+    *and* mention the table anywhere.  Coarser — a function with an unrelated SELECT plus a
+    comment-ish mention could over-match — but for a CONDITIONAL table a false positive fails
+    loudly toward declaring, which is the safe direction; invisibility failed silently away
+    from it.
     """
     with open(os.path.join(_ROOT, *relpath.split('/')), encoding='utf-8') as fh:
         tree = ast.parse(fh.read(), filename=relpath)
@@ -284,10 +293,11 @@ def _functions_selecting(relpath: str, table: str) -> set:
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        for lit in ast.walk(node):
-            if (isinstance(lit, ast.Constant) and isinstance(lit.value, str)
-                    and 'SELECT' in lit.value.upper() and table in lit.value):
-                out.add(node.name)
+        pieces = [lit.value for lit in ast.walk(node)
+                  if isinstance(lit, ast.Constant) and isinstance(lit.value, str)]
+        blob = '\n'.join(pieces)
+        if 'SELECT' in blob.upper() and table in blob:
+            out.add(node.name)
     return out
 
 
@@ -1267,6 +1277,9 @@ def test_sync_commits_every_declared_shape_and_then_writes_nothing(tmp_path, mon
     second, so two writes inside the same second would be byte-identical and prove nothing.
     """
     monkeypatch.setattr(compat, 'SHAPES_DIR', str(tmp_path))
+    # sync() also writes store_index.INDEX_PATH — a TRACKED file.  Sandbox it, or running the
+    # suite rewrites the real INDEX (it did: the fingerprint healed itself mid-suite once).
+    monkeypatch.setattr(store_index, 'INDEX_PATH', str(tmp_path / 'INDEX.json'))
     writes = []
     real_write = compat.write_shape
     monkeypatch.setattr(compat, 'write_shape',

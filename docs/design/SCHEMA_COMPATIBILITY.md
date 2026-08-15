@@ -1,6 +1,6 @@
 # Schema compatibility — keeping a version change from becoming a manual sweep
 
-**Status:** §4, §5b implemented. §6 is proposed, not built.
+**Status:** fully implemented (§4, §5b, §5c, §6). Nothing in this document is aspirational.
 
 This repo has four schema-ish layers. Three of them are good, and one asymmetry between them is
 where the remaining manual work lives. This document says what each owns, where the gap is, and
@@ -221,18 +221,32 @@ The `family:` key on sqlite ARTIFACTS entries links the two contracts — delibe
 (attribution, like `writer`): adding it provably left the tree id at `0516f5aab255`, and
 `RunTree.family_of` returns None on pre-link documents.
 
-## 6. Proposed, not built
+## 6. Formerly proposed — all built
 
-1. **Teach `docs/macros.py` the `experiment.yml` `schema_id`,** so a staged snapshot resolves
-   through a contract instead of a joined string.
-2. **`describe_diff` reports "no structural difference found (the ids differ for another reason)"
-   when the shapes are identical** — misleading; it should say the shapes match.
-3. **Teach `context/arch/extract.py` the dynamic-import forms** (`importlib.import_module`,
-   `__import__`) on string literals. Until then every layer boundary in `architecture.yml` is
-   enforced only against static imports, and the local test above is the only thing covering
-   `Schema/`. Other layers have no equivalent.
-4. **`_functions_selecting` only matches single-literal SQL,** so a loader that interpolates its
-   table name is invisible to the conditional-reader exhaustiveness test.
+Every item once listed here landed; each entry now records where and what to know about it.
+
+1. **`docs/macros.py` reads the `experiment.yml` `schema_id`** it records: in manifest mode a
+   recorded id is verified once per build against its committed contract document — a missing
+   document or moved levels fails `mkdocs build --strict`, naming the schema. Dormant until the
+   next ingest stamps an id (no committed manifest carries one yet; back-filling one without
+   re-staging would assert provenance nobody verified).
+2. **`describe_diff` says "the shapes are structurally identical"** when the diff is empty. The
+   old text ("the ids differ for another reason") implied content-addressed hashing could
+   disagree with structure; it cannot — two different id strings over an empty diff means a bug
+   upstream (e.g. a full `sha256:` form compared against a 12-hex short form).
+3. **`context/arch/extract.py` sees literal-resolvable dynamic imports** —
+   `importlib.import_module('pkg.mod')`, `__import__`, and the loop form over a literal string
+   tuple (directly or via a module-level constant like `schema_report.FAMILY_MODULES`). The
+   edges land in the same `imports` index, so every layer boundary now polices them with no
+   downstream change; re-injecting the original `Schema/compat.py` evasion fails
+   `verify_architecture` with the named boundary. **Documented limit:** a truly dynamic argument
+   (a pkgutil walk's `mod.name` — both `discovery.py` registries) stays invisible; the literal
+   form is the evasion that actually happened, and the Schema-purity test still covers the
+   non-literal form inside `Schema/` itself.
+4. **`_functions_selecting` matches split SQL**: the conditional-reader sweep now unions every
+   string constant per function (f-string fragments included), so a loader interpolating its
+   table name is visible. Deliberately coarse in the safe direction — a false positive fails
+   toward declaring a conditional read, where invisibility failed silently away from it.
 
 ## 7. The rule
 

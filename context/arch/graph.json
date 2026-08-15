@@ -10526,6 +10526,21 @@
       "src": "scripts/new_experiment.py::main"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Optimization/persistence/Warehouse_Data.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Optimization/persistence/runtime_metrics.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
       "dst": "Schema/compat.py",
       "kind": "imports",
       "src": "scripts/schema_report.py"
@@ -10547,6 +10562,21 @@
     },
     {
       "dst": "Schema/store_index.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Visualization/cache_schema.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_affinity.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py",
       "kind": "imports",
       "src": "scripts/schema_report.py"
     },
