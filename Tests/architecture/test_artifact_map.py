@@ -66,8 +66,23 @@ def test_save_in_bounds_matches_subdir_segments_not_substrings():
                                            os.path.join('C:', 'r', 'notcompare', 'faceted'))
 
 
+def test_tuple_declaration_bounds_each_member_and_nothing_else():
+    """agg.cross_profile declares FOUR dirs (the aggregate mirror of the compare tree) — a
+    save inside any member is in bounds, anywhere else is not.  Before the tuple form this
+    eval declared '' and its 17 figures escaped the check entirely."""
+    sub = artifact_map.figure_subdir('agg.cross_profile')
+    assert sub == ('breakdown', 'faceted', 'overlay', 'top')
+    for member in sub:
+        assert artifact_map.save_in_bounds('agg.cross_profile',
+                                           os.path.join('C:', 'agg', 'store', member))
+    assert not artifact_map.save_in_bounds('agg.cross_profile',
+                                           os.path.join('C:', 'agg', 'store', 'elsewhere'))
+    assert not artifact_map.save_in_bounds('agg.cross_profile',
+                                           os.path.join('C:', 'agg', 'store'))
+
+
 def test_root_declaring_evaluations_make_no_checkable_claim():
-    for key in ('agg.cross_profile', 'config.series'):
+    for key in ('config.series',):
         assert artifact_map.figure_subdir(key) == ''
         assert artifact_map.save_in_bounds(key, os.path.join('C:', 'anywhere'))
 
@@ -84,12 +99,18 @@ def _load_ingest():
 
 def test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order():
     """ingest._FIGURE_DIR_PREFERENCE is a literal (ingest must not import the matplotlib-heavy
-    analysis package), so THIS is the tie: it must contain every non-root out_subdir the
-    registry declares, in os.walk order (lexicographic, parents before children) — the order
-    whose alphabetical luck it exists to make explicit."""
+    analysis package), so THIS is the tie: it must contain every non-root out_subdir a
+    CONFIG-STAGE evaluation declares, in os.walk order (lexicographic, parents before
+    children) — the order whose alphabetical luck it exists to make explicit.  Aggregate-scope
+    declarations (including tuple members like cross_profile's faceted/overlay/top/breakdown)
+    are aggregate-TREE dirs and must never enter the config-leaf preference."""
     ingest = _load_ingest()
     pref = ingest._FIGURE_DIR_PREFERENCE
-    declared = {ev.out_subdir for ev in EVALUATIONS if ev.out_subdir}
+    declared = set()
+    for ev in EVALUATIONS:
+        if ev.scope in ('per_strategy', 'config') and ev.out_subdir:
+            declared.update((ev.out_subdir,) if isinstance(ev.out_subdir, str)
+                            else ev.out_subdir)
     missing = declared - set(pref)
     assert not missing, f'out_subdir(s) not in ingest._FIGURE_DIR_PREFERENCE: {sorted(missing)}'
     assert list(pref) == sorted(pref), (

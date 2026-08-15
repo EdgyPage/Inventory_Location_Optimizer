@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _pct_delta
 
@@ -39,8 +40,7 @@ def _delta_bars(strategies, S, baseline, title, path):
 @evaluation(key='compare.delta_bars', label='Δ vs baseline (throughput/duration)',
             scope='config', needs=('series',), out_subdir='compare/breakdown')
 def render(ctx, params):
-    out = os.path.join(ctx.run_dir, 'compare', 'breakdown')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/breakdown, from the declaration
     _delta_bars(ctx.strategies, ctx.series(), ctx.base,
                 f'Δ vs baseline  [{ctx.title}]',
                 os.path.join(out, 'delta_vs_baseline.png'))

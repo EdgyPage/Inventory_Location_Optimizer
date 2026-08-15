@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle
 
@@ -17,7 +18,7 @@ def render(ctx, params):
     strategies = ctx.strategies
     n = len(strategies)
     optimal = ctx.optimal
-    ps_dir = os.path.join(ctx.run_dir, 'per_strategy')
+    ps_dir = io.out_dir(ctx)                    # per_strategy/, from the declaration
 
     ylabels = [_stitle(s) for s in strategies]
     yc      = [s['color'] for s in strategies]

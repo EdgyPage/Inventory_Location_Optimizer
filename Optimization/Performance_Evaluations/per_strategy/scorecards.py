@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.per_strategy.panels import panel_duration, panel_eff, panel_churn
 
@@ -12,7 +13,7 @@ from Optimization.Performance_Evaluations.per_strategy.panels import panel_durat
 @evaluation(key='per_strategy.scorecards', label='Per-strategy scorecards',
             scope='per_strategy', needs=('batch',), out_subdir='per_strategy')
 def render(ctx, params):
-    ps_dir = os.path.join(ctx.run_dir, 'per_strategy')
+    ps_dir = io.out_dir(ctx)                    # per_strategy/, from the declaration
     optimal = ctx.optimal
     for s in ctx.strategies:
         fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(13, 3.4))

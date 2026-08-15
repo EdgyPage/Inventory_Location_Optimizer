@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _LINESTYLES, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top
@@ -48,8 +49,7 @@ def render(ctx, params):
     S = ctx.series()
     top_n  = int(params.get('top_n', 1) or 1)
     top_by = params.get('top_by', 'global') or 'global'
-    out = os.path.join(ctx.run_dir, 'compare', 'top')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/top, from the declaration
     tag = top_tag(top_n, top_by)
     for m in overtime_metrics(agg=False):
         ttl = f"{m['t']}  [{ctx.title}]"

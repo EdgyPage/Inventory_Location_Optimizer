@@ -18,7 +18,9 @@ class Evaluation:
     scope:      str                          # 'per_strategy' | 'config' | 'aggregate'
     needs:      tuple = ()                    # subset of {'batch','task','series','breakdown'}
     defaults:   dict = field(default_factory=dict)
-    out_subdir: str = ''                     # relative dir under the run/agg root
+    out_subdir: str | tuple = ''             # relative dir(s) under the run/agg root; a tuple
+                                             # declares a multi-dir owner (agg.cross_profile),
+                                             # '' declares the root itself
     by_initial: bool = False                 # stats-only structural fork (uni-vs-opt per fn)
     render:     Callable = None              # render(ctx, params) -> None
 

@@ -6,6 +6,7 @@ that needs the curves calls ctx.series() directly (so there is no hard ordering)
 import os
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.series import _dump_series
 
 
@@ -17,6 +18,6 @@ def render(ctx, params):
     # renders never reach past the facade.
     _dump_series(
         ctx.strategies, ctx.series(),
-        os.path.join(ctx.run_dir, 'series.json'),
+        os.path.join(io.out_dir(ctx), 'series.json'),   # '' declaration -> the leaf root
         extra={'optimal_work': ctx.optimal_work,
                'optimal_sigma_fd': ctx.optimal})

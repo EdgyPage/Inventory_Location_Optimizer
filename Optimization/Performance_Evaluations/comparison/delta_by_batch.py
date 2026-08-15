@@ -8,6 +8,7 @@ import os
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top, _prodtime_delta
@@ -32,8 +33,7 @@ def render(ctx, params):
             series.append((s, batches, pb))
     if not series:
         return
-    out = os.path.join(ctx.run_dir, 'compare', 'top')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/top, from the declaration
     n = len(series)
     width = 0.8 / n
     fig, ax = plt.subplots(figsize=(13, 6))

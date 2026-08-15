@@ -5,6 +5,7 @@ import os
 import pandas as pd
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 
 
 @evaluation(key='config.summary_csv', label='Summary batch/task CSVs',
@@ -19,7 +20,7 @@ def render(ctx, params):
                         for s in strategies], axis=1, keys=labels).round(3)
     summ_t = pd.concat([ctx.task_df(s['key'])[tcols].agg(['mean', 'median', 'std']).T
                         for s in strategies], axis=1, keys=labels).round(3)
-    ps_dir = os.path.join(ctx.run_dir, 'per_strategy')
+    ps_dir = io.out_dir(ctx)                    # per_strategy/, from the declaration
     summ_b.to_csv(os.path.join(ps_dir, 'summary_batch.csv'))
     summ_t.to_csv(os.path.join(ps_dir, 'summary_task.csv'))
     ctx.log.info(f'\n{summ_b.to_string()}\n')

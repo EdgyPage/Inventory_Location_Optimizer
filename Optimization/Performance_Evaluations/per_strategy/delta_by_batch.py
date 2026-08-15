@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _grid, _stitle
 from Optimization.Performance_Evaluations.common.series import _prodtime_delta
@@ -33,5 +34,5 @@ def render(ctx, params):
     if axes:
         axes[0].set_ylabel('% vs FIFO', fontsize=8)
     plt.tight_layout(rect=(0, 0, 1, 0.98))
-    _save_close(fig, os.path.join(ctx.run_dir, 'per_strategy',
+    _save_close(fig, os.path.join(io.out_dir(ctx),
                                   'grid_prodtime_delta_by_batch.png'))

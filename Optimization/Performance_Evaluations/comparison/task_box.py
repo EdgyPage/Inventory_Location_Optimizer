@@ -9,6 +9,7 @@ from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _assign_color_map, _WIN, legend_right
 
@@ -52,8 +53,7 @@ def _task_box(strategies, df_t, title, path, win=_WIN):
             scope='config', needs=('task',), out_subdir='compare/breakdown',
             defaults={'win': _WIN})
 def render(ctx, params):
-    out = os.path.join(ctx.run_dir, 'compare', 'breakdown')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/breakdown, from the declaration
     _task_box(ctx.strategies, ctx.task_frames(),
               f'Steady-state task duration by strategy  [{ctx.title}]',
               os.path.join(out, 'task_duration_by_strategy.png'),

@@ -9,6 +9,7 @@ import pandas as pd
 import scipy.stats as st
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _fresh_dir
 from Optimization.Performance_Evaluations.common.stats_core import (
     _AGG_METRICS, _descriptives, _run_tests, _clean,
@@ -113,7 +114,7 @@ def _run_aggregate_stats_by_initial(profile_series_list, out_dir, log, pickcfg) 
 @evaluation(key='agg.stats', label='Cross-profile significance suite',
             scope='aggregate', needs=('series',), out_subdir='stats')
 def render_stats(ctx, params):
-    _run_aggregate_stats(ctx.profile_series_list, os.path.join(ctx.out_dir, 'stats'),
+    _run_aggregate_stats(ctx.profile_series_list, io.out_dir(ctx),
                          ctx.log, ctx.pickcfg)
 
 
@@ -121,5 +122,5 @@ def render_stats(ctx, params):
             scope='aggregate', needs=('series',), out_subdir='stats_by_initial', by_initial=True)
 def render_stats_by_initial(ctx, params):
     _run_aggregate_stats_by_initial(ctx.profile_series_list,
-                                    os.path.join(ctx.out_dir, 'stats_by_initial'),
+                                    io.out_dir(ctx),
                                     ctx.log, ctx.pickcfg)

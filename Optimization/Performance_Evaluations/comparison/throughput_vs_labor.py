@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, legend_right
 
@@ -138,6 +139,5 @@ def render(ctx, params):
         f'Marker size = batch makespan.',
         fontsize=11, fontweight='bold')
     plt.tight_layout(rect=(0, 0, 1, 0.92))
-    out = os.path.join(ctx.run_dir, 'compare')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/, from the declaration
     _save_close(fig, os.path.join(out, 'throughput_vs_labor.png'))

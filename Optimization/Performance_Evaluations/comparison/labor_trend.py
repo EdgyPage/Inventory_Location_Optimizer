@@ -27,6 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import (
     _stitle, _LINESTYLES, _TOP_DIMS, _WIN, legend_right)
@@ -161,8 +162,7 @@ def render(ctx, params):
     selected, gof = _select_top(ctx.strategies, ctx.series(), top_n, top_by)
     if not selected:
         return
-    out = os.path.join(ctx.run_dir, 'compare', 'breakdown')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/breakdown, from the declaration
     tag = top_tag(top_n, top_by)
     frames = {s['key']: ctx.task_df(s['key']) for s in list(selected) + [ctx.base]}
     _plot(selected, gof, frames, ctx.base, top_n, top_by, win,

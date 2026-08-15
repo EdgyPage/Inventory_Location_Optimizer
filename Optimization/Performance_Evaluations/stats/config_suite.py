@@ -10,6 +10,7 @@ import pandas as pd
 import scipy.stats as st
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _fresh_dir
 from Optimization.Performance_Evaluations.common.frames import _metric_series, _aligned
 from Optimization.Performance_Evaluations.common.stats_core import (
@@ -115,7 +116,7 @@ def render_suite(ctx, params):
     # ss_lo=0: every batch is a fair paired observation, so the omnibus/pairwise tests
     # use the full n (~100), not just the tail window.
     _run_config_stats(ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0,
-                      os.path.join(ctx.run_dir, 'stats'), ctx.log,
+                      io.out_dir(ctx), ctx.log,           # stats/, from the declaration
                       travel_handling=ctx.breakdown())
 
 
@@ -124,5 +125,5 @@ def render_suite(ctx, params):
             out_subdir='stats_by_initial', by_initial=True)
 def render_by_initial(ctx, params):
     _run_config_stats_by_initial(ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0,
-                                 os.path.join(ctx.run_dir, 'stats_by_initial'), ctx.log,
+                                 io.out_dir(ctx), ctx.log,  # stats_by_initial/, from the declaration
                                  travel_handling=ctx.breakdown())

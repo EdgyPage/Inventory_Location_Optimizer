@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as st
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS, legend_right
 from Optimization.Performance_Evaluations.common.series import _select_top
@@ -171,7 +172,6 @@ def render(ctx, params):
     selected = [s for s in selected if s['key'] != baseline['key']]   # exclude the baseline itself
     if not selected:
         return
-    out = os.path.join(ctx.run_dir, 'compare')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/, from the declaration
     _bar_chart(ctx, selected, S, baseline, os.path.join(out, 'top_vs_baseline.png'), top_n, top_by)
     _table_graphic(ctx, selected, S, baseline, os.path.join(out, 'top_vs_baseline_table.png'))

@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import legend_right
 
@@ -40,8 +41,7 @@ def _task_time_breakdown_plot(strategies, th, title, path):
 @evaluation(key='breakdown.travel_handling', label='Task time: travel vs handling',
             scope='config', needs=('breakdown',), out_subdir='compare/breakdown')
 def render(ctx, params):
-    out = os.path.join(ctx.run_dir, 'compare', 'breakdown')
-    os.makedirs(out, exist_ok=True)
+    out = io.out_dir(ctx)                       # compare/breakdown, from the declaration
     _task_time_breakdown_plot(
         ctx.strategies, ctx.breakdown(),
         f'Task time: travel vs handling  [{ctx.title}]',

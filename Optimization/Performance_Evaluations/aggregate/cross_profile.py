@@ -4,6 +4,7 @@ across profiles.  Reuses the comparison builders.  Params: top_n, top_by."""
 import os
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.comparison import overtime_metrics, top_tag
 from Optimization.Performance_Evaluations.comparison.faceted import _facet_metric
 from Optimization.Performance_Evaluations.comparison.overlay import _overlay_metric
@@ -13,7 +14,11 @@ from Optimization.Performance_Evaluations.comparison.delta_bars import _delta_ba
 
 
 @evaluation(key='agg.cross_profile', label='Cross-profile over-time suite',
-            scope='aggregate', needs=('series',), out_subdir='',
+            scope='aggregate', needs=('series',),
+            # The declared multi-dir owner: this suite mirrors the per-config compare tree
+            # under the aggregate root, so it owns FOUR subdirs — previously '' here, which
+            # exempted all 17 of its figures from the artifact-map bound check.
+            out_subdir=('breakdown', 'faceted', 'overlay', 'top'),
             defaults={'top_n': 1, 'top_by': 'global'})
 def render(ctx, params):
     strategies, S = ctx.agg_series()
@@ -23,12 +28,10 @@ def render(ctx, params):
     top_n  = int(params.get('top_n', 1) or 1)
     top_by = params.get('top_by', 'global') or 'global'
 
-    fac = os.path.join(ctx.out_dir, 'faceted')
-    ovl = os.path.join(ctx.out_dir, 'overlay')
-    top = os.path.join(ctx.out_dir, 'top')
-    brk = os.path.join(ctx.out_dir, 'breakdown')
-    for d in (fac, ovl, top, brk):
-        os.makedirs(d, exist_ok=True)
+    fac = io.out_dir(ctx, pick='faceted')
+    ovl = io.out_dir(ctx, pick='overlay')
+    top = io.out_dir(ctx, pick='top')
+    brk = io.out_dir(ctx, pick='breakdown')
 
     title_prefix = f'AGG {ctx.pickcfg} · {ctx.n_profiles} profiles'
     base = strategies[0]
