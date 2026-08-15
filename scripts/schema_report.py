@@ -36,13 +36,16 @@ store, and never learns who writes what.
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib
+import inspect
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # entry-script bootstrap
 
-from Schema import compat, connect, identity
+from Schema import compat, connect, identity, store_index
 from Schema.shape import canonical_shape, describe_diff, diff_shapes, observed_id
 
 #: Every module that registers a `Schema.identity.Family`, newest concern last.
@@ -155,16 +158,88 @@ def sync(out=print) -> int:
                  'the DDL next moves, this outgoing shape is already on disk and needs no archive '
                  'lookup to recover.')
         wrote.append(f'{name}/{sid}')
+    # INDEX.json: {family: declared_id} + the DDL source fingerprint.  --sync is its ONLY writer
+    # (this is the one place every family is imported AND every declared shape freshly committed);
+    # the Stop hook only READS it, so it stays hash-cheap.
+    store_index.write_index({name: identity.get(name).declared_id()
+                             for name in identity.families()})
     out(f'sync: committed {len(wrote)} declared shape(s)' + (f' - {", ".join(wrote)}' if wrote
-                                                             else ' (already current)'))
+                                                             else ' (already current)')
+        + '; INDEX.json refreshed')
     return 0
 
 
-def adopt(out=print) -> int:
+#: Matches a family's `known_ids=( ... )` tuple inside its registration, capturing the body.
+#: Anchored on the keyword so `--apply` can splice new entries in front of the old ones.
+_KNOWN_IDS_RE = re.compile(r'known_ids\s*=\s*\((?P<body>[^)]*)\)', re.S)
+
+
+def _apply_known_ids(family_name: str, orphans: list, out=print) -> bool:
+    """Write the `known_ids` adoption edit into the family's own source file.
+
+    The same bargain as `preflight --apply` (which inserts observed ARTIFACTS entries): the
+    MECHANICAL half is automated, the JUDGEMENT half is left loud — every inserted id carries a
+    `TODO(schema-adopt)` comment the human replaces with the commit window it covers.
+
+    Safety: locate the file via `inspect.getsourcefile(fam.declared_shape)` (the declaration and
+    the registration live together, by convention and by test); refuse on zero or multiple
+    `known_ids=` matches inside the family's registration block; `ast.parse` the edited source
+    before writing a byte.
+    """
+    fam = identity.get(family_name)
+    src_file = inspect.getsourcefile(fam.declared_shape)
+    if not src_file:
+        out(f'  cannot locate the defining file for {family_name} - edit known_ids by hand')
+        return False
+    with open(src_file, encoding='utf-8', newline='') as fh:
+        raw = fh.read()
+    nl = '\r\n' if '\r\n' in raw else '\n'
+    src = raw.replace('\r\n', '\n')
+
+    # Scope the search to THIS family's registration: from its name= to the closing `))`.
+    m_reg = re.search(r'name=[\'"]%s[\'"]' % re.escape(family_name), src)
+    if not m_reg:
+        out(f'  {src_file}: no registration found for {family_name!r} - edit by hand')
+        return False
+    block_end = src.find('))', m_reg.end())
+    block = src[m_reg.end():block_end]
+    hits = list(_KNOWN_IDS_RE.finditer(block))
+    if len(hits) > 1:
+        out(f'  {src_file}: {len(hits)} known_ids tuples inside the {family_name} registration - '
+            f'ambiguous, edit by hand')
+        return False
+
+    todo = '  # TODO(schema-adopt): name the commit window this id covers'
+    if hits:
+        h = hits[0]
+        addition = ''.join(f'{s!r},{todo}\n              ' for s in orphans)
+        new_block = block[:h.start('body')] + addition + block[h.start('body'):]
+    else:
+        # No known_ids yet (a family whose comment says "and that is a RESULT") - insert one
+        # before the registration's closing parens.
+        addition = ('\n    known_ids=('
+                    + ' '.join(f'{s!r},{todo}\n               ' for s in orphans)
+                    + '),')
+        new_block = block.rstrip() + addition + '\n'
+    candidate = src[:m_reg.end()] + new_block + src[block_end:]
+    try:
+        ast.parse(candidate)
+    except SyntaxError as exc:
+        out(f'  {src_file}: edited source does not parse ({exc}) - edit by hand')
+        return False
+    with open(src_file, 'w', encoding='utf-8', newline=nl) as fh:
+        fh.write(candidate.replace('\r\n', '\n') if nl == '\n' else candidate)
+    out(f'  wrote known_ids adoption into {os.path.relpath(src_file, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).replace(os.sep, "/")} '
+        f'- fill the TODO(schema-adopt) comment(s) with the commit window')
+    return True
+
+
+def adopt(out=print, apply: bool = False) -> int:
     """Report every committed shape no family vets any more - the outgoing shapes to adopt.
 
-    Exit 1 when there is something to adopt, so a hook or CI can catch a DDL change that shipped
-    without its `known_ids` entry.
+    Exit 1 when something needed adopting, so a hook or CI can catch a DDL change that shipped
+    without its `known_ids` entry.  With `apply`, the tuple edit is WRITTEN into the family's
+    source (TODO-marked); the human keeps the commit-window comment and the commit itself.
     """
     import_families()
     pending = 0
@@ -182,6 +257,9 @@ def adopt(out=print) -> int:
             f'shape(s) are no longer vetted:')
         for sid in orphans:
             out(f'    {sid}')
+        if apply:
+            _apply_known_ids(name, orphans, out=out)
+            continue
         out('  These ARE the outgoing shapes. Add them to the family\'s `known_ids`, with a '
             'comment naming the window of commits each covers:')
         out(f'    known_ids=({", ".join(repr(s) for s in orphans + sorted(fam.known_ids))},)')
@@ -191,6 +269,23 @@ def adopt(out=print) -> int:
     if not pending:
         out('adopt: nothing to adopt - every committed shape is still vetted.')
     return 1 if pending else 0
+
+
+def accept(out=print) -> int:
+    """`adopt --apply` then `sync`: the one-command close of a DDL change.
+
+    Order is load-bearing: `--apply` EDITS a DDL source file, so the fingerprint must be recorded
+    AFTER it (a sync-first ordering would record a fingerprint the apply immediately staled).
+    Exit is `adopt`'s exit - 1 means something was adopted and the TODO comments now need filling.
+    """
+    rc = adopt(out=out, apply=True)
+    # Re-import nothing: apply edited source on disk, but THIS process already holds the old
+    # module objects.  sync() below computes declared ids from the live registry, which is still
+    # correct - apply never changes a DDL, only the known_ids tuple, and declared ids come from
+    # the DDL.  The fingerprint, however, must reflect the edited file bytes - and does, because
+    # store_index reads from disk.
+    sync(out=out)
+    return rc
 
 
 def main(argv=None) -> int:
@@ -206,14 +301,21 @@ def main(argv=None) -> int:
     ap.add_argument('--adopt', action='store_true',
                     help='list committed shapes no family vets any more - the outgoing shapes '
                          'a DDL change left behind. Exits 1 when there is something to adopt.')
+    ap.add_argument('--apply', action='store_true',
+                    help='with --adopt: WRITE the known_ids edit into the family source, '
+                         'TODO-marked; you fill the commit-window comment')
+    ap.add_argument('--accept', action='store_true',
+                    help='adopt --apply, then sync: the one-command close of a DDL change')
     ap.add_argument('--note', default='', help='why this vintage exists, for the document')
     args = ap.parse_args(argv)
     if args.capture:
         return capture(args.capture[0], args.capture[1], args.note)
+    if args.accept:
+        return accept()
     if args.sync:
         return sync()
     if args.adopt:
-        return adopt()
+        return adopt(apply=args.apply)
     return report()
 
 

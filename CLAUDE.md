@@ -77,6 +77,13 @@ Or hand the whole chain to the `architecture-maintainer` agent.
 - **Never commit `*.db` or `comparison_*/`.** Run output is ~500 GB per sweep (measured; see the
   README's size section). Only curated PNGs and config/params JSON belong in git.
 - **Tests use real `assert`.** Never add a legacy `check()`-based test (see §3).
+- **Schema changes ride the pipeline, never a consumer edit.** `--sync` before a DDL edit,
+  `--accept` after (adopts the outgoing shape; you write the commit-window comment). A new DB
+  writer calls `Schema.compat.stamp_checked` at creation; a new DB consumer declares a
+  `Requires` or uses `Schema.dataset.bind`; SQL belongs in a named query beside the family,
+  with a per-vintage `dataset.override` when a shape moves. New run-tree consumers resolve paths
+  via `runschema.resolver_for` accessors (`path`/`leaf_path`/`glob`) — never join strings.
+  `docs/design/SCHEMA_COMPATIBILITY.md` is the full pattern; `schema-maintainer` owns it.
 
 ## 3. Silent traps — each of these fails with no error message
 

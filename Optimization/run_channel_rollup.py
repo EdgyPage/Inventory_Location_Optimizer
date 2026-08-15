@@ -3,7 +3,7 @@
 The simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each
 sweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py
 (its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that
-combines them: for each inventory it reads every channel's `series.json`, computes each plan's
+combines them: for each inventory it reads every channel's series JSON, computes each plan's
 absolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)
 per channel across ALL that channel's configs, and SUMS the per-channel best savings into a
 cumulative whole-warehouse saving.
@@ -12,16 +12,18 @@ Because the channels are independent, absolute savings (sim-unit `ss_prod_hours`
 ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
 per-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.
 
-Run AFTER run_analysis.py (which writes the series.json files).  The analysis default preset
-is BY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in series.json and the rollup
-sees the full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_*
-arm is dropped and the rollup picks the best from only half the suite (it warns when it detects
+Run AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is
+BY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in the series and the rollup sees
+the full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_* arm
+is dropped and the rollup picks the best from only half the suite (it warns when it detects
 this — re-run the analysis without --preset DEFAULT):
   python run_analysis.py <base_dir>
   python run_channel_rollup.py <base_dir>
-Outputs (under <base_dir>):
-  channel_rollup.csv          — one row per (inventory, config, channel, plan): absolute + % saving
-  channel_rollup_summary.csv  — best plan per channel + the cumulative whole-warehouse saving
+Outputs (under <base_dir>, rendered by the run-tree contract as the `channel_rollup_csv` /
+`channel_rollup_summary_csv` artifacts — this module is their declared writer, and
+Tests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals):
+  the per-plan rollup CSV     — one row per (inventory, config, channel, plan): absolute + % saving
+  the rollup summary CSV      — best plan per channel + the cumulative whole-warehouse saving
 """
 from __future__ import annotations
 
@@ -44,14 +46,44 @@ def _is_num(x) -> bool:
     return isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))
 
 
-def _find_series(base_dir: str) -> list[tuple[str, str]]:
-    """(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run."""
+def _tree_for(cell_dir: str):
+    """(RunTree, cell_name) for the run this CELL directory belongs to.
+
+    The rollup receives a CELL dir (analyze_run calls it once per cell), so the resolver is
+    rooted at the PARENT — where the run descriptor lives — and the cell name is the dir's own
+    basename.  A tree with NO descriptor (scratch trees in tests, ad-hoc analyses) falls back to
+    the HEAD contract rooted at the same parent: the head templates render exactly the strings
+    the old hand-joins assumed, so the fallback is behavior-preserving while keeping the shape in
+    one place.  A descriptor that names an UNKNOWN schema still fails loudly (resolver_for
+    raises before the fallback is consulted only for the missing-descriptor case).
+    """
+    from Optimization import runschema
+    from Optimization.runschema import contract as _contract
+    from Optimization.runschema.resolver import RunTree
+    cell_dir = os.path.abspath(cell_dir)
+    root, cell = os.path.dirname(cell_dir), os.path.basename(cell_dir)
+    try:
+        return runschema.resolver_for(root), cell
+    except runschema.UnsupportedRunTree:
+        head = _contract.head()
+        doc = _contract.load(head) if head else None
+        if doc is None:
+            raise
+        return RunTree(root, doc, layout={}), cell
+
+
+def _find_series(rt, base_dir: str) -> list[tuple[str, str]]:
+    """(sim_meta, series) JSON path pairs under base_dir — one per ANALYZED channel run.
+
+    Traversal stays with `iter_channel_runs` (the layout owner, default marker = the sim_meta
+    basename); the per-leaf filenames render through `rt.leaf_path`, never a basename join.
+    """
     from Optimization.runschema.runlayout import iter_channel_runs
     out = []
-    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
-        sp = os.path.join(run.path, 'series.json')
+    for run in iter_channel_runs(base_dir):
+        sp = rt.leaf_path(run, 'series_json')
         if os.path.exists(sp):
-            out.append((os.path.join(run.path, 'sim_meta.json'), sp))
+            out.append((rt.leaf_path(run, 'sim_meta'), sp))
     return sorted(out)
 
 
@@ -70,12 +102,12 @@ def _baseline_entry(strategies: list[dict]) -> dict | None:
 
 
 def _channel_rows(meta: dict, series: dict) -> tuple[dict, list[dict]]:
-    """Return (channel_info, per-plan rows) for one channel's series.json."""
+    """Return (channel_info, per-plan rows) for one channel's series doc."""
     strategies = series.get('strategies', [])
     base = _baseline_entry(strategies)
     base_ss = base.get('ss_prod_hours') if base else None
     channel = meta.get('channel') or os.path.basename(os.path.dirname(''))
-    # Arms the simulation ran but the analysis dropped from series.json (run_analysis's
+    # Arms the simulation ran but the analysis dropped from the series doc (run_analysis's
     # default focus='uni' filters out every opt_* arm).  If present, the rollup can only
     # see a subset — flag it so the winner isn't silently chosen from half the suite.
     series_keys = {s.get('key') for s in strategies}
@@ -109,9 +141,15 @@ def _channel_rows(meta: dict, series: dict) -> tuple[dict, list[dict]]:
 
 
 def rollup(base_dir: str, log=print) -> dict:
-    pairs = _find_series(base_dir)
+    """Roll one CELL directory's per-channel winners up into a whole-warehouse saving.
+
+    `base_dir` is a cell dir; both output CSVs render through the run-tree contract
+    (`rt.path('channel_rollup_csv' / 'channel_rollup_summary_csv', cell=...)`).
+    """
+    rt, cell = _tree_for(base_dir)
+    pairs = _find_series(rt, base_dir)
     if not pairs:
-        log(f'No analyzed channel runs (sim_meta.json + series.json) found under {base_dir}.')
+        log(f'No analyzed channel runs (sim_meta + series JSONs) found under {base_dir}.')
         log('Run run_analysis.py first.')
         return {}
 
@@ -135,7 +173,7 @@ def rollup(base_dir: str, log=print) -> dict:
         by_pair[info['pair']][info['channel']].append(info)
 
     # ── per-plan CSV (also the mix-and-match table) ──────────────────────────────
-    plan_csv = os.path.join(base_dir, 'channel_rollup.csv')
+    plan_csv = rt.path('channel_rollup_csv', cell=cell)
     with open(plan_csv, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=[
             'pair', 'config', 'channel', 'plan_key', 'plan_label', 'assignment',
@@ -145,7 +183,7 @@ def rollup(base_dir: str, log=print) -> dict:
             w.writerow(r)
 
     # ── summary CSV + stdout: best (config, plan) per channel, then cumulative whole-warehouse ─
-    summary_csv = os.path.join(base_dir, 'channel_rollup_summary.csv')
+    summary_csv = rt.path('channel_rollup_summary_csv', cell=cell)
     summary_rows = []
     for pair, chan_map in sorted(by_pair.items()):
         cum_saving = 0.0
@@ -197,7 +235,7 @@ def rollup(base_dir: str, log=print) -> dict:
     log(f'\nWrote {plan_csv}')
     log(f'Wrote {summary_csv}')
     log('\nMix-and-match: channels are independent, so any (store-plan, fulfillment-plan)')
-    log('combined saving is just the sum of their saving_abs rows in channel_rollup.csv.')
+    log('combined saving is just the sum of their saving_abs rows in the per-plan rollup CSV.')
     return dict(plan_csv=plan_csv, summary_csv=summary_csv,
                 n_channels=len(all_rows and pairs), n_groups=len(by_pair))
 

@@ -425,8 +425,32 @@ def replay_sim_db(sim_db: str, warehouse_db: str, max_batches: int) -> dict:
 
 
 # ── discovery ───────────────────────────────────────────────────────────────────
+#
+# Two vintages, one tool.  A run with a `run_layout.json` descriptor resolves through its OWN
+# run-tree contract (`runschema.resolver_for`); the ~500 GB of archives that PREDATE the
+# descriptor resolve through the raw glob / walk-up below, which is therefore load-bearing and
+# kept verbatim — reading old runs is this file's whole point.  `diagnostics -> optimization` is
+# a legal import direction (context/architecture.yml forbids only warehouse_core -> diagnostics
+# and schema -> diagnostics), so the resolver route needs no layering exemption.
 
-def _nearest_warehouse_db(sim_db: str) -> str | None:
+def _contract_resolver(target: str):
+    """The RunTree for a contract run root, or None (a single DB / pre-descriptor archive)."""
+    if target.endswith('.db') or not os.path.isdir(target):
+        return None
+    try:
+        from Optimization.runschema import resolver_for
+        return resolver_for(target)
+    except Exception:                            # noqa: BLE001 - no descriptor / unknown schema
+        return None
+
+
+def _nearest_warehouse_db(sim_db: str, rt=None) -> str | None:
+    if rt is not None:
+        # Positional leaf split + pair-scoped template, via the resolver's own public mirror of
+        # `keyframe_db` (never by directory name: `<pair>/store/store/` is real).
+        cand = rt.warehouse_db_of(sim_db)
+        if os.path.exists(cand):
+            return cand
     d = os.path.dirname(os.path.abspath(sim_db))
     for _ in range(4):
         cand = os.path.join(d, 'warehouse.db')
@@ -436,9 +460,14 @@ def _nearest_warehouse_db(sim_db: str) -> str | None:
     return None
 
 
-def discover_sim_dbs(target: str) -> list[str]:
+def discover_sim_dbs(target: str, rt=None) -> list[str]:
     if target.endswith('.db'):
         return [target]
+    if rt is not None:
+        # Contract route: the `sim_db` template with every part wildcarded.  Most-specific-template
+        # ownership excludes the keyframe sidecars (`sim_{strategy}.keyframes.db` out-literals
+        # `sim_{strategy}.db`), which is the same exclusion the endswith() below hand-codes.
+        return rt.glob('sim_db')
     # `sim_X.keyframes.db` sits beside `sim_X.db` and matches the same glob, but it is a sidecar
     # holding only `bin_keyframe` — no simulation_runs, so replaying it raised OperationalError
     # and killed the whole sweep at the first arm.
@@ -453,14 +482,15 @@ def main() -> None:
     ap.add_argument('--max', type=int, default=0, help='cap exported batches (0 = all)')
     args = ap.parse_args()
 
-    sim_dbs = discover_sim_dbs(args.target)
+    rt = _contract_resolver(args.target)
+    sim_dbs = discover_sim_dbs(args.target, rt=rt)
     if not sim_dbs:
         raise SystemExit(f'No sim_*.db found under {args.target}')
 
     os.makedirs(_OUT_DIR, exist_ok=True)
     manifest = []
     for sim_db in sim_dbs:
-        wh = _nearest_warehouse_db(sim_db)
+        wh = _nearest_warehouse_db(sim_db, rt=rt)
         if wh is None:
             print(f'  SKIP {sim_db}: no warehouse.db found nearby'); continue
         result = replay_sim_db(sim_db, wh, args.max)

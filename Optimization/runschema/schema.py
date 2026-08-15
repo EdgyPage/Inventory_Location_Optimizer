@@ -100,6 +100,7 @@ ARTIFACTS = {
         'path': 'run.log', 'format': 'text', 'scope': 'run',
         'writer': '_setup_logging@Optimization/config/sim_config.py'},
     'runtime_metrics_db': {
+        'family': 'runtime_metrics_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],
         'writer': 'record_arm@Optimization/persistence/runtime_metrics.py',
         'note': 'the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path.'},
@@ -107,12 +108,14 @@ ARTIFACTS = {
         'path': '_runtime/*.png', 'format': 'png', 'scope': 'run',
         'writer': 'run@Optimization/run_runtime_graphs.py'},
     'frozen_inventory_db': {
+        'family': 'inventory_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_frozen/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'run',
         'optional': True,
         'condition': 'MULTI-cell runs only — a single-cell run writes planned_inventory.db under '
                      '<cell>/<pair>/ instead.',
         'writer': '_run_whatif_matrix@Optimization/simdriver/scenario.py'},
     'frozen_warehouse_db': {
+        'family': 'warehouse_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_frozen/{pair}/warehouse.db', 'format': 'sqlite', 'scope': 'run',
         'optional': True, 'condition': 'MULTI-cell runs only (see frozen_inventory_db).',
         'writer': '_run_whatif_matrix@Optimization/simdriver/scenario.py'},
@@ -206,10 +209,12 @@ ARTIFACTS = {
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {
+        'family': 'warehouse_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/warehouse.db', 'format': 'sqlite', 'scope': 'pair',
         'tables': ['warehouse_stats', 'aisle_type_stats', 'aisle_layout'],
         'writer': 'build_shared_assets@Optimization/simdriver/sim_assets.py'},
     'planned_inventory_db': {
+        'family': 'inventory_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'pair',
         'optional': True,
         'condition': 'SINGLE-cell runs only — a multi-cell run shares _frozen/<pair>/'
@@ -235,6 +240,7 @@ ARTIFACTS = {
 
     # ── per channel-run (the analysis leaf) ─────────────────────────────────────
     'sim_db': {
+        'family': 'sim_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db',
         'format': 'sqlite', 'scope': 'channel_run',
         # `bin_inventory` is deliberately ABSENT: it is no longer written (bin_placement +
@@ -245,6 +251,7 @@ ARTIFACTS = {
                    'bin_placement', 'bin_eviction'],
         'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
+        'family': 'keyframes_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db',
         'format': 'sqlite', 'scope': 'channel_run', 'tables': ['bin_keyframe'],
         'optional': True, 'condition': 'keyframe_interval > 0.',
@@ -325,6 +332,7 @@ ARTIFACTS = {
     # produces it" is a `condition`, not a reason to leave it out: the contract's job is to let a
     # consumer be told about every file it will meet in the tree.
     'viz_cache_db': {
+        'family': 'viz_cache_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db',
         'format': 'sqlite', 'scope': 'channel_run', 'optional': True,
         'tables': ['cache_meta', 'bin_span', 'sku_rank', 'sku_series', 'final_home',

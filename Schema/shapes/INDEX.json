@@ -1,0 +1,12 @@
+{
+  "source_fingerprint": "sha256:e1d47fd0c615b41e879f4980c308ac991b8be0ef0c4aafc3a5ce9a8ce112a135",
+  "families": {
+    "affinity_db": "349e081a59fc",
+    "inventory_db": "0e234fbfc739",
+    "keyframes_db": "d761133a4df7",
+    "runtime_metrics_db": "c033ff9c85a5",
+    "sim_db": "6ad0b34af9f1",
+    "viz_cache_db": "1e8fa4db6912",
+    "warehouse_db": "46e66d2fcbb0"
+  }
+}

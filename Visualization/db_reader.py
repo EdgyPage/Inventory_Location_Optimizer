@@ -120,7 +120,20 @@ def _pinned_schema_id(viz_cache: str) -> str | None:
         return None
 
 
-def _nearest_warehouse_db(sim_db: str) -> str | None:
+def _nearest_warehouse_db(sim_db: str, rt=None, cell: str | None = None,
+                          pair: str | None = None) -> str | None:
+    """The warehouse.db an arm was simulated against.
+
+    With a resolver (`rt` + the arm's cell/pair), the contract answers directly:
+    ``rt.warehouse_db(cell, pair)``.  The walk-up below is the documented NO-CONTRACT fallback —
+    legacy runs have no descriptor, so the nearest `warehouse.db` on the ancestor chain is the
+    best available guess.  It is kept even when the resolver path misses, because a hand-arranged
+    tree (an arm copied out for inspection) answers only to the walk.
+    """
+    if rt is not None and cell and pair:
+        cand = rt.warehouse_db(cell, pair)
+        if os.path.exists(cand):
+            return cand
     d = os.path.dirname(os.path.abspath(sim_db))
     for _ in range(4):
         cand = os.path.join(d, 'warehouse.db')
@@ -218,17 +231,26 @@ def _read_run_meta(sim_db: str) -> dict | None:
 
 
 def viz_cache_path(base_dir: str, cell: str, pair: str, config: str,
-                   channel: str | None, strategy: str) -> str:
+                   channel: str | None, strategy: str, rt=None) -> str:
     """Where the derived sidecar for one arm lives.
 
     ``<run_root>/_viz/<cell>/<pair>/<config>[/<channel>]/<arm>.viz.db`` — under the driver's
     reserved ``_`` prefix (``runschema.schema.RESERVED_PREFIX``), which every tree walker skips.
+    The sidecar is DECLARED in the run-tree contract (`viz_cache_db`), so with a resolver the
+    template comes from the run's own schema document; the hand-join below is the documented
+    NO-CONTRACT fallback for legacy trees, kept byte-identical to what the template renders.
 
     NOT ``sim_<arm>.viz.db`` beside the sim DB: that name satisfies all three predicates of
     ``runlayout._sim_dbs_in`` (starts with ``sim_``, ends ``.db``, does not end
     ``.keyframes.db``), so it would surface as an extra ARM through ``resolver.sim_dbs()`` and
     crash ``Diagnostics/replay_run.py`` on a table it does not have.
     """
+    if rt is not None:
+        try:
+            return rt.path('viz_cache_db', cell=cell, pair=pair, config=config,
+                           channel=channel or None, strategy=strategy)
+        except KeyError:                         # contract predates the viz_cache_db artifact
+            pass
     parts = [base_dir, '_viz', cell, pair, config] + ([channel] if channel else [])
     return os.path.join(*parts, f'{strategy}.viz.db')
 
@@ -263,6 +285,7 @@ def discover_runs(base_dir: str) -> list[RunRef]:
 
 def _discover_uncached(base_dir: str) -> list[RunRef]:
     runs: list[RunRef] = []
+    rt = None
     try:
         from Optimization.runschema import resolver_for
         rt = resolver_for(base_dir)
@@ -282,10 +305,14 @@ def _discover_uncached(base_dir: str) -> list[RunRef]:
         strategy = meta['strategy_key'] or fn[4:-3]
         pair_lbl = meta['pair_label'] or cr.pair
         cfg_lbl = meta['config_label'] or cr.config
-        wh = fp_index.get(meta['warehouse_fingerprint']) or _nearest_warehouse_db(sim_db)
+        # cr.pair (the DIRECTORY name), not pair_lbl: the resolver renders paths, and a renamed
+        # pair label from the DB's identity is exactly what a path must not be built from.
+        wh = (fp_index.get(meta['warehouse_fingerprint'])
+              or _nearest_warehouse_db(sim_db, rt=rt, cell=cell, pair=cr.pair))
         if not wh:
             continue
-        kf = os.path.splitext(sim_db)[0] + '.keyframes.db'
+        kf = rt.keyframe_db(sim_db) if rt is not None else (
+            os.path.splitext(sim_db)[0] + '.keyframes.db')
         chan = cr.channel
         rid = '/'.join(p for p in (cell, pair_lbl, cfg_lbl, chan, strategy) if p)
         runs.append(RunRef(
@@ -296,7 +323,7 @@ def _discover_uncached(base_dir: str) -> list[RunRef]:
             keyframe_db=kf if os.path.exists(kf) else '',
             run_id=meta['run_id'], n_batches=meta['n_batches'],
             warehouse_fingerprint=meta['warehouse_fingerprint'],
-            viz_cache=viz_cache_path(base_dir, cell, pair_lbl, cfg_lbl, chan, strategy),
+            viz_cache=viz_cache_path(base_dir, cell, pair_lbl, cfg_lbl, chan, strategy, rt=rt),
         ))
     return runs
 

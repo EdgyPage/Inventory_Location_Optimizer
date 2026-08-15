@@ -41,6 +41,7 @@ from datetime import datetime, timezone
 if __package__ in (None, ''):                     # direct-run bootstrap; `-m` needs nothing
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from Schema import compat as _compat
 from Visualization.cache_schema import (
     CACHE_VERSION, SPAN_SOURCE_KEYFRAME, SPAN_SOURCE_LOG,
     cache_freshness, init_cache_db, source_stamps,
@@ -50,6 +51,23 @@ from Visualization.readers.base import _ro
 from Visualization.readers.fingerprint import resolve_schema_id
 
 _BATCH = 50_000                                   # executemany chunk
+
+# What this module reads out of a sim DB, at the granularity the compatibility gate checks.
+# Precompute deliberately BYPASSES the vetted reader (see the builder docstrings: it re-derives
+# spans from the raw log for speed) — the bypass is fine, being INVISIBLE to CI was not: this was
+# the largest raw reader in the repo with no declaration, so a schema change could not know it
+# was a consumer.  `bin_placement`/`bin_eviction`/`bin_keyframe` are CONDITIONAL (only some
+# vetted vintages carry them) and are correctly NOT declared here — every read of those is
+# already behind a rows-probe (`_has_bin_log`) or keyframe fallback, the negotiation pattern.
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='Visualization precompute (raw sidecar builder)',
+    tables={
+        'picks': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity'),
+        'batch_stats': ('run_id', 'batch_id'),
+        'task_stats': ('run_id', 'batch_id', 'aisle_id', 'duration'),
+        'simulation_runs': ('run_id', 'keyframe_interval'),
+    })
 
 
 # ── staleness ────────────────────────────────────────────────────────────────────

@@ -31,6 +31,13 @@ import json
 import logging
 import os
 import sqlite3
+import sys
+
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_whatif_volume.py <dir>); `-m` form needs none.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import numpy as np
 
@@ -38,28 +45,52 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from Schema import compat as _compat
+from Schema import connect
 from Optimization.run_whatif_delta import _channel_of
 from Optimization.run_whatif_labor import (
     MS_PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _parse_arm, _scheduler_of)
 
 log = logging.getLogger('analysis')
 
+#: Every table/column this module's SQL reads out of a sim DB (`_series`), validated against the
+#: sim_db guaranteed surface in CI (Tests/architecture/test_schema_compatibility.py) — the
+#: cumulative-volume numbers the docs pages cite cannot silently lose a source column.
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='run_whatif_volume series reader',
+    tables={
+        'batch_stats': ('batch_id', 'duration', 'task_makespan', 'total_items'),
+    })
+
 
 def _series(db: str):
     """(hours, items) cumulative arrays for one arm, ordered by batch.
 
-    Read-only + immutable so verifying an archived copy never leaves a -wal/-shm sidecar beside it.
+    A VETTED file binds to its own schema vintage (`Schema.dataset.bind`, immutable=True — the
+    escape-hatch `.con` still carries the same aggregate SQL, unchanged); an unvetted one
+    (synthetic fixtures, cold archives) opens through `Schema.connect.read_only` with the same
+    read-only + immutable promise, replacing the hand-built `?mode=ro&immutable=1` URI this
+    function used to assemble.  Either way no `-wal`/`-shm` sidecar is ever left beside an
+    archived copy.
     """
-    import pathlib
-    uri = pathlib.Path(db).as_uri() + '?mode=ro&immutable=1'
-    con = sqlite3.connect(uri, uri=True)
+    from Optimization.persistence import Picking_Data  # noqa: F401 — registers the sim_db family
+    from Schema import dataset as _dataset
+    from Schema import identity as _identity
+    try:
+        ds = _dataset.bind(db, 'sim_db', requires=REQUIRES, immutable=True)
+    except _compat.RequirementUnmet:
+        raise            # a vetted file that cannot serve the declared read must fail LOUDLY
+    except (_identity.SchemaError, sqlite3.Error):
+        ds = None        # unvetted → the plain read-only open below, historical behavior
+    con = ds.con if ds is not None else connect.read_only(db, row_factory=False, immutable=True)
     try:
         rows = con.execute('SELECT duration, total_items, task_makespan FROM batch_stats '
                            'ORDER BY batch_id').fetchall()
     except sqlite3.Error:
         return None
     finally:
-        con.close()
+        (ds if ds is not None else con).close()
     if not rows:
         return None
     dur = np.array([r[0] or 0.0 for r in rows], dtype=float)
@@ -224,6 +255,28 @@ _FIELDS = ['cell', 'scheduler', 'pair', 'pickcfg', 'channel', 'arm', 'initial', 
            'shape_index', 'auc_gain_vs_ref_pct', 'thr_gain_vs_ref_pct', 'labor_delta_vs_ref_pct']
 
 
+def _writer_tree(rt):
+    """The resolver this module's OUTPUTS render through — `rt` itself, or the head contract.
+
+    A re-analysis reads an OLD run through the run's OWN contract (`rt`), but the artifacts this
+    module WRITES are declared by whatever contract is current: one committed vintage
+    (e69b6d392929, the 2026-07-29 scheduler sweeps) predates whatif_volume_csv/_json entirely,
+    and `rt.path` on it would KeyError.  For such runs the outputs follow the HEAD document at
+    the same root — exactly the strings the old hand-joins produced (today's basenames onto the
+    old run root), so nothing moves; every READ still goes through the run's own document.
+    """
+    if 'whatif_volume_csv' in rt.artifacts and 'whatif_volume_json' in rt.artifacts:
+        return rt
+    from Optimization.runschema import contract as _contract
+    from Optimization.runschema.resolver import RunTree
+    head = _contract.head()
+    doc = _contract.load(head) if head else None
+    if doc is None:
+        raise KeyError("this run's contract predates the whatif_volume artifacts and no head "
+                       "contract is committed to name them")
+    return RunTree(rt.base, doc, layout=rt.layout)
+
+
 def run(base_dir: str, reference: str | None = None, log=log) -> list:
     from Optimization import runschema
     rt = runschema.resolver_for(base_dir)
@@ -237,7 +290,8 @@ def run(base_dir: str, reference: str | None = None, log=log) -> list:
         log.info('  whatif_volume: no readable arms')
         return []
 
-    csv_path = os.path.join(base_dir, 'whatif_volume.csv')
+    wt = _writer_tree(rt)
+    csv_path = wt.path('whatif_volume_csv')
     with open(csv_path, 'w', newline='', encoding='utf-8') as fh:
         w = csv.DictWriter(fh, fieldnames=_FIELDS)
         w.writeheader()
@@ -245,12 +299,15 @@ def run(base_dir: str, reference: str | None = None, log=log) -> list:
             w.writerow({k: r.get(k) for k in _FIELDS})
     log.info(f'  wrote {csv_path}  ({len(rows)} rows)')
 
-    with open(os.path.join(base_dir, 'whatif_volume.json'), 'w', encoding='utf-8') as fh:
+    with open(wt.path('whatif_volume_json'), 'w', encoding='utf-8') as fh:
         json.dump({'reference': reference, 'hours_note': _HOURS_NOTE, 'rows': rows}, fh,
                   indent=2, default=float)
 
-    _curves_png(rows, scans, cells, os.path.join(base_dir, 'whatif_volume_curves.png'))
-    _gain_png(rows, os.path.join(base_dir, 'whatif_volume_uplift_bars.png'))
+    # The volume PNGs are covered by the whatif_labor_pngs glob (whatif_*.png); the star is in the
+    # filename segment, so the template's directory is the contract-rendered home for them.
+    png_dir = os.path.dirname(wt.path('whatif_labor_pngs'))
+    _curves_png(rows, scans, cells, os.path.join(png_dir, 'whatif_volume_curves.png'))
+    _gain_png(rows, os.path.join(png_dir, 'whatif_volume_uplift_bars.png'))
     return rows
 
 

@@ -510,6 +510,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
+      - {name: "REQUIRES", file: "Optimization/run_whatif_delta.py", kind: "const"}
       - {name: "run", file: "Optimization/run_whatif_delta.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
     notes: ""
@@ -518,6 +519,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "REQUIRES", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
     notes: ""
@@ -525,6 +527,7 @@ files:
     purpose: "Cross-cell cumulative-volume what-if: compares schedulers (round-robin vs LPT) on work finished per elapsed hour, and emits whatif_volume.csv/json \u2014 the numbers the docs pages cite."
     layer: "optimization"
     key_symbols:
+      - {name: "REQUIRES", file: "Optimization/run_whatif_volume.py", kind: "const"}
       - {name: "scan", file: "Optimization/run_whatif_volume.py", kind: "function"}
       - {name: "build_rows", file: "Optimization/run_whatif_volume.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_volume.py", kind: "function"}
@@ -720,11 +723,14 @@ files:
       - {name: "SHAPES_DIR", file: "Schema/compat.py", kind: "const"}
       - {name: "UnrecoverableShape", file: "Schema/compat.py", kind: "class"}
       - {name: "RequirementUnmet", file: "Schema/compat.py", kind: "class"}
+      - {name: "UncommittedShape", file: "Schema/compat.py", kind: "class"}
       - {name: "shape_path", file: "Schema/compat.py", kind: "function"}
       - {name: "load_shape", file: "Schema/compat.py", kind: "function"}
       - {name: "write_shape", file: "Schema/compat.py", kind: "function"}
       - {name: "known_shapes", file: "Schema/compat.py", kind: "function"}
       - {name: "unrecoverable_ids", file: "Schema/compat.py", kind: "function"}
+      - {name: "verify_family_store", file: "Schema/compat.py", kind: "function"}
+      - {name: "stamp_checked", file: "Schema/compat.py", kind: "function"}
       - {name: "guaranteed_surface", file: "Schema/compat.py", kind: "function"}
       - {name: "conditional_surface", file: "Schema/compat.py", kind: "function"}
       - {name: "Requires", file: "Schema/compat.py", kind: "class"}
@@ -739,6 +745,25 @@ files:
       - {name: "writer", file: "Schema/connect.py", kind: "function"}
       - {name: "bulk_writer", file: "Schema/connect.py", kind: "function"}
       - {name: "close", file: "Schema/connect.py", kind: "function"}
+    notes: ""
+  "Schema/dataset.py":
+    purpose: "bind a database file to its OWN schema version, and read it by NAME."
+    layer: "schema"
+    key_symbols:
+      - {name: "DatasetError", file: "Schema/dataset.py", kind: "class"}
+      - {name: "UnsupportedQuery", file: "Schema/dataset.py", kind: "class"}
+      - {name: "Query", file: "Schema/dataset.py", kind: "class"}
+      - {name: "register_query", file: "Schema/dataset.py", kind: "function"}
+      - {name: "override", file: "Schema/dataset.py", kind: "function"}
+      - {name: "queries_for", file: "Schema/dataset.py", kind: "function"}
+      - {name: "bind", file: "Schema/dataset.py", kind: "function"}
+      - {name: "Dataset", file: "Schema/dataset.py", kind: "class"}
+    notes: ""
+  "Schema/hook_check.py":
+    purpose: "Stop-hook backstop that nudges a DB-shape store sync on drift."
+    layer: "schema"
+    key_symbols:
+      - {name: "main", file: "Schema/hook_check.py", kind: "function"}
     notes: ""
   "Schema/identity.py":
     purpose: "which schema is this database, and is it the one we expect?"
@@ -772,6 +797,17 @@ files:
       - {name: "diff_shapes", file: "Schema/shape.py", kind: "function"}
       - {name: "describe_diff", file: "Schema/shape.py", kind: "function"}
       - {name: "is_same_shape", file: "Schema/shape.py", kind: "function"}
+    notes: ""
+  "Schema/store_index.py":
+    purpose: "the mutable head of the committed shape store, and its change trigger."
+    layer: "schema"
+    key_symbols:
+      - {name: "INDEX_PATH", file: "Schema/store_index.py", kind: "const"}
+      - {name: "DDL_SOURCES", file: "Schema/store_index.py", kind: "const"}
+      - {name: "source_fingerprint", file: "Schema/store_index.py", kind: "function"}
+      - {name: "read_index", file: "Schema/store_index.py", kind: "function"}
+      - {name: "write_index", file: "Schema/store_index.py", kind: "function"}
+      - {name: "stale_reasons", file: "Schema/store_index.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_archgraph_extract.py":
     purpose: "test_archgraph_extract.py"
@@ -896,6 +932,14 @@ files:
       - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_runtree_consumption.py":
+    purpose: "hand-written run-tree path knowledge may only SHRINK."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_baseline_is_armed", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
+      - {name: "test_no_new_handwritten_contract_paths", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
+      - {name: "test_the_tokens_are_still_derived_and_distinctive", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_schema_compatibility.py":
     purpose: "a consumer's columns must survive EVERY schema its family vets."
     layer: "tests"
@@ -943,6 +987,23 @@ files:
       - {name: "test_every_table_a_loader_reads_is_declared_or_negotiated", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_legacy_column_alias_is_read_but_exists_in_no_vetted_shape", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_ddl_sources_covers_every_writer_and_the_report_module_list", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_source_fingerprint_normalizes_line_endings_and_marks_a_missing_file", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_write_index_read_index_round_trip_leaves_no_tmp_file", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_stale_reasons_names_each_drift_and_the_sync_that_settles_it", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_committed_index_is_current_with_the_tree", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_verify_family_store_reports_both_halves_of_the_uncommitted_window", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_stamp_checked_warns_once_per_finding_and_stays_quiet_on_a_clean_store", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_stamp_checked_strict_raises_but_writes_the_stamp_first", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_stamp_checked_verifies_even_for_a_family_that_cannot_stamp", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_stamp_reader_resolves_stamped_and_falls_through_to_derivation", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_apply_known_ids_lands_the_orphan_first_and_todo_marked", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_apply_known_ids_refuses_an_ambiguous_registration_block", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_apply_known_ids_creates_the_tuple_a_family_never_had", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_accept_adopts_before_it_records_the_fingerprint", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_keyframe_stamp_adoption_dogfood_is_locked_in", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_stop_hook_exits_zero_and_is_wired_into_settings", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_identity.py":
     purpose: "every registered DB family must have a trustworthy shape id."
@@ -1198,6 +1259,33 @@ files:
       - {name: "test_conservation_holds_at_every_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_the_ledger_breaks_when_a_mutation_goes_unrecorded", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_consumer_paths_golden.py":
+    purpose: "the consumer migration onto the run-tree contract is a NO-OP."
+    layer: "tests"
+    key_symbols:
+      - {name: "mixed", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "store_only", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "legacy", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_viz_cache_path_contract_equals_hand_join", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_viz_cache_path_survives_a_contract_predating_the_artifact", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_keyframe_sidecar_contract_equals_splitext", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_nearest_warehouse_db_contract_equals_walk_up", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_replay_discovery_contract_equals_raw_glob", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_replay_discovery_falls_back_on_a_pre_descriptor_archive", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_replay_nearest_warehouse_db_positional_parts", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_in_flight_contract_equals_hardcoded_walk", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_in_flight_is_empty_on_a_finalized_cell", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_leaf_file_contract_equals_walk", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_leaf_file_store_only_shape", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_run_spec_and_manifest_literals", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_sim_meta_lookup_contract_equals_walk", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_whatif_staging_contract_equals_glob", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "macros", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_macros_verifier_is_silent_without_schema_id", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_macros_verifier_accepts_every_committed_contract", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_macros_verifier_rejects_an_uncommitted_schema", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_macros_verifier_rejects_moved_levels", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
     layer: "tests"
@@ -1394,6 +1482,19 @@ files:
       - {name: "test_scan_labor_key_and_merge", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
       - {name: "test_scan_labor_finds_store_only_runs", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
       - {name: "test_main_labor_saved_and_json", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_writer_paths_golden.py":
+    purpose: "the analysis writers' contract-rendered paths, pinned to the literals their old hand-joins produced."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_whatif_run_root_outputs_render_the_old_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_whatif_outputs_render_identically_on_a_store_only_tree", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_channel_rollup_csvs_render_the_old_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_leaf_docs_render_the_old_literals_on_both_tree_shapes", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_aggregate_dir_store_only_group_key_is_byte_identical", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_aggregate_dir_slash_group_key_lands_in_the_old_directory", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_volume_outputs_render_on_a_run_predating_their_artifacts", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_runtime_png_dir_renders_the_old_literal", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
     notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"
@@ -1791,6 +1892,7 @@ files:
     purpose: "build the derived viewer sidecar for one or more arms."
     layer: "visualization"
     key_symbols:
+      - {name: "REQUIRES", file: "Visualization/precompute.py", kind: "const"}
       - {name: "cache_state", file: "Visualization/precompute.py", kind: "function"}
       - {name: "log_present", file: "Visualization/precompute.py", kind: "function"}
       - {name: "build_one", file: "Visualization/precompute.py", kind: "function"}
@@ -2171,5 +2273,6 @@ files:
       - {name: "capture", file: "scripts/schema_report.py", kind: "function"}
       - {name: "sync", file: "scripts/schema_report.py", kind: "function"}
       - {name: "adopt", file: "scripts/schema_report.py", kind: "function"}
+      - {name: "accept", file: "scripts/schema_report.py", kind: "function"}
       - {name: "main", file: "scripts/schema_report.py", kind: "function"}
     notes: ""

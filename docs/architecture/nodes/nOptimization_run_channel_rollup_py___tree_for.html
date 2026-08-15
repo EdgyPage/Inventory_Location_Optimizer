@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_tree_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_channel_rollup_py___tree_for" data-id="Optimization/run_channel_rollup.py::_tree_for">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_channel_rollup_py.html"><code>Optimization/run_channel_rollup.py</code></a> <span class="sep">›</span> <span class="here"><code>_tree_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_tree_for</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_channel_rollup_py.html"><code>Optimization/run_channel_rollup.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _tree_for(cell_dir: str)</code></pre>
+<section class="doc">(RunTree, cell_name) for the run this CELL directory belongs to.
+
+The rollup receives a CELL dir (analyze_run calls it once per cell), so the resolver is
+rooted at the PARENT — where the run descriptor lives — and the cell name is the dir&#x27;s own
+basename.  A tree with NO descriptor (scratch trees in tests, ad-hoc analyses) falls back to
+the HEAD contract rooted at the same parent: the head templates render exactly the strings
+the old hand-joins assumed, so the fallback is behavior-preserving while keeping the shape in
+one place.  A descriptor that names an UNKNOWN schema still fails loudly (resolver_for
+raises before the fallback is consulted only for the missing-descriptor case).</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_runschema___init___py__resolver_for.html"><code>resolver_for</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_contract_py__head.html"><code>head</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__load.html"><code>load</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree.html"><code>RunTree</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_channel_rollup_py__rollup.html"><code>rollup</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_channel_rollup_py___tree_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_channel_rollup.py#:~:text=def%20_tree_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

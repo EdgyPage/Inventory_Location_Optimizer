@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_owner_of · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_resolver_py__RunTree__owner_of" data-id="Optimization/runschema/resolver.py::RunTree._owner_of">
+<nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a> <span class="sep">›</span> <a href="nOptimization_runschema_resolver_py__RunTree.html"><code>RunTree</code></a> <span class="sep">›</span> <span class="here"><code>_owner_of</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_owner_of</code></h1>
+<p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a></p>
+
+<pre class="sig"><code>def _owner_of(self, abs_path: str) -&gt; str | None</code></pre>
+<section class="doc">Which artifact a concrete path belongs to — MOST-SPECIFIC template wins.
+
+A wildcarded `{strategy}` happily glob-matches `sim_x.keyframes.db`, because a template
+placeholder cannot know that no arm name contains a dot.  Rather than encoding that
+(false-in-general) fact, ownership is decided the way preflight&#x27;s observe stage decides
+it: every template that matches is a candidate, and the one with the MOST literal
+characters — the most specific claim — owns the path.  `sim_{strategy}.keyframes.db`
+out-literals `sim_{strategy}.db`, so a keyframe sidecar is never a sim DB.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_resolver_py___capture_regex.html"><code>_capture_regex</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_resolver_py__RunTree_glob.html"><code>glob</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_resolver_py__RunTree__owner_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/resolver.py#:~:text=def%20_owner_of">Source ↗</a></p>
+</article>
+</main>
+</body></html>

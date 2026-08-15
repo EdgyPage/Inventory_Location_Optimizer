@@ -1,10 +1,12 @@
-"""run_runtime_graphs.py — RUNTIME (compute-cost) graphs from runtime_metrics.db.
+"""run_runtime_graphs.py — RUNTIME (compute-cost) graphs from the runtime metrics DB.
 
-Cross-cell analysis step (part of the analysis hub): reads ``<run_root>/runtime_metrics.db`` (one row
-per arm, written parent-side by the supervisor) and emits PNGs to ``<run_root>/_runtime/`` ranking the
-slowest arms / assignment-fns / warehouses / cells and — critically — a per-SECTION stacked breakdown
-showing WHERE the wall time goes, so recurring hot-paths (e.g. a reorder/reslot-dominated arm — the
-valid-aisle recompute suspicion) are visible at a glance.
+Cross-cell analysis step (part of the analysis hub): reads the run root's runtime metrics DB (one row
+per arm, written parent-side by the supervisor) and emits PNGs to the run root's runtime dir — the
+contract's ``runtime_pngs`` artifact, whose glob star sits in the filename segment, so the template's
+directory IS the output dir — ranking the slowest arms / assignment-fns / warehouses / cells and —
+critically — a per-SECTION stacked breakdown showing WHERE the wall time goes, so recurring
+hot-paths (e.g. a reorder/reslot-dominated arm — the valid-aisle recompute suspicion) are visible at
+a glance.
 
 This is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.
 
@@ -15,6 +17,13 @@ from __future__ import annotations
 import argparse
 import os
 import statistics
+import sys
+
+# ── path setup: repo root on sys.path so package imports resolve when run as a
+#    script (python Optimization/run_runtime_graphs.py <dir>); `-m` form needs none.
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import matplotlib
 matplotlib.use('Agg')
@@ -102,17 +111,39 @@ def _section_breakdown(rows, out):
     _save(fig, out)
 
 
+def _runtime_dir(run_root: str) -> str:
+    """The run-root runtime-PNG directory, from the contract's `runtime_pngs` template.
+
+    The glob star sits in the FILENAME segment, so the template's dirname is the output dir —
+    the underscore prefix it carries is what makes every tree walker (cells / iter_channel_runs /
+    the cross-cell whatif scans) skip it, the same reserved-dir convention as the frozen assets
+    and the aggregate subtree.  A root with NO descriptor (ad-hoc trees) falls back to the HEAD
+    contract, which renders exactly the string the old literal join produced.
+    """
+    from Optimization import runschema
+    from Optimization.runschema import contract as _contract
+    from Optimization.runschema.resolver import RunTree
+    try:
+        rt = runschema.resolver_for(run_root)
+    except runschema.UnsupportedRunTree:
+        head = _contract.head()
+        doc = _contract.load(head) if head else None
+        if doc is None:
+            raise
+        rt = RunTree(run_root, doc, layout={})
+    return os.path.dirname(rt.path('runtime_pngs'))
+
+
 def run(run_root, log=None):
-    """Emit the runtime graphs for a finished run to <run_root>/runtime/.  Returns the out dir
-    (or None if there's no runtime_metrics.db).  Importable so the analysis hub calls it in-process."""
+    """Emit the runtime graphs for a finished run to the contract's runtime PNG dir.  Returns the
+    out dir (or None if there's no runtime metrics DB).  Importable so the analysis hub calls it
+    in-process."""
     say = log.info if log is not None else print
     rows = load_rows(run_root)
     if not rows:
         say(f'  runtime graphs: no {RUNTIME_DB} at {run_root} (skipped)')
         return None
-    # '_' prefix so every tree walker (cells / iter_channel_runs / the cross-cell whatif scans)
-    # skips it — it's a run-root output dir, not a cell (same convention as _frozen / _aggregate).
-    outdir = os.path.join(run_root, '_runtime')
+    outdir = _runtime_dir(run_root)
     os.makedirs(outdir, exist_ok=True)
     _slowest_arms(rows, os.path.join(outdir, 'runtime_slowest_arms.png'))
     _by_group(rows, lambda r: r['assignment'], 'mean compute time by assignment fn',
@@ -129,7 +160,7 @@ def run(run_root, log=None):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='Runtime (compute-cost) graphs from runtime_metrics.db.')
+    ap = argparse.ArgumentParser(description='Runtime (compute-cost) graphs from the runtime metrics DB.')
     ap.add_argument('run_root')
     args = ap.parse_args(argv)
     from Optimization.runschema import resolve_base_dir

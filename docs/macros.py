@@ -35,6 +35,46 @@ import yaml
 _CACHE = {}
 
 
+def _verify_manifest_schema(manifest, docs_dir, exp):
+    """Check the experiment's recorded run-tree contract still matches the macros' path scheme.
+
+    ``ingest.py`` stamps the source run's ``schema_id`` into ``experiment.yml`` — the content
+    address of the run-tree contract the staged snapshot was pulled from
+    (``Optimization/schemas/run_tree/<short>.json``).  Every image path a macro constructs is
+    ``images/<run>/<inv>/<cfg>/…``, i.e. the contract's three REQUIRED levels
+    (cell/pair/config) with the optional ``<channel>`` flattened away by ingest.  If a future
+    contract changes those levels, snapshots staged from it no longer mean what these paths say —
+    so fail the build LOUDLY here, naming the schema, instead of rendering pages whose figures
+    silently come from somewhere else.  Manifests without a ``schema_id`` (Experiments 1–5
+    predate the stamp) are exempt: nothing was recorded, so there is nothing to verify.
+    """
+    sid = manifest.get("schema_id")
+    if not sid:
+        return                                   # pre-stamp manifest — no contract recorded
+    short = str(sid).split(":", 1)[-1][:12]
+    repo_root = os.path.dirname(os.path.abspath(docs_dir))
+    doc_path = os.path.join(repo_root, "Optimization", "schemas", "run_tree", f"{short}.json")
+    if not os.path.isfile(doc_path):
+        raise FileNotFoundError(
+            f"macros: {exp}/experiment.yml records run-tree schema {sid}, but no contract "
+            f"document is committed at Optimization/schemas/run_tree/{short}.json. "
+            f"Check out the commit that produced the run, or re-ingest the experiment."
+        )
+    with open(doc_path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    levels = doc.get("levels", [])
+    required = [lv["name"] for lv in levels if not lv.get("optional")]
+    optional = [lv["name"] for lv in levels if lv.get("optional")]
+    if required != ["cell", "pair", "config"] or optional != ["channel"]:
+        raise ValueError(
+            f"macros: run-tree schema {sid} ({exp}) declares levels "
+            f"required={required} optional={optional}, but the macros build image paths as "
+            f"images/<run(cell)>/<inv(pair)>/<cfg(config)>/... with <channel> flattened. "
+            f"The staged snapshot no longer matches this convention — update docs/macros.py "
+            f"and docs/experiments/ingest.py together before rebuilding."
+        )
+
+
 def define_env(env):
     docs_dir = env.conf["docs_dir"]
 
@@ -60,11 +100,24 @@ def define_env(env):
                 _CACHE[abs_path] = yaml.safe_load(fh)
         return _CACHE[abs_path]
 
+    _schema_checked = set()
+
     def _manifest():
-        """The parsed experiment.yml for the current page's experiment, or None (legacy)."""
-        rel = f"{_exp_dir()}/experiment.yml"
+        """The parsed experiment.yml for the current page's experiment, or None (legacy).
+
+        In manifest mode the manifest's recorded `schema_id` (if any) is verified against the
+        committed run-tree contract ONCE per experiment per build — a mismatch raises, which
+        `mkdocs build --strict` turns into a build failure."""
+        exp = _exp_dir()
+        rel = f"{exp}/experiment.yml"
         abs_path = os.path.join(docs_dir, *rel.split("/"))
-        return _load_yaml(rel) if os.path.isfile(abs_path) else None
+        if not os.path.isfile(abs_path):
+            return None
+        m = _load_yaml(rel)
+        if m and exp not in _schema_checked:
+            _verify_manifest_schema(m, docs_dir, exp)
+            _schema_checked.add(exp)
+        return m
 
     # Argument resolvers: turn a macro's args into full (run, inv, cfg) IDs, honouring
     # legacy explicit args (no manifest) or manifest short-keys (manifest present).

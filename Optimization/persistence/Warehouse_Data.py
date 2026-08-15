@@ -9,6 +9,7 @@ import hashlib
 import os
 import sqlite3
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import connect as _connect
 from Schema import shape as _shape
@@ -172,7 +173,9 @@ def init_warehouse_db(path: str) -> None:
     try:
         for stmt in _ALL_DDL:
             con.execute(stmt)
-        _identity.stamp(con, WAREHOUSE_DB_FAMILY)
+        # Stamp + verify the store: worker-safe (warn-once) — this runs inside sim asset
+        # builds; the blocking check for the run path is run_simulation's precheck.
+        _compat.stamp_checked(con, WAREHOUSE_DB_FAMILY, strict=False)
         con.commit()                     # connect.close checkpoints, it does not commit
     finally:
         _connect.close(con)

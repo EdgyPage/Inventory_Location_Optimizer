@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import connect as _connect
 from Schema import shape as _shape
@@ -121,7 +122,9 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
     try:
         for stmt in _ALL_DDL:
             con.execute(stmt)
-        _identity.stamp(con, RUNTIME_DB_FAMILY)
+        # Stamp + verify the store: worker-safe (warn-once) — record_arm runs per arm, deep
+        # inside a sweep; a store gap must nag, not kill the arm.
+        _compat.stamp_checked(con, RUNTIME_DB_FAMILY, strict=False)
         con.execute(
             'INSERT OR REPLACE INTO runtime '
             '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'

@@ -59,6 +59,13 @@ You review the CURRENT DIFF for correctness and quality. You report findings; yo
   must BUILD from the writer's own DDL), and any relaxation of `strict=` or deletion of a
   `known_ids` entry done to make the report green. See `docs/design/SCHEMA_COMPATIBILITY.md`; the
   `schema-maintainer` agent owns the fix.
+- **Contract-driven access is not optional.** A new DB writer must call `Schema.compat.stamp_checked`
+  at creation (never bare `identity.stamp`). New SQL belongs in a named `dataset.Query` beside the
+  family (or a per-vintage `dataset.override` for an old id) — inline SQL in a consumer script is a
+  Warning; a consumer BRANCHING on a schema id/version is Critical (that is the layer's job). New
+  path construction against a run tree goes through `runschema.resolver_for` accessors
+  (`path`/`leaf_path`/`glob`/`parts_of`); a hand-joined path matching a contract template is a
+  Warning (the ratchet test will also catch it).
 
 ## Reuse / simplification / efficiency (secondary)
 Dead code; redundant recomputation in hot pick/assignment loops; needless O(n²); special-cases that

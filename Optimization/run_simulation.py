@@ -353,6 +353,26 @@ def main():
             sys.exit(f'Schema preflight stopped the run (exit {_pf}). Resolve the run-tree contract '
                      f'above, or re-run with --no-preflight to proceed anyway.')
 
+        # ── DB-shape precheck — the same bargain for the OTHER contract.  Every family this run
+        # can write is already registered (registration happens at import, and this process
+        # imports every writer), so the sweep below is "what this run writes" by construction.
+        # Cost: a few os.listdir + in-memory DDL builds.  Blocking HERE is what lets the workers
+        # stay warn-once: a store gap stops the run before hour 0, never at hour N.
+        from Schema import compat as _schema_compat
+        from Schema import identity as _schema_identity
+        _db_problems = [p for name in _schema_identity.families()
+                        for p in _schema_compat.verify_family_store(name)]
+        if _db_problems:
+            for _p in _db_problems:
+                log.error(f'  DB-shape precheck: {_p}')
+            _stub = not any(os.path.isdir(os.path.join(base_dir, d)) for d in os.listdir(base_dir))
+            logging.shutdown()
+            if _stub and not args.resume:
+                shutil.rmtree(base_dir, ignore_errors=True)
+            sys.exit('DB-shape precheck stopped the run: a schema this run would write is not on '
+                     'the committed record (details above). Run the named command(s), or re-run '
+                     'with --no-preflight to proceed anyway.')
+
     # run_layout.json — the unified cell-tree descriptor (cells/reference/configs/pairs), so tools
     # INFER the tree instead of directory-guessing.  Written for a new run; a resumed LEGACY run
     # (no descriptor) gains one so it stays analyzable.  cell_tuples/reference match the driver's.

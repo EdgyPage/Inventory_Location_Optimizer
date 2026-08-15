@@ -14,8 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>_nearest_warehouse_db</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
 
-<pre class="sig"><code>def _nearest_warehouse_db(sim_db: str) -&gt; str | None</code></pre>
-<section class="doc empty">No docstring.</section>
+<pre class="sig"><code>def _nearest_warehouse_db(sim_db: str, rt=None, cell: str | None=None, pair: str | None=None) -&gt; str | None</code></pre>
+<section class="doc">The warehouse.db an arm was simulated against.
+
+With a resolver (`rt` + the arm&#x27;s cell/pair), the contract answers directly:
+``rt.warehouse_db(cell, pair)``.  The walk-up below is the documented NO-CONTRACT fallback —
+legacy runs have no descriptor, so the nearest `warehouse.db` on the ancestor chain is the
+best available guess.  It is kept even when the resolver path misses, because a hand-arranged
+tree (an arm copied out for inspection) answers only to the walk.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_db_reader_py___discover_uncached.html"><code>_discover_uncached</code></a> <span class="dim">Visualization/db_reader.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_db_reader_py___nearest_warehouse_db">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/db_reader.py#:~:text=def%20_nearest_warehouse_db">Source ↗</a></p>
 </article>

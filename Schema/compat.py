@@ -57,10 +57,11 @@ import datetime as _dt
 import json
 import os
 import sqlite3
+import warnings as _warnings
 from dataclasses import dataclass, field
 
 from Schema import connect
-from Schema.identity import SchemaError, get as _get_family
+from Schema.identity import SchemaError, get as _get_family, stamp as _stamp
 from Schema.shape import canonical_shape, observed_id, shape_id
 
 #: Committed historical shapes: Schema/shapes/<family>/<short>.json
@@ -76,6 +77,18 @@ class UnrecoverableShape(SchemaError):
 
 class RequirementUnmet(SchemaError):
     """A consumer's declared tables/columns are not all present."""
+
+
+class UncommittedShape(SchemaError):
+    """A writer is producing files whose declared shape has no committed document.
+
+    The window this names: a DDL edit ships, new files stamp the new id and READ fine (they match
+    the declaration) — but the shape exists nowhere except in the live source, so the moment the
+    DDL moves again it is unrecoverable, and meanwhile the OUTGOING id fell out of
+    `supported_ids()`, quietly orphaning every file already on the archive.  `--sync` closes the
+    first half, `--adopt` the second; this exception is how a WRITER finds out at write time
+    instead of a reader months later.
+    """
 
 
 # ── the committed store ──────────────────────────────────────────────────────────
@@ -144,6 +157,83 @@ def unrecoverable_ids(family: str) -> tuple:
     fam = _get_family(family)
     have = set(known_shapes(family))
     return tuple(sid for sid in fam.supported_ids() if sid not in have)
+
+
+# ── write-time imposition ────────────────────────────────────────────────────────
+#
+# The read side of this module answers "may this consumer read that file".  These two answer the
+# WRITER's question — "is the shape I am about to produce actually on the record" — at the moment
+# the file is created, which is the only moment the answer is cheap to act on.
+
+def verify_family_store(family: str) -> list[str]:
+    """Findings for one family's store state, empty when clean.  Stdlib + committed store only.
+
+    Two checks, matching the two halves of the `UncommittedShape` window:
+
+      (a) the DECLARED shape has a committed document — else the shape this writer is producing
+          right now becomes unrecoverable at the next DDL move;
+      (b) no committed document is orphaned outside `supported_ids()` — an orphan IS the outgoing
+          shape of a DDL change that has not been adopted, and every archived file written with
+          it is currently unreadable.
+
+    (b) is `adopt()`'s per-family logic from `scripts/schema_report.py`, re-homed where it is
+    import-legal — a writer cannot import the CLI (`scripts/` is not a package consumers may
+    depend on), but compat owns the store and may read its own directory.
+    """
+    fam = _get_family(family)
+    out = []
+    if load_shape(family, fam.declared_id()) is None:
+        out.append(
+            f'{family}: the CURRENT declared shape {fam.declared_id()} has no committed '
+            f'document - files written now become unrecoverable at the next DDL change. '
+            f'Run: python scripts/schema_report.py --sync')
+    d = os.path.join(SHAPES_DIR, family)
+    on_disk = ({fn[:-len('.json')] for fn in os.listdir(d) if fn.endswith('.json')}
+               if os.path.isdir(d) else set())
+    orphans = sorted(on_disk - set(fam.supported_ids()))
+    if orphans:
+        out.append(
+            f'{family}: committed shape(s) {", ".join(orphans)} are no longer vetted - a DDL '
+            f'change shipped without adopting its outgoing shape, so every archived file of '
+            f'that vintage is unreadable. Run: python scripts/schema_report.py --adopt')
+    return out
+
+
+#: (family, kind) pairs already warned about, so a 34-arm sweep emits one line per problem
+#: rather than one per worker.  Same idiom as `identity._WARNED`.
+_STAMP_WARNED: set = set()
+
+
+def stamp_checked(con: sqlite3.Connection, family_obj, *, strict: bool = False,
+                  emit=None) -> str | None:
+    """`identity.stamp` + `verify_family_store`, as one call every writer makes at DB creation.
+
+    The stamp is written FIRST and unconditionally: whatever the store's state, an unstamped file
+    is strictly worse than a stamped one — the stamp is what lets a future reader identify the
+    vintage without deriving.  Then the store is verified:
+
+      strict=False  warn once per (family, finding-kind) per process, via `emit` or
+                    `warnings.warn`.  For writers inside a long run: a store gap discovered at
+                    hour N must not kill an arm the run-start precheck already blessed.
+      strict=True   raise `UncommittedShape`.  For interactive data-gen CLIs, where the fix is
+                    one command and stopping costs nothing.
+
+    Returns whatever `identity.stamp` returned (None for a meta_table-less family — the VERIFY
+    half still runs for those, which is exactly why this exists for sim_db and keyframes_db too).
+    """
+    sid = _stamp(con, family_obj)
+    problems = verify_family_store(family_obj.name)
+    if not problems:
+        return sid
+    if strict:
+        raise UncommittedShape('; '.join(problems))
+    for msg in problems:
+        key = (family_obj.name, msg.split(' - ')[0])
+        if key in _STAMP_WARNED:
+            continue
+        _STAMP_WARNED.add(key)
+        (emit or (lambda m: _warnings.warn(m, RuntimeWarning, stacklevel=3)))(msg)
+    return sid
 
 
 # ── the surfaces ─────────────────────────────────────────────────────────────────

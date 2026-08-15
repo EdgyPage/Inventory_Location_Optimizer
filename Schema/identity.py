@@ -79,6 +79,10 @@ class Family:
     meta_table: str | None = None           # key/value table holding the stamp, if any
     meta_key: str = 'schema_id'
     known_ids: tuple = field(default_factory=tuple)   # frozen historical shapes still supported
+    #: For a family whose stamp lives somewhere OTHER than a meta table (sim_db records it as a
+    #: column value in `simulation_runs.sim_schema_id`): a callable `con -> str | None`.  Lets
+    #: `resolve`/`check` take the stamped fast path for such families instead of always deriving.
+    stamp_reader: object | None = None      # (con) -> str | None
 
     def declared_id(self) -> str:
         return shape_id(self.declared_shape())
@@ -123,9 +127,18 @@ def read_stamp(con: sqlite3.Connection, family: Family) -> str | None:
 
     None is the expected answer for every file written before its family was stamped — that is
     the normal path into derivation, not an error.
+
+    A family with no meta table but a `stamp_reader` (sim_db: the stamp is a
+    `simulation_runs.sim_schema_id` column value) answers through that callable, guarded the same
+    way — any sqlite error means "pre-stamp file", never a failure.
     """
     if family.meta_table is None:
-        return None
+        if family.stamp_reader is None:
+            return None
+        try:
+            return family.stamp_reader(con)
+        except sqlite3.Error:                   # pre-stamp schema: no such column/table
+            return None
     try:
         row = con.execute(
             f'SELECT value FROM {family.meta_table} WHERE key=?', (family.meta_key,)).fetchone()

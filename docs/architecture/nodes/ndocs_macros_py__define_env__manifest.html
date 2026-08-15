@@ -15,8 +15,12 @@
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_macros_py.html"><code>docs/macros.py</code></a></p>
 
 <pre class="sig"><code>def _manifest()</code></pre>
-<section class="doc">The parsed experiment.yml for the current page&#x27;s experiment, or None (legacy).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="doc">The parsed experiment.yml for the current page&#x27;s experiment, or None (legacy).
+
+In manifest mode the manifest&#x27;s recorded `schema_id` (if any) is verified against the
+committed run-tree contract ONCE per experiment per build — a mismatch raises, which
+`mkdocs build --strict` turns into a build failure.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="ndocs_macros_py___verify_manifest_schema.html"><code>_verify_manifest_schema</code></a> <span class="dim">docs/macros.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env__manifest">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20_manifest">Source ↗</a></p>
 </article>
 </main>

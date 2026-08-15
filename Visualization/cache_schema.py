@@ -38,6 +38,7 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import shape as _shape
 
@@ -292,5 +293,7 @@ def init_cache_db(path: str) -> sqlite3.Connection:
     con.execute('PRAGMA cache_size=-262144')          # 256 MB page cache
     for stmt in _ALL:
         con.execute(stmt)
-    _identity.stamp(con, VIZ_CACHE_DB_FAMILY)         # this build's own shape, into cache_meta
+    # This build's own shape, into cache_meta — plus the store verify.  Warn-once: the sidecar
+    # is DERIVED and rebuildable, so refusing to build it would gain nothing.
+    _compat.stamp_checked(con, VIZ_CACHE_DB_FAMILY, strict=False)
     return con

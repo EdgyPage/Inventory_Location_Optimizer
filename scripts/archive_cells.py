@@ -79,20 +79,23 @@ def cell_state(rt, cell: str, layout: dict, mixed: bool) -> tuple[bool, str]:
     finalized = [cr for _c, cr in leaves if os.path.isfile(rt.sim_meta(cr))]
     if len(finalized) < want:
         return False, f'{len(finalized)}/{want} leaves finalized'
-    stray = _in_flight(rt.cell_dir(cell))
+    stray = _in_flight(rt, cell)
     if stray:
         return False, f'{len(stray)} in-flight file(s) still present (e.g. {stray[0]})'
     return True, f'{len(finalized)}/{want} leaves finalized'
 
 
-def _in_flight(cell_dir: str) -> list:
-    """resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live."""
-    out = []
-    for root, _dirs, files in os.walk(cell_dir):
-        for fn in files:
-            if fn == 'resume.pkl' or (fn.startswith('_ckpt_') and fn.endswith('.pkl')):
-                out.append(os.path.relpath(os.path.join(root, fn), cell_dir))
-    return out
+def _in_flight(rt, cell: str) -> list:
+    """resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.
+
+    The names come from the CONTRACT (`resume_pkl` / `checkpoint_pkl`), not from hardcoded
+    literals: preflight declared both transients, so renaming either in schema.py moves this
+    probe with it instead of silently blinding it.  Returned as sorted cell-relative paths, the
+    same shape the old cell walk produced.
+    """
+    cell_dir = rt.cell_dir(cell)
+    hits = rt.glob('resume_pkl', cell=cell) + rt.glob('checkpoint_pkl', cell=cell)
+    return sorted(os.path.relpath(p, cell_dir) for p in dict.fromkeys(hits))
 
 
 def archivable(rt, layout: dict, mixed: bool, include_last: bool) -> list:

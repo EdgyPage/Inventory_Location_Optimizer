@@ -1,9 +1,14 @@
 """run_analysis.py — registry-driven graph generator for completed simulation runs.
 
-Reads sim_meta.json files written by run_simulation.py, rebuilds warehouse aisle maps via
+Reads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via
 build_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations
 (selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by
 editing Performance_Evaluations/presets.py — not this file.
+
+Per-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the
+run-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join — the resolver is
+rooted at the RUN root (this module receives a CELL dir from analyze_run), and
+Tests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.
 
 Parallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across
 all pairs × configs fed to one ProcessPoolExecutor, then a second flat pool for the
@@ -130,19 +135,44 @@ def _drain(pool, jobs, log):
 
 # ── job-list construction ────────────────────────────────────────────────────────
 
-def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
+def _tree_for(cell_dir: str):
+    """(RunTree, cell_name) for the run this CELL directory belongs to.
+
+    run_analysis receives a CELL dir (analyze_run calls it once per cell), so the resolver is
+    rooted at the PARENT — where the run descriptor lives — and the cell name is the dir's own
+    basename.  A tree with NO descriptor (the e2e scratch trees, ad-hoc analyses) falls back to
+    the HEAD contract rooted at the same parent: the head templates render exactly the strings
+    the old hand-joins assumed, so the fallback is behavior-preserving while keeping the tree
+    shape declared in one place.
+    """
+    from Optimization import runschema
+    from Optimization.runschema import contract as _rt_contract
+    from Optimization.runschema.resolver import RunTree
+    cell_dir = os.path.abspath(cell_dir)
+    root, cell = os.path.dirname(cell_dir), os.path.basename(cell_dir)
+    try:
+        return runschema.resolver_for(root), cell
+    except runschema.UnsupportedRunTree:
+        head = _rt_contract.head()
+        doc = _rt_contract.load(head) if head else None
+        if doc is None:
+            raise
+        return RunTree(root, doc, layout={}), cell
+
+
+def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log):
     """Parent pre-pass: build slim shared assets per pair, prepare each config's output
     dirs once, and emit the flat config-stage job list."""
     preset = PRESETS[preset_name]
     cfg_keys = driver.config_keys(preset)
     jobs = []
-    # Store-only writes <config>/sim_meta.json; a mixed run writes one per channel at
-    # <config>/<channel>/sim_meta.json.  iter_channel_runs discovers both — each meta
-    # carries its own run_dir, so the whole plot suite replicates per channel with no
-    # plot changes.  Group by pair (shared assets are per-pair).
+    # Store-only writes its sim_meta at <config>/; a mixed run writes one per channel at
+    # <config>/<channel>/.  iter_channel_runs discovers both (its default marker is the
+    # sim_meta basename) — each meta carries its own run_dir, so the whole plot suite
+    # replicates per channel with no plot changes.  Group by pair (shared assets are per-pair).
     metas_by_pair: dict[str, list] = {}
-    for run in iter_channel_runs(base_dir, marker='sim_meta.json'):
-        with open(os.path.join(run.path, 'sim_meta.json')) as f:
+    for run in iter_channel_runs(base_dir):
+        with open(rt.leaf_path(run, 'sim_meta')) as f:
             metas_by_pair.setdefault(run.pair, []).append(json.load(f))
     for pair_name, config_metas in metas_by_pair.items():
         inv_db = next((m.get('inv_db') for m in config_metas if m.get('inv_db')), None)
@@ -173,27 +203,33 @@ def _config_jobs(base_dir, preset_name, granularity, cli_set, log):
     return jobs
 
 
-def _aggregate_jobs(base_dir, preset_name, granularity, cli_set, log):
-    """Group every config's series.json by leaf pick-config name across profiles, prepare
-    each _aggregate/<pickcfg>/ dir once, and emit the flat aggregate-stage job list."""
+def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log):
+    """Group every config's series doc by leaf pick-config name across profiles, prepare
+    each aggregate group dir once, and emit the flat aggregate-stage job list."""
     preset = PRESETS[preset_name]
     agg_keys = driver.aggregate_keys(preset)
     if not agg_keys:
         return []
-    # store-only: <config>/series.json (group by config); mixed: <config>/<channel>/
-    # series.json (group by config/channel so the cross-profile aggregate stays within
-    # one channel).  ChannelRun.group_key encodes exactly that.
+    # store-only: the series doc sits at <config>/ (group by config); mixed: at
+    # <config>/<channel>/ (group by config/channel so the cross-profile aggregate stays
+    # within one channel).  ChannelRun.group_key encodes exactly that.  The walk marks on
+    # sim_meta (the default) and skips leaves whose series doc was never written — the same
+    # set the old marker='series' walk yielded, without spelling the basename here.
     groups: dict = {}
-    for run in iter_channel_runs(base_dir, marker='series.json'):
-        sp = os.path.join(run.path, 'series.json')
+    for run in iter_channel_runs(base_dir):
+        sp = rt.leaf_path(run, 'series_json')
+        if not os.path.exists(sp):
+            continue
         try:
             with open(sp) as f:
                 groups.setdefault(run.group_key, []).append(json.load(f))
         except (OSError, ValueError) as exc:
-            log.error(f'  bad series.json {sp}: {exc}')
+            log.error(f'  bad series doc {sp}: {exc}')
     jobs = []
     for cfg, plist in groups.items():
-        out_dir = os.path.join(base_dir, '_aggregate', cfg)
+        # group_key already folds the optional channel level in (`<config>` store-only,
+        # `<config>/<channel>` mixed) — aggregate_dir splits it back onto the template.
+        out_dir = rt.aggregate_dir(cell, cfg)
         driver.prepare_aggregate_dir(out_dir)
         common = dict(stage='aggregate', preset=preset_name, set=cli_set,
                       profile_series_list=plist, out_dir=out_dir, pickcfg=cfg)
@@ -216,17 +252,18 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     if preset not in PRESETS:
         raise ValueError(f'unknown preset {preset!r}; choices: {sorted(PRESETS)}')
 
+    rt, cell = _tree_for(base_dir)
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
     try:
-        cfg_jobs = _config_jobs(base_dir, preset, granularity, cli_set, log)
+        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log)
         log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
                  f'(preset={preset}, granularity={granularity}, workers={workers})')
         _drain(pool, cfg_jobs, log)
 
-        # aggregate stage needs every series.json on disk first
+        # aggregate stage needs every series doc on disk first
         log.info('  Building cross-profile aggregate suites...')
-        agg_jobs = _aggregate_jobs(base_dir, preset, granularity, cli_set, log)
+        agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log)
         _drain(pool, agg_jobs, log)
     finally:
         if pool is not None:

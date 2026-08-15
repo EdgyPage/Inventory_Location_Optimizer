@@ -198,6 +198,29 @@ Demonstrated end to end: adding one column moved `runtime_metrics_db` from `c033
 lookup. `Tests/architecture/test_schema_compatibility.py` enforces that the store holds exactly the
 vetted ids, so a DDL change that skips adoption fails CI.
 
+## 5c. Runtime imposition and runtime consumption (implemented)
+
+The run tree had both halves; the DB side now does too, copied mechanic for mechanic:
+
+| Mechanic | Run tree | DB shapes |
+|---|---|---|
+| stamp at write | `write_run_layout` → `run_layout.json` | `compat.stamp_checked` in every writer (7 families; sim_db as a column, keyframes_db via its `schema_meta` table since the dogfood) |
+| verify at write | — | `verify_family_store`: declared shape committed, no orphaned outgoing shape; warn-once in workers, strict in data-gen CLIs |
+| block at run start | `preflight.ensure()` | the DB-shape precheck beside it in `run_simulation` (registry = what the run writes, by construction) |
+| cheap Stop hook | `runschema/hook_check.py` | `Schema/hook_check.py` over `shapes/INDEX.json` (fingerprint + document stats; never imports writers) |
+| mutable head + trigger | `run_tree/INDEX.json` | `shapes/INDEX.json`, written ONLY by `--sync` |
+| adopt | preflight ADOPT stage | `--accept` = `--adopt --apply` (writes the `known_ids` edit, TODO-marked) + `--sync` |
+| bind a file's own version | `resolver_for(base_dir)` | `dataset.bind(path, family)` — stamped→pinned→derived, shape loaded from the committed store |
+| consume by logical name | `rt.path('artifact', **parts)` / `leaf_path` / `glob` (most-specific-template ownership) | `ds.query('name')` — logical output columns, per-vintage `override(...)` dispatch keyed by schema id |
+
+The keyframes stamp table was adopted through the new pipeline itself (`e1149f95dfed` →
+`d761133a4df7`), which is the end-to-end proof: `--accept` wrote the adoption, the archive's 24
+sidecars still vet, new sidecars resolve `stamped`.
+
+The `family:` key on sqlite ARTIFACTS entries links the two contracts — deliberately UNHASHED
+(attribution, like `writer`): adding it provably left the tree id at `0516f5aab255`, and
+`RunTree.family_of` returns None on pre-link documents.
+
 ## 6. Proposed, not built
 
 1. **Teach `docs/macros.py` the `experiment.yml` `schema_id`,** so a staged snapshot resolves
@@ -208,12 +231,7 @@ vetted ids, so a DDL change that skips adoption fails CI.
    `__import__`) on string literals. Until then every layer boundary in `architecture.yml` is
    enforced only against static imports, and the local test above is the only thing covering
    `Schema/`. Other layers have no equivalent.
-4. **Nothing checks a `Requires` for COMPLETENESS.** `validate()` proves a declaration is *inside*
-   the guaranteed surface; no test proves it names everything its loaders actually read. Both
-   current declarations were found under-declared by inspection (`reorder_queue.unit_type`,
-   `storage_size`, and ten `simulation_runs` columns), not by a gate. A structural sweep pairing
-   each loader's SELECT and `row.keys()` guards against its declaration would close it.
-5. **`_functions_selecting` only matches single-literal SQL,** so a loader that interpolates its
+4. **`_functions_selecting` only matches single-literal SQL,** so a loader that interpolates its
    table name is invisible to the conditional-reader exhaustiveness test.
 
 ## 7. The rule

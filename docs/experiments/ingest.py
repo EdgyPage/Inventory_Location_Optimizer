@@ -34,6 +34,7 @@ Nothing here runs at site-build time; it just stages committed snapshots.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import glob
 import json
 import os
@@ -82,11 +83,45 @@ _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs
 
 def _find(root, name):
     """First path matching `name` anywhere under `root` (run_analysis nests PNGs in
-    compare/top, compare/breakdown, compare/overlay, …)."""
+    compare/top, compare/breakdown, compare/overlay, …).
+
+    The NO-CONTRACT lookup: pre-descriptor runs and the profiles tree (which has no run-tree
+    contract at all) resolve through this walk.  Runs with a descriptor resolve through
+    `_leaf_file` instead.
+    """
     for dirpath, _dirs, files in os.walk(root):
         if name in files:
             return os.path.join(dirpath, name)
     return None
+
+
+def _leaf_file(rt, cell, inv, cfg, name, cfg_src):
+    """One curated file at a (cell, inventory, config) leaf, or None if absent.
+
+    With a resolver, `config.json` is the contract's `config_json` artifact, and a figure is
+    looked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) — the resolver
+    consumes the `<channel>` level, so this function never has to guess whether one exists.  The
+    basename search WITHIN the leaf stays a walk on purpose: which subtree a curated figure sits
+    in (compare/top, compare/faceted, …) is analysis-output nesting the docs deliberately
+    flatten, not a run-tree level — and it keeps the pick identical, e.g.
+    production_time_over_time.png exists under both compare/faceted/ and compare/overlay/ and
+    every committed snapshot staged the faceted copy (f < o in the walk).  Without a resolver
+    (pre-descriptor run, `--source` at a single cell dir) or for a leaf not yet finalized,
+    `_find` over the config dir is the unchanged fallback.
+    """
+    if rt is not None:
+        if name == "config.json":
+            p = rt.config_json(cell, inv, cfg)
+            return p if os.path.isfile(p) else None
+        leaves = [cr.path for _c, cr in rt.channel_runs(cell)
+                  if cr.pair == inv and cr.config == cfg]
+        if leaves:
+            for leaf in leaves:
+                hit = _find(leaf, name)
+                if hit:
+                    return hit
+            return None
+    return _find(cfg_src, name)
 
 
 def _copy(src, dst, dry, log):
@@ -122,8 +157,8 @@ def main(argv=None):
         sys.exit(f"source run dir not found: {source}")
 
     log, n = [], 0
-    cells, schema_id = _cells_of(source, log)
-    commit, dirty = _repo_provenance_of(source, log)
+    rt, cells, schema_id = _cells_of(source, log)
+    commit, dirty = _repo_provenance_of(source, log, rt)
     if args.cell:
         wanted = set(args.cell)
         missing = wanted - {c for c, _d in cells}
@@ -149,7 +184,8 @@ def main(argv=None):
     for cell_name, cell_dir in cells:
         # The docs "run" id IS the cell name — that is what macros.py indexes and what every
         # committed snapshot uses, so staging more cells never moves an existing site path.
-        rm, inventories, configs = _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log)
+        rm, inventories, configs = _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log,
+                                                           rt=rt, cell=cell_name)
         if rm is not None:
             last_rm = rm
         if not inventories:
@@ -167,15 +203,16 @@ def main(argv=None):
                     continue          # a config that this channel/cell didn't run — not an error
                 dst_dir = os.path.join(exp_dir, "images", cell_name, inv, cfg)
                 # config.json sits at <config>/; the figures may be one <channel>/ deeper, which
-                # the recursive _find absorbs — so both tree shapes stage identically.
-                n += _copy(_find(cfg_src, "config.json"),
+                # both routes of _leaf_file absorb — so both tree shapes stage identically.
+                n += _copy(_leaf_file(rt, cell_name, inv, cfg, "config.json", cfg_src),
                            os.path.join(dst_dir, "config.json"), args.dry_run, log)
                 for fname in figset:
-                    n += _copy(_find(cfg_src, fname), os.path.join(dst_dir, fname),
-                               args.dry_run, log)
-            n += _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log)
+                    n += _copy(_leaf_file(rt, cell_name, inv, cfg, fname, cfg_src),
+                               os.path.join(dst_dir, fname), args.dry_run, log)
+            n += _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log,
+                                         rt=rt, cell=cell_name)
 
-    n += _stage_whatif(source, exp_dir, args.dry_run, log)
+    n += _stage_whatif(source, exp_dir, args.dry_run, log, rt=rt)
 
     if args.gen_manifest and last_rm is not None:
         _write_starter_manifest(exp_dir, last_rm, args.catalogue, top3, full_suite,
@@ -189,34 +226,36 @@ def main(argv=None):
 
 
 def _cells_of(source, log):
-    """[(cell_name, cell_dir), …] for a run root, plus the run's tree schema id.
+    """(resolver|None, [(cell_name, cell_dir), …], schema_id|None) for a run root.
 
-    Uses the versioned run-tree resolver.  When the descriptor is missing (a pre-v1 run, or a
-    single CELL directory passed the old way), fall back to treating `source` itself as one cell
-    so an existing workflow still stages — but say so, because the cell name then comes from the
-    directory name rather than the run.
+    Uses the versioned run-tree resolver, and hands it back so every later lookup (run_spec,
+    run_manifest, figures, what-if outputs) resolves through the run's OWN contract.  When the
+    descriptor is missing (a pre-v1 run, or a single CELL directory passed the old way), fall
+    back to treating `source` itself as one cell so an existing workflow still stages — but say
+    so, because the cell name then comes from the directory name rather than the run.
     """
     try:
         from Optimization.runschema import resolver_for
         rt = resolver_for(source)
-        return rt.cells(), rt.schema_id
+        return rt, rt.cells(), rt.schema_id
     except Exception as exc:                                    # noqa: BLE001
         log.append(f"  NOTE     no run-tree descriptor at {source} ({exc.__class__.__name__}); "
                    f"treating it as a single cell dir. Point --source at the RUN ROOT to stage "
                    f"every cell in one pass.")
-        return [(os.path.basename(source.rstrip("/\\")), source)], None
+        return None, [(os.path.basename(source.rstrip("/\\")), source)], None
 
 
-def _repo_provenance_of(source, log):
+def _repo_provenance_of(source, log, rt=None):
     """(commit, dirty) for a run root — the simulator CODE that produced it.
 
     Read from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the
     only file on a run that distinguishes two runs of the same tree and the same tables from
     different code.  Runs made before the stamp existed have no such keys and yield
     ``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than
-    quietly dropped.
+    quietly dropped.  With a resolver the location comes from the contract (`run_spec`); the
+    literal join stays for pre-descriptor sources.
     """
-    path = os.path.join(source, "run_spec.json")
+    path = rt.run_spec_json() if rt is not None else os.path.join(source, "run_spec.json")
     try:
         with open(path, encoding="utf-8") as fh:
             spec = json.load(fh)
@@ -229,9 +268,13 @@ def _repo_provenance_of(source, log):
     return commit, spec.get("repo_dirty")
 
 
-def _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log):
-    """(run_manifest|None, inventories, configs) for one cell — manifest first, experiment.yml next."""
-    rm_path = os.path.join(cell_dir, "run_manifest.json")
+def _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log, rt=None, cell=None):
+    """(run_manifest|None, inventories, configs) for one cell — manifest first, experiment.yml next.
+
+    The manifest's location comes from the contract (`run_manifest`) when the run has one; the
+    literal join stays for pre-descriptor sources and single-cell invocations."""
+    rm_path = (rt.run_manifest(cell) if rt is not None
+               else os.path.join(cell_dir, "run_manifest.json"))
     if os.path.isfile(rm_path):
         with open(rm_path, encoding="utf-8") as fh:
             rm = json.load(fh)
@@ -244,9 +287,17 @@ def _cell_inventory_configs(cell_dir, exp_dir, ymldoc, log):
     return None, [], []
 
 
-def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log):
-    """params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path."""
-    meta = _find(inv_src, "sim_meta.json")
+def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None):
+    """params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.
+
+    Only the sim_meta lookup is contract-resolvable (`sim_meta`, first leaf of this pair).  The
+    `inv_root` lookups below stay on `_find`: they walk the PROFILES tree on the input drive,
+    which has no run-tree contract at all."""
+    if rt is not None:
+        metas = rt.glob('sim_meta', cell=cell, pair=inv)
+        meta = metas[0] if metas else None
+    else:
+        meta = _find(inv_src, "sim_meta.json")
     inv_root = None
     if meta:
         try:
@@ -267,14 +318,30 @@ def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log):
     return n
 
 
-def _stage_whatif(source, exp_dir, dry, log):
+def _stage_whatif(source, exp_dir, dry, log, rt=None):
     """Cross-cell what-if outputs from the RUN ROOT into data/ + images/.
 
     whatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no
     producer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.
     Absent on a single-cell run, which is not an error.
+
+    With a resolver the candidates come from the contract's `whatif` group tag
+    (`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED stays
+    the docs' own selection (DEFAULT_WHATIF_DATA + the PNG set).  The literal joins below remain
+    the pre-descriptor route.
     """
     n = 0
+    if rt is not None:
+        outs = rt.whatif_outputs()                   # existing whatif artifacts at the run root
+        by_name = {os.path.basename(p): p for p in outs}
+        for fname in DEFAULT_WHATIF_DATA:
+            src = by_name.get(fname)
+            if src:
+                n += _copy(src, os.path.join(exp_dir, "data", fname), dry, log)
+        for src in sorted(p for p in outs
+                          if fnmatch.fnmatch(os.path.basename(p), DEFAULT_WHATIF_PNG_GLOB)):
+            n += _copy(src, os.path.join(exp_dir, "images", os.path.basename(src)), dry, log)
+        return n
     for fname in DEFAULT_WHATIF_DATA:
         src = os.path.join(source, fname)
         if os.path.isfile(src):

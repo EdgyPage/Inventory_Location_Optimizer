@@ -14,11 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>viz_cache_path</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_db_reader_py.html"><code>Visualization/db_reader.py</code></a></p>
 
-<pre class="sig"><code>def viz_cache_path(base_dir: str, cell: str, pair: str, config: str, channel: str | None, strategy: str) -&gt; str</code></pre>
+<pre class="sig"><code>def viz_cache_path(base_dir: str, cell: str, pair: str, config: str, channel: str | None, strategy: str, rt=None) -&gt; str</code></pre>
 <section class="doc">Where the derived sidecar for one arm lives.
 
 ``&lt;run_root&gt;/_viz/&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/&lt;arm&gt;.viz.db`` — under the driver&#x27;s
 reserved ``_`` prefix (``runschema.schema.RESERVED_PREFIX``), which every tree walker skips.
+The sidecar is DECLARED in the run-tree contract (`viz_cache_db`), so with a resolver the
+template comes from the run&#x27;s own schema document; the hand-join below is the documented
+NO-CONTRACT fallback for legacy trees, kept byte-identical to what the template renders.
 
 NOT ``sim_&lt;arm&gt;.viz.db`` beside the sim DB: that name satisfies all three predicates of
 ``runlayout._sim_dbs_in`` (starts with ``sim_``, ends ``.db``, does not end

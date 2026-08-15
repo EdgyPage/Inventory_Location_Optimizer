@@ -188,12 +188,19 @@
       "signature": null,
       "value_preview": "'Re-run the arm to get bin_placement and an exact curve.'"
     },
+    "Diagnostics/replay_run.py::_contract_resolver": {
+      "decorators": [],
+      "doc": "The RunTree for a contract run root, or None (a single DB / pre-descriptor archive).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(target: str)"
+    },
     "Diagnostics/replay_run.py::_nearest_warehouse_db": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_db: str) -> str | None"
+      "signature": "(sim_db: str, rt=None) -> str | None"
     },
     "Diagnostics/replay_run.py::_note": {
       "decorators": [],
@@ -221,7 +228,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(target: str) -> list[str]"
+      "signature": "(target: str, rt=None) -> list[str]"
     },
     "Diagnostics/replay_run.py::main": {
       "decorators": [],
@@ -3089,7 +3096,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='keyframes_db', declared_shape=declared_keyframe_shape, meta_table=None))"
+      "value_preview": "_identity.register(_identity.Family(name='keyframes_db', declared_shape=declared_keyframe_shape, meta_table='schema_meta', known_ids=('e1149f95dfed',)))"
     },
     "Optimization/persistence/Picking_Data.py::OCCUPANCY_LADDER": {
       "decorators": [],
@@ -3140,7 +3147,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb')))"
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5e..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -3156,6 +3163,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('5d8a78b74466', '89c7b2babf22', 'e110afa222e3')"
+    },
+    "Optimization/persistence/Picking_Data.py::_BATCH_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier', *_BATCH_OPTIONAL)"
+    },
+    "Optimization/persistence/Picking_Data.py::_BATCH_OPTIONAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0, 'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0, 'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0, 'units_or..."
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
       "decorators": [],
@@ -3325,6 +3346,20 @@
       "signature": null,
       "value_preview": "'\\n CREATE TABLE IF NOT EXISTS task_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT..."
     },
+    "Optimization/persistence/Picking_Data.py::_EVENT_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins', 'items_picked', 'total_items', *_EVENT_OPTIONAL)"
+    },
+    "Optimization/persistence/Picking_Data.py::_EVENT_OPTIONAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'pick_travel_x': 0.0, 'pick_travel_y': 0.0, 'non_pick_travel_x': 0.0, 'non_pick_travel_y': 0.0, 'cart_move': 0.0}"
+    },
     "Optimization/persistence/Picking_Data.py::_IDENTITY_COLS": {
       "decorators": [],
       "doc": null,
@@ -3353,6 +3388,13 @@
       "signature": null,
       "value_preview": "('num_pickers', 'x_speed', 'y_speed', 'pick_intercept', 'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef', 'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval', 'optimal_sigma_fd', 'o..."
     },
+    "Optimization/persistence/Picking_Data.py::_TASK_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'is_outlier')"
+    },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
       "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.",
@@ -3374,6 +3416,20 @@
       "kind": "function",
       "signature": "(path: str, timeout: float=60.0) -> sqlite3.Connection"
     },
+    "Optimization/persistence/Picking_Data.py::_query_rows": {
+      "decorators": [],
+      "doc": "Rows via the named-query registry when this file's vintage is servable, else None.\n\nNone routes the caller to its FROZEN LEGACY body: `Diagnostics/replay_run.py` deliberately\nreads UNVETTED cold-archive vintages (`UNVETTED_ARCHIVE_SIM_SCHEMA_IDS`), which `bind`\nrefuses by design \u2014 for those, the pre-registry `SELECT *` + `row.keys()` behavior is kept\nverbatim, and a golden test asserts both paths agree on every vetted vintage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, path: str, **params)"
+    },
+    "Optimization/persistence/Picking_Data.py::_read_sim_stamp": {
+      "decorators": [],
+      "doc": "The `simulation_runs.sim_schema_id` a run stamped, or None.\n\nThe sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the\ngeneric `identity.read_stamp` cannot find it without this.  Body mirrors\n`Visualization/readers/fingerprint.read_stamped_id` \u2014 that module keeps its own copy because\nthe viewer resolves through a pin cache as well; a test asserts the two stay in step.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con) -> str | None"
+    },
     "Optimization/persistence/Picking_Data.py::create_run": {
       "decorators": [],
       "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
@@ -3383,7 +3439,7 @@
     },
     "Optimization/persistence/Picking_Data.py::declared_keyframe_shape": {
       "decorators": [],
-      "doc": "Canonical shape of the sibling keyframe DB.",
+      "doc": "Canonical shape of the sibling keyframe DB.\n\nIncludes the `schema_meta` stamp table: a family that declares `meta_table` must DECLARE the\ntable in its own shape, or the observed shape (with it, once stamped) would never match the\ndeclaration (see `identity.META_TABLE_DDL`).",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -3404,7 +3460,7 @@
     },
     "Optimization/persistence/Picking_Data.py::init_keyframe_db": {
       "decorators": [],
-      "doc": "Create the bin_keyframe table + index if absent.",
+      "doc": "Create the bin_keyframe table + index (and the schema_meta stamp) if absent.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str) -> None"
@@ -3432,7 +3488,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_batch_stats": {
       "decorators": [],
-      "doc": null,
+      "doc": "One BatchStats per batch, version-adaptive.\n\nA VETTED file is served by the `batch_frame` named query (per-vintage overrides and\noptional-fill included), so a consumer of this loader is version-free without knowing it.\nAn unvetted file \u2014 the cold archive `Diagnostics/replay_run.py` deliberately reads \u2014 falls\nthrough to the frozen pre-registry body below, byte-for-byte the historical behavior.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[BatchStats]"
@@ -3467,7 +3523,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_picker_events": {
       "decorators": [],
-      "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.",
+      "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.\nVersion-adaptive; see `load_batch_stats`.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
@@ -3495,7 +3551,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_task_stats": {
       "decorators": [],
-      "doc": null,
+      "doc": "One TaskStats per (batch, aisle) task \u2014 version-adaptive; see `load_batch_stats`.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[TaskStats]"
@@ -3786,7 +3842,7 @@
     },
     "Optimization/run_analysis.py": {
       "decorators": [],
-      "doc": "run_analysis.py \u2014 registry-driven graph generator for completed simulation runs.\n\nReads sim_meta.json files written by run_simulation.py, rebuilds warehouse aisle maps via\nbuild_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations\n(selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by\nediting Performance_Evaluations/presets.py \u2014 not this file.\n\nParallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across\nall pairs \u00d7 configs fed to one ProcessPoolExecutor, then a second flat pool for the\ncross-profile aggregate stage.  `--granularity config` (default) = one job per config (context\nloaded once, shared across its graphs); `--granularity graph` = one job per (config, graph)\nfor maximum core utilization on sparse runs.\n\nUsage:\n  python run_analysis.py <base_dir>                        # default preset BY_INITIAL\n  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)\n  python run_analysis.py <base_dir> --granularity graph --set compare.top_metric.top_n=3\n\nThe default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum\n(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the\ndownstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older\nuniform-only view.",
+      "doc": "run_analysis.py \u2014 registry-driven graph generator for completed simulation runs.\n\nReads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via\nbuild_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations\n(selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by\nediting Performance_Evaluations/presets.py \u2014 not this file.\n\nPer-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the\nrun-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join \u2014 the resolver is\nrooted at the RUN root (this module receives a CELL dir from analyze_run), and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.\n\nParallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across\nall pairs \u00d7 configs fed to one ProcessPoolExecutor, then a second flat pool for the\ncross-profile aggregate stage.  `--granularity config` (default) = one job per config (context\nloaded once, shared across its graphs); `--granularity graph` = one job per (config, graph)\nfor maximum core utilization on sparse runs.\n\nUsage:\n  python run_analysis.py <base_dir>                        # default preset BY_INITIAL\n  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)\n  python run_analysis.py <base_dir> --granularity graph --set compare.top_metric.top_n=3\n\nThe default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum\n(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the\ndownstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older\nuniform-only view.",
       "kind": "module",
       "signature": null
     },
@@ -3806,10 +3862,10 @@
     },
     "Optimization/run_analysis.py::_aggregate_jobs": {
       "decorators": [],
-      "doc": "Group every config's series.json by leaf pick-config name across profiles, prepare\neach _aggregate/<pickcfg>/ dir once, and emit the flat aggregate-stage job list.",
+      "doc": "Group every config's series doc by leaf pick-config name across profiles, prepare\neach aggregate group dir once, and emit the flat aggregate-stage job list.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, preset_name, granularity, cli_set, log)"
+      "signature": "(base_dir, rt, cell, preset_name, granularity, cli_set, log)"
     },
     "Optimization/run_analysis.py::_coerce": {
       "decorators": [],
@@ -3823,7 +3879,7 @@
       "doc": "Parent pre-pass: build slim shared assets per pair, prepare each config's output\ndirs once, and emit the flat config-stage job list.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, preset_name, granularity, cli_set, log)"
+      "signature": "(base_dir, rt, preset_name, granularity, cli_set, log)"
     },
     "Optimization/run_analysis.py::_drain": {
       "decorators": [],
@@ -3853,6 +3909,13 @@
       "kind": "function",
       "signature": "(meta: dict) -> dict"
     },
+    "Optimization/run_analysis.py::_tree_for": {
+      "decorators": [],
+      "doc": "(RunTree, cell_name) for the run this CELL directory belongs to.\n\nrun_analysis receives a CELL dir (analyze_run calls it once per cell), so the resolver is\nrooted at the PARENT \u2014 where the run descriptor lives \u2014 and the cell name is the dir's own\nbasename.  A tree with NO descriptor (the e2e scratch trees, ad-hoc analyses) falls back to\nthe HEAD contract rooted at the same parent: the head templates render exactly the strings\nthe old hand-joins assumed, so the fallback is behavior-preserving while keeping the tree\nshape declared in one place.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str)"
+    },
     "Optimization/run_analysis.py::_worker_log": {
       "decorators": [],
       "doc": null,
@@ -3876,7 +3939,7 @@
     },
     "Optimization/run_channel_rollup.py": {
       "decorators": [],
-      "doc": "run_channel_rollup.py \u2014 combine per-channel best plans into a whole-warehouse saving.\n\nThe simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each\nsweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py\n(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that\ncombines them: for each inventory it reads every channel's `series.json`, computes each plan's\nabsolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)\nper channel across ALL that channel's configs, and SUMS the per-channel best savings into a\ncumulative whole-warehouse saving.\n\nBecause the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are\nADDITIVE \u2014 any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the\nper-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.\n\nRun AFTER run_analysis.py (which writes the series.json files).  The analysis default preset\nis BY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in series.json and the rollup\nsees the full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_*\narm is dropped and the rollup picks the best from only half the suite (it warns when it detects\nthis \u2014 re-run the analysis without --preset DEFAULT):\n  python run_analysis.py <base_dir>\n  python run_channel_rollup.py <base_dir>\nOutputs (under <base_dir>):\n  channel_rollup.csv          \u2014 one row per (inventory, config, channel, plan): absolute + % saving\n  channel_rollup_summary.csv  \u2014 best plan per channel + the cumulative whole-warehouse saving",
+      "doc": "run_channel_rollup.py \u2014 combine per-channel best plans into a whole-warehouse saving.\n\nThe simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each\nsweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py\n(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that\ncombines them: for each inventory it reads every channel's series JSON, computes each plan's\nabsolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)\nper channel across ALL that channel's configs, and SUMS the per-channel best savings into a\ncumulative whole-warehouse saving.\n\nBecause the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are\nADDITIVE \u2014 any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the\nper-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.\n\nRun AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is\nBY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in the series and the rollup sees\nthe full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_* arm\nis dropped and the rollup picks the best from only half the suite (it warns when it detects\nthis \u2014 re-run the analysis without --preset DEFAULT):\n  python run_analysis.py <base_dir>\n  python run_channel_rollup.py <base_dir>\nOutputs (under <base_dir>, rendered by the run-tree contract as the `channel_rollup_csv` /\n`channel_rollup_summary_csv` artifacts \u2014 this module is their declared writer, and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals):\n  the per-plan rollup CSV     \u2014 one row per (inventory, config, channel, plan): absolute + % saving\n  the rollup summary CSV      \u2014 best plan per channel + the cumulative whole-warehouse saving",
       "kind": "module",
       "signature": null
     },
@@ -3896,17 +3959,17 @@
     },
     "Optimization/run_channel_rollup.py::_channel_rows": {
       "decorators": [],
-      "doc": "Return (channel_info, per-plan rows) for one channel's series.json.",
+      "doc": "Return (channel_info, per-plan rows) for one channel's series doc.",
       "is_async": false,
       "kind": "function",
       "signature": "(meta: dict, series: dict) -> tuple[dict, list[dict]]"
     },
     "Optimization/run_channel_rollup.py::_find_series": {
       "decorators": [],
-      "doc": "(sim_meta.json, series.json) pairs under base_dir \u2014 one per analyzed channel run.",
+      "doc": "(sim_meta, series) JSON path pairs under base_dir \u2014 one per ANALYZED channel run.\n\nTraversal stays with `iter_channel_runs` (the layout owner, default marker = the sim_meta\nbasename); the per-leaf filenames render through `rt.leaf_path`, never a basename join.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir: str) -> list[tuple[str, str]]"
+      "signature": "(rt, base_dir: str) -> list[tuple[str, str]]"
     },
     "Optimization/run_channel_rollup.py::_is_num": {
       "decorators": [],
@@ -3914,6 +3977,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(x) -> bool"
+    },
+    "Optimization/run_channel_rollup.py::_tree_for": {
+      "decorators": [],
+      "doc": "(RunTree, cell_name) for the run this CELL directory belongs to.\n\nThe rollup receives a CELL dir (analyze_run calls it once per cell), so the resolver is\nrooted at the PARENT \u2014 where the run descriptor lives \u2014 and the cell name is the dir's own\nbasename.  A tree with NO descriptor (scratch trees in tests, ad-hoc analyses) falls back to\nthe HEAD contract rooted at the same parent: the head templates render exactly the strings\nthe old hand-joins assumed, so the fallback is behavior-preserving while keeping the shape in\none place.  A descriptor that names an UNKNOWN schema still fails loudly (resolver_for\nraises before the fallback is consulted only for the missing-descriptor case).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_dir: str)"
     },
     "Optimization/run_channel_rollup.py::main": {
       "decorators": [],
@@ -3924,16 +3994,23 @@
     },
     "Optimization/run_channel_rollup.py::rollup": {
       "decorators": [],
-      "doc": null,
+      "doc": "Roll one CELL directory's per-channel winners up into a whole-warehouse saving.\n\n`base_dir` is a cell dir; both output CSVs render through the run-tree contract\n(`rt.path('channel_rollup_csv' / 'channel_rollup_summary_csv', cell=...)`).",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log=print) -> dict"
     },
     "Optimization/run_runtime_graphs.py": {
       "decorators": [],
-      "doc": "run_runtime_graphs.py \u2014 RUNTIME (compute-cost) graphs from runtime_metrics.db.\n\nCross-cell analysis step (part of the analysis hub): reads ``<run_root>/runtime_metrics.db`` (one row\nper arm, written parent-side by the supervisor) and emits PNGs to ``<run_root>/_runtime/`` ranking the\nslowest arms / assignment-fns / warehouses / cells and \u2014 critically \u2014 a per-SECTION stacked breakdown\nshowing WHERE the wall time goes, so recurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the\nvalid-aisle recompute suspicion) are visible at a glance.\n\nThis is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.\n\n    python -m Optimization.run_runtime_graphs <run_root>",
+      "doc": "run_runtime_graphs.py \u2014 RUNTIME (compute-cost) graphs from the runtime metrics DB.\n\nCross-cell analysis step (part of the analysis hub): reads the run root's runtime metrics DB (one row\nper arm, written parent-side by the supervisor) and emits PNGs to the run root's runtime dir \u2014 the\ncontract's ``runtime_pngs`` artifact, whose glob star sits in the filename segment, so the template's\ndirectory IS the output dir \u2014 ranking the slowest arms / assignment-fns / warehouses / cells and \u2014\ncritically \u2014 a per-SECTION stacked breakdown showing WHERE the wall time goes, so recurring\nhot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are visible at\na glance.\n\nThis is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.\n\n    python -m Optimization.run_runtime_graphs <run_root>",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/run_runtime_graphs.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
     },
     "Optimization/run_runtime_graphs.py::_SECTION_COLORS": {
       "decorators": [],
@@ -3962,6 +4039,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(vals)"
+    },
+    "Optimization/run_runtime_graphs.py::_runtime_dir": {
+      "decorators": [],
+      "doc": "The run-root runtime-PNG directory, from the contract's `runtime_pngs` template.\n\nThe glob star sits in the FILENAME segment, so the template's dirname is the output dir \u2014\nthe underscore prefix it carries is what makes every tree walker (cells / iter_channel_runs /\nthe cross-cell whatif scans) skip it, the same reserved-dir convention as the frozen assets\nand the aggregate subtree.  A root with NO descriptor (ad-hoc trees) falls back to the HEAD\ncontract, which renders exactly the string the old literal join produced.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str) -> str"
     },
     "Optimization/run_runtime_graphs.py::_save": {
       "decorators": [],
@@ -3993,7 +4077,7 @@
     },
     "Optimization/run_runtime_graphs.py::run": {
       "decorators": [],
-      "doc": "Emit the runtime graphs for a finished run to <run_root>/runtime/.  Returns the out dir\n(or None if there's no runtime_metrics.db).  Importable so the analysis hub calls it in-process.",
+      "doc": "Emit the runtime graphs for a finished run to the contract's runtime PNG dir.  Returns the\nout dir (or None if there's no runtime metrics DB).  Importable so the analysis hub calls it\nin-process.",
       "is_async": false,
       "kind": "function",
       "signature": "(run_root, log=None)"
@@ -4041,9 +4125,16 @@
     },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],
-      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits whatif_delta.csv (all four deltas), whatif_delta.json (the docs site's matrix table), and a\nlabor-saving-vs-throughput-gain scatter (one point per cell\u00d7channel\u00d7arm) plus a median summary.  This\nis what makes a scheduling win legible: LPT should show \u0394batch-makespan \u2193 and \u0394throughput/batch \u2191\nwhile \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config\n\nTree access goes through the versioned run-tree resolver (Optimization/runschema), never raw globs:\nthe previous relpath-splitting scan required a `<channel>` segment and therefore silently dropped\nEVERY store-only run, whose sim DBs sit directly under `<config>/`.",
+      "doc": "run_whatif_delta.py \u2014 compare what-if scenarios against a reference cell.\n\nReads the four steady-state success metrics straight from each scenario's sim_*.db (no run_analysis\nneeded), keyed by (pair, pick-config, channel, arm), and diffs every cell against the reference cell:\n\n    task makespan  (\u03a3 task time = total labor)          batch makespan (last-picker finish)\n    throughput / task makespan (items / \u03a3 task time)    throughput / batch makespan (items / makespan)\n\nEmits the whatif_delta CSV (all four deltas), JSON (the docs site's matrix table), and a\nlabor-saving-vs-throughput-gain scatter (one point per cell\u00d7channel\u00d7arm) plus a median summary.  This\nis what makes a scheduling win legible: LPT should show \u0394batch-makespan \u2193 and \u0394throughput/batch \u2191\nwhile \u0394task-makespan (labor) and \u0394throughput/task stay \u2248flat.\n\n    python -m Optimization.run_whatif_delta <comparison_whatif_...>   # --reference defaults from config\n\nTree access goes through the versioned run-tree resolver (Optimization/runschema), never raw globs:\nthe previous relpath-splitting scan required a `<channel>` segment and therefore silently dropped\nEVERY store-only run, whose sim DBs sit directly under `<config>/`.  Output paths render through the\nsame contract (`rt.path(...)`) \u2014 this module is the declared writer of the three whatif_delta\nartifacts, and the golden test (Tests/integration/test_writer_paths_golden.py) pins the rendered\nstrings to the literals the old hand-joins produced.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/run_whatif_delta.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='run_whatif_delta cross-cell reader', tables={'batch_stats': ('batch_id', 'duration', 'task_makespan', 'total_items'), 'task_stats': ('batch_id', 'duration')})"
     },
     "Optimization/run_whatif_delta.py::WIN": {
       "decorators": [],
@@ -4051,6 +4142,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "50"
+    },
+    "Optimization/run_whatif_delta.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "Optimization/run_whatif_delta.py::_bind": {
+      "decorators": [],
+      "doc": "Bind a sim DB to its OWN schema vintage (`Schema.dataset.bind`), or None if unvetted.\n\nNone routes the caller to the frozen pre-registry read path (`connect.read_only` + a PRAGMA\nprobe) \u2014 synthetic test fixtures and cold-archive vintages keep exactly their historical\nbehavior, the same vetted/unvetted split `Picking_Data._query_rows` uses.  A VETTED file that\ncannot serve the declared read raises `RequirementUnmet` naming the missing column instead of\ndegrading: failing loudly at open is the whole point of the declaration.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str)"
     },
     "Optimization/run_whatif_delta.py::_cell_labels": {
       "decorators": [],
@@ -4068,7 +4173,7 @@
     },
     "Optimization/run_whatif_delta.py::_metrics": {
       "decorators": [],
-      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.\n\nRead-only + immutable, never a plain `sqlite3.connect`: these DBs are written in WAL mode, so\nany writable open \u2014 including a bare read \u2014 makes SQLite drop `-wal`/`-shm` sidecars beside a\n~1 GB archived file.  That is exactly what `scripts/archive_cells.py::_quick_check` exists to\ndefend against, and `run_whatif_volume._series` already does it this way.",
+      "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.\nA VETTED file binds to its own vintage (`_bind`) and the column probe is answered from the\nBOUND SHAPE (`ds.has`), never a PRAGMA; only an unvetted file (synthetic fixtures, cold\narchives) keeps the frozen PRAGMA probe.  The aggregate SQL itself is untouched either way \u2014\nfloat drift on published CSVs is forbidden.\n\nRead-only + immutable, never a plain `sqlite3.connect`: these DBs are written in WAL mode, so\nany writable open \u2014 including a bare read \u2014 makes SQLite drop `-wal`/`-shm` sidecars beside a\n~1 GB archived file.  That is exactly what `scripts/archive_cells.py::_quick_check` exists to\ndefend against (`_bind` passes the same immutable promise through `dataset.bind`).",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
@@ -4089,10 +4194,10 @@
     },
     "Optimization/run_whatif_delta.py::_write_delta_json": {
       "decorators": [],
-      "doc": "Write whatif_delta.json \u2014 the per-cell \u00d7 per-channel MEDIAN table the docs site renders.\n\nPreviously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the only\nway to get one was to hand-copy and rename whatif_labor.json.  The four-metric key names\n(dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that macro prefers.",
+      "doc": "Write the whatif_delta_json artifact \u2014 the per-cell \u00d7 per-channel MEDIAN table the docs\nsite renders.\n\nPreviously this file had no producer at all: docs/macros.py:whatif_matrix read it, and the\nonly way to get one was to hand-copy and rename the whatif_labor summary JSON.  The\nfour-metric key names (dthr_batch / dtask_ms / dbatch_ms / dthr_task) are the ones that\nmacro prefers.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, rt, rows, reference, cell_names) -> str"
+      "signature": "(rt, rows, reference, cell_names) -> str"
     },
     "Optimization/run_whatif_delta.py::_write_delta_json._med": {
       "decorators": [],
@@ -4110,14 +4215,14 @@
     },
     "Optimization/run_whatif_delta.py::run": {
       "decorators": [],
-      "doc": "Engine: diff every cell under base_dir vs the reference cell; write whatif_delta.csv +\nthe labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub\ncalls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op.",
+      "doc": "Engine: diff every cell under base_dir vs the reference cell; write the whatif_delta CSV +\nthe labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub\ncalls it in-process (no argv).  A single-cell run has nothing to diff and is a no-op.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, reference=None, log=None)"
     },
     "Optimization/run_whatif_labor.py": {
       "decorators": [],
-      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: whatif_labor.csv, whatif_labor.json\n(whatif_matrix()-compatible), and four PNGs.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON\n(whatif_matrix()-compatible), and four PNGs.  All output paths render through the run-tree\ncontract (`rt.path(...)` / the whatif PNG glob's directory) \u2014 this module is the declared writer\nof those artifacts, and Tests/integration/test_writer_paths_golden.py pins the rendered strings\nto the literals the old hand-joins produced.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
       "kind": "module",
       "signature": null
     },
@@ -4128,12 +4233,26 @@
       "signature": null,
       "value_preview": "3600000.0"
     },
+    "Optimization/run_whatif_labor.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='run_whatif_labor hours reader', tables={'batch_stats': ('duration', 'task_makespan', 'total_items')})"
+    },
     "Optimization/run_whatif_labor.py::_HOURS_NOTE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+    },
+    "Optimization/run_whatif_labor.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
     },
     "Optimization/run_whatif_labor.py::_SCHED": {
       "decorators": [],
@@ -4242,7 +4361,7 @@
     },
     "Optimization/run_whatif_labor.py::run": {
       "decorators": [],
-      "doc": "Engine: cross-cell throughput / labor-hours over base_dir; write whatif_labor.csv/json +\nthe four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process\n(no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits\nthe CSV/JSON (its cross-cell deltas are empty).",
+      "doc": "Engine: cross-cell throughput / labor-hours over base_dir; write the whatif_labor CSV/JSON\n+ the four PNGs, and return the CSV path.  Importable so the analysis hub calls it in-process\n(no argv).  `pairs` in {'sum','median'} blends the catalogs; a single-cell run still emits\nthe CSV/JSON (its cross-cell deltas are empty).",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, baseline='fifo', baseline_initial='match', reference=None, pairs='sum', log=None)"
@@ -4253,12 +4372,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/run_whatif_volume.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='run_whatif_volume series reader', tables={'batch_stats': ('batch_id', 'duration', 'task_makespan', 'total_items')})"
+    },
     "Optimization/run_whatif_volume.py::_FIELDS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "['cell', 'scheduler', 'pair', 'pickcfg', 'channel', 'arm', 'initial', 'assignment', 'items', 'elapsed_hours', 'labor_hours', 'mean_thr_items_hr', 'auc_item_hours', 'shape_index', 'auc_gain_vs_ref_p..."
+    },
+    "Optimization/run_whatif_volume.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
     },
     "Optimization/run_whatif_volume.py::_curves_png": {
       "decorators": [],
@@ -4297,10 +4430,17 @@
     },
     "Optimization/run_whatif_volume.py::_series": {
       "decorators": [],
-      "doc": "(hours, items) cumulative arrays for one arm, ordered by batch.\n\nRead-only + immutable so verifying an archived copy never leaves a -wal/-shm sidecar beside it.",
+      "doc": "(hours, items) cumulative arrays for one arm, ordered by batch.\n\nA VETTED file binds to its own schema vintage (`Schema.dataset.bind`, immutable=True \u2014 the\nescape-hatch `.con` still carries the same aggregate SQL, unchanged); an unvetted one\n(synthetic fixtures, cold archives) opens through `Schema.connect.read_only` with the same\nread-only + immutable promise, replacing the hand-built `?mode=ro&immutable=1` URI this\nfunction used to assemble.  Either way no `-wal`/`-shm` sidecar is ever left beside an\narchived copy.",
       "is_async": false,
       "kind": "function",
       "signature": "(db: str)"
+    },
+    "Optimization/run_whatif_volume.py::_writer_tree": {
+      "decorators": [],
+      "doc": "The resolver this module's OUTPUTS render through \u2014 `rt` itself, or the head contract.\n\nA re-analysis reads an OLD run through the run's OWN contract (`rt`), but the artifacts this\nmodule WRITES are declared by whatever contract is current: one committed vintage\n(e69b6d392929, the 2026-07-29 scheduler sweeps) predates whatif_volume_csv/_json entirely,\nand `rt.path` on it would KeyError.  For such runs the outputs follow the HEAD document at\nthe same root \u2014 exactly the strings the old hand-joins produced (today's basenames onto the\nold run root), so nothing moves; every READ still goes through the run's own document.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt)"
     },
     "Optimization/run_whatif_volume.py::build_rows": {
       "decorators": [],
@@ -4841,6 +4981,13 @@
       "kind": "function",
       "signature": "(self) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree._owner_of": {
+      "decorators": [],
+      "doc": "Which artifact a concrete path belongs to \u2014 MOST-SPECIFIC template wins.\n\nA wildcarded `{strategy}` happily glob-matches `sim_x.keyframes.db`, because a template\nplaceholder cannot know that no arm name contains a dot.  Rather than encoding that\n(false-in-general) fact, ownership is decided the way preflight's observe stage decides\nit: every template that matches is a candidate, and the one with the MOST literal\ncharacters \u2014 the most specific claim \u2014 owns the path.  `sim_{strategy}.keyframes.db`\nout-literals `sim_{strategy}.db`, so a keyframe sidecar is never a sim DB.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, abs_path: str) -> str | None"
+    },
     "Optimization/runschema/resolver.py::RunTree._parts_from_leaf": {
       "decorators": [],
       "doc": "Split a channel-run's relative dir into level parts, POSITIONALLY.\n\nNever by name: the store config and the store channel share the name `store`, so\n`<pair>/store/store/` is real and name-matching would mis-assign it.",
@@ -4868,6 +5015,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, group: str) -> list[str]"
+    },
+    "Optimization/runschema/resolver.py::RunTree.by_scope": {
+      "decorators": [],
+      "doc": "Artifact names at one scope ('run' | 'cell' | 'config' | 'channel_run').",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, scope: str) -> list[str]"
     },
     "Optimization/runschema/resolver.py::RunTree.cell_dir": {
       "decorators": [],
@@ -4897,6 +5051,27 @@
       "kind": "function",
       "signature": "(self, cell: str, pair: str, config: str) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree.exists": {
+      "decorators": [],
+      "doc": "`os.path.exists` over `path(...)` \u2014 a convenience that reads as a contract question.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str, **parts) -> bool"
+    },
+    "Optimization/runschema/resolver.py::RunTree.family_of": {
+      "decorators": [],
+      "doc": "The `Schema.identity` family a sqlite artifact belongs to, or None.\n\nNone for non-sqlite artifacts AND for contract documents that predate the `family` key \u2014\nthe key is unhashed attribution (like `writer`), so old runs' documents simply lack it and\ncallers must tolerate that.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str) -> str | None"
+    },
+    "Optimization/runschema/resolver.py::RunTree.glob": {
+      "decorators": [],
+      "doc": "Existing paths for an artifact, with UNSUPPLIED parts wildcarded.\n\nGeneralizes `whatif_outputs()`: any `{part}` not passed becomes `*`; template `*`/`**`\npass through; the optional `{channel?}` level expands to BOTH variants (with and without\nthe segment) because a single glob cannot express an optional directory.  Sorted,\ndeduped, absolute; only existing paths return.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str, **parts) -> list[str]"
+    },
     "Optimization/runschema/resolver.py::RunTree.is_sweep": {
       "decorators": [
         "property"
@@ -4912,6 +5087,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, sim_db: str) -> str"
+    },
+    "Optimization/runschema/resolver.py::RunTree.leaf_path": {
+      "decorators": [],
+      "doc": "Absolute path of a channel-run-scoped artifact INSIDE `cr`'s own directory.\n\nFor callers holding a `ChannelRun` but not its cell (the common shape in analysis code):\nthe template's basename is rendered with `extra` (e.g. `strategy=`) and joined to\n`cr.path`, which already IS the leaf directory.  Only legal for artifacts whose template\nbottoms out in the leaf \u2014 asserted, so a run-scoped artifact cannot be silently\nmis-rooted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cr, artifact: str, **extra) -> str"
+    },
+    "Optimization/runschema/resolver.py::RunTree.parts_of": {
+      "decorators": [],
+      "doc": "Level parts for one analysis leaf, from the `(cell, ChannelRun)` pair the iterators\nyield.  This is the SCOPE BINDING that lets `path()` be called for any artifact at a\nleaf without the caller re-joining basenames (ChannelRun carries pair/config/channel but\nnot its cell, so the pair travels together).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, cr) -> dict"
     },
     "Optimization/runschema/resolver.py::RunTree.path": {
       "decorators": [],
@@ -5014,6 +5203,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, cell: str, pair: str) -> str"
+    },
+    "Optimization/runschema/resolver.py::RunTree.warehouse_db_of": {
+      "decorators": [],
+      "doc": "The warehouse DB governing a sim DB's leaf \u2014 `keyframe_db`'s mirror for the pair level.\n\nSplits the leaf positionally (never by name \u2014 the store config and channel share a name)\nand renders the pair-scoped template, honouring the frozen-vs-cell-local `resolves_via`\nprecedence.  Replaces the walk-up-N-directories guess for contract runs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sim_db: str) -> str"
     },
     "Optimization/runschema/resolver.py::RunTree.whatif_outputs": {
       "decorators": [],
@@ -5863,6 +6059,12 @@
       "signature": null,
       "value_preview": "os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapes')"
     },
+    "Schema/compat.py::UncommittedShape": {
+      "decorators": [],
+      "doc": "A writer is producing files whose declared shape has no committed document.\n\nThe window this names: a DDL edit ships, new files stamp the new id and READ fine (they match\nthe declaration) \u2014 but the shape exists nowhere except in the live source, so the moment the\nDDL moves again it is unrecoverable, and meanwhile the OUTGOING id fell out of\n`supported_ids()`, quietly orphaning every file already on the archive.  `--sync` closes the\nfirst half, `--adopt` the second; this exception is how a WRITER finds out at write time\ninstead of a reader months later.",
+      "kind": "class",
+      "signature": "(SchemaError)"
+    },
     "Schema/compat.py::UnrecoverableShape": {
       "decorators": [],
       "doc": "A vetted id has no committed shape document, so the guaranteed surface is unknowable.",
@@ -5918,6 +6120,13 @@
       "kind": "function",
       "signature": "(family: str, sid: str) -> str"
     },
+    "Schema/compat.py::stamp_checked": {
+      "decorators": [],
+      "doc": "`identity.stamp` + `verify_family_store`, as one call every writer makes at DB creation.\n\nThe stamp is written FIRST and unconditionally: whatever the store's state, an unstamped file\nis strictly worse than a stamped one \u2014 the stamp is what lets a future reader identify the\nvintage without deriving.  Then the store is verified:\n\n  strict=False  warn once per (family, finding-kind) per process, via `emit` or\n                `warnings.warn`.  For writers inside a long run: a store gap discovered at\n                hour N must not kill an arm the run-start precheck already blessed.\n  strict=True   raise `UncommittedShape`.  For interactive data-gen CLIs, where the fix is\n                one command and stopping costs nothing.\n\nReturns whatever `identity.stamp` returned (None for a meta_table-less family \u2014 the VERIFY\nhalf still runs for those, which is exactly why this exists for sim_db and keyframes_db too).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, family_obj, *, strict: bool=False, emit=None) -> str | None"
+    },
     "Schema/compat.py::unrecoverable_ids": {
       "decorators": [],
       "doc": "Vetted ids whose shape was never captured. Non-empty \u21d2 the surface is a guess.",
@@ -5931,6 +6140,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(req: Requires) -> list"
+    },
+    "Schema/compat.py::verify_family_store": {
+      "decorators": [],
+      "doc": "Findings for one family's store state, empty when clean.  Stdlib + committed store only.\n\nTwo checks, matching the two halves of the `UncommittedShape` window:\n\n  (a) the DECLARED shape has a committed document \u2014 else the shape this writer is producing\n      right now becomes unrecoverable at the next DDL move;\n  (b) no committed document is orphaned outside `supported_ids()` \u2014 an orphan IS the outgoing\n      shape of a DDL change that has not been adopted, and every archived file written with\n      it is currently unreadable.\n\n(b) is `adopt()`'s per-family logic from `scripts/schema_report.py`, re-homed where it is\nimport-legal \u2014 a writer cannot import the CLI (`scripts/` is not a package consumers may\ndepend on), but compat owns the store and may read its own directory.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str) -> list[str]"
     },
     "Schema/compat.py::write_shape": {
       "decorators": [],
@@ -5993,6 +6209,163 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, *, timeout: float=_BUSY_TIMEOUT, tuned: bool=False)"
+    },
+    "Schema/dataset.py": {
+      "decorators": [],
+      "doc": "dataset.py \u2014 bind a database file to its OWN schema version, and read it by NAME.\n\nThe read-side half of runtime versioning.  ``compat.py`` answers \"may this consumer read that\nfamily\"; this module answers the next question \u2014 \"read THIS file, whatever vintage it is\" \u2014\nwithout the consumer writing SQL, probing PRAGMAs, or branching on a version anywhere.\n\n    ds = dataset.bind(path, 'sim_db', requires=REQUIRES)\n    for row in ds.query('batch_frame', run_id=7):\n        row['thr_batch']            # a LOGICAL column name \u2014 stable across every vintage\n\nThree layers, and where each lives:\n\n  MACHINERY (this module, stdlib + Schema only)\n      `bind()` resolves the file's own id (stamped -> pinned -> derived), loads THAT shape from\n      the committed store, and returns a `Dataset` whose every read is validated against the\n      bound shape.  `Query`/`register_query`/`override` are the registry types.\n  VOCABULARY (beside each family's DDL \u2014 the PUBLISHER side)\n      Named queries with a stable LOGICAL output column set, e.g. sim_db's in\n      `Optimization/persistence/Picking_Data.py`.  The publisher dictates shapes, so the\n      publisher's module is where physical->logical mapping lives.\n  OVERRIDES (small per-vintage modules beside the family)\n      A vintage whose physical schema differs (renamed column, absent table) registers a variant\n      for its schema id \u2014 the same dispatch `Visualization/readers/` proves with `SCHEMA_IDS`.\n      Consumers never see any of it.\n\nWHY LOGICAL COLUMNS ARE THE CONTRACT\n------------------------------------\nA column rename is the quietest schema change: `SELECT *` + `row.keys()` guards turn it into a\ndefault 0.0 on a published figure.  Naming the OUTPUT vocabulary decouples every consumer from\nthe physical schema: canonical SQL aliases physical->logical (`SELECT completion_rate AS\nthr_batch`), an override for an old vintage re-aliases its OWN physical names to the SAME logical\nnames, and the registry enforces that every variant of a query yields the same logical set.  The\nrepo already hand-rolled this twice before it was a system (the loaders' legacy-alias branches,\n`_bdf`'s completion_rate->thr_batch mirror); those become registrations instead of special cases.\n\nSQL POLICY\n----------\nIdentifier positions (tables, columns) are GENERATED from validated names; predicate/aggregate\ntext is HUMAN-WRITTEN and parameterized \u2014 generating the drift-prone part, never the expressive\npart.  `Dataset.read()` builds simple selections; `Query.sql` carries arbitrary hand-written SQL\n(joins, aggregates) whose output columns are the declared logical set; `.con` remains the\ndocumented escape hatch, with the rule that escape-hatch reads still appear in a `Requires`.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/dataset.py::Dataset": {
+      "decorators": [],
+      "doc": "One bound file: reads validated against the file's OWN shape, queries served by vintage.\n\nNot a context manager by accident \u2014 it IS one (`with dataset.bind(...) as ds:`), and `.con`\nstays public as the documented escape hatch for hand-written aggregate SQL (whose reads must\nstill appear in the consumer's `Requires`, where CI can see them).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/dataset.py::Dataset.__enter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> 'Dataset'"
+    },
+    "Schema/dataset.py::Dataset.__exit__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *exc) -> None"
+    },
+    "Schema/dataset.py::Dataset.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, path: str, family, con: sqlite3.Connection, schema_id: str, source: str, shape: dict)"
+    },
+    "Schema/dataset.py::Dataset.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Schema/dataset.py::Dataset.close": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Schema/dataset.py::Dataset.has": {
+      "decorators": [],
+      "doc": "Does THIS file's shape carry `table` (and `cols`, when given)?\n\nThis replaces ad-hoc `PRAGMA table_info` probes: the bound shape already knows, and it\nknows for a committed historical vintage even before the file is touched.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, table: str, cols=()) -> bool"
+    },
+    "Schema/dataset.py::Dataset.negotiate": {
+      "decorators": [],
+      "doc": "Probe-and-pick over a capability ladder \u2014 see `Schema.capability`.\n\nReturns the chosen `Capability` (carry `capability.provenance(cap)` into whatever you\nemit) or raises `NoSourceAvailable` naming everything tried.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, ladder, run_id: int | None=None, extra=())"
+    },
+    "Schema/dataset.py::Dataset.query": {
+      "decorators": [],
+      "doc": "Run a NAMED query, served by whichever SQL matches this file's vintage.\n\nResolution: an `override(...)` registered for this schema id wins; else the canonical\nSQL runs if the bound shape carries the tables/columns it declares; else\n`UnsupportedQuery` names the (id, query) pair.  Missing OPTIONAL logical columns are\nfilled with their declared defaults, so the output contract is identical on every\nvintage that can be served at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str, **params)"
+    },
+    "Schema/dataset.py::Dataset.read": {
+      "decorators": [],
+      "doc": "Rows from one table, identifiers validated against the bound shape.\n\n`table`/`cols`/`order_by` columns must exist in THIS file's shape \u2014 a typo or a\nwrong-vintage read fails by name at the call site instead of returning silent defaults.\n`where` stays a caller-written parameterized fragment: the expressive part of SQL is\nnever generated here (see the module docstring's SQL POLICY).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, table: str, cols, where: str='', params=(), order_by: str='')"
+    },
+    "Schema/dataset.py::DatasetError": {
+      "decorators": [],
+      "doc": "Base for dataset-binding and named-query failures.",
+      "kind": "class",
+      "signature": "(_identity.SchemaError)"
+    },
+    "Schema/dataset.py::Query": {
+      "decorators": [
+        "dataclass(frozen=True, eq=False)"
+      ],
+      "doc": "One named read: hand-written SQL whose OUTPUT columns are a stable logical vocabulary.\n\n`columns` is the contract consumers bind to \u2014 every override must yield exactly the same set.\n`optional` maps logical names that may be absent on some vintages to their default value;\nthe canonical/override SQL simply omits them and `Dataset.query` fills the default, which is\nthe registry form of the loaders' `row.keys()` guards.  `tables` names what the CANONICAL\nsql touches, so servability can be answered from the bound shape without parsing SQL.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/dataset.py::UnsupportedQuery": {
+      "decorators": [],
+      "doc": "No canonical or override SQL can serve this (schema id, query) pair.\n\nRaised instead of guessing: a query silently served by SQL written for a different shape is\nthe plausible-wrong-number failure this whole layer exists to prevent.",
+      "kind": "class",
+      "signature": "(DatasetError)"
+    },
+    "Schema/dataset.py::UnsupportedQuery.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, query: str, schema: str, detail: str='')"
+    },
+    "Schema/dataset.py::_q": {
+      "decorators": [],
+      "doc": "Double-quote a VALIDATED identifier.  Validation happened against the bound shape, so the\nonly job left is quoting; embedded quotes cannot occur in a name the shape store accepted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(identifier: str) -> str"
+    },
+    "Schema/dataset.py::bind": {
+      "decorators": [],
+      "doc": "Open `path` read-only and bind it to ITS OWN schema version.\n\nResolution is stamped -> pinned -> derived (`identity.resolve`); an id the family does not\nvet raises `UnsupportedSchema` with the structural diff, exactly like `identity.check`.  The\nbound shape is the file's own \u2014 the declared shape when the id is current, else the committed\ndocument (`UnrecoverableShape` if the store lacks it, which the write-time gates now prevent).\n\n`requires` (a `compat.Requires`) is validated against the BOUND shape at bind time, so a\nconsumer fails at open with the missing column named, not mid-analysis with a default 0.0.\n`immutable=True` is for finished archives only \u2014 it skips WAL sidecar creation but the caller\nmust promise nothing is writing (see `Schema.connect.read_only`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, family: str, *, requires=None, pinned: str | None=None, verify: bool=True, immutable: bool=False) -> 'Dataset'"
+    },
+    "Schema/dataset.py::override": {
+      "decorators": [],
+      "doc": "Register a per-vintage variant.  `schema_ids` may be one id or an iterable.\n\nThe override's SQL must yield the query's exact logical column set minus any `optional`\nnames it cannot supply \u2014 `Dataset.query` fills those defaults.  Enforced at call time (the\nrow keys are checked against the contract) and by the registry tests.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, query_name: str, schema_ids, sql: str) -> None"
+    },
+    "Schema/dataset.py::queries_for": {
+      "decorators": [],
+      "doc": "Registered query names for one family, sorted \u2014 the discoverable read surface.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str) -> tuple"
+    },
+    "Schema/dataset.py::register_query": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(q: Query) -> Query"
+    },
+    "Schema/hook_check.py": {
+      "decorators": [],
+      "doc": "hook_check.py \u2014 Stop-hook backstop that nudges a DB-shape store sync on drift.\n\nWired via .claude/settings.json (Stop hook), beside Optimization/runschema/hook_check.py \u2014 the\nsame bargain for the OTHER contract.  It compares the DDL source fingerprint recorded in\n``Schema/shapes/INDEX.json`` against the working tree and stats the per-family committed\ndocuments.  It NEVER imports the writers (that pulls ~1350 modules, matplotlib and pandas\nincluded) and ALWAYS exits 0: advisory, never blocking, never slow.\n\nThe nag it prints is the whole point.  A DDL edit that ships without ``--sync`` opens the\nwindow `Schema.compat.UncommittedShape` documents: the new shape is unrecoverable at the next\nchange, and the outgoing one silently orphans the archive.  Catching it at the END OF THE TURN\nthat edited the DDL costs one line; catching it at the next run's precheck costs a blocked run;\ncatching it at analysis time costs an unreadable archive.\n\nRun standalone:  python Schema/hook_check.py",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/hook_check.py::_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "Schema/hook_check.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
     },
     "Schema/identity.py": {
       "decorators": [],
@@ -6098,7 +6471,7 @@
     },
     "Schema/identity.py::read_stamp": {
       "decorators": [],
-      "doc": "The id a writer recorded, or None.\n\nNone is the expected answer for every file written before its family was stamped \u2014 that is\nthe normal path into derivation, not an error.",
+      "doc": "The id a writer recorded, or None.\n\nNone is the expected answer for every file written before its family was stamped \u2014 that is\nthe normal path into derivation, not an error.\n\nA family with no meta table but a `stamp_reader` (sim_db: the stamp is a\n`simulation_runs.sim_schema_id` column value) answers through that callable, guarded the same\nway \u2014 any sqlite error means \"pre-stamp file\", never a failure.",
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, family: Family) -> str | None"
@@ -6206,6 +6579,68 @@
       "is_async": false,
       "kind": "function",
       "signature": "(statements) -> dict"
+    },
+    "Schema/store_index.py": {
+      "decorators": [],
+      "doc": "store_index.py \u2014 the mutable head of the committed shape store, and its change trigger.\n\n`Schema/shapes/<family>/<short>.json` documents are IMMUTABLE (filename = content hash).  Mutable\nstate \u2014 which declared id each family currently has, and a cheap trigger for \"did a DDL source\nchange since the store was last synced\" \u2014 needs somewhere else to live.  This is that somewhere:\n``Schema/shapes/INDEX.json``, the exact division of labour ``Optimization/schemas/run_tree/``\nuses (immutable documents + a mutable INDEX carrying `head` and `source_fingerprint`).\n\nTwo consumers, with opposite budgets:\n\n  * ``scripts/schema_report.py --sync`` \u2014 the ONLY writer.  It has every family imported, so it\n    can compute declared ids; it records them plus the fingerprint after committing shapes.\n  * ``Schema/hook_check.py`` \u2014 a Stop hook that must NOT import the writers (importing them pulls\n    ~1350 modules, matplotlib and pandas included).  It compares the fingerprint and stats the\n    per-family documents, nothing more.  The fingerprint is a cheap TRIGGER, not proof: a\n    docstring edit trips it, and the nag says \"run --sync\", which is idempotent and settles it.\n\nWHY THE FINGERPRINT IS COPIED, NOT IMPORTED\n-------------------------------------------\n``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, but importing it\nhere is `schema -> optimization` \u2014 forbidden by `context/architecture.yml`, and enforced by\n`Tests/architecture/test_schema_compatibility.py::test_the_schema_package_imports_nothing_above_its_own_layer`.\nPaths-as-strings are data, not imports (the precedent is `contract.SHAPE_SOURCES` itself, which\nlists files across four layers).  A test keeps the copy honest by comparing the two algorithms on\nidentical input.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/store_index.py::DDL_SOURCES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('Optimization/persistence/Picking_Data.py', 'Optimization/persistence/Warehouse_Data.py', 'Optimization/persistence/runtime_metrics.py', 'Visualization/cache_schema.py', 'Warehouse/generation/gene..."
+    },
+    "Schema/store_index.py::INDEX_PATH": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_HERE, 'shapes', 'INDEX.json')"
+    },
+    "Schema/store_index.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Schema/store_index.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
+    },
+    "Schema/store_index.py::read_index": {
+      "decorators": [],
+      "doc": "The committed INDEX, or None when the store has never been synced.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict | None"
+    },
+    "Schema/store_index.py::source_fingerprint": {
+      "decorators": [],
+      "doc": "Hash of every DDL-defining source file (path + content), in declared order.\n\nSame algorithm as ``runschema.contract.source_fingerprint`` (copied \u2014 see the module\ndocstring for why importing it is illegal): line endings normalised to \\n so a CRLF<->LF\nrewrite is not a structural change, and a missing file contributes a MISSING marker so a\nDELETED source is detected instead of silently matching.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str=_REPO_ROOT) -> str"
+    },
+    "Schema/store_index.py::stale_reasons": {
+      "decorators": [],
+      "doc": "Cheap staleness findings for the hook \u2014 NO writer imports, file hashes and stats only.\n\nReturns human-readable reasons (empty = quiet).  Each names the remedy, which is always the\nsame idempotent command; deciding whether the trip was a real shape change or a docstring\nedit is --sync's job, not the hook's.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list[str]"
+    },
+    "Schema/store_index.py::write_index": {
+      "decorators": [],
+      "doc": "Record `{family: declared_id}` plus the current fingerprint.  Atomic (tmp + os.replace).\n\nOnly ``scripts/schema_report.py --sync`` calls this \u2014 it is the one place that has every\nfamily imported and every declared shape freshly committed.  Everything else treats INDEX as\nread-only evidence.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(families: dict) -> str"
     },
     "Visualization/__init__.py": {
       "decorators": [],
@@ -6412,10 +6847,10 @@
     },
     "Visualization/db_reader.py::_nearest_warehouse_db": {
       "decorators": [],
-      "doc": null,
+      "doc": "The warehouse.db an arm was simulated against.\n\nWith a resolver (`rt` + the arm's cell/pair), the contract answers directly:\n``rt.warehouse_db(cell, pair)``.  The walk-up below is the documented NO-CONTRACT fallback \u2014\nlegacy runs have no descriptor, so the nearest `warehouse.db` on the ancestor chain is the\nbest available guess.  It is kept even when the resolver path misses, because a hand-arranged\ntree (an arm copied out for inspection) answers only to the walk.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_db: str) -> str | None"
+      "signature": "(sim_db: str, rt=None, cell: str | None=None, pair: str | None=None) -> str | None"
     },
     "Visualization/db_reader.py::_pinned_schema_id": {
       "decorators": [],
@@ -6468,16 +6903,23 @@
     },
     "Visualization/db_reader.py::viz_cache_path": {
       "decorators": [],
-      "doc": "Where the derived sidecar for one arm lives.\n\n``<run_root>/_viz/<cell>/<pair>/<config>[/<channel>]/<arm>.viz.db`` \u2014 under the driver's\nreserved ``_`` prefix (``runschema.schema.RESERVED_PREFIX``), which every tree walker skips.\n\nNOT ``sim_<arm>.viz.db`` beside the sim DB: that name satisfies all three predicates of\n``runlayout._sim_dbs_in`` (starts with ``sim_``, ends ``.db``, does not end\n``.keyframes.db``), so it would surface as an extra ARM through ``resolver.sim_dbs()`` and\ncrash ``Diagnostics/replay_run.py`` on a table it does not have.",
+      "doc": "Where the derived sidecar for one arm lives.\n\n``<run_root>/_viz/<cell>/<pair>/<config>[/<channel>]/<arm>.viz.db`` \u2014 under the driver's\nreserved ``_`` prefix (``runschema.schema.RESERVED_PREFIX``), which every tree walker skips.\nThe sidecar is DECLARED in the run-tree contract (`viz_cache_db`), so with a resolver the\ntemplate comes from the run's own schema document; the hand-join below is the documented\nNO-CONTRACT fallback for legacy trees, kept byte-identical to what the template renders.\n\nNOT ``sim_<arm>.viz.db`` beside the sim DB: that name satisfies all three predicates of\n``runlayout._sim_dbs_in`` (starts with ``sim_``, ends ``.db``, does not end\n``.keyframes.db``), so it would surface as an extra ARM through ``resolver.sim_dbs()`` and\ncrash ``Diagnostics/replay_run.py`` on a table it does not have.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir: str, cell: str, pair: str, config: str, channel: str | None, strategy: str) -> str"
+      "signature": "(base_dir: str, cell: str, pair: str, config: str, channel: str | None, strategy: str, rt=None) -> str"
     },
     "Visualization/precompute.py": {
       "decorators": [],
       "doc": "precompute.py \u2014 build the derived viewer sidecar for one or more arms.\n\n    python -m Visualization.precompute \"<run_root>\" --cell k1_off_rr --config store \\\n           --channel store --arms uni_fifo_norsl,opt_rank_labor_norsl\n\nEverything it writes is derived from the sim + keyframe DBs; deleting `_viz/` costs time, never\ndata. Filters are not a convenience \u2014 a full sweep is up to 272 arms, so the default is \"the arms\nyou name\", never \"everything\".\n\nCost per arm is dominated by two sequential passes:\n\n  * `picks` (~3.1 M rows) -> `sku_rank`, `sku_series`, per-aisle pick counts, per-bin depletion\n  * the bin-mutation LOG (~2.2 M rows) -> `bin_span`, occupancy, `final_home`\n\nBoth are single ordered scans over an existing index. The log pass reads `bin_placement` and\n`bin_eviction` in `(run_id, batch_id, seq)` order \u2014 their PK \u2014 and the picks pass takes no\n`ORDER BY` at all, because neither has an index on `aisle_id` and asking for one would add a\nmulti-million-row temp sort for nothing.\n\nTwo span sources, and the sidecar records which one it used\n-----------------------------------------------------------\n`bin_placement + bin_eviction + picks` is the complete bin-mutation record, so folding it gives\nthe simulation's own bin state at EVERY batch (`Tests/integration/test_bin_log_replay.py` proves\nthis against a live sim). Arms written before the log existed \u2014 every arm of the current archive \u2014\nfall back to `_keyframe_pass`, whose spans are exact only on the keyframe grid, which is the old\ncontract (`RECONSTRUCTION.md` \u00a71). `cache_meta.span_source` says which, and the reader will only\nreport `exact` off the keyframe grid for the first.\n\nMust not import flask: this runs under the bare repo interpreter.",
       "kind": "module",
       "signature": null
+    },
+    "Visualization/precompute.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='Visualization precompute (raw sidecar builder)', tables={'picks': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity'), 'batch_stats': ('ru..."
     },
     "Visualization/precompute.py::_BATCH": {
       "decorators": [],
@@ -11018,14 +11460,14 @@
     },
     "docs/experiments/ingest.py::_cell_inventory_configs": {
       "decorators": [],
-      "doc": "(run_manifest|None, inventories, configs) for one cell \u2014 manifest first, experiment.yml next.",
+      "doc": "(run_manifest|None, inventories, configs) for one cell \u2014 manifest first, experiment.yml next.\n\nThe manifest's location comes from the contract (`run_manifest`) when the run has one; the\nliteral join stays for pre-descriptor sources and single-cell invocations.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell_dir, exp_dir, ymldoc, log)"
+      "signature": "(cell_dir, exp_dir, ymldoc, log, rt=None, cell=None)"
     },
     "docs/experiments/ingest.py::_cells_of": {
       "decorators": [],
-      "doc": "[(cell_name, cell_dir), \u2026] for a run root, plus the run's tree schema id.\n\nUses the versioned run-tree resolver.  When the descriptor is missing (a pre-v1 run, or a\nsingle CELL directory passed the old way), fall back to treating `source` itself as one cell\nso an existing workflow still stages \u2014 but say so, because the cell name then comes from the\ndirectory name rather than the run.",
+      "doc": "(resolver|None, [(cell_name, cell_dir), \u2026], schema_id|None) for a run root.\n\nUses the versioned run-tree resolver, and hands it back so every later lookup (run_spec,\nrun_manifest, figures, what-if outputs) resolves through the run's OWN contract.  When the\ndescriptor is missing (a pre-v1 run, or a single CELL directory passed the old way), fall\nback to treating `source` itself as one cell so an existing workflow still stages \u2014 but say\nso, because the cell name then comes from the directory name rather than the run.",
       "is_async": false,
       "kind": "function",
       "signature": "(source, log)"
@@ -11039,17 +11481,24 @@
     },
     "docs/experiments/ingest.py::_find": {
       "decorators": [],
-      "doc": "First path matching `name` anywhere under `root` (run_analysis nests PNGs in\ncompare/top, compare/breakdown, compare/overlay, \u2026).",
+      "doc": "First path matching `name` anywhere under `root` (run_analysis nests PNGs in\ncompare/top, compare/breakdown, compare/overlay, \u2026).\n\nThe NO-CONTRACT lookup: pre-descriptor runs and the profiles tree (which has no run-tree\ncontract at all) resolve through this walk.  Runs with a descriptor resolve through\n`_leaf_file` instead.",
       "is_async": false,
       "kind": "function",
       "signature": "(root, name)"
     },
-    "docs/experiments/ingest.py::_repo_provenance_of": {
+    "docs/experiments/ingest.py::_leaf_file": {
       "decorators": [],
-      "doc": "(commit, dirty) for a run root \u2014 the simulator CODE that produced it.\n\nRead from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the\nonly file on a run that distinguishes two runs of the same tree and the same tables from\ndifferent code.  Runs made before the stamp existed have no such keys and yield\n``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than\nquietly dropped.",
+      "doc": "One curated file at a (cell, inventory, config) leaf, or None if absent.\n\nWith a resolver, `config.json` is the contract's `config_json` artifact, and a figure is\nlooked up inside the CONTRACT-RESOLVED channel-run leaf (`rt.channel_runs`) \u2014 the resolver\nconsumes the `<channel>` level, so this function never has to guess whether one exists.  The\nbasename search WITHIN the leaf stays a walk on purpose: which subtree a curated figure sits\nin (compare/top, compare/faceted, \u2026) is analysis-output nesting the docs deliberately\nflatten, not a run-tree level \u2014 and it keeps the pick identical, e.g.\nproduction_time_over_time.png exists under both compare/faceted/ and compare/overlay/ and\nevery committed snapshot staged the faceted copy (f < o in the walk).  Without a resolver\n(pre-descriptor run, `--source` at a single cell dir) or for a leaf not yet finalized,\n`_find` over the config dir is the unchanged fallback.",
       "is_async": false,
       "kind": "function",
-      "signature": "(source, log)"
+      "signature": "(rt, cell, inv, cfg, name, cfg_src)"
+    },
+    "docs/experiments/ingest.py::_repo_provenance_of": {
+      "decorators": [],
+      "doc": "(commit, dirty) for a run root \u2014 the simulator CODE that produced it.\n\nRead from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the\nonly file on a run that distinguishes two runs of the same tree and the same tables from\ndifferent code.  Runs made before the stamp existed have no such keys and yield\n``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than\nquietly dropped.  With a resolver the location comes from the contract (`run_spec`); the\nliteral join stays for pre-descriptor sources.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(source, log, rt=None)"
     },
     "docs/experiments/ingest.py::_short_key": {
       "decorators": [],
@@ -11060,17 +11509,17 @@
     },
     "docs/experiments/ingest.py::_stage_inventory_assets": {
       "decorators": [],
-      "doc": "params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.",
+      "doc": "params.json + the inventory distribution plots, located via a sim_meta.json's inv_db path.\n\nOnly the sim_meta lookup is contract-resolvable (`sim_meta`, first leaf of this pair).  The\n`inv_root` lookups below stay on `_find`: they walk the PROFILES tree on the input drive,\nwhich has no run-tree contract at all.",
       "is_async": false,
       "kind": "function",
-      "signature": "(inv_src, inv, exp_dir, args, inv_plots, log)"
+      "signature": "(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None)"
     },
     "docs/experiments/ingest.py::_stage_whatif": {
       "decorators": [],
-      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.",
+      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's `whatif` group tag\n(`rt.whatif_outputs()` \u2014 a new group member surfaces here with no edit); what is STAGED stays\nthe docs' own selection (DEFAULT_WHATIF_DATA + the PNG set).  The literal joins below remain\nthe pre-descriptor route.",
       "is_async": false,
       "kind": "function",
-      "signature": "(source, exp_dir, dry, log)"
+      "signature": "(source, exp_dir, dry, log, rt=None)"
     },
     "docs/experiments/ingest.py::_write_starter_manifest": {
       "decorators": [],
@@ -11105,6 +11554,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "{}"
+    },
+    "docs/macros.py::_verify_manifest_schema": {
+      "decorators": [],
+      "doc": "Check the experiment's recorded run-tree contract still matches the macros' path scheme.\n\n``ingest.py`` stamps the source run's ``schema_id`` into ``experiment.yml`` \u2014 the content\naddress of the run-tree contract the staged snapshot was pulled from\n(``Optimization/schemas/run_tree/<short>.json``).  Every image path a macro constructs is\n``images/<run>/<inv>/<cfg>/\u2026``, i.e. the contract's three REQUIRED levels\n(cell/pair/config) with the optional ``<channel>`` flattened away by ingest.  If a future\ncontract changes those levels, snapshots staged from it no longer mean what these paths say \u2014\nso fail the build LOUDLY here, naming the schema, instead of rendering pages whose figures\nsilently come from somewhere else.  Manifests without a ``schema_id`` (Experiments 1\u20135\npredate the stamp) are exempt: nothing was recorded, so there is nothing to verify.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(manifest, docs_dir, exp)"
     },
     "docs/macros.py::define_env": {
       "decorators": [],
@@ -11213,7 +11669,7 @@
     },
     "docs/macros.py::define_env._manifest": {
       "decorators": [],
-      "doc": "The parsed experiment.yml for the current page's experiment, or None (legacy).",
+      "doc": "The parsed experiment.yml for the current page's experiment, or None (legacy).\n\nIn manifest mode the manifest's recorded `schema_id` (if any) is verified against the\ncommitted run-tree contract ONCE per experiment per build \u2014 a mismatch raises, which\n`mkdocs build --strict` turns into a build failure.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -11443,10 +11899,10 @@
     },
     "scripts/archive_cells.py::_in_flight": {
       "decorators": [],
-      "doc": "resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.",
+      "doc": "resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.\n\nThe names come from the CONTRACT (`resume_pkl` / `checkpoint_pkl`), not from hardcoded\nliterals: preflight declared both transients, so renaming either in schema.py moves this\nprobe with it instead of silently blinding it.  Returned as sorted cell-relative paths, the\nsame shape the old cell walk produced.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell_dir: str) -> list"
+      "signature": "(rt, cell: str) -> list"
     },
     "scripts/archive_cells.py::_quick_check": {
       "decorators": [],
@@ -11621,12 +12077,33 @@
       "signature": null,
       "value_preview": "('Optimization.persistence.Picking_Data', 'Optimization.persistence.Warehouse_Data', 'Optimization.persistence.runtime_metrics', 'Visualization.cache_schema', 'Warehouse.generation.generate_invento..."
     },
-    "scripts/schema_report.py::adopt": {
+    "scripts/schema_report.py::_KNOWN_IDS_RE": {
       "decorators": [],
-      "doc": "Report every committed shape no family vets any more - the outgoing shapes to adopt.\n\nExit 1 when there is something to adopt, so a hook or CI can catch a DDL change that shipped\nwithout its `known_ids` entry.",
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "re.compile('known_ids\\\\s*=\\\\s*\\\\((?P<body>[^)]*)\\\\)', re.S)"
+    },
+    "scripts/schema_report.py::_apply_known_ids": {
+      "decorators": [],
+      "doc": "Write the `known_ids` adoption edit into the family's own source file.\n\nThe same bargain as `preflight --apply` (which inserts observed ARTIFACTS entries): the\nMECHANICAL half is automated, the JUDGEMENT half is left loud \u2014 every inserted id carries a\n`TODO(schema-adopt)` comment the human replaces with the commit window it covers.\n\nSafety: locate the file via `inspect.getsourcefile(fam.declared_shape)` (the declaration and\nthe registration live together, by convention and by test); refuse on zero or multiple\n`known_ids=` matches inside the family's registration block; `ast.parse` the edited source\nbefore writing a byte.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family_name: str, orphans: list, out=print) -> bool"
+    },
+    "scripts/schema_report.py::accept": {
+      "decorators": [],
+      "doc": "`adopt --apply` then `sync`: the one-command close of a DDL change.\n\nOrder is load-bearing: `--apply` EDITS a DDL source file, so the fingerprint must be recorded\nAFTER it (a sync-first ordering would record a fingerprint the apply immediately staled).\nExit is `adopt`'s exit - 1 means something was adopted and the TODO comments now need filling.",
       "is_async": false,
       "kind": "function",
       "signature": "(out=print) -> int"
+    },
+    "scripts/schema_report.py::adopt": {
+      "decorators": [],
+      "doc": "Report every committed shape no family vets any more - the outgoing shapes to adopt.\n\nExit 1 when something needed adopting, so a hook or CI can catch a DDL change that shipped\nwithout its `known_ids` entry.  With `apply`, the tuple edit is WRITTEN into the family's\nsource (TODO-marked); the human keeps the commit-window comment and the commit itself.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out=print, apply: bool=False) -> int"
     },
     "scripts/schema_report.py::capture": {
       "decorators": [],

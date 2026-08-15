@@ -80,6 +80,7 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import connect as _connect
 from Schema import shape as _shape
@@ -162,7 +163,8 @@ def _init_db(db_path: str) -> sqlite3.Connection:
     conn.execute('PRAGMA temp_store=MEMORY')
     for stmt in _ALL_DDL:
         conn.executescript(stmt)
-    _identity.stamp(conn, AFFINITY_DB_FAMILY)
+    # STRICT: interactive data-gen CLI — see generate_inventory._init_db for the reasoning.
+    _compat.stamp_checked(conn, AFFINITY_DB_FAMILY, strict=True)
     conn.commit()
     return conn
 

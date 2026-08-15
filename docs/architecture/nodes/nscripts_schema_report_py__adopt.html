@@ -14,12 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>adopt</code></h1>
 <p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_schema_report_py.html"><code>scripts/schema_report.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def adopt(out=print) -&gt; int</code></pre>
+<pre class="sig"><code>def adopt(out=print, apply: bool=False) -&gt; int</code></pre>
 <section class="doc">Report every committed shape no family vets any more - the outgoing shapes to adopt.
 
-Exit 1 when there is something to adopt, so a hook or CI can catch a DDL change that shipped
-without its `known_ids` entry.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nSchema_compat_py__SHAPES_DIR.html"><code>SHAPES_DIR</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_identity_py__families.html"><code>families</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__get.html"><code>get</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nscripts_schema_report_py__import_families.html"><code>import_families</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_schema_report_py__main.html"><code>main</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section>
+Exit 1 when something needed adopting, so a hook or CI can catch a DDL change that shipped
+without its `known_ids` entry.  With `apply`, the tuple edit is WRITTEN into the family&#x27;s
+source (TODO-marked); the human keeps the commit-window comment and the commit itself.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nSchema_compat_py__SHAPES_DIR.html"><code>SHAPES_DIR</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_identity_py__families.html"><code>families</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nSchema_identity_py__get.html"><code>get</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nscripts_schema_report_py___apply_known_ids.html"><code>_apply_known_ids</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__import_families.html"><code>import_families</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nscripts_schema_report_py__accept.html"><code>accept</code></a> <span class="dim">scripts/schema_report.py</span></li><li><a href="nscripts_schema_report_py__main.html"><code>main</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_schema_report_py__adopt">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/schema_report.py#:~:text=def%20adopt">Source ↗</a></p>
 </article>
 </main>

@@ -32,6 +32,13 @@ What this file locks in
   * `--sync` / `--adopt` keep the store complete MECHANICALLY. Committing the declared shape while
     it is still current is what stops the next DDL change from losing the outgoing one, and
     `--adopt` is what notices when a change shipped without its `known_ids` entry;
+  * the WRITE side imposes all of that at the writer. `stamp_checked` stamps FIRST and verifies
+    the store after (warn-once inside a sweep, `UncommittedShape` under `strict`); a
+    `stamp_reader` family resolves 'stamped' without a meta table and falls through to derivation
+    on a pre-stamp file; `Schema/shapes/INDEX.json` stays current with the DDL sources it
+    fingerprints; `--adopt --apply` / `--accept` land the outgoing id FIRST and TODO-marked, in
+    an order that records the fingerprint AFTER the source edit; and the Stop hook that nags
+    about all of it is wired and always exits 0;
   * **the completeness gate** — a `Requires` must name everything its loaders actually READ.
     `compat.validate()` only proves the declaration stays INSIDE the guaranteed surface, which on
     its own is the wrong direction: an empty `Requires` passes it perfectly. Two real
@@ -48,6 +55,8 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import importlib.util
+import inspect
 import json
 import os
 import re
@@ -59,12 +68,15 @@ import pytest
 
 # Importing the writers is what populates the registry — Schema/ imports no writer, so a family
 # exists only once its own module has been loaded.  Same list, and the same reason, as
-# `test_schema_identity`; `Performance_Evaluations.core.context` is here as a CONSUMER, for its
-# `REQUIRES` declaration rather than for a family.
+# `test_schema_identity`; `Performance_Evaluations.core.context` and the three cross-cell what-if
+# CLIs are here as CONSUMERS, for their `REQUIRES` declarations rather than for a family.
+from Optimization import run_whatif_delta, run_whatif_labor, run_whatif_volume  # noqa: F401
 from Optimization.Performance_Evaluations.core import context as eval_context
+from Visualization import precompute as viz_precompute  # noqa: F401 - consumer, for REQUIRES
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
-from Schema import capability, compat, identity, shape
+from Schema import capability, compat, identity, shape, store_index
 from Visualization import cache_schema  # noqa: F401
+from Visualization.readers import fingerprint as viz_fingerprint
 from Warehouse.generation import generate_affinity, generate_inventory  # noqa: F401
 
 # `scripts/` is a namespace package under the repo root that `Tests/conftest.py` already puts on
@@ -94,6 +106,10 @@ MULTI_VINTAGE = {'sim_db', 'runtime_metrics_db', 'warehouse_db'}
 DECLARED_CONSUMERS = {
     ('Optimization/persistence/Picking_Data.py', 'REQUIRES'): Picking_Data.REQUIRES,
     ('Optimization/Performance_Evaluations/core/context.py', 'REQUIRES'): eval_context.REQUIRES,
+    ('Optimization/run_whatif_delta.py', 'REQUIRES'): run_whatif_delta.REQUIRES,
+    ('Optimization/run_whatif_labor.py', 'REQUIRES'): run_whatif_labor.REQUIRES,
+    ('Optimization/run_whatif_volume.py', 'REQUIRES'): run_whatif_volume.REQUIRES,
+    ('Visualization/precompute.py', 'REQUIRES'): viz_precompute.REQUIRES,
 }
 
 #: The declaration is a constructor call, which makes it greppable — and worth keeping that way.
@@ -1263,11 +1279,15 @@ def test_sync_commits_every_declared_shape_and_then_writes_nothing(tmp_path, mon
         f'the first sync must commit exactly one declared shape per family: {sorted(writes)}')
 
     # Every family's declared id now HAS a document, and it is the shape the writer's DDL builds.
+    # Sync's guarantee is exactly the DECLARED shape — HISTORICAL ids (keyframes_db has one since
+    # the stamp-table adoption) live in the real store and are legitimately absent from this
+    # tmp store, so the assertion is "declared is never among the unrecoverable", not "nothing is".
     for name in sorted(EXPECTED_FAMILIES):
         fam = identity.get(name)
         assert compat.load_shape(name, fam.declared_id()) == fam.declared_shape(), (
             f'{name}: the committed declared shape is not what the writer declares')
-    assert compat.unrecoverable_ids('keyframes_db') == (), 'a synced family must be recoverable'
+        assert fam.declared_id() not in compat.unrecoverable_ids(name), (
+            f'{name}: the declared shape is unrecoverable immediately after a sync')
 
     snapshot = _store_snapshot(tmp_path)
     assert len(snapshot) == len(EXPECTED_FAMILIES), sorted(snapshot)
@@ -1509,3 +1529,640 @@ def test_a_legacy_column_alias_is_read_but_exists_in_no_vetted_shape():
     assert not stale, (
         f'{stale} is exempted but no loader reads it any more. Drop the entry: an exemption for a '
         f'read that no longer exists is a hole waiting for a column of the same name.')
+
+
+# ── the write side: stamping, the INDEX head, adoption, and the hook ─────────────
+# Everything above answers the READER's question — may this consumer read that file.  This
+# section locks in the machinery that keeps the store worth reading FROM THE WRITER'S END:
+# `stamp_checked` at DB creation, `store_index`'s cheap fingerprint trigger, `--apply`/`--accept`
+# mechanical adoption, and the Stop hook that nags when any of it is skipped.  Nothing here opens
+# the real store for WRITING: probes run over tmp_path, and the real-store tests only read.
+
+_PROBE_META_FAMILY = 'probe_meta_db'      # a probe family that stamps into a schema_meta table
+_PROBE_APPLY_FAMILY = 'probe_apply_db'    # a probe whose SOURCE FILE the --apply tests edit
+
+
+def _register_meta_probe(monkeypatch, tmp_path):
+    """`_register_probe`, but for a family that stamps into a `schema_meta` meta table.
+
+    A separate registry name so the two probes cannot shadow each other inside one test, and so
+    `monkeypatch.setitem` restores each independently.
+    """
+    monkeypatch.setattr(compat, 'SHAPES_DIR', str(tmp_path))
+    fam = identity.Family(name=_PROBE_META_FAMILY, declared_shape=_probe_shape,
+                          meta_table='schema_meta')
+    monkeypatch.setitem(identity._REGISTRY, _PROBE_META_FAMILY, fam)
+    return fam
+
+
+#: A complete throwaway family MODULE, written to tmp_path so `--apply` has a real source file to
+#: edit that is not in the repo.  `_register` is a stand-in for `identity.register`: executing the
+#: module must mutate no real registry (the entry is `monkeypatch`ed in afterwards), and the
+#: `_register(_identity.Family(...))` wrapping reproduces the `))` block terminator
+#: `_apply_known_ids` scopes its edit with — a bare `Family(...)` would never contain one.
+_APPLY_MODULE_TEMPLATE = '''\
+"""A throwaway family module for the --apply tests.  Written to tmp_path, never to the repo."""
+from Schema import identity as _identity
+from Schema import shape as _shape
+
+
+def _register(fam):
+    """Stands in for `identity.register`, so executing this module mutates no real registry."""
+    return fam
+
+
+def declared_probe_shape():
+    import sqlite3
+    con = sqlite3.connect(':memory:')
+    try:
+        con.execute('CREATE TABLE probe (id INTEGER, kept TEXT, dropped REAL)')
+        return _shape.canonical_shape(con)
+    finally:
+        con.close()
+
+
+PROBE_FAMILY = _register(_identity.Family(
+    name='probe_apply_db',
+    declared_shape=declared_probe_shape,
+{decoy}{known_ids}))
+'''
+
+#: The pre-existing `known_ids` tuple, formatted the way the real registrations format theirs.
+_APPLY_KNOWN_IDS = "    known_ids=('111111111111',\n               ),\n"
+
+
+def _load_apply_module(tmp_path, monkeypatch, *, decoy='', known_ids=_APPLY_KNOWN_IDS):
+    """Exec the throwaway module FROM tmp_path, so `inspect.getsourcefile` resolves there.
+
+    That is the whole trick: `_apply_known_ids` locates the file to edit via the declared-shape
+    callable's own `__code__.co_filename`, so executing the module from tmp_path points the edit
+    at a file this test owns.  The registry entry is `monkeypatch`ed, exactly as
+    `_register_probe` does.
+    """
+    path = tmp_path / 'probe_apply_mod.py'
+    path.write_text(_APPLY_MODULE_TEMPLATE.format(decoy=decoy, known_ids=known_ids),
+                    encoding='utf-8', newline='\n')
+    spec = importlib.util.spec_from_file_location('probe_apply_mod', str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setitem(identity._REGISTRY, _PROBE_APPLY_FAMILY, mod.PROBE_FAMILY)
+    return path, mod
+
+
+def _reexec_apply_module(path):
+    """Execute the (possibly edited) module fresh — the strongest proof an edit means what it
+    says, because the tuple is read back by the Python compiler rather than by a regex."""
+    spec = importlib.util.spec_from_file_location('probe_apply_mod_edited', str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_ddl_sources_covers_every_writer_and_the_report_module_list():
+    """`DDL_SOURCES` is a hand-kept list, and a writer it misses can move a declared id silently.
+
+    The fingerprint in INDEX.json is only a trigger over the files `DDL_SOURCES` names.  A family
+    whose writer is not on the list can change its DDL without ever tripping the hook — the exact
+    window `store_index` exists to close, reopened for one family.  Both rosters are held against
+    it: every registered family's `declared_shape` source, and every module `--report` imports
+    (`schema_report.FAMILY_MODULES`), plus the two Schema modules that define what a shape IS.
+    """
+    assert EXPECTED_FAMILIES and schema_report.FAMILY_MODULES, (
+        'the family roster or the report module list is empty, so this sweep asserts nothing')
+
+    for name in sorted(EXPECTED_FAMILIES):
+        src = inspect.getsourcefile(identity.get(name).declared_shape)
+        assert src, f'{name}: inspect cannot locate the declared_shape source at all'
+        rel = os.path.relpath(os.path.abspath(src), _ROOT).replace(os.sep, '/')
+        assert rel in store_index.DDL_SOURCES, (
+            f'{name}: its declared shape is built in {rel}, which store_index.DDL_SOURCES does '
+            f'not fingerprint — a DDL edit there mints a new id without the hook ever nagging. '
+            f'Add the file to DDL_SOURCES.')
+
+    for mod in schema_report.FAMILY_MODULES:
+        rel = mod.replace('.', '/') + '.py'
+        assert rel in store_index.DDL_SOURCES, (
+            f'{mod} registers a family (it is in schema_report.FAMILY_MODULES) but {rel} is not '
+            f'in store_index.DDL_SOURCES — the two lists must cover the same writers.')
+
+    for rel in ('Schema/shape.py', 'Schema/identity.py'):
+        assert rel in store_index.DDL_SOURCES, (
+            f'{rel} defines what a shape/declaration IS; editing it can move every declared id '
+            f'at once, so it must be fingerprinted too.')
+
+
+def test_source_fingerprint_normalizes_line_endings_and_marks_a_missing_file(tmp_path,
+                                                                             monkeypatch):
+    """A CRLF<->LF rewrite is not a structural change; a DELETED source very much is.
+
+    Git on Windows rewrites line endings at checkout, so hashing raw bytes would trip the hook on
+    every fresh clone — the nag would become noise and be ignored, which is the same as having no
+    hook.  A missing file must contribute a MARKER rather than nothing: hashing absence as empty
+    would let `rm` a DDL source and match the fingerprint of an empty file.
+    """
+    monkeypatch.setattr(store_index, 'DDL_SOURCES', ('src_a.py', 'src_b.py'))
+    roots = {name: tmp_path / name for name in ('crlf', 'lf', 'gone', 'empty')}
+    for root in roots.values():
+        root.mkdir()
+    for name, a_bytes in (('crlf', b'x = 1\r\ny = 2\r\n'), ('lf', b'x = 1\ny = 2\n'),
+                          ('gone', b'x = 1\ny = 2\n'), ('empty', b'x = 1\ny = 2\n')):
+        (roots[name] / 'src_a.py').write_bytes(a_bytes)
+    (roots['crlf'] / 'src_b.py').write_bytes(b'z = 3\n')
+    (roots['lf'] / 'src_b.py').write_bytes(b'z = 3\n')
+    (roots['empty'] / 'src_b.py').write_bytes(b'')           # present but empty
+    # roots['gone'] deliberately has NO src_b.py at all.
+
+    fp_crlf = store_index.source_fingerprint(str(roots['crlf']))
+    fp_lf = store_index.source_fingerprint(str(roots['lf']))
+    assert fp_crlf.startswith('sha256:'), f'the algorithm must be named in the value: {fp_crlf}'
+    assert fp_crlf == fp_lf, (
+        'identical content must fingerprint identically across CRLF and LF, or every Windows '
+        'checkout nags --sync for a change that is not one')
+
+    fp_gone = store_index.source_fingerprint(str(roots['gone']))
+    fp_empty = store_index.source_fingerprint(str(roots['empty']))
+    assert fp_gone != fp_lf, 'a missing source file must change the fingerprint'
+    assert fp_gone != fp_empty, (
+        'missing and empty must fingerprint differently — the MISSING marker is what tells a '
+        'deleted DDL source apart from a truncated one')
+
+    (roots['lf'] / 'src_b.py').write_bytes(b'z = 4\n')
+    assert store_index.source_fingerprint(str(roots['lf'])) != fp_crlf, (
+        'a content change must change the fingerprint — that IS the trigger')
+
+
+def test_write_index_read_index_round_trip_leaves_no_tmp_file(tmp_path, monkeypatch):
+    """The INDEX round-trips through its writer, sorted, fingerprinted, and atomically.
+
+    `os.replace` is what makes a mid-write crash leave the OLD index rather than half of a new
+    one; the observable residue of getting that wrong is a `.tmp` sibling, so its absence is
+    asserted.  Runs against a monkeypatched path — the REAL INDEX.json has exactly one writer
+    (`--sync`) and this test must not become a second.
+    """
+    monkeypatch.setattr(store_index, 'INDEX_PATH', str(tmp_path / 'INDEX.json'))
+    assert store_index.read_index() is None, (
+        'an unsynced store must read as None — that is the "never synced" signal, not an error')
+
+    wrote = store_index.write_index({'zeta_db': 'ffffffffffff', 'alpha_db': '000000000000'})
+    assert wrote == store_index.INDEX_PATH, f'write_index must report where it wrote: {wrote}'
+
+    idx = store_index.read_index()
+    assert idx is not None, 'a freshly written INDEX must read back'
+    assert idx['families'] == {'alpha_db': '000000000000', 'zeta_db': 'ffffffffffff'}, idx
+    assert list(idx['families']) == ['alpha_db', 'zeta_db'], (
+        f'families must be written SORTED so the committed diff is stable: {list(idx["families"])}')
+    assert idx['source_fingerprint'] == store_index.source_fingerprint(), (
+        'the fingerprint recorded must be the one the hook will recompute, or every comparison '
+        'is against a stale baseline')
+    assert not os.path.exists(store_index.INDEX_PATH + '.tmp'), (
+        'a .tmp sibling survived the write — the atomic tmp+os.replace contract is broken')
+
+
+def test_stale_reasons_names_each_drift_and_the_sync_that_settles_it(tmp_path, monkeypatch):
+    """The hook's whole vocabulary: no INDEX, current, fingerprint drift, indexed-but-uncommitted.
+
+    Each reason must name the remedy (`--sync`, which is idempotent), because the nag is all a
+    Stop hook gets to say.  Everything runs over monkeypatched paths — `stale_reasons` stats the
+    store beside `_HERE`, so `_HERE` is pointed at tmp_path and the real store is never consulted.
+    `DDL_SOURCES` entries are ABSOLUTE tmp paths: `os.path.join` discards `repo_root` for an
+    absolute member, which is what lets the fingerprint read tmp files while `stale_reasons`
+    calls `source_fingerprint()` with its baked-in default root.
+    """
+    src = tmp_path / 'ddl_probe.py'
+    src.write_bytes(b'TABLE = 1\n')
+    monkeypatch.setattr(store_index, 'DDL_SOURCES', (str(src),))
+    monkeypatch.setattr(store_index, 'INDEX_PATH', str(tmp_path / 'INDEX.json'))
+    monkeypatch.setattr(store_index, '_HERE', str(tmp_path))
+
+    reasons = store_index.stale_reasons()
+    assert len(reasons) == 1 and 'INDEX.json' in reasons[0] and '--sync' in reasons[0], (
+        f'a store that was never synced must produce exactly one reason naming --sync: {reasons}')
+
+    doc = tmp_path / 'shapes' / _PROBE_FAMILY / 'abcdef123456.json'
+    doc.parent.mkdir(parents=True)
+    doc.write_text('{}', encoding='utf-8')
+    store_index.write_index({_PROBE_FAMILY: 'abcdef123456'})
+    assert store_index.stale_reasons() == [], (
+        'a synced, unchanged store must be QUIET — a hook that nags when nothing is wrong '
+        'trains everyone to ignore it')
+
+    src.write_bytes(b'TABLE = 2\n')
+    reasons = store_index.stale_reasons()
+    assert len(reasons) == 1 and 'source changed' in reasons[0] and '--sync' in reasons[0], (
+        f'editing a DDL source must produce exactly the drift reason: {reasons}')
+    src.write_bytes(b'TABLE = 1\n')
+    assert store_index.stale_reasons() == [], (
+        'restoring the source byte-identical must silence the drift reason — proof the trip '
+        'really was the content')
+
+    os.remove(doc)
+    reasons = store_index.stale_reasons()
+    assert len(reasons) == 1 and _PROBE_FAMILY in reasons[0] and 'abcdef123456' in reasons[0] \
+        and '--sync' in reasons[0], (
+        f'an indexed id with no committed document must be reported BY FAMILY and id: {reasons}')
+
+
+def test_the_committed_index_is_current_with_the_tree():
+    """THE gate for the real INDEX.json: a DDL edit that skipped `--sync` fails here.
+
+    The hook is advisory and a nag can be ignored; this is the CI backstop behind it.  Three
+    claims, each read straight off the real (read-only) store: the INDEX exists, its fingerprint
+    matches the working tree's DDL sources, and every indexed `family: id` names a committed
+    document that is that family's CURRENT declared id.
+    """
+    idx = store_index.read_index()
+    assert idx is not None, (
+        'Schema/shapes/INDEX.json does not exist — run `python scripts/schema_report.py --sync` '
+        'and commit the result')
+    assert idx.get('source_fingerprint') == store_index.source_fingerprint(), (
+        'a DDL-defining source changed since the store was last synced (see '
+        'store_index.DDL_SOURCES). Run `python scripts/schema_report.py --sync`; if --adopt then '
+        'reports an outgoing shape, add it to known_ids (or run --accept).')
+
+    families = idx.get('families') or {}
+    assert set(families) == EXPECTED_FAMILIES, (
+        f'INDEX.json indexes {sorted(families)} but the registry holds '
+        f'{sorted(EXPECTED_FAMILIES)} — run --sync so the head covers every family.')
+    for family, sid in sorted(families.items()):
+        assert os.path.isfile(compat.shape_path(family, sid)), (
+            f'{family}: INDEX.json says the declared shape is {sid}, but no committed document '
+            f'exists for it — the head points at nothing. Run --sync.')
+        assert sid == identity.get(family).declared_id(), (
+            f'{family}: INDEX.json records {sid} but the writer now declares '
+            f'{identity.get(family).declared_id()} — a DDL change shipped without --sync.')
+
+    assert store_index.stale_reasons() == [], (
+        'stale_reasons() disagrees with the assertions above — the hook and this gate must '
+        'judge the same store the same way: ' + '; '.join(store_index.stale_reasons()))
+
+
+def test_verify_family_store_reports_both_halves_of_the_uncommitted_window(tmp_path,
+                                                                           monkeypatch):
+    """The writer-side findings: missing declared doc names `--sync`, an orphan names `--adopt`.
+
+    These are the two halves of the `UncommittedShape` window in order: first the shape being
+    written right now is unrecoverable-in-waiting, then (after the NEXT DDL move) the outgoing
+    document is orphaned.  Walked end to end on the probe family: empty store -> both findings
+    -> each cleared by exactly its own remedy -> clean.
+    """
+    fam = _register_probe(monkeypatch, tmp_path)
+
+    missing = compat.verify_family_store(_PROBE_FAMILY)
+    assert len(missing) == 1 and '--sync' in missing[0] and fam.declared_id() in missing[0], (
+        f'an empty store must produce exactly the missing-declared finding, naming the id and '
+        f'--sync: {missing}')
+
+    outgoing = _probe_shape(('id INTEGER', 'kept TEXT'))     # what the DDL looked like before
+    outgoing_id = shape.shape_id(outgoing)
+    compat.write_shape(_PROBE_FAMILY, outgoing_id, outgoing, captured_from='comparison_probe')
+    both = compat.verify_family_store(_PROBE_FAMILY)
+    assert len(both) == 2, f'missing declared + orphan must BOTH be reported: {both}'
+    assert any('--adopt' in p and outgoing_id in p for p in both), (
+        f'the orphan finding must name the orphaned id and --adopt: {both}')
+
+    compat.write_shape(_PROBE_FAMILY, fam.declared_id(), _probe_shape(),
+                       captured_from='comparison_probe')
+    only_orphan = compat.verify_family_store(_PROBE_FAMILY)
+    assert len(only_orphan) == 1 and '--adopt' in only_orphan[0], (
+        f'committing the declared shape must clear exactly the --sync half: {only_orphan}')
+
+    os.remove(compat.shape_path(_PROBE_FAMILY, outgoing_id))
+    assert compat.verify_family_store(_PROBE_FAMILY) == [], (
+        'a store with the declared document and no orphan must verify CLEAN — otherwise every '
+        'writer warns forever and the warning means nothing')
+
+
+def test_stamp_checked_warns_once_per_finding_and_stays_quiet_on_a_clean_store(tmp_path,
+                                                                               monkeypatch):
+    """strict=False is the in-sweep mode: nag exactly once, stamp always, never kill an arm.
+
+    `create_run` calls this inside spawned workers hours into a sweep the precheck already
+    blessed, so a store gap must cost one `emit` line per (family, finding) per process — not one
+    per run, and never an exception.  `_STAMP_WARNED` is swapped for a fresh set via monkeypatch
+    (which also restores the real one), so this test neither sees nor leaks warn-once state.
+    """
+    fam = _register_meta_probe(monkeypatch, tmp_path)
+    monkeypatch.setattr(compat, '_STAMP_WARNED', set())
+    emitted: list = []
+
+    with _open(str(tmp_path / 'meta.db')) as con:
+        first = compat.stamp_checked(con, fam, strict=False, emit=emitted.append)
+        assert first == fam.declared_id(), f'the stamp id must be returned: {first}'
+        row = con.execute('SELECT value FROM schema_meta WHERE key=?',
+                          (fam.meta_key,)).fetchone()
+        assert row and row[0] == fam.declared_id(), (
+            'the stamp must be written even though the store has a gap — an unstamped file is '
+            'strictly worse than a stamped one')
+        assert len(emitted) == 1 and '--sync' in emitted[0] and _PROBE_META_FAMILY in emitted[0], (
+            f'the first call must emit exactly one finding naming the family and --sync: '
+            f'{emitted}')
+
+        second = compat.stamp_checked(con, fam, strict=False, emit=emitted.append)
+        assert second == fam.declared_id(), 'the repeat call must still return the stamp id'
+        assert len(emitted) == 1, (
+            f'the SAME finding must not be emitted twice in one process — a 34-arm sweep would '
+            f'print it 34 times: {emitted}')
+
+    # NON-VACUITY: with the store made clean (and warn-once state cleared), nothing is emitted —
+    # so the silence above was warn-once doing the work, and the noise really was the gap.
+    monkeypatch.setattr(compat, '_STAMP_WARNED', set())
+    compat.write_shape(_PROBE_META_FAMILY, fam.declared_id(), _probe_shape(),
+                       captured_from='comparison_probe')
+    with _open(str(tmp_path / 'meta_clean.db')) as con:
+        assert compat.stamp_checked(con, fam, strict=False,
+                                    emit=emitted.append) == fam.declared_id()
+    assert len(emitted) == 1, f'a clean store must emit nothing at all: {emitted}'
+
+
+def test_stamp_checked_strict_raises_but_writes_the_stamp_first(tmp_path, monkeypatch):
+    """strict=True is the interactive mode: stop the CLI — but never by leaving the file worse.
+
+    The ORDER is the property: the stamp lands before the store is judged, so even the file a
+    strict caller abandons carries its vintage.  If the raise came first, every strict failure
+    would also manufacture one more unstamped file — the exact artifact this machinery exists to
+    stop producing.
+    """
+    fam = _register_meta_probe(monkeypatch, tmp_path)
+    monkeypatch.setattr(compat, '_STAMP_WARNED', set())
+
+    with _open(str(tmp_path / 'strict.db')) as con:
+        with pytest.raises(compat.UncommittedShape, match='--sync'):
+            compat.stamp_checked(con, fam, strict=True)
+        row = con.execute('SELECT value FROM schema_meta WHERE key=?',
+                          (fam.meta_key,)).fetchone()
+        assert row and row[0] == fam.declared_id(), (
+            'the stamp must already be in the file when UncommittedShape is raised — strict '
+            'refuses the STORE state, not the stamp')
+
+    # NON-VACUITY: strict raises about the gap, not always — a clean store passes silently.
+    compat.write_shape(_PROBE_META_FAMILY, fam.declared_id(), _probe_shape(),
+                       captured_from='comparison_probe')
+    with _open(str(tmp_path / 'strict_clean.db')) as con:
+        assert compat.stamp_checked(con, fam, strict=True) == fam.declared_id(), (
+            'with the declared shape committed, strict=True must return the stamp id quietly')
+
+
+def test_stamp_checked_verifies_even_for_a_family_that_cannot_stamp(tmp_path, monkeypatch):
+    """meta_table=None: the stamp half is a no-op, the VERIFY half is exactly why the call exists.
+
+    sim_db is this case (its stamp is a column value `create_run` writes itself), so if
+    `stamp_checked` returned early on a stamp-less family, the one writer producing the most
+    files would be the one writer nothing verified.
+    """
+    fam = _register_probe(monkeypatch, tmp_path)             # meta_table=None, empty store
+    monkeypatch.setattr(compat, '_STAMP_WARNED', set())
+    emitted: list = []
+
+    with _open(str(tmp_path / 'nometa.db')) as con:
+        got = compat.stamp_checked(con, fam, strict=False, emit=emitted.append)
+        assert got is None, f'a meta-less family returns what identity.stamp returned: {got}'
+        assert con.execute('SELECT COUNT(*) FROM sqlite_master').fetchone()[0] == 0, (
+            'no meta table may be created for a family that declares none — the stamp half '
+            'must be a strict no-op')
+    assert len(emitted) == 1 and '--sync' in emitted[0], (
+        f'the verify half must still run and report the store gap: {emitted}')
+
+
+def test_a_stamp_reader_resolves_stamped_and_falls_through_to_derivation(tmp_path):
+    """`Family.stamp_reader`: a stamp that lives outside a meta table still gets the fast path.
+
+    Three families of file, one resolver: a stamped file answers through the reader with source
+    `'stamped'`; a pre-stamp file makes the reader RAISE and `read_stamp` must swallow exactly
+    `sqlite3.Error` into the normal derivation path (a pre-stamp file is expected, not broken);
+    and a family with neither meta table nor reader still answers None.
+    """
+    def reader(con):
+        return con.execute('SELECT v FROM custom_stamp').fetchone()[0]
+
+    fam = identity.Family(name='probe_stamped_db', declared_shape=_probe_shape,
+                          stamp_reader=reader)               # never registered: not needed
+
+    stamped = _tiny_db(tmp_path / 'stamped.db',
+                       ('CREATE TABLE custom_stamp (v TEXT)',
+                        "INSERT INTO custom_stamp (v) VALUES ('cafe01234567')"))
+    with _open(stamped) as con:
+        assert identity.read_stamp(con, fam) == 'cafe01234567', (
+            'the reader must be consulted for a meta_table=None family that carries one')
+        assert identity.resolve(con, fam) == ('cafe01234567', 'stamped'), (
+            'a reader hit must take the stamped fast path — that is the point of the field')
+
+    bare = _tiny_db(tmp_path / 'bare.db', ('CREATE TABLE probe (id INTEGER)',))
+    with _open(bare) as con:
+        # NON-VACUITY: the raw reader really raises here, so the None below is the GUARD's doing.
+        with pytest.raises(sqlite3.Error):
+            reader(con)
+        assert identity.read_stamp(con, fam) is None, (
+            'a reader raising sqlite3.Error means "pre-stamp file" and must read as None')
+        sid, source = identity.resolve(con, fam)
+        assert source == 'derived' and sid == shape.observed_id(con), (
+            f'a pre-stamp file must fall through to derivation, not raise: ({sid}, {source})')
+
+    plain = identity.Family(name='probe_plain_db', declared_shape=_probe_shape)
+    with _open(bare) as con:
+        assert identity.read_stamp(con, plain) is None, (
+            'no meta table and no reader must still answer None, never raise')
+        assert identity.resolve(con, plain)[1] == 'derived', (
+            'and resolution for such a family is always derivation')
+
+
+def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
+    """Two deliberate copies of one query — this is the test the docstrings of both promise.
+
+    `Picking_Data._read_sim_stamp` (wired as `SIM_DB_FAMILY.stamp_reader`) and
+    `Visualization/readers/fingerprint.read_stamped_id` must answer identically on a stamped file
+    AND on a pre-stamp one, or the viewer and the identity layer would date the same archive
+    differently.  Note the guard split: the viz copy swallows its own OperationalError, while the
+    family callable is guarded BY `identity.read_stamp` — so the sim family is exercised through
+    `read_stamp`, which is how every real caller reaches it.
+    """
+    assert Picking_Data.SIM_DB_FAMILY.stamp_reader is Picking_Data._read_sim_stamp, (
+        'sim_db no longer wires _read_sim_stamp as its stamp_reader, so this parity test is '
+        'checking a function nothing uses')
+
+    stamped = _tiny_db(tmp_path / 'stamped_sim.db', (
+        'CREATE TABLE simulation_runs (run_id INTEGER PRIMARY KEY, sim_schema_id TEXT)',
+        'INSERT INTO simulation_runs (run_id, sim_schema_id) VALUES (1, NULL)',
+        "INSERT INTO simulation_runs (run_id, sim_schema_id) VALUES (2, 'ee5ebabe74fb')",
+    ))
+    with _open(stamped) as con:
+        ours = Picking_Data._read_sim_stamp(con)
+        theirs = viz_fingerprint.read_stamped_id(con)
+        assert ours == theirs == 'ee5ebabe74fb', (
+            f'the two copies disagree on a stamped file (ours={ours!r}, viz={theirs!r}) — '
+            f'note run 1 is NULL, so both must skip unstamped rows, not read the first row')
+
+    pre = _tiny_db(tmp_path / 'prestamp_sim.db',
+                   ('CREATE TABLE simulation_runs (run_id INTEGER PRIMARY KEY)',))
+    with _open(pre) as con:
+        # NON-VACUITY: the bare family callable RAISES here — which is exactly why callers must
+        # go through identity.read_stamp, and what makes the None below the guard's answer.
+        with pytest.raises(sqlite3.OperationalError):
+            Picking_Data._read_sim_stamp(con)
+        assert identity.read_stamp(con, Picking_Data.SIM_DB_FAMILY) is None, (
+            'a pre-stamp sim DB must read as None through the family (the normal derivation '
+            'path), never raise')
+        assert viz_fingerprint.read_stamped_id(con) is None, (
+            'and the viz copy must agree: None on a pre-stamp file')
+
+
+def test_apply_known_ids_lands_the_orphan_first_and_todo_marked(tmp_path, monkeypatch):
+    """`--adopt --apply`, the mechanical half: newest id FIRST, judgement left loud in a TODO.
+
+    Order matters because `known_ids` documents vintages newest-first by convention (see
+    SIM_DB_FAMILY) and because "entries are ADDED, never replaced" — the existing tuple must
+    survive verbatim.  The edit is proved by RE-EXECUTING the module, so the TODO comment's
+    placement is checked by the compiler, not by a second regex.
+    """
+    path, mod = _load_apply_module(tmp_path, monkeypatch)
+    assert mod.PROBE_FAMILY.known_ids == ('111111111111',), 'precondition: one existing entry'
+
+    lines: list = []
+    ok = schema_report._apply_known_ids(_PROBE_APPLY_FAMILY, ['aaaaaaaaaaaa'], out=lines.append)
+    assert ok is True, f'the apply must report success: {lines}'
+
+    edited = path.read_text(encoding='utf-8')
+    ast.parse(edited)          # the promise: never write a byte that does not parse
+    assert 'TODO(schema-adopt)' in edited, (
+        'the inserted id must carry the TODO(schema-adopt) marker — the commit-window comment '
+        'is the human half of the bargain, and silence would let it be forgotten')
+
+    fresh = _reexec_apply_module(path)
+    assert fresh.PROBE_FAMILY.known_ids == ('aaaaaaaaaaaa', '111111111111'), (
+        f'the orphan must land FIRST and the old entry survive verbatim: '
+        f'{fresh.PROBE_FAMILY.known_ids}')
+    assert fresh.PROBE_FAMILY.declared_id() == mod.PROBE_FAMILY.declared_id(), (
+        'apply may only touch known_ids — the DDL (and so the declared id) must be untouched')
+
+
+def test_apply_known_ids_refuses_an_ambiguous_registration_block(tmp_path, monkeypatch):
+    """Two `known_ids=` matches inside one registration block: refuse, and write NOTHING.
+
+    The editor is a regex over source text, and a regex that guesses between two anchor sites
+    will eventually splice an id into a comment or a neighbouring family.  Refusal must be total
+    — byte-identical file, `False` returned, and a message that says to edit by hand.
+    """
+    decoy = "    # known_ids=('999999999999',) - a decoy that makes the edit site ambiguous\n"
+    path, _mod = _load_apply_module(tmp_path, monkeypatch, decoy=decoy)
+    before = path.read_bytes()
+
+    lines: list = []
+    ok = schema_report._apply_known_ids(_PROBE_APPLY_FAMILY, ['aaaaaaaaaaaa'], out=lines.append)
+    assert ok is False, 'an ambiguous block must be refused, not guessed at'
+    assert path.read_bytes() == before, (
+        'a refused apply must not change a single byte — a partial edit is worse than none')
+    assert any('ambiguous' in ln for ln in lines), (
+        f'the refusal must say WHY (ambiguous) and hand the edit back to a human: {lines}')
+
+
+def test_apply_known_ids_creates_the_tuple_a_family_never_had(tmp_path, monkeypatch):
+    """A family with NO `known_ids` gains one — the keyframes_db dogfood path, replayed on a probe.
+
+    This is the branch the first `--accept` actually took: `KEYFRAME_DB_FAMILY` had no tuple at
+    all before the stamp-table adoption.  The inserted tuple must parse, carry the TODO, and
+    read back as exactly the orphan.
+    """
+    path, mod = _load_apply_module(tmp_path, monkeypatch, known_ids='')
+    assert mod.PROBE_FAMILY.known_ids == (), 'precondition: the family vets only its declared id'
+
+    lines: list = []
+    ok = schema_report._apply_known_ids(_PROBE_APPLY_FAMILY, ['aaaaaaaaaaaa'], out=lines.append)
+    assert ok is True, f'inserting a first tuple must succeed: {lines}'
+
+    edited = path.read_text(encoding='utf-8')
+    ast.parse(edited)
+    assert 'TODO(schema-adopt)' in edited, 'the new tuple must carry the TODO marker too'
+    fresh = _reexec_apply_module(path)
+    assert fresh.PROBE_FAMILY.known_ids == ('aaaaaaaaaaaa',), (
+        f'the created tuple must hold exactly the orphan: {fresh.PROBE_FAMILY.known_ids}')
+    assert fresh.PROBE_FAMILY.declared_id() == mod.PROBE_FAMILY.declared_id(), (
+        'creating the tuple must not touch the DDL')
+
+
+def test_accept_adopts_before_it_records_the_fingerprint(monkeypatch):
+    """`--accept` = adopt(apply=True) THEN sync — and that order is load-bearing.
+
+    `--apply` EDITS a DDL source file, and `sync` records the source fingerprint into INDEX.json.
+    Sync-first would record a fingerprint the apply immediately stales, so the very next hook run
+    nags about the command that was supposed to settle things.  Recorded through spies; the real
+    adopt/sync are exercised elsewhere and the ORDER is the only thing under test here.
+    """
+    calls: list = []
+    monkeypatch.setattr(schema_report, 'adopt',
+                        lambda out=print, apply=False: (calls.append(('adopt', apply)), 1)[1])
+    monkeypatch.setattr(schema_report, 'sync',
+                        lambda out=print: (calls.append(('sync',)), 0)[1])
+
+    rc = schema_report.accept(out=lambda _m: None)
+    assert calls == [('adopt', True), ('sync',)], (
+        f'accept must run adopt(apply=True) BEFORE sync, exactly once each — the fingerprint '
+        f'must be recorded after the source edit: {calls}')
+    assert rc == 1, (
+        f"accept's exit code is adopt's (1 = something was adopted, TODOs need filling), not "
+        f"sync's 0: {rc}")
+
+    # NON-VACUITY: the exit really tracks adopt — a clean adopt makes accept exit 0.
+    calls.clear()
+    monkeypatch.setattr(schema_report, 'adopt',
+                        lambda out=print, apply=False: (calls.append(('adopt', apply)), 0)[1])
+    assert schema_report.accept(out=lambda _m: None) == 0, (
+        'with nothing to adopt, accept must exit 0 — it is adopt\'s verdict either way')
+    assert calls == [('adopt', True), ('sync',)], f'and the order must not depend on it: {calls}'
+
+
+def test_the_keyframe_stamp_adoption_dogfood_is_locked_in():
+    """The first `--sync -> DDL edit -> --accept` adoption, pinned so it cannot quietly unwind.
+
+    `keyframes_db` was deliberately derived-only until 2026-08-15; adopting the stamp table
+    through the pipeline is the machinery's own proof-of-work.  Four facts make it real: the
+    family stamps into `schema_meta` and DECLARES that table in its own shape; the pre-stamp id
+    is vetted; the declared id has genuinely moved past it; and BOTH shapes are committed in the
+    real store.  Reverting any one of them silently orphans every pre-stamp keyframe sidecar or
+    un-stamps the family — this test is what makes that loud.
+    """
+    fam = Picking_Data.KEYFRAME_DB_FAMILY
+    assert fam.meta_table == 'schema_meta', (
+        f'keyframes_db stopped stamping (meta_table={fam.meta_table!r}) — the dogfood adoption '
+        f'has been reverted')
+    assert 'schema_meta' in fam.declared_shape()['tables'], (
+        'a meta_table family must DECLARE its stamp table in its own shape, or the observed '
+        'shape (with it, once stamped) never matches the declaration')
+    assert 'e1149f95dfed' in fam.known_ids, (
+        'the pre-stamp keyframe shape fell out of known_ids — every sidecar written before '
+        '2026-08-15 (24 sampled across nine archived runs) just became unreadable')
+    assert fam.declared_id() != 'e1149f95dfed', (
+        'declared and pre-stamp ids are equal again, so there was no adoption to dogfood and '
+        'this test is checking nothing')
+    assert compat.load_shape('keyframes_db', 'e1149f95dfed') is not None, (
+        'the pre-stamp shape has no committed document — the adopted id is unrecoverable')
+    assert compat.load_shape('keyframes_db', fam.declared_id()) is not None, (
+        'the declared (stamped) shape has no committed document — --sync did not follow the edit')
+
+
+def test_the_stop_hook_exits_zero_and_is_wired_into_settings():
+    """The hook's two contracts: advisory (ALWAYS exit 0), and actually installed.
+
+    A Stop hook that can exit non-zero blocks a turn on a nag; one that prints anything but its
+    tagged nags pollutes a channel other hooks share; and one that is not in settings.json runs
+    never — the whole store-currency bargain would rest on a file nothing executes.  Run as a
+    real subprocess, the way the hook harness runs it, so the entry-script bootstrap is
+    exercised too.
+    """
+    r = subprocess.run([sys.executable, os.path.join('Schema', 'hook_check.py')],
+                       capture_output=True, text=True, cwd=_ROOT)
+    assert r.returncode == 0, (
+        f'the hook must ALWAYS exit 0 — it nags, it never blocks:\n{r.stdout}{r.stderr}')
+    for line in r.stdout.splitlines():
+        if line.strip():
+            assert line.startswith('[schema-db] '), (
+                f'every hook line must carry the [schema-db] tag so a turn transcript says who '
+                f'nagged: {line!r}')
+
+    with open(os.path.join(_ROOT, '.claude', 'settings.json'), encoding='utf-8') as fh:
+        settings = json.load(fh)
+    stop_commands = [h.get('command', '')
+                     for group in settings.get('hooks', {}).get('Stop', [])
+                     for h in group.get('hooks', [])]
+    assert stop_commands, 'settings.json carries no Stop hooks at all, so nothing ever nags'
+    assert 'python Schema/hook_check.py' in stop_commands, (
+        f'Schema/hook_check.py is not wired as a Stop hook — the nag exists but never runs. '
+        f'Wired commands: {stop_commands}')

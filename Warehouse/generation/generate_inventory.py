@@ -80,6 +80,7 @@ _REPO_ROOT = os.path.dirname(_WH)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import connect as _connect
 from Schema import shape as _shape
@@ -640,7 +641,10 @@ def _init_db(db_path: str) -> sqlite3.Connection:
     conn.execute('PRAGMA synchronous=NORMAL')
     for stmt in _ALL_DDL:
         conn.executescript(stmt)
-    _identity.stamp(conn, INVENTORY_DB_FAMILY)
+    # STRICT: this is an interactive data-gen CLI.  Producing a catalogue whose shape has no
+    # committed document would make it unrecoverable at the next DDL change, and the fix is
+    # one command — stopping here costs nothing.
+    _compat.stamp_checked(conn, INVENTORY_DB_FAMILY, strict=True)
     conn.commit()
     return conn
 

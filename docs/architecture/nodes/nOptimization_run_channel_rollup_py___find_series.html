@@ -14,8 +14,11 @@
 <h1><span class="kind kind-function">function</span> <code>_find_series</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_channel_rollup_py.html"><code>Optimization/run_channel_rollup.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _find_series(base_dir: str) -&gt; list[tuple[str, str]]</code></pre>
-<section class="doc">(sim_meta.json, series.json) pairs under base_dir — one per analyzed channel run.</section>
+<pre class="sig"><code>def _find_series(rt, base_dir: str) -&gt; list[tuple[str, str]]</code></pre>
+<section class="doc">(sim_meta, series) JSON path pairs under base_dir — one per ANALYZED channel run.
+
+Traversal stays with `iter_channel_runs` (the layout owner, default marker = the sim_meta
+basename); the per-leaf filenames render through `rt.leaf_path`, never a basename join.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_runlayout_py__iter_channel_runs.html"><code>iter_channel_runs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_channel_rollup_py__rollup.html"><code>rollup</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_channel_rollup_py___find_series">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_channel_rollup.py#:~:text=def%20_find_series">Source ↗</a></p>
 </article>

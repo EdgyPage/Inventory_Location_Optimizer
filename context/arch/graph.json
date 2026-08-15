@@ -246,6 +246,11 @@
       "src": "Diagnostics/replay_run.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Diagnostics/replay_run.py"
+    },
+    {
       "dst": "Schema/capability.py",
       "kind": "imports",
       "src": "Diagnostics/replay_run.py"
@@ -276,6 +281,11 @@
       "src": "Diagnostics/replay_run.py::_FOLD"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::_contract_resolver"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::OCCUPANCY_LADDER",
       "kind": "ref",
       "src": "Diagnostics/replay_run.py::_occupancy"
@@ -289,6 +299,11 @@
       "dst": "Schema/capability.py::require",
       "kind": "calls",
       "src": "Diagnostics/replay_run.py::_occupancy"
+    },
+    {
+      "dst": "Diagnostics/replay_run.py::_contract_resolver",
+      "kind": "calls",
+      "src": "Diagnostics/replay_run.py::main"
     },
     {
       "dst": "Diagnostics/replay_run.py::_nearest_warehouse_db",
@@ -3006,6 +3021,21 @@
       "src": "Optimization/persistence/Picking_Data.py"
     },
     {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -3041,6 +3071,11 @@
       "src": "Optimization/persistence/Picking_Data.py::SIM_CAPABILITIES"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_read_sim_stamp",
+      "kind": "ref",
+      "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
       "kind": "ref",
       "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
@@ -3061,6 +3096,11 @@
       "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
     },
     {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::_query_rows"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::create_run"
@@ -3069,6 +3109,16 @@
       "dst": "Optimization/persistence/Picking_Data.py::sim_schema_id",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::create_run"
+    },
+    {
+      "dst": "Schema/compat.py::stamp_checked",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::create_run"
+    },
+    {
+      "dst": "Schema/identity.py::meta_ddl",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::declared_keyframe_shape"
     },
     {
       "dst": "Schema/shape.py::canonical_shape",
@@ -3087,6 +3137,11 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::init_keyframe_db"
+    },
+    {
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::init_keyframe_db"
     },
@@ -3111,6 +3166,11 @@
       "src": "Optimization/persistence/Picking_Data.py::load_batch_stats"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_batch_stats"
+    },
+    {
       "dst": "Schema/connect.py::read_only",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_bin_evictions"
@@ -3131,7 +3191,17 @@
       "src": "Optimization/persistence/Picking_Data.py::load_picker_events"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_picker_events"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::TaskStats",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
     },
@@ -3201,6 +3271,11 @@
       "src": "Optimization/persistence/Picking_Data.py::sim_schema_id"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Optimization/persistence/Warehouse_Data.py"
@@ -3246,12 +3321,12 @@
       "src": "Optimization/persistence/Warehouse_Data.py::init_warehouse_db"
     },
     {
-      "dst": "Schema/connect.py::close",
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Optimization/persistence/Warehouse_Data.py::init_warehouse_db"
     },
     {
-      "dst": "Schema/identity.py::stamp",
+      "dst": "Schema/connect.py::close",
       "kind": "calls",
       "src": "Optimization/persistence/Warehouse_Data.py::init_warehouse_db"
     },
@@ -3274,6 +3349,11 @@
       "dst": "Schema/connect.py::close",
       "kind": "calls",
       "src": "Optimization/persistence/Warehouse_Data.py::save_warehouse_stats"
+    },
+    {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/runtime_metrics.py"
     },
     {
       "dst": "Schema/connect.py",
@@ -3336,12 +3416,12 @@
       "src": "Optimization/persistence/runtime_metrics.py::record_arm"
     },
     {
-      "dst": "Schema/connect.py::close",
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Optimization/persistence/runtime_metrics.py::record_arm"
     },
     {
-      "dst": "Schema/identity.py::stamp",
+      "dst": "Schema/connect.py::close",
       "kind": "calls",
       "src": "Optimization/persistence/runtime_metrics.py::record_arm"
     },
@@ -3382,6 +3462,16 @@
     },
     {
       "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
     },
@@ -3476,6 +3566,26 @@
       "src": "Optimization/run_analysis.py::_run_job"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_tree_for"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::_setup_logging",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::main"
@@ -3511,12 +3621,27 @@
       "src": "Optimization/run_analysis.py::run_analysis"
     },
     {
+      "dst": "Optimization/run_analysis.py::_tree_for",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::run_analysis"
+    },
+    {
       "dst": "Optimization/run_channel_rollup.py::main",
       "kind": "calls",
       "src": "Optimization/run_channel_rollup.py"
     },
     {
       "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_channel_rollup.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/run_channel_rollup.py"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py",
       "kind": "imports",
       "src": "Optimization/run_channel_rollup.py"
     },
@@ -3539,6 +3664,26 @@
       "dst": "Optimization/runschema/runlayout.py::iter_channel_runs",
       "kind": "calls",
       "src": "Optimization/run_channel_rollup.py::_find_series"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::_tree_for"
     },
     {
       "dst": "Optimization/run_channel_rollup.py::rollup",
@@ -3566,6 +3711,11 @@
       "src": "Optimization/run_channel_rollup.py::rollup"
     },
     {
+      "dst": "Optimization/run_channel_rollup.py::_tree_for",
+      "kind": "calls",
+      "src": "Optimization/run_channel_rollup.py::rollup"
+    },
+    {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
       "src": "Optimization/run_runtime_graphs.py"
@@ -3586,6 +3736,16 @@
       "src": "Optimization/run_runtime_graphs.py"
     },
     {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py",
+      "kind": "imports",
+      "src": "Optimization/run_runtime_graphs.py"
+    },
+    {
       "dst": "Optimization/run_runtime_graphs.py::_channels",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::_by_group"
@@ -3599,6 +3759,26 @@
       "dst": "Optimization/run_runtime_graphs.py::_save",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::_by_group"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_runtime_dir"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_runtime_dir"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_runtime_dir"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_runtime_dir"
     },
     {
       "dst": "Optimization/run_runtime_graphs.py::_channels",
@@ -3642,6 +3822,11 @@
     },
     {
       "dst": "Optimization/run_runtime_graphs.py::_by_group",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_runtime_dir",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::run"
     },
@@ -3741,6 +3926,16 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -3816,12 +4011,27 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Schema/compat.py::verify_family_store",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/config/whatif_config.py::get_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main._resolve_spec"
     },
     {
       "dst": "Optimization/config/whatif_config.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_delta.py"
     },
@@ -3836,9 +4046,44 @@
       "src": "Optimization/run_whatif_delta.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_delta.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::REQUIRES"
+    },
+    {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_bind"
+    },
+    {
+      "dst": "Schema/identity.py::SchemaError",
+      "kind": "ref",
+      "src": "Optimization/run_whatif_delta.py::_bind"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::_bind",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_metrics"
     },
     {
       "dst": "Schema/connect.py::read_only",
@@ -3911,9 +4156,19 @@
       "src": "Optimization/run_whatif_labor.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::REQUIRES"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_agg",
@@ -4036,6 +4291,11 @@
       "src": "Optimization/run_whatif_labor.py::run"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_volume.py"
@@ -4054,6 +4314,41 @@
       "dst": "Optimization/runschema/__init__.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_volume.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::REQUIRES"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_channels",
@@ -4079,6 +4374,36 @@
       "dst": "Optimization/run_whatif_labor.py::_channels",
       "kind": "calls",
       "src": "Optimization/run_whatif_volume.py::_gain_png"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_series"
+    },
+    {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_series"
+    },
+    {
+      "dst": "Schema/identity.py::SchemaError",
+      "kind": "ref",
+      "src": "Optimization/run_whatif_volume.py::_series"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_writer_tree"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_writer_tree"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::_writer_tree"
     },
     {
       "dst": "Optimization/run_whatif_labor.py::_parse_arm",
@@ -4122,6 +4447,11 @@
     },
     {
       "dst": "Optimization/run_whatif_volume.py::_gain_png",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::run"
+    },
+    {
+      "dst": "Optimization/run_whatif_volume.py::_writer_tree",
       "kind": "calls",
       "src": "Optimization/run_whatif_volume.py::run"
     },
@@ -4701,6 +5031,11 @@
       "src": "Optimization/runschema/resolver.py::RunTree.__init__"
     },
     {
+      "dst": "Optimization/runschema/resolver.py::_capture_regex",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree._owner_of"
+    },
+    {
       "dst": "Optimization/runschema/resolver.py::RunTree.path",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.aggregate_dir"
@@ -4746,6 +5081,21 @@
       "src": "Optimization/runschema/resolver.py::RunTree.config_json"
     },
     {
+      "dst": "Optimization/runschema/resolver.py::RunTree.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.exists"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree._owner_of",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.glob"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::render",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.glob"
+    },
+    {
       "dst": "Optimization/runschema/resolver.py::RunTree._parts_from_leaf",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.keyframe_db"
@@ -4759,6 +5109,11 @@
       "dst": "Optimization/runschema/resolver.py::RunTree.strategy_of",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.keyframe_db"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::render",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.leaf_path"
     },
     {
       "dst": "Optimization/runschema/resolver.py::render",
@@ -4824,6 +5179,16 @@
       "dst": "Optimization/runschema/resolver.py::RunTree.path",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.warehouse_db"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree._parts_from_leaf",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.warehouse_db_of"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.path",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.warehouse_db_of"
     },
     {
       "dst": "Optimization/runschema/resolver.py::RunTree.by_group",
@@ -6001,6 +6366,21 @@
       "src": "Schema/compat.py::load_shape"
     },
     {
+      "dst": "Schema/compat.py::UncommittedShape",
+      "kind": "calls",
+      "src": "Schema/compat.py::stamp_checked"
+    },
+    {
+      "dst": "Schema/compat.py::verify_family_store",
+      "kind": "calls",
+      "src": "Schema/compat.py::stamp_checked"
+    },
+    {
+      "dst": "Schema/identity.py::stamp",
+      "kind": "calls",
+      "src": "Schema/compat.py::stamp_checked"
+    },
+    {
       "dst": "Schema/compat.py::known_shapes",
       "kind": "calls",
       "src": "Schema/compat.py::unrecoverable_ids"
@@ -6016,6 +6396,16 @@
       "src": "Schema/compat.py::validate"
     },
     {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "Schema/compat.py::verify_family_store"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/compat.py::verify_family_store"
+    },
+    {
       "dst": "Schema/compat.py::shape_path",
       "kind": "calls",
       "src": "Schema/compat.py::write_shape"
@@ -6029,6 +6419,161 @@
       "dst": "Schema/connect.py::_uri",
       "kind": "calls",
       "src": "Schema/connect.py::read_only"
+    },
+    {
+      "dst": "Schema/capability.py",
+      "kind": "imports",
+      "src": "Schema/dataset.py"
+    },
+    {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Schema/dataset.py"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Schema/dataset.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Schema/dataset.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Schema/dataset.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Dataset.close",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.__exit__"
+    },
+    {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.__init__"
+    },
+    {
+      "dst": "Schema/capability.py::probe",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.negotiate"
+    },
+    {
+      "dst": "Schema/capability.py::require",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.negotiate"
+    },
+    {
+      "dst": "Schema/dataset.py::Dataset.has",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.query"
+    },
+    {
+      "dst": "Schema/dataset.py::DatasetError",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.query"
+    },
+    {
+      "dst": "Schema/dataset.py::UnsupportedQuery",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.query"
+    },
+    {
+      "dst": "Schema/dataset.py::queries_for",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.query"
+    },
+    {
+      "dst": "Schema/dataset.py::Dataset.has",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.read"
+    },
+    {
+      "dst": "Schema/dataset.py::DatasetError",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.read"
+    },
+    {
+      "dst": "Schema/dataset.py::_q",
+      "kind": "calls",
+      "src": "Schema/dataset.py::Dataset.read"
+    },
+    {
+      "dst": "Schema/compat.py::RequirementUnmet",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/compat.py::UnrecoverableShape",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/compat.py::_surface",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/compat.py::load_shape",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/dataset.py::Dataset",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/identity.py::UnsupportedSchema",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/identity.py::resolve",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Schema/dataset.py::bind"
+    },
+    {
+      "dst": "Schema/hook_check.py::main",
+      "kind": "calls",
+      "src": "Schema/hook_check.py"
+    },
+    {
+      "dst": "Schema/store_index.py",
+      "kind": "imports",
+      "src": "Schema/hook_check.py"
+    },
+    {
+      "dst": "Schema/store_index.py::stale_reasons",
+      "kind": "calls",
+      "src": "Schema/hook_check.py::main"
     },
     {
       "dst": "Schema/connect.py",
@@ -6176,6 +6721,26 @@
       "src": "Schema/shape.py::shape_of_ddl"
     },
     {
+      "dst": "Schema/store_index.py::read_index",
+      "kind": "calls",
+      "src": "Schema/store_index.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/store_index.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Schema/store_index.py::stale_reasons"
+    },
+    {
+      "dst": "Schema/store_index.py::source_fingerprint",
+      "kind": "calls",
+      "src": "Schema/store_index.py::write_index"
+    },
+    {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/cache_schema.py"
@@ -6221,7 +6786,7 @@
       "src": "Visualization/cache_schema.py::declared_cache_shape"
     },
     {
-      "dst": "Schema/identity.py::stamp",
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Visualization/cache_schema.py::init_cache_db"
     },
@@ -6366,6 +6931,11 @@
       "src": "Visualization/precompute.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
       "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/precompute.py"
@@ -6389,6 +6959,11 @@
       "dst": "Visualization/readers/fingerprint.py",
       "kind": "imports",
       "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::REQUIRES"
     },
     {
       "dst": "Visualization/precompute.py::_bin_spans",
@@ -7436,6 +8011,11 @@
       "src": "Warehouse/catalog/Order.py::_sample_weight"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_affinity.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_affinity.py"
@@ -7471,7 +8051,7 @@
       "src": "Warehouse/generation/generate_affinity.py::AFFINITY_DB_FAMILY"
     },
     {
-      "dst": "Schema/identity.py::stamp",
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Warehouse/generation/generate_affinity.py::_init_db"
     },
@@ -7571,6 +8151,11 @@
       "src": "Warehouse/generation/generate_affinity.py::plot_lift_histogram"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_inventory.py"
@@ -7626,7 +8211,7 @@
       "src": "Warehouse/generation/generate_inventory.py::INVENTORY_DB_FAMILY"
     },
     {
-      "dst": "Schema/identity.py::stamp",
+      "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::_init_db"
     },
@@ -9686,6 +10271,11 @@
       "src": "docs/experiments/ingest.py::_cells_of"
     },
     {
+      "dst": "docs/experiments/ingest.py::_find",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_leaf_file"
+    },
+    {
       "dst": "docs/experiments/ingest.py::_copy",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_stage_inventory_assets"
@@ -9721,7 +10311,7 @@
       "src": "docs/experiments/ingest.py::main"
     },
     {
-      "dst": "docs/experiments/ingest.py::_find",
+      "dst": "docs/experiments/ingest.py::_leaf_file",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
     },
@@ -9744,6 +10334,11 @@
       "dst": "docs/experiments/ingest.py::_write_starter_manifest",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/macros.py::_verify_manifest_schema",
+      "kind": "calls",
+      "src": "docs/macros.py::define_env._manifest"
     },
     {
       "dst": "Optimization/config/sim_config.py",
@@ -9951,9 +10546,29 @@
       "src": "scripts/schema_report.py"
     },
     {
+      "dst": "Schema/store_index.py",
+      "kind": "imports",
+      "src": "scripts/schema_report.py"
+    },
+    {
       "dst": "scripts/schema_report.py::main",
       "kind": "calls",
       "src": "scripts/schema_report.py"
+    },
+    {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::_apply_known_ids"
+    },
+    {
+      "dst": "scripts/schema_report.py::adopt",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::accept"
+    },
+    {
+      "dst": "scripts/schema_report.py::sync",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::accept"
     },
     {
       "dst": "Schema/compat.py::SHAPES_DIR",
@@ -9967,6 +10582,11 @@
     },
     {
       "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::adopt"
+    },
+    {
+      "dst": "scripts/schema_report.py::_apply_known_ids",
       "kind": "calls",
       "src": "scripts/schema_report.py::adopt"
     },
@@ -10019,6 +10639,11 @@
       "dst": "scripts/schema_report.py::import_families",
       "kind": "calls",
       "src": "scripts/schema_report.py::capture"
+    },
+    {
+      "dst": "scripts/schema_report.py::accept",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::main"
     },
     {
       "dst": "scripts/schema_report.py::adopt",
@@ -10092,6 +10717,11 @@
     },
     {
       "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "scripts/schema_report.py::sync"
+    },
+    {
+      "dst": "Schema/store_index.py::write_index",
       "kind": "calls",
       "src": "scripts/schema_report.py::sync"
     },
@@ -10316,6 +10946,14 @@
       "kind": "const",
       "module": "Diagnostics/replay_run.py",
       "name": "_RERUN_ADVICE",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/replay_run.py",
+      "id": "Diagnostics/replay_run.py::_contract_resolver",
+      "kind": "function",
+      "module": "Diagnostics/replay_run.py",
+      "name": "_contract_resolver",
       "public": false
     },
     {
@@ -13704,6 +14342,22 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BATCH_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BATCH_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BATCH_OPTIONAL",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BATCH_OPTIONAL",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -13896,6 +14550,22 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_EVENT_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_EVENT_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_EVENT_OPTIONAL",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_EVENT_OPTIONAL",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_IDENTITY_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -13928,6 +14598,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_TASK_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_TASK_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -13948,6 +14626,22 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_open_db",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_query_rows",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_read_sim_stamp",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_read_sim_stamp",
       "public": false
     },
     {
@@ -14504,6 +15198,14 @@
     },
     {
       "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_tree_for",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_tree_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py::_worker_log",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
@@ -14576,6 +15278,14 @@
     },
     {
       "file": "Optimization/run_channel_rollup.py",
+      "id": "Optimization/run_channel_rollup.py::_tree_for",
+      "kind": "function",
+      "module": "Optimization/run_channel_rollup.py",
+      "name": "_tree_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_channel_rollup.py",
       "id": "Optimization/run_channel_rollup.py::main",
       "kind": "function",
       "module": "Optimization/run_channel_rollup.py",
@@ -14597,6 +15307,14 @@
       "module": "Optimization/run_runtime_graphs.py",
       "name": "Optimization.run_runtime_graphs",
       "public": true
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_REPO_ROOT",
+      "public": false
     },
     {
       "file": "Optimization/run_runtime_graphs.py",
@@ -14628,6 +15346,14 @@
       "kind": "function",
       "module": "Optimization/run_runtime_graphs.py",
       "name": "_mean",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_runtime_dir",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_runtime_dir",
       "public": false
     },
     {
@@ -14728,11 +15454,35 @@
     },
     {
       "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::REQUIRES",
+      "kind": "const",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
       "id": "Optimization/run_whatif_delta.py::WIN",
       "kind": "const",
       "module": "Optimization/run_whatif_delta.py",
       "name": "WIN",
       "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::_bind",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "_bind",
+      "public": false
     },
     {
       "file": "Optimization/run_whatif_delta.py",
@@ -14824,10 +15574,26 @@
     },
     {
       "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::REQUIRES",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
       "id": "Optimization/run_whatif_labor.py::_HOURS_NOTE",
       "kind": "const",
       "module": "Optimization/run_whatif_labor.py",
       "name": "_HOURS_NOTE",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_labor.py",
+      "id": "Optimization/run_whatif_labor.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/run_whatif_labor.py",
+      "name": "_REPO_ROOT",
       "public": false
     },
     {
@@ -14968,10 +15734,26 @@
     },
     {
       "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::REQUIRES",
+      "kind": "const",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
       "id": "Optimization/run_whatif_volume.py::_FIELDS",
       "kind": "const",
       "module": "Optimization/run_whatif_volume.py",
       "name": "_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_REPO_ROOT",
       "public": false
     },
     {
@@ -15020,6 +15802,14 @@
       "kind": "function",
       "module": "Optimization/run_whatif_volume.py",
       "name": "_series",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_volume.py",
+      "id": "Optimization/run_whatif_volume.py::_writer_tree",
+      "kind": "function",
+      "module": "Optimization/run_whatif_volume.py",
+      "name": "_writer_tree",
       "public": false
     },
     {
@@ -15648,6 +16438,14 @@
     },
     {
       "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree._owner_of",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "_owner_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
       "id": "Optimization/runschema/resolver.py::RunTree._parts_from_leaf",
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
@@ -15676,6 +16474,14 @@
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
       "name": "by_group",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.by_scope",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "by_scope",
       "public": true
     },
     {
@@ -15712,6 +16518,30 @@
     },
     {
       "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.exists",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "exists",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.family_of",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "family_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.glob",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "glob",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
       "id": "Optimization/runschema/resolver.py::RunTree.is_sweep",
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
@@ -15724,6 +16554,22 @@
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
       "name": "keyframe_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.leaf_path",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "leaf_path",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.parts_of",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "parts_of",
       "public": true
     },
     {
@@ -15836,6 +16682,14 @@
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
       "name": "warehouse_db",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.warehouse_db_of",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "warehouse_db_of",
       "public": true
     },
     {
@@ -16824,6 +17678,14 @@
     },
     {
       "file": "Schema/compat.py",
+      "id": "Schema/compat.py::UncommittedShape",
+      "kind": "class",
+      "module": "Schema/compat.py",
+      "name": "UncommittedShape",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
       "id": "Schema/compat.py::UnrecoverableShape",
       "kind": "class",
       "module": "Schema/compat.py",
@@ -16888,6 +17750,14 @@
     },
     {
       "file": "Schema/compat.py",
+      "id": "Schema/compat.py::stamp_checked",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "stamp_checked",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
       "id": "Schema/compat.py::unrecoverable_ids",
       "kind": "function",
       "module": "Schema/compat.py",
@@ -16900,6 +17770,14 @@
       "kind": "function",
       "module": "Schema/compat.py",
       "name": "validate",
+      "public": true
+    },
+    {
+      "file": "Schema/compat.py",
+      "id": "Schema/compat.py::verify_family_store",
+      "kind": "function",
+      "module": "Schema/compat.py",
+      "name": "verify_family_store",
       "public": true
     },
     {
@@ -16972,6 +17850,190 @@
       "kind": "function",
       "module": "Schema/connect.py",
       "name": "writer",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py",
+      "kind": "module",
+      "module": "Schema/dataset.py",
+      "name": "Schema.dataset",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset",
+      "kind": "class",
+      "module": "Schema/dataset.py",
+      "name": "Dataset",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.__enter__",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "__enter__",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.__exit__",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "__exit__",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.__init__",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.__repr__",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.close",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "close",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.has",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "has",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.negotiate",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "negotiate",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.query",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "query",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Dataset.read",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "read",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::DatasetError",
+      "kind": "class",
+      "module": "Schema/dataset.py",
+      "name": "DatasetError",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::Query",
+      "kind": "class",
+      "module": "Schema/dataset.py",
+      "name": "Query",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::UnsupportedQuery",
+      "kind": "class",
+      "module": "Schema/dataset.py",
+      "name": "UnsupportedQuery",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::UnsupportedQuery.__init__",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::_q",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "_q",
+      "public": false
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::bind",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "bind",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::override",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "override",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::queries_for",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "queries_for",
+      "public": true
+    },
+    {
+      "file": "Schema/dataset.py",
+      "id": "Schema/dataset.py::register_query",
+      "kind": "function",
+      "module": "Schema/dataset.py",
+      "name": "register_query",
+      "public": true
+    },
+    {
+      "file": "Schema/hook_check.py",
+      "id": "Schema/hook_check.py",
+      "kind": "module",
+      "module": "Schema/hook_check.py",
+      "name": "Schema.hook_check",
+      "public": true
+    },
+    {
+      "file": "Schema/hook_check.py",
+      "id": "Schema/hook_check.py::_ROOT",
+      "kind": "const",
+      "module": "Schema/hook_check.py",
+      "name": "_ROOT",
+      "public": false
+    },
+    {
+      "file": "Schema/hook_check.py",
+      "id": "Schema/hook_check.py::main",
+      "kind": "function",
+      "module": "Schema/hook_check.py",
+      "name": "main",
       "public": true
     },
     {
@@ -17220,6 +18282,78 @@
       "kind": "function",
       "module": "Schema/shape.py",
       "name": "shape_of_ddl",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py",
+      "kind": "module",
+      "module": "Schema/store_index.py",
+      "name": "Schema.store_index",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::DDL_SOURCES",
+      "kind": "const",
+      "module": "Schema/store_index.py",
+      "name": "DDL_SOURCES",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::INDEX_PATH",
+      "kind": "const",
+      "module": "Schema/store_index.py",
+      "name": "INDEX_PATH",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::_HERE",
+      "kind": "const",
+      "module": "Schema/store_index.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Schema/store_index.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::read_index",
+      "kind": "function",
+      "module": "Schema/store_index.py",
+      "name": "read_index",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::source_fingerprint",
+      "kind": "function",
+      "module": "Schema/store_index.py",
+      "name": "source_fingerprint",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::stale_reasons",
+      "kind": "function",
+      "module": "Schema/store_index.py",
+      "name": "stale_reasons",
+      "public": true
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::write_index",
+      "kind": "function",
+      "module": "Schema/store_index.py",
+      "name": "write_index",
       "public": true
     },
     {
@@ -17532,6 +18666,14 @@
       "kind": "module",
       "module": "Visualization/precompute.py",
       "name": "Visualization.precompute",
+      "public": true
+    },
+    {
+      "file": "Visualization/precompute.py",
+      "id": "Visualization/precompute.py::REQUIRES",
+      "kind": "const",
+      "module": "Visualization/precompute.py",
+      "name": "REQUIRES",
       "public": true
     },
     {
@@ -22672,6 +23814,14 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_leaf_file",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_leaf_file",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_repo_provenance_of",
       "kind": "function",
       "module": "docs/experiments/ingest.py",
@@ -22740,6 +23890,14 @@
       "kind": "const",
       "module": "docs/macros.py",
       "name": "_CACHE",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::_verify_manifest_schema",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_verify_manifest_schema",
       "public": false
     },
     {
@@ -23300,6 +24458,30 @@
       "kind": "const",
       "module": "scripts/schema_report.py",
       "name": "FAMILY_MODULES",
+      "public": true
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::_KNOWN_IDS_RE",
+      "kind": "const",
+      "module": "scripts/schema_report.py",
+      "name": "_KNOWN_IDS_RE",
+      "public": false
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::_apply_known_ids",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "_apply_known_ids",
+      "public": false
+    },
+    {
+      "file": "scripts/schema_report.py",
+      "id": "scripts/schema_report.py::accept",
+      "kind": "function",
+      "module": "scripts/schema_report.py",
+      "name": "accept",
       "public": true
     },
     {

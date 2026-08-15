@@ -14,8 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>_in_flight</code></h1>
 <p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
 
-<pre class="sig"><code>def _in_flight(cell_dir: str) -&gt; list</code></pre>
-<section class="doc">resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.</section>
+<pre class="sig"><code>def _in_flight(rt, cell: str) -&gt; list</code></pre>
+<section class="doc">resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.
+
+The names come from the CONTRACT (`resume_pkl` / `checkpoint_pkl`), not from hardcoded
+literals: preflight declared both transients, so renaming either in schema.py moves this
+probe with it instead of silently blinding it.  Returned as sorted cell-relative paths, the
+same shape the old cell walk produced.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__cell_state.html"><code>cell_state</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py___in_flight">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20_in_flight">Source ↗</a></p>
 </article>

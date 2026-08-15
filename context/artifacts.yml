@@ -259,7 +259,7 @@ artifacts:
     format: csv
     writer: {function: rollup, file: Optimization/run_channel_rollup.py}
     readers: []
-    match: "channel_rollup_summary.csv"
+    match: "channel_rollup_summary_csv"
     fields: [pair, channel, best_config, best_plan, baseline_fifo_ss, best_ss, saving_abs,
              saving_pct]
 
@@ -269,7 +269,7 @@ artifacts:
     format: csv
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers: []
-    match: "whatif_delta.csv"
+    match: "whatif_delta_csv"
     fields: [cell, pair, pickcfg, channel, arm,
              ref_task_ms, cell_task_ms, d_task_ms_pct,
              ref_batch_ms, cell_batch_ms, d_batch_ms_pct,
@@ -284,7 +284,7 @@ artifacts:
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers:
       - {function: whatif_matrix, file: docs/macros.py}
-    match: "whatif_delta.json"
+    match: "whatif_delta_json"
     fields: [schema_id, reference, reference_label, metrics, window_batches, arms, pairs,
              channels, cells]
 
@@ -293,14 +293,14 @@ artifacts:
     format: png
     writer: {function: run, file: Optimization/run_whatif_delta.py}
     readers: []
-    match: "whatif_delta.png"
+    match: "whatif_delta_png"
 
   whatif_labor_csv:
     path_pattern: "comparison_<ts>/whatif_labor.csv"
     format: csv
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
-    match: "whatif_labor.csv"
+    match: "whatif_labor_csv"
     fields: [cell, scheduler, pair, pickcfg, channel, arm, initial, assignment, labor_hours,
              batch_hours, thr_items_hr, thr_task_items_hr, labor_saved, items, n_batches]
 
@@ -309,7 +309,7 @@ artifacts:
     format: json
     writer: {function: run, file: Optimization/run_whatif_labor.py}
     readers: []
-    match: "whatif_labor.json"
+    match: "whatif_labor_json"
     fields: [reference, reference_label, n_batches, arms, pairs, channels, metric,
              labor_baseline, hours_note, cells]
 

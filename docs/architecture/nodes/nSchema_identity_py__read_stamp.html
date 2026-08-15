@@ -18,7 +18,11 @@
 <section class="doc">The id a writer recorded, or None.
 
 None is the expected answer for every file written before its family was stamped — that is
-the normal path into derivation, not an error.</section>
+the normal path into derivation, not an error.
+
+A family with no meta table but a `stamp_reader` (sim_db: the stamp is a
+`simulation_runs.sim_schema_id` column value) answers through that callable, guarded the same
+way — any sqlite error means &quot;pre-stamp file&quot;, never a failure.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nSchema_identity_py__resolve.html"><code>resolve</code></a> <span class="dim">Schema/identity.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_identity_py__read_stamp">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/identity.py#:~:text=def%20read_stamp">Source ↗</a></p>
 </article>

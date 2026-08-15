@@ -71,6 +71,12 @@ def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
         con.close()
 
     if not keyframe_db:
+        # Deliberately NOT resolved through the run-tree contract: `reader_for` takes bare file
+        # paths and has no run root to bind a resolver to — and threading one through the reader
+        # protocol would leak tree-schema knowledge into the layer whose whole point is knowing
+        # only DB shapes.  Callers that DO hold a resolver (db_reader.discover_runs) resolve the
+        # sidecar with `rt.keyframe_db(...)` and pass it in, so this splitext derivation is only
+        # the last resort for a caller binding a bare sim DB with no discovery step.
         candidate = os.path.splitext(sim_db)[0] + '.keyframes.db'
         keyframe_db = candidate if os.path.exists(candidate) else ''
     return cls(sim_db=sim_db, warehouse_db=warehouse_db, run_id=run_id,

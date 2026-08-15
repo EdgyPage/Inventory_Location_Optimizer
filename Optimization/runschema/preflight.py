@@ -301,6 +301,14 @@ def observe(base_dir: str) -> dict:
                 if seg in axes[axis] and depth == ('cell', 'pair', 'config', 'channel').index(axis):
                     levels_seen.add(axis)
         for fn in files:
+            # SQLite reader litter is not tree shape.  A mode=ro open CREATES `-wal`/`-shm`
+            # beside any WAL database and cannot remove them (see the wal-sidecars memory), so
+            # whether a canary tree carries one depends on connection-close ORDER during the
+            # canary's own analysis — nondeterministic, and never something a consumer resolves.
+            # Writers checkpoint-clean on close (183b1e6); declaring these would freeze an
+            # accident into the contract, and observing them fails validation spuriously.
+            if fn.endswith(('-wal', '-shm', '-journal')):
+                continue
             tmpl = _generalize_file(parts + [fn], axes)
             templates[tmpl] = templates.get(tmpl, 0) + 1
     return {'templates': templates, 'levels_seen': sorted(levels_seen), 'layout': layout,

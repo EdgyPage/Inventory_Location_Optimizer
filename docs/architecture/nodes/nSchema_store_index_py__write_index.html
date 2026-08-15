@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_index · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_store_index_py__write_index" data-id="Schema/store_index.py::write_index">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_store_index_py.html"><code>Schema/store_index.py</code></a> <span class="sep">›</span> <span class="here"><code>write_index</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>write_index</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_store_index_py.html"><code>Schema/store_index.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def write_index(families: dict) -&gt; str</code></pre>
+<section class="doc">Record `{family: declared_id}` plus the current fingerprint.  Atomic (tmp + os.replace).
+
+Only ``scripts/schema_report.py --sync`` calls this — it is the one place that has every
+family imported and every declared shape freshly committed.  Everything else treats INDEX as
+read-only evidence.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_store_index_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_schema_report_py__sync.html"><code>sync</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_store_index_py__write_index">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/store_index.py#:~:text=def%20write_index">Source ↗</a></p>
+</article>
+</main>
+</body></html>

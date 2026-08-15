@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from Schema import capability as _capability
 from Schema import compat as _compat
+from Schema import dataset as _dataset
 from Schema import identity as _identity
 from Schema import shape as _shape
 from Schema.connect import read_only as _ro_conn
@@ -605,11 +606,17 @@ def sim_schema_id() -> str:
 
 
 def declared_keyframe_shape() -> dict:
-    """Canonical shape of the sibling keyframe DB."""
+    """Canonical shape of the sibling keyframe DB.
+
+    Includes the `schema_meta` stamp table: a family that declares `meta_table` must DECLARE the
+    table in its own shape, or the observed shape (with it, once stamped) would never match the
+    declaration (see `identity.META_TABLE_DDL`).
+    """
     con = sqlite3.connect(':memory:')
     try:
         con.execute(_CREATE_BIN_KEYFRAME)
         con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        con.execute(_identity.meta_ddl())
         return _shape.canonical_shape(con)
     finally:
         con.close()
@@ -619,10 +626,25 @@ def declared_keyframe_shape() -> dict:
 #: it cannot be recomputed from today's source, and those files are never rewritten.
 PRE_STAMP_SIM_SCHEMA_ID = '23d0c7f167bc'
 
+def _read_sim_stamp(con) -> str | None:
+    """The `simulation_runs.sim_schema_id` a run stamped, or None.
+
+    The sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the
+    generic `identity.read_stamp` cannot find it without this.  Body mirrors
+    `Visualization/readers/fingerprint.read_stamped_id` — that module keeps its own copy because
+    the viewer resolves through a pin cache as well; a test asserts the two stay in step.
+    """
+    row = con.execute(
+        'SELECT sim_schema_id FROM simulation_runs '
+        'WHERE sim_schema_id IS NOT NULL ORDER BY run_id LIMIT 1').fetchone()
+    return row[0] if row else None
+
+
 SIM_DB_FAMILY = _identity.register(_identity.Family(
     name='sim_db',
     declared_shape=declared_sim_schema_shape,
     meta_table=None,                 # stamped into simulation_runs.sim_schema_id, not a meta table
+    stamp_reader=_read_sim_stamp,    # ...which this teaches identity.resolve to read
     # Every shape this build still opens, newest first.  Each entry is a real window of commits
     # that produced real files; dropping one orphans them, so entries are added, never replaced.
     #   2b7913bcd7e6  the stamp column, before the bin-mutation log
@@ -788,13 +810,104 @@ SIM_CAPABILITIES = {c.name: c for c in (
 OCCUPANCY_LADDER = tuple(SIM_CAPABILITIES[n] for n in
                          (CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_INVENTORY))
 
+# ── the sim DB's NAMED QUERIES: the versioned read layer (publisher side) ───────────────────
+# Consumers (the loaders below, and through them all of Performance_Evaluations) bind to the
+# LOGICAL output columns declared here, never to physical schema.  A future vintage that renames
+# or drops a physical column gets a `_dataset.override(...)` registered FOR ITS SCHEMA ID in a
+# small module beside this one — consumers are never edited for a schema change.
+#
+# `optional` is the registry form of the loaders' historical `row.keys()` guards: a vintage whose
+# SQL cannot supply the column has it filled with the declared default, so the output contract is
+# identical on every servable vintage.  Today every column below is in the GUARANTEED surface
+# (compat REQUIRES validates clean), so the canonical SQL serves all four vetted vintages and no
+# override exists yet — the machinery is exercised by tests until the first real rename.
+#
+# The legacy aliases (`sigma_fw`, `W_a`) are NOT here: they exist only in UNVETTED cold-archive
+# shapes, which `dataset.bind` refuses by design.  Those files are served by the loaders' frozen
+# legacy fallback bodies below, never by the registry.
+_BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
+                   'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0,
+                   'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0,
+                   'units_ordered': 0, 'queue_depth': 0, 'lead_queue_depth': 0,
+                   'in_transit_qty': 0}
+_BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+               'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
+               *_BATCH_OPTIONAL)
+
+_dataset.register_query(_dataset.Query(
+    name='batch_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_BATCH_COLS)
+         + ' FROM batch_stats WHERE run_id = :run_id'),
+    columns=_BATCH_COLS,
+    tables={'batch_stats': _BATCH_COLS},
+    optional=_BATCH_OPTIONAL))
+
+_TASK_COLS = ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+              'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited',
+              'total_items', 'is_outlier')
+
+_dataset.register_query(_dataset.Query(
+    name='task_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_TASK_COLS)
+         + ' FROM task_stats WHERE run_id = :run_id'),
+    # `tables` = what the CANONICAL sql reads — `W` included: a vintage without it is unservable
+    # by this SQL and needs an override that omits the column (optional-fill then supplies 0.0).
+    columns=_TASK_COLS,
+    tables={'task_stats': _TASK_COLS},
+    optional={'W': 0.0}))
+
+_EVENT_OPTIONAL = {'pick_travel_x': 0.0, 'pick_travel_y': 0.0, 'non_pick_travel_x': 0.0,
+                   'non_pick_travel_y': 0.0, 'cart_move': 0.0}
+_EVENT_COLS = ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+               'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins',
+               'items_picked', 'total_items', *_EVENT_OPTIONAL)
+
+_dataset.register_query(_dataset.Query(
+    name='picker_events', family='sim_db',
+    # :batch_id IS NULL folds the two legacy query variants into one; within a single batch the
+    # unified ORDER BY is identical to the old per-batch (picker_id, time) ordering.
+    sql=('SELECT ' + ', '.join(_EVENT_COLS)
+         + ' FROM picker_events WHERE run_id = :run_id'
+           ' AND (:batch_id IS NULL OR batch_id = :batch_id)'
+           ' ORDER BY batch_id, picker_id, time'),
+    columns=_EVENT_COLS,
+    tables={'picker_events': _EVENT_COLS},
+    optional=_EVENT_OPTIONAL))
+
+
+def _query_rows(name: str, path: str, **params):
+    """Rows via the named-query registry when this file's vintage is servable, else None.
+
+    None routes the caller to its FROZEN LEGACY body: `Diagnostics/replay_run.py` deliberately
+    reads UNVETTED cold-archive vintages (`UNVETTED_ARCHIVE_SIM_SCHEMA_IDS`), which `bind`
+    refuses by design — for those, the pre-registry `SELECT *` + `row.keys()` behavior is kept
+    verbatim, and a golden test asserts both paths agree on every vetted vintage.
+    """
+    try:
+        # immutable=True, deliberately: the legacy loaders' plain RW connects cleaned their WAL
+        # sidecars up on close, but a mode=ro open CREATES `-wal`/`-shm` and cannot remove them
+        # (see the wal-sidecars memory) — the preflight canaries caught the litter as an
+        # undeclared tree path.  Immutable neither creates sidecars nor reads a hot WAL, and the
+        # promise it requires — nothing is writing — holds here: these loaders serve analysis,
+        # replay and the viewer, all of which read arms whose writer has checkpoint-closed
+        # (see 183b1e6, "close the WAL on a writer").
+        with _dataset.bind(path, 'sim_db', immutable=True) as ds:
+            return ds.query(name, **params)
+    except _identity.SchemaError:
+        return None
+
+
 KEYFRAME_DB_FAMILY = _identity.register(_identity.Family(
     name='keyframes_db',
     declared_shape=declared_keyframe_shape,
-    meta_table=None,
-    # No known_ids, and that is a RESULT, not an omission: `bin_keyframe` has never changed.
-    # Every keyframe sidecar in the archive — 24 sampled across nine runs from 2026-06-23 to
-    # 2026-08-13 — re-derives to the current declared id.
+    # Stamped since 2026-08-15 — the first family whose stamp table arrived through the
+    # --sync -> DDL edit -> --accept pipeline rather than by hand (the dogfood run of the
+    # adoption automation).  Before that this family was deliberately derived-only.
+    meta_table='schema_meta',
+    known_ids=('e1149f95dfed',  # every sidecar before the stamp table (2026-06-23 .. 2026-08-15);
+               # `bin_keyframe` itself never changed — 24 sidecars sampled across nine archived
+               # runs all re-derive to this id.  Adopted by the first `--accept` run.
+               ),
 ))
 
 
@@ -824,6 +937,10 @@ def create_run(path: str, run_type: str, params: dict | None = None,
             vals,
         )
         con.commit()
+        # The stamp is the column value above; `stamp_checked` here is the VERIFY half only —
+        # warn-once (never raise) because this runs inside spawned workers, hours into a sweep
+        # the run-start precheck already blessed.  A store gap nags; it must not kill an arm.
+        _compat.stamp_checked(con, SIM_DB_FAMILY, strict=False)
         return cur.lastrowid  # type: ignore[return-value]
     finally:
         con.close()
@@ -907,11 +1024,14 @@ def keyframe_db_path(run_db_path: str) -> str:
 
 
 def init_keyframe_db(path: str) -> None:
-    """Create the bin_keyframe table + index if absent."""
+    """Create the bin_keyframe table + index (and the schema_meta stamp) if absent."""
     con = _open_db(path)
     try:
         con.execute(_CREATE_BIN_KEYFRAME)
         con.execute(_CREATE_BIN_KEYFRAME_IDX)
+        # Stamp + verify the store, worker-safe (warn-once, never raise): keyframes are written
+        # beside the sim DB, deep inside a sweep.  `stamp` creates schema_meta idempotently.
+        _compat.stamp_checked(con, KEYFRAME_DB_FAMILY, strict=False)
         con.commit()
     finally:
         con.close()
@@ -968,6 +1088,16 @@ def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
 
 
 def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
+    """One BatchStats per batch, version-adaptive.
+
+    A VETTED file is served by the `batch_frame` named query (per-vintage overrides and
+    optional-fill included), so a consumer of this loader is version-free without knowing it.
+    An unvetted file — the cold archive `Diagnostics/replay_run.py` deliberately reads — falls
+    through to the frozen pre-registry body below, byte-for-byte the historical behavior.
+    """
+    recs = _query_rows('batch_frame', path, run_id=run_id)
+    if recs is not None:
+        return [BatchStats(**{**r, 'is_outlier': bool(r['is_outlier'])}) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -1166,6 +1296,10 @@ def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
 
 
 def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
+    """One TaskStats per (batch, aisle) task — version-adaptive; see `load_batch_stats`."""
+    recs = _query_rows('task_frame', path, run_id=run_id)
+    if recs is not None:
+        return [TaskStats(**{**r, 'is_outlier': bool(r['is_outlier'])}) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:
@@ -1240,7 +1374,11 @@ def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> l
     """Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.
 
     Returns records ordered by (batch_id, picker_id, time) for sequential replay.
+    Version-adaptive; see `load_batch_stats`.
     """
+    recs = _query_rows('picker_events', path, run_id=run_id, batch_id=batch_id)
+    if recs is not None:
+        return [PickerEventRecord(**r) for r in recs]
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     try:

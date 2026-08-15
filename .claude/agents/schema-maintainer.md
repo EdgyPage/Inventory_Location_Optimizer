@@ -33,17 +33,26 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
    python scripts/schema_report.py --sync      # commit any declared shape not yet captured
    python scripts/schema_report.py --adopt     # exits 1 when a DDL change left an outgoing shape
    python scripts/schema_report.py --report    # exits 1 on an unrecoverable id
+   python Schema/hook_check.py                 # the Stop hook's own view (always exit 0; read the nag)
    python -m Optimization.runschema.preflight --check     # exits 1 on tree-source drift
    python -m pytest Tests/architecture/test_schema_identity.py Tests/architecture/test_schema_compatibility.py -q
    ```
-   **`--sync` before you touch a DDL, always.** It commits each family's CURRENT declared shape,
-   and that is the whole mechanism: a shape captured while it is current cannot be lost when it
-   stops being current. Skipping it is what turns the next change into archaeology.
+   **`--sync` before you touch a DDL, always.** It commits each family's CURRENT declared shape
+   AND refreshes `Schema/shapes/INDEX.json` (whose fingerprint is what the Stop hook compares).
+   A shape captured while it is current cannot be lost when it stops being current. Runtime
+   backstops exist now — every writer verifies the store at DB creation (`compat.stamp_checked`),
+   and `run_simulation` blocks at startup on an inconsistent store — but they REPORT the gap; you
+   close it.
 3. **DB shape changed** (a family's `declared_id()` moved):
-   - `--adopt` names the outgoing id and prints the exact `known_ids` line. If `--sync` was run
-     beforehand the shape is already committed and there is nothing to hunt for. Paste the line,
-     and add a comment naming the real window of commits it covers.
+   - Run **`--accept`** — it adopts the outgoing id into `known_ids` automatically (writing the
+     tuple edit with a `TODO(schema-adopt)` marker) and re-syncs. Your remaining job is the
+     judgement half: replace the TODO with the real window of commits the old id covers.
+     `--accept` refuses ambiguous edits (0 or >1 `known_ids` matches) — those you do by hand.
    - Entries are **added, never replaced** — dropping one orphans every file written with it.
+   - **If the change renames/removes a column that a NAMED QUERY reads** (`dataset.queries_for`,
+     registered beside the family), register a per-vintage `dataset.override(...)` for the
+     OUTGOING id that re-aliases its physical columns to the query's SAME logical names. Never
+     edit a consumer script for a schema change — that is the entire point of the layer.
    - Only if the outgoing shape was never captured (a change that predates `--sync`) do you need
      `--capture <family> <a real file of that vintage>`, or a **hash-verified reconstruction**:
      rebuild it from an adjacent committed shape plus the one documented delta, and accept it ONLY
