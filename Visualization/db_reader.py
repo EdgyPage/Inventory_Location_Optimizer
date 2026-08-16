@@ -165,7 +165,7 @@ def _warehouse_fingerprint(warehouse_db: str) -> str | None:
     """The fingerprint via the full pipeline: bind the file to ITS OWN vintage and ask by
     name — the pre-fingerprint vintage is served by the repo's first production override
     (`Warehouse_Data`), which answers NULL instead of raising.  Discovery is tree-stamp-cached
-    and touches a handful of warehouse.db files, so full binds are free here.  The blanket
+    and touches a handful of warehouse files, so full binds are free here.  The blanket
     guard stays: unvetted/truncated -> None -> the walk-up fallback, unchanged."""
     try:
         from Schema import dataset as _dataset
