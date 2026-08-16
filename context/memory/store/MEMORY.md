@@ -18,3 +18,4 @@
 - [Resume architecture verified sound](resume-architecture-verified-sound.md) — a hard mid-flight kill resumes to 272/272 from `--resume DIR` alone (2026-08-16); the "strategy-level reset" log line is NOT evidence of it
 - [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not the 291 MB its file suggests, so RAM is never the argument for fewer workers
 - [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — fixing a contract never rescues a finished run; validate the fix against preflight's canaries or a fresh run
+- [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — proven working 2026-08-16; always check ingest's BY-NAME resolve lines, a silent fallback hid a dead feature for months
