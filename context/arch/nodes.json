@@ -444,34 +444,34 @@
     },
     "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render": {
       "decorators": [
-        "evaluation(key='agg.cross_profile', label='Cross-profile over-time suite', scope='aggregate', needs=('series',), out_subdir='', defaults={'top_n': 1, 'top_by': 'global'})"
+        "evaluation(key='agg.cross_profile', label='Cross-profile over-time suite', scope='aggregate', needs=('series',), out_subdir=('breakdown', 'faceted', 'overlay', 'top'), defaults={'top_n': 1, 'top_by': 'global'})"
       ],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py": {
+    "Optimization/Performance_Evaluations/aggregate/stats.py": {
       "decorators": [],
       "doc": "agg.stats / agg.stats_by_initial \u2014 cross-profile significance suite (strategies paired\nby profile).  `agg.stats` compares all common strategies into _aggregate/<pickcfg>/stats/;\n`agg.stats_by_initial` pairs uni_<fn> vs opt_<fn> into stats_by_initial/<fn>/ + summary.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats": {
+    "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats": {
       "decorators": [],
       "doc": "Cross-profile significance suite (strategies paired by profile).",
       "is_async": false,
       "kind": "function",
       "signature": "(profile_series_list, out_dir, log, pickcfg) -> None"
     },
-    "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial": {
+    "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial": {
       "decorators": [],
       "doc": "Cross-profile: per assignment function, run the aggregate paired suite uni_<fn> vs\nopt_<fn> into out_dir/<fn>/, plus a combined out_dir/by_initial_summary.csv.",
       "is_async": false,
       "kind": "function",
       "signature": "(profile_series_list, out_dir, log, pickcfg) -> None"
     },
-    "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats": {
+    "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats": {
       "decorators": [
         "evaluation(key='agg.stats', label='Cross-profile significance suite', scope='aggregate', needs=('series',), out_subdir='stats')"
       ],
@@ -480,37 +480,9 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats_by_initial": {
+    "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats_by_initial": {
       "decorators": [
         "evaluation(key='agg.stats_by_initial', label='Cross-profile significance, uni-vs-opt per fn', scope='aggregate', needs=('series',), out_subdir='stats_by_initial', by_initial=True)"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
-    "Optimization/Performance_Evaluations/breakdown/__init__.py": {
-      "decorators": [],
-      "doc": null,
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/breakdown/travel_handling.py": {
-      "decorators": [],
-      "doc": "breakdown.travel_handling \u2014 stacked travel-vs-handling picker-time bar per strategy,\nannotated with travel %.  Consumes ctx.breakdown() (picker-event decomposition, memoized\nand shared with the stats suite).  Writes compare/breakdown/task_time_breakdown.png.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/breakdown/travel_handling.py::_task_time_breakdown_plot": {
-      "decorators": [],
-      "doc": "Stacked travel-vs-handling bar per strategy, annotated with travel %.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, th, title, path)"
-    },
-    "Optimization/Performance_Evaluations/breakdown/travel_handling.py::render": {
-      "decorators": [
-        "evaluation(key='breakdown.travel_handling', label='Task time: travel vs handling', scope='config', needs=('breakdown',), out_subdir='compare/breakdown')"
       ],
       "doc": null,
       "is_async": false,
@@ -598,6 +570,13 @@
       "kind": "function",
       "signature": "(fig, path)"
     },
+    "Optimization/Performance_Evaluations/common/io.py::out_dir": {
+      "decorators": [],
+      "doc": "The CURRENT evaluation's declared output dir under this context's root, created.\n\nTHE way a render obtains its output directory: the subdir comes from the registration's\n`out_subdir` declaration (via artifact_map.figure_subdir), never a retyped literal \u2014 so a\nfuture directory change is a one-line declaration edit and no render body moves.\n\nroot = ctx.run_dir (config scope) or ctx.out_dir (aggregate scope).  `pick` selects one\nmember when the declaration is a tuple (agg.cross_profile) and must name a declared\nmember; it is an error for a single-dir declaration.  '' (root-declaring evals, e.g.\nconfig.series) returns the root itself, uncreated-beyond-existing.  fresh=True routes\nthrough _fresh_dir \u2014 the wipe-own-leaf contract of the single-owner stats suites;\notherwise os.makedirs(exist_ok=True), which also ends the old split where some renders\nmade their dirs and others silently relied on the parent pre-pass.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, pick=None, fresh=False)"
+    },
     "Optimization/Performance_Evaluations/common/io.py::set_current_eval": {
       "decorators": [],
       "doc": "Name the evaluation whose render is executing (None clears it).",
@@ -611,6 +590,68 @@
       "is_async": false,
       "kind": "function",
       "signature": "(text)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py": {
+      "decorators": [],
+      "doc": "Shared figure painters \u2014 the builders more than one evaluation draws with.\n\nPromoted here from the modules that first grew them so that aggregate/cross_profile (which\nre-renders the whole compare suite on cross-profile averages) imports a PUBLISHED shared\nsurface instead of five private helpers across four compare modules \u2014 and so top_vs_baseline\nno longer reaches into stats/ for `_stars`.  Each painter keeps its original module as its\nprimary consumer; the docstrings travel with the code.\n\n`overtime_metrics` / `top_tag` are the shared filename-stem vocabulary: every over-time\nfigure basename and every `top{n}[_by_{dim}]_` prefix in the published site composes from\nthese two functions, so THIS module is where those names are minted.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_delta_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, S, baseline, title, path)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_facet_metric": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, S, m, title, path)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, S, m, title, path)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, S, title, path)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_stars": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(p: float) -> str"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::_top_metric": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, S, top_n, m, title, baseline, path, top_by='global')"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::overtime_metrics": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(agg=False)"
+    },
+    "Optimization/Performance_Evaluations/common/painters.py::top_tag": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(top_n, top_by)"
     },
     "Optimization/Performance_Evaluations/common/series.py": {
       "decorators": [],
@@ -889,55 +930,19 @@
       "kind": "function",
       "signature": "(ax, handles=None, *, anchor=(1.02, 1.0), **kw)"
     },
-    "Optimization/Performance_Evaluations/comparison/__init__.py": {
+    "Optimization/Performance_Evaluations/compare/__init__.py": {
       "decorators": [],
       "doc": "Shared over-time metric specs for the comparison graphs.\n\nThe same five trajectories drive faceted/, overlay/, and top/ (per-config) and the\ncross-profile aggregate suite.  `agg=True` appends the '(\u00d7 baseline)' unit used when the\ncurves are baseline-normalized ratios rather than raw values.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(agg=False)"
-    },
-    "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(top_n, top_by)"
-    },
-    "Optimization/Performance_Evaluations/comparison/delta_bars.py": {
-      "decorators": [],
-      "doc": "compare.delta_bars \u2014 throughput \u0394% and duration-improvement% vs the baseline strategy.\nWrites compare/breakdown/delta_vs_baseline.png.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, S, baseline, title, path)"
-    },
-    "Optimization/Performance_Evaluations/comparison/delta_bars.py::render": {
-      "decorators": [
-        "evaluation(key='compare.delta_bars', label='\u0394 vs baseline (throughput/duration)', scope='config', needs=('series',), out_subdir='compare/breakdown')"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
-    "Optimization/Performance_Evaluations/comparison/delta_by_batch.py": {
+    "Optimization/Performance_Evaluations/compare/delta_by_batch.py": {
       "decorators": [],
       "doc": "compare.delta_by_batch \u2014 per-batch production-time improvement (%) vs the FIFO baseline,\ngrouped bars for the top-N strategies.  Under compare/top.  (Dense at large top_n by nature;\nper_strategy.delta_by_batch is the clean one-panel-per-strategy read.)\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render": {
+    "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render": {
       "decorators": [
         "evaluation(key='compare.delta_by_batch', label='Per-batch production-time \u0394 vs baseline (bars, top-N)', scope='config', needs=('series',), out_subdir='compare/top', defaults={'top_n': 1, 'top_by': 'global'})"
       ],
@@ -946,20 +951,20 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/delta_over_time.py": {
+    "Optimization/Performance_Evaluations/compare/delta_over_time.py": {
       "decorators": [],
       "doc": "compare.delta_over_time \u2014 production-time (\u03a3 task time / batch) improvement vs the FIFO\nbaseline for the top-N strategies, as two line views: cumulative % saved through batch N, and\nthe per-batch \u0394% trend.  Additive companion to compare.top_metric; under compare/top.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line": {
+    "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(strategies, S, baseline, top_n, top_by, which, title, ylabel, path)"
     },
-    "Optimization/Performance_Evaluations/comparison/delta_over_time.py::render": {
+    "Optimization/Performance_Evaluations/compare/delta_over_time.py::render": {
       "decorators": [
         "evaluation(key='compare.delta_over_time', label='Production-time improvement vs baseline, over time (top-N)', scope='config', needs=('series',), out_subdir='compare/top', defaults={'top_n': 1, 'top_by': 'global'})"
       ],
@@ -968,20 +973,28 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/faceted.py": {
+    "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py": {
+      "decorators": [],
+      "doc": "compare.delta_vs_baseline \u2014 throughput \u0394% and duration-improvement% vs the baseline strategy.\nWrites compare/breakdown/delta_vs_baseline.png.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py::render": {
+      "decorators": [
+        "evaluation(key='compare.delta_vs_baseline', label='\u0394 vs baseline (throughput/duration)', scope='config', needs=('series',), out_subdir='compare/breakdown')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/compare/faceted.py": {
       "decorators": [],
       "doc": "compare.faceted \u2014 over-time trajectories faceted by (initial \u00d7 reslot), colored by\nassignment function.  One PNG per over-time metric under compare/faceted/.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, S, m, title, path)"
-    },
-    "Optimization/Performance_Evaluations/comparison/faceted.py::render": {
+    "Optimization/Performance_Evaluations/compare/faceted.py::render": {
       "decorators": [
         "evaluation(key='compare.faceted', label='Over-time, faceted by initial\u00d7reslot', scope='config', needs=('series',), out_subdir='compare/faceted')"
       ],
@@ -990,77 +1003,70 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py": {
       "decorators": [],
-      "doc": "compare.labor_trend \u2014 labor cost of the scheduled tasks, batch by batch, and how it moves.\nUnder compare/breakdown.\n\nWHAT \"LABOR\" IS HERE.  The per-batch sum of task durations, which is exactly batch_stats.\ntask_makespan (verified equal to float noise) \u2014 the serial makespan a lone picker would incur, i.e.\ntotal work, independent of how many pickers ran in parallel.  That is the quantity the assignment\nfunction actually moves; the scheduler does not change it.  Converted to hours with the same\nMS_PER_HOUR the what-if layer uses so figures reconcile across the suite.\n\nWHY IT IS PLOTTED AGAINST BATCH NUMBER.  Labor per batch is a demand-driven quantity: a batch with\nmore items costs more, whatever the policy.  Plotting it over batch order shows whether a policy's\nadvantage HOLDS as the warehouse fills and reorders churn, or decays.  The right panel removes the\ndemand signal entirely by expressing each batch as a percentage against FIFO on that same batch, so\nwhat remains is the policy effect alone.\n\nTWO THINGS NOT TO READ INTO IT.  (1) There is no warm-up transient: batch 0 measured 70% of median\non a real run, well inside the family, so the opening batches are not a ramp and are not excluded.\n(2) One batch in the store channel carries ~4 items and shows as a spike in the % panel and a notch\nin the raw panel; it is identical in all 34 arms because the batch sequence is shared across arms,\nso it is a property of the demand sample and biases no comparison between policies.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot'), win (steady-state tail).",
+      "doc": "compare.labor_per_batch \u2014 labor cost of the scheduled tasks, batch by batch, and how it moves.\nUnder compare/breakdown.\n\nWHAT \"LABOR\" IS HERE.  The per-batch sum of task durations, which is exactly batch_stats.\ntask_makespan (verified equal to float noise) \u2014 the serial makespan a lone picker would incur, i.e.\ntotal work, independent of how many pickers ran in parallel.  That is the quantity the assignment\nfunction actually moves; the scheduler does not change it.  Converted to hours with the same\nMS_PER_HOUR the what-if layer uses so figures reconcile across the suite.\n\nWHY IT IS PLOTTED AGAINST BATCH NUMBER.  Labor per batch is a demand-driven quantity: a batch with\nmore items costs more, whatever the policy.  Plotting it over batch order shows whether a policy's\nadvantage HOLDS as the warehouse fills and reorders churn, or decays.  The right panel removes the\ndemand signal entirely by expressing each batch as a percentage against FIFO on that same batch, so\nwhat remains is the policy effect alone.\n\nTWO THINGS NOT TO READ INTO IT.  (1) There is no warm-up transient: batch 0 measured 70% of median\non a real run, well inside the family, so the opening batches are not a ramp and are not excluded.\n(2) One batch in the store channel carries ~4 items and shows as a spike in the % panel and a notch\nin the raw panel; it is identical in all 34 arms because the batch sequence is shared across arms,\nso it is a property of the demand sample and biases no comparison between policies.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot'), win (steady-state tail).",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::HOURS_NOTE": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::HOURS_NOTE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "'modeled sim pick-time hours (\u03a3 task duration / 3.6e6) \u2014 not wall-clock'"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::MS_PER_HOUR": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::MS_PER_HOUR": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "3600000.0"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(selected, gof, frames, baseline, top_n, top_by, win, title, path)"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::_smooth": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_smooth": {
       "decorators": [],
       "doc": "Centred moving average, the same 5-batch window the over-time trajectories use.",
       "is_async": false,
       "kind": "function",
       "signature": "(y, win=5)"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::labor_by_batch": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::labor_by_batch": {
       "decorators": [],
       "doc": "(batch_ids, labor_hours) \u2014 \u03a3 task duration per batch, in hours, ordered by batch.",
       "is_async": false,
       "kind": "function",
       "signature": "(task_df)"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::render": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render": {
       "decorators": [
-        "evaluation(key='compare.labor_trend', label='Labor hours per batch and % saved vs FIFO, over batch order', scope='config', needs=('task',), out_subdir='compare/breakdown', defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN})"
+        "evaluation(key='compare.labor_per_batch', label='Labor hours per batch and % saved vs FIFO, over batch order', scope='config', needs=('task', 'series'), out_subdir='compare/breakdown', defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN})"
       ],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/labor_trend.py::trend_per_100": {
+    "Optimization/Performance_Evaluations/compare/labor_per_batch.py::trend_per_100": {
       "decorators": [],
       "doc": "Least-squares slope in labor-hours per 100 batches \u2014 the trend as a NUMBER.\n\nReported so \"labor goes down over time\" is quantified rather than eyeballed off a line.",
       "is_async": false,
       "kind": "function",
       "signature": "(batches, hours)"
     },
-    "Optimization/Performance_Evaluations/comparison/overlay.py": {
+    "Optimization/Performance_Evaluations/compare/overlay.py": {
       "decorators": [],
       "doc": "compare.overlay \u2014 all strategies overlaid on one axis per over-time metric: color =\nassignment function, linestyle = (initial, reslot).  One PNG per metric under compare/overlay/.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, S, m, title, path)"
-    },
-    "Optimization/Performance_Evaluations/comparison/overlay.py::render": {
+    "Optimization/Performance_Evaluations/compare/overlay.py::render": {
       "decorators": [
         "evaluation(key='compare.overlay', label='Over-time, all strategies overlaid', scope='config', needs=('series',), out_subdir='compare/overlay')"
       ],
@@ -1069,20 +1075,13 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py": {
+    "Optimization/Performance_Evaluations/compare/pick_vs_travel.py": {
       "decorators": [],
       "doc": "compare.pick_vs_travel \u2014 horizontal stacked picking%/traveling% bar per strategy\n(steady-state aggregate picker-time split).  Writes compare/breakdown/pick_vs_travel.png.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, S, title, path)"
-    },
-    "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::render": {
+    "Optimization/Performance_Evaluations/compare/pick_vs_travel.py::render": {
       "decorators": [
         "evaluation(key='compare.pick_vs_travel', label='Picking vs traveling split', scope='config', needs=('series',), out_subdir='compare/breakdown')"
       ],
@@ -1091,115 +1090,100 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/series.py": {
+    "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py": {
       "decorators": [],
-      "doc": "config.series \u2014 write series.json (per-strategy trajectories + steady-state scalars +\noptimal floors).  The cross-profile aggregate stage consumes these files.\n\nOrdered FIRST in the preset so it lands before downstream readers, but every config graph\nthat needs the curves calls ctx.series() directly (so there is no hard ordering).",
+      "doc": "compare.task_duration_by_strategy \u2014 box plot of steady-state task durations, one box per strategy\n(color = assignment, mean markers).  Writes compare/breakdown/task_duration_by_strategy.png.\n\nParam: win (steady-state tail width in batches).",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/series.py::render": {
-      "decorators": [
-        "evaluation(key='config.series', label='series.json (trajectories + ss scalars)', scope='config', needs=('batch', 'task'), out_subdir='')"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
-    "Optimization/Performance_Evaluations/comparison/summary_csv.py": {
-      "decorators": [],
-      "doc": "config.summary_csv \u2014 per-strategy mean/median/std summary tables for headline batch\nand task metrics.  Writes per_strategy/summary_batch.csv and per_strategy/summary_task.csv.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/comparison/summary_csv.py::render": {
-      "decorators": [
-        "evaluation(key='config.summary_csv', label='Summary batch/task CSVs', scope='config', needs=('batch', 'task'), out_subdir='per_strategy')"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
-    "Optimization/Performance_Evaluations/comparison/task_box.py": {
-      "decorators": [],
-      "doc": "compare.task_box \u2014 box plot of steady-state task durations, one box per strategy\n(color = assignment, mean markers).  Writes compare/breakdown/task_duration_by_strategy.png.\n\nParam: win (steady-state tail width in batches).",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box": {
+    "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box": {
       "decorators": [],
       "doc": "Box plot of steady-state task durations, one box per strategy (color =\nassignment), with mean markers \u2014 task time per strategy at a glance.",
       "is_async": false,
       "kind": "function",
       "signature": "(strategies, df_t, title, path, win=_WIN)"
     },
-    "Optimization/Performance_Evaluations/comparison/task_box.py::render": {
+    "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::render": {
       "decorators": [
-        "evaluation(key='compare.task_box', label='Steady-state task duration by strategy', scope='config', needs=('task',), out_subdir='compare/breakdown', defaults={'win': _WIN})"
+        "evaluation(key='compare.task_duration_by_strategy', label='Steady-state task duration by strategy', scope='config', needs=('task',), out_subdir='compare/breakdown', defaults={'win': _WIN})"
       ],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py": {
+    "Optimization/Performance_Evaluations/compare/task_time_breakdown.py": {
       "decorators": [],
-      "doc": "compare.throughput_labor \u2014 the four success metrics on one figure  (no rerun, no DB touch)\n\nThree scatter panels, one point per strategy arm, built from the per-arm series scalars in\nseries.json.  Vocabulary: TASK makespan = ss_prod_hours = \u03a3 task time = total labor (the serial\nmakespan a lone picker would incur); BATCH makespan = ss_dur = last-picker finish (parallel\nwall-clock).  The two throughputs are items \u00f7 each makespan:\n  * ss_thr      = items / batch makespan  (metric d)\n  * ss_thr_task = items / task makespan   (metric c)\n\n  * Panel A: x = task makespan (ss_prod_hours, lower=better)  vs  y = throughput / batch makespan\n             (ss_thr).  Marker size \u221d batch makespan (ss_dur).  Best corner is UP-LEFT.\n  * Panel B: x = batch makespan (ss_dur)  vs  y = throughput / batch makespan \u2014 the mechanistic link.\n  * Panel C: x = throughput / task makespan (ss_thr_task)  vs  y = throughput / batch makespan\n             (ss_thr).  Separates the two win types: a pure SCHEDULING win (batch makespan \u2193 at flat\n             task makespan) moves a point straight UP; a LABOR win (less task time per item) moves it\n             RIGHT.  \"A throughput win at flat task makespan is still a win\" = vertical travel here.\n\nThe thesis stays: throughput does NOT track task makespan (total labor) \u2014 a placement that lowers \u03a3\ntask labor can pile work onto the busiest picker, raising batch makespan and lowering throughput.  So\nthroughput tracks 1/batch-makespan (Panel B, tight) \u2014 not task makespan (Panel A, a scattered cloud).\nThe Spearman \u03c1 in each title quantifies it.  Writes compare/throughput_vs_labor.png.",
+      "doc": "compare.task_time_breakdown \u2014 stacked travel-vs-handling picker-time bar per strategy,\nannotated with travel %.  Consumes ctx.breakdown() (picker-event decomposition, memoized\nand shared with the stats suite).  Writes compare/breakdown/task_time_breakdown.png.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_f": {
+    "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::_task_time_breakdown_plot": {
+      "decorators": [],
+      "doc": "Stacked travel-vs-handling bar per strategy, annotated with travel %.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, th, title, path)"
+    },
+    "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::render": {
+      "decorators": [
+        "evaluation(key='compare.task_time_breakdown', label='Task time: travel vs handling', scope='config', needs=('breakdown',), out_subdir='compare/breakdown')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py": {
+      "decorators": [],
+      "doc": "compare.throughput_vs_labor \u2014 the four success metrics on one figure  (no rerun, no DB touch)\n\nThree scatter panels, one point per strategy arm, built from the per-arm series scalars in\nseries.json.  Vocabulary: TASK makespan = ss_prod_hours = \u03a3 task time = total labor (the serial\nmakespan a lone picker would incur); BATCH makespan = ss_dur = last-picker finish (parallel\nwall-clock).  The two throughputs are items \u00f7 each makespan:\n  * ss_thr      = items / batch makespan  (metric d)\n  * ss_thr_task = items / task makespan   (metric c)\n\n  * Panel A: x = task makespan (ss_prod_hours, lower=better)  vs  y = throughput / batch makespan\n             (ss_thr).  Marker size \u221d batch makespan (ss_dur).  Best corner is UP-LEFT.\n  * Panel B: x = batch makespan (ss_dur)  vs  y = throughput / batch makespan \u2014 the mechanistic link.\n  * Panel C: x = throughput / task makespan (ss_thr_task)  vs  y = throughput / batch makespan\n             (ss_thr).  Separates the two win types: a pure SCHEDULING win (batch makespan \u2193 at flat\n             task makespan) moves a point straight UP; a LABOR win (less task time per item) moves it\n             RIGHT.  \"A throughput win at flat task makespan is still a win\" = vertical travel here.\n\nThe thesis stays: throughput does NOT track task makespan (total labor) \u2014 a placement that lowers \u03a3\ntask labor can pile work onto the busiest picker, raising batch makespan and lowering throughput.  So\nthroughput tracks 1/batch-makespan (Panel B, tight) \u2014 not task makespan (Panel A, a scattered cloud).\nThe Spearman \u03c1 in each title quantifies it.  Writes compare/throughput_vs_labor.png.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_f": {
       "decorators": [],
       "doc": "Coerce to float, mapping None/missing to NaN.",
       "is_async": false,
       "kind": "function",
       "signature": "(v)"
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_panel": {
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_panel": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ax, xs, ys, colors, labels, base_xy, xlabel, ylabel, title, sizes=None)"
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_rho": {
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_rho": {
       "decorators": [],
       "doc": "Spearman rank correlation over finite pairs; NaN if too few / degenerate.",
       "is_async": false,
       "kind": "function",
       "signature": "(xs, ys)"
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_sizes": {
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_sizes": {
       "decorators": [],
       "doc": "Map makespan \u2192 marker area in [40, 300]; flat 90 when all equal / non-finite.",
       "is_async": false,
       "kind": "function",
       "signature": "(durs)"
     },
-    "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render": {
+    "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render": {
       "decorators": [
-        "evaluation(key='compare.throughput_labor', label='Throughput vs total labor (scatter + Spearman \u03c1)', scope='config', needs=('series',), out_subdir='compare')"
+        "evaluation(key='compare.throughput_vs_labor', label='Throughput vs total labor (scatter + Spearman \u03c1)', scope='config', needs=('series',), out_subdir='compare')"
       ],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_metric.py": {
+    "Optimization/Performance_Evaluations/compare/top_metric.py": {
       "decorators": [],
       "doc": "compare.top_metric \u2014 overlay only the top-N strategies (global, or top-N within each\nvalue of a dimension) against the baseline, per over-time metric.  Under compare/top/.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, S, top_n, m, title, baseline, path, top_by='global')"
-    },
-    "Optimization/Performance_Evaluations/comparison/top_metric.py::render": {
+    "Optimization/Performance_Evaluations/compare/top_metric.py::render": {
       "decorators": [
         "evaluation(key='compare.top_metric', label='Top-N strategies vs baseline, over time', scope='config', needs=('series',), out_subdir='compare/top', defaults={'top_n': 1, 'top_by': 'global'})"
       ],
@@ -1208,48 +1192,48 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py": {
       "decorators": [],
       "doc": "compare.top_vs_baseline \u2014 how the best runs compare to the FIFO/random baseline.\n\nTwo stakeholder-facing artifacts under compare/:\n  * top_vs_baseline.png        \u2014 grouped bars, % improvement of each top run vs the FIFO\n                                 baseline across the headline metrics (higher = better).\n  * top_vs_baseline_table.png  \u2014 a supporting table graphic (for the site): one row per\n                                 top run, with the % difference in TOTAL task time (labor)\n                                 AND in throughput vs FIFO, plus the statistical\n                                 significance (paired Wilcoxon p over all batches).\n\nBoth table columns come from `_paired`, so they share one window and one method \u2014 a labor\nnumber measured over all batches next to a throughput number measured over the last 50 would\nbe two different questions in one table.  The bar chart is the steady-state view; the table is\nthe paired-over-the-whole-run view.  They answer the same question and need not match to the\ndecimal.\n\nBaseline = strategies[0] (the FIFO/uniform-random run).  Params: top_n, top_by.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_BAR_METRICS": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_BAR_METRICS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "[('Task makespan', 'ss_prod_hours', True), ('Batch makespan', 'ss_dur', True), ('Thr / batch makespan', 'ss_thr', False), ('Thr / task makespan', 'ss_thr_task', False), ('Layout total f*D', 'ss_sig..."
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, selected, S, baseline, path, top_n, top_by)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_impr": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_impr": {
       "decorators": [],
       "doc": "Signed % improvement vs baseline (always oriented so higher = better).",
       "is_async": false,
       "kind": "function",
       "signature": "(val, base, lower)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_paired": {
       "decorators": [],
       "doc": "(pct_change, wilcoxon_p, n_batches) for one per-batch metric vs the FIFO baseline,\npaired over the batches the two runs share.\n\npct = (median(strat) \u2212 median(base))/median(base) \u00b7 100 \u2014 the RAW sign, so the caller\ndecides which direction reads as better.  Used for both table columns:\n  ('task_sum', 'duration')      \u2192 total task time = labor  (negative \u21d2 better)\n  ('batch',    'completion_rate') \u2192 throughput / batch makespan (positive \u21d2 better)",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, s, source, col)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic": {
       "decorators": [],
       "doc": "The site's quick-takeaway table: labor AND throughput vs FIFO, one row per run.\n\nRows are labelled with _stitle (initial|assignment|reslot), not the bare assignment name \u2014\nOpt|Rank_labor and Uni|Rank_labor are different runs and must not collapse to one label.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, selected, S, baseline, path)"
     },
-    "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render": {
+    "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render": {
       "decorators": [
         "evaluation(key='compare.top_vs_baseline', label='Top runs vs FIFO baseline (% diff + table)', scope='config', needs=('series', 'batch', 'task'), out_subdir='compare', defaults={'top_n': 3, 'top_by': 'global'})"
       ],
@@ -1258,57 +1242,93 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py": {
       "decorators": [],
       "doc": "compare.volume_curve \u2014 cumulative pick volume against elapsed time: how much work each arm\nfinishes per unit of time, and how far ahead of FIFO it is at any given hour.  Under compare/top.\n\nWHY A CURVE AND NOT A BAR.  Throughput as a single number hides *when* the work happened.  Plotting\nrunning items against running elapsed hours makes the rate itself the visible thing: the SLOPE of the\ncurve IS throughput (items per hour), so a steeper line that terminates further left finished the\nsame demand sooner.  That is the whole \"better throughput at equal labor\" story in one picture \u2014 the\narms do not do less work, they do it in less elapsed time.\n\nTHE TIME AXIS IS SYNTHESIZED, AND HAS TO BE.  There is no global clock in the data: every batch's sim\nclock restarts at zero (batch_start_time is 0.0 for every row, batch_end_time == duration).  So\nelapsed time is the running sum of batch makespans, which is exactly the quantity run_whatif_labor\nalready calls `batch_hours`.  Same definition, same units, so numbers reconcile across the suite.\n\nON THE AREA METRIC \u2014 read this before quoting it.  The cumulative curve is very nearly a straight\nline from the origin (measured shape index 1.0007 on a real 100-batch store arm), so its raw area is\nT*I/2 and carries NO information the two endpoints do not already give.  Reporting a bare \"AUC\" would\ntherefore be a dressed-up restatement of items x hours.  Three numbers are reported instead, and only\nthe first two are performance measures:\n\n    mean_thr_items_hr    PRIMARY.  items / elapsed hours = the chord slope.  Higher is better.\n                         This is what the area reduces to; saying it directly is the same\n                         information without pretending to measure curve shape.\n    auc_gain_vs_fifo_pct The area BETWEEN this arm's curve and FIFO's, over FIFO's own area, on a\n                         shared hour grid.  Higher is better.  Non-degenerate: two straight lines of\n                         different slope have a gap that grows with time, which is precisely\n                         \"by any given hour, how much more work is finished\".\n    shape_index          area / (T*I/2).  A STABILITY DIAGNOSTIC, not a score.  ~1.000 means the rate\n                         held steady for the whole run; a bend would show as a departure from 1.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::HOURS_NOTE": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::HOURS_NOTE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::MS_PER_HOUR": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::MS_PER_HOUR": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "3600000.0"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot": {
       "decorators": [],
       "doc": "Left: cumulative volume vs elapsed hours.  Right: lead over FIFO at matched hours.",
       "is_async": false,
       "kind": "function",
       "signature": "(selected, gof, frames, baseline, top_n, top_by, title, path)"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::cumulative_curve": {
       "decorators": [],
       "doc": "(hours, items) running totals over batches, ordered by batch_id.\n\nhours[i] is elapsed time at the END of batch i, so the pair (hours, items) is the point\n\"this much work had been finished by this much elapsed time\".",
       "is_async": false,
       "kind": "function",
       "signature": "(df)"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::curve_metrics": {
       "decorators": [],
       "doc": "{'items','elapsed_hours','mean_thr_items_hr','auc_item_hours','shape_index'}.\n\nTrapezoid area from the origin: the curve starts at (0,0) by construction, and a batch is only\ncounted once it has completed.",
       "is_async": false,
       "kind": "function",
       "signature": "(hrs, items)"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::gain_vs_base": {
       "decorators": [],
       "doc": "(grid_hours, delta_items, gain_pct) \u2014 this arm's lead over the baseline at matched time.\n\nBoth curves are interpolated onto a shared grid spanning only the hours BOTH actually cover, so\nthe comparison never extrapolates past the shorter run.  gain_pct is the area between the curves\nover the baseline's own area on that grid, which is the honest \"how far ahead, on average\".",
       "is_async": false,
       "kind": "function",
       "signature": "(hrs, items, base_hrs, base_items)"
     },
-    "Optimization/Performance_Evaluations/comparison/volume_curve.py::render": {
+    "Optimization/Performance_Evaluations/compare/volume_curve.py::render": {
       "decorators": [
-        "evaluation(key='compare.volume_curve', label='Cumulative pick volume vs elapsed time, with rate + lead-over-FIFO metrics', scope='config', needs=('batch',), out_subdir='compare/top', defaults={'top_n': 3, 'top_by': 'initial'})"
+        "evaluation(key='compare.volume_curve', label='Cumulative pick volume vs elapsed time, with rate + lead-over-FIFO metrics', scope='config', needs=('batch', 'series'), out_subdir='compare/top', defaults={'top_n': 3, 'top_by': 'initial'})"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/config/__init__.py": {
+      "decorators": [],
+      "doc": "config.* evaluations \u2014 the per-config DATA PRODUCTS (the series document, summary CSVs).\n\nSplit from the graph packages: these two renders emit the documents downstream stages read\n(the aggregate suite, run_channel_rollup, the docs ingest), not figures.  The package name is\nthe key namespace, per Tests/architecture/test_naming_alignment.py.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/config/series.py": {
+      "decorators": [],
+      "doc": "config.series \u2014 write series.json (per-strategy trajectories + steady-state scalars +\noptimal floors).  The cross-profile aggregate stage consumes these files.\n\nOrdered FIRST in the preset so it lands before downstream readers, but every config graph\nthat needs the curves calls ctx.series() directly (so there is no hard ordering).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/config/series.py::render": {
+      "decorators": [
+        "evaluation(key='config.series', label='series.json (trajectories + ss scalars)', scope='config', needs=('series',), out_subdir='')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/config/summary_csv.py": {
+      "decorators": [],
+      "doc": "config.summary_csv \u2014 per-strategy mean/median/std summary tables for headline batch\nand task metrics.  Writes per_strategy/summary_batch.csv and per_strategy/summary_task.csv.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/config/summary_csv.py::render": {
+      "decorators": [
+        "evaluation(key='config.summary_csv', label='Summary batch/task CSVs', scope='config', needs=('batch', 'task'), out_subdir='per_strategy')"
       ],
       "doc": null,
       "is_async": false,
@@ -1343,10 +1363,10 @@
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir": {
       "decorators": [],
-      "doc": "The subdir (relative to the context root) evaluation `eval_key`'s FIGURES belong in \u2014\nits `out_subdir`, '' meaning the root itself, None for an unregistered key.",
+      "doc": "The subdir(s) (relative to the context root) evaluation `eval_key`'s FIGURES belong in\n\u2014 its `out_subdir` verbatim: a str, '' meaning the root itself, a TUPLE for a declared\nmulti-dir owner (agg.cross_profile), None for an unregistered key.",
       "is_async": false,
       "kind": "function",
-      "signature": "(eval_key: str) -> str | None"
+      "signature": "(eval_key: str)"
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::findings": {
       "decorators": [],
@@ -1364,7 +1384,7 @@
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds": {
       "decorators": [],
-      "doc": "Is a figure save into `save_dir` consistent with `eval_key`'s declared out_subdir?\n\nTrue when the declared subdir's segments appear as a contiguous run in the save path \u2014\nchecked WITHOUT knowing the context root, because `_save_close` only sees the path.  An\neval declaring the root ('') makes no checkable claim; unknown evals are not this\nfunction's problem (the driver only sets registered keys).",
+      "doc": "Is a figure save into `save_dir` consistent with `eval_key`'s declared out_subdir?\n\nTrue when ANY declared subdir's segments appear as a contiguous run in the save path \u2014\nchecked WITHOUT knowing the context root, because `_save_close` only sees the path.  An\neval declaring the root ('') makes no checkable claim; unknown evals are not this\nfunction's problem (the driver only sets registered keys).",
       "is_async": false,
       "kind": "function",
       "signature": "(eval_key: str, save_dir: str) -> bool"
@@ -1576,7 +1596,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py": {
       "decorators": [],
-      "doc": "The request broker \u2014 consumers ask for a resource BY NAME; this module gets it or says why not.\n\nThe `needs=` vocabulary every `@evaluation` already declares ('batch', 'task', 'events',\n'series', 'breakdown') is the request vocabulary.  A graph's render never navigates the\nversioned inputs itself: the broker is the hard-coded intermediary that knows where each\nresource lives (sim DBs via the `Picking_Data` loaders, which serve every vetted vintage\nthrough `Schema.dataset`'s named queries; series/breakdown composed from those frames) and\nreturns the composed resource \u2014 or a `Denied(reason)` when the resource does not exist.\n\nThree rules, in tension and resolved deliberately:\n\n  * A MISSING resource never raises.  `resolve_needs` returns `Denied` sentinels; the driver\n    logs `[access] <eval> requested ... -> DENIED (<reason>); render skipped` and moves on.\n    Exceptions remain for real corruption \u2014 an unvetted schema, an unreadable file \u2014 which\n    must stop a publish, not be skipped politely (see core/context.py's identity gate).\n  * When everything is present, behavior is byte-identical to the pre-broker code: the compose\n    functions ARE the old `EvalContext` method bodies, memoised into the same per-context\n    caches, so a granted render costs nothing extra and produces the same frames.\n  * An EMPTY resource is granted, not denied: `breakdown()` returning `{}` (no steady-state\n    batches, a failed reconstruction) is a degraded product its consumers are written to\n    tolerate \u2014 `travel_handling` renders nothing, the stats suites skip those rows.  Denial is\n    reserved for absence of the SOURCE (a sim DB not on disk, no series.json for a group).\n\nThe per-process tally (`tally_snapshot`) is what makes \"did every consumer get what it asked\nfor\" answerable from the log alone: run_analysis collects each worker's counts and prints a\nrun-end summary.  Process-global is safe for the same reason `io.set_footer` is \u2014 workers are\nseparate spawned processes, and within one, jobs run sequentially.",
+      "doc": "The request broker \u2014 consumers ask for a resource BY NAME; this module gets it or says why not.\n\nThe `needs=` vocabulary every `@evaluation` already declares ('batch', 'task', 'series',\n'breakdown') is the request vocabulary.  (An 'events' request once existed with no declarer \u2014\npicker events are streamed per-batch INSIDE the 'breakdown' compose, so a separate grant had\nnothing to grant.  Re-adding it is six lines if a consumer ever streams events directly.)  A graph's render never navigates the\nversioned inputs itself: the broker is the hard-coded intermediary that knows where each\nresource lives (sim DBs via the `Picking_Data` loaders, which serve every vetted vintage\nthrough `Schema.dataset`'s named queries; series/breakdown composed from those frames) and\nreturns the composed resource \u2014 or a `Denied(reason)` when the resource does not exist.\n\nThree rules, in tension and resolved deliberately:\n\n  * A MISSING resource never raises.  `resolve_needs` returns `Denied` sentinels; the driver\n    logs `[access] <eval> requested ... -> DENIED (<reason>); render skipped` and moves on.\n    Exceptions remain for real corruption \u2014 an unvetted schema, an unreadable file \u2014 which\n    must stop a publish, not be skipped politely (see core/context.py's identity gate).\n  * When everything is present, behavior is byte-identical to the pre-broker code: the compose\n    functions ARE the old `EvalContext` method bodies, memoised into the same per-context\n    caches, so a granted render costs nothing extra and produces the same frames.\n  * An EMPTY resource is granted, not denied: `breakdown()` returning `{}` (no steady-state\n    batches, a failed reconstruction) is a degraded product its consumers are written to\n    tolerate \u2014 `travel_handling` renders nothing, the stats suites skip those rows.  Denial is\n    reserved for absence of the SOURCE (a sim DB not on disk, no series.json for a group).\n\nThe per-process tally (`tally_snapshot`) is what makes \"did every consumer get what it asked\nfor\" answerable from the log alone: run_analysis collects each worker's counts and prints a\nrun-end summary.  Process-global is safe for the same reason `io.set_footer` is \u2014 workers are\nseparate spawned processes, and within one, jobs run sequentially.",
       "kind": "module",
       "signature": null
     },
@@ -1626,7 +1646,7 @@
       "decorators": [
         "request('series', 'aggregate')"
       ],
-      "doc": "The per-profile series.json list the aggregate stage was built from.",
+      "doc": "The per-profile series.json list the aggregate stage was built from.\n\nThe grant validates `ctx.profile_series_list` \u2014 THAT is the resource.  Consumers may read\nit raw (the aggregate stats suite feeds it to the pairing machinery per profile) or\ncomposed via `ctx.agg_series()` (cross_profile's merged view); both are the same granted\nresource, and the composed form is a memoised transform of the raw one, not a second\nrequest.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
@@ -1652,15 +1672,6 @@
     "Optimization/Performance_Evaluations/core/requests.py::_deny_absent": {
       "decorators": [],
       "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx)"
-    },
-    "Optimization/Performance_Evaluations/core/requests.py::_events": {
-      "decorators": [
-        "request('events', 'config')"
-      ],
-      "doc": "Picker events are streamed per-batch by their consumers, so the grant is the probe:\nevery arm's DB present.  Materializing full event lists here would defeat the streaming.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
@@ -1837,7 +1848,7 @@
     },
     "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py": {
       "decorators": [],
-      "doc": "per_strategy.delta_by_batch \u2014 one panel per strategy: per-batch production-time \u0394% vs the\nFIFO baseline (green \u22650 / red <0, matching compare.delta_bars).  Mirror of\ncompare.delta_by_batch.  Writes per_strategy/grid_prodtime_delta_by_batch.png.",
+      "doc": "per_strategy.delta_by_batch \u2014 one panel per strategy: per-batch production-time \u0394% vs the\nFIFO baseline (green \u22650 / red <0, matching compare.delta_vs_baseline).  Mirror of\ncompare.delta_by_batch.  Writes per_strategy/grid_prodtime_delta_by_batch.png.",
       "kind": "module",
       "signature": null
     },
@@ -1973,7 +1984,7 @@
     },
     "Optimization/Performance_Evaluations/per_strategy/scorecards.py": {
       "decorators": [],
-      "doc": "per_strategy.scorecards \u2014 one 3-panel image per strategy (batch duration \u00b7 Sigma f*D \u00b7\nchurn).  Writes strat_<key>.png under per_strategy/.",
+      "doc": "per_strategy.scorecards \u2014 one 3-panel image per strategy (batch duration \u00b7 Sigma f*D \u00b7\nchurn).  Writes scorecard_<key>.png under per_strategy/.",
       "kind": "module",
       "signature": null
     },
@@ -1988,7 +1999,7 @@
     },
     "Optimization/Performance_Evaluations/per_strategy/summary_bars.py": {
       "decorators": [],
-      "doc": "per_strategy.summary_bars \u2014 single rectangular summary: mean batch duration, mean\nthroughput, mean Sigma f*D efficiency, side by side across strategies.  Writes\nper_strategy/summary.png.",
+      "doc": "per_strategy.summary_bars \u2014 single rectangular summary: mean batch duration, mean\nthroughput, mean Sigma f*D efficiency, side by side across strategies.  Writes\nper_strategy/summary_bars.png.",
       "kind": "module",
       "signature": null
     },
@@ -2033,7 +2044,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['compare.faceted', 'compare.overlay', 'compare.top_metric', 'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_bars', 'compare.throughput_labor', 'compare.delta_over_time', 'compa..."
+      "value_preview": "['compare.faceted', 'compare.overlay', 'compare.top_metric', 'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_vs_baseline', 'compare.throughput_vs_labor', 'compare.delta_over_tim..."
     },
     "Optimization/Performance_Evaluations/presets.py::_CONFIG": {
       "decorators": [],
@@ -2083,44 +2094,6 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/stats/config_suite.py": {
-      "decorators": [],
-      "doc": "stats.suite / stats.by_initial \u2014 per-config significance suite (strategies paired by\nbatch_id).  `stats.suite` compares all strategies into stats/; `stats.by_initial` pairs\nuni_<fn> vs opt_<fn> per assignment function into stats_by_initial/<fn>/ plus a combined\nby_initial_summary.csv.  Both consume ctx.breakdown() for the travel/handling rows.",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats": {
-      "decorators": [],
-      "doc": "Per-config significance suite (strategies paired by batch_id).\n\ntravel_handling: optional {key: (travel, handling)} from the picker-event\ndecomposition; adds travel-fraction / travel-time / handling-time rows to the\nsummary so 'where task time goes' sits next to the productivity stats.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, df_b, df_t, ss_lo, out_dir, log, travel_handling=None) -> None"
-    },
-    "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial": {
-      "decorators": [],
-      "doc": "Per-config: for each assignment function, run the full paired suite uni_<fn> vs\nopt_<fn> into out_dir/<fn>/, plus a combined out_dir/by_initial_summary.csv giving the\nopt-vs-uni contrast (medians, % change, Wilcoxon p, winner) per function and metric.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(strategies, df_b, df_t, ss_lo, out_dir, log, travel_handling=None) -> None"
-    },
-    "Optimization/Performance_Evaluations/stats/config_suite.py::render_by_initial": {
-      "decorators": [
-        "evaluation(key='stats.by_initial', label='Significance suite, uni-vs-opt per fn', scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='stats_by_initial', by_initial=True)"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
-    "Optimization/Performance_Evaluations/stats/config_suite.py::render_suite": {
-      "decorators": [
-        "evaluation(key='stats.suite', label='Significance suite (paired by batch)', scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='stats')"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, params)"
-    },
     "Optimization/Performance_Evaluations/stats/plots.py": {
       "decorators": [],
       "doc": "The four significance-suite plot primitives (verbatim from the retired Stats_Analysis):\nnotched distribution boxes, the Holm-Wilcoxon p heatmap, the rank-biserial effect heatmap,\nand the mean-Friedman-rank bar.  Called per-metric by the config and aggregate suites; not\ngraphs themselves.",
@@ -2155,12 +2128,43 @@
       "kind": "function",
       "signature": "(tests, keys, colors, name, out_dir)"
     },
-    "Optimization/Performance_Evaluations/stats/plots.py::_stars": {
+    "Optimization/Performance_Evaluations/stats/suite.py": {
       "decorators": [],
+      "doc": "stats.suite / stats.by_initial \u2014 per-config significance suite (strategies paired by\nbatch_id).  `stats.suite` compares all strategies into stats/; `stats.by_initial` pairs\nuni_<fn> vs opt_<fn> per assignment function into stats_by_initial/<fn>/ plus a combined\nby_initial_summary.csv.  Both consume ctx.breakdown() for the travel/handling rows.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats": {
+      "decorators": [],
+      "doc": "Per-config significance suite (strategies paired by batch_id).\n\ntravel_handling: optional {key: (travel, handling)} from the picker-event\ndecomposition; adds travel-fraction / travel-time / handling-time rows to the\nsummary so 'where task time goes' sits next to the productivity stats.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, df_b, df_t, ss_lo, out_dir, log, travel_handling=None) -> None"
+    },
+    "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial": {
+      "decorators": [],
+      "doc": "Per-config: for each assignment function, run the full paired suite uni_<fn> vs\nopt_<fn> into out_dir/<fn>/, plus a combined out_dir/by_initial_summary.csv giving the\nopt-vs-uni contrast (medians, % change, Wilcoxon p, winner) per function and metric.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, df_b, df_t, ss_lo, out_dir, log, travel_handling=None) -> None"
+    },
+    "Optimization/Performance_Evaluations/stats/suite.py::render_by_initial": {
+      "decorators": [
+        "evaluation(key='stats.by_initial', label='Significance suite, uni-vs-opt per fn', scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='stats_by_initial', by_initial=True)"
+      ],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(p: float) -> str"
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/stats/suite.py::render_suite": {
+      "decorators": [
+        "evaluation(key='stats.suite', label='Significance suite (paired by batch)', scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='stats')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
     },
     "Optimization/__init__.py": {
       "decorators": [],
@@ -12004,27 +12008,6 @@
       "kind": "module",
       "signature": null
     },
-    "docs/experiments/ingest.py::DEFAULT_FULL_SUITE": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['task_duration_by_strategy.png', 'production_time_over_time.png']"
-    },
-    "docs/experiments/ingest.py::DEFAULT_INVENTORY_PLOTS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['group_sizes.png', 'demand.png', 'param_relative_frequency.png', 'param_quantity.png', 'equilibrium_qty.png']"
-    },
-    "docs/experiments/ingest.py::DEFAULT_TOP3": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['top3_by_initial_prodtime_cum_improvement.png', 'top3_by_initial_production_time_over_time.png', 'top3_by_initial_prodtime_delta_trend.png', 'top_vs_baseline_table.png', 'top_vs_baseline.png']"
-    },
     "docs/experiments/ingest.py::DEFAULT_WHATIF_DATA": {
       "decorators": [],
       "doc": null,
@@ -12038,6 +12021,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'whatif_*.png'"
+    },
+    "docs/experiments/ingest.py::_DEFAULTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_registry_defaults()"
     },
     "docs/experiments/ingest.py::_DOCS": {
       "decorators": [],
@@ -12101,6 +12091,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(rt, cell, inv, cfg, name, cfg_src)"
+    },
+    "docs/experiments/ingest.py::_registry_defaults": {
+      "decorators": [],
+      "doc": "(top3, full_suite, inventory_plots) from figures.yml, or None if pyyaml is absent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "docs/experiments/ingest.py::_repo_provenance_of": {
       "decorators": [],
@@ -12221,7 +12218,7 @@
     },
     "docs/macros.py::define_env._figs": {
       "decorators": [],
-      "doc": "[(filename, caption)] for kind in {'top3','full_suite'}: manifest names\n(captions looked up from the module maps) else the module default list.",
+      "doc": "[(filename, caption, width)] for kind in {'top3','full_suite'}: manifest names\n(captions from the registry) else the registry's default entries for the section \u2014\nwhich is byte-for-byte the old hardcoded list, per the registry golden test.",
       "is_async": false,
       "kind": "function",
       "signature": "(kind)"
@@ -12316,6 +12313,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(x)"
+    },
+    "docs/macros.py::define_env._registry": {
+      "decorators": [],
+      "doc": "The figure registry (experiments/figures.yml) \u2014 THE caption/section/default\nsource.  This module once carried three hardcoded caption tables that drifted\nindependently of ingest's staging lists and every experiment.yml; now all three\nconsumers read one declaration, and Tests/architecture/test_figure_registry.py\nties it to the code that writes each figure.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "docs/macros.py::define_env._ri": {
       "decorators": [],
