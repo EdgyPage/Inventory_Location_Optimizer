@@ -40,7 +40,7 @@ if _REPO_ROOT not in sys.path:
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
 from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
-    SEED_WORLD, SEED_BATCHES, N_BATCHES, K_PICKERS, STORE_RESTOCKS, _INITIAL_FILL,
+    SEED_WORLD, SEED_BATCHES, N_BATCHES, K_PICKERS, STORE_RESTOCKS, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
     regime_sizing_from_config, _setup_logging, _checkpoint_every,
@@ -55,6 +55,7 @@ from Optimization.runschema.sim_manifest import (                               
 
 
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.inventory.inventory_planning import structural_bin_floor
 from Optimization.config import strategies                # noqa: F401  (--whatif arm override)
 from Optimization.config.strategies import STRATEGIES, strategies_for
 from Warehouse.layout.Storage_Primitive import StoreCart
@@ -103,7 +104,10 @@ def _apply_run_spec(args, spec, explicit):
     for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
               'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
               'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
-              'max_retries', 'resume_granularity'):
+              'max_retries', 'resume_granularity',
+              # Sizing params: a resume MUST rebuild the same warehouse, so these are as
+              # load-bearing here as the bin caps beside them.
+              'store_fill', 'ff_fill', 'checkpoint_frac'):
         if f not in spec:
             continue
         if f in explicit:
@@ -154,6 +158,16 @@ def main():
                         help='STORE: cap total store bins (trims store aisle replicas).')
     parser.add_argument('--s-min-bins', type=int, default=None, metavar='N',
                         help='STORE: require AT LEAST N store bins (min wins over --s-max-bins).')
+    # Fill headroom, per channel.  These had NO CLI until 2026-08-15 and were reachable only by
+    # editing sim_config — a file in the run-tree contract's SHAPE_SOURCES, so changing a VALUE
+    # tripped a schema preflight.  Recorded into run_spec.json like every other run-shaping
+    # param, so a later standalone re-analysis rebuilds the same warehouse.
+    parser.add_argument('--store-fill', type=float, default=None, metavar='F',
+                        help='STORE: bin fill headroom the warehouse is sized to (default: the '
+                             "value in sim_config's CONFIG). 0.9 = size for 90%% occupancy.")
+    parser.add_argument('--ff-fill', type=float, default=None, metavar='F',
+                        help='FULFILLMENT: bin fill headroom (default: CONFIG). Set separately '
+                             'from --store-fill; the two regimes are sized independently.')
     parser.add_argument('--ff-max-aisles', type=int, default=None, metavar='N',
                         help='FULFILLMENT: cap total fulfillment aisle count.')
     parser.add_argument('--ff-max-bins', type=int, default=None, metavar='N',
@@ -203,6 +217,11 @@ def main():
                         help='On a hard worker death (segfault/OOM) that breaks the pool, rebuild '
                              'the pool and resubmit the unfinished units up to N times before '
                              'quarantining them (default 2). Ordinary per-unit errors are not retried.')
+    parser.add_argument('--checkpoint-frac', type=float, default=None, metavar='F',
+                        help='Per-strategy checkpoint cadence as a FRACTION of --n-batches '
+                             '(default: CONFIG, 0.1). The interval is max(1, int(n_batches*F)), '
+                             'so 0.5 on a 10-batch run checkpoints every 5 batches. Had no CLI '
+                             'until 2026-08-15: a short run silently checkpointed every batch.')
     parser.add_argument('--resume-granularity', choices=('strategy', 'batch'), default='strategy',
                         help="On recovery, how to resume a partially-run strategy: 'strategy' "
                              '(default) restarts it from batch 0 (bit-identical to an uncrashed run, '
@@ -255,6 +274,15 @@ def main():
         g['max_skus'] = args.max_skus
     g['workers']           = args.workers or 1
     g['keyframe_interval'] = args.keyframe_interval
+    if args.checkpoint_frac is not None:
+        g['checkpoint_frac'] = args.checkpoint_frac
+    # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
+    # CONFIG here reaches every consumer in this process — including the warehouse.db
+    # provenance write, which an import-time snapshot used to miss.
+    if args.store_fill is not None:
+        CONFIG['channels']['store']['fill'] = args.store_fill
+    if args.ff_fill is not None:
+        CONFIG['channels']['fulfillment']['fill'] = args.ff_fill
 
     _store_comp = None
     if args.s_composition:
@@ -276,6 +304,22 @@ def main():
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
     for _n in _spec_notes:
         log.warning(_n)
+
+    # Structural-floor check, HERE rather than mid-build: the store's bucket set is the
+    # handling x category x tier cross-product, so its one-aisle-per-bucket floor is fixed by
+    # configuration and no SKU cap lowers it.  `_apply_caps` warns and proceeds at the floor —
+    # correct, but it did so ~15 s into EVERY pair, after the inventory load.  Saying it once,
+    # up front, costs microseconds and lets the operator retype the flag before anything runs.
+    if args.s_max_bins is not None:
+        _floor_aisles, _floor_bins = structural_bin_floor(_HANDLINGS, _CATEGORIES,
+                                                          _AISLE_W, _AISLE_H)
+        if args.s_max_bins < _floor_bins:
+            log.warning(
+                f'  --s-max-bins {args.s_max_bins:,} is BELOW the store structural floor of '
+                f'{_floor_bins:,} bins ({_floor_aisles} aisles: one per '
+                f'{len(_HANDLINGS)}x{len(_CATEGORIES)}x5 bucket so every SKU is placeable). '
+                f'The cap will NOT be honored and the store will size to the floor. This is '
+                f'a property of the handling/category configuration, not of --max-skus.')
     if args.resume and spec:
         log.info('  Resuming from run_spec.json — run-shaping params reconstructed; no retyped flags needed')
     log.info(f'Output directory : {base_dir}')
@@ -326,6 +370,11 @@ def main():
             's_max_aisles' : args.s_max_aisles, 's_max_bins' : args.s_max_bins, 's_min_bins': args.s_min_bins,
             'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
             's_composition': _store_comp,
+            # Read back by run_analysis so a standalone re-analysis sizes the warehouse the way
+            # the RUN did, not the way this checkout's CONFIG happens to be set.
+            'store_fill'   : CONFIG['channels']['store']['fill'],
+            'ff_fill'      : CONFIG['channels']['fulfillment']['fill'],
+            'checkpoint_frac': g['checkpoint_frac'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
@@ -403,7 +452,8 @@ def main():
     # sweep spec is >1 cell.  One driver, one tree — each cell is its own scenario subtree.
     log.info(f'Spec: {spec_name}')
     info = _run_whatif_matrix(base_dir, pairs, log, spec_dict, resume=bool(args.resume),
-                              max_retries=args.max_retries, resume_granularity=args.resume_granularity)
+                              max_retries=args.max_retries, resume_granularity=args.resume_granularity,
+                              max_tasks_per_child=args.max_tasks_per_child)
 
     # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──
     if not args.no_analyze:

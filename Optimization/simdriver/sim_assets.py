@@ -23,7 +23,7 @@ from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
-    CONFIG, SEED_WORLD, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, _INITIAL_FILL,
+    CONFIG, SEED_WORLD, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
@@ -68,7 +68,7 @@ def build_shared_assets(
     # ── Warehouse sizing — delegated to Inventory_Manager.plan_warehouse ──────
     # Sizes per-(handling, category, size_tier, unit_type) uniform aisles from
     # the actual inventory (every bucket gets ≥1 aisle so every SKU is placeable),
-    # then samples SKUs to fill to _INITIAL_FILL.  All sizing/sampling lives in
+    # then samples SKUs to fill to store_fill().  All sizing/sampling lives in
     # the Warehouse layer — run_simulation just supplies the shape + constraints.
     t_size = time.perf_counter()
     avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
@@ -83,7 +83,7 @@ def build_shared_assets(
         handlings    = _HANDLINGS,
         aisle_width  = _AISLE_W,
         aisle_height = _AISLE_H,
-        target_fill  = _INITIAL_FILL,
+        target_fill  = store_fill(),
         min_bins     = min_bins,
         max_bins     = max_bins,
         max_aisles   = max_aisles,
@@ -252,7 +252,7 @@ def build_shared_assets(
             total_aisles  = total_aisles,
             total_bins    = total_bins,
             expected_fill = expected_fill,
-            target_fill   = _INITIAL_FILL,   # store fill headroom (the sizing target)
+            target_fill   = store_fill(),    # store fill headroom (the sizing target)
             max_aisles    = _agg_cap('max_aisles'),
             max_bins      = _agg_cap('max_bins'),
             avg_eq_qty    = avg_eq,

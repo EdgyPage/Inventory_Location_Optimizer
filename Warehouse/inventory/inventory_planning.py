@@ -71,6 +71,26 @@ def _ratio_replicas(buckets, weight_fn, eff_fn, target_total: float) -> dict:
     return out
 
 
+def structural_bin_floor(handlings, categories, aisle_width, aisle_height) -> tuple[int, int]:
+    """(aisles, bins) the STORE cannot go below, for any catalogue: one aisle per bucket.
+
+    Buckets are the handling x category x tier cross-product, so this floor is a property of
+    the CONFIGURATION, not of the SKUs — capping SKUs does not lower it.  `_apply_caps` never
+    trims a bucket below one replica (every SKU must be placeable), so a `--s-max-bins` under
+    this number is unachievable by construction.  Exposed so a CLI can say so in milliseconds
+    instead of mid-build, per pair, after the inventory load.
+    """
+    aisles = bins = 0
+    for _h in handlings:
+        for _c in categories:
+            for size in _SIZES_DESCENDING:
+                bins += uniform_aisle_bins('pallet', size, aisle_width, aisle_height)
+                aisles += 1
+            bins += uniform_aisle_bins('singleton', 'singleton', aisle_width, aisle_height)
+            aisles += 1
+    return aisles, bins
+
+
 def _apply_caps(buckets, replicas, eff_fn, min_bins, max_bins, max_aisles, log=None):
     """Scale `replicas` for `buckets` UP to >= min_bins, then DOWN to <= max_bins/max_aisles
     (never below 1 replica/bucket; min_bins wins on conflict), mutating `replicas` in place.

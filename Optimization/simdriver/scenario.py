@@ -86,7 +86,7 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
 
 
 def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
-                       resume_granularity='strategy'):
+                       resume_granularity='strategy', max_tasks_per_child=1):
     """Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a
     plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
     (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze
@@ -141,9 +141,13 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
                  f'zoning={zdesc}  scheduler={sched}\n{"#"*64}')
         _apply_cell(aisle_split, zoning, sched)
         os.makedirs(scenario_base, exist_ok=True)
+        # max_tasks_per_child was NOT forwarded here until 2026-08-15, so every matrix run
+        # — i.e. every run, since a plain run is the single cell k1_off — silently used the
+        # default 1 and the CLI flag was dead.
         _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
                       cell=name, cell_index=ci, cell_total=n_cells,
                       frozen_by_pair=frozen, skip_completed=resume,
+                      max_tasks_per_child=max_tasks_per_child,
                       max_retries=max_retries, resume_granularity=resume_granularity)
 
     log.info(f'\nCell matrix complete → {base_dir}')
