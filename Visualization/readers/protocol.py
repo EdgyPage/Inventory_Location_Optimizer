@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from Schema import identity as _identity
 from Optimization.persistence.Picking_Data import (          # re-exported; see below
     CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
     CAP_SKU_SCORES, CAP_VIZ_CACHE,
@@ -31,8 +32,14 @@ from Optimization.persistence.Picking_Data import (          # re-exported; see 
 
 # ── exceptions ───────────────────────────────────────────────────────────────────
 
-class SimSchemaError(Exception):
-    """Base for every schema-identity failure."""
+class SimSchemaError(_identity.SchemaError):
+    """Base for every schema-identity failure in the viewer.
+
+    A SUBCLASS of `Schema.identity.SchemaError` (the `DatasetError` precedent), so one
+    `except SchemaError` covers the viewer's own errors AND everything the shared pipeline
+    raises (`SchemaDrift`, `UnsupportedSchema`, `UnsupportedQuery`, …) — the server's 501
+    boundary catches the whole hierarchy and nothing schema-shaped can become a 500.
+    """
 
 
 class UnsupportedSimSchema(SimSchemaError):

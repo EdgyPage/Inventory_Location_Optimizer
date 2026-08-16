@@ -32,8 +32,8 @@ if _REPO_ROOT not in sys.path:
 
 from flask import Flask, abort, jsonify, request, send_from_directory   # noqa: E402
 
+from Schema.identity import SchemaError                                 # noqa: E402
 from Visualization.db_reader import discover_runs, run_index            # noqa: E402
-from Visualization.readers import SimSchemaError                        # noqa: E402
 
 
 def _resolve_base() -> tuple[str, int]:
@@ -73,9 +73,11 @@ def _run_or_404(rid: str):
 def _reader(rid: str):
     try:
         return _run_or_404(rid).reader()
-    except SimSchemaError as exc:
+    except SchemaError as exc:
         # An unvetted schema is a 501, not a 500: the server works, this file is not supported.
         # The message names the differing tables and columns rather than a bare hash.
+        # `SchemaError` is the whole hierarchy — the viewer's own SimSchemaError subclasses it,
+        # and the shared pipeline's SchemaDrift/UnsupportedSchema/UnsupportedQuery land here too.
         abort(501, description=str(exc))
 
 
@@ -342,6 +344,16 @@ def _gzip(response):
 def _json_error(exc):
     return jsonify({'error': getattr(exc, 'description', str(exc)),
                     'status': getattr(exc, 'code', 500)}), getattr(exc, 'code', 500)
+
+
+@app.errorhandler(SchemaError)
+def _schema_error(exc):
+    """Any schema-shaped failure escaping a ROUTE BODY is still a 501, never a Flask 500.
+
+    `_reader` catches the hierarchy at binding; this is the second net, for a vetted-but-
+    unservable read inside a route (the CI servability matrix makes that unreachable in
+    practice — this handler exists so 'unreachable' never has to be load-bearing)."""
+    return jsonify({'error': str(exc), 'status': 501}), 501
 
 
 def _startup_banner() -> None:

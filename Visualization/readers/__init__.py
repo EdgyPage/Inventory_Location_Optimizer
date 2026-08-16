@@ -12,11 +12,12 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import identity as _identity
+from Schema.shape import canonical_shape, describe_diff, diff_shapes
+
+from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
+
 from Visualization.readers.base import SqliteSimReader, _ro
-from Visualization.readers.fingerprint import (
-    canonical_schema_shape, declared_sim_schema_shape, describe_diff, diff_shapes,
-    resolve_schema_id,
-)
 from Visualization.readers.protocol import (
     SimReader, SimSchemaDrift, SimSchemaError, UnsupportedSimSchema,
 )
@@ -61,11 +62,15 @@ def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
     """
     con = _ro(sim_db)
     try:
-        schema, source = resolve_schema_id(con, pinned=pinned_schema_id, verify=verify)
+        # THE shared resolution: stamped -> pinned -> derived, via the family's own
+        # stamp_reader — one stamp read, one implementation, `identity.SchemaDrift` on a
+        # lying stamp/pin.  (This replaced the viewer's private fingerprint copy.)
+        schema, source = _identity.resolve(con, SIM_DB_FAMILY,
+                                           pinned=pinned_schema_id, verify=verify)
         cls = _REGISTRY.get(schema)
         if cls is None:
-            detail = describe_diff(diff_shapes(declared_sim_schema_shape(),
-                                               canonical_schema_shape(con)))
+            detail = describe_diff(diff_shapes(SIM_DB_FAMILY.declared_shape(),
+                                               canonical_shape(con)))
             raise UnsupportedSimSchema(schema, registered_schema_ids(), detail)
     finally:
         con.close()
