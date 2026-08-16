@@ -277,7 +277,11 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     honest answer: those runs never recorded what they were shaped with.
     """
     from Optimization.runschema.sim_manifest import _load_run_spec
-    spec = _load_run_spec(base_dir)
+    # `base_dir` is a CELL dir (analyze_run calls this once per cell) but run_spec.json lives at
+    # the RUN ROOT — the same parent-vs-self distinction _tree_for documents.  Checking only the
+    # cell dir found nothing and silently sized from this checkout: the resumed rehearsal loaded
+    # 150,000 orders where its own sim had loaded 8,000.
+    spec = _load_run_spec(base_dir) or _load_run_spec(os.path.dirname(os.path.abspath(base_dir)))
     if not spec:
         log.warning('  no run_spec.json at the run root — sizing the warehouse from THIS '
                     "checkout's CONFIG, which may not match what the run used (pre-run_spec "

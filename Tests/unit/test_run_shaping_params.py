@@ -126,6 +126,24 @@ def test_apply_run_shape_restores_every_recorded_param(tmp_path):
         CONFIG['channels']['fulfillment']['sizing'].update(saved_sizing[1])
 
 
+def test_apply_run_shape_finds_run_spec_from_a_CELL_dir(tmp_path):
+    """analyze_run calls run_analysis once per CELL, but run_spec.json lives at the RUN ROOT.
+
+    Looking only in the dir it was handed found nothing and silently sized from the current
+    checkout — caught in the rehearsal when a resumed run's analysis loaded 150,000 orders
+    where its own sim had loaded 8,000."""
+    from Optimization.run_analysis import _apply_run_shape
+    from Optimization.runschema.sim_manifest import _write_run_spec
+    cell = tmp_path / 'k1_off_rr'
+    cell.mkdir()
+    _write_run_spec(str(tmp_path), {'max_skus': 8000, 'n_batches': 6})   # at the ROOT
+    saved = CONFIG['global'].get('max_skus')
+    try:
+        assert _apply_run_shape(str(cell), logging.getLogger('t-cell')) == 8000
+    finally:
+        CONFIG['global']['max_skus'] = saved
+
+
 def test_apply_run_shape_warns_loudly_when_the_run_predates_run_spec(tmp_path, caplog):
     from Optimization.run_analysis import _apply_run_shape
     log = logging.getLogger('t-nospec')
