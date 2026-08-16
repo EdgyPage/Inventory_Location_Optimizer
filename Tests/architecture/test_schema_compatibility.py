@@ -73,6 +73,8 @@ import pytest
 from Optimization import run_whatif_delta, run_whatif_labor, run_whatif_volume  # noqa: F401
 from Optimization.Performance_Evaluations.core import context as eval_context
 from Visualization import precompute as viz_precompute  # noqa: F401 - consumer, for REQUIRES
+from Visualization import db_reader as viz_db_reader     # noqa: F401 - consumer, for REQUIRES
+from Visualization.readers import base as viz_base       # noqa: F401 - consumer, for REQUIRES
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
 from Schema import capability, compat, identity, shape, store_index
 from Visualization import cache_schema  # noqa: F401
@@ -110,6 +112,11 @@ DECLARED_CONSUMERS = {
     ('Optimization/run_whatif_labor.py', 'REQUIRES'): run_whatif_labor.REQUIRES,
     ('Optimization/run_whatif_volume.py', 'REQUIRES'): run_whatif_volume.REQUIRES,
     ('Visualization/precompute.py', 'REQUIRES'): viz_precompute.REQUIRES,
+    ('Visualization/readers/base.py', 'REQUIRES'): viz_base.REQUIRES,
+    ('Visualization/readers/base.py', 'REQUIRES_KEYFRAMES'): viz_base.REQUIRES_KEYFRAMES,
+    ('Visualization/readers/base.py', 'REQUIRES_VIZ_CACHE'): viz_base.REQUIRES_VIZ_CACHE,
+    ('Visualization/readers/base.py', 'REQUIRES_WAREHOUSE'): viz_base.REQUIRES_WAREHOUSE,
+    ('Visualization/db_reader.py', 'REQUIRES_DISCOVERY'): viz_db_reader.REQUIRES_DISCOVERY,
 }
 
 #: The declaration is a constructor call, which makes it greppable — and worth keeping that way.
@@ -1500,12 +1507,21 @@ def test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs():
 
     # NON-VACUITY, the other direction: no loader may escape the sweep by moving into a class or a
     # nested helper. Every SELECT literal in the file must be reachable from a TOP-LEVEL function,
-    # because that is the only thing `_sweep_reads` walks.
+    # because that is the only thing `_sweep_reads` walks — EXCEPT literals inside a
+    # `register_query(Query(...))` / `override(...)` registration: those are not hidden consumer
+    # reads but the named-query DECLARATIONS themselves, i.e. the attribution mechanism this
+    # sweep exists to funnel reads into.  Their column contracts are validated by
+    # `Dataset.query` and the viewer's golden tests, not by the guard-sweep.
     tree = _source_tree(COMPLETENESS_TARGET)
-    everywhere = {id(n) for n in _sql_literals(tree)}
+    registered = {id(n) for node in ast.walk(tree)
+                  if isinstance(node, ast.Call)
+                  and getattr(node.func, 'attr', getattr(node.func, 'id', ''))
+                  in ('register_query', 'Query', 'override')
+                  for n in _sql_literals(node)}
+    everywhere = {id(n) for n in _sql_literals(tree)} - registered
     swept = {id(n) for node in tree.body
              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-             for n in _sql_literals(node)}
+             for n in _sql_literals(node)} - registered
     assert everywhere and everywhere == swept, (
         f'{len(everywhere - swept)} SELECT literal(s) in {COMPLETENESS_TARGET} live outside a '
         f'top-level function (a method, a module-level constant), where `_sweep_reads` never '

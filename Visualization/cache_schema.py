@@ -41,6 +41,7 @@ import sqlite3
 from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import shape as _shape
+from Schema import connect as _connect
 
 #: Bumped when a table's meaning changes in a way a stale sidecar would silently get wrong.
 #: `precompute` rebuilds any cache whose stored version differs.
@@ -322,7 +323,10 @@ def cache_freshness(viz_cache: str, sim_db: str, keyframe_db: str, warehouse_db:
     if not viz_cache or not os.path.exists(viz_cache):
         return 'absent'
     try:
-        con = sqlite3.connect(f'file:{viz_cache.replace(os.sep, "/")}?mode=ro', uri=True)
+        # The sanctioned opener (no row_factory needed for a 2-tuple scan).  Deliberately NOT
+        # bind(): freshness must answer on a file too broken or too old to bind — deciding
+        # whether the file is trustworthy is this function's whole job.
+        con = _connect.read_only(viz_cache, row_factory=False)
         try:
             meta = {k: v for k, v in con.execute('SELECT key, value FROM cache_meta')}
         finally:
@@ -353,11 +357,9 @@ def init_cache_db(path: str) -> sqlite3.Connection:
     The pragmas are safe precisely because this file is derived: a crash mid-build leaves a
     cache with no `built_utc`, which `precompute` treats as absent and rebuilds.
     """
-    con = sqlite3.connect(path)
-    con.execute('PRAGMA journal_mode=OFF')
-    con.execute('PRAGMA synchronous=OFF')
-    con.execute('PRAGMA temp_store=MEMORY')
-    con.execute('PRAGMA cache_size=-262144')          # 256 MB page cache
+    # Schema.connect.bulk_writer IS this tuning (journal OFF, synchronous OFF, temp in
+    # memory, 256 MB cache) — the hand-copied PRAGMA block it replaces predated it.
+    con = _connect.bulk_writer(path)
     for stmt in _ALL:
         con.execute(stmt)
     # This build's own shape, into cache_meta — plus the store verify.  Warn-once: the sidecar

@@ -71,7 +71,9 @@ register(Sim2026_07Reader)
 
 def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
                keyframe_db: str = '', viz_cache: str = '',
-               pinned_schema_id: str | None = None, verify: bool = False) -> SimReader:
+               pinned_schema_id: str | None = None, verify: bool = False,
+               warehouse_schema_id: str | None = None,
+               keyframe_schema_id: str | None = None) -> SimReader:
     """Bind the vetted reader for `sim_db`.
 
     `pinned_schema_id` short-circuits derivation — pass the value the sidecar cached, so a DB
@@ -108,4 +110,6 @@ def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
         keyframe_db = candidate if os.path.exists(candidate) else ''
     return cls(sim_db=sim_db, warehouse_db=warehouse_db, run_id=run_id,
                keyframe_db=keyframe_db, viz_cache=viz_cache,
-               schema_id=schema, schema_source=source)
+               schema_id=schema, schema_source=source,
+               warehouse_schema_id=warehouse_schema_id,
+               keyframe_schema_id=keyframe_schema_id)

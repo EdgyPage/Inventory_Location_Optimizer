@@ -33,7 +33,14 @@ from __future__ import annotations
 import os
 import sqlite3
 
-from Optimization.persistence.Picking_Data import SIM_CAPABILITIES
+import importlib
+import json
+
+from Optimization.persistence.Picking_Data import SIM_CAPABILITIES, SIM_DB_FAMILY
+from Schema import compat as _compat
+from Schema import connect as _connect
+from Schema import dataset as _dataset
+from Schema import identity as _identity
 from Schema.capability import probe
 from Visualization.readers.protocol import (
     CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES,
@@ -65,15 +72,14 @@ _FAMILY_KEYS = ('handling_type', 'unit_type', 'storage_size')
 
 
 def _ro(path: str) -> sqlite3.Connection:
-    """Open `path` strictly read-only.
+    """Open `path` strictly read-only — `Schema.connect.read_only`, the sanctioned opener.
 
-    Never `Picking_Data._open_db` — that issues `PRAGMA journal_mode=WAL`, which is a WRITE and
-    would drop `-wal`/`-shm` files beside a 1 GB DB on the results drive (or simply fail on a
-    read-only mount).
+    Never `Picking_Data._open_db` (its `PRAGMA journal_mode=WAL` is a WRITE), and never
+    immutable: the viewer may be watching a run that is still being written.  This used to be
+    a hand-rolled URI connect; the broker-boundary ratchet now forbids `sqlite3.connect`
+    outside `Schema/connect.py`.
     """
-    con = sqlite3.connect(f'file:{path.replace(os.sep, "/")}?mode=ro', uri=True)
-    con.row_factory = sqlite3.Row
-    return con
+    return _connect.read_only(path)
 
 
 def _int_list(values) -> str:
@@ -85,6 +91,106 @@ def _int_list(values) -> str:
     return ','.join(str(int(v)) for v in values)
 
 
+#: family -> the module whose import registers that family's named queries (the PUBLISHER).
+#: Composition must never race an unregistered vocabulary, so `_composed_sql` imports the
+#: publisher lazily before asking the registry.
+_FAMILY_SOURCES = {
+    'sim_db': 'Optimization.persistence.Picking_Data',
+    'keyframes_db': 'Optimization.persistence.Picking_Data',
+    'viz_cache_db': 'Visualization.cache_schema',
+    'warehouse_db': 'Optimization.persistence.Warehouse_Data',
+}
+
+#: (family, query, schema_id) -> SQL text.  Module-level: the composition is a pure function
+#: of the committed store, so every reader (and thread) shares one cache.
+_SQL_CACHE: dict = {}
+#: (family, schema_id) -> {table: frozenset(columns)} from the committed/declared shape.
+_SURFACE_CACHE: dict = {}
+
+
+def _composed_sql(family: str, name: str, schema_id: str) -> str:
+    """The per-vintage SQL for a named query — `dataset.sql_for`, memoised.
+
+    THE broker seam: a publisher-side `dataset.override(...)` registered for an old vintage
+    changes what this returns, and no reader method moves.
+    """
+    key = (family, name, schema_id)
+    if key not in _SQL_CACHE:
+        importlib.import_module(_FAMILY_SOURCES[family])
+        _SQL_CACHE[key] = _dataset.sql_for(family, name, schema_id)
+    return _SQL_CACHE[key]
+
+
+def _family_surface(family: str, schema_id: str) -> dict:
+    """{table: columns} of the committed (or declared) shape for `schema_id` — the no-PRAGMA
+    answer to has-table questions (closes the bin_eviction probe gap)."""
+    key = (family, schema_id)
+    if key not in _SURFACE_CACHE:
+        fam = _identity.get(family)
+        shape = (fam.declared_shape() if schema_id == fam.declared_id()
+                 else _compat.load_shape(family, schema_id))
+        _SURFACE_CACHE[key] = _compat._surface(shape) if shape is not None else {}
+    return _SURFACE_CACHE[key]
+
+
+# ── what this reader READS, declared — the compatibility gate CI validates ──────────────────
+# The first Requires in the viewer package.  Guaranteed-surface reads only; the conditional
+# tables (`bin_placement`, `bin_eviction`, `bin_inventory`) are deliberately ABSENT — every
+# read of those sits behind a capability probe or a `_has` surface check, per the
+# CONDITIONAL_READS doctrine.  `simulation_runs`/`sku_scores` declare ANY_COLUMNS because
+# their reads are shape-following by design (`run_meta` splats the row; `sku_scores` returns
+# whatever the vintage carries).
+REQUIRES = _compat.Requires(
+    family='sim_db',
+    label='Visualization reader (SqliteSimReader)',
+    tables={
+        'simulation_runs': _compat.ANY_COLUMNS,
+        'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+                        'reorder_placements'),
+        # `sim_time` is the intra-batch clock (_apply_picks_upto_t) — read since the first
+        # viewer build, declared here for the first time.
+        'picks': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity',
+                  'sim_time'),
+        'picker_events': ('run_id', 'batch_id', 'id', 'time', 'picker_id', 'event_type',
+                          'aisle_id', 'bayX', 'bayY', 'sku', 'quantity', 'bins_completed',
+                          'total_bins', 'items_picked', 'total_items'),
+        'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+                       'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited',
+                       'total_items', 'is_outlier'),
+        'bin_scores': ('run_id', 'aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult',
+                       'layout_score', 'map_pref'),
+        'sku_scores': _compat.ANY_COLUMNS,
+    })
+
+REQUIRES_KEYFRAMES = _compat.Requires(
+    family='keyframes_db',
+    label='Visualization reader (keyframe sidecar)',
+    tables={'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty')})
+
+REQUIRES_VIZ_CACHE = _compat.Requires(
+    family='viz_cache_db',
+    label='Visualization reader (viz sidecar)',
+    tables={
+        'cache_meta': ('key', 'value'),
+        'bin_span': ('run_id', 'aisle_id', 'bayX', 'bayY', 't_from', 't_to', 'sku',
+                     'qty_at_from'),
+        'sku_rank': ('run_id', 'sku', 'rank', 'picks', 'units', 'first_batch', 'last_batch'),
+        'sku_series': _compat.ANY_COLUMNS,           # shape-following: columns ARE the payload
+        'final_home': ('run_id', 'sku', 'aisle_id', 'bayX', 'bayY', 'qty', 'n_homes',
+                       'home_aisles', 'batch_id'),
+        'aisle_batch_rollup': _compat.ANY_COLUMNS,   # served by the named query, DDL-order cols
+    })
+
+# NOT `warehouse_stats.warehouse_fingerprint`: that column is absent on vintage 342d31313d08
+# and served by the override — declaring it here would claim it is guaranteed, which is
+# exactly the lie the override exists to avoid.
+REQUIRES_WAREHOUSE = _compat.Requires(
+    family='warehouse_db',
+    label='Visualization reader (warehouse geometry)',
+    tables={'aisle_layout': ('aisle_id', 'handling_type', 'category', 'unit_type',
+                             'storage_size', 'bay_x', 'bay_y')})
+
+
 class SqliteSimReader:
     """Read one arm's `sim_<arm>.db` (+ keyframes, warehouse, and optional viz cache)."""
 
@@ -93,7 +199,8 @@ class SqliteSimReader:
 
     def __init__(self, sim_db: str, warehouse_db: str, run_id: int,
                  keyframe_db: str = '', viz_cache: str = '', schema_id: str = '',
-                 schema_source: str = ''):
+                 schema_source: str = '', warehouse_schema_id: str | None = None,
+                 keyframe_schema_id: str | None = None):
         self.sim_db = sim_db
         self.warehouse_db = warehouse_db
         self.keyframe_db = keyframe_db if keyframe_db and os.path.exists(keyframe_db) else ''
@@ -104,7 +211,31 @@ class SqliteSimReader:
         self.run_id = int(run_id)
         self._schema_id = schema_id
         self._schema_source = schema_source
+        # Companion ids as captured by RunRef.reader()'s check_or_warn (None on the WARN
+        # path); _sid falls back to the family's declared id there, so composed SQL for an
+        # unvetted companion is the canonical text — byte-equivalent to the old raw string,
+        # same degrade.
+        self._warehouse_schema_id = warehouse_schema_id
+        self._keyframe_schema_id = keyframe_schema_id
         self._memo: dict = {}
+
+    def _sid(self, family: str) -> str:
+        if family == 'sim_db':
+            return self._schema_id
+        if family == 'warehouse_db':
+            return self._warehouse_schema_id or _identity.get(family).declared_id()
+        if family == 'keyframes_db':
+            return self._keyframe_schema_id or _identity.get(family).declared_id()
+        # viz_cache_db: `_cache_conn` gates every read on `cache_freshness`, whose
+        # identity.check calls anything non-current 'stale' — a non-declared shape never
+        # reaches a cache read.
+        return _identity.get(family).declared_id()
+
+    def _sql(self, family: str, name: str) -> str:
+        return _composed_sql(family, name, self._sid(family))
+
+    def _has(self, family: str, table: str) -> bool:
+        return table in _family_surface(family, self._sid(family))
 
     # ── identity ─────────────────────────────────────────────────────────────────
 
@@ -203,8 +334,7 @@ class SqliteSimReader:
         con = _ro(self.warehouse_db)
         try:
             rows = [dict(r) for r in con.execute(
-                'SELECT aisle_id, handling_type, category, unit_type, storage_size, '
-                'bay_x, bay_y FROM aisle_layout ORDER BY aisle_id')]
+                self._sql('warehouse_db', 'aisle_layout_geometry'))]
         finally:
             con.close()
 
@@ -246,9 +376,8 @@ class SqliteSimReader:
                 'total_items': int(r['total_items']),
                 'reorder_placements': int(r['reorder_placements'] or 0),
                 'is_keyframe': int(r['batch_id']) in kf,
-            } for r in con.execute(
-                'SELECT batch_id, duration, num_tasks, total_items, reorder_placements '
-                'FROM batch_stats WHERE run_id=? ORDER BY batch_id', (self.run_id,))]
+            } for r in con.execute(self._sql('sim_db', 'batch_timing'),
+                                   {'run_id': self.run_id})]
         finally:
             con.close()
         self._memo['batches'] = rows
@@ -262,9 +391,9 @@ class SqliteSimReader:
         if self.keyframe_db:
             con = _ro(self.keyframe_db)
             try:
-                out = [int(r[0]) for r in con.execute(
-                    'SELECT DISTINCT batch_id FROM bin_keyframe WHERE run_id=? '
-                    'ORDER BY batch_id', (self.run_id,))]
+                out = [int(r['batch_id']) for r in con.execute(
+                    self._sql('keyframes_db', 'keyframe_batches'),
+                    {'run_id': self.run_id})]
             except sqlite3.OperationalError:
                 out = []
             finally:
@@ -278,12 +407,12 @@ class SqliteSimReader:
         Unscoped this is 396,500 rows and a ~20 MB response; the viewer only ever draws the
         aisles on screen.
         """
-        where = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
         con = _ro(self.sim_db)
         try:
             rows = con.execute(
-                f'SELECT aisle_id, bayX, bayY, travel_d, height_mult, layout_score, map_pref '
-                f'FROM bin_scores WHERE run_id=?{where}', (self.run_id,)).fetchall()
+                self._sql('sim_db', 'bin_scores_scoped'),
+                {'run_id': self.run_id,
+                 'aisles': json.dumps([int(a) for a in aisles]) if aisles else None}).fetchall()
         except sqlite3.OperationalError:
             return {'layout': {}, 'map_pref': {}, 'has_map': False}
         finally:
@@ -297,11 +426,15 @@ class SqliteSimReader:
         return {'layout': layout, 'map_pref': pref, 'has_map': bool(pref)}
 
     def sku_scores(self, skus: list[int] | None = None) -> dict:
-        where = f' AND sku IN ({_int_list(skus)})' if skus else ''
+        # RAW by design: the output columns ARE the physical columns (shape-following); the
+        # scope rides one JSON parameter instead of interpolated text.
+        where = ' AND sku IN (SELECT value FROM json_each(?))' if skus else ''
+        args = ((self.run_id, json.dumps([int(s) for s in skus])) if skus
+                else (self.run_id,))
         con = _ro(self.sim_db)
         try:
             rows = con.execute(
-                f'SELECT * FROM sku_scores WHERE run_id=?{where}', (self.run_id,)).fetchall()
+                f'SELECT * FROM sku_scores WHERE run_id=?{where}', args).fetchall()
         except sqlite3.OperationalError:
             return {}
         finally:
@@ -350,8 +483,8 @@ class SqliteSimReader:
         if cache is None:
             return None
         try:
-            row = cache.execute(
-                "SELECT value FROM cache_meta WHERE key='span_source'").fetchone()
+            row = cache.execute(self._sql('viz_cache_db', 'cache_meta_value'),
+                                {'key': 'span_source'}).fetchone()
             if row is not None and row[0] == SPAN_SOURCE_LOG:
                 return cache
         except sqlite3.Error:
@@ -401,9 +534,9 @@ class SqliteSimReader:
         scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
         try:
             rows = cache.execute(
-                f'SELECT aisle_id, bayX, bayY, t_from, sku, qty_at_from FROM bin_span '
-                f'WHERE run_id=? AND t_from<=? AND t_to>=?{scope}',
-                (self.run_id, batch, batch)).fetchall()
+                self._sql('viz_cache_db', 'bin_span_scoped'),
+                {'run_id': self.run_id, 'batch': batch,
+                 'aisles': json.dumps([int(a) for a in aisles]) if aisles else None}).fetchall()
         except sqlite3.Error:
             return None
         finally:
@@ -477,12 +610,16 @@ class SqliteSimReader:
         try:
             # kind 0 = EVICT, 1 = PLACE, so sorting a batch's events replays the runner's order:
             # the reloader, then check_reorders, then the picks.
-            for r in con.execute(
-                    f'SELECT batch_id, seq, aisle_id, bayX, bayY FROM bin_eviction '
-                    f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
-                    (self.run_id, base, batch)):
-                events.setdefault(int(r['batch_id']), []).append(
-                    (0, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}", None, 0))
+            # Gated on the VINTAGE's surface, not on bin_placement's probe: a vintage carrying
+            # placements without the eviction table used to raise `no such table` out of
+            # state_at here, while precompute guarded the same read.  (The bug fix.)
+            if self._has('sim_db', 'bin_eviction'):
+                for r in con.execute(
+                        f'SELECT batch_id, seq, aisle_id, bayX, bayY FROM bin_eviction '
+                        f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
+                        (self.run_id, base, batch)):
+                    events.setdefault(int(r['batch_id']), []).append(
+                        (0, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}", None, 0))
             for r in con.execute(
                     f'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_placement '
                     f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
@@ -518,12 +655,12 @@ class SqliteSimReader:
         bins: dict[str, dict] = {}
         if keyframe is None or not self.keyframe_db:
             return bins
-        scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
         con = _ro(self.keyframe_db)
         try:
             for r in con.execute(
-                    f'SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe '
-                    f'WHERE run_id=? AND batch_id=?{scope}', (self.run_id, keyframe)):
+                    self._sql('keyframes_db', 'keyframe_state_scoped'),
+                    {'run_id': self.run_id, 'batch_id': keyframe,
+                     'aisles': json.dumps([int(a) for a in aisles]) if aisles else None}):
                 if r['qty'] > 0:
                     bins[f"{r['aisle_id']},{r['bayX']},{r['bayY']}"] = {
                         'sku': int(r['sku']), 'qty': int(r['qty'])}
@@ -669,9 +806,8 @@ class SqliteSimReader:
         if cache is not None:
             try:
                 rows = [dict(r) for r in cache.execute(
-                    'SELECT t_from, t_to, sku, qty_at_from FROM bin_span '
-                    'WHERE run_id=? AND aisle_id=? AND bayX=? AND bayY=? ORDER BY t_from',
-                    (self.run_id, aisle, bayX, bayY))]
+                    self._sql('viz_cache_db', 'bin_history'),
+                    {'run_id': self.run_id, 'aisle_id': aisle, 'bayX': bayX, 'bayY': bayY})]
                 return rows
             except sqlite3.Error:
                 pass
@@ -681,12 +817,11 @@ class SqliteSimReader:
             return []
         con = _ro(self.keyframe_db)
         try:
-            return [{'t_from': int(r['batch_id']), 't_to': int(r['batch_id']),
-                     'sku': int(r['sku']), 'qty_at_from': int(r['qty'])}
-                    for r in con.execute(
-                        'SELECT batch_id, sku, qty FROM bin_keyframe '
-                        'WHERE run_id=? AND aisle_id=? AND bayX=? AND bayY=? ORDER BY batch_id',
-                        (self.run_id, aisle, bayX, bayY))]
+            # The TWIN of the sidecar query: same logical columns, aliased in SQL - each
+            # keyframe observation is a degenerate span.
+            return [dict(r) for r in con.execute(
+                self._sql('keyframes_db', 'bin_history'),
+                {'run_id': self.run_id, 'aisle_id': aisle, 'bayX': bayX, 'bayY': bayY})]
         finally:
             con.close()
 
@@ -694,8 +829,6 @@ class SqliteSimReader:
 
     def events(self, batch: int, aisle: int | None = None) -> list[dict]:
         """Timed picker events for one batch.  Times are BATCH-RELATIVE (each batch ~0-based)."""
-        where = ' AND aisle_id=?' if aisle is not None else ''
-        args = [self.run_id, int(batch)] + ([int(aisle)] if aisle is not None else [])
         con = _ro(self.sim_db)
         try:
             return [{
@@ -707,20 +840,24 @@ class SqliteSimReader:
                 'bins_completed': r['bins_completed'], 'total_bins': r['total_bins'],
                 'items_picked': r['items_picked'], 'total_items': r['total_items'],
             } for r in con.execute(
-                f'SELECT * FROM picker_events WHERE run_id=? AND batch_id=?{where} '
-                f'ORDER BY time, id', args)]
+                self._sql('sim_db', 'picker_events_timeline'),
+                {'run_id': self.run_id, 'batch_id': int(batch),
+                 'aisle_id': int(aisle) if aisle is not None else None})]
         finally:
             con.close()
 
     def tasks(self, batch: int | None = None, aisle: int | None = None) -> list[dict]:
         """Per-task rows — one picker's single-aisle ordered pick sequence."""
-        where, args = '', [self.run_id]
+        # Two registered variants rather than one OR-form: the (run_id, batch_id) index
+        # serves the interactive per-batch path only with a real equality predicate.
         if batch is not None:
-            where += ' AND batch_id=?'
-            args.append(int(batch))
-        if aisle is not None:
-            where += ' AND aisle_id=?'
-            args.append(int(aisle))
+            sql = self._sql('sim_db', 'task_rows_at_batch')
+            params = {'run_id': self.run_id, 'batch_id': int(batch),
+                      'aisle_id': int(aisle) if aisle is not None else None}
+        else:
+            sql = self._sql('sim_db', 'task_rows_all')
+            params = {'run_id': self.run_id,
+                      'aisle_id': int(aisle) if aisle is not None else None}
         con = _ro(self.sim_db)
         try:
             return [{
@@ -732,9 +869,7 @@ class SqliteSimReader:
                 'lift_sum': round(r['lift_sum'], 4),
                 'num_bins_visited': int(r['num_bins_visited']),
                 'total_items': int(r['total_items']), 'is_outlier': int(r['is_outlier']),
-            } for r in con.execute(
-                f'SELECT * FROM task_stats WHERE run_id=?{where} ORDER BY batch_id, '
-                f'task_start_time', args)]
+            } for r in con.execute(sql, params)]
         finally:
             con.close()
 
@@ -771,8 +906,8 @@ class SqliteSimReader:
         if cache is not None:
             try:
                 rows = [dict(r) for r in cache.execute(
-                    'SELECT * FROM aisle_batch_rollup WHERE run_id=? AND batch_id=?',
-                    (self.run_id, batch))]
+                    self._sql('viz_cache_db', 'aisle_rollup'),
+                    {'run_id': self.run_id, 'batch_id': batch})]
                 if rows:
                     return rows
             except sqlite3.Error:
@@ -793,14 +928,12 @@ class SqliteSimReader:
                 homes[aid] = homes.get(aid, 0) + 1
         con = _ro(self.sim_db)
         try:
-            picks = {int(r['aisle_id']): (int(r['n']), int(r['u'])) for r in con.execute(
-                'SELECT aisle_id, COUNT(*) n, SUM(quantity) u FROM picks '
-                'WHERE run_id=? AND batch_id=? GROUP BY aisle_id', (self.run_id, batch))}
-            tasks = {int(r['aisle_id']): (int(r['n']), float(r['secs'] or 0.0))
-                     for r in con.execute(
-                         'SELECT aisle_id, COUNT(*) n, SUM(duration) secs FROM task_stats '
-                         'WHERE run_id=? AND batch_id=? GROUP BY aisle_id',
-                         (self.run_id, batch))}
+            picks = {int(r['aisle_id']): (int(r['picks']), int(r['units_picked']))
+                     for r in con.execute(self._sql('sim_db', 'pick_load_by_aisle'),
+                                          {'run_id': self.run_id, 'batch_id': batch})}
+            tasks = {int(r['aisle_id']): (int(r['visits']), float(r['task_secs'] or 0.0))
+                     for r in con.execute(self._sql('sim_db', 'task_load'),
+                                          {'run_id': self.run_id, 'batch_id': batch})}
         finally:
             con.close()
         return [{
@@ -823,8 +956,8 @@ class SqliteSimReader:
         if cache is not None:
             try:
                 rows = [dict(r) for r in cache.execute(
-                    'SELECT sku, rank, picks, units, first_batch, last_batch FROM sku_rank '
-                    'WHERE run_id=? AND rank<=? ORDER BY rank', (self.run_id, n))]
+                    self._sql('viz_cache_db', 'sku_rank_top'),
+                    {'run_id': self.run_id, 'n': n})]
                 if rows:
                     return rows
             except sqlite3.Error:
@@ -833,10 +966,8 @@ class SqliteSimReader:
                 cache.close()
         con = _ro(self.sim_db)
         try:
-            rows = con.execute(
-                'SELECT sku, COUNT(*) picks, SUM(quantity) units, MIN(batch_id) first_batch, '
-                'MAX(batch_id) last_batch FROM picks WHERE run_id=? '
-                'GROUP BY sku ORDER BY units DESC, sku LIMIT ?', (self.run_id, n)).fetchall()
+            rows = con.execute(self._sql('sim_db', 'sku_rank_live'),
+                               {'run_id': self.run_id, 'n': n}).fetchall()
         finally:
             con.close()
         return [{'sku': int(r['sku']), 'rank': i + 1, 'picks': int(r['picks']),
@@ -858,9 +989,11 @@ class SqliteSimReader:
         cache = self._cache_conn()
         if cache is not None:
             try:
+                # RAW by design: the sidecar's physical columns ARE the payload.
                 rows = [dict(r) for r in cache.execute(
-                    f'SELECT * FROM sku_series WHERE run_id=? AND sku IN ({_int_list(wanted)}) '
-                    f'ORDER BY sku, batch_id', (self.run_id,))]
+                    'SELECT * FROM sku_series WHERE run_id=?'
+                    ' AND sku IN (SELECT value FROM json_each(?)) ORDER BY sku, batch_id',
+                    (self.run_id, json.dumps(wanted)))]
                 out = _group_by_sku(rows)
             except sqlite3.Error:
                 out = {}
@@ -874,10 +1007,9 @@ class SqliteSimReader:
         try:
             rows = [{'sku': int(r['sku']), 'batch_id': int(r['batch_id']),
                      'picks': int(r['picks']), 'units': int(r['units'])}
-                    for r in con.execute(
-                        f'SELECT sku, batch_id, COUNT(*) picks, SUM(quantity) units FROM picks '
-                        f'WHERE run_id=? AND sku IN ({_int_list(missing)}) '
-                        f'GROUP BY sku, batch_id ORDER BY sku, batch_id', (self.run_id,))]
+                    for r in con.execute(self._sql('sim_db', 'sku_series_live'),
+                                         {'run_id': self.run_id,
+                                          'skus': json.dumps(missing)})]
         finally:
             con.close()
         out.update(_group_by_sku(rows))
@@ -903,8 +1035,7 @@ class SqliteSimReader:
         if cache is not None:
             try:
                 rows = [dict(r) for r in cache.execute(
-                    'SELECT sku, aisle_id, bayX, bayY, qty, n_homes, home_aisles, batch_id '
-                    'FROM final_home WHERE run_id=?', (self.run_id,))]
+                    self._sql('viz_cache_db', 'final_home'), {'run_id': self.run_id})]
                 if rows:
                     return {'batch': rows[0]['batch_id'], 'homes': {
                         str(r['sku']): {
@@ -926,9 +1057,8 @@ class SqliteSimReader:
         aisles: dict[int, set] = {}
         con = _ro(self.keyframe_db)
         try:
-            for r in con.execute(
-                    'SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe '
-                    'WHERE run_id=? AND batch_id=? AND qty>0', (self.run_id, last)):
+            for r in con.execute(self._sql('keyframes_db', 'keyframe_bins_nonzero'),
+                                 {'run_id': self.run_id, 'batch_id': last}):
                 sku = int(r['sku'])
                 cand = {'aisle_id': int(r['aisle_id']), 'bayX': int(r['bayX']),
                         'bayY': int(r['bayY']), 'qty': int(r['qty']), 'n_homes': 1}

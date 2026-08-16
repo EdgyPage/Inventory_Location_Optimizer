@@ -21,6 +21,7 @@ import os
 from dataclasses import dataclass, field
 
 from Schema import identity as _identity
+from Schema import compat as _compat
 from Visualization.readers import reader_for
 from Visualization.readers.base import _ro
 # Imported for their REGISTRATION side effect: `Schema/` imports no writer, so a family exists
@@ -90,14 +91,26 @@ class RunRef:
         from one, use the hard `identity.check` instead.
         """
         if self._reader is None:
-            _identity.check_or_warn(self.warehouse_db, 'warehouse_db', verify=True)
-            if self.keyframe_db:
-                _identity.check_or_warn(self.keyframe_db, 'keyframes_db', verify=True)
+            # The captured ids feed the reader's per-family SQL composition (_sid); None —
+            # the WARN path — falls back to the declared id there, i.e. canonical SQL, the
+            # same degrade as ever.
+            wh_sid = _identity.check_or_warn(self.warehouse_db, 'warehouse_db', verify=True)
+            kf_sid = (_identity.check_or_warn(self.keyframe_db, 'keyframes_db', verify=True)
+                      if self.keyframe_db else None)
             self._reader = reader_for(
                 self.sim_db, self.warehouse_db, self.run_id,
                 keyframe_db=self.keyframe_db, viz_cache=self.viz_cache,
-                pinned_schema_id=_pinned_schema_id(self.viz_cache), verify=verify)
+                pinned_schema_id=_pinned_schema_id(self.viz_cache), verify=verify,
+                warehouse_schema_id=wh_sid, keyframe_schema_id=kf_sid)
         return self._reader
+
+
+#: Discovery's identity probe reads `simulation_runs` tolerantly on files of ANY vintage —
+#: including unvetted ones it then skips — so the declaration is shape-following by design.
+REQUIRES_DISCOVERY = _compat.Requires(
+    family='sim_db',
+    label='Visualization discovery (_read_run_meta)',
+    tables={'simulation_runs': _compat.ANY_COLUMNS})
 
 
 def _pinned_schema_id(viz_cache: str) -> str | None:
@@ -109,10 +122,15 @@ def _pinned_schema_id(viz_cache: str) -> str | None:
     if not viz_cache or not os.path.exists(viz_cache):
         return None
     try:
+        # Composed from the registry (the literal key lives in the query declaration now),
+        # but executed on a bare read-only connection with the blanket guard kept: this must
+        # answer None for a cache too broken or too old to BIND, not raise.
+        from Schema.dataset import sql_for
+        from Visualization.cache_schema import VIZ_CACHE_DB_FAMILY
+        sql = sql_for('viz_cache_db', 'cache_meta_value', VIZ_CACHE_DB_FAMILY.declared_id())
         con = _ro(viz_cache)
         try:
-            row = con.execute(
-                "SELECT value FROM cache_meta WHERE key='sim_schema_id'").fetchone()
+            row = con.execute(sql, {'key': 'sim_schema_id'}).fetchone()
             return row[0] if row else None
         finally:
             con.close()
@@ -144,14 +162,16 @@ def _nearest_warehouse_db(sim_db: str, rt=None, cell: str | None = None,
 
 
 def _warehouse_fingerprint(warehouse_db: str) -> str | None:
+    """The fingerprint via the full pipeline: bind the file to ITS OWN vintage and ask by
+    name — the pre-fingerprint vintage is served by the repo's first production override
+    (`Warehouse_Data`), which answers NULL instead of raising.  Discovery is tree-stamp-cached
+    and touches a handful of warehouse.db files, so full binds are free here.  The blanket
+    guard stays: unvetted/truncated -> None -> the walk-up fallback, unchanged."""
     try:
-        con = _ro(warehouse_db)
-        try:
-            row = con.execute('SELECT warehouse_fingerprint FROM warehouse_stats '
-                              'ORDER BY id DESC LIMIT 1').fetchone()
-            return row['warehouse_fingerprint'] if row else None
-        finally:
-            con.close()
+        from Schema import dataset as _dataset
+        with _dataset.bind(warehouse_db, 'warehouse_db', immutable=False) as ds:
+            rows = ds.query('warehouse_fingerprint')
+            return rows[0]['warehouse_fingerprint'] if rows else None
     except Exception:                            # noqa: BLE001 - pre-fingerprint or unreadable
         return None
 
