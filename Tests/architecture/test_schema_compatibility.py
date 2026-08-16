@@ -78,7 +78,6 @@ from Visualization.readers import base as viz_base       # noqa: F401 - consumer
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
 from Schema import capability, compat, identity, shape, store_index
 from Visualization import cache_schema  # noqa: F401
-from Visualization.readers import fingerprint as viz_fingerprint
 from Warehouse.generation import generate_affinity, generate_inventory  # noqa: F401
 
 # `scripts/` is a namespace package under the repo root that `Tests/conftest.py` already puts on
@@ -1994,15 +1993,15 @@ def test_a_stamp_reader_resolves_stamped_and_falls_through_to_derivation(tmp_pat
             'and resolution for such a family is always derivation')
 
 
-def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
-    """Two deliberate copies of one query — this is the test the docstrings of both promise.
+def test_the_sim_stamp_reader_answers_through_the_family(tmp_path):
+    """The stamp reader's behavioral contract, on stamped AND pre-stamp files.
 
-    `Picking_Data._read_sim_stamp` (wired as `SIM_DB_FAMILY.stamp_reader`) and
-    `Visualization/readers/fingerprint.read_stamped_id` must answer identically on a stamped file
-    AND on a pre-stamp one, or the viewer and the identity layer would date the same archive
-    differently.  Note the guard split: the viz copy swallows its own OperationalError, while the
-    family callable is guarded BY `identity.read_stamp` — so the sim family is exercised through
-    `read_stamp`, which is how every real caller reaches it.
+    This test once held TWO copies in step — `Picking_Data._read_sim_stamp` and the viewer's
+    private `fingerprint.read_stamped_id` — until the viewer unified on `identity.resolve`
+    and the second copy was deleted; the drift hazard it guarded no longer exists.  What
+    remains load-bearing: the family callable must skip NULL rows (not read the first row),
+    and a pre-stamp file must answer None THROUGH `identity.read_stamp` (the bare callable
+    raises, which is exactly why every caller goes through the guard).
     """
     assert Picking_Data.SIM_DB_FAMILY.stamp_reader is Picking_Data._read_sim_stamp, (
         'sim_db no longer wires _read_sim_stamp as its stamp_reader, so this parity test is '
@@ -2015,10 +2014,9 @@ def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
     ))
     with _open(stamped) as con:
         ours = Picking_Data._read_sim_stamp(con)
-        theirs = viz_fingerprint.read_stamped_id(con)
-        assert ours == theirs == 'ee5ebabe74fb', (
-            f'the two copies disagree on a stamped file (ours={ours!r}, viz={theirs!r}) — '
-            f'note run 1 is NULL, so both must skip unstamped rows, not read the first row')
+        assert ours == 'ee5ebabe74fb', (
+            f'stamp reader answered {ours!r} — run 1 is NULL, so it must skip unstamped '
+            f'rows, not read the first row')
 
     pre = _tiny_db(tmp_path / 'prestamp_sim.db',
                    ('CREATE TABLE simulation_runs (run_id INTEGER PRIMARY KEY)',))
@@ -2030,8 +2028,6 @@ def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
         assert identity.read_stamp(con, Picking_Data.SIM_DB_FAMILY) is None, (
             'a pre-stamp sim DB must read as None through the family (the normal derivation '
             'path), never raise')
-        assert viz_fingerprint.read_stamped_id(con) is None, (
-            'and the viz copy must agree: None on a pre-stamp file')
 
 
 def test_apply_known_ids_lands_the_orphan_first_and_todo_marked(tmp_path, monkeypatch):

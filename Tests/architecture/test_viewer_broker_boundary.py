@@ -58,8 +58,6 @@ _ALLOWED_RAW = {
         'streaming 3.1M-row fetchmany pass, same escape hatch',
     # (build_one and log_present earned their retirement: scalar reads moved to
     # ds.read/ds.query and the probe became capability.has_rows.)
-    ('Visualization/readers/fingerprint.py', 'read_stamped_id'):
-        'TRANSIENT: the whole module is deleted in the final phase (identity unified in P1)',
     ('Visualization/readers/__init__.py', '_assert_json1'):
         'the JSON1 import probe: one SELECT against a throwaway :memory: db, no table read',
 }

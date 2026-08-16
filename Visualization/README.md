@@ -72,18 +72,25 @@ A view knows JSON verb names and nothing else. That is the entire versioning fir
 DB schema changes, a new reader implements the same protocol and **no view changes**. Conversely,
 redesigning a view cannot break data access.
 
-### 2. Reading a sim DB is versioned; nothing else is
+### 2. Reading ANY of the four DBs is versioned — through the shared schema pipeline
 
-`readers/` holds one module per vetted schema (`sim_2026_07.py` today). A sim DB carries no version
-number, so identity is *derived from shape and then pinned* — the same trick the run-tree contract
-uses. `readers/fingerprint.py` normalizes the table/column/index structure and hashes it; the
-declared id comes from running that normalizer over a fresh `init_run_db(':memory:')`, so the
-declaration cannot drift from reality.
+`readers/` holds one module per vetted sim schema (`sim_2026_07.py` today) whose vetting IS the
+family's (`SCHEMA_IDS = SIM_DB_FAMILY.supported_ids()`).  Identity resolves through
+`Schema.identity.resolve` — **stamped → pinned → derived**, the family's own stamp reader doing
+the reading (new runs carry `simulation_runs.sim_schema_id`; older ones get the id derived once
+at precompute time and pinned into the sidecar).  An unrecognised shape raises
+`UnsupportedSimSchema` with a structural diff naming the tables and columns that differ — never
+a bare hash, and never a silent best-effort read.
 
-Resolution order is **stamped → pinned → derived**: new runs carry `simulation_runs.sim_schema_id`;
-older ones get it derived once and pinned into the sidecar. An unrecognised shape raises
-`UnsupportedSimSchema` with a structural diff naming the tables and columns that differ — never a
-bare hash, and never a silent best-effort read.
+The SQL itself is versioned publisher-side: every regular read executes a **named query**
+registered beside its family's DDL (`Picking_Data` for sim + keyframes, `cache_schema` for the
+sidecar, `Warehouse_Data` for geometry — where the pre-fingerprint vintage is served by a
+`dataset.override`), composed once per (family, query, vintage) via `dataset.sql_for`.  A future
+schema change lands as a publisher-side override and no reader method moves.  The raw sites that
+legitimately remain (the algorithmic state folds, the streaming precompute passes, the
+shape-following `SELECT *` reads) are an allowlist WITH reasons in
+`Tests/architecture/test_viewer_broker_boundary.py` — producer-broker-consumer is enforced,
+not conventional.
 
 Runs older than the vetted schema are **unsupported by design**. Failing loudly beats a viewer that
 draws a plausible-looking warehouse from columns it guessed at.

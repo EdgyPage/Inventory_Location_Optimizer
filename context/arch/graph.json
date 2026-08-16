@@ -3616,6 +3616,26 @@
       "src": "Optimization/persistence/Warehouse_Data.py"
     },
     {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::override",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Optimization/persistence/Warehouse_Data.py"
@@ -7481,6 +7501,26 @@
       "src": "Visualization/cache_schema.py"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/cache_schema.py"
@@ -7504,6 +7544,11 @@
       "dst": "Visualization/cache_schema.py::declared_cache_shape",
       "kind": "ref",
       "src": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::cache_freshness"
     },
     {
       "dst": "Schema/identity.py::SchemaError",
@@ -7531,6 +7576,11 @@
       "src": "Visualization/cache_schema.py::init_cache_db"
     },
     {
+      "dst": "Schema/connect.py::bulk_writer",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::init_cache_db"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
@@ -7551,7 +7601,22 @@
       "src": "Visualization/db_reader.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
       "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
     },
@@ -7564,6 +7629,11 @@
       "dst": "Visualization/readers/base.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::REQUIRES_DISCOVERY"
     },
     {
       "dst": "Schema/identity.py::check_or_warn",
@@ -7616,6 +7686,11 @@
       "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
+      "dst": "Schema/dataset.py::sql_for",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_pinned_schema_id"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_pinned_schema_id"
@@ -7626,7 +7701,7 @@
       "src": "Visualization/db_reader.py::_read_run_meta"
     },
     {
-      "dst": "Visualization/readers/base.py::_ro",
+      "dst": "Schema/dataset.py::bind",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_warehouse_fingerprint"
     },
@@ -7671,7 +7746,17 @@
       "src": "Visualization/precompute.py"
     },
     {
+      "dst": "Schema/capability.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
       "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
       "kind": "imports",
       "src": "Visualization/precompute.py"
     },
@@ -7696,11 +7781,6 @@
       "src": "Visualization/precompute.py"
     },
     {
-      "dst": "Visualization/readers/fingerprint.py",
-      "kind": "imports",
-      "src": "Visualization/precompute.py"
-    },
-    {
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Visualization/precompute.py::REQUIRES"
@@ -7719,6 +7799,16 @@
       "dst": "Visualization/precompute.py::build_one",
       "kind": "calls",
       "src": "Visualization/precompute.py::_worker"
+    },
+    {
+      "dst": "Schema/capability.py::has_rows",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
     },
     {
       "dst": "Visualization/cache_schema.py::init_cache_db",
@@ -7766,21 +7856,6 @@
       "src": "Visualization/precompute.py::build_one"
     },
     {
-      "dst": "Visualization/precompute.py::log_present",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
       "dst": "Visualization/cache_schema.py::cache_freshness",
       "kind": "calls",
       "src": "Visualization/precompute.py::cache_state"
@@ -7821,17 +7896,32 @@
       "src": "Visualization/precompute.py::main"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/__init__.py::_assert_json1",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
       "dst": "Visualization/readers/__init__.py::register",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py"
     },
     {
       "dst": "Visualization/readers/base.py",
-      "kind": "imports",
-      "src": "Visualization/readers/__init__.py"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py",
       "kind": "imports",
       "src": "Visualization/readers/__init__.py"
     },
@@ -7846,17 +7936,32 @@
       "src": "Visualization/readers/__init__.py"
     },
     {
+      "dst": "Schema/identity.py::resolve",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
       "dst": "Visualization/readers/__init__.py::registered_schema_ids",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py::reader_for"
     },
     {
       "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/__init__.py::reader_for"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py::reader_for"
     },
@@ -7876,6 +7981,26 @@
       "src": "Visualization/readers/base.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
       "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/readers/base.py"
@@ -7884,6 +8009,26 @@
       "dst": "Visualization/readers/protocol.py",
       "kind": "imports",
       "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_KEYFRAMES"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_VIZ_CACHE"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_WAREHOUSE"
     },
     {
       "dst": "Visualization/readers/base.py::_deplete",
@@ -7901,12 +8046,22 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._cache_conn"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_family_surface",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_state"
     },
@@ -7926,9 +8081,29 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._pending_restocks"
     },
     {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sid"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._span_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._span_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sql"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_composed_sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sql"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
@@ -7977,6 +8152,11 @@
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._has",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
     },
@@ -8031,6 +8211,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
       "dst": "Visualization/readers/base.py::_deplete",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
@@ -8061,9 +8246,9 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_bins"
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry"
     },
     {
       "dst": "Visualization/readers/base.py::_ro",
@@ -8072,6 +8257,11 @@
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
     },
@@ -8111,6 +8301,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.aisle_state"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
@@ -8126,12 +8321,17 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_scores"
     },
@@ -8171,12 +8371,22 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.events"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.events"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
     },
@@ -8196,19 +8406,14 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
     },
     {
-      "dst": "Visualization/readers/base.py::_ro",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.capabilities",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
-    },
-    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
+      "src": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader.batch_index",
@@ -8231,11 +8436,6 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
-    },
-    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
@@ -8246,12 +8446,12 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::_group_by_sku",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::_group_by_sku",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
@@ -8276,6 +8476,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
@@ -8286,62 +8491,47 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Schema/shape.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Visualization/readers/protocol.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "dst": "Schema/dataset.py::sql_for",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_composed_sql"
     },
     {
-      "dst": "Schema/shape.py::canonical_shape",
+      "dst": "Schema/compat.py::_surface",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::describe_diff",
+      "dst": "Schema/compat.py::load_shape",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::diff_shapes",
+      "dst": "Schema/identity.py::get",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::observed_id",
+      "dst": "Schema/connect.py::read_only",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::read_stamped_id",
-      "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
-    },
-    {
-      "dst": "Visualization/readers/protocol.py::SimSchemaDrift",
-      "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_ro"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/protocol.py"
+    },
+    {
+      "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/readers/protocol.py"
     },
@@ -8371,12 +8561,12 @@
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/db_reader.py",
+      "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/readers/__init__.py",
+      "dst": "Visualization/db_reader.py",
       "kind": "imports",
       "src": "Visualization/server.py"
     },
@@ -8428,27 +8618,12 @@
     {
       "dst": "Visualization/server.py::_int_arg",
       "kind": "calls",
-      "src": "Visualization/server.py::api_aisle_bins"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_aisle_bins"
-    },
-    {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
       "src": "Visualization/server.py::api_aisle_rollup"
     },
     {
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_aisle_rollup"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_batches"
     },
     {
       "dst": "Visualization/server.py::_int_arg",
@@ -8466,16 +8641,6 @@
       "src": "Visualization/server.py::api_capabilities"
     },
     {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_events"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_events"
-    },
-    {
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_final_home"
@@ -8489,16 +8654,6 @@
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_meta"
-    },
-    {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_reorder_queue"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_reorder_queue"
     },
     {
       "dst": "Visualization/db_reader.py::run_index",
@@ -15482,6 +15637,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BIN_SCORE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BIN_SCORE_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -15726,6 +15889,30 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_TASK_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_TASK_ROW_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_TASK_ROW_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_TIMELINE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_TIMELINE_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_VIEWER_BATCH_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_VIEWER_BATCH_COLS",
       "public": false
     },
     {
@@ -16086,6 +16273,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Warehouse_Data.py",
       "name": "_CREATE_WAREHOUSE_STATS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Warehouse_Data.py",
+      "id": "Optimization/persistence/Warehouse_Data.py::_GEOMETRY_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Warehouse_Data.py",
+      "name": "_GEOMETRY_COLS",
       "public": false
     },
     {
@@ -19906,6 +20101,14 @@
     },
     {
       "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::AISLE_ROLLUP_COLS",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "AISLE_ROLLUP_COLS",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
       "id": "Visualization/cache_schema.py::CACHE_VERSION",
       "kind": "const",
       "module": "Visualization/cache_schema.py",
@@ -20086,6 +20289,14 @@
       "kind": "const",
       "module": "Visualization/db_reader.py",
       "name": "NAV_AXES",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::REQUIRES_DISCOVERY",
+      "kind": "const",
+      "module": "Visualization/db_reader.py",
+      "name": "REQUIRES_DISCOVERY",
       "public": true
     },
     {
@@ -20338,14 +20549,6 @@
     },
     {
       "file": "Visualization/precompute.py",
-      "id": "Visualization/precompute.py::log_present",
-      "kind": "function",
-      "module": "Visualization/precompute.py",
-      "name": "log_present",
-      "public": true
-    },
-    {
-      "file": "Visualization/precompute.py",
       "id": "Visualization/precompute.py::main",
       "kind": "function",
       "module": "Visualization/precompute.py",
@@ -20366,6 +20569,14 @@
       "kind": "const",
       "module": "Visualization/readers/__init__.py",
       "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::_assert_json1",
+      "kind": "function",
+      "module": "Visualization/readers/__init__.py",
+      "name": "_assert_json1",
       "public": false
     },
     {
@@ -20402,6 +20613,38 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_KEYFRAMES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_KEYFRAMES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_VIZ_CACHE",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_VIZ_CACHE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_WAREHOUSE",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_WAREHOUSE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader",
       "kind": "class",
       "module": "Visualization/readers/base.py",
@@ -20430,6 +20673,14 @@
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_cache_conn",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._has",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_has",
       "public": false
     },
     {
@@ -20466,10 +20717,26 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_sid",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._span_index",
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_span_index",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_sql",
       "public": false
     },
     {
@@ -20503,14 +20770,6 @@
       "module": "Visualization/readers/base.py",
       "name": "_state_without_keyframes",
       "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_bins",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "aisle_bins",
-      "public": true
     },
     {
       "file": "Visualization/readers/base.py",
@@ -20602,14 +20861,6 @@
     },
     {
       "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader.reorder_queue",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "reorder_queue",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader.run_meta",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -20682,6 +20933,14 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_FAMILY_SOURCES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "_FAMILY_SOURCES",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::_PROBED",
       "kind": "const",
       "module": "Visualization/readers/base.py",
@@ -20698,10 +20957,26 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_composed_sql",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_composed_sql",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::_deplete",
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_deplete",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_family_surface",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_family_surface",
       "public": false
     },
     {
@@ -20729,38 +21004,6 @@
       "public": false
     },
     {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py",
-      "kind": "module",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "Visualization.readers.fingerprint",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::__all__",
-      "kind": "const",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "__all__",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::read_stamped_id",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "read_stamped_id",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::resolve_schema_id",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "resolve_schema_id",
-      "public": true
-    },
-    {
       "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py",
       "kind": "module",
@@ -20782,14 +21025,6 @@
       "kind": "class",
       "module": "Visualization/readers/protocol.py",
       "name": "SimReader",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::SimReader.aisle_bins",
-      "kind": "function",
-      "module": "Visualization/readers/protocol.py",
-      "name": "aisle_bins",
       "public": true
     },
     {
@@ -20842,6 +21077,14 @@
     },
     {
       "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.cache_status",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "cache_status",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py::SimReader.capabilities",
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
@@ -20866,6 +21109,14 @@
     },
     {
       "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.keyframe_batches",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "keyframe_batches",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py::SimReader.run_meta",
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
@@ -20878,6 +21129,14 @@
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
       "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.schema_source",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "schema_source",
       "public": true
     },
     {
@@ -20958,14 +21217,6 @@
       "kind": "module",
       "module": "Visualization/readers/sim_2026_07.py",
       "name": "Visualization.readers.sim_2026_07",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/sim_2026_07.py",
-      "id": "Visualization/readers/sim_2026_07.py::PRE_STAMP_SCHEMA_ID",
-      "kind": "const",
-      "module": "Visualization/readers/sim_2026_07.py",
-      "name": "PRE_STAMP_SCHEMA_ID",
       "public": true
     },
     {
@@ -21074,6 +21325,14 @@
     },
     {
       "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_schema_error",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_schema_error",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
       "id": "Visualization/server.py::_skus_arg",
       "kind": "function",
       "module": "Visualization/server.py",
@@ -21098,26 +21357,10 @@
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_aisle_bins",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_aisle_bins",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
       "id": "Visualization/server.py::api_aisle_rollup",
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_aisle_rollup",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_batches",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_batches",
       "public": true
     },
     {
@@ -21134,14 +21377,6 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_capabilities",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_events",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_events",
       "public": true
     },
     {
@@ -21166,14 +21401,6 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_meta",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_reorder_queue",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_reorder_queue",
       "public": true
     },
     {

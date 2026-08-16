@@ -630,9 +630,9 @@ def _read_sim_stamp(con) -> str | None:
     """The `simulation_runs.sim_schema_id` a run stamped, or None.
 
     The sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the
-    generic `identity.read_stamp` cannot find it without this.  Body mirrors
-    `Visualization/readers/fingerprint.read_stamped_id` — that module keeps its own copy because
-    the viewer resolves through a pin cache as well; a test asserts the two stay in step.
+    generic `identity.read_stamp` cannot find it without this.  THE single implementation:
+    the viewer once kept its own byte-equivalent copy and now resolves through
+    `identity.resolve` with this family, so every consumer dates the archive identically.
     """
     row = con.execute(
         'SELECT sim_schema_id FROM simulation_runs '

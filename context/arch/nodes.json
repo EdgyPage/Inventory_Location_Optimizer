@@ -3416,6 +3416,13 @@
       "signature": null,
       "value_preview": "{'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0, 'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0, 'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0, 'units_or..."
     },
+    "Optimization/persistence/Picking_Data.py::_BIN_SCORE_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult', 'layout_score', 'map_pref')"
+    },
     "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
       "decorators": [],
       "doc": null,
@@ -3633,6 +3640,27 @@
       "signature": null,
       "value_preview": "('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'is_outlier')"
     },
+    "Optimization/persistence/Picking_Data.py::_TASK_ROW_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'is_outlier')"
+    },
+    "Optimization/persistence/Picking_Data.py::_TIMELINE_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('time', 'picker_id', 'event_type', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins', 'items_picked', 'total_items')"
+    },
+    "Optimization/persistence/Picking_Data.py::_VIEWER_BATCH_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'duration', 'num_tasks', 'total_items', 'reorder_placements')"
+    },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
       "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.",
@@ -3663,7 +3691,7 @@
     },
     "Optimization/persistence/Picking_Data.py::_read_sim_stamp": {
       "decorators": [],
-      "doc": "The `simulation_runs.sim_schema_id` a run stamped, or None.\n\nThe sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the\ngeneric `identity.read_stamp` cannot find it without this.  Body mirrors\n`Visualization/readers/fingerprint.read_stamped_id` \u2014 that module keeps its own copy because\nthe viewer resolves through a pin cache as well; a test asserts the two stay in step.",
+      "doc": "The `simulation_runs.sim_schema_id` a run stamped, or None.\n\nThe sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the\ngeneric `identity.read_stamp` cannot find it without this.  THE single implementation:\nthe viewer once kept its own byte-equivalent copy and now resolves through\n`identity.resolve` with this family, so every consumer dates the archive identically.",
       "is_async": false,
       "kind": "function",
       "signature": "(con) -> str | None"
@@ -3946,6 +3974,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\n CREATE TABLE IF NOT EXISTS warehouse_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n inventory_db TEXT NOT NULL,\\n timestamp TEXT NOT NULL,\\n n_skus INTEGER NOT NULL,\\n n_pallet_units INTEGER..."
+    },
+    "Optimization/persistence/Warehouse_Data.py::_GEOMETRY_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('aisle_id', 'handling_type', 'category', 'unit_type', 'storage_size', 'bay_x', 'bay_y')"
     },
     "Optimization/persistence/Warehouse_Data.py::_open_db": {
       "decorators": [],
@@ -7246,6 +7281,13 @@
       "kind": "module",
       "signature": null
     },
+    "Visualization/cache_schema.py::AISLE_ROLLUP_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('run_id', 'batch_id', 'aisle_id', 'occupied', 'capacity', 'qty', 'n_skus', 'picks', 'units_picked', 'visits', 'task_secs', 'home_match')"
+    },
     "Visualization/cache_schema.py::CACHE_VERSION": {
       "decorators": [],
       "doc": null,
@@ -7406,6 +7448,13 @@
       "signature": null,
       "value_preview": "('pair', 'channel', 'config', 'cell', 'strategy')"
     },
+    "Visualization/db_reader.py::REQUIRES_DISCOVERY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='Visualization discovery (_read_run_meta)', tables={'simulation_runs': _compat.ANY_COLUMNS})"
+    },
     "Visualization/db_reader.py::RunRef": {
       "decorators": [
         "dataclass"
@@ -7467,7 +7516,7 @@
     },
     "Visualization/db_reader.py::_warehouse_fingerprint": {
       "decorators": [],
-      "doc": null,
+      "doc": "The fingerprint via the full pipeline: bind the file to ITS OWN vintage and ask by\nname \u2014 the pre-fingerprint vintage is served by the repo's first production override\n(`Warehouse_Data`), which answers NULL instead of raising.  Discovery is tree-stamp-cached\nand touches a handful of warehouse.db files, so full binds are free here.  The blanket\nguard stays: unvetted/truncated -> None -> the walk-up fallback, unchanged.",
       "is_async": false,
       "kind": "function",
       "signature": "(warehouse_db: str) -> str | None"
@@ -7613,7 +7662,7 @@
     },
     "Visualization/precompute.py::build_one": {
       "decorators": [],
-      "doc": "Build (or refresh) one arm's sidecar. Returns a small report dict.",
+      "doc": "Build (or refresh) one arm's sidecar. Returns a small report dict.\n\n`verify` is SUBSUMED: dataset.bind runs with verify=True unconditionally now (precompute\nwrites a persistent record, so a migrated file must fail the arm, not be pinned).  The\nflag is kept so existing invocations don't break; it changes nothing.",
       "is_async": false,
       "kind": "function",
       "signature": "(run, top_n: int=500, force: bool=False, verify: bool=False) -> dict"
@@ -7624,13 +7673,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run) -> str"
-    },
-    "Visualization/precompute.py::log_present": {
-      "decorators": [],
-      "doc": "Does this run carry a bin-mutation log?\n\nPK-served (`LIMIT 1` on `(run_id, batch_id, seq)`), and tolerant of a DB written before the\ntable existed \u2014 which is every arm in the archive, so the OperationalError is the NORMAL\nanswer here, not an error condition.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(sim_con, run_id) -> bool"
     },
     "Visualization/precompute.py::main": {
       "decorators": [],
@@ -7652,12 +7694,19 @@
       "signature": null,
       "value_preview": "['reader_for', 'register', 'registered_schema_ids', 'SimReader', 'SimSchemaError', 'UnsupportedSimSchema', 'SimSchemaDrift', 'SqliteSimReader']"
     },
+    "Visualization/readers/__init__.py::_assert_json1": {
+      "decorators": [],
+      "doc": "The viewer's scoped named queries pass id lists as ONE JSON parameter via json_each.\n\nJSON1 has been compiled into the bundled SQLite by default since 3.38 (Python 3.11 ships\nnewer), so this probe should never fire \u2014 but a viewer that silently lacked it would fail\non the first scoped request with an opaque OperationalError mid-session.  Probe ONCE at\nimport and fail with the cause named.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
     "Visualization/readers/__init__.py::reader_for": {
       "decorators": [],
       "doc": "Bind the vetted reader for `sim_db`.\n\n`pinned_schema_id` short-circuits derivation \u2014 pass the value the sidecar cached, so a DB\nwith no stamp is inspected once at precompute time rather than on every request.\n\nRaises `UnsupportedSimSchema` (no vetted reader) or `SimSchemaDrift` (`verify=True` and the\nfile disagrees with what was stamped or pinned).  Neither is recoverable by guessing, which\nis the point: a viewer that reads an unknown schema on a best-effort basis produces a\nwarehouse picture that looks right and is not.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_db: str, warehouse_db: str, run_id: int, *, keyframe_db: str='', viz_cache: str='', pinned_schema_id: str | None=None, verify: bool=False) -> SimReader"
+      "signature": "(sim_db: str, warehouse_db: str, run_id: int, *, keyframe_db: str='', viz_cache: str='', pinned_schema_id: str | None=None, verify: bool=False, warehouse_schema_id: str | None=None, keyframe_schema_id: str | None=None) -> SimReader"
     },
     "Visualization/readers/__init__.py::register": {
       "decorators": [],
@@ -7679,6 +7728,34 @@
       "kind": "module",
       "signature": null
     },
+    "Visualization/readers/base.py::REQUIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='sim_db', label='Visualization reader (SqliteSimReader)', tables={'simulation_runs': _compat.ANY_COLUMNS, 'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'tot..."
+    },
+    "Visualization/readers/base.py::REQUIRES_KEYFRAMES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='keyframes_db', label='Visualization reader (keyframe sidecar)', tables={'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty')})"
+    },
+    "Visualization/readers/base.py::REQUIRES_VIZ_CACHE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='viz_cache_db', label='Visualization reader (viz sidecar)', tables={'cache_meta': ('key', 'value'), 'bin_span': ('run_id', 'aisle_id', 'bayX', 'bayY', 't_from', 't_to', 'sku..."
+    },
+    "Visualization/readers/base.py::REQUIRES_WAREHOUSE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_compat.Requires(family='warehouse_db', label='Visualization reader (warehouse geometry)', tables={'aisle_layout': ('aisle_id', 'handling_type', 'category', 'unit_type', 'storage_size', 'bay_x', 'b..."
+    },
     "Visualization/readers/base.py::SqliteSimReader": {
       "decorators": [],
       "doc": "Read one arm's `sim_<arm>.db` (+ keyframes, warehouse, and optional viz cache).",
@@ -7690,7 +7767,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, sim_db: str, warehouse_db: str, run_id: int, keyframe_db: str='', viz_cache: str='', schema_id: str='', schema_source: str='')"
+      "signature": "(self, sim_db: str, warehouse_db: str, run_id: int, keyframe_db: str='', viz_cache: str='', schema_id: str='', schema_source: str='', warehouse_schema_id: str | None=None, keyframe_schema_id: str | None=None)"
     },
     "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t": {
       "decorators": [],
@@ -7705,6 +7782,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> sqlite3.Connection | None"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._has": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str, table: str) -> bool"
     },
     "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before": {
       "decorators": [],
@@ -7734,12 +7818,26 @@
       "kind": "function",
       "signature": "(self, keyframe: int, batch: int) -> int"
     },
+    "Visualization/readers/base.py::SqliteSimReader._sid": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str) -> str"
+    },
     "Visualization/readers/base.py::SqliteSimReader._span_index": {
       "decorators": [],
       "doc": "An open sidecar, but ONLY when its `bin_span` came from the bin-mutation log.\n\nA v1 sidecar, or one rebuilt from the keyframes because the arm predates the log, holds\nspans on the keyframe grid.  Reading those as if they were exact between keyframes is\nprecisely the error this whole change removes, so the source is checked, not assumed.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> sqlite3.Connection | None"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._sql": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str, name: str) -> str"
     },
     "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes": {
       "decorators": [],
@@ -7768,13 +7866,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch: int, aisles, t) -> dict"
-    },
-    "Visualization/readers/base.py::SqliteSimReader.aisle_bins": {
-      "decorators": [],
-      "doc": "Every bin position in one aisle, empty ones included.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, aisle: int) -> list[dict]"
     },
     "Visualization/readers/base.py::SqliteSimReader.aisle_geometry": {
       "decorators": [],
@@ -7853,13 +7944,6 @@
       "kind": "function",
       "signature": "(self) -> list[int]"
     },
-    "Visualization/readers/base.py::SqliteSimReader.reorder_queue": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, batch: int) -> list[dict]"
-    },
     "Visualization/readers/base.py::SqliteSimReader.run_meta": {
       "decorators": [],
       "doc": null,
@@ -7914,7 +7998,7 @@
       "doc": "The n most-picked SKUs.  The live fallback is a ~24 s full scan of `picks`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, n: int=100) -> list[dict]"
+      "signature": "(self, n: int=50) -> list[dict]"
     },
     "Visualization/readers/base.py::_FAMILY_KEYS": {
       "decorators": [],
@@ -7923,12 +8007,19 @@
       "signature": null,
       "value_preview": "('handling_type', 'unit_type', 'storage_size')"
     },
+    "Visualization/readers/base.py::_FAMILY_SOURCES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': 'Optimization.persistence.Picking_Data', 'keyframes_db': 'Optimization.persistence.Picking_Data', 'viz_cache_db': 'Visualization.cache_schema', 'warehouse_db': 'Optimization.persistence...."
+    },
     "Visualization/readers/base.py::_PROBED": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "tuple((SIM_CAPABILITIES[name] for name in (CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES)))"
+      "value_preview": "tuple((SIM_CAPABILITIES[name] for name in (CAP_AISLE_METRICS, CAP_BIN_SCORES, CAP_SKU_SCORES)))"
     },
     "Visualization/readers/base.py::_better_home": {
       "decorators": [],
@@ -7937,12 +8028,26 @@
       "kind": "function",
       "signature": "(cand: dict, cur: dict) -> bool"
     },
+    "Visualization/readers/base.py::_composed_sql": {
+      "decorators": [],
+      "doc": "The per-vintage SQL for a named query \u2014 `dataset.sql_for`, memoised.\n\nTHE broker seam: a publisher-side `dataset.override(...)` registered for an old vintage\nchanges what this returns, and no reader method moves.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, name: str, schema_id: str) -> str"
+    },
     "Visualization/readers/base.py::_deplete": {
       "decorators": [],
       "doc": "Subtract `n` picked units from a bin, dropping it when it empties.",
       "is_async": false,
       "kind": "function",
       "signature": "(bins: dict, aisle, bayX, bayY, n) -> None"
+    },
+    "Visualization/readers/base.py::_family_surface": {
+      "decorators": [],
+      "doc": "{table: columns} of the committed (or declared) shape for `schema_id` \u2014 the no-PRAGMA\nanswer to has-table questions (closes the bin_eviction probe gap).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, schema_id: str) -> dict"
     },
     "Visualization/readers/base.py::_group_by_sku": {
       "decorators": [],
@@ -7960,37 +8065,10 @@
     },
     "Visualization/readers/base.py::_ro": {
       "decorators": [],
-      "doc": "Open `path` strictly read-only.\n\nNever `Picking_Data._open_db` \u2014 that issues `PRAGMA journal_mode=WAL`, which is a WRITE and\nwould drop `-wal`/`-shm` files beside a 1 GB DB on the results drive (or simply fail on a\nread-only mount).",
+      "doc": "Open `path` strictly read-only \u2014 `Schema.connect.read_only`, the sanctioned opener.\n\nNever `Picking_Data._open_db` (its `PRAGMA journal_mode=WAL` is a WRITE), and never\nimmutable: the viewer may be watching a run that is still being written.  This used to be\na hand-rolled URI connect; the broker-boundary ratchet now forbids `sqlite3.connect`\noutside `Schema/connect.py`.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str) -> sqlite3.Connection"
-    },
-    "Visualization/readers/fingerprint.py": {
-      "decorators": [],
-      "doc": "fingerprint.py \u2014 resolving WHICH sim-DB schema a file has, and explaining a mismatch.\n\nThe normalizer and the structural diff live in `Schema/shape.py`, shared by every DB family;\nthe sim DB's DECLARED shape comes from `Picking_Data.declared_sim_schema_shape`, which builds the\nschema its own writer builds, so the declaration cannot drift from reality.\n\nThis module is the thin sim-specific layer over both, and adds the one thing only a *reader*\nneeds: :func:`resolve_schema_id`, the stamped -> pinned -> derived precedence.  Everything else\nhere is a re-export, kept so the reader package has a single import surface.\n\nWhy the diff matters: ``init_run_db`` is all ``CREATE TABLE IF NOT EXISTS``, so a DB written by\nold code and reopened by new code gains the missing TABLES but never the missing COLUMNS \u2014 it\nmatches neither declaration.  \"hash 4f2a\u2026 is unknown\" is useless for that; \"picks is missing\ncolumn quantity; index ix_pe_run_batch_time absent\" is actionable.",
-      "kind": "module",
-      "signature": null
-    },
-    "Visualization/readers/fingerprint.py::__all__": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "['canonical_schema_shape', 'declared_sim_schema_shape', 'observed_sim_schema_id', 'schema_shape_id', 'sim_schema_id', 'resolve_schema_id', 'read_stamped_id', 'diff_shapes', 'describe_diff']"
-    },
-    "Visualization/readers/fingerprint.py::read_stamped_id": {
-      "decorators": [],
-      "doc": "The `simulation_runs.sim_schema_id` a run stamped, or None.\n\nNone for every run written before the column existed \u2014 which is every run in the current\narchive.  That is the expected path, not an error.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(con: sqlite3.Connection) -> str | None"
-    },
-    "Visualization/readers/fingerprint.py::resolve_schema_id": {
-      "decorators": [],
-      "doc": "Resolve this DB's schema id.  Returns ``(schema_id, source)``.\n\nPrecedence is **stamped -> pinned -> derived**, because deriving costs ~10 PRAGMA round trips\nper file and the archive holds hundreds of them:\n\n  ``'stamped'``  the run recorded its own id (runs written from this build onward)\n  ``'pinned'``   a previous derivation was cached in the sidecar's `cache_meta`\n  ``'derived'``  read out of `sqlite_master` now; callers that can write a sidecar should\n                 pin the result so it is derived once, not once per request\n\nWith ``verify=True`` the id is always re-derived and checked against whatever was stamped or\npinned; a disagreement raises `SimSchemaDrift` (a file migrated after the run wrote it, or\na corrupted pin).  This is the ``--verify`` escape hatch, not the default: the stamp is\nprovenance, but the OBSERVED shape is what queries must be planned against.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(con: sqlite3.Connection, pinned: str | None=None, verify: bool=False) -> tuple[str, str]"
     },
     "Visualization/readers/protocol.py": {
       "decorators": [],
@@ -8003,7 +8081,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)"
+      "value_preview": "(CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)"
     },
     "Visualization/readers/protocol.py::SimReader": {
       "decorators": [
@@ -8012,13 +8090,6 @@
       "doc": "Read one arm's persisted output. One implementation per vetted schema id.",
       "kind": "class",
       "signature": "(Protocol)"
-    },
-    "Visualization/readers/protocol.py::SimReader.aisle_bins": {
-      "decorators": [],
-      "doc": "Every bin position in one aisle, including the empty ones.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, aisle: int) -> list[dict]"
     },
     "Visualization/readers/protocol.py::SimReader.aisle_geometry": {
       "decorators": [],
@@ -8062,6 +8133,13 @@
       "kind": "function",
       "signature": "(self, aisles: list[int] | None=None) -> dict"
     },
+    "Visualization/readers/protocol.py::SimReader.cache_status": {
+      "decorators": [],
+      "doc": "The viz sidecar's freshness: 'fresh' | 'stale' | 'partial' | 'absent' | 'skipped'.\nRe-checked per call, never resolved at construction \u2014 a cache built AFTER binding\nmust be picked up without a restart.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
     "Visualization/readers/protocol.py::SimReader.capabilities": {
       "decorators": [],
       "doc": "Which optional data this arm actually HAS. Probed for rows, cached.",
@@ -8083,6 +8161,13 @@
       "kind": "function",
       "signature": "(self) -> dict"
     },
+    "Visualization/readers/protocol.py::SimReader.keyframe_batches": {
+      "decorators": [],
+      "doc": "The batches at which an exact keyframe exists, ascending; [] without a sidecar.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[int]"
+    },
     "Visualization/readers/protocol.py::SimReader.run_meta": {
       "decorators": [],
       "doc": "Run params + identity + the batch/keyframe grid the UI scrubs over.",
@@ -8093,6 +8178,13 @@
     "Visualization/readers/protocol.py::SimReader.schema_id": {
       "decorators": [],
       "doc": "The resolved schema id of the DB behind this reader.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Visualization/readers/protocol.py::SimReader.schema_source": {
+      "decorators": [],
+      "doc": "HOW the id was resolved: 'stamped' | 'pinned' | 'derived' \u2014 published on\n/api/capabilities so a payload's provenance is inspectable.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
@@ -8127,10 +8219,10 @@
     },
     "Visualization/readers/protocol.py::SimReader.top_skus": {
       "decorators": [],
-      "doc": "The n most-picked SKUs, ranked.",
+      "doc": "The n most-picked SKUs, ranked.  n=50 is THE default \u2014 protocol, implementation\nand the /api/top_skus route agree (they used to say nothing/100/50 respectively).",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, n: int) -> list[dict]"
+      "signature": "(self, n: int=50) -> list[dict]"
     },
     "Visualization/readers/protocol.py::SimSchemaDrift": {
       "decorators": [],
@@ -8140,9 +8232,9 @@
     },
     "Visualization/readers/protocol.py::SimSchemaError": {
       "decorators": [],
-      "doc": "Base for every schema-identity failure.",
+      "doc": "Base for every schema-identity failure in the viewer.\n\nA SUBCLASS of `Schema.identity.SchemaError` (the `DatasetError` precedent), so one\n`except SchemaError` covers the viewer's own errors AND everything the shared pipeline\nraises (`SchemaDrift`, `UnsupportedSchema`, `UnsupportedQuery`, \u2026) \u2014 the server's 501\nboundary catches the whole hierarchy and nothing schema-shaped can become a 500.",
       "kind": "class",
-      "signature": "(Exception)"
+      "signature": "(_identity.SchemaError)"
     },
     "Visualization/readers/protocol.py::UnsupportedSimSchema": {
       "decorators": [],
@@ -8162,13 +8254,6 @@
       "doc": "sim_2026_07.py \u2014 the vetted reader for the current sim-DB schema.\n\nCovers the shape carrying `picks`, `picker_events`, `bin_placement`, `bin_eviction`,\n`bin_scores`, `sku_scores`, `aisle_metrics`, `reorder_queue`, `batch_stats`, `task_stats` and\n`simulation_runs`, alongside the one-table `bin_keyframe` sidecar file \u2014 and every earlier shape\nstill sitting in the archive, including the ones carrying `bin_inventory`.\n\nFour ids, one reader\n--------------------\n`SCHEMA_IDS` is `SIM_DB_FAMILY.supported_ids()` rather than a literal tuple, so the reader\nregistry and the family registry cannot disagree about which files are readable \u2014 a divergence\nwould surface as `UnsupportedSimSchema` on a file the writer considers perfectly current.\n\nThe four shapes differ only in tables and columns THIS READER TREATS AS OPTIONAL: the\n`simulation_runs.sim_schema_id` stamp column (nothing here reads it), the `bin_placement` /\n`bin_eviction` log (the reader probes for it and falls back to keyframes), and `bin_inventory`\n(the reverse \u2014 archive-only, probed for on the last-resort path). One implementation is correct\nfor all four; splitting them would duplicate ~400 lines to express \"columns the reader ignores\".\n\nThe PRE-stamp id is frozen as a literal on purpose.  Every run in the ~500 GB archive has that\nshape, those files will never be rewritten, and the id cannot be recomputed from today's source\nonce the column exists.  It is not a magic number: it was derived with\n`Picking_Data.observed_sim_schema_id` against the production run and matched the declared id of\nthe source at that commit.\n\nShapes older still are UNSUPPORTED, deliberately.  A viewer that guesses at columns draws a\nplausible-looking warehouse that is quietly wrong; `UnsupportedSimSchema` names what differs.",
       "kind": "module",
       "signature": null
-    },
-    "Visualization/readers/sim_2026_07.py::PRE_STAMP_SCHEMA_ID": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'23d0c7f167bc'"
     },
     "Visualization/readers/sim_2026_07.py::Sim2026_07Reader": {
       "decorators": [],
@@ -8265,6 +8350,15 @@
       "kind": "function",
       "signature": "(rid: str)"
     },
+    "Visualization/server.py::_schema_error": {
+      "decorators": [
+        "app.errorhandler(SchemaError)"
+      ],
+      "doc": "Any schema-shaped failure escaping a ROUTE BODY is still a 501, never a Flask 500.\n\n`_reader` catches the hierarchy at binding; this is the second net, for a vetted-but-\nunservable read inside a route (the CI servability matrix makes that unreachable in\npractice \u2014 this handler exists so 'unreachable' never has to be load-bearing).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(exc)"
+    },
     "Visualization/server.py::_skus_arg": {
       "decorators": [],
       "doc": null,
@@ -8288,29 +8382,11 @@
       "kind": "function",
       "signature": "()"
     },
-    "Visualization/server.py::api_aisle_bins": {
-      "decorators": [
-        "app.route('/api/aisle_bins')"
-      ],
-      "doc": "Every bin position in ONE aisle, empty ones included.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "()"
-    },
     "Visualization/server.py::api_aisle_rollup": {
       "decorators": [
         "app.route('/api/aisle_rollup')"
       ],
       "doc": "Per-aisle aggregates for one batch \u2014 occupancy, picks, visits, home-match.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "()"
-    },
-    "Visualization/server.py::api_batches": {
-      "decorators": [
-        "app.route('/api/batches')"
-      ],
-      "doc": "Per-batch timing plus which batches are keyframes \u2014 the scrub track.\n\nBuilt from `batch_stats`, so it legitimately has holes: a batch that produced no tasks\nwrites no row.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -8328,16 +8404,7 @@
       "decorators": [
         "app.route('/api/capabilities')"
       ],
-      "doc": "What this arm actually HAS \u2014 probed for rows, not just columns.\n\n`aisle_metrics` and `reorder_queue` exist in every sim DB but are empty for most arms.  The\nUI hides those panels rather than rendering 0.0 as though it were a measurement.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "()"
-    },
-    "Visualization/server.py::api_events": {
-      "decorators": [
-        "app.route('/api/events')"
-      ],
-      "doc": "Timed picker events for one batch.  Times are BATCH-RELATIVE.",
+      "doc": "What this arm actually HAS \u2014 probed for rows, not just columns.\n\n`aisle_metrics` exists in every sim DB but is empty for most arms.  The UI hides that\npanel rather than rendering 0.0 as though it were a measurement.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -8363,15 +8430,6 @@
     "Visualization/server.py::api_meta": {
       "decorators": [
         "app.route('/api/meta')"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "()"
-    },
-    "Visualization/server.py::api_reorder_queue": {
-      "decorators": [
-        "app.route('/api/reorder_queue')"
       ],
       "doc": null,
       "is_async": false,

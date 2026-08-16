@@ -13,14 +13,14 @@
 <nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a> <span class="sep">›</span> <span class="here"><code>bulk_writer</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>bulk_writer</code></h1>
 <p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_connect_py.html"><code>Schema/connect.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def bulk_writer(path: str)</code></pre>
 <section class="doc">Open a DERIVED file for a full rebuild.
 
 Durability is deliberately off. It is safe precisely because the file is derived: a crash
 leaves a cache with no completion marker, which its reader treats as absent and rebuilds.
 Do not use this for anything that is a matter of record.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_cache_schema_py__init_cache_db.html"><code>init_cache_db</code></a> <span class="dim">Visualization/cache_schema.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_connect_py__bulk_writer">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/connect.py#:~:text=def%20bulk_writer">Source ↗</a></p>
 </article>
 </main>

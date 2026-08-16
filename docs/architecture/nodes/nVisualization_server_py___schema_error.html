@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_schema_error · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_server_py___schema_error" data-id="Visualization/server.py::_schema_error">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <a href="../files/nVisualization_server_py.html"><code>Visualization/server.py</code></a> <span class="sep">›</span> <span class="here"><code>_schema_error</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_schema_error</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_server_py.html"><code>Visualization/server.py</code></a></p>
+
+<pre class="sig"><code>@app.errorhandler(SchemaError)
+def _schema_error(exc)</code></pre>
+<section class="doc">Any schema-shaped failure escaping a ROUTE BODY is still a 501, never a Flask 500.
+
+`_reader` catches the hierarchy at binding; this is the second net, for a vetted-but-
+unservable read inside a route (the CI servability matrix makes that unreachable in
+practice — this handler exists so &#x27;unreachable&#x27; never has to be load-bearing).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_server_py___schema_error">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/server.py#:~:text=def%20_schema_error">Source ↗</a></p>
+</article>
+</main>
+</body></html>
