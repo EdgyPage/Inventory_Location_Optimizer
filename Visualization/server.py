@@ -168,8 +168,8 @@ def api_schema():
 def api_capabilities():
     """What this arm actually HAS — probed for rows, not just columns.
 
-    `aisle_metrics` and `reorder_queue` exist in every sim DB but are empty for most arms.  The
-    UI hides those panels rather than rendering 0.0 as though it were a measurement.
+    `aisle_metrics` exists in every sim DB but is empty for most arms.  The UI hides that
+    panel rather than rendering 0.0 as though it were a measurement.
     """
     reader = _reader(request.args.get('run', ''))
     return jsonify({'schema_id': reader.schema_id(), 'schema_source': reader.schema_source(),
@@ -187,26 +187,6 @@ def api_meta():
 def api_geometry():
     """One row per aisle, with its palette coordinates.  Never a per-bin list."""
     return jsonify({'aisles': _reader(request.args.get('run', '')).aisle_geometry()})
-
-
-@app.route('/api/aisle_bins')
-def api_aisle_bins():
-    """Every bin position in ONE aisle, empty ones included."""
-    aisle = _int_arg('aisle')
-    if aisle is None:
-        abort(400, description='aisle is required')
-    return jsonify({'aisle_id': aisle,
-                    'bins': _reader(request.args.get('run', '')).aisle_bins(aisle)})
-
-
-@app.route('/api/batches')
-def api_batches():
-    """Per-batch timing plus which batches are keyframes — the scrub track.
-
-    Built from `batch_stats`, so it legitimately has holes: a batch that produced no tasks
-    writes no row.
-    """
-    return jsonify({'batches': _reader(request.args.get('run', '')).batch_index()})
 
 
 @app.route('/api/scores')
@@ -260,24 +240,11 @@ def api_aisle():
     return jsonify(reader.aisle_state(_int_arg('batch', 0), aisle, t=_float_arg('t')))
 
 
-@app.route('/api/events')
-def api_events():
-    """Timed picker events for one batch.  Times are BATCH-RELATIVE."""
-    reader = _reader(request.args.get('run', ''))
-    return jsonify({'events': reader.events(_int_arg('batch', 0), aisle=_int_arg('aisle'))})
-
-
 @app.route('/api/aisle_rollup')
 def api_aisle_rollup():
     """Per-aisle aggregates for one batch — occupancy, picks, visits, home-match."""
     reader = _reader(request.args.get('run', ''))
     return jsonify({'aisles': reader.aisle_rollup(_int_arg('batch', 0))})
-
-
-@app.route('/api/reorder_queue')
-def api_reorder_queue():
-    reader = _reader(request.args.get('run', ''))
-    return jsonify({'queue': reader.reorder_queue(_int_arg('batch', 0))})
 
 
 # ── cross-batch ──────────────────────────────────────────────────────────────────

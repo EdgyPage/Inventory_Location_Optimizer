@@ -36,7 +36,7 @@ import sqlite3
 from Optimization.persistence.Picking_Data import SIM_CAPABILITIES
 from Schema.capability import probe
 from Visualization.readers.protocol import (
-    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
+    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES,
     CAP_SKU_SCORES, CAP_VIZ_CACHE,
 )
 
@@ -53,7 +53,7 @@ from Visualization.readers.protocol import (
 # So this is the reporting subset, taken BY NAME from the shared registry rather than by writing
 # the table names out a second time.
 _PROBED = tuple(SIM_CAPABILITIES[name] for name in
-                (CAP_AISLE_METRICS, CAP_REORDER_QUEUE, CAP_BIN_SCORES, CAP_SKU_SCORES))
+                (CAP_AISLE_METRICS, CAP_BIN_SCORES, CAP_SKU_SCORES))
 
 # Hue anchors are assigned per FAMILY, and a family is (handling_type, unit_type, storage_size).
 # Measured on the production warehouse: that is 13 families across 384 aisles, which fits the
@@ -227,15 +227,6 @@ class SqliteSimReader:
         self._memo['geom'] = rows
         self._memo['n_families'] = len(families)
         return rows
-
-    def aisle_bins(self, aisle: int) -> list[dict]:
-        """Every bin position in one aisle, empty ones included."""
-        geom = {int(a['aisle_id']): a for a in self.aisle_geometry()}.get(int(aisle))
-        if geom is None:
-            return []
-        return [{'bayX': cx, 'bayY': cy, 'key': f"{aisle},{cx},{cy}"}
-                for cy in range(1, geom['bay_y'] + 1)
-                for cx in range(1, geom['bay_x'] + 1)]
 
     def batch_index(self) -> list[dict]:
         """Per-batch timing, from `batch_stats` — the list legitimately has holes.
@@ -747,17 +738,6 @@ class SqliteSimReader:
         finally:
             con.close()
 
-    def reorder_queue(self, batch: int) -> list[dict]:
-        if CAP_REORDER_QUEUE not in self.capabilities():
-            return []
-        con = _ro(self.sim_db)
-        try:
-            return [dict(r) for r in con.execute(
-                'SELECT kind, sku, qty, remaining_lead, unit_type, storage_size '
-                'FROM reorder_queue WHERE run_id=? AND batch_id=?', (self.run_id, int(batch)))]
-        finally:
-            con.close()
-
     # ── derived rollups (sidecar-backed, with live fallbacks) ────────────────────
 
     def cache_status(self) -> str:
@@ -836,7 +816,7 @@ class SqliteSimReader:
             'home_match': homes.get(a['aisle_id'], 0),
         } for a in self.aisle_geometry()]
 
-    def top_skus(self, n: int = 100) -> list[dict]:
+    def top_skus(self, n: int = 50) -> list[dict]:
         """The n most-picked SKUs.  The live fallback is a ~24 s full scan of `picks`."""
         n = int(n)
         cache = self._cache_conn()

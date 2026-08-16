@@ -62,21 +62,17 @@ export const runs = () => cached(runCache, '::runs', () => raw('runs', {}));
 export const capabilities = (run) => runScoped(run, 'capabilities');
 export const meta = (run) => runScoped(run, 'meta');
 export const geometry = (run) => runScoped(run, 'geometry');
-export const batches = (run) => runScoped(run, 'batches');
 export const finalHome = (run) => runScoped(run, 'final_home');
 export const topSkus = (run, n) => runScoped(run, 'top_skus', { n });
 export const skuSeries = (run, skus) => runScoped(run, 'sku_series', { skus });
 export const skuScores = (run, skus) => runScoped(run, 'sku_scores', { skus });
 export const binHistory = (run, aisle, bayX, bayY) =>
   runScoped(run, 'bin_history', { aisle, bayX, bayY });
-export const aisleBins = (run, aisle) => runScoped(run, 'aisle_bins', { aisle });
 // Scores are per-aisle-scoped on purpose: unscoped this is 396,500 rows.
 export const scores = (run, aisles) => runScoped(run, 'scores', { aisles });
 
 // ── batch-scoped ───────────────────────────────────────────────────────────────
 export const state = (run, batch, aisles) => batchScoped(run, 'state', { batch, aisles });
 export const aisle = (run, batch, a) => batchScoped(run, 'aisle', { batch, aisle: a });
-export const events = (run, batch, a) => batchScoped(run, 'events', { batch, aisle: a });
 export const aisleRollup = (run, batch) => batchScoped(run, 'aisle_rollup', { batch });
 export const tasks = (run, batch) => batchScoped(run, 'tasks', { batch });
-export const reorderQueue = (run, batch) => batchScoped(run, 'reorder_queue', { batch });
