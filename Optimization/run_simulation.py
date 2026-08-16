@@ -143,12 +143,13 @@ def main():
                              '(pair,config,strategy) work unit shares one pool. '
                              'Default 1 (sequential).')
     parser.add_argument('--max-tasks-per-child', type=int, default=1, metavar='N',
-                        help='Recycle each pool worker after N jobs so the OS reclaims '
-                             'its full memory between simulations (default 1 = fresh '
-                             'process per job, the cleanest flush). Workers reload all '
-                             'assets per job anyway, so spawn cost is negligible vs '
-                             'multi-hour jobs. Raise it for fewer spawns at the cost of '
-                             'flush completeness; 0 disables recycling (legacy).')
+                        help='PINNED AT 1 — accepted for compatibility with saved run_specs '
+                             'and older scripts, but a larger value is refused with a warning. '
+                             'One fresh process per job is the cleanest memory flush, and the '
+                             'only run that ever honoured a larger value deadlocked the pool at '
+                             'a cell boundary (see supervisor._supervise). Workers reload their '
+                             'assets per job anyway, so the spawn saving is ~10 s against a job '
+                             'measured in minutes.')
     parser.add_argument('--max-skus', type=int, default=None, metavar='N',
                         help='Cap inventory to the first N SKUs (smaller warehouse for quick runs)')
     # Per-channel warehouse-sizing caps (store vs fulfillment sized independently).
@@ -304,6 +305,12 @@ def main():
     log = _setup_logging(os.path.join(base_dir, 'run.log'))
     for _n in _spec_notes:
         log.warning(_n)
+
+    if args.max_tasks_per_child != 1:
+        log.warning(f'  --max-tasks-per-child {args.max_tasks_per_child} ignored: worker '
+                    f'recycling is pinned at 1. A larger value deadlocked the pool at a cell '
+                    f'boundary (18 workers, zero CPU, no error); the spawn saving it buys is '
+                    f'~10 s per multi-minute job. See supervisor._supervise.')
 
     # Structural-floor check, HERE rather than mid-build: the store's bucket set is the
     # handling x category x tier cross-product, so its one-aisle-per-bucket floor is fixed by

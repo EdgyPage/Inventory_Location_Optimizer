@@ -12,7 +12,9 @@ Four defects found while preparing the 2026-08 dress rehearsal, each pinned here
      run's caps entirely (the comment above the call claimed the opposite).  Every
      re-analysis of a capped run silently used a different warehouse than the sim.
   4. `--max-tasks-per-child` never reached the pool: `_run_whatif_matrix` did not forward it,
-     and every run is a matrix.
+     and every run is a matrix — so every run in this repo's history recycled workers at 1.
+     Forwarding it revealed WHY that was load-bearing: the first run to honour a larger value
+     deadlocked the pool at a cell boundary.  Resolution is a PIN at 1, not a plumb-through.
 
 Run:  python -m pytest Tests/unit/test_run_shaping_params.py -q
 """
@@ -140,16 +142,33 @@ def test_run_analysis_threads_max_skus_into_the_rebuild():
     assert 'max_skus=max_skus' in src, 'the cap must reach build_shared_assets'
 
 
-# ── 4: the dead flag is plumbed ──────────────────────────────────────────────────
+# ── 4: worker recycling is PINNED at 1, and the flag says so ─────────────────────
 
-def test_max_tasks_per_child_reaches_the_matrix_driver():
-    sig = inspect.signature(scenario._run_whatif_matrix)
-    assert 'max_tasks_per_child' in sig.parameters
-    body = inspect.getsource(scenario._run_whatif_matrix)
-    assert 'max_tasks_per_child=max_tasks_per_child' in body, (
-        'accepting the parameter without forwarding it is the bug, not the fix')
+def test_worker_recycling_is_pinned_at_one():
+    """The flag was dead (never forwarded past _run_whatif_matrix, and every run is a matrix),
+    so every run in this repo's history recycled at 1.  The first run that honoured a larger
+    value DEADLOCKED at the cell boundary: cell 1 finished, then the pool sat at zero CPU with
+    one live worker of eighteen and never shut down.  Pinned, not plumbed."""
+    from Optimization.simdriver import supervisor
+    body = inspect.getsource(supervisor._supervise)
+    assert 'recycle = 1' in body, 'worker recycling must stay pinned at 1'
+    assert 'max_tasks_per_child if max_tasks_per_child' not in body, (
+        'the CLI value must not reach the pool — that is the deadlock path')
+
+
+def test_the_flag_warns_instead_of_lying():
+    """Still accepted (saved run_specs and older scripts pass it), but a value it will not
+    honour must SAY so — silently ignoring it is what hid the deadlock for months."""
     import Optimization.run_simulation as rs
-    assert 'max_tasks_per_child=args.max_tasks_per_child' in inspect.getsource(rs)
+    src = inspect.getsource(rs)
+    assert 'PINNED AT 1' in src
+    assert 'ignored: worker' in src, 'an unhonoured value must warn'
+
+
+def test_the_pool_is_constructed_with_the_pinned_value():
+    from Optimization.simdriver import supervisor
+    body = inspect.getsource(supervisor._run_pool)
+    assert 'max_tasks_per_child=recycle' in body    # recycle is the pinned 1
 
 
 # ── the early structural-floor check ─────────────────────────────────────────────
