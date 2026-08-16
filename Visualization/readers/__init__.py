@@ -26,6 +26,28 @@ from Visualization.readers.sim_2026_07 import Sim2026_07Reader
 __all__ = ['reader_for', 'register', 'registered_schema_ids', 'SimReader', 'SimSchemaError',
            'UnsupportedSimSchema', 'SimSchemaDrift', 'SqliteSimReader']
 
+
+def _assert_json1() -> None:
+    """The viewer's scoped named queries pass id lists as ONE JSON parameter via json_each.
+
+    JSON1 has been compiled into the bundled SQLite by default since 3.38 (Python 3.11 ships
+    newer), so this probe should never fire — but a viewer that silently lacked it would fail
+    on the first scoped request with an opaque OperationalError mid-session.  Probe ONCE at
+    import and fail with the cause named."""
+    con = sqlite3.connect(':memory:')
+    try:
+        con.execute("SELECT value FROM json_each('[1]')").fetchone()
+    except sqlite3.OperationalError as exc:                        # pragma: no cover
+        raise RuntimeError(
+            'this Python\'s bundled SQLite lacks the JSON1 extension (json_each), which the '
+            'viewer\'s scoped queries require - use a Python whose sqlite3 is ≥3.38 or built '
+            f'with JSON1. ({exc})') from exc
+    finally:
+        con.close()
+
+
+_assert_json1()
+
 #: schema id -> reader class.
 _REGISTRY: dict[str, type] = {}
 
