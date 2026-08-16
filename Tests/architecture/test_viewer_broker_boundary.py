@@ -56,11 +56,8 @@ _ALLOWED_RAW = {
         'streaming pass, same escape hatch',
     ('Visualization/precompute.py', '_picks_pass'):
         'streaming 3.1M-row fetchmany pass, same escape hatch',
-    ('Visualization/precompute.py', 'build_one'):
-        'per-arm scalar reads on bound connections (migrating to ds.read is P6)',
-    # TRANSIENT — each retired by a named later phase; the staleness test below forces it.
-    ('Visualization/precompute.py', 'log_present'):
-        'TRANSIENT: becomes capability.has_rows in the precompute rebinding phase',
+    # (build_one and log_present earned their retirement: scalar reads moved to
+    # ds.read/ds.query and the probe became capability.has_rows.)
     ('Visualization/readers/fingerprint.py', 'read_stamped_id'):
         'TRANSIENT: the whole module is deleted in the final phase (identity unified in P1)',
     ('Visualization/readers/__init__.py', '_assert_json1'):
