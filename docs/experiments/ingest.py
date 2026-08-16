@@ -47,6 +47,39 @@ _REPO_ROOT = os.path.normpath(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+
+def _load_env(path: str) -> None:
+    """Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority).
+
+    Byte-for-byte the entry-script idiom in `Warehouse/generation/generate_mixed_profile.py`
+    and `generate_profile_suite.py`; `Optimization/config/sim_config.py` carries its own.
+
+    WITHOUT this, `--profiles-root`'s documented `$PROFILE_INPUT_DIR` default could never
+    populate: the key lives in `.env`, nothing here read it, so `os.getenv` returned None,
+    `_inv_root_from_bindings` returned at its first guard, and BY-NAME catalogue resolution
+    silently fell through to the per-leaf meta file's recorded ABSOLUTE `inv_db` — the one
+    route pair_bindings exists to replace, and the one that does not survive a moved drive.
+    No warning was emitted, because the fallback is a legitimate path for pre-v2 runs.
+    """
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding='utf-8') as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith('#') or '=' not in _line:
+                continue
+            _key, _, _val = _line.partition('=')
+            _key = _key.strip();  _val = _val.strip()
+            if _val.startswith(('r"', "r'")):
+                _val = _val[2:].rstrip('"').rstrip("'")
+            else:
+                _val = _val.strip('"').strip("'")
+            if _key and _key not in os.environ:
+                os.environ[_key] = _val
+
+
+_load_env(os.path.join(_REPO_ROOT, '.env'))
+
 try:
     import yaml
 except ImportError:                       # pragma: no cover
