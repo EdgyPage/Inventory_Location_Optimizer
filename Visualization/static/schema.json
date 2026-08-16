@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
-  "schema_short": "21e7a11ff40b",
+  "schema_id": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
+  "schema_short": "6d6c2bd0ba75",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -54,13 +54,13 @@
       "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
       "format": "csv",
       "scope": "cell",
-      "optional": false
+      "optional": true
     },
     "aggregate_stats_tests_json": {
       "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json",
       "format": "json",
       "scope": "cell",
-      "optional": false
+      "optional": true
     },
     "aggregate_summary_csv": {
       "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_summary.csv",

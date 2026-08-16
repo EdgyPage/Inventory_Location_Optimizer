@@ -278,7 +278,7 @@ def main():
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
-    # CONFIG here reaches every consumer in this process — including the warehouse.db
+    # CONFIG here reaches every consumer in this process — including the warehouse-DB
     # provenance write, which an import-time snapshot used to miss.
     if args.store_fill is not None:
         CONFIG['channels']['store']['fill'] = args.store_fill

@@ -215,7 +215,8 @@ def store_fill() -> float:
     Was `_INITIAL_FILL`, an import-time scalar — which quietly broke this module's own rule
     that CONFIG is the single source of truth and is mutated in place: a runtime override
     (a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into
-    warehouse.db as `target_fill`, so the run's own provenance recorded the stale number.
+    the warehouse DB as `target_fill`, so the run's own provenance recorded the stale
+    number.
     """
     return CONFIG['channels']['store']['fill']
 

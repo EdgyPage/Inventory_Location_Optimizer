@@ -170,9 +170,14 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/persistence/runtime_metrics.py', 'runtime_metrics.db'): 3,
  ('Optimization/run_analysis.py', '_aggregate'): 3,
  ('Optimization/run_analysis.py', 'analysis.log'): 1,
+ # Raised 0 -> 1 (2026-08-16).  Not a hand-joined path: `_apply_run_shape` reads the spec via
+ # `_load_run_spec`, and the one literal is the operator-facing warning that has to name the
+ # file the reader must go look for.  Vaguer wording would blunt the whole point of the warning.
+ ('Optimization/run_analysis.py', 'run_spec.json'): 1,
  ('Optimization/run_runtime_graphs.py', '_runtime'): 5,
  ('Optimization/run_simulation.py', 'run_layout.json'): 1,
- ('Optimization/run_simulation.py', 'run_spec.json'): 5,
+ # Raised 5 -> 6 (2026-08-16): one more operator-facing log line, same rationale as run_analysis.
+ ('Optimization/run_simulation.py', 'run_spec.json'): 6,
  ('Optimization/simconfig/configs/ful_calibrated.py', 'config.json'): 1,
  ('Optimization/simdriver/cells.py', 'sim_meta.json'): 2,
  ('Optimization/simdriver/scenario.py', '_frozen'): 2,

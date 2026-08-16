@@ -211,13 +211,20 @@ ARTIFACTS = {
         'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats.py'},
     # The FLAT aggregate-stats pair (same writer helper, different out_dir) was produced on every
     # aggregate stats run and never declared — the audit's one genuine contract gap.
+    # OPTIONAL for the same reason as their per-config twins (stats_summary_csv /
+    # stats_tests_json): `agg.stats` runs only under the DEFAULT/NO_STATS presets, and the
+    # DEFAULT preset is BY_INITIAL, which runs `agg.stats_by_initial` and writes
+    # stats_by_initial/ instead.  Declared required, they made every BY_INITIAL run fail
+    # contract verification for artifacts that correctly do not exist.
     'aggregate_stats_summary_csv': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv',
-        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats',
+        'format': 'csv', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.stats',
+        'condition': 'flat aggregate stats suite only (agg.stats, i.e. not BY_INITIAL).',
         'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats.py'},
     'aggregate_stats_tests_json': {
         'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json',
-        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats',
+        'format': 'json', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.stats',
+        'condition': 'flat aggregate stats suite only (agg.stats, i.e. not BY_INITIAL).',
         'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats.py'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────

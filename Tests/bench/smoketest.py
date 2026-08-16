@@ -367,8 +367,13 @@ _SWEEP_ONLY = ('frozen_inventory_db', 'frozen_warehouse_db', 'whatif_delta_csv',
                'whatif_delta_json', 'whatif_delta_png', 'whatif_labor_csv',
                'whatif_labor_json', 'whatif_labor_pngs', 'whatif_volume_csv',
                'whatif_volume_json')
-# Written by the flat stats suite; the default BY_INITIAL preset writes stats_by_initial/ instead.
-_FLAT_STATS_ONLY = ('stats_pngs', 'stats_summary_csv', 'stats_tests_json')
+# Written by the flat stats suites; the default BY_INITIAL preset runs `stats.by_initial` /
+# `agg.stats_by_initial` and writes stats_by_initial/ instead, so NONE of these appear.
+# The aggregate pair was added to the contract with schema 21e7a11ff40b and belongs here for
+# the same reason as its per-config twins: `agg.stats` only runs under DEFAULT/NO_STATS.
+# (preflight already classifies all five as run-condition artifacts.)
+_FLAT_STATS_ONLY = ('stats_pngs', 'stats_summary_csv', 'stats_tests_json',
+                    'aggregate_stats_summary_csv', 'aggregate_stats_tests_json')
 # Present only while an arm/config is in flight; removed on finalize.
 _IN_FLIGHT_ONLY = ('resume_pkl', 'checkpoint_pkl')
 # Not file templates: a directory entry and a resolves_via alias. Checked via the resolver instead.

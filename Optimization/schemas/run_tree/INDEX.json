@@ -1,6 +1,6 @@
 {
-  "head": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
-  "source_fingerprint": "sha256:a649167aff8e7b8f5c72091c7bd1581fd193fc7dd1d4af035a42f55cabc7ed8a",
+  "head": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
+  "source_fingerprint": "sha256:4a5900427e78652236c42777f14c33aa9d7c75e082eab520694dca9af70a1b2e",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -73,6 +73,17 @@
       "changes": [
         "artifact ADDED: aggregate_stats_summary_csv -> {cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
         "artifact ADDED: aggregate_stats_tests_json -> {cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json"
+      ]
+    },
+    "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed": {
+      "short": "6d6c2bd0ba75",
+      "parent": "sha256:21e7a11ff40b93a5cc3e11246869079dfac9b4c5ffa2fc3dc0015197d3fbe0de",
+      "created": "2026-08-16T01:09:31",
+      "commit": "8fd03bb",
+      "label": "",
+      "changes": [
+        "artifact aggregate_stats_summary_csv.optional: False -> True",
+        "artifact aggregate_stats_tests_json.optional: False -> True"
       ]
     }
   }
