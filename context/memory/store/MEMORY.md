@@ -14,3 +14,7 @@
 - [753d01e shifted throughput ~1.4%](determinism-fix-shifted-throughput.md) — the determinism fix raised absolute throughput and left labor alone, so everything published before it reads low
 - [Reloader cap floors to zero](reloader-cap-floors-to-zero.md) — per_aisle_cap rounds to 0 at test scale so requeue_bin never fires; assert the event count, not just the end state
 - [WAL sidecars come from readers](wal-sidecars-come-from-readers.md) — a mode=ro open creates -wal/-shm and can't remove them; unclean writer closes are not the cause, so no write-side fix clears an archive
+- [Worker recycling pinned at 1](worker-recycling-pinned-at-one.md) — max_tasks_per_child > 1 deadlocked the pool at a cell boundary; pinned by decision, don't re-plumb it or propose per-worker task batching
+- [Resume architecture verified sound](resume-architecture-verified-sound.md) — a hard mid-flight kill resumes to 272/272 from `--resume DIR` alone (2026-08-16); the "strategy-level reset" log line is NOT evidence of it
+- [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not the 291 MB its file suggests, so RAM is never the argument for fewer workers
+- [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — fixing a contract never rescues a finished run; validate the fix against preflight's canaries or a fresh run
