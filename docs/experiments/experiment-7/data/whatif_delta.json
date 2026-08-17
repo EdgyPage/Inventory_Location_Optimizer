@@ -1,0 +1,66 @@
+{
+  "schema_id": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
+  "reference": "k1_off_rr",
+  "reference_label": "k1_off_rr",
+  "metrics": [
+    "dthr_batch",
+    "dtask_ms",
+    "dbatch_ms",
+    "dthr_task"
+  ],
+  "window_batches": 50,
+  "arms": 34,
+  "pairs": [
+    "mixed_20260816_131535__mixed_realistic_bell_lt0",
+    "mixed_20260816_131535__mixed_realistic_bell_ltrand0-5"
+  ],
+  "channels": [
+    "fulfillment",
+    "store"
+  ],
+  "cells": [
+    {
+      "name": "k1_off_lpt",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 5.418441145194269,
+            "n": 68
+          },
+          "dtask_ms": {
+            "med": -0.0023216269119471613,
+            "n": 68
+          },
+          "dbatch_ms": {
+            "med": 5.068263486271601,
+            "n": 68
+          },
+          "dthr_task": {
+            "med": -0.003841376580111082,
+            "n": 68
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 45.56459811723084,
+            "n": 68
+          },
+          "dtask_ms": {
+            "med": -0.00361263742161478,
+            "n": 68
+          },
+          "dbatch_ms": {
+            "med": 31.45670038405408,
+            "n": 68
+          },
+          "dthr_task": {
+            "med": -0.0022633840414251977,
+            "n": 68
+          }
+        }
+      }
+    }
+  ]
+}
