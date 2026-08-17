@@ -347,3 +347,49 @@ def test_the_schema_id_is_pinned_so_readers_stop_deriving(arm):
     assert meta['keyframe_interval'] == str(KEYFRAME_INTERVAL)
     assert int(meta['n_spans']) > 0
     assert set(TABLES) <= present, sorted(set(TABLES) - present)
+
+
+# ── cache/live agreement goldens (the broker alignment's shape contract) ─────────
+
+def test_aisle_rollup_cache_and_live_agree_on_shape_and_aggregates(arm):
+    """The cached payload (named query, DDL-order columns) and the live fallback (hand-built
+    dict) must agree on the KEY SET — the shape contract that used to be a comment in the
+    reader and is now `AISLE_ROLLUP_COLS` + this test — and on the per-batch AGGREGATES
+    (picks/units/visits/task_secs), which both paths compute from the same sim tables.
+
+    Occupancy VALUES are deliberately not compared here: this fixture's sidecar is
+    KEYFRAME-built, whose between-keyframe occupancy is the documented approximation
+    (`SPAN_SOURCE_KEYFRAME`) — the sidecar exists precisely because it may answer differently
+    from a live rebuild there.  LOG-built value exactness is pinned by
+    test_log_reconstruction's rollup test instead."""
+    from Visualization.cache_schema import AISLE_ROLLUP_COLS
+    build_one(arm, top_n=5)
+    reader = arm.reader()
+    cached = {r['aisle_id']: r for r in reader.aisle_rollup(1)}
+    assert cached, 'no cached rollup rows — the fixture arm rotted'
+    assert set(next(iter(cached.values()))) == set(AISLE_ROLLUP_COLS)
+
+    import shutil
+    shutil.rmtree(os.path.dirname(arm.viz_cache))          # force the live fallback
+    live_reader = arm.reader()
+    live = {r['aisle_id']: r for r in live_reader.aisle_rollup(1)}
+    assert set(next(iter(live.values()))) == set(AISLE_ROLLUP_COLS)
+    for aid, crow in cached.items():
+        for k in ('picks', 'units_picked', 'visits', 'task_secs', 'capacity'):
+            assert live[aid][k] == crow[k], f'aisle {aid}: {k} disagrees cache vs live'
+
+
+def test_bin_history_cache_and_live_share_the_span_shape(arm):
+    """Both bin_history paths emit the same four logical keys (the twin named queries).  On a
+    log-built sidecar the SPAN BOUNDS legitimately differ from the keyframe-grid fallback, so
+    the golden here is shape + the observed skus, not bound equality."""
+    build_one(arm, top_n=5)
+    reader = arm.reader()
+    cached = reader.bin_history(1, 1, 1)
+    assert cached and all(set(r) == {'t_from', 't_to', 'sku', 'qty_at_from'} for r in cached)
+
+    import shutil
+    shutil.rmtree(os.path.dirname(arm.viz_cache))
+    live = arm.reader().bin_history(1, 1, 1)
+    assert live and all(set(r) == {'t_from', 't_to', 'sku', 'qty_at_from'} for r in live)
+    assert {r['sku'] for r in cached} == {r['sku'] for r in live}

@@ -73,10 +73,11 @@ import pytest
 from Optimization import run_whatif_delta, run_whatif_labor, run_whatif_volume  # noqa: F401
 from Optimization.Performance_Evaluations.core import context as eval_context
 from Visualization import precompute as viz_precompute  # noqa: F401 - consumer, for REQUIRES
+from Visualization import db_reader as viz_db_reader     # noqa: F401 - consumer, for REQUIRES
+from Visualization.readers import base as viz_base       # noqa: F401 - consumer, for REQUIRES
 from Optimization.persistence import Picking_Data, Warehouse_Data, runtime_metrics  # noqa: F401
 from Schema import capability, compat, identity, shape, store_index
 from Visualization import cache_schema  # noqa: F401
-from Visualization.readers import fingerprint as viz_fingerprint
 from Warehouse.generation import generate_affinity, generate_inventory  # noqa: F401
 
 # `scripts/` is a namespace package under the repo root that `Tests/conftest.py` already puts on
@@ -110,6 +111,11 @@ DECLARED_CONSUMERS = {
     ('Optimization/run_whatif_labor.py', 'REQUIRES'): run_whatif_labor.REQUIRES,
     ('Optimization/run_whatif_volume.py', 'REQUIRES'): run_whatif_volume.REQUIRES,
     ('Visualization/precompute.py', 'REQUIRES'): viz_precompute.REQUIRES,
+    ('Visualization/readers/base.py', 'REQUIRES'): viz_base.REQUIRES,
+    ('Visualization/readers/base.py', 'REQUIRES_KEYFRAMES'): viz_base.REQUIRES_KEYFRAMES,
+    ('Visualization/readers/base.py', 'REQUIRES_VIZ_CACHE'): viz_base.REQUIRES_VIZ_CACHE,
+    ('Visualization/readers/base.py', 'REQUIRES_WAREHOUSE'): viz_base.REQUIRES_WAREHOUSE,
+    ('Visualization/db_reader.py', 'REQUIRES_DISCOVERY'): viz_db_reader.REQUIRES_DISCOVERY,
 }
 
 #: The declaration is a constructor call, which makes it greppable — and worth keeping that way.
@@ -1500,12 +1506,21 @@ def test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs():
 
     # NON-VACUITY, the other direction: no loader may escape the sweep by moving into a class or a
     # nested helper. Every SELECT literal in the file must be reachable from a TOP-LEVEL function,
-    # because that is the only thing `_sweep_reads` walks.
+    # because that is the only thing `_sweep_reads` walks — EXCEPT literals inside a
+    # `register_query(Query(...))` / `override(...)` registration: those are not hidden consumer
+    # reads but the named-query DECLARATIONS themselves, i.e. the attribution mechanism this
+    # sweep exists to funnel reads into.  Their column contracts are validated by
+    # `Dataset.query` and the viewer's golden tests, not by the guard-sweep.
     tree = _source_tree(COMPLETENESS_TARGET)
-    everywhere = {id(n) for n in _sql_literals(tree)}
+    registered = {id(n) for node in ast.walk(tree)
+                  if isinstance(node, ast.Call)
+                  and getattr(node.func, 'attr', getattr(node.func, 'id', ''))
+                  in ('register_query', 'Query', 'override')
+                  for n in _sql_literals(node)}
+    everywhere = {id(n) for n in _sql_literals(tree)} - registered
     swept = {id(n) for node in tree.body
              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-             for n in _sql_literals(node)}
+             for n in _sql_literals(node)} - registered
     assert everywhere and everywhere == swept, (
         f'{len(everywhere - swept)} SELECT literal(s) in {COMPLETENESS_TARGET} live outside a '
         f'top-level function (a method, a module-level constant), where `_sweep_reads` never '
@@ -1978,15 +1993,15 @@ def test_a_stamp_reader_resolves_stamped_and_falls_through_to_derivation(tmp_pat
             'and resolution for such a family is always derivation')
 
 
-def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
-    """Two deliberate copies of one query — this is the test the docstrings of both promise.
+def test_the_sim_stamp_reader_answers_through_the_family(tmp_path):
+    """The stamp reader's behavioral contract, on stamped AND pre-stamp files.
 
-    `Picking_Data._read_sim_stamp` (wired as `SIM_DB_FAMILY.stamp_reader`) and
-    `Visualization/readers/fingerprint.read_stamped_id` must answer identically on a stamped file
-    AND on a pre-stamp one, or the viewer and the identity layer would date the same archive
-    differently.  Note the guard split: the viz copy swallows its own OperationalError, while the
-    family callable is guarded BY `identity.read_stamp` — so the sim family is exercised through
-    `read_stamp`, which is how every real caller reaches it.
+    This test once held TWO copies in step — `Picking_Data._read_sim_stamp` and the viewer's
+    private `fingerprint.read_stamped_id` — until the viewer unified on `identity.resolve`
+    and the second copy was deleted; the drift hazard it guarded no longer exists.  What
+    remains load-bearing: the family callable must skip NULL rows (not read the first row),
+    and a pre-stamp file must answer None THROUGH `identity.read_stamp` (the bare callable
+    raises, which is exactly why every caller goes through the guard).
     """
     assert Picking_Data.SIM_DB_FAMILY.stamp_reader is Picking_Data._read_sim_stamp, (
         'sim_db no longer wires _read_sim_stamp as its stamp_reader, so this parity test is '
@@ -1999,10 +2014,9 @@ def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
     ))
     with _open(stamped) as con:
         ours = Picking_Data._read_sim_stamp(con)
-        theirs = viz_fingerprint.read_stamped_id(con)
-        assert ours == theirs == 'ee5ebabe74fb', (
-            f'the two copies disagree on a stamped file (ours={ours!r}, viz={theirs!r}) — '
-            f'note run 1 is NULL, so both must skip unstamped rows, not read the first row')
+        assert ours == 'ee5ebabe74fb', (
+            f'stamp reader answered {ours!r} — run 1 is NULL, so it must skip unstamped '
+            f'rows, not read the first row')
 
     pre = _tiny_db(tmp_path / 'prestamp_sim.db',
                    ('CREATE TABLE simulation_runs (run_id INTEGER PRIMARY KEY)',))
@@ -2014,8 +2028,6 @@ def test_the_sim_stamp_reader_and_the_viz_copy_stay_in_step(tmp_path):
         assert identity.read_stamp(con, Picking_Data.SIM_DB_FAMILY) is None, (
             'a pre-stamp sim DB must read as None through the family (the normal derivation '
             'path), never raise')
-        assert viz_fingerprint.read_stamped_id(con) is None, (
-            'and the viz copy must agree: None on a pre-stamp file')
 
 
 def test_apply_known_ids_lands_the_orphan_first_and_todo_marked(tmp_path, monkeypatch):

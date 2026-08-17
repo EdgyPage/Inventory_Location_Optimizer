@@ -41,7 +41,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from Optimization.simdriver.sim_assets import build_shared_assets
-from Optimization.config.sim_config import regime_sizing_from_config, _setup_logging, _OUTPUT_DIR
+from Optimization.config.sim_config import (CONFIG, regime_sizing_from_config, _setup_logging,
+                                            _OUTPUT_DIR)
 from Optimization.runschema.runlayout import iter_channel_runs
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
@@ -176,7 +177,7 @@ def _tree_for(cell_dir: str):
         return RunTree(root, doc, layout={}), cell
 
 
-def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log):
+def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None):
     """Parent pre-pass: build slim shared assets per pair, prepare each config's output
     dirs once, and emit the flat config-stage job list."""
     preset = PRESETS[preset_name]
@@ -199,7 +200,10 @@ def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log):
         try:
             # Rebuild the warehouse SHAPE with the SAME per-regime sizing the run used, so the
             # fulfillment aisle layout + total_bins match (fixed ff distribution, not demand).
-            shared = build_shared_assets(inv_db, aff_db, log,
+            # max_skus AND the per-regime sizing both come from the run's own run_spec
+            # (see _apply_run_shape) — sizing this differently from the run is the silent
+            # wrong-warehouse bug this argument exists to close.
+            shared = build_shared_assets(inv_db, aff_db, log, max_skus=max_skus,
                                          regime_sizing=regime_sizing_from_config())
         except Exception as exc:
             log.error(f'  build_shared_assets failed for {pair_name}: {exc}', exc_info=True)
@@ -257,6 +261,53 @@ def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log):
     return jobs
 
 
+def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
+    """Restore the RUN's own run-shaping params onto CONFIG before rebuilding its warehouse.
+
+    A standalone re-analysis used to size the warehouse from whatever CONFIG this checkout
+    happens to hold — no max_skus, this build's fill — while the comment at the rebuild claimed
+    it used "the SAME per-regime sizing the run used".  For any capped run that silently
+    rebuilt a DIFFERENT warehouse than the sim ran on: wrong aisle count, wrong total_bins,
+    and (per `regime_sizing_from_config`'s own docstring) misgrouped ff aisle stats and skewed
+    churn %.  The in-process analysis never had the bug because `run_simulation` had already
+    mutated CONFIG in the same process; only the standalone path was affected.
+
+    Returns the run's `max_skus` (None when unrecorded).  A run with no recorded spec — every
+    run before that file existed — warns loudly and keeps the old behaviour, which is the
+    honest answer: those runs never recorded what they were shaped with.
+    """
+    from Optimization.runschema.sim_manifest import _load_run_spec
+    # `base_dir` is a CELL dir (analyze_run calls this once per cell) but the run spec lives at
+    # the RUN ROOT — the same parent-vs-self distinction _tree_for documents.  Checking only the
+    # cell dir found nothing and silently sized from this checkout: the resumed rehearsal loaded
+    # 150,000 orders where its own sim had loaded 8,000.
+    spec = _load_run_spec(base_dir) or _load_run_spec(os.path.dirname(os.path.abspath(base_dir)))
+    if not spec:
+        log.warning('  no run_spec.json at the run root — sizing the warehouse from THIS '
+                    "checkout's CONFIG, which may not match what the run used (pre-run_spec "
+                    'run). Aisle counts and ff aisle stats may not line up.')
+        return None
+    g = CONFIG['global']
+    for key in ('n_batches', 'keyframe_interval', 'checkpoint_frac'):
+        if spec.get(key) is not None:
+            g[key] = spec[key]
+    if spec.get('max_skus') is not None:
+        g['max_skus'] = spec['max_skus']
+    for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):
+        if spec.get(key) is not None:
+            CONFIG['channels'][ch]['fill'] = spec[key]
+    CONFIG['channels']['store']['sizing'].update(
+        max_aisles=spec.get('s_max_aisles'), max_bins=spec.get('s_max_bins'),
+        min_bins=spec.get('s_min_bins'), composition=spec.get('s_composition'))
+    CONFIG['channels']['fulfillment']['sizing'].update(
+        max_aisles=spec.get('ff_max_aisles'), max_bins=spec.get('ff_max_bins'),
+        min_bins=spec.get('ff_min_bins'))
+    log.info(f"  run_spec applied: max_skus={spec.get('max_skus')} "
+             f"s_max_bins={spec.get('s_max_bins')} ff_max_bins={spec.get('ff_max_bins')} "
+             f"store_fill={spec.get('store_fill')} ff_fill={spec.get('ff_fill')}")
+    return spec.get('max_skus')
+
+
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
                  preset: str = 'BY_INITIAL', granularity: str = 'config',
                  cli_set: dict | None = None) -> None:
@@ -269,11 +320,14 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
         raise ValueError(f'unknown preset {preset!r}; choices: {sorted(PRESETS)}')
 
     rt, cell = _tree_for(base_dir)
+    # THE fix for the standalone path: restore the run's own shaping params before any
+    # warehouse is rebuilt.  Harmless in-process (run_simulation already set the same values).
+    max_skus = _apply_run_shape(base_dir, log)
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
     tally = {'granted': {}, 'denied': {}}
     try:
-        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log)
+        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log, max_skus)
         log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
                  f'(preset={preset}, granularity={granularity}, workers={workers})')
         _merge_tally(tally, _drain(pool, cfg_jobs, log))

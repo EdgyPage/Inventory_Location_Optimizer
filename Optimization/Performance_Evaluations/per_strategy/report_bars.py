@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 
 
@@ -98,6 +99,6 @@ def _per_run_report(strategies, df_b, df_t, run_dir, ps_dir, title, log):
 @evaluation(key='per_strategy.report_bars', label='Per-run rollup bars + batches_long.csv',
             scope='per_strategy', needs=('batch', 'task'), out_subdir='per_strategy')
 def render(ctx, params):
-    ps_dir = os.path.join(ctx.run_dir, 'per_strategy')
+    ps_dir = io.out_dir(ctx)                    # per_strategy/, from the declaration
     _per_run_report(ctx.strategies, ctx.batch_frames(), ctx.task_frames(),
                     ctx.run_dir, ps_dir, ctx.title, ctx.log)

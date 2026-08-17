@@ -32,8 +32,8 @@ if _REPO_ROOT not in sys.path:
 
 from flask import Flask, abort, jsonify, request, send_from_directory   # noqa: E402
 
+from Schema.identity import SchemaError                                 # noqa: E402
 from Visualization.db_reader import discover_runs, run_index            # noqa: E402
-from Visualization.readers import SimSchemaError                        # noqa: E402
 
 
 def _resolve_base() -> tuple[str, int]:
@@ -73,9 +73,11 @@ def _run_or_404(rid: str):
 def _reader(rid: str):
     try:
         return _run_or_404(rid).reader()
-    except SimSchemaError as exc:
+    except SchemaError as exc:
         # An unvetted schema is a 501, not a 500: the server works, this file is not supported.
         # The message names the differing tables and columns rather than a bare hash.
+        # `SchemaError` is the whole hierarchy — the viewer's own SimSchemaError subclasses it,
+        # and the shared pipeline's SchemaDrift/UnsupportedSchema/UnsupportedQuery land here too.
         abort(501, description=str(exc))
 
 
@@ -166,8 +168,8 @@ def api_schema():
 def api_capabilities():
     """What this arm actually HAS — probed for rows, not just columns.
 
-    `aisle_metrics` and `reorder_queue` exist in every sim DB but are empty for most arms.  The
-    UI hides those panels rather than rendering 0.0 as though it were a measurement.
+    `aisle_metrics` exists in every sim DB but is empty for most arms.  The UI hides that
+    panel rather than rendering 0.0 as though it were a measurement.
     """
     reader = _reader(request.args.get('run', ''))
     return jsonify({'schema_id': reader.schema_id(), 'schema_source': reader.schema_source(),
@@ -185,26 +187,6 @@ def api_meta():
 def api_geometry():
     """One row per aisle, with its palette coordinates.  Never a per-bin list."""
     return jsonify({'aisles': _reader(request.args.get('run', '')).aisle_geometry()})
-
-
-@app.route('/api/aisle_bins')
-def api_aisle_bins():
-    """Every bin position in ONE aisle, empty ones included."""
-    aisle = _int_arg('aisle')
-    if aisle is None:
-        abort(400, description='aisle is required')
-    return jsonify({'aisle_id': aisle,
-                    'bins': _reader(request.args.get('run', '')).aisle_bins(aisle)})
-
-
-@app.route('/api/batches')
-def api_batches():
-    """Per-batch timing plus which batches are keyframes — the scrub track.
-
-    Built from `batch_stats`, so it legitimately has holes: a batch that produced no tasks
-    writes no row.
-    """
-    return jsonify({'batches': _reader(request.args.get('run', '')).batch_index()})
 
 
 @app.route('/api/scores')
@@ -258,24 +240,11 @@ def api_aisle():
     return jsonify(reader.aisle_state(_int_arg('batch', 0), aisle, t=_float_arg('t')))
 
 
-@app.route('/api/events')
-def api_events():
-    """Timed picker events for one batch.  Times are BATCH-RELATIVE."""
-    reader = _reader(request.args.get('run', ''))
-    return jsonify({'events': reader.events(_int_arg('batch', 0), aisle=_int_arg('aisle'))})
-
-
 @app.route('/api/aisle_rollup')
 def api_aisle_rollup():
     """Per-aisle aggregates for one batch — occupancy, picks, visits, home-match."""
     reader = _reader(request.args.get('run', ''))
     return jsonify({'aisles': reader.aisle_rollup(_int_arg('batch', 0))})
-
-
-@app.route('/api/reorder_queue')
-def api_reorder_queue():
-    reader = _reader(request.args.get('run', ''))
-    return jsonify({'queue': reader.reorder_queue(_int_arg('batch', 0))})
 
 
 # ── cross-batch ──────────────────────────────────────────────────────────────────
@@ -342,6 +311,16 @@ def _gzip(response):
 def _json_error(exc):
     return jsonify({'error': getattr(exc, 'description', str(exc)),
                     'status': getattr(exc, 'code', 500)}), getattr(exc, 'code', 500)
+
+
+@app.errorhandler(SchemaError)
+def _schema_error(exc):
+    """Any schema-shaped failure escaping a ROUTE BODY is still a 501, never a Flask 500.
+
+    `_reader` catches the hierarchy at binding; this is the second net, for a vetted-but-
+    unservable read inside a route (the CI servability matrix makes that unreachable in
+    practice — this handler exists so 'unreachable' never has to be load-bearing)."""
+    return jsonify({'error': str(exc), 'status': 501}), 501
 
 
 def _startup_banner() -> None:

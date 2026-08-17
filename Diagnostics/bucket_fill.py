@@ -125,7 +125,7 @@ def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, l
     print(f'{"TOTAL":<32}{total_bins:>9}{sp_tot:>9}{sp_tot / total_bins * 100:>6.0f}%'
           f'{df_tot:>9}{df_tot / total_bins * 100:>6.0f}%')
     print(f'\nGlobal expected fill — stock_plan spread: {sp_tot / total_bins:.1%}   '
-          f'default-pack: {df_tot / total_bins:.1%}   (target {rs._INITIAL_FILL:.0%})')
+          f'default-pack: {df_tot / total_bins:.1%}   (target {rs.store_fill():.0%})')
     n = max(1, len(subset))
     print(f'Packing cost (bucket_requirements over {n:,} SKUs): '
           f'stock_plan spread {t_spread*1e3:.0f}ms ({t_spread/n*1e6:.1f}µs/SKU)  vs  '

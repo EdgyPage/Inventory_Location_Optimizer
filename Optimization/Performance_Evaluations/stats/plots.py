@@ -8,13 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.common.io import _save_close
+from Optimization.Performance_Evaluations.common.painters import _stars
 from Optimization.Performance_Evaluations.common.style import _short
-
-
-def _stars(p: float) -> str:
-    if p is None or not np.isfinite(p):
-        return ''
-    return '***' if p < 1e-3 else '**' if p < 1e-2 else '*' if p < 5e-2 else 'ns'
 
 
 def _plot_dist(box_values, keys, colors, name, tests, out_dir):

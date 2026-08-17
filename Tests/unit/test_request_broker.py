@@ -77,7 +77,7 @@ def test_missing_sim_db_denies_every_config_request(tmp_path):
     contract.  'batch' is representative; the loop proves the whole vocabulary shares the
     absence probe."""
     ctx = _ConfigCtx(tmp_path, present=('uni_fifo',), absent=('opt_slot',))
-    for need in ('batch', 'task', 'events', 'series', 'breakdown'):
+    for need in ('batch', 'task', 'series', 'breakdown'):
         got = requests.REQUESTS[('config', need)].compose(ctx)
         assert isinstance(got, requests.Denied), need
         assert 'opt_slot' in got.reason, (need, got.reason)

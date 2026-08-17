@@ -41,6 +41,7 @@ import sqlite3
 from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import shape as _shape
+from Schema import connect as _connect
 
 #: Bumped when a table's meaning changes in a way a stale sidecar would silently get wrong.
 #: `precompute` rebuilds any cache whose stored version differs.
@@ -171,6 +172,13 @@ _CREATE_AISLE_ROLLUP = """
         PRIMARY KEY (run_id, batch_id, aisle_id)
     ) WITHOUT ROWID
 """
+#: The rollup's column set IN DDL ORDER — the named-query contract below and the reader's live
+#: fallback both build exactly these 12 keys, and Tests/unit/test_viewer_named_queries.py
+#: asserts this tuple equals the columns parsed from _CREATE_AISLE_ROLLUP.  (This constant
+#: replaced a comment in readers/base.py that merely ASKED the two shapes to agree.)
+AISLE_ROLLUP_COLS = ('run_id', 'batch_id', 'aisle_id', 'occupied', 'capacity', 'qty',
+                     'n_skus', 'picks', 'units_picked', 'visits', 'task_secs', 'home_match')
+
 _CREATE_AISLE_ROLLUP_IDX = """
     CREATE INDEX IF NOT EXISTS ix_rollup_aisle
         ON aisle_batch_rollup (run_id, aisle_id, batch_id)
@@ -224,6 +232,66 @@ VIZ_CACHE_DB_FAMILY = _identity.register(_identity.Family(
 ))
 
 
+# ── the sidecar's NAMED QUERIES (publisher side — this module IS the writer's DDL home) ──────
+# Composed per vintage by the viewer via `dataset.sql_for` and executed on its own per-request
+# connections; every variant must emit the complete logical column set (see Picking_Data's
+# viewer-queries note).  The v1 keyframe-span sidecar stays deliberately UNVETTED
+# (`V1_KEYFRAME_SPAN_SCHEMA_ID` below) — no override may resurrect it.
+from Schema import dataset as _dataset                                  # noqa: E402
+
+_dataset.register_query(_dataset.Query(
+    name='aisle_rollup', family='viz_cache_db',
+    sql=('SELECT ' + ', '.join(AISLE_ROLLUP_COLS)
+         + ' FROM aisle_batch_rollup WHERE run_id = :run_id AND batch_id = :batch_id'),
+    columns=AISLE_ROLLUP_COLS,
+    tables={'aisle_batch_rollup': AISLE_ROLLUP_COLS}))
+
+_dataset.register_query(_dataset.Query(
+    name='bin_history', family='viz_cache_db',
+    # Twin of keyframes_db's `bin_history` — the equality of the two column contracts is
+    # asserted by test_viewer_named_queries, so the viewer's fallback is a second query,
+    # never a shape change.
+    sql=('SELECT t_from, t_to, sku, qty_at_from FROM bin_span'
+         ' WHERE run_id = :run_id AND aisle_id = :aisle_id AND bayX = :bayX'
+         ' AND bayY = :bayY ORDER BY t_from'),
+    columns=('t_from', 't_to', 'sku', 'qty_at_from'),
+    tables={'bin_span': ('run_id', 'aisle_id', 'bayX', 'bayY', 't_from', 't_to', 'sku',
+                         'qty_at_from')}))
+
+_dataset.register_query(_dataset.Query(
+    name='sku_rank_top', family='viz_cache_db',
+    sql=('SELECT sku, rank, picks, units, first_batch, last_batch FROM sku_rank'
+         ' WHERE run_id = :run_id AND rank <= :n ORDER BY rank'),
+    columns=('sku', 'rank', 'picks', 'units', 'first_batch', 'last_batch'),
+    tables={'sku_rank': ('run_id', 'sku', 'rank', 'picks', 'units', 'first_batch',
+                         'last_batch')}))
+
+_dataset.register_query(_dataset.Query(
+    name='final_home', family='viz_cache_db',
+    sql=('SELECT sku, aisle_id, bayX, bayY, qty, n_homes, home_aisles, batch_id'
+         ' FROM final_home WHERE run_id = :run_id'),
+    columns=('sku', 'aisle_id', 'bayX', 'bayY', 'qty', 'n_homes', 'home_aisles', 'batch_id'),
+    tables={'final_home': ('run_id', 'sku', 'aisle_id', 'bayX', 'bayY', 'qty', 'n_homes',
+                           'home_aisles', 'batch_id')}))
+
+_dataset.register_query(_dataset.Query(
+    name='cache_meta_value', family='viz_cache_db',
+    # Moves the `key='…'` literals out of consumer SQL text (the span_source gate and the
+    # sim-schema pin both read through this).
+    sql='SELECT value FROM cache_meta WHERE key = :key',
+    columns=('value',),
+    tables={'cache_meta': ('key', 'value')}))
+
+_dataset.register_query(_dataset.Query(
+    name='bin_span_scoped', family='viz_cache_db',
+    sql=('SELECT aisle_id, bayX, bayY, t_from, sku, qty_at_from FROM bin_span'
+         ' WHERE run_id = :run_id AND t_from <= :batch AND t_to >= :batch'
+         ' AND (:aisles IS NULL OR aisle_id IN (SELECT value FROM json_each(:aisles)))'),
+    columns=('aisle_id', 'bayX', 'bayY', 't_from', 'sku', 'qty_at_from'),
+    tables={'bin_span': ('run_id', 'aisle_id', 'bayX', 'bayY', 't_from', 't_to', 'sku',
+                         'qty_at_from')}))
+
+
 def source_stamps(sim_db: str, keyframe_db: str, warehouse_db: str) -> dict:
     """Size + mtime of every source, so a rebuilt sim DB invalidates the cache.
 
@@ -255,7 +323,10 @@ def cache_freshness(viz_cache: str, sim_db: str, keyframe_db: str, warehouse_db:
     if not viz_cache or not os.path.exists(viz_cache):
         return 'absent'
     try:
-        con = sqlite3.connect(f'file:{viz_cache.replace(os.sep, "/")}?mode=ro', uri=True)
+        # The sanctioned opener (no row_factory needed for a 2-tuple scan).  Deliberately NOT
+        # bind(): freshness must answer on a file too broken or too old to bind — deciding
+        # whether the file is trustworthy is this function's whole job.
+        con = _connect.read_only(viz_cache, row_factory=False)
         try:
             meta = {k: v for k, v in con.execute('SELECT key, value FROM cache_meta')}
         finally:
@@ -286,11 +357,9 @@ def init_cache_db(path: str) -> sqlite3.Connection:
     The pragmas are safe precisely because this file is derived: a crash mid-build leaves a
     cache with no `built_utc`, which `precompute` treats as absent and rebuilds.
     """
-    con = sqlite3.connect(path)
-    con.execute('PRAGMA journal_mode=OFF')
-    con.execute('PRAGMA synchronous=OFF')
-    con.execute('PRAGMA temp_store=MEMORY')
-    con.execute('PRAGMA cache_size=-262144')          # 256 MB page cache
+    # Schema.connect.bulk_writer IS this tuning (journal OFF, synchronous OFF, temp in
+    # memory, 256 MB cache) — the hand-copied PRAGMA block it replaces predated it.
+    con = _connect.bulk_writer(path)
     for stmt in _ALL:
         con.execute(stmt)
     # This build's own shape, into cache_meta — plus the store verify.  Warn-once: the sidecar

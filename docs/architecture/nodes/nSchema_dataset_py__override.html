@@ -13,14 +13,14 @@
 <nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a> <span class="sep">›</span> <span class="here"><code>override</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>override</code></h1>
 <p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_dataset_py.html"><code>Schema/dataset.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def override(family: str, query_name: str, schema_ids, sql: str) -&gt; None</code></pre>
 <section class="doc">Register a per-vintage variant.  `schema_ids` may be one id or an iterable.
 
 The override&#x27;s SQL must yield the query&#x27;s exact logical column set minus any `optional`
 names it cannot supply — `Dataset.query` fills those defaults.  Enforced at call time (the
 row keys are checked against the contract) and by the registry tests.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Warehouse_Data_py.html"><code>Optimization.persistence.Warehouse_Data</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_dataset_py__override">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/dataset.py#:~:text=def%20override">Source ↗</a></p>
 </article>
 </main>

@@ -566,32 +566,12 @@
       "src": "Optimization/Performance_Evaluations/__init__.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_metric.py",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
     },
@@ -601,37 +581,42 @@
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_facet_metric",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_top_metric",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::overtime_metrics",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::top_tag",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/aggregate/cross_profile.py::render"
     },
@@ -643,137 +628,112 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/stats/plots.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_clean",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_descriptives",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_run_tests",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_dist",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_effect",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_rank",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats",
+      "dst": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_group_by_assignment",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_opt_better",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats",
+      "dst": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial",
+      "dst": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats_by_initial"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats_by_initial"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::_task_time_breakdown_plot"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::_task_time_breakdown_plot"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::_task_time_breakdown_plot",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::render"
+      "src": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats_by_initial"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/artifact_map.py",
@@ -789,6 +749,111 @@
       "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/common/io.py::_save_close"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/io.py::out_dir"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::figure_subdir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/io.py::out_dir"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/common/painters.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/common/painters.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/common/painters.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_pct_delta",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_facet_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_assign_color_map",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_facet_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_assign_color_map",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_ir_style_map",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_top_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_top_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_top_metric"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/painters.py::_top_metric"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
@@ -836,754 +901,779 @@
       "src": "Optimization/Performance_Evaluations/common/stats_core.py::_run_tests"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/__init__.py"
+      "src": "Optimization/Performance_Evaluations/compare/__init__.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_pct_delta",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_bars.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_prodtime_delta",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_prodtime_delta",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line",
+      "dst": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_over_time.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_assign_color_map",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/faceted.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py"
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_facet_metric",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/faceted.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_smooth",
+      "dst": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_smooth",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/labor_trend.py::labor_by_batch",
+      "dst": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::labor_by_batch",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/labor_trend.py::trend_per_100",
+      "dst": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::trend_per_100",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
+      "dst": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/labor_trend.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py"
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py"
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py"
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py"
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/overlay.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_assign_color_map",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_ir_style_map",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/overlay.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::_task_time_breakdown_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::_task_time_breakdown_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::_task_time_breakdown_plot",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_f",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_panel",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_rho",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_sizes",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/series.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/series.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/series.py::_dump_series",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/series.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/series.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/summary_csv.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/summary_csv.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_assign_color_map",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_top_metric",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/task_box.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_f",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_panel",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_rho",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_sizes",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/series.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_metric.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_metric.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/frames.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_impr",
+      "dst": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_impr",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_paired"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_stars",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired",
+      "dst": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_paired",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_stars",
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart",
+      "dst": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic",
+      "dst": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "dst": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/style.py::legend_right",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve",
+      "dst": "Optimization/Performance_Evaluations/compare/volume_curve.py::cumulative_curve",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics",
+      "dst": "Optimization/Performance_Evaluations/compare/volume_curve.py::curve_metrics",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base",
+      "dst": "Optimization/Performance_Evaluations/compare/volume_curve.py::gain_vs_base",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_select_top",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
+      "dst": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render"
+      "src": "Optimization/Performance_Evaluations/compare/volume_curve.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/config/series.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/config/series.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/config/series.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/config/series.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/series.py::_dump_series",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/config/series.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/config/series.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/config/summary_csv.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/config/summary_csv.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/config/summary_csv.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/config/summary_csv.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
@@ -1813,16 +1903,6 @@
     {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
       "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::_events"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::_events"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
-      "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::_series"
     },
     {
@@ -2011,6 +2091,11 @@
       "src": "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py::render"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_prodtime_delta",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py::render"
@@ -2056,6 +2141,11 @@
       "src": "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py::render"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/series.py::_prodtime_delta",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py::render"
@@ -2094,6 +2184,11 @@
       "dst": "Optimization/Performance_Evaluations/per_strategy/panels.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/per_strategy/metric_grids.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/metric_grids.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
@@ -2181,6 +2276,11 @@
       "src": "Optimization/Performance_Evaluations/per_strategy/report_bars.py::_per_run_report._bar"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/report_bars.py::render"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/per_strategy/report_bars.py::render"
@@ -2207,6 +2307,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py::_save_close",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/scorecards.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/per_strategy/scorecards.py::render"
     },
@@ -2251,6 +2356,11 @@
       "src": "Optimization/Performance_Evaluations/per_strategy/summary_bars.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/per_strategy/summary_bars.py::render"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/per_strategy/summary_bars.py::render"
@@ -2266,127 +2376,12 @@
       "src": "Optimization/Performance_Evaluations/presets.py::PRESETS"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py"
-    },
-    {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py"
+      "src": "Optimization/Performance_Evaluations/stats/plots.py"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py",
-      "kind": "imports",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_aligned",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_clean",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_descriptives",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_run_tests",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_dist",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_effect",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_rank",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_group_by_assignment",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_opt_better",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::render_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::render_by_initial"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::render_suite"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/stats/config_suite.py::render_suite"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/stats/plots.py"
     },
@@ -2421,12 +2416,12 @@
       "src": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/style.py::_short",
+      "dst": "Optimization/Performance_Evaluations/common/painters.py::_stars",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_stars",
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_short",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix"
     },
@@ -2439,6 +2434,136 @@
       "dst": "Optimization/Performance_Evaluations/common/style.py::_short",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/stats/plots.py::_plot_rank"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/plots.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_aligned",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_clean",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_descriptives",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_run_tests",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_dist",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_effect",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_pmatrix",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/plots.py::_plot_rank",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::_fresh_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_group_by_assignment",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_opt_better",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_by_initial"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_suite"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_suite"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/stats/suite.py::render_suite"
     },
     {
       "dst": "Optimization/analyze_run.py::main",
@@ -3488,6 +3613,26 @@
     {
       "dst": "Schema/connect.py",
       "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::override",
+      "kind": "calls",
+      "src": "Optimization/persistence/Warehouse_Data.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
       "src": "Optimization/persistence/Warehouse_Data.py"
     },
     {
@@ -7356,6 +7501,26 @@
       "src": "Visualization/cache_schema.py"
     },
     {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/cache_schema.py"
@@ -7379,6 +7544,11 @@
       "dst": "Visualization/cache_schema.py::declared_cache_shape",
       "kind": "ref",
       "src": "Visualization/cache_schema.py::VIZ_CACHE_DB_FAMILY"
+    },
+    {
+      "dst": "Schema/connect.py::read_only",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::cache_freshness"
     },
     {
       "dst": "Schema/identity.py::SchemaError",
@@ -7406,6 +7576,11 @@
       "src": "Visualization/cache_schema.py::init_cache_db"
     },
     {
+      "dst": "Schema/connect.py::bulk_writer",
+      "kind": "calls",
+      "src": "Visualization/cache_schema.py::init_cache_db"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
@@ -7426,7 +7601,22 @@
       "src": "Visualization/db_reader.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
       "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
     },
@@ -7439,6 +7629,11 @@
       "dst": "Visualization/readers/base.py",
       "kind": "imports",
       "src": "Visualization/db_reader.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::REQUIRES_DISCOVERY"
     },
     {
       "dst": "Schema/identity.py::check_or_warn",
@@ -7491,6 +7686,11 @@
       "src": "Visualization/db_reader.py::_discover_uncached"
     },
     {
+      "dst": "Schema/dataset.py::sql_for",
+      "kind": "calls",
+      "src": "Visualization/db_reader.py::_pinned_schema_id"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_pinned_schema_id"
@@ -7501,7 +7701,7 @@
       "src": "Visualization/db_reader.py::_read_run_meta"
     },
     {
-      "dst": "Visualization/readers/base.py::_ro",
+      "dst": "Schema/dataset.py::bind",
       "kind": "calls",
       "src": "Visualization/db_reader.py::_warehouse_fingerprint"
     },
@@ -7546,7 +7746,17 @@
       "src": "Visualization/precompute.py"
     },
     {
+      "dst": "Schema/capability.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
       "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/precompute.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
       "kind": "imports",
       "src": "Visualization/precompute.py"
     },
@@ -7571,11 +7781,6 @@
       "src": "Visualization/precompute.py"
     },
     {
-      "dst": "Visualization/readers/fingerprint.py",
-      "kind": "imports",
-      "src": "Visualization/precompute.py"
-    },
-    {
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Visualization/precompute.py::REQUIRES"
@@ -7594,6 +7799,16 @@
       "dst": "Visualization/precompute.py::build_one",
       "kind": "calls",
       "src": "Visualization/precompute.py::_worker"
+    },
+    {
+      "dst": "Schema/capability.py::has_rows",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
+    },
+    {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Visualization/precompute.py::build_one"
     },
     {
       "dst": "Visualization/cache_schema.py::init_cache_db",
@@ -7641,21 +7856,6 @@
       "src": "Visualization/precompute.py::build_one"
     },
     {
-      "dst": "Visualization/precompute.py::log_present",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
-      "kind": "calls",
-      "src": "Visualization/precompute.py::build_one"
-    },
-    {
       "dst": "Visualization/cache_schema.py::cache_freshness",
       "kind": "calls",
       "src": "Visualization/precompute.py::cache_state"
@@ -7696,17 +7896,32 @@
       "src": "Visualization/precompute.py::main"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Schema/shape.py",
+      "kind": "imports",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
+      "dst": "Visualization/readers/__init__.py::_assert_json1",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py"
+    },
+    {
       "dst": "Visualization/readers/__init__.py::register",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py"
     },
     {
       "dst": "Visualization/readers/base.py",
-      "kind": "imports",
-      "src": "Visualization/readers/__init__.py"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py",
       "kind": "imports",
       "src": "Visualization/readers/__init__.py"
     },
@@ -7721,17 +7936,32 @@
       "src": "Visualization/readers/__init__.py"
     },
     {
+      "dst": "Schema/identity.py::resolve",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::canonical_shape",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::describe_diff",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
+      "dst": "Schema/shape.py::diff_shapes",
+      "kind": "calls",
+      "src": "Visualization/readers/__init__.py::reader_for"
+    },
+    {
       "dst": "Visualization/readers/__init__.py::registered_schema_ids",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py::reader_for"
     },
     {
       "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/__init__.py::reader_for"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::resolve_schema_id",
       "kind": "calls",
       "src": "Visualization/readers/__init__.py::reader_for"
     },
@@ -7751,6 +7981,26 @@
       "src": "Visualization/readers/base.py"
     },
     {
+      "dst": "Schema/compat.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/connect.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/identity.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
       "dst": "Visualization/cache_schema.py",
       "kind": "imports",
       "src": "Visualization/readers/base.py"
@@ -7759,6 +8009,26 @@
       "dst": "Visualization/readers/protocol.py",
       "kind": "imports",
       "src": "Visualization/readers/base.py"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_KEYFRAMES"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_VIZ_CACHE"
+    },
+    {
+      "dst": "Schema/compat.py::Requires",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::REQUIRES_WAREHOUSE"
     },
     {
       "dst": "Visualization/readers/base.py::_deplete",
@@ -7776,12 +8046,22 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._cache_conn"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_family_surface",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_state"
     },
@@ -7801,9 +8081,29 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._pending_restocks"
     },
     {
+      "dst": "Schema/identity.py::get",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sid"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._span_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._span_index"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sql"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_composed_sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._sql"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
@@ -7852,6 +8152,11 @@
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._has",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
     },
@@ -7906,6 +8211,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
+    },
+    {
       "dst": "Visualization/readers/base.py::_deplete",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
@@ -7936,9 +8246,9 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_bins"
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_geometry"
     },
     {
       "dst": "Visualization/readers/base.py::_ro",
@@ -7947,6 +8257,11 @@
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.aisle_rollup"
     },
@@ -7986,6 +8301,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.aisle_state"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.batch_index"
@@ -8001,12 +8321,17 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_history"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.bin_scores"
     },
@@ -8046,12 +8371,22 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.capabilities"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.events"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.events"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
     },
@@ -8071,19 +8406,14 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.final_home"
     },
     {
-      "dst": "Visualization/readers/base.py::_ro",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.capabilities",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
-    },
-    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.reorder_queue"
+      "src": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader.batch_index",
@@ -8106,11 +8436,6 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.run_meta"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
-    },
-    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_scores"
@@ -8121,12 +8446,12 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::_group_by_sku",
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::_int_list",
+      "dst": "Visualization/readers/base.py::_group_by_sku",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
@@ -8151,6 +8476,11 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
@@ -8161,62 +8491,47 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
+    },
+    {
       "dst": "Visualization/readers/base.py::_ro",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.top_skus"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Schema/shape.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Visualization/readers/protocol.py",
-      "kind": "imports",
-      "src": "Visualization/readers/fingerprint.py"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
+      "dst": "Schema/dataset.py::sql_for",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_composed_sql"
     },
     {
-      "dst": "Schema/shape.py::canonical_shape",
+      "dst": "Schema/compat.py::_surface",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::describe_diff",
+      "dst": "Schema/compat.py::load_shape",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::diff_shapes",
+      "dst": "Schema/identity.py::get",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_family_surface"
     },
     {
-      "dst": "Schema/shape.py::observed_id",
+      "dst": "Schema/connect.py::read_only",
       "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
-    },
-    {
-      "dst": "Visualization/readers/fingerprint.py::read_stamped_id",
-      "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
-    },
-    {
-      "dst": "Visualization/readers/protocol.py::SimSchemaDrift",
-      "kind": "calls",
-      "src": "Visualization/readers/fingerprint.py::resolve_schema_id"
+      "src": "Visualization/readers/base.py::_ro"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Visualization/readers/protocol.py"
+    },
+    {
+      "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/readers/protocol.py"
     },
@@ -8246,12 +8561,12 @@
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/db_reader.py",
+      "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Visualization/server.py"
     },
     {
-      "dst": "Visualization/readers/__init__.py",
+      "dst": "Visualization/db_reader.py",
       "kind": "imports",
       "src": "Visualization/server.py"
     },
@@ -8303,27 +8618,12 @@
     {
       "dst": "Visualization/server.py::_int_arg",
       "kind": "calls",
-      "src": "Visualization/server.py::api_aisle_bins"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_aisle_bins"
-    },
-    {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
       "src": "Visualization/server.py::api_aisle_rollup"
     },
     {
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_aisle_rollup"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_batches"
     },
     {
       "dst": "Visualization/server.py::_int_arg",
@@ -8341,16 +8641,6 @@
       "src": "Visualization/server.py::api_capabilities"
     },
     {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_events"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_events"
-    },
-    {
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_final_home"
@@ -8364,16 +8654,6 @@
       "dst": "Visualization/server.py::_reader",
       "kind": "calls",
       "src": "Visualization/server.py::api_meta"
-    },
-    {
-      "dst": "Visualization/server.py::_int_arg",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_reorder_queue"
-    },
-    {
-      "dst": "Visualization/server.py::_reader",
-      "kind": "calls",
-      "src": "Visualization/server.py::api_reorder_queue"
     },
     {
       "dst": "Visualization/db_reader.py::run_index",
@@ -10946,6 +11226,11 @@
       "src": "docs/experiments/ingest.py"
     },
     {
+      "dst": "docs/experiments/ingest.py::_registry_defaults",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_DEFAULTS"
+    },
+    {
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_cells_of"
@@ -11983,75 +12268,43 @@
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "id": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
+      "file": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/stats.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "name": "Optimization.Performance_Evaluations.aggregate.stats_aggregate",
+      "module": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "name": "Optimization.Performance_Evaluations.aggregate.stats",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "id": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats",
+      "file": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
+      "module": "Optimization/Performance_Evaluations/aggregate/stats.py",
       "name": "_run_aggregate_stats",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "id": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::_run_aggregate_stats_by_initial",
+      "file": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/stats.py::_run_aggregate_stats_by_initial",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
+      "module": "Optimization/Performance_Evaluations/aggregate/stats.py",
       "name": "_run_aggregate_stats_by_initial",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "id": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats",
+      "file": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
+      "module": "Optimization/Performance_Evaluations/aggregate/stats.py",
       "name": "render_stats",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
-      "id": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py::render_stats_by_initial",
+      "file": "Optimization/Performance_Evaluations/aggregate/stats.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/stats.py::render_stats_by_initial",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/aggregate/stats_aggregate.py",
+      "module": "Optimization/Performance_Evaluations/aggregate/stats.py",
       "name": "render_stats_by_initial",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/breakdown/__init__.py",
-      "id": "Optimization/Performance_Evaluations/breakdown/__init__.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/breakdown/__init__.py",
-      "name": "Optimization.Performance_Evaluations.breakdown",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "id": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "name": "Optimization.Performance_Evaluations.breakdown.travel_handling",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "id": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::_task_time_breakdown_plot",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "name": "_task_time_breakdown_plot",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "id": "Optimization/Performance_Evaluations/breakdown/travel_handling.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/breakdown/travel_handling.py",
-      "name": "render",
       "public": true
     },
     {
@@ -12152,6 +12405,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/io.py",
+      "id": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/io.py",
+      "name": "out_dir",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/io.py",
       "id": "Optimization/Performance_Evaluations/common/io.py::set_current_eval",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/io.py",
@@ -12164,6 +12425,78 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/io.py",
       "name": "set_footer",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "Optimization.Performance_Evaluations.common.painters",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_delta_bars",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_delta_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_facet_metric",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_facet_metric",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_overlay_metric",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_overlay_metric",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_pick_travel_bars",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_pick_travel_bars",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_stars",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_stars",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::_top_metric",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "_top_metric",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::overtime_metrics",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "overtime_metrics",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/painters.py",
+      "id": "Optimization/Performance_Evaluations/common/painters.py::top_tag",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/painters.py",
+      "name": "top_tag",
       "public": true
     },
     {
@@ -12487,474 +12820,450 @@
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "id": "Optimization/Performance_Evaluations/comparison/__init__.py",
+      "file": "Optimization/Performance_Evaluations/compare/__init__.py",
+      "id": "Optimization/Performance_Evaluations/compare/__init__.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "name": "Optimization.Performance_Evaluations.comparison",
+      "module": "Optimization/Performance_Evaluations/compare/__init__.py",
+      "name": "Optimization.Performance_Evaluations.compare",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "id": "Optimization/Performance_Evaluations/comparison/__init__.py::overtime_metrics",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "name": "overtime_metrics",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "id": "Optimization/Performance_Evaluations/comparison/__init__.py::top_tag",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/__init__.py",
-      "name": "top_tag",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
+      "file": "Optimization/Performance_Evaluations/compare/delta_by_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_by_batch.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "name": "Optimization.Performance_Evaluations.comparison.delta_bars",
+      "module": "Optimization/Performance_Evaluations/compare/delta_by_batch.py",
+      "name": "Optimization.Performance_Evaluations.compare.delta_by_batch",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_bars.py::_delta_bars",
+      "file": "Optimization/Performance_Evaluations/compare/delta_by_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_by_batch.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "name": "_delta_bars",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_bars.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_bars.py",
+      "module": "Optimization/Performance_Evaluations/compare/delta_by_batch.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py",
+      "file": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py",
-      "name": "Optimization.Performance_Evaluations.comparison.delta_by_batch",
+      "module": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
+      "name": "Optimization.Performance_Evaluations.compare.delta_over_time",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_over_time.py::_delta_line",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_by_batch.py",
-      "name": "render",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
-      "name": "Optimization.Performance_Evaluations.comparison.delta_over_time",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::_delta_line",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
+      "module": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
       "name": "_delta_line",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
-      "id": "Optimization/Performance_Evaluations/comparison/delta_over_time.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_over_time.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/delta_over_time.py",
+      "module": "Optimization/Performance_Evaluations/compare/delta_over_time.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "id": "Optimization/Performance_Evaluations/comparison/faceted.py",
+      "file": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "name": "Optimization.Performance_Evaluations.comparison.faceted",
+      "module": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py",
+      "name": "Optimization.Performance_Evaluations.compare.delta_vs_baseline",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "id": "Optimization/Performance_Evaluations/comparison/faceted.py::_facet_metric",
+      "file": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "name": "_facet_metric",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/faceted.py",
-      "id": "Optimization/Performance_Evaluations/comparison/faceted.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/faceted.py",
+      "module": "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "file": "Optimization/Performance_Evaluations/compare/faceted.py",
+      "id": "Optimization/Performance_Evaluations/compare/faceted.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "name": "Optimization.Performance_Evaluations.comparison.labor_trend",
+      "module": "Optimization/Performance_Evaluations/compare/faceted.py",
+      "name": "Optimization.Performance_Evaluations.compare.faceted",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::HOURS_NOTE",
+      "file": "Optimization/Performance_Evaluations/compare/faceted.py",
+      "id": "Optimization/Performance_Evaluations/compare/faceted.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/compare/faceted.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "name": "Optimization.Performance_Evaluations.compare.labor_per_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::HOURS_NOTE",
       "kind": "const",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "HOURS_NOTE",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::MS_PER_HOUR",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::MS_PER_HOUR",
       "kind": "const",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "MS_PER_HOUR",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_plot",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_plot",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "_plot",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::_smooth",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::_smooth",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "_smooth",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::labor_by_batch",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::labor_by_batch",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "labor_by_batch",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
-      "id": "Optimization/Performance_Evaluations/comparison/labor_trend.py::trend_per_100",
+      "file": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
+      "id": "Optimization/Performance_Evaluations/compare/labor_per_batch.py::trend_per_100",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/labor_trend.py",
+      "module": "Optimization/Performance_Evaluations/compare/labor_per_batch.py",
       "name": "trend_per_100",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "id": "Optimization/Performance_Evaluations/comparison/overlay.py",
+      "file": "Optimization/Performance_Evaluations/compare/overlay.py",
+      "id": "Optimization/Performance_Evaluations/compare/overlay.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "name": "Optimization.Performance_Evaluations.comparison.overlay",
+      "module": "Optimization/Performance_Evaluations/compare/overlay.py",
+      "name": "Optimization.Performance_Evaluations.compare.overlay",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "id": "Optimization/Performance_Evaluations/comparison/overlay.py::_overlay_metric",
+      "file": "Optimization/Performance_Evaluations/compare/overlay.py",
+      "id": "Optimization/Performance_Evaluations/compare/overlay.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "name": "_overlay_metric",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/overlay.py",
-      "id": "Optimization/Performance_Evaluations/comparison/overlay.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/overlay.py",
+      "module": "Optimization/Performance_Evaluations/compare/overlay.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "id": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
+      "file": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py",
+      "id": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "name": "Optimization.Performance_Evaluations.comparison.pick_vs_travel",
+      "module": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py",
+      "name": "Optimization.Performance_Evaluations.compare.pick_vs_travel",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "id": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::_pick_travel_bars",
+      "file": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py",
+      "id": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "name": "_pick_travel_bars",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
-      "id": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/pick_vs_travel.py",
+      "module": "Optimization/Performance_Evaluations/compare/pick_vs_travel.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/series.py",
-      "id": "Optimization/Performance_Evaluations/comparison/series.py",
+      "file": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/series.py",
-      "name": "Optimization.Performance_Evaluations.comparison.series",
+      "module": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
+      "name": "Optimization.Performance_Evaluations.compare.task_duration_by_strategy",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/series.py",
-      "id": "Optimization/Performance_Evaluations/comparison/series.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::_task_box",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/series.py",
-      "name": "render",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/summary_csv.py",
-      "id": "Optimization/Performance_Evaluations/comparison/summary_csv.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/summary_csv.py",
-      "name": "Optimization.Performance_Evaluations.comparison.summary_csv",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/summary_csv.py",
-      "id": "Optimization/Performance_Evaluations/comparison/summary_csv.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/summary_csv.py",
-      "name": "render",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/task_box.py",
-      "id": "Optimization/Performance_Evaluations/comparison/task_box.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/task_box.py",
-      "name": "Optimization.Performance_Evaluations.comparison.task_box",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/task_box.py",
-      "id": "Optimization/Performance_Evaluations/comparison/task_box.py::_task_box",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/task_box.py",
+      "module": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
       "name": "_task_box",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/task_box.py",
-      "id": "Optimization/Performance_Evaluations/comparison/task_box.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/task_box.py",
+      "module": "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "file": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "name": "Optimization.Performance_Evaluations.comparison.throughput_vs_labor",
+      "module": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "name": "Optimization.Performance_Evaluations.compare.task_time_breakdown",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_f",
+      "file": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::_task_time_breakdown_plot",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "module": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "name": "_task_time_breakdown_plot",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "id": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/compare/task_time_breakdown.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "name": "Optimization.Performance_Evaluations.compare.throughput_vs_labor",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_f",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
       "name": "_f",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_panel",
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_panel",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
       "name": "_panel",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_rho",
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_rho",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
       "name": "_rho",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::_sizes",
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::_sizes",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
       "name": "_sizes",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
+      "id": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/throughput_vs_labor.py",
+      "module": "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_metric.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_metric.py",
+      "file": "Optimization/Performance_Evaluations/compare/top_metric.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_metric.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/top_metric.py",
-      "name": "Optimization.Performance_Evaluations.comparison.top_metric",
+      "module": "Optimization/Performance_Evaluations/compare/top_metric.py",
+      "name": "Optimization.Performance_Evaluations.compare.top_metric",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_metric.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_metric.py::_top_metric",
+      "file": "Optimization/Performance_Evaluations/compare/top_metric.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_metric.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_metric.py",
-      "name": "_top_metric",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/comparison/top_metric.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_metric.py::render",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_metric.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_metric.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "name": "Optimization.Performance_Evaluations.comparison.top_vs_baseline",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "name": "Optimization.Performance_Evaluations.compare.top_vs_baseline",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_BAR_METRICS",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_BAR_METRICS",
       "kind": "const",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "_BAR_METRICS",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_bar_chart",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_bar_chart",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "_bar_chart",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_impr",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_impr",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "_impr",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_paired",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_paired",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "_paired",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::_table_graphic",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::_table_graphic",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "_table_graphic",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
-      "id": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/top_vs_baseline.py",
+      "module": "Optimization/Performance_Evaluations/compare/top_vs_baseline.py",
       "name": "render",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "kind": "module",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "name": "Optimization.Performance_Evaluations.comparison.volume_curve",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "name": "Optimization.Performance_Evaluations.compare.volume_curve",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::HOURS_NOTE",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::HOURS_NOTE",
       "kind": "const",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "HOURS_NOTE",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::MS_PER_HOUR",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::MS_PER_HOUR",
       "kind": "const",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "MS_PER_HOUR",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::_plot",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::_plot",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "_plot",
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::cumulative_curve",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::cumulative_curve",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "cumulative_curve",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::curve_metrics",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::curve_metrics",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "curve_metrics",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::gain_vs_base",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::gain_vs_base",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
       "name": "gain_vs_base",
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
-      "id": "Optimization/Performance_Evaluations/comparison/volume_curve.py::render",
+      "file": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "id": "Optimization/Performance_Evaluations/compare/volume_curve.py::render",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/comparison/volume_curve.py",
+      "module": "Optimization/Performance_Evaluations/compare/volume_curve.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/config/__init__.py",
+      "id": "Optimization/Performance_Evaluations/config/__init__.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/config/__init__.py",
+      "name": "Optimization.Performance_Evaluations.config",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/config/series.py",
+      "id": "Optimization/Performance_Evaluations/config/series.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/config/series.py",
+      "name": "Optimization.Performance_Evaluations.config.series",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/config/series.py",
+      "id": "Optimization/Performance_Evaluations/config/series.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/config/series.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/config/summary_csv.py",
+      "id": "Optimization/Performance_Evaluations/config/summary_csv.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/config/summary_csv.py",
+      "name": "Optimization.Performance_Evaluations.config.summary_csv",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/config/summary_csv.py",
+      "id": "Optimization/Performance_Evaluations/config/summary_csv.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/config/summary_csv.py",
       "name": "render",
       "public": true
     },
@@ -13340,14 +13649,6 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "_deny_absent",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/core/requests.py",
-      "id": "Optimization/Performance_Evaluations/core/requests.py::_events",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/core/requests.py",
-      "name": "_events",
       "public": false
     },
     {
@@ -13823,46 +14124,6 @@
       "public": true
     },
     {
-      "file": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "id": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "kind": "module",
-      "module": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "name": "Optimization.Performance_Evaluations.stats.config_suite",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "id": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "name": "_run_config_stats",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "id": "Optimization/Performance_Evaluations/stats/config_suite.py::_run_config_stats_by_initial",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "name": "_run_config_stats_by_initial",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "id": "Optimization/Performance_Evaluations/stats/config_suite.py::render_by_initial",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "name": "render_by_initial",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "id": "Optimization/Performance_Evaluations/stats/config_suite.py::render_suite",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/stats/config_suite.py",
-      "name": "render_suite",
-      "public": true
-    },
-    {
       "file": "Optimization/Performance_Evaluations/stats/plots.py",
       "id": "Optimization/Performance_Evaluations/stats/plots.py",
       "kind": "module",
@@ -13903,12 +14164,44 @@
       "public": false
     },
     {
-      "file": "Optimization/Performance_Evaluations/stats/plots.py",
-      "id": "Optimization/Performance_Evaluations/stats/plots.py::_stars",
+      "file": "Optimization/Performance_Evaluations/stats/suite.py",
+      "id": "Optimization/Performance_Evaluations/stats/suite.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/stats/suite.py",
+      "name": "Optimization.Performance_Evaluations.stats.suite",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/stats/suite.py",
+      "id": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats",
       "kind": "function",
-      "module": "Optimization/Performance_Evaluations/stats/plots.py",
-      "name": "_stars",
+      "module": "Optimization/Performance_Evaluations/stats/suite.py",
+      "name": "_run_config_stats",
       "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/stats/suite.py",
+      "id": "Optimization/Performance_Evaluations/stats/suite.py::_run_config_stats_by_initial",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/stats/suite.py",
+      "name": "_run_config_stats_by_initial",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/stats/suite.py",
+      "id": "Optimization/Performance_Evaluations/stats/suite.py::render_by_initial",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/stats/suite.py",
+      "name": "render_by_initial",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/stats/suite.py",
+      "id": "Optimization/Performance_Evaluations/stats/suite.py::render_suite",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/stats/suite.py",
+      "name": "render_suite",
+      "public": true
     },
     {
       "file": "Optimization/__init__.py",
@@ -15344,6 +15637,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BIN_SCORE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BIN_SCORE_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -15588,6 +15889,30 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_TASK_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_TASK_ROW_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_TASK_ROW_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_TIMELINE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_TIMELINE_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_VIEWER_BATCH_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_VIEWER_BATCH_COLS",
       "public": false
     },
     {
@@ -15948,6 +16273,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Warehouse_Data.py",
       "name": "_CREATE_WAREHOUSE_STATS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Warehouse_Data.py",
+      "id": "Optimization/persistence/Warehouse_Data.py::_GEOMETRY_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Warehouse_Data.py",
+      "name": "_GEOMETRY_COLS",
       "public": false
     },
     {
@@ -19768,6 +20101,14 @@
     },
     {
       "file": "Visualization/cache_schema.py",
+      "id": "Visualization/cache_schema.py::AISLE_ROLLUP_COLS",
+      "kind": "const",
+      "module": "Visualization/cache_schema.py",
+      "name": "AISLE_ROLLUP_COLS",
+      "public": true
+    },
+    {
+      "file": "Visualization/cache_schema.py",
       "id": "Visualization/cache_schema.py::CACHE_VERSION",
       "kind": "const",
       "module": "Visualization/cache_schema.py",
@@ -19948,6 +20289,14 @@
       "kind": "const",
       "module": "Visualization/db_reader.py",
       "name": "NAV_AXES",
+      "public": true
+    },
+    {
+      "file": "Visualization/db_reader.py",
+      "id": "Visualization/db_reader.py::REQUIRES_DISCOVERY",
+      "kind": "const",
+      "module": "Visualization/db_reader.py",
+      "name": "REQUIRES_DISCOVERY",
       "public": true
     },
     {
@@ -20200,14 +20549,6 @@
     },
     {
       "file": "Visualization/precompute.py",
-      "id": "Visualization/precompute.py::log_present",
-      "kind": "function",
-      "module": "Visualization/precompute.py",
-      "name": "log_present",
-      "public": true
-    },
-    {
-      "file": "Visualization/precompute.py",
       "id": "Visualization/precompute.py::main",
       "kind": "function",
       "module": "Visualization/precompute.py",
@@ -20228,6 +20569,14 @@
       "kind": "const",
       "module": "Visualization/readers/__init__.py",
       "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/__init__.py",
+      "id": "Visualization/readers/__init__.py::_assert_json1",
+      "kind": "function",
+      "module": "Visualization/readers/__init__.py",
+      "name": "_assert_json1",
       "public": false
     },
     {
@@ -20264,6 +20613,38 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_KEYFRAMES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_KEYFRAMES",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_VIZ_CACHE",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_VIZ_CACHE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::REQUIRES_WAREHOUSE",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "REQUIRES_WAREHOUSE",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader",
       "kind": "class",
       "module": "Visualization/readers/base.py",
@@ -20292,6 +20673,14 @@
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_cache_conn",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._has",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_has",
       "public": false
     },
     {
@@ -20328,10 +20717,26 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_sid",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._span_index",
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_span_index",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._sql",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_sql",
       "public": false
     },
     {
@@ -20365,14 +20770,6 @@
       "module": "Visualization/readers/base.py",
       "name": "_state_without_keyframes",
       "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader.aisle_bins",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "aisle_bins",
-      "public": true
     },
     {
       "file": "Visualization/readers/base.py",
@@ -20464,14 +20861,6 @@
     },
     {
       "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader.reorder_queue",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "reorder_queue",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader.run_meta",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -20544,6 +20933,14 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_FAMILY_SOURCES",
+      "kind": "const",
+      "module": "Visualization/readers/base.py",
+      "name": "_FAMILY_SOURCES",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::_PROBED",
       "kind": "const",
       "module": "Visualization/readers/base.py",
@@ -20560,10 +20957,26 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_composed_sql",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_composed_sql",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::_deplete",
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_deplete",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::_family_surface",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_family_surface",
       "public": false
     },
     {
@@ -20591,38 +21004,6 @@
       "public": false
     },
     {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py",
-      "kind": "module",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "Visualization.readers.fingerprint",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::__all__",
-      "kind": "const",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "__all__",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::read_stamped_id",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "read_stamped_id",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/fingerprint.py",
-      "id": "Visualization/readers/fingerprint.py::resolve_schema_id",
-      "kind": "function",
-      "module": "Visualization/readers/fingerprint.py",
-      "name": "resolve_schema_id",
-      "public": true
-    },
-    {
       "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py",
       "kind": "module",
@@ -20644,14 +21025,6 @@
       "kind": "class",
       "module": "Visualization/readers/protocol.py",
       "name": "SimReader",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/protocol.py",
-      "id": "Visualization/readers/protocol.py::SimReader.aisle_bins",
-      "kind": "function",
-      "module": "Visualization/readers/protocol.py",
-      "name": "aisle_bins",
       "public": true
     },
     {
@@ -20704,6 +21077,14 @@
     },
     {
       "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.cache_status",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "cache_status",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py::SimReader.capabilities",
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
@@ -20728,6 +21109,14 @@
     },
     {
       "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.keyframe_batches",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "keyframe_batches",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
       "id": "Visualization/readers/protocol.py::SimReader.run_meta",
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
@@ -20740,6 +21129,14 @@
       "kind": "function",
       "module": "Visualization/readers/protocol.py",
       "name": "schema_id",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/protocol.py",
+      "id": "Visualization/readers/protocol.py::SimReader.schema_source",
+      "kind": "function",
+      "module": "Visualization/readers/protocol.py",
+      "name": "schema_source",
       "public": true
     },
     {
@@ -20820,14 +21217,6 @@
       "kind": "module",
       "module": "Visualization/readers/sim_2026_07.py",
       "name": "Visualization.readers.sim_2026_07",
-      "public": true
-    },
-    {
-      "file": "Visualization/readers/sim_2026_07.py",
-      "id": "Visualization/readers/sim_2026_07.py::PRE_STAMP_SCHEMA_ID",
-      "kind": "const",
-      "module": "Visualization/readers/sim_2026_07.py",
-      "name": "PRE_STAMP_SCHEMA_ID",
       "public": true
     },
     {
@@ -20936,6 +21325,14 @@
     },
     {
       "file": "Visualization/server.py",
+      "id": "Visualization/server.py::_schema_error",
+      "kind": "function",
+      "module": "Visualization/server.py",
+      "name": "_schema_error",
+      "public": false
+    },
+    {
+      "file": "Visualization/server.py",
       "id": "Visualization/server.py::_skus_arg",
       "kind": "function",
       "module": "Visualization/server.py",
@@ -20960,26 +21357,10 @@
     },
     {
       "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_aisle_bins",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_aisle_bins",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
       "id": "Visualization/server.py::api_aisle_rollup",
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_aisle_rollup",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_batches",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_batches",
       "public": true
     },
     {
@@ -20996,14 +21377,6 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_capabilities",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_events",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_events",
       "public": true
     },
     {
@@ -21028,14 +21401,6 @@
       "kind": "function",
       "module": "Visualization/server.py",
       "name": "api_meta",
-      "public": true
-    },
-    {
-      "file": "Visualization/server.py",
-      "id": "Visualization/server.py::api_reorder_queue",
-      "kind": "function",
-      "module": "Visualization/server.py",
-      "name": "api_reorder_queue",
       "public": true
     },
     {
@@ -25128,30 +25493,6 @@
     },
     {
       "file": "docs/experiments/ingest.py",
-      "id": "docs/experiments/ingest.py::DEFAULT_FULL_SUITE",
-      "kind": "const",
-      "module": "docs/experiments/ingest.py",
-      "name": "DEFAULT_FULL_SUITE",
-      "public": true
-    },
-    {
-      "file": "docs/experiments/ingest.py",
-      "id": "docs/experiments/ingest.py::DEFAULT_INVENTORY_PLOTS",
-      "kind": "const",
-      "module": "docs/experiments/ingest.py",
-      "name": "DEFAULT_INVENTORY_PLOTS",
-      "public": true
-    },
-    {
-      "file": "docs/experiments/ingest.py",
-      "id": "docs/experiments/ingest.py::DEFAULT_TOP3",
-      "kind": "const",
-      "module": "docs/experiments/ingest.py",
-      "name": "DEFAULT_TOP3",
-      "public": true
-    },
-    {
-      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::DEFAULT_WHATIF_DATA",
       "kind": "const",
       "module": "docs/experiments/ingest.py",
@@ -25165,6 +25506,14 @@
       "module": "docs/experiments/ingest.py",
       "name": "DEFAULT_WHATIF_PNG_GLOB",
       "public": true
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_DEFAULTS",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "_DEFAULTS",
+      "public": false
     },
     {
       "file": "docs/experiments/ingest.py",
@@ -25236,6 +25585,14 @@
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_leaf_file",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_registry_defaults",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_registry_defaults",
       "public": false
     },
     {
@@ -25484,6 +25841,14 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "_num",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env._registry",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_registry",
       "public": false
     },
     {

@@ -23,16 +23,23 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from Schema import identity as _identity
 from Optimization.persistence.Picking_Data import (          # re-exported; see below
-    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES, CAP_REORDER_QUEUE,
+    CAP_AISLE_METRICS, CAP_BIN_LOG, CAP_BIN_SCORES, CAP_KEYFRAMES,
     CAP_SKU_SCORES, CAP_VIZ_CACHE,
 )
 
 
 # ── exceptions ───────────────────────────────────────────────────────────────────
 
-class SimSchemaError(Exception):
-    """Base for every schema-identity failure."""
+class SimSchemaError(_identity.SchemaError):
+    """Base for every schema-identity failure in the viewer.
+
+    A SUBCLASS of `Schema.identity.SchemaError` (the `DatasetError` precedent), so one
+    `except SchemaError` covers the viewer's own errors AND everything the shared pipeline
+    raises (`SchemaDrift`, `UnsupportedSchema`, `UnsupportedQuery`, …) — the server's 501
+    boundary catches the whole hierarchy and nothing schema-shaped can become a 500.
+    """
 
 
 class UnsupportedSimSchema(SimSchemaError):
@@ -72,11 +79,13 @@ class SimSchemaDrift(SimSchemaError):
 # `phase`, `caveat` — so a consumer that selects a source can attach `capability.provenance(cap)`
 # to whatever it emits.  `base.py` probes with those entries directly.
 #
-# Probed for ROWS, not just for columns.  `aisle_metrics` and `reorder_queue` exist in every sim
-# DB but are only written by strategies that maintain that state — they are EMPTY for most arms,
-# including every arm of the current production run.  A loader that returns {} for both "column
-# missing" and "table empty" makes the UI render 0.0 as though it were a measurement; these flags
-# are what let it hide the panel instead.
+# Probed for ROWS, not just for columns.  `aisle_metrics` exists in every sim DB but is only
+# written by strategies that maintain that state — it is EMPTY for most arms, including every
+# arm of the current production run.  A loader that returns {} for both "column missing" and
+# "table empty" makes the UI render 0.0 as though it were a measurement; the flag is what lets
+# it hide the panel instead.  (`reorder_queue` left this list with its route: the table and its
+# SIM_CAPABILITIES entry remain producer-side truth, but the viewer publishes only what it can
+# serve — re-adding is one named query + method + route.)
 #
 #   CAP_KEYFRAMES       a .keyframes.db exists and has rows -> exact spatial state
 #   CAP_BIN_LOG         bin_placement rows exist -> EVERY batch is exactly rebuildable
@@ -90,7 +99,7 @@ class SimSchemaDrift(SimSchemaError):
 
 #: Every capability name this reader layer can report, in reporting order.  A strict subset of
 #: `SIM_CAPABILITIES` — see the note on `bin_inventory` above.
-ALL_CAPABILITIES = (CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_REORDER_QUEUE,
+ALL_CAPABILITIES = (CAP_KEYFRAMES, CAP_BIN_LOG, CAP_AISLE_METRICS,
                     CAP_BIN_SCORES, CAP_SKU_SCORES, CAP_VIZ_CACHE)
 
 
@@ -106,8 +115,17 @@ class SimReader(Protocol):
     def schema_id(self) -> str:
         """The resolved schema id of the DB behind this reader."""
 
+    def schema_source(self) -> str:
+        """HOW the id was resolved: 'stamped' | 'pinned' | 'derived' — published on
+        /api/capabilities so a payload's provenance is inspectable."""
+
     def capabilities(self) -> frozenset[str]:
         """Which optional data this arm actually HAS. Probed for rows, cached."""
+
+    def cache_status(self) -> str:
+        """The viz sidecar's freshness: 'fresh' | 'stale' | 'partial' | 'absent' | 'skipped'.
+        Re-checked per call, never resolved at construction — a cache built AFTER binding
+        must be picked up without a restart."""
 
     # ── static, per run ──
     def run_meta(self) -> dict:
@@ -120,15 +138,15 @@ class SimReader(Protocol):
         aisles is ~396,500 dicts and a ~40 MB response on a production warehouse.
         """
 
-    def aisle_bins(self, aisle: int) -> list[dict]:
-        """Every bin position in one aisle, including the empty ones."""
-
     def batch_index(self) -> list[dict]:
         """Per batch: id, duration, items, whether it is a keyframe batch.
 
         Built from `batch_stats`, never `range(n_batches)` — a batch that produced no tasks
         writes no row and the list legitimately has holes.
         """
+
+    def keyframe_batches(self) -> list[int]:
+        """The batches at which an exact keyframe exists, ascending; [] without a sidecar."""
 
     def bin_scores(self, aisles: list[int] | None = None) -> dict:
         """Static per-bin layout cost, optionally scoped to some aisles."""
@@ -158,8 +176,9 @@ class SimReader(Protocol):
     def aisle_rollup(self, batch: int) -> list[dict]:
         """Per-aisle occupancy/pick/visit aggregates for one batch."""
 
-    def top_skus(self, n: int) -> list[dict]:
-        """The n most-picked SKUs, ranked."""
+    def top_skus(self, n: int = 50) -> list[dict]:
+        """The n most-picked SKUs, ranked.  n=50 is THE default — protocol, implementation
+        and the /api/top_skus route agree (they used to say nothing/100/50 respectively)."""
 
     def sku_series(self, skus: list[int]) -> dict:
         """Per-batch pick counts and home bin for the given SKUs."""

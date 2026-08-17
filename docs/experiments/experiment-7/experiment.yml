@@ -1,0 +1,82 @@
+# Experiment 7 manifest — single source of truth for this experiment's docs.
+#
+# The same two-lever A/B as Experiment 6 (assignment functions × picker scheduler, layout &
+# zoning pinned off) on a FRESH catalogue — and the first complete sweep after the simulator
+# refactor, so its absolute numbers are the new baseline.  Nothing on these pages carries the
+# pre-753d01e measurement caveat: the run, the analysis, and the schema stamp are all
+# post-fix.
+#
+# Headline numbers render from data/whatif_delta.json (the cross-cell matrix) and are quoted
+# from data/whatif_volume.json and data/whatif_labor.json — all three staged by ingest from
+# the run root, so every percentage the pages quote has a committed, diffable source.
+
+title: "Experiment 7 — the post-refactor baseline: placement saves store hours, scheduling clears both channels faster"
+
+# Primary run folder = the WINNER cell (its config.json drives setup_table / run_section).
+run: k1_off_lpt
+
+catalogue: catalogue
+baseline: uni_fifo_norsl      # the FIFO baseline every assignment arm is measured against
+
+# The store channel's biggest labor savers.  rank_labor leads in every cell × inventory;
+# the whole rank_* family (labor / cartlabor / minlabor) fills the podium this time.
+winners: [rank_labor, rank_cartlabor, rank_minlabor]
+
+whatif:
+  source_run: comparison_whatif_20260816_132931
+  # The simulator commit this run was produced with — stamped by the run itself
+  # (run_spec.json:repo_commit, carried here by ingest --gen-manifest) and rendered beside
+  # the run id by docs/macros.py:run_commit().  First experiment where this chain is live
+  # end-to-end; Experiment 6's reads `unknown` because its run predates the stamp.
+  commit: 65131a026944
+  dirty: false
+  reference: k1_off_rr        # round-robin; every other cell is diffed against it
+  scatter: whatif_volume_curves.png    # cumulative volume vs elapsed hours, rr vs lpt
+  winner: k1_off_lpt
+  cells: 2
+  arms: 34
+  n_batches: 75
+
+inventories:
+  bell_lt0:
+    id: mixed_20260816_131535__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260816_131535__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: []
+
+# Curated figures — the registry defaults (figures.yml) plus the two rate-lens opt-ins that
+# Experiment 6 introduced.  Listing them here is load-bearing: a name ingest cannot find only
+# logs MISSING and returns 0, so an unlisted figure is silently absent.
+figures:
+  top3:
+    - top3_by_initial_volume_curve.png
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - top3_by_initial_labor_per_batch.png
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png
+  - weight.png
+  - volume_vs_weight.png
+  - dimensions.png
+
+schema_id: sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed

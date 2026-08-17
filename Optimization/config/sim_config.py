@@ -207,7 +207,23 @@ SEED_BATCHES   = CONFIG['global']['seed_batches']
 N_BATCHES      = CONFIG['global']['n_batches']
 K_PICKERS      = CONFIG['channels']['store']['num_pickers']
 STORE_RESTOCKS = CONFIG['channels']['store']['restocks']
-_INITIAL_FILL  = CONFIG['channels']['store']['fill']
+
+
+def store_fill() -> float:
+    """The store's sizing fill headroom, read from CONFIG at CALL time.
+
+    Was `_INITIAL_FILL`, an import-time scalar — which quietly broke this module's own rule
+    that CONFIG is the single source of truth and is mutated in place: a runtime override
+    (a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into
+    the warehouse DB as `target_fill`, so the run's own provenance recorded the stale
+    number.
+    """
+    return CONFIG['channels']['store']['fill']
+
+
+def ff_fill() -> float:
+    """The fulfillment regime's fill headroom, read at call time.  Same rule as store_fill."""
+    return CONFIG['channels']['fulfillment']['fill']
 
 
 def _checkpoint_every(n_batches: int) -> int:

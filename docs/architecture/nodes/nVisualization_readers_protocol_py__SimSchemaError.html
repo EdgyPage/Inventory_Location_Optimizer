@@ -14,8 +14,13 @@
 <h1><span class="kind kind-class">class</span> <code>SimSchemaError</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_protocol_py.html"><code>Visualization/readers/protocol.py</code></a></p>
 
-<pre class="sig"><code>class SimSchemaError(Exception)</code></pre>
-<section class="doc">Base for every schema-identity failure.</section>
+<pre class="sig"><code>class SimSchemaError(_identity.SchemaError)</code></pre>
+<section class="doc">Base for every schema-identity failure in the viewer.
+
+A SUBCLASS of `Schema.identity.SchemaError` (the `DatasetError` precedent), so one
+`except SchemaError` covers the viewer&#x27;s own errors AND everything the shared pipeline
+raises (`SchemaDrift`, `UnsupportedSchema`, `UnsupportedQuery`, …) — the server&#x27;s 501
+boundary catches the whole hierarchy and nothing schema-shaped can become a 500.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_protocol_py__SimSchemaError">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/protocol.py#:~:text=class%20SimSchemaError">Source ↗</a></p>
 </article>

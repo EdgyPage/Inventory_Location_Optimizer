@@ -47,8 +47,9 @@ from Visualization.cache_schema import (
     cache_freshness, init_cache_db, source_stamps,
 )
 from Visualization.db_reader import discover_runs
-from Visualization.readers.base import _ro
-from Visualization.readers.fingerprint import resolve_schema_id
+from Schema import dataset as _dataset
+from Schema.capability import has_rows
+from Visualization.readers.base import REQUIRES_KEYFRAMES, REQUIRES_WAREHOUSE
 
 _BATCH = 50_000                                   # executemany chunk
 
@@ -88,18 +89,9 @@ def cache_state(run) -> str:
 
 # ── the build: spans from the bin-mutation log ───────────────────────────────────
 
-def log_present(sim_con, run_id) -> bool:
-    """Does this run carry a bin-mutation log?
-
-    PK-served (`LIMIT 1` on `(run_id, batch_id, seq)`), and tolerant of a DB written before the
-    table existed — which is every arm in the archive, so the OperationalError is the NORMAL
-    answer here, not an error condition.
-    """
-    try:
-        return sim_con.execute('SELECT 1 FROM bin_placement WHERE run_id=? LIMIT 1',
-                               (run_id,)).fetchone() is not None
-    except sqlite3.OperationalError:
-        return False
+# `log_present` was deleted: the question "does this run carry a bin-mutation log?" is
+# `Schema.capability.has_rows(con, 'bin_placement', run_id)` — the same rows-probe the reader's
+# capability sweep uses, tolerant of the table's absence for the same reason.
 
 
 def _bin_spans(events, picks, last_batch):
@@ -406,18 +398,29 @@ def _picks_pass(sim_con, run_id, top_n, want_bin_picks=False):
 
 
 def build_one(run, top_n: int = 500, force: bool = False, verify: bool = False) -> dict:
-    """Build (or refresh) one arm's sidecar. Returns a small report dict."""
+    """Build (or refresh) one arm's sidecar. Returns a small report dict.
+
+    `verify` is SUBSUMED: dataset.bind runs with verify=True unconditionally now (precompute
+    writes a persistent record, so a migrated file must fail the arm, not be pinned).  The
+    flag is kept so existing invocations don't break; it changes nothing."""
     started = time.time()
     state = cache_state(run)
     if state == 'fresh' and not force:
         return {'run': run.id, 'status': 'fresh', 'secs': 0.0}
 
-    sim_con = _ro(run.sim_db)
-    from_log = log_present(sim_con, run.run_id)
+    # The full pipeline, because precompute WRITES a record derived from these files: bind
+    # vets the sim vintage (the old resolve-only path cached a pin for shapes nothing vets),
+    # verify=True fails an arm whose file was migrated after the run wrote it, and
+    # immutable=True is the finished-arm promise — no more -wal/-shm litter on the archive.
+    # Failures surface per-arm through _worker's catch; the sweep never dies.
+    ds_sim = _dataset.bind(run.sim_db, 'sim_db', requires=REQUIRES, verify=True,
+                           immutable=True)
+    sim_con = ds_sim.con
+    from_log = has_rows(sim_con, 'bin_placement', run.run_id)
     if not from_log and not run.keyframe_db:
         # With no log, bin_span/final_home/the exact-frame contract all rest on keyframes.
         # Refuse loudly rather than emit a cache whose spatial tables are quietly depletion-only.
-        sim_con.close()
+        ds_sim.close()
         return {'run': run.id, 'status': 'skipped',
                 'error': 'no bin-mutation log and no keyframes DB (run written with '
                          '--keyframe-interval 0); the spatial tables cannot be built exactly'}
@@ -429,31 +432,33 @@ def build_one(run, top_n: int = 500, force: bool = False, verify: bool = False) 
     if os.path.exists(tmp):
         os.remove(tmp)
 
-    # The keyframe DB is opened only when it is the span source: a log-backed build never reads
-    # it, and an arm with a log but no keyframes is legitimate.
-    kf_con = _ro(run.keyframe_db) if (run.keyframe_db and not from_log) else None
+    # The keyframe DB is opened only when it is the span source: a log-backed build never
+    # reads it, and an arm with a log but no keyframes is legitimate.  Bound, not just opened:
+    # precompute derives a persistent record from it, so it gets the HARD check.
+    ds_kf = (_dataset.bind(run.keyframe_db, 'keyframes_db', requires=REQUIRES_KEYFRAMES,
+                           verify=True, immutable=True)
+             if (run.keyframe_db and not from_log) else None)
+    kf_con = ds_kf.con if ds_kf is not None else None
     try:
-        schema, _source = resolve_schema_id(sim_con, verify=verify)
+        schema = ds_sim.schema_id                 # resolved by bind; the pin minted below
         # Read geometry directly rather than through run.reader(): the reader is memoised on
         # the RunRef and binding it here would fix its view of the cache to "absent" — the file
         # is created by the os.replace at the end of this function.
-        wcon = _ro(run.warehouse_db)
-        try:
+        with _dataset.bind(run.warehouse_db, 'warehouse_db', requires=REQUIRES_WAREHOUSE,
+                           verify=True, immutable=True) as ds_wh:
             geometry = [{'aisle_id': int(r['aisle_id']),
                          'capacity': int(r['bay_x'] or 0) * int(r['bay_y'] or 0)}
-                        for r in wcon.execute(
-                            'SELECT aisle_id, bay_x, bay_y FROM aisle_layout')]
-        finally:
-            wcon.close()
+                        for r in ds_wh.read('aisle_layout', ('aisle_id', 'bay_x', 'bay_y'))]
         capacity = {int(a['aisle_id']): a['capacity'] for a in geometry}
-        kf_interval = sim_con.execute(
-            'SELECT keyframe_interval FROM simulation_runs WHERE run_id=?',
-            (run.run_id,)).fetchone()['keyframe_interval']
-        batches = [int(r[0]) for r in sim_con.execute(
-            'SELECT batch_id FROM batch_stats WHERE run_id=? ORDER BY batch_id', (run.run_id,))]
-        task_secs = {(int(r[0]), int(r[1])): (float(r[2]), int(r[3])) for r in sim_con.execute(
-            'SELECT batch_id, aisle_id, SUM(duration), COUNT(*) FROM task_stats '
-            'WHERE run_id=? GROUP BY batch_id, aisle_id', (run.run_id,))}
+        kf_interval = ds_sim.read('simulation_runs', ('keyframe_interval',),
+                                  where='run_id=?',
+                                  params=(run.run_id,))[0]['keyframe_interval']
+        batches = [int(r['batch_id'])
+                   for r in ds_sim.read('batch_stats', ('batch_id',), where='run_id=?',
+                                        params=(run.run_id,), order_by='batch_id')]
+        task_secs = {(int(r['batch_id']), int(r['aisle_id'])):
+                     (float(r['task_secs']), int(r['visits']))
+                     for r in ds_sim.query('task_load', run_id=run.run_id, batch_id=None)}
 
         # The picks pass runs FIRST on the log path: its per-bin depletion is what tells the
         # span fold when a bin ran dry, so it is an input to `_log_pass`, not a sibling of it.
@@ -467,9 +472,9 @@ def build_one(run, top_n: int = 500, force: bool = False, verify: bool = False) 
             spans, occupancy, homes, final_batch = _keyframe_pass(kf_con, run.run_id)
             deltas = None
     finally:
-        sim_con.close()
-        if kf_con is not None:
-            kf_con.close()
+        ds_sim.close()
+        if ds_kf is not None:
+            ds_kf.close()
     bin_picks = None                              # up to ~2.5M entries; not needed past this point
 
     # An occupied bin counts as "home" when its SKU's final-frame home aisle SET contains this

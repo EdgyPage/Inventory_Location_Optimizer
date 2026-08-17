@@ -41,6 +41,43 @@ def set_current_eval(key):
     _CURRENT_EVAL = key
 
 
+def out_dir(ctx, pick=None, fresh=False):
+    """The CURRENT evaluation's declared output dir under this context's root, created.
+
+    THE way a render obtains its output directory: the subdir comes from the registration's
+    `out_subdir` declaration (via artifact_map.figure_subdir), never a retyped literal — so a
+    future directory change is a one-line declaration edit and no render body moves.
+
+    root = ctx.run_dir (config scope) or ctx.out_dir (aggregate scope).  `pick` selects one
+    member when the declaration is a tuple (agg.cross_profile) and must name a declared
+    member; it is an error for a single-dir declaration.  '' (root-declaring evals, e.g.
+    config.series) returns the root itself, uncreated-beyond-existing.  fresh=True routes
+    through _fresh_dir — the wipe-own-leaf contract of the single-owner stats suites;
+    otherwise os.makedirs(exist_ok=True), which also ends the old split where some renders
+    made their dirs and others silently relied on the parent pre-pass.
+    """
+    if _CURRENT_EVAL is None:
+        raise RuntimeError('io.out_dir called outside a render — non-registry callers have '
+                           'no out_subdir declaration to derive from')
+    from Optimization.Performance_Evaluations.core import artifact_map
+    sub = artifact_map.figure_subdir(_CURRENT_EVAL)
+    if isinstance(sub, tuple):
+        if pick not in sub:
+            raise RuntimeError(f'{_CURRENT_EVAL} declares {sub}; pick= must name one '
+                               f'(got {pick!r})')
+        sub = pick
+    elif pick is not None:
+        raise RuntimeError(f'{_CURRENT_EVAL} declares a single out_subdir {sub!r}; '
+                           f'pick= is only for tuple declarations')
+    root = getattr(ctx, 'run_dir', None) or getattr(ctx, 'out_dir', None)
+    path = os.path.join(root, *sub.split('/')) if sub else root
+    if fresh:
+        _fresh_dir(path)
+    elif sub:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
 def _save_close(fig, path):
     if _CURRENT_EVAL is not None:
         save_dir = os.path.dirname(os.path.abspath(path))

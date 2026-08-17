@@ -67,16 +67,31 @@ exclude_docs: |
   experiments/_template/
   experiments/*/experiment.yml
   experiments/ingest.py
+  experiments/site_tree.py
+  experiments/figures.yml
 
 nav:
   - Home: index.md
   - Code map: code-graph.md
   - Future experiment discussion: future-experiments.md
-  # Experiment 6 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
+  # Experiment 7 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
   # numbers before any method page.  Everything after "Labor" is progressively deeper
   # background — the lifecycle and formula pages used to sit above the results and made the
   # section read as methodology with findings buried inside it.
-  - Experiment 6:
+  - Experiment 7:
+      - Results: experiments/experiment-7/index.md
+      - Throughput — the scheduler lever: experiments/experiment-7/comparison.md
+      - Labor — the placement lever: experiments/experiment-7/full-results.md
+      - How a run works: experiments/experiment-7/comparison-overview.md
+      - Formula reference: experiments/experiment-7/formula-reference.md
+      - Inventory distributions: experiments/experiment-7/inventory.md
+      - Glossary: experiments/experiment-7/glossary.md
+  # Experiments 1-6 are superseded by Experiment 7 and kept for reference only.  Nesting them
+  # under one section keeps the sidebar dominated by the current sweep; each landing page
+  # carries a "Superseded" banner saying the same thing in prose.  Experiment 6 keeps its
+  # results-first page labels; 1-5 keep the older names their pages were written under.
+  - Earlier experiments (reference):
+    - Experiment 6:
       - Results: experiments/experiment-6/index.md
       - Throughput — the scheduler lever: experiments/experiment-6/comparison.md
       - Labor — the placement lever: experiments/experiment-6/full-results.md
@@ -84,10 +99,6 @@ nav:
       - Formula reference: experiments/experiment-6/formula-reference.md
       - Inventory distributions: experiments/experiment-6/inventory.md
       - Glossary: experiments/experiment-6/glossary.md
-  # Experiments 1-5 are superseded by Experiment 6 and kept for reference only.  Nesting them
-  # under one section keeps the sidebar dominated by the current sweep; each landing page
-  # carries a "Superseded" banner saying the same thing in prose.
-  - Earlier experiments (reference):
     - Experiment 5:
       - Overview: experiments/experiment-5/index.md
       - Simulation lifecycle: experiments/experiment-5/comparison-overview.md

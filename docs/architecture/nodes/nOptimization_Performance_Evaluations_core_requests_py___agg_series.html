@@ -16,7 +16,13 @@
 
 <pre class="sig"><code>@request(&amp;#x27;series&amp;#x27;, &amp;#x27;aggregate&amp;#x27;)
 def _agg_series(ctx)</code></pre>
-<section class="doc">The per-profile series.json list the aggregate stage was built from.</section>
+<section class="doc">The per-profile series.json list the aggregate stage was built from.
+
+The grant validates `ctx.profile_series_list` — THAT is the resource.  Consumers may read
+it raw (the aggregate stats suite feeds it to the pairing machinery per profile) or
+composed via `ctx.agg_series()` (cross_profile&#x27;s merged view); both are the same granted
+resource, and the composed form is a memoised transform of the raw one, not a second
+request.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__Denied.html"><code>Denied</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__request_c71accc4.html"><code>request</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py___agg_series">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20_agg_series">Source ↗</a></p>
 </article>

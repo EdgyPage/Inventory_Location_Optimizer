@@ -112,7 +112,6 @@ function refreshRunPickers() {
 const LOADERS = {
   meta: (s) => api.meta(s.run),
   geometry: (s) => api.geometry(s.run),
-  batches: (s) => api.batches(s.run),
   rollup: (s) => api.aisleRollup(s.run, s.batch),
   rollupCompare: (s) => (s.compareRun ? api.aisleRollup(s.compareRun, s.batch) : null),
   state: (s) => api.state(s.run, s.batch),
@@ -143,7 +142,7 @@ function binKey(s) {
 }
 
 async function resolve(view, s) {
-  const names = new Set(['meta', 'geometry', 'batches', 'finalHome', ...view.needs]);
+  const names = new Set(['meta', 'geometry', 'finalHome', ...view.needs]);
   // topSkus before skuSeries, aisleState before skuScores: a couple of loaders read `data`.
   const ordered = [...names].sort((a, b) => order(a) - order(b));
   for (const name of ordered) {
@@ -163,7 +162,7 @@ async function resolve(view, s) {
     && base.warehouse_fingerprint !== cmp.warehouse_fingerprint);
 }
 
-const ORDER = ['meta', 'geometry', 'batches', 'finalHome', 'topSkus', 'aisleState'];
+const ORDER = ['meta', 'geometry', 'finalHome', 'topSkus', 'aisleState'];
 const order = (n) => (ORDER.indexOf(n) < 0 ? ORDER.length : ORDER.indexOf(n));
 
 // ── render loop ────────────────────────────────────────────────────────────────
@@ -247,7 +246,7 @@ function buildTabs() {
     tabsEl.appendChild(b);
   }
   if (!usable.some((v) => v.id === get().view) && usable.length) emit({ view: usable[0].id });
-  const hidden = ['aisle_metrics', 'reorder_queue'].filter((c) => !capabilities.includes(c));
+  const hidden = ['aisle_metrics'].filter((c) => !capabilities.includes(c));
   notice(hidden.length
     ? `not recorded by this arm: ${hidden.join(', ')} — those panels are hidden, not zeroed`
     : '', 'info');

@@ -20,7 +20,7 @@ item-hours against a straight-line 48,915,513, a shape index of 1.0007. Reportin
 captured curve *shape* would have been exactly the kind of unsupported claim the analysis is meant
 to avoid.
 
-**How to apply:** `Optimization/Performance_Evaluations/comparison/volume_curve.py:curve_metrics`
+**How to apply:** `Optimization/Performance_Evaluations/compare/volume_curve.py:curve_metrics`
 reports three numbers and only the first two are performance scores — `mean_thr_items_hr` (chord
 slope, higher better) and `auc_gain_vs_ref_pct` (area *between* two curves, which is non-degenerate
 because two straight lines of different slope diverge steadily). `shape_index` is a **stability

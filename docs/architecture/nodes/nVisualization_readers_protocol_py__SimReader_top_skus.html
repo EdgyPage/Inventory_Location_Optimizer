@@ -14,8 +14,9 @@
 <h1><span class="kind kind-function">function</span> <code>top_skus</code></h1>
 <p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_protocol_py.html"><code>Visualization/readers/protocol.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def top_skus(self, n: int) -&gt; list[dict]</code></pre>
-<section class="doc">The n most-picked SKUs, ranked.</section>
+<pre class="sig"><code>def top_skus(self, n: int=50) -&gt; list[dict]</code></pre>
+<section class="doc">The n most-picked SKUs, ranked.  n=50 is THE default — protocol, implementation
+and the /api/top_skus route agree (they used to say nothing/100/50 respectively).</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_protocol_py__SimReader_top_skus">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/protocol.py#:~:text=def%20top_skus">Source ↗</a></p>
 </article>

@@ -12,11 +12,12 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from Schema import identity as _identity
+from Schema.shape import canonical_shape, describe_diff, diff_shapes
+
+from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
+
 from Visualization.readers.base import SqliteSimReader, _ro
-from Visualization.readers.fingerprint import (
-    canonical_schema_shape, declared_sim_schema_shape, describe_diff, diff_shapes,
-    resolve_schema_id,
-)
 from Visualization.readers.protocol import (
     SimReader, SimSchemaDrift, SimSchemaError, UnsupportedSimSchema,
 )
@@ -24,6 +25,28 @@ from Visualization.readers.sim_2026_07 import Sim2026_07Reader
 
 __all__ = ['reader_for', 'register', 'registered_schema_ids', 'SimReader', 'SimSchemaError',
            'UnsupportedSimSchema', 'SimSchemaDrift', 'SqliteSimReader']
+
+
+def _assert_json1() -> None:
+    """The viewer's scoped named queries pass id lists as ONE JSON parameter via json_each.
+
+    JSON1 has been compiled into the bundled SQLite by default since 3.38 (Python 3.11 ships
+    newer), so this probe should never fire — but a viewer that silently lacked it would fail
+    on the first scoped request with an opaque OperationalError mid-session.  Probe ONCE at
+    import and fail with the cause named."""
+    con = sqlite3.connect(':memory:')
+    try:
+        con.execute("SELECT value FROM json_each('[1]')").fetchone()
+    except sqlite3.OperationalError as exc:                        # pragma: no cover
+        raise RuntimeError(
+            'this Python\'s bundled SQLite lacks the JSON1 extension (json_each), which the '
+            'viewer\'s scoped queries require - use a Python whose sqlite3 is ≥3.38 or built '
+            f'with JSON1. ({exc})') from exc
+    finally:
+        con.close()
+
+
+_assert_json1()
 
 #: schema id -> reader class.
 _REGISTRY: dict[str, type] = {}
@@ -48,7 +71,9 @@ register(Sim2026_07Reader)
 
 def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
                keyframe_db: str = '', viz_cache: str = '',
-               pinned_schema_id: str | None = None, verify: bool = False) -> SimReader:
+               pinned_schema_id: str | None = None, verify: bool = False,
+               warehouse_schema_id: str | None = None,
+               keyframe_schema_id: str | None = None) -> SimReader:
     """Bind the vetted reader for `sim_db`.
 
     `pinned_schema_id` short-circuits derivation — pass the value the sidecar cached, so a DB
@@ -61,11 +86,15 @@ def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
     """
     con = _ro(sim_db)
     try:
-        schema, source = resolve_schema_id(con, pinned=pinned_schema_id, verify=verify)
+        # THE shared resolution: stamped -> pinned -> derived, via the family's own
+        # stamp_reader — one stamp read, one implementation, `identity.SchemaDrift` on a
+        # lying stamp/pin.  (This replaced the viewer's private fingerprint copy.)
+        schema, source = _identity.resolve(con, SIM_DB_FAMILY,
+                                           pinned=pinned_schema_id, verify=verify)
         cls = _REGISTRY.get(schema)
         if cls is None:
-            detail = describe_diff(diff_shapes(declared_sim_schema_shape(),
-                                               canonical_schema_shape(con)))
+            detail = describe_diff(diff_shapes(SIM_DB_FAMILY.declared_shape(),
+                                               canonical_shape(con)))
             raise UnsupportedSimSchema(schema, registered_schema_ids(), detail)
     finally:
         con.close()
@@ -81,4 +110,6 @@ def reader_for(sim_db: str, warehouse_db: str, run_id: int, *,
         keyframe_db = candidate if os.path.exists(candidate) else ''
     return cls(sim_db=sim_db, warehouse_db=warehouse_db, run_id=run_id,
                keyframe_db=keyframe_db, viz_cache=viz_cache,
-               schema_id=schema, schema_source=source)
+               schema_id=schema, schema_source=source,
+               warehouse_schema_id=warehouse_schema_id,
+               keyframe_schema_id=keyframe_schema_id)

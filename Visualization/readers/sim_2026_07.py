@@ -31,11 +31,6 @@ from __future__ import annotations
 from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
 from Visualization.readers.base import SqliteSimReader
 
-#: The shape every run in the archive was written with, before `sim_schema_id` existed.
-#: Frozen: derivable only from the pre-column source, and those DBs are never rewritten.
-PRE_STAMP_SCHEMA_ID = '23d0c7f167bc'
-
-
 class Sim2026_07Reader(SqliteSimReader):
     """The current vetted reader.  All behaviour is inherited; this fixes the identity."""
 

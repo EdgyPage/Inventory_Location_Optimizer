@@ -630,9 +630,9 @@ def _read_sim_stamp(con) -> str | None:
     """The `simulation_runs.sim_schema_id` a run stamped, or None.
 
     The sim DB's stamp is a COLUMN VALUE (written by `create_run`), not a meta table, so the
-    generic `identity.read_stamp` cannot find it without this.  Body mirrors
-    `Visualization/readers/fingerprint.read_stamped_id` — that module keeps its own copy because
-    the viewer resolves through a pin cache as well; a test asserts the two stay in step.
+    generic `identity.read_stamp` cannot find it without this.  THE single implementation:
+    the viewer once kept its own byte-equivalent copy and now resolves through
+    `identity.resolve` with this family, so every consumer dates the archive identically.
     """
     row = con.execute(
         'SELECT sim_schema_id FROM simulation_runs '
@@ -873,6 +873,136 @@ _dataset.register_query(_dataset.Query(
     columns=_EVENT_COLS,
     tables={'picker_events': _EVENT_COLS},
     optional=_EVENT_OPTIONAL))
+
+
+# ── the VIEWER's named queries (publisher side) ─────────────────────────────────────────────
+# Visualization/readers/base.py composes these ONCE per (query, vintage) via `dataset.sql_for`
+# and executes them on its own per-request read-only connections (the reader must never hold a
+# connection — Flask threads).  Because that path skips `Dataset.query`'s optional-fill, the
+# publisher rule for viewer queries is: EVERY variant — canonical and override — emits the
+# complete logical column set, inlining defaults as SQL.  Scoped queries take an id list as ONE
+# JSON parameter via json_each (JSON1 presence is probed at viewer import; plan parity vs the
+# literal IN-list is pinned by Tests/unit/test_viewer_named_queries.py).
+
+_VIEWER_BATCH_COLS = ('batch_id', 'duration', 'num_tasks', 'total_items', 'reorder_placements')
+_dataset.register_query(_dataset.Query(
+    name='batch_timing', family='sim_db',
+    sql=('SELECT ' + ', '.join(_VIEWER_BATCH_COLS)
+         + ' FROM batch_stats WHERE run_id = :run_id ORDER BY batch_id'),
+    columns=_VIEWER_BATCH_COLS,
+    tables={'batch_stats': ('run_id', *_VIEWER_BATCH_COLS)}))
+
+_TIMELINE_COLS = ('time', 'picker_id', 'event_type', 'aisle_id', 'bayX', 'bayY', 'sku',
+                  'quantity', 'bins_completed', 'total_bins', 'items_picked', 'total_items')
+_dataset.register_query(_dataset.Query(
+    name='picker_events_timeline', family='sim_db',
+    # One batch's timeline in EVENT order (`time, id`), optionally aisle-scoped — distinct from
+    # `picker_events` above, which is the analysis frame (all-batch, picker-major ordering).
+    sql=('SELECT ' + ', '.join(_TIMELINE_COLS)
+         + ' FROM picker_events WHERE run_id = :run_id AND batch_id = :batch_id'
+           ' AND (:aisle_id IS NULL OR aisle_id = :aisle_id) ORDER BY time, id'),
+    columns=_TIMELINE_COLS,
+    tables={'picker_events': ('run_id', 'batch_id', 'id', *_TIMELINE_COLS)}))
+
+_TASK_ROW_COLS = ('batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time',
+                  'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'is_outlier')
+# Two variants, deliberately: SQLite does not plan `(:batch_id IS NULL OR batch_id=:batch_id)`
+# onto the (run_id, batch_id) index, and /api/tasks?batch= is interactive.
+_dataset.register_query(_dataset.Query(
+    name='task_rows_at_batch', family='sim_db',
+    sql=('SELECT ' + ', '.join(_TASK_ROW_COLS)
+         + ' FROM task_stats WHERE run_id = :run_id AND batch_id = :batch_id'
+           ' AND (:aisle_id IS NULL OR aisle_id = :aisle_id)'
+           ' ORDER BY batch_id, task_start_time'),
+    columns=_TASK_ROW_COLS,
+    tables={'task_stats': ('run_id', *_TASK_ROW_COLS)}))
+_dataset.register_query(_dataset.Query(
+    name='task_rows_all', family='sim_db',
+    sql=('SELECT ' + ', '.join(_TASK_ROW_COLS)
+         + ' FROM task_stats WHERE run_id = :run_id'
+           ' AND (:aisle_id IS NULL OR aisle_id = :aisle_id)'
+           ' ORDER BY batch_id, task_start_time'),
+    columns=_TASK_ROW_COLS,
+    tables={'task_stats': ('run_id', *_TASK_ROW_COLS)}))
+
+_dataset.register_query(_dataset.Query(
+    name='pick_load_by_aisle', family='sim_db',
+    sql=('SELECT aisle_id, COUNT(*) AS picks, SUM(quantity) AS units_picked'
+         ' FROM picks WHERE run_id = :run_id AND batch_id = :batch_id GROUP BY aisle_id'),
+    columns=('aisle_id', 'picks', 'units_picked'),
+    tables={'picks': ('run_id', 'batch_id', 'aisle_id', 'quantity')}))
+
+_dataset.register_query(_dataset.Query(
+    name='task_load', family='sim_db',
+    # Serves BOTH the viewer's per-batch rollup fallback and precompute's all-batch pass —
+    # the one place the OR-form is kept, because precompute streams every batch anyway.
+    sql=('SELECT batch_id, aisle_id, COUNT(*) AS visits, SUM(duration) AS task_secs'
+         ' FROM task_stats WHERE run_id = :run_id'
+         ' AND (:batch_id IS NULL OR batch_id = :batch_id) GROUP BY batch_id, aisle_id'),
+    columns=('batch_id', 'aisle_id', 'visits', 'task_secs'),
+    tables={'task_stats': ('run_id', 'batch_id', 'aisle_id', 'duration')}))
+
+_dataset.register_query(_dataset.Query(
+    name='sku_rank_live', family='sim_db',
+    sql=('SELECT sku, COUNT(*) AS picks, SUM(quantity) AS units, MIN(batch_id) AS first_batch,'
+         ' MAX(batch_id) AS last_batch FROM picks WHERE run_id = :run_id'
+         ' GROUP BY sku ORDER BY units DESC, sku LIMIT :n'),
+    columns=('sku', 'picks', 'units', 'first_batch', 'last_batch'),
+    tables={'picks': ('run_id', 'batch_id', 'sku', 'quantity')}))
+
+_BIN_SCORE_COLS = ('aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult', 'layout_score',
+                   'map_pref')
+_dataset.register_query(_dataset.Query(
+    name='bin_scores_scoped', family='sim_db',
+    sql=('SELECT ' + ', '.join(_BIN_SCORE_COLS)
+         + ' FROM bin_scores WHERE run_id = :run_id AND (:aisles IS NULL OR'
+           ' aisle_id IN (SELECT value FROM json_each(:aisles)))'),
+    columns=_BIN_SCORE_COLS,
+    tables={'bin_scores': ('run_id', *_BIN_SCORE_COLS)}))
+
+_dataset.register_query(_dataset.Query(
+    name='sku_series_live', family='sim_db',
+    sql=('SELECT sku, batch_id, COUNT(*) AS picks, SUM(quantity) AS units'
+         ' FROM picks WHERE run_id = :run_id'
+         ' AND sku IN (SELECT value FROM json_each(:skus))'
+         ' GROUP BY sku, batch_id ORDER BY sku, batch_id'),
+    columns=('sku', 'batch_id', 'picks', 'units'),
+    tables={'picks': ('run_id', 'batch_id', 'sku', 'quantity')}))
+
+# ── the keyframes DB's named queries — the first non-sim vocabulary; DDL lives below ────────
+_dataset.register_query(_dataset.Query(
+    name='keyframe_batches', family='keyframes_db',
+    sql=('SELECT DISTINCT batch_id FROM bin_keyframe WHERE run_id = :run_id'
+         ' ORDER BY batch_id'),
+    columns=('batch_id',),
+    tables={'bin_keyframe': ('run_id', 'batch_id')}))
+
+_dataset.register_query(_dataset.Query(
+    name='bin_history', family='keyframes_db',
+    # The LIVE twin of viz_cache_db's `bin_history`: same logical columns, so the viewer's
+    # fallback is a second query, not a shape change.  Each keyframe observation is a
+    # degenerate span (t_from == t_to == the observed batch).
+    sql=('SELECT batch_id AS t_from, batch_id AS t_to, sku, qty AS qty_at_from'
+         ' FROM bin_keyframe WHERE run_id = :run_id AND aisle_id = :aisle_id'
+         ' AND bayX = :bayX AND bayY = :bayY ORDER BY batch_id'),
+    columns=('t_from', 't_to', 'sku', 'qty_at_from'),
+    tables={'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty')}))
+
+_dataset.register_query(_dataset.Query(
+    name='keyframe_bins_nonzero', family='keyframes_db',
+    sql=('SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe'
+         ' WHERE run_id = :run_id AND batch_id = :batch_id AND qty > 0'),
+    columns=('aisle_id', 'bayX', 'bayY', 'sku', 'qty'),
+    tables={'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty')}))
+
+_dataset.register_query(_dataset.Query(
+    name='keyframe_state_scoped', family='keyframes_db',
+    # No qty>0 predicate: the consumer's Python filter is part of the fold and stays there.
+    sql=('SELECT aisle_id, bayX, bayY, sku, qty FROM bin_keyframe'
+         ' WHERE run_id = :run_id AND batch_id = :batch_id AND (:aisles IS NULL OR'
+         ' aisle_id IN (SELECT value FROM json_each(:aisles)))'),
+    columns=('aisle_id', 'bayX', 'bayY', 'sku', 'qty'),
+    tables={'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty')}))
 
 
 def _query_rows(name: str, path: str, **params):

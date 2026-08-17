@@ -29,10 +29,20 @@ from Schema.shape import (
     observed_id as observed_sim_schema_id,
     shape_id as schema_shape_id,
 )
-from Visualization.readers.fingerprint import (
-    describe_diff, diff_shapes, read_stamped_id, resolve_schema_id,
-)
-from Visualization.readers.protocol import SimSchemaDrift
+from Schema.identity import SchemaDrift, read_stamp, resolve
+from Schema.shape import describe_diff, diff_shapes
+
+from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
+
+
+def read_stamped_id(con):
+    """The family's stamp reader, via the shared machinery — the viewer's private copy of
+    this function was deleted when identity resolution unified on Schema.identity."""
+    return read_stamp(con, SIM_DB_FAMILY)
+
+
+def resolve_schema_id(con, pinned=None, verify=False):
+    return resolve(con, SIM_DB_FAMILY, pinned=pinned, verify=verify)
 
 # The shape shipped by every run in the archive, before sim_schema_id existed.  Frozen as a
 # literal because those DBs will never be rewritten — 500 GB of them — so the reader has to keep
@@ -274,11 +284,11 @@ def test_verify_catches_a_lying_pin():
         con.commit()
         try:
             resolve_schema_id(con, pinned='deadbeefcafe', verify=True)
-        except SimSchemaDrift as exc:
+        except SchemaDrift as exc:
             assert 'deadbeefcafe' in str(exc)
             assert observed_sim_schema_id(con) in str(exc)
         else:
-            raise AssertionError('a pin disagreeing with the file must raise SimSchemaDrift')
+            raise AssertionError('a pin disagreeing with the file must raise SchemaDrift')
     finally:
         con.close()
 

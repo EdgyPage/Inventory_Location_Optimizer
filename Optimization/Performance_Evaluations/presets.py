@@ -17,11 +17,11 @@ _PER_STRATEGY = ['per_strategy.report_bars', 'per_strategy.metric_grids',
                  'per_strategy.delta_over_time', 'per_strategy.delta_by_batch']
 _CONFIG = ['config.summary_csv', 'config.series']
 _COMPARE = ['compare.faceted', 'compare.overlay', 'compare.top_metric',
-            'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_bars',
-            'compare.throughput_labor',
+            'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_vs_baseline',
+            'compare.throughput_vs_labor',
             'compare.delta_over_time', 'compare.delta_by_batch',
             'compare.volume_curve',
-            'compare.task_box', 'compare.labor_trend', 'breakdown.travel_handling']
+            'compare.task_duration_by_strategy', 'compare.labor_per_batch', 'compare.task_time_breakdown']
 _AGG = ['agg.cross_profile']
 
 
@@ -41,13 +41,13 @@ _GLOBAL_TOP = {'compare.top_metric': {'top_n': 1, 'top_by': 'global'},
                'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'},
                'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'},
                'compare.volume_curve': {'top_n': 1, 'top_by': 'global'},
-               'compare.labor_trend': {'top_n': 1, 'top_by': 'global'},
+               'compare.labor_per_batch': {'top_n': 1, 'top_by': 'global'},
                'agg.cross_profile': {'top_n': 1, 'top_by': 'global'}}
 _INITIAL_TOP = {'compare.top_metric': {'top_n': 3, 'top_by': 'initial'},
                 'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'},
                 'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'},
                 'compare.volume_curve': {'top_n': 3, 'top_by': 'initial'},
-                'compare.labor_trend': {'top_n': 3, 'top_by': 'initial'},
+                'compare.labor_per_batch': {'top_n': 3, 'top_by': 'initial'},
                 # The site pairs top_vs_baseline_table.png with volume_curve's figure, so the two
                 # must select the SAME arms.  Without this entry top_vs_baseline falls back to its
                 # own defaults (top_by='global') and shows a 3-arm subset of the curve's 6.
@@ -58,7 +58,7 @@ _E2E_TOP = {'compare.top_metric': {'top_n': 2, 'top_by': 'initial'},
             'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'},
             'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'},
             'compare.volume_curve': {'top_n': 2, 'top_by': 'initial'},
-            'compare.labor_trend': {'top_n': 2, 'top_by': 'initial'},
+            'compare.labor_per_batch': {'top_n': 2, 'top_by': 'initial'},
             'agg.cross_profile': {'top_n': 2, 'top_by': 'initial'}}
 
 

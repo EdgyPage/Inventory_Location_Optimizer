@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.common.io import _save_close
 from Optimization.Performance_Evaluations.common.style import _grid, _stitle
 from Optimization.Performance_Evaluations.per_strategy.panels import (
@@ -19,7 +20,7 @@ def render(ctx, params):
     strategies = ctx.strategies
     n = len(strategies)
     optimal = ctx.optimal
-    ps_dir = os.path.join(ctx.run_dir, 'per_strategy')
+    ps_dir = io.out_dir(ctx)                    # per_strategy/, from the declaration
 
     def _metric_grid(fname, title, panel, ylabel, legend=False):
         fig, axes = _grid(n)

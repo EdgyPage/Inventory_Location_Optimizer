@@ -166,6 +166,35 @@ WAREHOUSE_DB_FAMILY = _identity.register(_identity.Family(
 ))
 
 
+# ── the warehouse DB's named queries (publisher side) ────────────────────────────────────────
+from Schema import dataset as _dataset                                  # noqa: E402
+
+_GEOMETRY_COLS = ('aisle_id', 'handling_type', 'category', 'unit_type', 'storage_size',
+                  'bay_x', 'bay_y')
+_dataset.register_query(_dataset.Query(
+    name='aisle_layout_geometry', family='warehouse_db',
+    sql=('SELECT ' + ', '.join(_GEOMETRY_COLS)
+         + ' FROM aisle_layout ORDER BY aisle_id'),
+    columns=_GEOMETRY_COLS,
+    tables={'aisle_layout': _GEOMETRY_COLS}))
+
+_dataset.register_query(_dataset.Query(
+    name='warehouse_fingerprint', family='warehouse_db',
+    sql=('SELECT warehouse_fingerprint FROM warehouse_stats'
+         ' ORDER BY id DESC LIMIT 1'),
+    columns=('warehouse_fingerprint',),
+    tables={'warehouse_stats': ('warehouse_fingerprint', 'id')}))
+
+# THE FIRST PRODUCTION OVERRIDE.  Vintage 342d31313d08 predates the fingerprint column; the
+# override supplies the full logical set with an inline NULL — so a consumer of this query is
+# version-free (`None` -> the discovery walk-up fallback, exactly the old blanket-except
+# behavior, now typed).  Registered beside the family, per the pattern this whole layer
+# promises: a schema change is never a consumer edit.
+_dataset.override('warehouse_db', 'warehouse_fingerprint', PRE_FINGERPRINT_WAREHOUSE_SCHEMA_ID,
+                  'SELECT NULL AS warehouse_fingerprint FROM warehouse_stats'
+                  ' ORDER BY id DESC LIMIT 1')
+
+
 def init_warehouse_db(path: str) -> None:
     """Create warehouse_stats, aisle_type_stats, and aisle_layout tables."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)

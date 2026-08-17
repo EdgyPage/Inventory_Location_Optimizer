@@ -12,7 +12,7 @@ the pattern that closes it.
 |---|---|---|
 | `Schema/` (`shape`, `identity`, `connect`, `compat`, `capability`) | *what is inside one file, and may I read it* | sha256 of the canonical SQL shape, 12 hex |
 | `Optimization/runschema/` | *where do a run's files live* | sha256 of `schema.py`'s `LEVELS` + `ARTIFACTS` |
-| `Visualization/readers/` | *how do I read this vintage* | registry: `schema_id` → reader class |
+| `Visualization/readers/` | *how do I read this vintage* | `identity.resolve` + registry (`SCHEMA_IDS = SIM_DB_FAMILY.supported_ids()`); SQL composed per vintage via `sql_for` (2026-08 alignment — the private fingerprint copy is gone) |
 | `Visualization/cache_schema.py` | *is this derived cache stale* | source pin + own stamp + `cache_freshness()` |
 
 Both identity schemes derive the id from a declared shape rather than letting anyone pick a
@@ -270,7 +270,7 @@ Every item once listed here landed; each entry now records where and what to kno
 
 The analysis suite's last hand-navigation moved behind an intermediary,
 `Optimization/Performance_Evaluations/core/requests.py`: every `@evaluation`'s dormant `needs=`
-declaration ('batch', 'task', 'events', 'series', 'breakdown') is now resolved through the
+declaration ('batch', 'task', 'series', 'breakdown') is now resolved through the
 broker in `driver._run_one` BEFORE the render.  Granted → render exactly as before (the compose
 functions ARE the old `EvalContext` method bodies, memoised into the same caches — the context
 methods are now a facade over them).  Denied → the render is skipped and

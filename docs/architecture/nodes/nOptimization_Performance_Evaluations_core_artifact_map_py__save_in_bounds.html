@@ -17,7 +17,7 @@
 <pre class="sig"><code>def save_in_bounds(eval_key: str, save_dir: str) -&gt; bool</code></pre>
 <section class="doc">Is a figure save into `save_dir` consistent with `eval_key`&#x27;s declared out_subdir?
 
-True when the declared subdir&#x27;s segments appear as a contiguous run in the save path —
+True when ANY declared subdir&#x27;s segments appear as a contiguous run in the save path —
 checked WITHOUT knowing the context root, because `_save_close` only sees the path.  An
 eval declaring the root (&#x27;&#x27;) makes no checkable claim; unknown evals are not this
 function&#x27;s problem (the driver only sets registered keys).</section>

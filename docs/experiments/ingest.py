@@ -47,6 +47,39 @@ _REPO_ROOT = os.path.normpath(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+
+def _load_env(path: str) -> None:
+    """Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority).
+
+    Byte-for-byte the entry-script idiom in `Warehouse/generation/generate_mixed_profile.py`
+    and `generate_profile_suite.py`; `Optimization/config/sim_config.py` carries its own.
+
+    WITHOUT this, `--profiles-root`'s documented `$PROFILE_INPUT_DIR` default could never
+    populate: the key lives in `.env`, nothing here read it, so `os.getenv` returned None,
+    `_inv_root_from_bindings` returned at its first guard, and BY-NAME catalogue resolution
+    silently fell through to the per-leaf meta file's recorded ABSOLUTE `inv_db` — the one
+    route pair_bindings exists to replace, and the one that does not survive a moved drive.
+    No warning was emitted, because the fallback is a legitimate path for pre-v2 runs.
+    """
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding='utf-8') as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith('#') or '=' not in _line:
+                continue
+            _key, _, _val = _line.partition('=')
+            _key = _key.strip();  _val = _val.strip()
+            if _val.startswith(('r"', "r'")):
+                _val = _val[2:].rstrip('"').rstrip("'")
+            else:
+                _val = _val.strip('"').strip("'")
+            if _key and _key not in os.environ:
+                os.environ[_key] = _val
+
+
+_load_env(os.path.join(_REPO_ROOT, '.env'))
+
 try:
     import yaml
 except ImportError:                       # pragma: no cover
@@ -60,27 +93,36 @@ import site_tree                          # noqa: E402
 # Curated figure schema — the filenames the docs macros render. Kept here (not in the
 # run output) because which plots are "curated" is a docs decision. Override per
 # experiment via experiment.yml `figures:` / `inventory_plots:`.
-DEFAULT_TOP3 = [
-    "top3_by_initial_prodtime_cum_improvement.png",
-    "top3_by_initial_production_time_over_time.png",
-    "top3_by_initial_prodtime_delta_trend.png",
-    "top_vs_baseline_table.png",
-    "top_vs_baseline.png",
-]
-DEFAULT_FULL_SUITE = [
-    "task_duration_by_strategy.png",
-    "production_time_over_time.png",
-]
-DEFAULT_INVENTORY_PLOTS = [
-    # NB param_relative_frequency, not param_frequency: generate_inventory writes these as
-    # f'param_{pname}.png' over _CP_PARAMS, and 418d6bf renamed that parameter. Because a missing
-    # file here only logs MISSING and returns 0, the stale name silently staged nothing for months.
-    "group_sizes.png", "demand.png", "param_relative_frequency.png",
-    "param_quantity.png", "equilibrium_qty.png",
-]
+#
+# The default lists are DERIVED from the figure registry (figures.yml, beside this
+# script): section membership + default: true, in registry order.  They were literals
+# here once, and the same names lived independently in macros'
+# caption tables and every experiment.yml — the param_frequency -> param_relative_frequency
+# rename silently staged nothing for months because only the MISSING log ever noticed the
+# drift.  Tests/architecture/test_figure_registry.py pins the derived defaults to those
+# historical literals byte-for-byte and ties every registry name back to its writer.
+
+def _registry_defaults():
+    """(top3, full_suite, inventory_plots) from figures.yml, or None if pyyaml is absent."""
+    if yaml is None:
+        return None
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
+    with open(path, encoding='utf-8') as fh:
+        figs = (yaml.safe_load(fh) or {}).get('figures', [])
+    by = {'top3': [], 'full_suite': [], 'inventory': []}
+    for f in figs:
+        if f.get('default'):
+            by[f['section']].append(f['name'])
+    return by['top3'], by['full_suite'], by['inventory']
+
+
+_DEFAULTS = _registry_defaults()
+DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
 # Cross-cell what-if artifacts at the RUN ROOT. whatif_delta.json is what docs/macros.py's
 # whatif_matrix() renders; the PNGs are the scatter/bar set.  Both used to be copied by hand.
-DEFAULT_WHATIF_DATA = ["whatif_delta.json"]
+# whatif_volume.json / whatif_labor.json ride along so every number the pages quote has a
+# committed source — Experiment 6's volume-curve prose cited an uncommitted CSV (README §5).
+DEFAULT_WHATIF_DATA = ["whatif_delta.json", "whatif_volume.json", "whatif_labor.json"]
 DEFAULT_WHATIF_PNG_GLOB = "whatif_*.png"
 
 _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs
@@ -156,6 +198,10 @@ def _copy(src, dst, dry, log):
 
 
 def main(argv=None):
+    if _DEFAULTS is None:
+        sys.exit('ingest needs pyyaml to read the figure registry (docs/experiments/'
+                 'figures.yml): pip install pyyaml.  (This is a local staging tool; CI '
+                 'never runs it.)')
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exp", required=True, help="experiment folder name, e.g. experiment-2")

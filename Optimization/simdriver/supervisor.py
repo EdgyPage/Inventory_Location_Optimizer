@@ -121,9 +121,19 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
     unfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary
     per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine
     + continue: never abort the run, never infinite-loop; unrecovered units keep their resume
-    state and are reported with a resume command.  max_tasks_per_child recycles workers so RSS
-    is reclaimed between jobs (a clean recycle is NOT a broken pool)."""
-    recycle = max_tasks_per_child if max_tasks_per_child and max_tasks_per_child > 0 else None
+    state and are reported with a resume command.
+
+    WORKER RECYCLING IS PINNED AT 1 — one fresh process per job.  `max_tasks_per_child` was
+    accepted but never forwarded (`_run_whatif_matrix` dropped it, and every run is a matrix),
+    so every run in this repo's history has in fact recycled at 1.  The first run that actually
+    honoured a larger value DEADLOCKED at the cell boundary: cell 1 finished all 244 arms, then
+    the pool sat at zero CPU with one live worker of eighteen and never shut down
+    (comparison_whatif_20260815_234253, recycle=6).  The identical profile at recycle=1 the day
+    before completed both cells (comparison_whatif_20260814_083723).  A worker holding a queue
+    of jobs is a bad trade in multi-hour code regardless: the measured saving is ~10 s of spawn
+    per job against a job that runs for minutes, and workers reload their assets per job anyway.
+    So the value is fixed here rather than plumbed, and the CLI flag warns if asked for more."""
+    recycle = 1
     done_uids, finalized = set(), set()
     work_units, meta = [], {}
     # runtime_metrics.db lives at the RUN ROOT (spans every cell): base_dir is this cell's dir, so

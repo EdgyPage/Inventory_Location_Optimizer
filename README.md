@@ -322,16 +322,20 @@ mkdocs build --strict && mkdocs serve
 **Rendered values cannot drift; prose can.** `experiment.yml` plus the `docs/macros.py` helpers
 render every setup table and the cross-cell what-if matrix from the committed `config.json` /
 `params.json` / `whatif_delta.json` snapshots, and a missing JSON is a `--strict` build error
-rather than a blank. The **narrative around them is not covered by that**: Experiment 6's
-volume-curve prose quotes five values from `whatif_volume.csv` by hand — a file no macro reads and
-which is not committed — so nothing re-derives them at build time.
+rather than a blank. The **narrative around them is not covered by that**, and it once bit:
+Experiment 6's volume-curve prose quotes five values from `whatif_volume.csv` by hand — a file no
+macro reads and which is not committed — so nothing re-derives them at build time. That bypass is
+exactly why `753d01e` could shift absolute throughput ~1.4 % with no test failure, no build
+failure and no reader-visible signal.
 
-That bypass is exactly why `753d01e` could shift absolute throughput ~1.4 % with no test failure,
-no build failure and no reader-visible signal. Two things close the gap for now, neither of them
-structural: each experiment page carries a dated note when its run is superseded by a code change,
-and `docs/macros.py:run_commit()` renders the simulator commit beside the run id (from
-`run_spec.json`, via `ingest.py`). The real fix is to route that prose through a macro over a
-committed `whatif_volume.json` — until then, "cannot drift" applies to the rendered tables only.
+As of Experiment 7 the gap is narrowed: ingest stages `whatif_volume.json` and `whatif_labor.json`
+into the experiment's `data/` beside `whatif_delta.json`, so every hand-quoted percentage cites a
+committed, diffable source and a number-moving change shows up in review as a data diff. Prose is
+still typed by hand (routing it through a macro remains the structural fix), and two further
+guards stay in place: each experiment page carries a dated note when its run is superseded by a
+code change, and `docs/macros.py:run_commit()` renders the simulator commit beside the run id
+(from `run_spec.json`, via `ingest.py`). See `docs/authoring.md` § *The cited-resources pipeline*
+for the full chain.
 
 Two traps. Run folders are named `comparison_*`, which `.gitignore` excludes; the docs image
 subtree is re-included by an explicit negation, so confirm new images are tracked with

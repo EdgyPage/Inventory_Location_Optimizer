@@ -70,12 +70,13 @@ def findings() -> list:
             out.append(f'contract attributes {[n for n, _ in arts]} to unregistered '
                        f'evaluation {key!r}')
             continue
+        subs = ((ev.out_subdir,) if isinstance(ev.out_subdir, str) else ev.out_subdir)
         for name, template in arts:
             rel = _rel_dir(template)
             # A root-level doc (series.json, batches_long.csv) is always legitimate; a nested
-            # one must sit under the declared out_subdir or the declaration is a lie.
-            if rel and ev.out_subdir and not (rel == ev.out_subdir
-                                              or rel.startswith(ev.out_subdir + '/')):
+            # one must sit under one of the declared out_subdirs or the declaration is a lie.
+            if rel and ev.out_subdir and not any(
+                    rel == s or rel.startswith(s + '/') for s in subs):
                 out.append(f'{key}: artifact {name!r} lands in {rel!r} but out_subdir '
                            f'declares {ev.out_subdir!r}')
             if rel and not ev.out_subdir:
@@ -86,9 +87,10 @@ def findings() -> list:
 
 # ── the save-time map (figures go through io._save_close) ────────────────────────
 
-def figure_subdir(eval_key: str) -> str | None:
-    """The subdir (relative to the context root) evaluation `eval_key`'s FIGURES belong in —
-    its `out_subdir`, '' meaning the root itself, None for an unregistered key."""
+def figure_subdir(eval_key: str):
+    """The subdir(s) (relative to the context root) evaluation `eval_key`'s FIGURES belong in
+    — its `out_subdir` verbatim: a str, '' meaning the root itself, a TUPLE for a declared
+    multi-dir owner (agg.cross_profile), None for an unregistered key."""
     if 'subdir' not in _MEMO:
         _MEMO['subdir'] = {ev.key: ev.out_subdir for ev in EVALUATIONS}
     return _MEMO['subdir'].get(eval_key)
@@ -97,17 +99,20 @@ def figure_subdir(eval_key: str) -> str | None:
 def save_in_bounds(eval_key: str, save_dir: str) -> bool:
     """Is a figure save into `save_dir` consistent with `eval_key`'s declared out_subdir?
 
-    True when the declared subdir's segments appear as a contiguous run in the save path —
+    True when ANY declared subdir's segments appear as a contiguous run in the save path —
     checked WITHOUT knowing the context root, because `_save_close` only sees the path.  An
     eval declaring the root ('') makes no checkable claim; unknown evals are not this
     function's problem (the driver only sets registered keys)."""
     sub = figure_subdir(eval_key)
     if not sub:
         return True
-    want = sub.split('/')
     have = posixpath.normpath(save_dir.replace('\\', '/')).split('/')
-    return any(have[i:i + len(want)] == want
-               for i in range(len(have) - len(want) + 1))
+    for member in ((sub,) if isinstance(sub, str) else sub):
+        want = member.split('/')
+        if any(have[i:i + len(want)] == want
+               for i in range(len(have) - len(want) + 1)):
+            return True
+    return False
 
 
 # ── the derived prepare-list (driver.prepare_config_dirs) ────────────────────────
@@ -123,11 +128,15 @@ def config_dirs() -> tuple:
     if 'config_dirs' not in _MEMO:
         owners: dict = {}
         for ev in EVALUATIONS:
-            if ev.scope in ('per_strategy', 'config') and ev.out_subdir:
+            # tuple declarations only occur on aggregate scope today; the isinstance guard
+            # keeps this derivation honest if one ever appears on a config-stage eval.
+            if (ev.scope in ('per_strategy', 'config') and ev.out_subdir
+                    and isinstance(ev.out_subdir, str)):
                 owners.setdefault(ev.out_subdir.split('/')[0], set()).add(ev.key)
         tops = tuple(sorted(t for t, ks in owners.items() if len(ks) >= 2))
         nested = tuple(sorted({ev.out_subdir for ev in EVALUATIONS
                                if ev.scope in ('per_strategy', 'config')
+                               and isinstance(ev.out_subdir, str)
                                and '/' in ev.out_subdir
                                and ev.out_subdir.split('/')[0] in tops}))
         _MEMO['config_dirs'] = (tops, nested)
