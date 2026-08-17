@@ -1,5 +1,13 @@
 # {{ experiment().title }}
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 7**](../experiment-7/index.md) is the current sweep and repeats this experiment's
+    design on a fresh catalogue, **after** the refactor that made bin selection deterministic
+    (`753d01e`). This page's absolute items/hour figures read ~1.4 % low on the old measurement
+    basis (see the note below), and its catalogue differs, so nothing here is numerically
+    comparable with Experiment 7 — read this page for the design of the rate lens, which
+    Experiment 7 inherits unchanged. The findings agree: both runs land the same two-lever story.
+
 **Two levers, two outcomes, one run.** Who picks what next (**the scheduler**) decides how fast the
 work clears. Where restock gets put away (**placement**) decides how much work there is. This
 experiment moves each one separately and measures both outcomes, so the two never get conflated.
