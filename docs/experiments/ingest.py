@@ -120,7 +120,9 @@ _DEFAULTS = _registry_defaults()
 DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
 # Cross-cell what-if artifacts at the RUN ROOT. whatif_delta.json is what docs/macros.py's
 # whatif_matrix() renders; the PNGs are the scatter/bar set.  Both used to be copied by hand.
-DEFAULT_WHATIF_DATA = ["whatif_delta.json"]
+# whatif_volume.json / whatif_labor.json ride along so every number the pages quote has a
+# committed source — Experiment 6's volume-curve prose cited an uncommitted CSV (README §5).
+DEFAULT_WHATIF_DATA = ["whatif_delta.json", "whatif_volume.json", "whatif_labor.json"]
 DEFAULT_WHATIF_PNG_GLOB = "whatif_*.png"
 
 _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs

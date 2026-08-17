@@ -27,21 +27,15 @@ configs:
   - { name: calibrated_high_height,             label: "height penalty ↑",           height_brackets: [[96, 1.0], [240, 1.4], [null, 1.8]] }
   - { name: calibrated_high_weight_high_height, label: "weight + height penalty ↑",  height_brackets: [[96, 1.0], [240, 1.4], [null, 1.8]] }
 
-# Curated figure filenames the pages render (ingest pulls these, searching the run tree).
-figures:
-  top3:
-    - top3_by_initial_prodtime_cum_improvement.png
-    - top3_by_initial_production_time_over_time.png
-    - top3_by_initial_prodtime_delta_trend.png
-    - top_vs_baseline_table.png
-    - top_vs_baseline.png
-  full_suite:
-    - task_duration_by_strategy.png
-    - production_time_over_time.png
-
-inventory_plots:
-  - group_sizes.png
-  - demand.png
-  - param_frequency.png
-  - param_quantity.png
-  - equilibrium_qty.png
+# figures: / inventory_plots: — OMIT these keys so the figure registry's defaults apply
+# (docs/experiments/figures.yml, section membership + default: true, in registry order).
+# Listing them here OVERRIDES the registry for this one experiment, which is how the stale
+# `param_frequency.png` name (renamed to param_relative_frequency.png) once silently staged
+# nothing for months — only re-list figures when the experiment genuinely curates a
+# different set, and keep every name registered in figures.yml.
+#
+# figures:
+#   top3:       [ ...override only if this experiment curates a different top3 set... ]
+#   full_suite: [ ... ]
+# inventory_plots:
+#   - ...
