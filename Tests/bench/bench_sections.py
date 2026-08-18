@@ -15,11 +15,14 @@ import re
 import statistics as st
 
 # build now logs an optional sub-split `(smpl=..s task=..s)` between build= and pre=; the
-# group is optional so older logs (without it) still parse.
+# group is optional so older logs (without it) still parse.  The last section logged as
+# `inv=` until the conservation-ledger relabel made it `cons=`; both spellings parse so
+# neither vintage of run.log silently drops to zero rows (Tests/calltree's anchors test
+# pins this against strategy_runner's emitted line).
 _SEC_RE = re.compile(r'reord=(?P<reord>[\d.]+)s build=(?P<build>[\d.]+)s'
                      r'(?:\s*\(smpl=(?P<smpl>[\d.]+)s task=(?P<task>[\d.]+)s\))?'
                      r' pre=(?P<pre>[\d.]+)s sim=(?P<sim>[\d.]+)s '
-                     r'extr=(?P<extr>[\d.]+)s inv=(?P<inv>[\d.]+)s')
+                     r'extr=(?P<extr>[\d.]+)s (?:inv|cons)=(?P<inv>[\d.]+)s')
 _DB_RE = re.compile(r'\bdb=([\d.]+)s')
 _BATCH_RE = re.compile(r'Batch\s+(\d+)/')
 _SECTIONS = ['build', 'reord', 'pre', 'sim', 'extr', 'inv', 'db']

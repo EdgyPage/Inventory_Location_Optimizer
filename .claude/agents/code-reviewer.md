@@ -83,6 +83,16 @@ Read the real code paths; where cheap, run the relevant suite and say whether yo
 `test_fulfillment_channels.py`, `test_warehouse_sizing.py`, `test_index_equivalence.py`,
 `test_batch_precompute*.py`).
 
+## Hot-path changes carry a measurement anchor
+When the diff touches the sim hot path — `strategy_runner.py`, `fast_pick.py`, `Pick.py`,
+`Workload_Builder.py`, `Inventory_Management.py`, `inventory_reorder.py`, `placement/*`,
+`Simulation_Analytics.py`, `bin_recorder.py`, `Picking_Data.py` writers — flag whether
+`Tests/calltree/` still anchors: SECTION_MAP entries (renamed/moved qualnames), the `t_*`
+section vocabulary and checkpoint log tokens, and the engine identity. Cheap check:
+`python -m pytest Tests/calltree -q`. A per-item call added inside pick/placement loops is
+a Warning even when correct — counts × per-call cost is measured, cite it against a
+calltree capture where one exists.
+
 ## Output
 Findings grouped by priority, most severe first. Each: `file:line — one-line defect`, a concrete
 failure scenario (inputs → wrong result), a suggested fix. Sections: **Critical** (wrong results /

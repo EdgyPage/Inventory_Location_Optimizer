@@ -59,3 +59,13 @@ A NEW `Tests/*.py` becomes an entry in the architecture file catalog (`Tests/` i
 `context/files.yml` (no `TODO`) → `python context/arch/render_html.py --build`; or hand it to the
 architecture-maintainer. (Adding a *test function* to an existing file also refreshes that file's
 `key_symbols` — same resync.)
+
+When the change under test touches the sim hot path (`strategy_runner`, `fast_pick`, `Pick`,
+`Workload_Builder`, `Inventory_Management`, `inventory_reorder`, `placement/*`,
+`Simulation_Analytics`, `bin_recorder`), also run `python -m pytest Tests/calltree -q`: its anchors
+test pins SECTION_MAP qualnames, the `t_*` section vocabulary, and the engine identity, and it
+names the exact map entry to update after a rename. Update `Tests/calltree/calltree_tracer.py`'s
+SECTION_MAP (and the home table in `test_calltree_anchors.py`) in the same change, never as a
+follow-up. Perf scenarios must keep firing reorders — any inventory built for measurement needs
+real `equilibrium_qty`/`reorder_point` (`calltree_scenarios.set_reorder_fields`), or placement
+silently never runs.

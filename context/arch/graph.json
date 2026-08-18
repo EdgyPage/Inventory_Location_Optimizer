@@ -3841,6 +3841,11 @@
       "src": "Optimization/run_analysis.py"
     },
     {
+      "dst": "Optimization/runschema/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
       "dst": "Optimization/simdriver/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
@@ -3859,6 +3864,11 @@
       "dst": "Optimization/runschema/runlayout.py::iter_channel_runs",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_aggregate_jobs"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_load_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_apply_run_shape"
     },
     {
       "dst": "Optimization/Performance_Evaluations/driver.py::config_keys",
@@ -3977,6 +3987,11 @@
     },
     {
       "dst": "Optimization/run_analysis.py::_aggregate_jobs",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::run_analysis"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_apply_run_shape",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::run_analysis"
     },
@@ -4316,6 +4331,11 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Warehouse/inventory/inventory_planning.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -4397,6 +4417,11 @@
     },
     {
       "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_planning.py::structural_bin_floor",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -6059,6 +6084,11 @@
       "dst": "Warehouse/picking/Workload_Builder.py",
       "kind": "imports",
       "src": "Optimization/simdriver/sim_assets.py"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::store_fill",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
       "dst": "Optimization/persistence/Warehouse_Data.py::compute_warehouse_fingerprint",
@@ -10221,6 +10251,11 @@
       "src": "Warehouse/inventory/inventory_planning.py::_ff_depth_split"
     },
     {
+      "dst": "Warehouse/layout/Aisle_Dimensions.py::uniform_aisle_bins",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_planning.py::structural_bin_floor"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_common.py",
       "kind": "imports",
       "src": "Warehouse/inventory/inventory_reorder.py"
@@ -11218,6 +11253,11 @@
     {
       "dst": "Schema/profile_resolver.py",
       "kind": "imports",
+      "src": "docs/experiments/ingest.py"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_load_env",
+      "kind": "calls",
       "src": "docs/experiments/ingest.py"
     },
     {
@@ -14469,14 +14509,6 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::_INITIAL_FILL",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "_INITIAL_FILL",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_OUTPUT_DIR",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
@@ -14541,10 +14573,26 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::ff_fill",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "ff_fill",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::regime_sizing_from_config",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "regime_sizing_from_config",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::store_fill",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "store_fill",
       "public": true
     },
     {
@@ -16465,6 +16513,14 @@
       "kind": "function",
       "module": "Optimization/run_analysis.py",
       "name": "_aggregate_jobs",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_apply_run_shape",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_apply_run_shape",
       "public": false
     },
     {
@@ -23556,6 +23612,14 @@
       "public": false
     },
     {
+      "file": "Warehouse/inventory/inventory_planning.py",
+      "id": "Warehouse/inventory/inventory_planning.py::structural_bin_floor",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_planning.py",
+      "name": "structural_bin_floor",
+      "public": true
+    },
+    {
       "file": "Warehouse/inventory/inventory_reorder.py",
       "id": "Warehouse/inventory/inventory_reorder.py",
       "kind": "module",
@@ -25541,6 +25605,14 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_WHATIF_DATA_EXT",
+      "kind": "const",
+      "module": "docs/experiments/ingest.py",
+      "name": "_WHATIF_DATA_EXT",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_cell_inventory_configs",
       "kind": "function",
       "module": "docs/experiments/ingest.py",
@@ -25585,6 +25657,14 @@
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_leaf_file",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_load_env",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_load_env",
       "public": false
     },
     {

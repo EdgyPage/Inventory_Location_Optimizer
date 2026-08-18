@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!-- calltree viewer — offline, file://-safe. Data arrives as a sibling data.js
+     (window.CALLTREE_RUNS), never via fetch: the Diagnostics viewer needs http.server
+     for its fetch(); this one deliberately does not (context/arch/render_html.py rules:
+     relative links, data inlined as JS, works from file://). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>calltree — runtime call-tree captures</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>calltree</h1>
+  <div id="controls">
+    <label>run <select id="run-select"></select></label>
+    <label>compare <select id="ab-select"><option value="">(none)</option></select></label>
+    <label>section <select id="section-select"><option value="">(all)</option></select></label>
+    <label><input type="checkbox" id="hide-ext" checked> hide ext/C leaves</label>
+  </div>
+</header>
+<section id="meta-panel"></section>
+<section id="sections-panel"><h2>section walls (untraced pass)</h2><div id="sections-bar"></div></section>
+<section id="icicle-panel"><h2>call-tree icicle (traced pass — relative widths, not wall truth)</h2>
+  <div id="icicle-breadcrumb"></div><svg id="icicle" width="1200" height="420"></svg></section>
+<section id="table-panel"><h2>functions</h2>
+  <table id="fn-table"><thead><tr>
+    <th data-k="name">function</th><th data-k="calls">calls</th>
+    <th data-k="cum_s">cum s</th><th data-k="self_s">self s</th>
+    <th data-k="percall">per-call µs</th><th data-k="delta">Δ calls (A/B)</th>
+  </tr></thead><tbody></tbody></table></section>
+<script src="data.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

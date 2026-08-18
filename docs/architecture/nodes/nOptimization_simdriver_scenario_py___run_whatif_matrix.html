@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_run_whatif_matrix</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_scenario_py.html"><code>Optimization/simdriver/scenario.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity=&#x27;strategy&#x27;)</code></pre>
+<pre class="sig"><code>def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity=&#x27;strategy&#x27;, max_tasks_per_child=1)</code></pre>
 <section class="doc">Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a
 plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
 (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze

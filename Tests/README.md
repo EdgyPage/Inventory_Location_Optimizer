@@ -7,6 +7,7 @@
 | `e2e/` | the wiring changed — multi-process runs through the real `run_simulation` path |
 | `architecture/` | the *documentation* drifted from the code — graph, catalog, context, registries |
 | `bench/` | not collected; hand-run tools + shared fixtures (see its README) |
+| `calltree/` | the runtime-measurement framework itself broke — tracer, scenarios, section anchors, or determinism (its CLIs are hand-run; see its README) |
 | `gpu/` | dormant GPU island; skipped by the routine suite (`-k "not gpu"`) |
 
 ```bash

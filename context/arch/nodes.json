@@ -2394,13 +2394,6 @@
       "signature": null,
       "value_preview": "os.path.dirname(os.path.abspath(__file__))"
     },
-    "Optimization/config/sim_config.py::_INITIAL_FILL": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['fill']"
-    },
     "Optimization/config/sim_config.py::_OUTPUT_DIR": {
       "decorators": [],
       "doc": null,
@@ -2457,12 +2450,26 @@
       "kind": "function",
       "signature": "(log_path: str) -> logging.Logger"
     },
+    "Optimization/config/sim_config.py::ff_fill": {
+      "decorators": [],
+      "doc": "The fulfillment regime's fill headroom, read at call time.  Same rule as store_fill.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> float"
+    },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
       "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +\ncaps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/config/sim_config.py::store_fill": {
+      "decorators": [],
+      "doc": "The store's sizing fill headroom, read from CONFIG at CALL time.\n\nWas `_INITIAL_FILL`, an import-time scalar \u2014 which quietly broke this module's own rule\nthat CONFIG is the single source of truth and is mutated in place: a runtime override\n(a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into\nthe warehouse DB as `target_fill`, so the run's own provenance recorded the stale\nnumber.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> float"
     },
     "Optimization/config/strategies.py": {
       "decorators": [],
@@ -4140,6 +4147,13 @@
       "kind": "function",
       "signature": "(base_dir, rt, cell, preset_name, granularity, cli_set, log)"
     },
+    "Optimization/run_analysis.py::_apply_run_shape": {
+      "decorators": [],
+      "doc": "Restore the RUN's own run-shaping params onto CONFIG before rebuilding its warehouse.\n\nA standalone re-analysis used to size the warehouse from whatever CONFIG this checkout\nhappens to hold \u2014 no max_skus, this build's fill \u2014 while the comment at the rebuild claimed\nit used \"the SAME per-regime sizing the run used\".  For any capped run that silently\nrebuilt a DIFFERENT warehouse than the sim ran on: wrong aisle count, wrong total_bins,\nand (per `regime_sizing_from_config`'s own docstring) misgrouped ff aisle stats and skewed\nchurn %.  The in-process analysis never had the bug because `run_simulation` had already\nmutated CONFIG in the same process; only the standalone path was affected.\n\nReturns the run's `max_skus` (None when unrecorded).  A run with no recorded spec \u2014 every\nrun before that file existed \u2014 warns loudly and keeps the old behaviour, which is the\nhonest answer: those runs never recorded what they were shaped with.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, log: logging.Logger) -> int | None"
+    },
     "Optimization/run_analysis.py::_coerce": {
       "decorators": [],
       "doc": null,
@@ -4152,7 +4166,7 @@
       "doc": "Parent pre-pass: build slim shared assets per pair, prepare each config's output\ndirs once, and emit the flat config-stage job list.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, rt, preset_name, granularity, cli_set, log)"
+      "signature": "(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None)"
     },
     "Optimization/run_analysis.py::_drain": {
       "decorators": [],
@@ -6002,7 +6016,7 @@
       "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 bit-identical to the old flat run, just nested under its cell dir.  Returns\n{'cells': [names], 'reference': name}.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy')"
+      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy', max_tasks_per_child=1)"
     },
     "Optimization/simdriver/scenario.py::_warn_blank_arms": {
       "decorators": [],
@@ -6136,7 +6150,7 @@
     },
     "Optimization/simdriver/supervisor.py::_supervise": {
       "decorators": [],
-      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.  max_tasks_per_child recycles workers so RSS\nis reclaimed between jobs (a clean recycle is NOT a broken pool).",
+      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.\n\nWORKER RECYCLING IS PINNED AT 1 \u2014 one fresh process per job.  `max_tasks_per_child` was\naccepted but never forwarded (`_run_whatif_matrix` dropped it, and every run is a matrix),\nso every run in this repo's history has in fact recycled at 1.  The first run that actually\nhonoured a larger value DEADLOCKED at the cell boundary: cell 1 finished all 244 arms, then\nthe pool sat at zero CPU with one live worker of eighteen and never shut down\n(comparison_whatif_20260815_234253, recycle=6).  The identical profile at recycle=1 the day\nbefore completed both cells (comparison_whatif_20260814_083723).  A worker holding a queue\nof jobs is a bad trade in multi-hour code regardless: the measured saving is ~10 s of spawn\nper job against a job that runs for minutes, and workers reload their assets per job anyway.\nSo the value is fixed here rather than plumbed, and the CLI flag warns if asked for more.",
       "is_async": false,
       "kind": "function",
       "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='', cell_index=1, cell_total=1)"
@@ -7516,7 +7530,7 @@
     },
     "Visualization/db_reader.py::_warehouse_fingerprint": {
       "decorators": [],
-      "doc": "The fingerprint via the full pipeline: bind the file to ITS OWN vintage and ask by\nname \u2014 the pre-fingerprint vintage is served by the repo's first production override\n(`Warehouse_Data`), which answers NULL instead of raising.  Discovery is tree-stamp-cached\nand touches a handful of warehouse.db files, so full binds are free here.  The blanket\nguard stays: unvetted/truncated -> None -> the walk-up fallback, unchanged.",
+      "doc": "The fingerprint via the full pipeline: bind the file to ITS OWN vintage and ask by\nname \u2014 the pre-fingerprint vintage is served by the repo's first production override\n(`Warehouse_Data`), which answers NULL instead of raising.  Discovery is tree-stamp-cached\nand touches a handful of warehouse files, so full binds are free here.  The blanket\nguard stays: unvetted/truncated -> None -> the walk-up fallback, unchanged.",
       "is_async": false,
       "kind": "function",
       "signature": "(warehouse_db: str) -> str | None"
@@ -10362,6 +10376,13 @@
       "kind": "function",
       "signature": "(buckets, weight_fn, eff_fn, target_total: float) -> dict"
     },
+    "Warehouse/inventory/inventory_planning.py::structural_bin_floor": {
+      "decorators": [],
+      "doc": "(aisles, bins) the STORE cannot go below, for any catalogue: one aisle per bucket.\n\nBuckets are the handling x category x tier cross-product, so this floor is a property of\nthe CONFIGURATION, not of the SKUs \u2014 capping SKUs does not lower it.  `_apply_caps` never\ntrims a bucket below one replica (every SKU must be placeable), so a `--s-max-bins` under\nthis number is unachievable by construction.  Exposed so a CLI can say so in milliseconds\ninstead of mid-build, per pair, after the inventory load.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(handlings, categories, aisle_width, aisle_height) -> tuple[int, int]"
+    },
     "Warehouse/inventory/inventory_reorder.py": {
       "decorators": [],
       "doc": "inventory_reorder.py \u2014 churn counters, reload primitive, pick notifications, and\nOrder-Up-To reorder logic.\n\n`ReorderMixin` holds the per-batch lifecycle methods.  Mixed into Inventory_Manager so\nthe public API (`pop_churn`, `requeue_bin`, `check_reorders`, and the O(1) pick\nnotifications called by PickSimulation) is unchanged.  All instance state and the\ncollaborators it calls (`self._index_add`, `self._stock`) are provided by\nInventory_Manager.__init__ / its placement methods.",
@@ -12108,6 +12129,13 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
     },
+    "docs/experiments/ingest.py::_WHATIF_DATA_EXT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'.json'"
+    },
     "docs/experiments/ingest.py::_cell_inventory_configs": {
       "decorators": [],
       "doc": "(run_manifest|None, inventories, configs) for one cell \u2014 manifest first, experiment.yml next.\n\nThe manifest's location comes from the contract (`run_manifest`) when the run has one; the\nliteral join stays for pre-descriptor sources and single-cell invocations.",
@@ -12150,6 +12178,13 @@
       "kind": "function",
       "signature": "(rt, cell, inv, cfg, name, cfg_src)"
     },
+    "docs/experiments/ingest.py::_load_env": {
+      "decorators": [],
+      "doc": "Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority).\n\nByte-for-byte the entry-script idiom in `Warehouse/generation/generate_mixed_profile.py`\nand `generate_profile_suite.py`; `Optimization/config/sim_config.py` carries its own.\n\nWITHOUT this, `--profiles-root`'s documented `$PROFILE_INPUT_DIR` default could never\npopulate: the key lives in `.env`, nothing here read it, so `os.getenv` returned None,\n`_inv_root_from_bindings` returned at its first guard, and BY-NAME catalogue resolution\nsilently fell through to the per-leaf meta file's recorded ABSOLUTE `inv_db` \u2014 the one\nroute pair_bindings exists to replace, and the one that does not survive a moved drive.\nNo warning was emitted, because the fallback is a legitimate path for pre-v2 runs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
     "docs/experiments/ingest.py::_registry_defaults": {
       "decorators": [],
       "doc": "(top3, full_suite, inventory_plots) from figures.yml, or None if pyyaml is absent.",
@@ -12180,7 +12215,7 @@
     },
     "docs/experiments/ingest.py::_stage_whatif": {
       "decorators": [],
-      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's `whatif` group tag\n(`rt.whatif_outputs()` \u2014 a new group member surfaces here with no edit); what is STAGED stays\nthe docs' own selection (DEFAULT_WHATIF_DATA + the PNG set).  The literal joins below remain\nthe pre-descriptor route.",
+      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's `whatif` group tag\n(`rt.whatif_outputs()` \u2014 a new group member surfaces here with no edit); what is STAGED is\nshape-based, never name-based: every group `.json` into data/ (the committed sources the\nprose quotes) and every group PNG into images/.  The literal joins below remain the\npre-descriptor route.",
       "is_async": false,
       "kind": "function",
       "signature": "(source, exp_dir, dry, log, rt=None)"

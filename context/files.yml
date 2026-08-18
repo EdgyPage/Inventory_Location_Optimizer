@@ -337,6 +337,8 @@ files:
       - {name: "N_BATCHES", file: "Optimization/config/sim_config.py", kind: "const"}
       - {name: "K_PICKERS", file: "Optimization/config/sim_config.py", kind: "const"}
       - {name: "STORE_RESTOCKS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
     notes: ""
   "Optimization/config/strategies.py":
@@ -1002,6 +1004,19 @@ files:
       - {name: "test_merge_is_idempotent", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
       - {name: "test_no_todo_or_empty_purposes", file: "Tests/architecture/test_files_catalog_sync.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_ingest_env_bootstrap.py":
+    purpose: "ingest.py must load `.env`, or BY-NAME resolution is dead."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_ingest_loads_dotenv_at_import_time", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_profiles_root_default_is_the_env_var_not_a_literal", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_load_env_injects_missing_keys", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_the_shell_wins_over_dotenv", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_load_env_is_a_noop_on_a_missing_file", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_quoted_and_raw_string_values_are_unwrapped", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_binding_resolution_returns_none_without_a_profiles_root", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_binding_resolution_logs_by_name_when_it_succeeds", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_memory_sync.py":
     purpose: "Locks the git-tracked memory mirror: index/file 1:1, no stale path anchors, and the mirror really is tracked; asserts on the mirror only, never the machine-local live store."
     layer: "tests"
@@ -1262,6 +1277,89 @@ files:
       - {name: "SmokeResult", file: "Tests/bench/smoketest.py", kind: "class"}
       - {name: "run", file: "Tests/bench/smoketest.py", kind: "function"}
       - {name: "main", file: "Tests/bench/smoketest.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_capture.py":
+    purpose: "CLI: run a scenario two-pass and write a calltree-v1 JSON capture."
+    layer: "tests"
+    key_symbols:
+      - {name: "capture_inproc", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+      - {name: "capture_fullfid", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+      - {name: "capture_macro", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+      - {name: "cprofile_crosscheck", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+      - {name: "to_speedscope", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+      - {name: "main", file: "Tests/calltree/calltree_capture.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_compare.py":
+    purpose: "diff two calltree-v1 captures; nonzero exit on drift."
+    layer: "tests"
+    key_symbols:
+      - {name: "compare", file: "Tests/calltree/calltree_compare.py", kind: "function"}
+      - {name: "main", file: "Tests/calltree/calltree_compare.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_growth.py":
+    purpose: "size-ladder runner + complexity-exponent fitting."
+    layer: "tests"
+    key_symbols:
+      - {name: "FLAG_COUNT_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "FLAG_TIME_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "MIN_R2", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "MIN_CALLS", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "run_meso_ladder", file: "Tests/calltree/calltree_growth.py", kind: "function"}
+      - {name: "run_deep_ladder", file: "Tests/calltree/calltree_growth.py", kind: "function"}
+      - {name: "fit_report", file: "Tests/calltree/calltree_growth.py", kind: "function"}
+      - {name: "main", file: "Tests/calltree/calltree_growth.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_render.py":
+    purpose: "CLI: render out/*.json captures to the offline HTML viewer + PNGs."
+    layer: "tests"
+    key_symbols:
+      - {name: "main", file: "Tests/calltree/calltree_render.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_scenarios.py":
+    purpose: "seeded, deterministic scenario tiers for the calltree framework."
+    layer: "tests"
+    key_symbols:
+      - {name: "DEFAULT_STRATEGY", file: "Tests/calltree/calltree_scenarios.py", kind: "const"}
+      - {name: "ScenarioUnavailable", file: "Tests/calltree/calltree_scenarios.py", kind: "class"}
+      - {name: "set_reorder_fields", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+      - {name: "ScenarioAssets", file: "Tests/calltree/calltree_scenarios.py", kind: "class"}
+      - {name: "build_assets", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+      - {name: "MesoResult", file: "Tests/calltree/calltree_scenarios.py", kind: "class"}
+      - {name: "run_meso", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+      - {name: "run_micro", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+      - {name: "run_fullfid", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+      - {name: "macro_sections", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_tracer.py":
+    purpose: "deterministic call-tree tracer for the runtime measurement framework."
+    layer: "tests"
+    key_symbols:
+      - {name: "SECTIONS", file: "Tests/calltree/calltree_tracer.py", kind: "const"}
+      - {name: "Node", file: "Tests/calltree/calltree_tracer.py", kind: "class"}
+      - {name: "CallTreeTracer", file: "Tests/calltree/calltree_tracer.py", kind: "class"}
+      - {name: "attribute_sections", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
+      - {name: "counts_fingerprint", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
+      - {name: "to_capture_dict", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
+      - {name: "write_capture", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/test_calltree_anchors.py":
+    purpose: "drift gate: the framework's anchors into product code hold."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_section_map_symbols_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_section_vocabulary_matches_strategy_runner", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_production_engine_identity", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_scenario_reorders_actually_fire", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_default_strategy_still_registered", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/test_calltree_smoke.py":
+    purpose: "the measurement framework measures what it claims to."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_scenario_fires_placement_and_picks", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_tracer_sees_engine_threads_and_placement", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_counts_deterministic_and_seed_sensitive", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_section_attribution_covers_the_tree", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/conftest.py":
     purpose: "single sys.path bootstrap for the whole suite."
@@ -1978,6 +2076,26 @@ files:
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_run_shaping_params.py":
+    purpose: "run-shaping params flow sim -> run_spec.json -> analysis."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_fill_accessors_read_config_live", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_import_time_snapshot_is_gone", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_sim_assets_uses_the_accessor_for_the_provenance_write", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_checkpoint_every_follows_the_configured_fraction", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_new_flags_exist_and_are_documented", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_new_flags_are_recorded_in_run_spec_and_restored_on_resume", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_apply_run_shape_restores_every_recorded_param", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_apply_run_shape_finds_run_spec_from_a_CELL_dir", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_apply_run_shape_warns_loudly_when_the_run_predates_run_spec", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_run_analysis_threads_max_skus_into_the_rebuild", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_worker_recycling_is_pinned_at_one", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_flag_warns_instead_of_lying", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_pool_is_constructed_with_the_pinned_value", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_structural_bin_floor_is_configuration_not_catalogue", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_run_simulation_warns_before_any_build", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_scheduler.py":
     purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
     layer: "tests"
@@ -2319,6 +2437,7 @@ files:
     purpose: "warehouse sizing/sampling (pre-instantiation)."
     layer: "wh_inventory"
     key_symbols:
+      - {name: "structural_bin_floor", file: "Warehouse/inventory/inventory_planning.py", kind: "function"}
       - {name: "PlanningMixin", file: "Warehouse/inventory/inventory_planning.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_reorder.py":

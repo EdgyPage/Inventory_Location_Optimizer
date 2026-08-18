@@ -1,0 +1,39 @@
+/* calltree viewer — minimal, deterministic, offline. */
+:root {
+  --bg: #14161a; --panel: #1d2026; --ink: #d7dae0; --dim: #8a919d;
+  --accent: #58a6ff; --warn: #e3b341; --bad: #f85149; --good: #3fb950;
+  --mono: 'Cascadia Mono', 'Consolas', monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 14px/1.45 system-ui, 'Segoe UI', sans-serif; }
+header { display: flex; align-items: baseline; gap: 24px; padding: 12px 20px;
+         background: var(--panel); border-bottom: 1px solid #2b3038;
+         position: sticky; top: 0; z-index: 5; }
+h1 { font-size: 18px; margin: 0; color: var(--accent); }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+     color: var(--dim); margin: 0 0 8px; }
+#controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+#controls label { color: var(--dim); font-size: 13px; }
+select { background: var(--bg); color: var(--ink); border: 1px solid #2b3038;
+         border-radius: 4px; padding: 3px 6px; font-family: var(--mono); }
+section { padding: 14px 20px; }
+#meta-panel { font-family: var(--mono); font-size: 12px; color: var(--dim);
+              white-space: pre-wrap; }
+#sections-bar { display: flex; height: 34px; border-radius: 4px; overflow: hidden;
+                font-family: var(--mono); font-size: 11px; }
+#sections-bar div { display: flex; align-items: center; justify-content: center;
+                    color: #0d1117; overflow: hidden; white-space: nowrap; }
+#icicle text { font: 10px var(--mono); fill: #0d1117; pointer-events: none; }
+#icicle rect { stroke: var(--bg); stroke-width: 1; cursor: pointer; }
+#icicle-breadcrumb { font-family: var(--mono); font-size: 12px; color: var(--accent);
+                     min-height: 18px; margin-bottom: 6px; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
+th, td { text-align: right; padding: 3px 10px; border-bottom: 1px solid #22262d; }
+th { color: var(--dim); cursor: pointer; user-select: none; position: sticky; top: 58px;
+     background: var(--bg); }
+th:first-child, td:first-child { text-align: left; }
+td.name { max-width: 640px; overflow: hidden; text-overflow: ellipsis;
+          white-space: nowrap; }
+td.pos { color: var(--bad); } td.neg { color: var(--good); }
+tr.ext td { color: var(--dim); }
