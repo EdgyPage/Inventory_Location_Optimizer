@@ -118,12 +118,14 @@ def _registry_defaults():
 
 _DEFAULTS = _registry_defaults()
 DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
-# Cross-cell what-if artifacts at the RUN ROOT. whatif_delta.json is what docs/macros.py's
-# whatif_matrix() renders; the PNGs are the scatter/bar set.  Both used to be copied by hand.
-# whatif_volume.json / whatif_labor.json ride along so every number the pages quote has a
-# committed source — Experiment 6's volume-curve prose cited an uncommitted CSV (README §5).
-DEFAULT_WHATIF_DATA = ["whatif_delta.json", "whatif_volume.json", "whatif_labor.json"]
+# Cross-cell what-if artifacts at the RUN ROOT.  The resolver route stages EVERY .json in
+# the contract's `whatif` group (so the volume/labor numbers the pages quote always have a
+# committed source, and a new group member auto-stages with no edit here — the ratchet in
+# Tests/architecture/test_runtree_consumption.py is why no filename is spelled).  The
+# literal below serves only the pre-descriptor legacy route, which predates the group tag.
+DEFAULT_WHATIF_DATA = ["whatif_delta.json"]
 DEFAULT_WHATIF_PNG_GLOB = "whatif_*.png"
+_WHATIF_DATA_EXT = ".json"
 
 _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs
 
@@ -437,22 +439,19 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
     Absent on a single-cell run, which is not an error.
 
     With a resolver the candidates come from the contract's `whatif` group tag
-    (`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED stays
-    the docs' own selection (DEFAULT_WHATIF_DATA + the PNG set).  The literal joins below remain
-    the pre-descriptor route.
+    (`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED is
+    shape-based, never name-based: every group `.json` into data/ (the committed sources the
+    prose quotes) and every group PNG into images/.  The literal joins below remain the
+    pre-descriptor route.
     """
     n = 0
     if rt is not None:
-        outs = rt.whatif_outputs()                   # existing whatif artifacts at the run root
-        by_name = {os.path.basename(p): p for p in outs}
-        for fname in DEFAULT_WHATIF_DATA:
-            src = by_name.get(fname)
-            if src:
-                n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=fname), dry, log)
-        for src in sorted(p for p in outs
-                          if fnmatch.fnmatch(os.path.basename(p), DEFAULT_WHATIF_PNG_GLOB)):
-            n += _copy(src, site_tree.path('whatif_delta', exp_dir,
-                                           fname=os.path.basename(src)), dry, log)
+        for src in sorted(rt.whatif_outputs()):      # existing whatif artifacts at the run root
+            base = os.path.basename(src)
+            if base.endswith(_WHATIF_DATA_EXT):
+                n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=base), dry, log)
+            elif fnmatch.fnmatch(base, DEFAULT_WHATIF_PNG_GLOB):
+                n += _copy(src, site_tree.path('whatif_delta', exp_dir, fname=base), dry, log)
         return n
     for fname in DEFAULT_WHATIF_DATA:
         src = os.path.join(source, fname)
