@@ -160,8 +160,8 @@ def run_deep_ladder(workers: int, dry_run: bool) -> dict:
               f'({workers} workers)...', flush=True)
         env = dict(os.environ, MPLBACKEND='Agg')
         t0 = time.perf_counter()
-        proc = subprocess.run(cmd, cwd=_REPO_ROOT, env=env,
-                              capture_output=True, text=True)
+        proc = subprocess.run(cmd, cwd=_REPO_ROOT, env=env, capture_output=True,
+                              text=True, encoding='utf-8', errors='replace')
         wall = time.perf_counter() - t0
         if proc.returncode != 0:
             print(f'  RUNG FAILED (exit {proc.returncode}); last output:')
