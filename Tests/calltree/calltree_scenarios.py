@@ -69,21 +69,34 @@ class ScenarioUnavailable(RuntimeError):
 
 # ── reorder-enabled inventory ─────────────────────────────────────────────────
 
-def set_reorder_fields(orders, seed: int, *, lead_time: float = 0.0,
-                       supply_cv: float = 0.0) -> None:
-    """Give every order a real equilibrium/reorder point so placement fires.
+def set_reorder_fields(orders, seed: int, *, coverage: float = 10.0, safety: float = 2.0,
+                       lead_time: float = 0.0, supply_cv: float = 0.0) -> None:
+    """Give every order the PRODUCTION-SHAPED equilibrium/reorder model so placement fires
+    with production scaling.
 
-    equilibrium_qty ∈ [3, 8] and reorder_point = eq//2 (Order.build's clamp respected by
-    construction) — deep enough that stock survives a batch or two, shallow enough that
-    demand crosses the trigger within a few batches. lead_time=0 releases reorders to the
-    stock queue in the same check_reorders pass, so the placement path runs from batch 1.
+    Mirrors Warehouse/generation/generate_inventory.py::build_inventory_equilibrium:
+        expected = f · q                    (relative_frequency × quantity_rate — NOT ×k;
+                                             production absorbs batch size into coverage)
+        eq  = max(1, round(coverage · expected))
+        rp  = max(1, min(eq − 1, round(expected · (lead + safety))))   [1 when eq == 1]
+    Demand-proportional stock depth is the property the deep ladder exposed and flat
+    randint(3,8) equilibria hid: per-SKU bin multiplicity grows with demand mass, which is
+    the second factor of Task.from_batch's quadratic. coverage=10/safety=2 = production;
+    smoke tests pass coverage≈2 with safety scaled by coverage/10 so the rp/eq fraction
+    stays ≈ production's ~0.2 (safety left at 2 with small coverage degenerates to
+    rp = eq−1 — reorder-nearly-every-batch, which would inflate t_reord in every
+    measurement). lead_time=0 releases reorders in the same check_reorders pass.
+
+    The seed parameter is kept for API stability (production draws no randomness here).
     """
-    rng = random.Random(seed ^ 0x5EED)
+    del seed  # deterministic: a pure function of each order's demand
     for c in orders:
-        eq = rng.randint(3, 8)
-        c.expected_batch_demand = c.demand.relative_frequency * c.demand.quantity_rate
+        expected = c.demand.relative_frequency * c.demand.quantity_rate
+        eq = max(1, round(coverage * expected))
+        c.expected_batch_demand = expected
         c.equilibrium_qty       = eq
-        c.reorder_point         = max(1, eq // 2)
+        c.reorder_point         = (max(1, min(eq - 1, round(expected * (lead_time + safety))))
+                                   if eq > 1 else 1)
         c.lead_time_mean        = float(lead_time)
         c.supply_cv             = float(supply_cv)
 
@@ -106,19 +119,22 @@ class ScenarioAssets:
 
 def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                  n_pickers: int = 10, seed: int = 42, target_fill: float = 0.85,
-                 strategy: str = DEFAULT_STRATEGY) -> ScenarioAssets:
+                 strategy: str = DEFAULT_STRATEGY,
+                 coverage: float = 10.0, safety: float = 2.0) -> ScenarioAssets:
     """Deterministic single-arm assets with production placement wiring.
 
     Mirrors Diagnostics/trace_lifecycle.py's recipe (plan_warehouse to a target fill,
     StrategyContext + the strategies-registry build), with the reorder fields set BEFORE
-    sampling so every sampled order carries them.
+    sampling so every sampled order carries them. coverage/safety default to production's
+    equilibrium model (10/2); fast tests shrink coverage AND scale safety with it
+    (safety ≈ 2·coverage/10) to keep the rp/eq fraction production-shaped.
     """
     strat = STRATEGY_BY_KEY[strategy]
 
     random.seed(seed)
     np.random.seed(seed)
     pool = _build_inventory(n_skus, seed)
-    set_reorder_fields(pool.orders, seed)
+    set_reorder_fields(pool.orders, seed, coverage=coverage, safety=safety)
 
     n_cols = max(1, bins_per_aisle // 20)
     plan = Inventory_Manager.plan_warehouse(

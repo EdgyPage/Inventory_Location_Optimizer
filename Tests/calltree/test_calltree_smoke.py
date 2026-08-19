@@ -16,7 +16,11 @@ import calltree_scenarios as scenarios
 import calltree_tracer as ct
 
 # Tiny but real: big enough that every section does work, small enough for seconds.
-_BUILD = dict(n_skus=300, bins_per_aisle=40, n_pickers=4, seed=42)
+# coverage/safety are scaled together (2 / 0.4) so stock depletes within a 5-batch run
+# while the rp/eq fraction stays production-shaped (~0.2) — safety left at 2 with small
+# coverage would degenerate to rp = eq−1 and reorder nearly every batch.
+_BUILD = dict(n_skus=300, bins_per_aisle=40, n_pickers=4, seed=42,
+              coverage=2.0, safety=0.4)
 _N_BATCHES = 5
 
 

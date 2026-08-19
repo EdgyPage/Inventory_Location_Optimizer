@@ -111,7 +111,8 @@ def test_production_engine_identity():
 
 def test_scenario_reorders_actually_fire():
     # The cheap functional probe: a fresh minimal scenario must place reorder units.
-    assets = scenarios.build_assets(n_skus=150, bins_per_aisle=40, n_pickers=3, seed=11)
+    assets = scenarios.build_assets(n_skus=150, bins_per_aisle=40, n_pickers=3, seed=11,
+                                    coverage=2.0, safety=0.4)   # fast depletion, prod-shaped rp/eq
     r = scenarios.run_meso(assets, n_batches=2, seed=11)
     assert r.placements > 0, \
         'scenario builder stopped firing reorders — every placement measurement is dead'
