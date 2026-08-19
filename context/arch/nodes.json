@@ -10106,6 +10106,75 @@
       "kind": "class",
       "signature": ""
     },
+    "Warehouse/inventory/inventory_common.py::_SortedBins": {
+      "decorators": [],
+      "doc": "A set-of-bins whose iteration order is PERMANENTLY `location` order.\n\nReplaces the `set[Aisle.Bin]` values of `_sku_singleton_bins` / `_sku_pallet_bins` so\n`Task.from_batch` can drain a SKU's bins without paying `sorted(...)` twice per batch\nSKU (the deep-ladder t_task k\u22482.3 offender: batch-SKU count AND per-SKU bin multiplicity\nboth grow with the catalogue).  The maintained order is exactly what those sorts\nproduced \u2014 `location = (aisle_id, bayX, bayY)` is immutable for a bin's lifetime and\nglobally unique (monotone aisle ids, unique bay tuples), so iteration here is\nbyte-identical to `sorted(old_set, key=location)`.\n\nSemantics preserved from `set`: identity membership (Aisle.Bin has no __eq__/__hash__),\n`discard` of a non-member is a silent no-op, truthiness/len.  Duplicate `add` is an\nASSERT rather than a silent dedupe: `_execute_placement` cannot re-place an indexed bin\n(`_index_remove` pops `_bin_index_pos` first), so a duplicate here is a real bug.\n\nThe bisect-with-key idiom mirrors `_index_add`/`_index_remove`\n(Inventory_Management.py) \u2014 the in-repo precedent this container copies.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bin_) -> bool"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.add": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bin_) -> None"
+    },
+    "Warehouse/inventory/inventory_common.py::_SortedBins.discard": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bin_) -> None"
+    },
+    "Warehouse/inventory/inventory_common.py::_by_location": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "operator.attrgetter('location')"
+    },
     "Warehouse/inventory/inventory_common.py::_equilibrium_qty": {
       "decorators": [],
       "doc": "Return the Order-Up-To target for *order*.\n\nReads equilibrium_qty if present (new schema); falls back to the legacy\nstock_qty attribute so old in-memory inventories still work correctly.",
@@ -11712,6 +11781,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(v_raw)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._score_of": {
+      "decorators": [],
+      "doc": "The per-(unit, aisle) score \u2014 the ORIGINAL expressions verbatim.\n\nbalance TOTAL expected aisle labor = handling+travel + expected cart swaps,\nso an aisle nearing a full cart is penalised and further volume disperses.\nThe SKU's volume mass counts ONCE per aisle (a second bin of a SKU already\nhere adds no new expected picked volume), mirroring aisle_pick_load_sum.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aid, ab, sku, fq, m_s)"
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion": {
       "decorators": [],

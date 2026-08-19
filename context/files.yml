@@ -1265,6 +1265,19 @@ files:
       - {name: "run_cprofile_raw", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
       - {name: "main", file: "Tests/bench/profile_lifecycle.py", kind: "function"}
     notes: ""
+  "Tests/bench/run_digest.py":
+    purpose: "content digests over a run's domain tables; the byte-identical gate."
+    layer: "tests"
+    key_symbols:
+      - {name: "SIM_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "KEYFRAME_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "WAREHOUSE_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "EXCLUDED_COLS", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "digest_run", file: "Tests/bench/run_digest.py", kind: "function"}
+      - {name: "compare", file: "Tests/bench/run_digest.py", kind: "function"}
+      - {name: "self_test", file: "Tests/bench/run_digest.py", kind: "function"}
+      - {name: "main", file: "Tests/bench/run_digest.py", kind: "function"}
+    notes: ""
   "Tests/bench/smoketest.py":
     purpose: "Hand-run pipeline smoketest: simulate, analyse, verify every artifact of the finished run against the run-tree contract, stage it into a disposable docs experiment, and build the site strictly."
     layer: "tests"
@@ -2134,6 +2147,15 @@ files:
       - {name: "test_diff_names_the_actual_difference", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_is_empty_for_an_unchanged_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_sorted_bins_container.py":
+    purpose: "`_SortedBins` behaves exactly like the `set[Aisle.Bin]` it"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_iteration_matches_sorted_mirror_under_churn", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+      - {name: "test_identity_membership_not_location_membership", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+      - {name: "test_duplicate_add_rejected", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+      - {name: "test_discard_absent_is_noop_and_empty_is_falsy", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_task_bin_selection_determinism.py":
     purpose: "test_task_bin_selection_determinism.py"
     layer: "tests"
@@ -2143,6 +2165,17 @@ files:
       - {name: "test_singletons_still_drain_before_pallets", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_real_manager_matches_the_canonical_expectation", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_manager_and_fallback_branches_agree", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_travel_balanced_equivalence.py":
+    purpose: "the SKU-run-cached `_travel_balanced_impl` selects the"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_random_waves_equivalent", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
+      - {name: "test_crafted_exact_ties", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
+      - {name: "test_exhaustion_and_spill", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
+      - {name: "test_empty_candidates", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
+      - {name: "test_two_order_objects_one_sku", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
+      - {name: "test_two_consecutive_waves_shared_state", file: "Tests/unit/test_travel_balanced_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_travel_decomposition.py":
     purpose: "Travel decomposition (B1): the sim stamps each second of travel into pick_travel /"
