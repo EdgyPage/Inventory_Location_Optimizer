@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import os
 import random
 import sqlite3
@@ -126,19 +127,53 @@ class AffinityStore:
         matrix.  That path is only used for online/legacy generation and is not
         called by the comparison scripts.
         """
-        rows = self._conn.execute(
-            'SELECT sku_i, sku_j, lift FROM affinity'
-        ).fetchall()
+        # Stream into COUNT(*)-presized arrays instead of fetchall + zip(*rows): the
+        # one-shot form materialized every row tuple and cell object simultaneously
+        # (~1.4 GB transient / ~26M GC-tracked objects on a 14M-row production
+        # affinity.db — the measured source of both the flat ~3.9 GiB worker peak and
+        # the startup-dominated gen-2 pause).  Chunking bounds the transient to one
+        # fetchmany window; each chunk's tuples die young, which gen-0 reclaims
+        # without full-heap walks.  The per-column conversion inside a chunk is the
+        # ORIGINAL path verbatim (zip + np.asarray with pinned dtypes), so the arrays
+        # are bit-identical to the old load — enforced by the frozen oracle in
+        # Tests/unit/test_affinity_load_equivalence.py.
+        n_rows = self._conn.execute('SELECT COUNT(*) FROM affinity').fetchone()[0]
 
-        if not rows:
+        if not n_rows:
             self._sku_to_idx: dict[int, int] = {}
             self._matrix: csr_matrix | None = None
             return
 
-        sku_i_list, sku_j_list, lift_list = zip(*rows)
-        sku_i = np.asarray(sku_i_list, dtype=np.int32)
-        sku_j = np.asarray(sku_j_list, dtype=np.int32)
-        lift  = np.asarray(lift_list,  dtype=np.float32)
+        sku_i = np.empty(n_rows, dtype=np.int32)
+        sku_j = np.empty(n_rows, dtype=np.int32)
+        lift  = np.empty(n_rows, dtype=np.float32)
+        filled = 0
+        cur = self._conn.execute('SELECT sku_i, sku_j, lift FROM affinity')
+        # Cycle collector off for the fill: every object allocated here (row tuples of
+        # ints/floats, the zip triples) is acyclic, so refcounting alone reclaims each
+        # chunk — the collector contributes nothing but pauses (measured on the 14M-row
+        # production file: 36k gen-0 + 150 gen-2 collections, ~5.3s, zero RSS effect).
+        was_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            while True:
+                rows = cur.fetchmany(262_144)
+                if not rows:
+                    break
+                sku_i_list, sku_j_list, lift_list = zip(*rows)
+                end = filled + len(rows)
+                sku_i[filled:end] = np.asarray(sku_i_list, dtype=np.int32)
+                sku_j[filled:end] = np.asarray(sku_j_list, dtype=np.int32)
+                lift[filled:end]  = np.asarray(lift_list,  dtype=np.float32)
+                filled = end
+        finally:
+            if was_enabled:
+                gc.enable()
+        # Two-pass read (COUNT then scan): a mismatch means the table changed between
+        # passes.  Hard-fail rather than hand a zero-padded tail to placement — every
+        # caller is about to place ~400k bins from these lifts.
+        assert filled == n_rows, (
+            f'affinity row count moved during load: scanned {filled}, COUNT(*) said {n_rows}')
 
         all_skus = np.unique(np.concatenate([sku_i, sku_j]))
         self._sku_to_idx = {int(s): i for i, s in enumerate(all_skus)}
@@ -150,8 +185,6 @@ class AffinityStore:
             shape=(len(all_skus), len(all_skus)),
             dtype=np.float32,
         )
-        mb = (self._matrix.data.nbytes + self._matrix.indices.nbytes +
-              self._matrix.indptr.nbytes) / 1_048_576
 
     def index_inventory(self, inventory: Inventory) -> None:
         """Store sku → lift_group for every order. Safe to call multiple times."""

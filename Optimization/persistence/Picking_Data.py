@@ -1336,13 +1336,15 @@ def save_bin_scores(path: str, run_id: int, records: list[tuple]) -> None:
     con = _open_db(path)
     try:
         con.execute(_CREATE_BIN_SCORES)
+        # Generator, not a list: records is ~400k rows and executemany consumes the
+        # argument lazily — a list here briefly doubled the retained row storage.
         con.executemany(
             'INSERT OR REPLACE INTO bin_scores '
             '(run_id,aisle_id,bayX,bayY,travel_d,height_mult,layout_score,map_pref) '
             'VALUES (?,?,?,?,?,?,?,?)',
-            [(run_id, int(a), int(bx), int(by), float(td), float(hm), float(ls),
+            ((run_id, int(a), int(bx), int(by), float(td), float(hm), float(ls),
               None if mp is None else float(mp))
-             for (a, bx, by, td, hm, ls, mp) in records],
+             for (a, bx, by, td, hm, ls, mp) in records),
         )
         con.commit()
     finally:

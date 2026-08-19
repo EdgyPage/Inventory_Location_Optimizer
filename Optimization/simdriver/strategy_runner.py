@@ -521,6 +521,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         save_sku_scores(db_path, run_id, sku_rows)
         log.info(f'  Saved scores: {len(bin_rows):,} bins, {len(sku_rows):,} SKUs'
                  + ('  (incl. optimal-map pref/target)' if _pref else ''))
+        # Saved and logged — nothing reads these again, but the locals would otherwise
+        # stay alive for the whole arm (~120 MB of row tuples pinned for nothing).
+        del bin_rows, sku_rows
 
     # ── RNG streams ───────────────────────────────────────────────────────────
     # Batches use a dedicated per-batch stream seeded `seed_batches + i` (built in the
