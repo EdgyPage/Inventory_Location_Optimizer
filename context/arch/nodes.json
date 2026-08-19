@@ -4062,7 +4062,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=(PRE_STAMP_RUNTIME_SCHEMA_ID,)))"
+      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=('c033ff9c85a5', PRE_STAMP_RUNTIME_SCHEMA_ID)))"
     },
     "Optimization/persistence/runtime_metrics.py::SECTIONS": {
       "decorators": [],
@@ -4333,6 +4333,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(vals)"
+    },
+    "Optimization/run_runtime_graphs.py::_memory_graph": {
+      "decorators": [],
+      "doc": "Per-arm peak RSS bars + GC pause overlay \u2014 the memory observability view.\n\nSkips silently when the run predates the 2026-08-19 columns (all values absent):\nold vintages keep rendering their other graphs untouched.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, out)"
     },
     "Optimization/run_runtime_graphs.py::_runtime_dir": {
       "decorators": [],
@@ -6079,6 +6086,19 @@
       "kind": "function",
       "signature": "(run_dir: str) -> None"
     },
+    "Optimization/simdriver/strategy_runner.py::_peak_rss_mib": {
+      "decorators": [],
+      "doc": "This process's peak working-set (high-water RSS) in MiB, or None if unreadable.\n\nStdlib-only by design \u2014 psutil is deliberately not a production dependency.  Peak (as\nopposed to current) RSS is only knowable from the OS: Windows tracks it in\nPROCESS_MEMORY_COUNTERS.PeakWorkingSetSize; POSIX reports it as ru_maxrss (KiB on\nLinux, bytes on macOS \u2014 normalised here).  One syscall, called once per arm.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> float | None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_peak_rss_mib._PMC": {
+      "decorators": [],
+      "doc": null,
+      "kind": "class",
+      "signature": "(ctypes.Structure)"
+    },
     "Optimization/simdriver/strategy_runner.py::_run_strategy_worker": {
       "decorators": [],
       "doc": "Simulate one assignment strategy in its own process.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
@@ -6092,6 +6112,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._gc_cb": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(phase, info, _st=_gc_state)"
     },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],

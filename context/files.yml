@@ -1322,6 +1322,16 @@ files:
       - {name: "fit_report", file: "Tests/calltree/calltree_growth.py", kind: "function"}
       - {name: "main", file: "Tests/calltree/calltree_growth.py", kind: "function"}
     notes: ""
+  "Tests/calltree/calltree_memory.py":
+    purpose: "the memory dimension: per-section allocation peaks, retained growth,"
+    layer: "tests"
+    key_symbols:
+      - {name: "MemTracker", file: "Tests/calltree/calltree_memory.py", kind: "class"}
+      - {name: "run_meso_mem", file: "Tests/calltree/calltree_memory.py", kind: "function"}
+      - {name: "ladder_mem", file: "Tests/calltree/calltree_memory.py", kind: "function"}
+      - {name: "deep_rss", file: "Tests/calltree/calltree_memory.py", kind: "function"}
+      - {name: "main", file: "Tests/calltree/calltree_memory.py", kind: "function"}
+    notes: ""
   "Tests/calltree/calltree_render.py":
     purpose: "CLI: render out/*.json captures to the offline HTML viewer + PNGs."
     layer: "tests"
@@ -1342,6 +1352,20 @@ files:
       - {name: "run_micro", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
       - {name: "run_fullfid", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
       - {name: "macro_sections", file: "Tests/calltree/calltree_scenarios.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/calltree_store.py":
+    purpose: "archival naming + index for measurement artifacts."
+    layer: "tests"
+    key_symbols:
+      - {name: "OUT_DIR", file: "Tests/calltree/calltree_store.py", kind: "const"}
+      - {name: "ARCHIVE_DIR", file: "Tests/calltree/calltree_store.py", kind: "const"}
+      - {name: "INDEX_PATH", file: "Tests/calltree/calltree_store.py", kind: "const"}
+      - {name: "repo_commit", file: "Tests/calltree/calltree_store.py", kind: "function"}
+      - {name: "archive_path", file: "Tests/calltree/calltree_store.py", kind: "function"}
+      - {name: "record", file: "Tests/calltree/calltree_store.py", kind: "function"}
+      - {name: "entries", file: "Tests/calltree/calltree_store.py", kind: "function"}
+      - {name: "latest", file: "Tests/calltree/calltree_store.py", kind: "function"}
+      - {name: "migrate_flat_files", file: "Tests/calltree/calltree_store.py", kind: "function"}
     notes: ""
   "Tests/calltree/calltree_tracer.py":
     purpose: "deterministic call-tree tracer for the runtime measurement framework."
@@ -1692,6 +1716,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_record_and_load_roundtrip", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_missing_observability_keys_write_nulls_not_raises", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_key_is_unique_and_overwrites", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_load_absent_is_empty", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_graphs_emitted", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}

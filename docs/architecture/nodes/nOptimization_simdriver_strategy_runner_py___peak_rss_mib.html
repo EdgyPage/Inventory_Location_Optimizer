@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_peak_rss_mib · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___peak_rss_mib" data-id="Optimization/simdriver/strategy_runner.py::_peak_rss_mib">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_peak_rss_mib</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_peak_rss_mib</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+
+<pre class="sig"><code>def _peak_rss_mib() -&gt; float | None</code></pre>
+<section class="doc">This process&#x27;s peak working-set (high-water RSS) in MiB, or None if unreadable.
+
+Stdlib-only by design — psutil is deliberately not a production dependency.  Peak (as
+opposed to current) RSS is only knowable from the OS: Windows tracks it in
+PROCESS_MEMORY_COUNTERS.PeakWorkingSetSize; POSIX reports it as ru_maxrss (KiB on
+Linux, bytes on macOS — normalised here).  One syscall, called once per arm.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___peak_rss_mib">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_peak_rss_mib">Source ↗</a></p>
+</article>
+</main>
+</body></html>

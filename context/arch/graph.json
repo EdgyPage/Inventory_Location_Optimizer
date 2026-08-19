@@ -4151,6 +4151,11 @@
       "src": "Optimization/run_runtime_graphs.py::_by_group"
     },
     {
+      "dst": "Optimization/run_runtime_graphs.py::_save",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::_memory_graph"
+    },
+    {
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::_runtime_dir"
@@ -4212,6 +4217,11 @@
     },
     {
       "dst": "Optimization/run_runtime_graphs.py::_by_group",
+      "kind": "calls",
+      "src": "Optimization/run_runtime_graphs.py::run"
+    },
+    {
+      "dst": "Optimization/run_runtime_graphs.py::_memory_graph",
       "kind": "calls",
       "src": "Optimization/run_runtime_graphs.py::run"
     },
@@ -6347,6 +6357,11 @@
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::load_batches",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
@@ -16738,6 +16753,14 @@
     },
     {
       "file": "Optimization/run_runtime_graphs.py",
+      "id": "Optimization/run_runtime_graphs.py::_memory_graph",
+      "kind": "function",
+      "module": "Optimization/run_runtime_graphs.py",
+      "name": "_memory_graph",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_runtime_graphs.py",
       "id": "Optimization/run_runtime_graphs.py::_runtime_dir",
       "kind": "function",
       "module": "Optimization/run_runtime_graphs.py",
@@ -18746,6 +18769,22 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_peak_rss_mib",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib._PMC",
+      "kind": "class",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_PMC",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -18758,6 +18797,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_arm_aisle_state",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._gc_cb",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_gc_cb",
       "public": false
     },
     {
