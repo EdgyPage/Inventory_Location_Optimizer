@@ -54,7 +54,7 @@ from Warehouse.picking.Pick import PickConfig
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Optimization.metrics.Simulation_Analytics import (
-    build_pre_snapshot, extract_batch_stats, extract_picker_events, extract_picks,
+    fused_pre_snapshot, extract_batch_stats, extract_picker_events, extract_picks,
     extract_task_stats, snapshot_aisle_metrics)
 from Optimization.metrics.Workload import WorkloadParams
 
@@ -246,11 +246,14 @@ def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
             tasks = Task.from_batch(batch, warehouse, manager=mgr,
                                     cart=assets.pick_cfg.cart)
 
+        # Mirrors the runner's fused pass (occupancy accumulated inside t_pre; keyframe
+        # rows not requested — the meso loop writes no keyframes).  t_inv keeps its slot
+        # in the partition with the residual bookkeeping the runner still does there.
         with sec('t_pre'):
-            pre_snap = build_pre_snapshot(mgr)
-            am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id='calltree')
+            _occupancy, _ = fused_pre_snapshot(mgr, False)
+            am = snapshot_aisle_metrics(mgr, batch_id=i, run_id='calltree')
         with sec('t_inv'):
-            _occupancy = sum(v['pre_qty'] for v in pre_snap.values())
+            _residual = _occupancy - _occupancy   # shape-only stand-in for the ledger
 
         if not tasks:
             skipped += 1

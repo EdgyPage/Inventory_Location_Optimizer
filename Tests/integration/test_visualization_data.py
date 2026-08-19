@@ -50,7 +50,8 @@ from Optimization.persistence.Picking_Data import (
 from Optimization.persistence.Warehouse_Data import (
     init_warehouse_db, save_aisle_layout, compute_warehouse_fingerprint,
 )
-from Optimization.metrics.Simulation_Analytics import build_pre_snapshot
+from Optimization.metrics.Simulation_Analytics import build_pre_snapshot, fused_pre_snapshot
+from Warehouse.layout.Storage_Primitive import Singleton
 
 _TOL = 1e-9
 
@@ -335,6 +336,42 @@ def test_keyframe_db_path_and_roundtrip():
 
     assert batches == [0, 5]
     assert qty == 16
+
+
+def test_fused_pre_snapshot_matches_original():
+    """The pre-snapshot fusion gate: `fused_pre_snapshot` must reproduce exactly what the
+    runner used to derive from `build_pre_snapshot` — the keyframe row list (same values,
+    same ORDER: keyframe rowids depend on it, same empty-bin skip) and the conservation
+    ledger's occupancy sum.  The row comprehension below is the runner's retired code,
+    verbatim."""
+    sing = object.__new__(Singleton)          # a REAL Singleton so isinstance says so
+    sing.order = _Order(sku=7)
+    sing.quantity = 3
+    bins = [
+        _Bin(1, 2, 3, _Unit(sku=99, quantity=16)),
+        _Bin(1, 2, 4, None),                          # empty: both paths skip it
+        _Bin(2, 0, 1, sing, storage_size='small'),    # 'singleton', size from the BIN
+        _Bin(3, 5, 5, _Unit(sku=98, quantity=0)),     # zero-qty but occupied: kept
+    ]
+    mgr = _Manager(bins)
+
+    pre_snap = build_pre_snapshot(mgr)
+    want_rows = [
+        {'aisle_id': v['aisle_id'], 'bayX': v['bayX'], 'bayY': v['bayY'],
+         'sku': v['sku'], 'unit_type': v['unit_type'],
+         'storage_size': v['storage_size'], 'qty': v['pre_qty']}
+        for v in pre_snap.values()
+    ]
+    want_occ = sum(v['pre_qty'] for v in pre_snap.values())
+
+    occupancy, rows = fused_pre_snapshot(mgr, True)
+    assert rows == want_rows, 'fused keyframe rows differ from the build_pre_snapshot derivation'
+    assert [r['unit_type'] for r in rows] == ['pallet', 'singleton', 'pallet']
+    assert occupancy == want_occ == 19
+
+    occ_only, no_rows = fused_pre_snapshot(mgr, False)
+    assert occ_only == want_occ
+    assert no_rows is None, 'non-keyframe batches must not pay for row building'
 
 
 # ── RECONSTRUCTION.md §1 — what an ARCHIVED run's bin_inventory means ────────────

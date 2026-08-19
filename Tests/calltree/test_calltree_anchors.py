@@ -28,7 +28,7 @@ _SECTION_MAP_HOME = {
     'ReorderMixin.check_reorders'     : 'Warehouse.inventory.inventory_reorder',
     'Batch.__init__'                  : 'Warehouse.picking.Workload_Builder',
     'Task.from_batch'                 : 'Warehouse.picking.Workload_Builder',
-    'build_pre_snapshot'              : 'Optimization.metrics.Simulation_Analytics',
+    'fused_pre_snapshot'              : 'Optimization.metrics.Simulation_Analytics',
     'snapshot_aisle_metrics'          : 'Optimization.metrics.Simulation_Analytics',
     'save_bin_keyframe'               : 'Optimization.persistence.Picking_Data',
     'DeferredPickSimulation.run'      : 'Warehouse.picking.fast_pick',

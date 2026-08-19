@@ -52,7 +52,7 @@ from Optimization.simdriver.batch_precompute import load_batches, batch_fingerpr
 from Optimization.metrics.bin_recorder import BinRecorder
 from Optimization.metrics.Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
-    build_pre_snapshot, snapshot_aisle_metrics,
+    fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
     save_bin_placements, save_bin_evictions,
@@ -565,7 +565,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     t_build_ckpt   = 0.0   # Batch(...) + Task.from_batch(...)  (= smpl + task below)
     t_sample_ckpt  = 0.0   # Batch(...) order-sampling only (the precompute/dedup target)
     t_task_ckpt    = 0.0   # Task.from_batch(...) only (sequential — reads live placement)
-    t_pre_ckpt     = 0.0   # build_pre_snapshot + snapshot_aisle_metrics + keyframe write
+    t_pre_ckpt     = 0.0   # fused_pre_snapshot + snapshot_aisle_metrics + keyframe write
     t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
     t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
     t_inv_ckpt     = 0.0   # bin accounting: the conservation ledger (was: snapshot_bin_inventory)
@@ -581,11 +581,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # no special case for the first measured batch (a resumed arm re-stocks from empty) and
     # localises a break just as well: the first batch that fails names the one that broke it.
     #
-    # Measured at `build_pre_snapshot` time — start of batch, after restock, before picks —
-    # because that snapshot IS the occupied-bin set, so the occupancy term is a sum over a dict
-    # already materialised rather than a second walk of 396,500 bins.  At full occupancy that
-    # sum is a low-tens-of-ms integer add per batch against the several hundred ms
-    # `build_pre_snapshot` spends allocating the dict it reads.
+    # Measured at `fused_pre_snapshot` time — start of batch, after restock, before picks —
+    # because that pass IS the occupied-bin walk, so the occupancy term accumulates inside
+    # it rather than as a second walk of 396,500 bins.
     cons_picked   = 0      # units picked, cumulative over the arm
     cons_breaks   = 0      # batches that INTRODUCED an unaccounted-for unit
     cons_residual = 0      # last observed (ledger − occupancy); see the report rule below
@@ -670,30 +668,33 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         tasks    = Task.from_batch(batch, warehouse, manager=mgr, cart=pick_cfg.cart)
         _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
-        pre_snap = build_pre_snapshot(mgr)                         # bin qtys before picks
-        am       = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
+        # One fused pass over the occupied bins (bin qtys before picks): the occupancy
+        # term for the conservation ledger below always, keyframe row dicts only when
+        # this batch writes one.  Replaces build_pre_snapshot, whose ~400k-dict was
+        # built every batch but consumed past the pre_qty sum only on keyframe batches.
+        # NOTE for bench_sections comparisons across this change: the occupancy sum
+        # used to be timed under t_inv and now rides t_pre; t_kf no longer includes
+        # building the row list (that is the fused pass), only the DB write.
+        _want_kf = kf_db is not None and i % keyframe_interval == 0
+        occupancy, kf_rows = fused_pre_snapshot(mgr, _want_kf)
+        am = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
 
         # Keyframe: full occupied-bin state at this batch's start (after reorders),
         # written every keyframe_interval batches so the player can jump here
-        # without replaying deltas from batch 0.  Reuses the pre_snap already built.
+        # without replaying deltas from batch 0.
         # t_kf is a SUB-SPAN of t_pre (the smpl/task-inside-build pattern): `_t` is not
         # touched, so t_pre still covers the whole stretch and the sections stay a
         # partition of the loop body (the calltree smoke test's invariant).
-        if kf_db is not None and i % keyframe_interval == 0:
+        if _want_kf:
             _k0 = time.perf_counter()
-            save_bin_keyframe(kf_db, run_id, i, [
-                {'aisle_id': v['aisle_id'], 'bayX': v['bayX'], 'bayY': v['bayY'],
-                 'sku': v['sku'], 'unit_type': v['unit_type'],
-                 'storage_size': v['storage_size'], 'qty': v['pre_qty']}
-                for v in pre_snap.values()
-            ])
+            save_bin_keyframe(kf_db, run_id, i, kf_rows)
             t_kf_ckpt += time.perf_counter() - _k0
         _now = time.perf_counter(); t_pre_ckpt += _now - _t; _t = _now
 
         # ── conservation ledger ────────────────────────────────────────────────
-        # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `pre_snap` is
-        # the occupied-bin set at this instant, so the occupancy term is one integer sum over
-        # a dict that has just been built anyway.  Checked BEFORE the `not tasks` skip so an
+        # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `occupancy`
+        # came from the fused pass above — the occupied-bin walk at this instant — so the
+        # term costs nothing extra here.  Checked BEFORE the `not tasks` skip so an
         # empty batch is audited like any other.
         #
         # LOGGED, NEVER RAISED — deliberately.  A hard raise would kill a 20-minute arm (and
@@ -709,7 +710,6 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # The ledger is cumulative, so one bad batch leaves a residual that persists forever.
         # Reporting every batch after the first would be ~100 identical lines; reporting only
         # when the residual MOVES names exactly the batches that introduced unaccounted units.
-        occupancy = sum(v['pre_qty'] for v in pre_snap.values())
         residual  = (bin_rec.units_placed - bin_rec.units_evicted - cons_picked) - occupancy
         if residual != cons_residual:
             cons_breaks += 1

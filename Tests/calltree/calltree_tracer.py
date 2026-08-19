@@ -60,7 +60,7 @@ SECTION_MAP: dict[str, str] = {
     'ReorderMixin.check_reorders': 't_reord',   # Inventory_Manager inherits it from the mixin
     'Batch.__init__'                  : 't_sample',
     'Task.from_batch'                 : 't_task',
-    'build_pre_snapshot'              : 't_pre',
+    'fused_pre_snapshot'              : 't_pre',
     'snapshot_aisle_metrics'          : 't_pre',
     'save_bin_keyframe'               : 't_pre',
     'DeferredPickSimulation.run'      : 't_sim',

@@ -507,6 +507,52 @@ def build_pre_snapshot(manager) -> dict:
     return snap
 
 
+def fused_pre_snapshot(manager, want_rows: bool) -> tuple[int, list[dict] | None]:
+    """One pass over the occupied bins: occupancy always, keyframe rows only on demand.
+
+    The fused replacement for `build_pre_snapshot` on the strategy_runner hot path.  That
+    function materialises an id(bin)-keyed dict of ~400k row dicts EVERY batch (measured
+    96 MiB/batch of churn at 8k SKUs), yet on a non-keyframe batch — the common case —
+    its only consumer is the conservation ledger's `sum(pre_qty)`.  This walks
+    `manager._unavailable.values()` once at the same instant (start of batch, after the
+    restock pass, before any pick) and returns
+
+        (occupancy, rows)   — occupancy: Σ quantity over occupied bins (the ledger term);
+                              rows: `save_bin_keyframe`-shaped dicts, or None unless
+                              `want_rows` (keyframe batches only).
+
+    Row order is the `_unavailable` dict's iteration order minus the `storage is None`
+    skip — the SAME order `build_pre_snapshot` produced, so keyframe rowids are
+    unchanged.  `unit_type` comes from the storage UNIT's class and `storage_size` from
+    the BIN's tier, exactly as before (a FulfillmentBin holding a Singleton is
+    'singleton'; the bin's tier is what the viewer bins by).
+
+    `build_pre_snapshot` itself stays: Tests/integration/test_visualization_data.py
+    reads `bin_ref` and post-mutation `pre_qty` off the materialised dict, and the
+    archived bin_inventory writer it documents is a never-improve.
+    """
+    from Warehouse.layout.Storage_Primitive import Singleton
+    occupancy = 0
+    rows: list[dict] | None = [] if want_rows else None
+    for bin_ in manager._unavailable.values():
+        storage = bin_.storage
+        if storage is None:
+            continue
+        qty = storage.quantity
+        occupancy += qty
+        if rows is not None:
+            rows.append({
+                'aisle_id'    : bin_.location[0],
+                'bayX'        : bin_.bayX,
+                'bayY'        : bin_.bayY,
+                'sku'         : storage.order.sku,
+                'unit_type'   : 'singleton' if isinstance(storage, Singleton) else 'pallet',
+                'storage_size': bin_.storage_size,
+                'qty'         : qty,
+            })
+    return occupancy, rows
+
+
 def extract_picker_events(
     events   : list,
     batch_id : int,
