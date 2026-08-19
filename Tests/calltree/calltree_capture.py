@@ -69,7 +69,8 @@ def _meta(args, sizes: dict, overhead: float | None) -> dict:
 
 
 def _default_out(args) -> str:
-    return os.path.join(_OUT_DIR, f'{args.tier}_s{args.seed}_{_short_commit()}.json')
+    from calltree_store import archive_path
+    return archive_path('capture', tier=args.tier, seed=args.seed)
 
 
 # ── tiers ─────────────────────────────────────────────────────────────────────
@@ -252,6 +253,13 @@ def main(argv=None) -> int:
 
     out = args.out or _default_out(args)
     write_capture(doc, out)
+    if args.out is None:                       # archived default -> index it
+        from calltree_store import record
+        record('capture', out, tags={'tier': args.tier, 'seed': args.seed},
+               summary={'fingerprint': doc['counts_fingerprint'][:16],
+                        'wall_untraced_s': doc['wall_s']['untraced'],
+                        'sections': {s['name']: s['wall_s'] for s in doc['sections']
+                                     if s['wall_s'] > 0}})
     rel = os.path.relpath(out, _REPO_ROOT)
     w = doc['wall_s']
     print(f'wrote {rel}')

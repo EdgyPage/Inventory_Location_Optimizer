@@ -268,10 +268,14 @@ def main(argv=None) -> int:
             return 0
 
     report = fit_report(ladder)
-    out = os.path.join(_OUT_DIR, f'growth_{args.ladder}_{args.knob}_s{args.seed}.json')
-    os.makedirs(_OUT_DIR, exist_ok=True)
+    from calltree_store import archive_path, record
+    out = archive_path('growth', ladder=args.ladder, knob=args.knob, seed=args.seed)
     with open(out, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump({'ladder': ladder, 'report': report}, fh, indent=1)
+    record('growth', out, tags={'ladder': args.ladder, 'knob': args.knob, 'seed': args.seed},
+           summary={'exponents': {k: v['exponent'] for k, v in report['sections'].items()},
+                    'offenders': [f"{o['name']} k={o['exponent']}"
+                                  for o in report['offenders'][:8]]})
 
     print(f'\nsection exponents (expect ≈1 vs {report["knob"]}; flag ≥ {FLAG_TIME_EXP}):')
     for sec, e in report['sections'].items():
@@ -285,9 +289,7 @@ def main(argv=None) -> int:
     else:
         print('\nno super-linear offenders flagged at these thresholds')
 
-    render_dir = os.path.join(_OUT_DIR, 'render')
-    os.makedirs(render_dir, exist_ok=True)
-    png = os.path.join(render_dir, f'growth_{args.ladder}_{args.knob}_s{args.seed}.png')
+    png = os.path.splitext(out)[0] + '.png'      # archived beside its JSON, same stamp
     _growth_png(report, png)
     print(f'\nwrote {os.path.relpath(out, _REPO_ROOT)} and {os.path.relpath(png, _REPO_ROOT)}')
     return 0

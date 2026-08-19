@@ -15,8 +15,10 @@ hand-run tool for the occasional rigorous session.
 | `calltree_growth.py` | CLI: size-ladder runner + log-log exponent fitting — the O(n²)-hidden-at-small-scale detector. `--ladder meso` = minutes; `--ladder deep --workers 18` = the ~1-hour real-run session |
 | `test_calltree_smoke.py` | collected: the framework measures what it claims (threads seen, placement fires, sections cover the wall, counts deterministic) |
 | `test_calltree_anchors.py` | collected drift gate: SECTION_MAP symbols resolve, section vocabulary matches `strategy_runner`'s log line, engine identity holds |
+| `calltree_memory.py` | CLI: the memory dimension — meso tracemalloc (per-section allocation peaks, retained growth, GC pauses, live-object census, top allocation sites) + deep worker-tree RSS sampling via psutil; `--ladder skus` fits k_mem exponents |
+| `calltree_store.py` | archival naming + `out/index.json` registry — results are EVIDENCE and are never overwritten; every artifact lands in `out/archive/` stamped with UTC time + repo commit, and the index carries a summary (exponents, offenders, peaks) queryable across sessions. Run it directly to migrate legacy flat-named files |
 | `static/` | tracked viewer template (copied beside generated `data.js` — data as a sibling script, never fetch, so `file://` works) |
-| `out/` | gitignored captures/renders — regenerate any time |
+| `out/` | gitignored captures/renders — regenerate any time. `out/archive/` + `out/index.json` are the permanent record within this machine; cite artifacts by their stamped filename |
 
 ## The one-hour rigorous session
 

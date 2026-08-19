@@ -38,7 +38,8 @@ _STATIC = os.path.join(_HERE, 'static')
 
 def _load_captures(out_dir: str) -> list[dict]:
     docs = []
-    for path in sorted(glob.glob(os.path.join(out_dir, '*.json'))):
+    for path in sorted(glob.glob(os.path.join(out_dir, '*.json'))
+                       + glob.glob(os.path.join(out_dir, 'archive', '*.json'))):
         if path.endswith('.speedscope.json') or path.endswith('growth.json'):
             continue
         try:
