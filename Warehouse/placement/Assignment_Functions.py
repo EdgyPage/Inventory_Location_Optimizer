@@ -1053,26 +1053,57 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                 best = (cost, m, b)
         return best
 
+    def _score_of(aid, ab, sku, fq, m_s):
+        """The per-(unit, aisle) score — the ORIGINAL expressions verbatim.
+
+        balance TOTAL expected aisle labor = handling+travel + expected cart swaps,
+        so an aisle nearing a full cart is penalised and further volume disperses.
+        The SKU's volume mass counts ONCE per aisle (a second bin of a SKU already
+        here adds no new expected picked volume), mirroring aisle_pick_load_sum."""
+        score = load[aid] + fq * ab[0]
+        if cart_on:
+            add = 0.0 if sku in aisle_sku_sets[aid] else m_s
+            score += _cart_cost(vol_load[aid] + add)
+        return score
+
+    # ── SKU-run caching ──────────────────────────────────────────────────────
+    # sorted_units is a stable sort on a per-order key, so units of one SKU are contiguous.
+    # Within such a run, every input a NON-winning aisle's score reads is provably frozen:
+    # fq/var/m_s are per-SKU constants; load/vol_load/aisle_sku_sets mutate for the WINNING
+    # aisle only; deque heads advance for the winning aisle only; candidates were fetched
+    # once for the wave.  So _aisle_best and the score are computed once per aisle at each
+    # run boundary and refreshed only for the aisle that just won — the argmin sequence
+    # (and every float, computed by the verbatim expressions above) is byte-identical to
+    # the per-unit rescan this replaces; only redundant recomputation is skipped.  Guarded
+    # by Tests/unit/test_travel_balanced_equivalence.py's frozen-oracle suite.
+    _NO_SKU = object()
+    run_sku = _NO_SKU
+    var = fq = m_s = 0.0
+    ab_cache: dict = {}
+    score_cache: dict = {}
+
     for unit in sorted_units:
         c = unit.order
         sku = c.sku
-        var = c.handle_var
-        fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
-        m_s = sku_vol_product.get(sku, 0.0) if cart_on else 0.0
+        if sku != run_sku:                       # run boundary: rebuild both caches
+            run_sku = sku
+            var = c.handle_var
+            fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
+            m_s = sku_vol_product.get(sku, 0.0) if cart_on else 0.0
+            ab_cache.clear()
+            score_cache.clear()
+            for aid in by_aisle:
+                ab = _aisle_best(aid, var)
+                ab_cache[aid] = ab
+                if ab is not None:
+                    score_cache[aid] = _score_of(aid, ab, sku, fq, m_s)
         best_aid = best_choice = None
         best_score = None
-        for aid in by_aisle:
-            ab = _aisle_best(aid, var)
+        for aid in by_aisle:                     # original order ⇒ original tie-breaks
+            ab = ab_cache[aid]
             if ab is None:
                 continue
-            score = load[aid] + fq * ab[0]
-            if cart_on:
-                # balance TOTAL expected aisle labor = handling+travel + expected cart swaps,
-                # so an aisle nearing a full cart is penalised and further volume disperses.
-                # The SKU's volume mass counts ONCE per aisle (a second bin of a SKU already
-                # here adds no new expected picked volume), mirroring aisle_pick_load_sum.
-                add = 0.0 if sku in aisle_sku_sets[aid] else m_s
-                score += _cart_cost(vol_load[aid] + add)
+            score = score_cache[aid]
             if best_score is None or score < best_score:
                 best_score, best_aid, best_choice = score, aid, ab
         if best_aid is None:
@@ -1094,6 +1125,15 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                 aisle_vol_sum[best_aid] += m_s
 
         by_aisle[best_aid][m].popleft()
+        # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
+        # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
+        # like the original `continue`.
+        ab = _aisle_best(best_aid, var)
+        ab_cache[best_aid] = ab
+        if ab is not None:
+            score_cache[best_aid] = _score_of(best_aid, ab, sku, fq, m_s)
+        else:
+            score_cache.pop(best_aid, None)
         result.append((unit, chosen))
     return result
 
