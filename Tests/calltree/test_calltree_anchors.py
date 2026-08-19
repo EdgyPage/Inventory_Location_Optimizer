@@ -84,17 +84,21 @@ def test_section_vocabulary_matches_strategy_runner():
 
     # The checkpoint log line still carries the tokens bench_sections/macro parse.
     # (t_inv logs as 'cons=' — the conservation ledger; bench_sections accepts both
-    # spellings since the rename.)
-    for token in ('reord=', 'smpl=', 'task=', 'pre=', 'sim=', 'extr=', 'cons=', 'db='):
+    # spellings since the rename.  kf=/gc= are the 2026-08-19 overlay tokens.)
+    for token in ('reord=', 'smpl=', 'task=', 'pre=', 'sim=', 'extr=', 'cons=', 'db=',
+                  'kf=', 'gc='):
         assert token in src, f'checkpoint log line lost {token!r} — macro adapter breaks'
 
-    # And bench_sections' regex must actually match the emitted shape end-to-end —
-    # it silently rotted once when inv= became cons= (parse() returned zero rows).
+    # And bench_sections' regexes must actually match the emitted shape end-to-end —
+    # _SEC_RE silently rotted once when inv= became cons= (parse() returned zero rows).
+    # The sample carries the appended overlay suffix to PROVE the append is non-breaking.
     import bench_sections as bsec
     sample = ('  Batch   10/100  | reord=1.0s build=2.0s (smpl=0.5s task=1.5s) '
-              'pre=3.0s sim=4.0s extr=5.0s cons=6.0s')
+              'pre=3.0s sim=4.0s extr=5.0s cons=6.0s kf=0.4s gc=0.12s')
     assert bsec._SEC_RE.search(sample), \
         "bench_sections._SEC_RE no longer parses strategy_runner's checkpoint line"
+    assert bsec._KF_RE.search(sample) and bsec._GC_RE.search(sample), \
+        'bench_sections overlay regexes (kf=/gc=) no longer match the emitted tokens'
 
 
 def test_production_engine_identity():

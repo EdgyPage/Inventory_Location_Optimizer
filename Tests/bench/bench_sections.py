@@ -24,6 +24,12 @@ _SEC_RE = re.compile(r'reord=(?P<reord>[\d.]+)s build=(?P<build>[\d.]+)s'
                      r' pre=(?P<pre>[\d.]+)s sim=(?P<sim>[\d.]+)s '
                      r'extr=(?P<extr>[\d.]+)s (?:inv|cons)=(?P<inv>[\d.]+)s')
 _DB_RE = re.compile(r'\bdb=([\d.]+)s')
+# Overlay tokens appended after the partition set (2026-08-19): kf ⊂ pre (the keyframe
+# sqlite write), gc overlaps every section (GC pause).  Independent optional regexes on
+# the _DB_RE pattern — older logs without them still parse to zero rows of overlay, and
+# _SEC_RE stays untouched (it is an unanchored search; appended tokens are invisible).
+_KF_RE = re.compile(r'\bkf=([\d.]+)s')
+_GC_RE = re.compile(r'\bgc=([\d.]+)s')
 _BATCH_RE = re.compile(r'Batch\s+(\d+)/')
 _SECTIONS = ['build', 'reord', 'pre', 'sim', 'extr', 'inv', 'db']
 
@@ -71,6 +77,10 @@ def parse(log_path):
                  'task': float(m['task']) if m['task'] else 0.0}
             db = _DB_RE.search(line)
             d['db'] = float(db[1]) if db else 0.0
+            kf = _KF_RE.search(line)
+            d['kf'] = float(kf[1]) if kf else 0.0     # overlay: subset of 'pre'
+            gc = _GC_RE.search(line)
+            d['gc'] = float(gc[1]) if gc else 0.0     # overlay: overlaps everything
             b = _BATCH_RE.search(line)
             rows.append((int(b[1]) if b else -1, d))
     return rows

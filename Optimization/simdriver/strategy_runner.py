@@ -63,6 +63,52 @@ from Optimization.persistence.Picking_Data import (
 from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier
 
 
+# ── memory observability helper ──────────────────────────────────────────────
+
+def _peak_rss_mib() -> float | None:
+    """This process's peak working-set (high-water RSS) in MiB, or None if unreadable.
+
+    Stdlib-only by design — psutil is deliberately not a production dependency.  Peak (as
+    opposed to current) RSS is only knowable from the OS: Windows tracks it in
+    PROCESS_MEMORY_COUNTERS.PeakWorkingSetSize; POSIX reports it as ru_maxrss (KiB on
+    Linux, bytes on macOS — normalised here).  One syscall, called once per arm."""
+    try:
+        if sys.platform == 'win32':
+            import ctypes
+            from ctypes import wintypes
+
+            class _PMC(ctypes.Structure):
+                _fields_ = [('cb', wintypes.DWORD),
+                            ('PageFaultCount', wintypes.DWORD),
+                            ('PeakWorkingSetSize', ctypes.c_size_t),
+                            ('WorkingSetSize', ctypes.c_size_t),
+                            ('QuotaPeakPagedPoolUsage', ctypes.c_size_t),
+                            ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                            ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t),
+                            ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                            ('PagefileUsage', ctypes.c_size_t),
+                            ('PeakPagefileUsage', ctypes.c_size_t)]
+
+            k32 = ctypes.windll.kernel32
+            # restype/argtypes are load-bearing on 64-bit: GetCurrentProcess returns the
+            # pseudo-handle -1, which truncates to an invalid handle under the default
+            # c_int restype and makes the query silently return 0.
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            k32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE,
+                                                    ctypes.POINTER(_PMC), wintypes.DWORD]
+            pmc = _PMC()
+            pmc.cb = ctypes.sizeof(_PMC)
+            if k32.K32GetProcessMemoryInfo(k32.GetCurrentProcess(),
+                                           ctypes.byref(pmc), pmc.cb):
+                return pmc.PeakWorkingSetSize / (1024 * 1024)
+            return None
+        import resource
+        ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return ru / 1024 if sys.platform.startswith('linux') else ru / (1024 * 1024)
+    except Exception:                                     # noqa: BLE001 — never sink an arm
+        return None
+
+
 # ── checkpoint helpers ────────────────────────────────────────────────────────
 
 # Windows holds a just-written file open for a few hundred ms often enough to matter at this
@@ -175,6 +221,29 @@ def _run_strategy_worker(args: dict) -> dict:
         log = logging.getLogger(f'j{job_index}/{job_total} {strategy}')
     else:
         log = logging.getLogger(f'worker-{strategy}')
+
+    # ── GC observability ───────────────────────────────────────────────────────
+    # Collection COUNTS come from gc.get_stats() deltas — two O(1) reads, genuinely free,
+    # always on.  Pause SECONDS need a gc.callbacks hook, and that hook fires on every
+    # gen-0 collection: measured +4.9% wall on allocation-heavy code (2026-08-19 micro-
+    # benchmark, 3,898 collections in a 0.22s storm), which two tiny-run samples confirmed
+    # at ~+5% whole-run.  NOT free ⇒ default OFF, enabled per investigation session via
+    # SIM_GC_DETAIL=1 (the live-object census rides the same gate).  Paired remove before
+    # return: callbacks are process-global and a recycled worker must not double-count.
+    import gc as _gc
+    _gc_detail = os.environ.get('SIM_GC_DETAIL', '') == '1'
+    _gc_stats0 = _gc.get_stats()
+    _gc_state = {'pause_s': 0.0, 'gen': [0, 0, 0], 't0': 0.0}
+
+    def _gc_cb(phase, info, _st=_gc_state):
+        if phase == 'start':
+            _st['t0'] = time.perf_counter()
+        else:
+            _st['pause_s'] += time.perf_counter() - _st['t0']
+            _st['gen'][info.get('generation', 0)] += 1
+
+    if _gc_detail:
+        _gc.callbacks.append(_gc_cb)
 
     # ── unpack ────────────────────────────────────────────────────────────────
     inv_db        = args['inv_db']
@@ -482,6 +551,12 @@ def _run_strategy_worker(args: dict) -> dict:
     # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
     # dominance = the recurring valid-aisle recompute suspicion).
     t_reord_run = t_build_run = t_pre_run = t_sim_run = t_extract_run = t_inv_run = t_save_run = 0.0
+    # Finer whole-arm splits, persisted since the runtime_metrics column add: the build
+    # sub-split (smpl/task), the keyframe write (a sub-span of t_pre — overlay, not a new
+    # partition member), and fast_pick's phase split (previously per-checkpoint only, the
+    # final unflushed window silently discarded).
+    t_sample_run = t_task_run = t_kf_run = p1_run = p2_run = 0.0
+    t_kf_ckpt = 0.0
     last_dur       = 0.0
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
@@ -535,13 +610,18 @@ def _run_strategy_worker(args: dict) -> dict:
         # Keyframe: full occupied-bin state at this batch's start (after reorders),
         # written every keyframe_interval batches so the player can jump here
         # without replaying deltas from batch 0.  Reuses the pre_snap already built.
+        # t_kf is a SUB-SPAN of t_pre (the smpl/task-inside-build pattern): `_t` is not
+        # touched, so t_pre still covers the whole stretch and the sections stay a
+        # partition of the loop body (the calltree smoke test's invariant).
         if kf_db is not None and i % keyframe_interval == 0:
+            _k0 = time.perf_counter()
             save_bin_keyframe(kf_db, run_id, i, [
                 {'aisle_id': v['aisle_id'], 'bayX': v['bayX'], 'bayY': v['bayY'],
                  'sku': v['sku'], 'unit_type': v['unit_type'],
                  'storage_size': v['storage_size'], 'qty': v['pre_qty']}
                 for v in pre_snap.values()
             ])
+            t_kf_ckpt += time.perf_counter() - _k0
         _now = time.perf_counter(); t_pre_ckpt += _now - _t; _t = _now
 
         # ── conservation ledger ────────────────────────────────────────────────
@@ -660,6 +740,9 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' (smpl={t_sample_ckpt:.1f}s task={t_task_ckpt:.1f}s)'
                 f' pre={t_pre_ckpt:.1f}s sim={t_sim_ckpt:.1f}s'
                 f' extr={t_extract_ckpt:.1f}s cons={t_inv_ckpt:.1f}s'
+                # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
+                # the partition tokens so bench_sections' unanchored _SEC_RE still matches
+                f' kf={t_kf_ckpt:.1f}s gc={_gc_state["pause_s"]:.2f}s'
             )
 
             # fold this checkpoint window's section times into the whole-arm totals before reset
@@ -670,6 +753,11 @@ def _run_strategy_worker(args: dict) -> dict:
             t_extract_run += t_extract_ckpt
             t_inv_run     += t_inv_ckpt
             t_save_run    += t_save
+            t_sample_run  += t_sample_ckpt
+            t_task_run    += t_task_ckpt
+            t_kf_run      += t_kf_ckpt
+            p1_run        += p1_sum_ckpt
+            p2_run        += p2_sum_ckpt
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             reorders_ckpt      = 0
@@ -683,6 +771,7 @@ def _run_strategy_worker(args: dict) -> dict:
             t_build_ckpt   = 0.0
             t_sample_ckpt  = 0.0
             t_task_ckpt    = 0.0
+            t_kf_ckpt      = 0.0
             t_pre_ckpt     = 0.0
             t_sim_ckpt     = 0.0
             t_extract_ckpt = 0.0
@@ -696,6 +785,11 @@ def _run_strategy_worker(args: dict) -> dict:
     t_sim_run     += t_sim_ckpt
     t_extract_run += t_extract_ckpt
     t_inv_run     += t_inv_ckpt
+    t_sample_run  += t_sample_ckpt
+    t_task_run    += t_task_ckpt
+    t_kf_run      += t_kf_ckpt
+    p1_run        += p1_sum_ckpt
+    p2_run        += p2_sum_ckpt
     if pb:
         log.info(f'  Flushing final {len(pb)} batches to DB...')
         _ts_final = time.perf_counter()
@@ -751,6 +845,22 @@ def _run_strategy_worker(args: dict) -> dict:
     import gc
     gc.collect()
 
+    # ── memory observability, end-of-arm only (each a one-shot: ~free) ────────
+    # Peak RSS comes from the OS (the process's high-water mark — the number that decides
+    # whether N workers fit in RAM).  Gen-2 count = get_stats delta (always).  The
+    # live-object census (an O(live) list build) rides the SIM_GC_DETAIL gate with the
+    # pause hook; when off it records NULL, never a fabricated zero.
+    try:
+        gc.callbacks.remove(_gc_cb)
+    except ValueError:
+        pass
+    gc_gen2 = gc.get_stats()[2]['collections'] - _gc_stats0[2]['collections']
+    live_objects = len(gc.get_objects()) if _gc_detail else None
+    peak_rss_mib = _peak_rss_mib()
+    log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
+             f'gc_pause={_gc_state["pause_s"]:.2f}s  gen2={gc_gen2}  '
+             f'live={live_objects if live_objects is not None else "-"}')
+
     return {
         'strategy': strategy,
         'run_id'  : run_id,
@@ -770,9 +880,20 @@ def _run_strategy_worker(args: dict) -> dict:
         'n_aisles'  : n_aisles,
         't_reord'   : t_reord_run,
         't_build'   : t_build_run,
+        't_sample'  : t_sample_run,     # build sub-split: batch sampling
+        't_task'    : t_task_run,       # build sub-split: task construction
+        't_kf'      : t_kf_run,         # sub-span of t_pre: the keyframe sqlite write
         't_pre'     : t_pre_run,
         't_sim'     : t_sim_run,
+        'p1_s'      : p1_run,           # fast_pick phase 1 (threaded picker compute)
+        'p2_s'      : p2_run,           # fast_pick phase 2 (sequential mutation apply)
         't_extract' : t_extract_run,
+        # end-of-arm memory observability (see the log line above; pause/census are
+        # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
+        'gc_pause_s'  : _gc_state['pause_s'],
+        'gc_gen2'     : gc_gen2,
+        'peak_rss_mib': peak_rss_mib,
+        'live_objects': live_objects,
         # runtime_metrics.inv_s.  Pre-log arms spent this on the bin_inventory snapshot; from
         # here on it is the conservation ledger, which is ~1000x cheaper.  The column keeps its
         # name so archived rows stay comparable to themselves — a renamed column would move the
