@@ -25,6 +25,7 @@ sys.path bootstrap of its own.
 
 from __future__ import annotations
 
+import gc
 import logging
 import logging.handlers
 import os
@@ -63,7 +64,27 @@ from Optimization.persistence.Picking_Data import (
 from Warehouse.kernel.cost_model import sec_per_inch, height_multiplier
 
 
-# ── memory observability helper ──────────────────────────────────────────────
+# ── memory observability helpers ─────────────────────────────────────────────
+
+# Per-arm GC accounting (SIM_GC_DETAIL=1 only — the callback costs ~5% wall when armed).
+# Module-level so the worker WRAPPER's finally can always remove the callback; the impl
+# resets the state at arm start.  Safe as module state: production workers are fresh
+# processes (recycling pinned at 1), and in-process callers invoke arms sequentially.
+_GC_STATE: dict = {'pause_s': 0.0, 'gen': [0, 0, 0], 't0': 0.0}
+
+# Process-default GC thresholds, captured at import so the wrapper's finally can restore
+# them for in-process callers even if the impl died between set_threshold and its own
+# restore (the batch loop raises the gen-2 trigger while the startup graph is frozen).
+_GC_THRESHOLD_DEFAULT = gc.get_threshold()
+
+
+def _gc_cb(phase, info, _st=_GC_STATE):
+    if phase == 'start':
+        _st['t0'] = time.perf_counter()
+    else:
+        _st['pause_s'] += time.perf_counter() - _st['t0']
+        _st['gen'][info.get('generation', 0)] += 1
+
 
 def _peak_rss_mib() -> float | None:
     """This process's peak working-set (high-water RSS) in MiB, or None if unreadable.
@@ -197,6 +218,28 @@ def _cleanup_checkpoints(run_dir: str) -> None:
 def _run_strategy_worker(args: dict) -> dict:
     """Simulate one assignment strategy in its own process.
 
+    Thin wrapper whose ONLY job is the finally: the impl freezes the startup object graph
+    for the duration of the batch loop (see the gc.freeze block there), and the thaw +
+    GC-callback removal must happen on EVERY exit path.  Production workers die with
+    their process either way; the guarantee exists for in-process callers (the calltree
+    fullfid tier, e2e tests) where a mid-arm raise would otherwise leave the HOST process
+    with a permanently frozen heap and a leaked gc callback.  Both cleanups are no-ops on
+    the happy path (the impl already thawed and removed).
+    """
+    try:
+        return _run_strategy_worker_impl(args)
+    finally:
+        gc.unfreeze()
+        gc.set_threshold(*_GC_THRESHOLD_DEFAULT)
+        try:
+            gc.callbacks.remove(_gc_cb)
+        except ValueError:
+            pass
+
+
+def _run_strategy_worker_impl(args: dict) -> dict:
+    """One assignment strategy end-to-end — the body behind _run_strategy_worker.
+
     Uses DeferredPickSimulation for parallel Phase-1 picker execution within
     each batch.  Log records travel through a multiprocessing.Queue to the
     QueueListener in the main process so they appear in real time.
@@ -228,22 +271,15 @@ def _run_strategy_worker(args: dict) -> dict:
     # gen-0 collection: measured +4.9% wall on allocation-heavy code (2026-08-19 micro-
     # benchmark, 3,898 collections in a 0.22s storm), which two tiny-run samples confirmed
     # at ~+5% whole-run.  NOT free ⇒ default OFF, enabled per investigation session via
-    # SIM_GC_DETAIL=1 (the live-object census rides the same gate).  Paired remove before
-    # return: callbacks are process-global and a recycled worker must not double-count.
-    import gc as _gc
+    # SIM_GC_DETAIL=1 (the live-object census rides the same gate).  State + callback are
+    # module-level so the `_run_strategy_worker` wrapper's finally can clean up on EVERY
+    # exit path (in-process callers: calltree fullfid, e2e tests); reset per arm here.
     _gc_detail = os.environ.get('SIM_GC_DETAIL', '') == '1'
-    _gc_stats0 = _gc.get_stats()
-    _gc_state = {'pause_s': 0.0, 'gen': [0, 0, 0], 't0': 0.0}
-
-    def _gc_cb(phase, info, _st=_gc_state):
-        if phase == 'start':
-            _st['t0'] = time.perf_counter()
-        else:
-            _st['pause_s'] += time.perf_counter() - _st['t0']
-            _st['gen'][info.get('generation', 0)] += 1
-
+    _gc_stats0 = gc.get_stats()
+    _GC_STATE.update(pause_s=0.0, t0=0.0)
+    _GC_STATE['gen'] = [0, 0, 0]
     if _gc_detail:
-        _gc.callbacks.append(_gc_cb)
+        gc.callbacks.append(_gc_cb)
 
     # ── unpack ────────────────────────────────────────────────────────────────
     inv_db        = args['inv_db']
@@ -316,7 +352,8 @@ def _run_strategy_worker(args: dict) -> dict:
     mb       = 0.0 if affinity._matrix is None else (
         affinity._matrix.data.nbytes + affinity._matrix.indices.nbytes +
         affinity._matrix.indptr.nbytes) / 1_048_576
-    log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)')
+    log.info(f'  {n_aff:,} entries  {mb:.0f} MB  ({time.perf_counter()-t0:.1f}s)  '
+             f'rss_peak={_peak_rss_mib() or 0:.0f}M')
 
     # ── shared precomputed batch sequence (dedup of sampling across arms) ───────
     # The parent precomputed this family's batch list once (a pure function of inv+aff+batch_cfg+seed).
@@ -360,7 +397,8 @@ def _run_strategy_worker(args: dict) -> dict:
     random.seed(seed_world)
     warehouse  = Warehouse_Builder().from_config(warehouse_cfg).build()
     total_bins = len(warehouse.bins)   # density-aware: actual count after physical expansion
-    log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)')
+    log.info(f'  Built {total_bins:,} bins  ({time.perf_counter()-t0:.1f}s)  '
+             f'rss_peak={_peak_rss_mib() or 0:.0f}M')
 
     # ── initial stock ───────────────────────────────────────────────────────────
     # stock_mode='uniform' (uni_*): random fill via the manager's default placement,
@@ -432,7 +470,8 @@ def _run_strategy_worker(args: dict) -> dict:
     else:
         denom, unit = len(warehouse.bins), 'bins'
     log.info(f'  {base_filled:,} / {denom:,} {unit} filled  '
-             f'({base_filled / max(denom, 1):.1%})  ({time.perf_counter()-t0:.1f}s)')
+             f'({base_filled / max(denom, 1):.1%})  ({time.perf_counter()-t0:.1f}s)  '
+             f'rss_peak={_peak_rss_mib() or 0:.0f}M')
     log.info(f'  strategy={strat.key} ({strat.label})  placement={mgr.placement.name}'
              f'{" (ranked)" if mgr.placement.is_ranked else ""}'
              f'  stock={strat.stock_mode}')
@@ -558,6 +597,30 @@ def _run_strategy_worker(args: dict) -> dict:
     t_sample_run = t_task_run = t_kf_run = p1_run = p2_run = 0.0
     t_kf_ckpt = 0.0
     last_dur       = 0.0
+
+    # ── freeze the startup graph out of every future collection ──────────────
+    # Everything alive here (warehouse ~400k bins, manager indexes, inventory, CSR,
+    # accumulators) survives the whole arm; gen-2 passes re-walking it cost ~38s/arm at
+    # 40k SKUs (measured, comparison_20260819_121157) and grow with heap size.  Collect
+    # once so startup garbage isn't made immortal, then freeze the survivors into the
+    # permanent generation.  Frozen containers stay mutable; loop-allocated objects are
+    # tracked and collected normally; frozen objects act as GC roots for young referents.
+    # Thaw is GUARANTEED by the `_run_strategy_worker` wrapper's finally (a mid-loop raise
+    # inside an IN-PROCESS caller — calltree fullfid, e2e tests — must not leave the host
+    # pytest process with a permanently frozen heap); the happy path unfreezes before the
+    # end-of-arm census so `live_objects` keeps its meaning.
+    #
+    # Freeze alone BACKFIRES (measured, comparison_20260819_144916: pause 24.9→27.4s/arm,
+    # gen-2 count 28→50): moving everything to the permanent generation empties the
+    # collector's long-lived denominator, so the full-collection heuristic
+    # (long_lived_pending > long_lived_total/4) passes on nearly every gen-1 overflow.
+    # Each walk got 38% cheaper (0.89→0.55s — the freeze working as intended) but fired
+    # ~1.8× as often.  The companion below restores a sane full-collection cadence by
+    # raising the gen-2 trigger; the wrapper's finally restores the process default.
+    gc.collect()
+    gc.freeze()
+    _gc_thresh = gc.get_threshold()
+    gc.set_threshold(_gc_thresh[0], _gc_thresh[1], _gc_thresh[2] * 5)
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
 
@@ -742,7 +805,7 @@ def _run_strategy_worker(args: dict) -> dict:
                 f' extr={t_extract_ckpt:.1f}s cons={t_inv_ckpt:.1f}s'
                 # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
                 # the partition tokens so bench_sections' unanchored _SEC_RE still matches
-                f' kf={t_kf_ckpt:.1f}s gc={_gc_state["pause_s"]:.2f}s'
+                f' kf={t_kf_ckpt:.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
             )
 
             # fold this checkpoint window's section times into the whole-arm totals before reset
@@ -833,16 +896,19 @@ def _run_strategy_worker(args: dict) -> dict:
                  f'occupancy on every batch')
     log.info('=' * 60)
 
-    # Release large per-job state before the worker returns / is recycled.  The pool
-    # may run this worker again (max_tasks_per_child > 1), so drop the inventory,
-    # affinity CSR, warehouse, manager state, and the lift memo before the next job
-    # so RSS doesn't ratchet across jobs in a reused process.
+    # Thaw the startup graph BEFORE the release below: unfreezing returns the permanent
+    # generation to the oldest gen, so the collect() actually reclaims the cyclic
+    # warehouse/manager graph (bins↔aisles; BinRecorder wrappers close over mgr), keeping
+    # the RSS-ratchet guard meaningful for in-process callers and any future recycling —
+    # and keeping the live-object census below comparable across runs.  In production
+    # (recycling pinned at 1) the process exits right after; this is for everyone else.
+    gc.unfreeze()
+    gc.set_threshold(*_gc_thresh)
     lift_cache.clear()
     # bin_rec goes with them: its wrappers close over the manager's bound methods, so holding
     # the recorder holds the whole manager (and through it the warehouse) alive.
     del (inventory, affinity, warehouse, mgr, ctx, reloader, bin_rec,
          freq_by_sku, qty_by_sku, freq_by_idx, batches)
-    import gc
     gc.collect()
 
     # ── memory observability, end-of-arm only (each a one-shot: ~free) ────────
@@ -858,8 +924,9 @@ def _run_strategy_worker(args: dict) -> dict:
     live_objects = len(gc.get_objects()) if _gc_detail else None
     peak_rss_mib = _peak_rss_mib()
     log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
-             f'gc_pause={_gc_state["pause_s"]:.2f}s  gen2={gc_gen2}  '
-             f'live={live_objects if live_objects is not None else "-"}')
+             f'gc_pause={_GC_STATE["pause_s"]:.2f}s  gen2={gc_gen2}  '
+             f'live={live_objects if live_objects is not None else "-"}  '
+             f'frozen_residual={gc.get_freeze_count()}')
 
     return {
         'strategy': strategy,
@@ -890,7 +957,7 @@ def _run_strategy_worker(args: dict) -> dict:
         't_extract' : t_extract_run,
         # end-of-arm memory observability (see the log line above; pause/census are
         # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
-        'gc_pause_s'  : _gc_state['pause_s'],
+        'gc_pause_s'  : _GC_STATE['pause_s'],
         'gc_gen2'     : gc_gen2,
         'peak_rss_mib': peak_rss_mib,
         'live_objects': live_objects,
