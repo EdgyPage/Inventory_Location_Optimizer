@@ -9,6 +9,8 @@ backward compatibility (`from Inventory_Management import Placement, BinKey, ...
 """
 from __future__ import annotations
 
+import bisect
+import operator
 import random
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -124,6 +126,64 @@ def tier_ranks_for(unit_category: str) -> tuple[dict, tuple]:
     preserving the original behaviour."""
     _cls, ranks, sizes_desc = UNIT_CLASSES.get(unit_category, UNIT_CLASSES['pallet'])
     return ranks, sizes_desc
+
+
+_by_location = operator.attrgetter('location')
+
+
+class _SortedBins:
+    """A set-of-bins whose iteration order is PERMANENTLY `location` order.
+
+    Replaces the `set[Aisle.Bin]` values of `_sku_singleton_bins` / `_sku_pallet_bins` so
+    `Task.from_batch` can drain a SKU's bins without paying `sorted(...)` twice per batch
+    SKU (the deep-ladder t_task k≈2.3 offender: batch-SKU count AND per-SKU bin multiplicity
+    both grow with the catalogue).  The maintained order is exactly what those sorts
+    produced — `location = (aisle_id, bayX, bayY)` is immutable for a bin's lifetime and
+    globally unique (monotone aisle ids, unique bay tuples), so iteration here is
+    byte-identical to `sorted(old_set, key=location)`.
+
+    Semantics preserved from `set`: identity membership (Aisle.Bin has no __eq__/__hash__),
+    `discard` of a non-member is a silent no-op, truthiness/len.  Duplicate `add` is an
+    ASSERT rather than a silent dedupe: `_execute_placement` cannot re-place an indexed bin
+    (`_index_remove` pops `_bin_index_pos` first), so a duplicate here is a real bug.
+
+    The bisect-with-key idiom mirrors `_index_add`/`_index_remove`
+    (Inventory_Management.py) — the in-repo precedent this container copies.
+    """
+    __slots__ = ('_bins',)
+
+    def __init__(self) -> None:
+        self._bins: list = []
+
+    def add(self, bin_) -> None:
+        assert bin_ not in self, f'duplicate add of bin {bin_.location} to _SortedBins'
+        bisect.insort(self._bins, bin_, key=_by_location)
+
+    def discard(self, bin_) -> None:
+        i = bisect.bisect_left(self._bins, bin_.location, key=_by_location)
+        # unique keys ⇒ at most one candidate; identity check keeps set semantics exact
+        if i < len(self._bins) and self._bins[i] is bin_:
+            del self._bins[i]
+
+    def __contains__(self, bin_) -> bool:
+        try:
+            loc = bin_.location
+        except AttributeError:
+            return False
+        i = bisect.bisect_left(self._bins, loc, key=_by_location)
+        return i < len(self._bins) and self._bins[i] is bin_
+
+    def __iter__(self):
+        return iter(self._bins)
+
+    def __len__(self) -> int:
+        return len(self._bins)
+
+    def __bool__(self) -> bool:
+        return bool(self._bins)
+
+    def __repr__(self) -> str:
+        return f'_SortedBins({[b.location for b in self._bins]})'
 
 
 def _wp_for(wp, obj):

@@ -171,6 +171,11 @@ class Batch:
 # interpreter frame per bin, and this runs once per SKU per batch.
 _bin_location = operator.attrgetter('location')
 
+# The maintained-order container the manager indexes bins in; iteration is already
+# location order, so from_batch's per-SKU sort is skipped for it (leaf import — no cycle:
+# inventory_common depends only on warehouse primitives).
+from Warehouse.inventory.inventory_common import _SortedBins  # noqa: E402
+
 
 class Task:
     """Single-aisle ordered pick sequence derived from a Batch."""
@@ -251,11 +256,18 @@ class Task:
         bin_pick: defaultdict[Aisle.Bin, int] = defaultdict(int)
 
         if manager is not None:
-            # O(N_batch_skus) — uses maintained index, no full warehouse scan
+            # O(N_batch_skus) — uses maintained index, no full warehouse scan.
+            # A manager's _SortedBins containers iterate in `location` order by
+            # construction, so the per-SKU sort is skipped (it was 2 sorts per batch SKU —
+            # the t_task deep-ladder offender).  Raw sets/lists (test stand-ins, legacy
+            # callers) still get the explicit sort: the determinism contract is the ORDER,
+            # not the container (see test_task_bin_selection_determinism).
             for sku, qty in batch.items.items():
                 remaining: int = qty
-                for bin_ in sorted(manager._sku_singleton_bins.get(sku, ()),
-                                   key=_bin_location):
+                sbins = manager._sku_singleton_bins.get(sku, ())
+                if not isinstance(sbins, _SortedBins):
+                    sbins = sorted(sbins, key=_bin_location)
+                for bin_ in sbins:
                     if remaining <= 0:
                         break
                     available: int = bin_.storage.quantity if bin_.storage is not None else 0
@@ -263,8 +275,10 @@ class Task:
                     if take > 0:
                         bin_pick[bin_] += take
                         remaining -= take
-                for bin_ in sorted(manager._sku_pallet_bins.get(sku, ()),
-                                   key=_bin_location):
+                pbins = manager._sku_pallet_bins.get(sku, ())
+                if not isinstance(pbins, _SortedBins):
+                    pbins = sorted(pbins, key=_bin_location)
+                for bin_ in pbins:
                     if remaining <= 0:
                         break
                     available = bin_.storage.quantity if bin_.storage is not None else 0

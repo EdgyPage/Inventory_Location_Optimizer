@@ -19,7 +19,7 @@ from Warehouse.inventory.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
     BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for, UNIT_CLASSES,
     _equilibrium_qty, _max_qty_fitting_size,
-    _uniform_assignment, _wp_for,
+    _uniform_assignment, _wp_for, _SortedBins,
 )
 from Warehouse.inventory.inventory_planning import PlanningMixin
 from Warehouse.inventory.inventory_optimal import OptimalLayoutMixin
@@ -187,15 +187,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._sku_vol_product: dict[int, float] = {}   # sku -> f * q * volume
 
         # SKU → bins split by unit type for Task.from_batch lookups.
-        # Sets give O(1) add/discard, but `Aisle.Bin` defines no __hash__/__eq__, so these
-        # hash by IDENTITY and iterate in memory-address order — NOT insertion order, and
-        # not reproducibly across processes (spawn + ASLR).  `Task.from_batch` is therefore
-        # required to impose its own order: it sorts each set by `bin.location` before
-        # draining.  `_plan_aisle_path` sorts only the bins ALREADY SELECTED and cannot
-        # substitute for that.  Anything else that iterates these sets and lets the order
-        # reach a result must sort them too.
-        self._sku_singleton_bins: dict[int, set[Aisle.Bin]] = defaultdict(set)
-        self._sku_pallet_bins: dict[int, set[Aisle.Bin]]    = defaultdict(set)
+        # _SortedBins keeps each SKU's bins PERMANENTLY in `location` order — the same
+        # order `Task.from_batch` used to impose with two `sorted()` calls per batch SKU
+        # (its deep-ladder t_task cost grew ~quadratically: batch-SKU count and per-SKU bin
+        # multiplicity both scale with the catalogue).  Identity membership and
+        # discard-absent-is-noop semantics match the sets these replaced; the maintenance
+        # cost moves to the five add/discard sites (O(log k) insort on an immutable key).
+        # Anything NEW that iterates these must not re-introduce an order dependency —
+        # iteration order is location order, byte-identical to the old sorted() drains.
+        self._sku_singleton_bins: dict[int, _SortedBins] = defaultdict(_SortedBins)
+        self._sku_pallet_bins: dict[int, _SortedBins]    = defaultdict(_SortedBins)
 
         for b in warehouse.bins:
             if b.storage is None:
