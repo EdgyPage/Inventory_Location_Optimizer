@@ -18,7 +18,11 @@ from Optimization import run_runtime_graphs as rg
 
 def _res(elapsed=10.0, done=100, **kw):
     d = dict(elapsed=elapsed, done=done, n_bins=5000, regime_bins=3000, n_aisles=40,
-             t_reord=2.0, t_build=1.0, t_pre=0.5, t_sim=4.0, t_extract=1.5, t_inv=0.5, t_save=0.5)
+             t_reord=2.0, t_build=1.0, t_pre=0.5, t_sim=4.0, t_extract=1.5, t_inv=0.5, t_save=0.5,
+             # 2026-08-19 observability columns (must mirror the worker return dict —
+             # a key missing HERE writes 0 and the roundtrip silently under-covers)
+             t_sample=0.3, t_task=0.7, t_kf=0.2, p1_s=3.1, p2_s=0.9,
+             gc_pause_s=0.25, gc_gen2=7, peak_rss_mib=1234.5, live_objects=250_000)
     d.update(kw)
     return d
 
@@ -36,6 +40,26 @@ def test_record_and_load_roundtrip(tmp_path):
     assert abs(r['rate'] - 10.0) < 1e-9                                    # 100 batches / 10 s
     assert abs(r['reord_s'] - 2.0) < 1e-9 and abs(r['sim_s'] - 4.0) < 1e-9
     assert r['n_bins'] == 5000 and r['regime_bins'] == 3000
+    # observability columns round-trip (kf/gc are overlays; rss/live are nullable)
+    assert abs(r['smpl_s'] - 0.3) < 1e-9 and abs(r['task_s'] - 0.7) < 1e-9
+    assert abs(r['kf_s'] - 0.2) < 1e-9
+    assert abs(r['p1_s'] - 3.1) < 1e-9 and abs(r['p2_s'] - 0.9) < 1e-9
+    assert abs(r['gc_pause_s'] - 0.25) < 1e-9 and r['gc_gen2'] == 7
+    assert abs(r['peak_rss_mib'] - 1234.5) < 1e-9 and r['live_objects'] == 250_000
+
+
+def test_missing_observability_keys_write_nulls_not_raises(tmp_path):
+    # A crashed or legacy worker result dict lacks the new keys — record_arm must degrade
+    # to zeros/NULLs, never raise (the parent wraps it best-effort, but silence here would
+    # also silently zero REAL data; this pins the intended degradation).
+    root = str(tmp_path)
+    legacy = dict(elapsed=5.0, done=10, n_bins=1, regime_bins=1, n_aisles=1,
+                  t_reord=1.0, t_build=1.0, t_pre=1.0, t_sim=1.0,
+                  t_extract=0.5, t_inv=0.25, t_save=0.25)
+    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), legacy)
+    r = rm.load_rows(root)[0]
+    assert r['smpl_s'] == 0.0 and r['kf_s'] == 0.0 and r['gc_gen2'] == 0
+    assert r['peak_rss_mib'] is None and r['live_objects'] is None
 
 
 def test_key_is_unique_and_overwrites(tmp_path):

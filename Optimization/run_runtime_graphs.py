@@ -95,7 +95,11 @@ def _section_breakdown(rows, out):
         y = range(len(assigns))
         left = [0.0] * len(assigns)
         for si, (col, label) in enumerate(SECTIONS):
-            widths = [_mean([r[col] for r in sub if r['assignment'] == a]) for a in assigns]
+            # .get, not [col]: rows from an OLD-vintage runtime_metrics.db lack columns
+            # added later (e.g. the 2026-08-19 observability set) — the graphs must keep
+            # rendering archived runs, so a missing section reads as 0, never a KeyError.
+            widths = [_mean([r.get(col, 0.0) for r in sub if r['assignment'] == a])
+                      for a in assigns]
             ax.barh(list(y), widths, left=left, label=label,
                     color=_SECTION_COLORS[si % len(_SECTION_COLORS)])
             left = [l + w for l, w in zip(left, widths)]
@@ -155,8 +159,39 @@ def run(run_root, log=None):
     if len(set(r['cell'] for r in rows)) > 1:
         _by_group(rows, lambda r: r['cell'], 'mean compute time by cell',
                   os.path.join(outdir, 'runtime_by_cell.png'))
+    _memory_graph(rows, os.path.join(outdir, 'runtime_memory.png'))
     say(f'  runtime graphs -> {outdir}  ({len(rows)} arm rows)')
     return outdir
+
+
+def _memory_graph(rows, out):
+    """Per-arm peak RSS bars + GC pause overlay — the memory observability view.
+
+    Skips silently when the run predates the 2026-08-19 columns (all values absent):
+    old vintages keep rendering their other graphs untouched."""
+    rss = [(r, r.get('peak_rss_mib')) for r in rows]
+    rss = [(r, v) for r, v in rss if v]
+    if not rss:
+        return
+    rss.sort(key=lambda t: -t[1])
+    top = rss[:30]
+    labels = [f"{r['cell']}/{r['arm']} [{r['channel']}]" for r, _v in top]
+    vals   = [v for _r, v in top]
+    gc_s   = [(_r.get('gc_pause_s') or 0.0) for _r, _v in top]
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13, 0.28 * len(top) + 2.2))
+    ax.barh(labels, vals, color=_SECTION_COLORS[0])
+    ax.invert_yaxis()
+    ax.set_xlabel('peak worker RSS (MiB)')
+    ax.set_title('per-arm peak memory (top 30)')
+    ax.tick_params(axis='y', labelsize=6)
+    ax2.barh(labels, gc_s, color=_SECTION_COLORS[3])
+    ax2.invert_yaxis()
+    ax2.set_xlabel('GC pause total (s) — overlaps every section')
+    ax2.set_title('per-arm GC pause')
+    ax2.set_yticklabels([])
+    ax2.grid(alpha=0.3, axis='x')
+    fig.tight_layout()
+    _save(fig, out)
 
 
 def main(argv=None):

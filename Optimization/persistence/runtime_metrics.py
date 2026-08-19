@@ -45,6 +45,15 @@ CREATE TABLE IF NOT EXISTS runtime (
     extract_s   REAL    NOT NULL DEFAULT 0,
     inv_s       REAL    NOT NULL DEFAULT 0,
     save_s      REAL    NOT NULL DEFAULT 0,
+    smpl_s      REAL    NOT NULL DEFAULT 0,
+    task_s      REAL    NOT NULL DEFAULT 0,
+    kf_s        REAL    NOT NULL DEFAULT 0,
+    p1_s        REAL    NOT NULL DEFAULT 0,
+    p2_s        REAL    NOT NULL DEFAULT 0,
+    gc_pause_s  REAL    NOT NULL DEFAULT 0,
+    gc_gen2     INTEGER NOT NULL DEFAULT 0,
+    peak_rss_mib REAL,
+    live_objects INTEGER,
     UNIQUE(cell, pair, config, channel, arm)
 )
 """
@@ -71,16 +80,19 @@ def declared_runtime_shape() -> dict:
 #: The shape every archived runtime_metrics.db carried before `schema_meta` was declared — the
 #: 2026-07-29 vintage (`comparison_whatif_20260729_115451` and `_125755`; no earlier run wrote
 #: this DB at all).  DERIVED from those files, never chosen.  It differs from the declaration by
-#: exactly one absent table, the stamp itself: `runtime`'s twenty columns are identical, so
-#: `load_rows` returns the same dicts from either shape.  The 2026-08-13 runs already match the
-#: current declaration, which is what makes this a two-entry list and not a growing one.
+#: exactly one absent table, the stamp itself: that vintage's twenty `runtime` columns read
+#: identically, so `load_rows` returns the same dicts from any vetted shape.  Three vintages
+#: now: pre-stamp, the 20-column stamped era, and the current 29-column declaration.
 PRE_STAMP_RUNTIME_SCHEMA_ID = 'a683d2d07c72'
 
 RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
     name='runtime_metrics_db',
     declared_shape=declared_runtime_shape,
     meta_table='schema_meta',
-    known_ids=(PRE_STAMP_RUNTIME_SCHEMA_ID,),
+    known_ids=('c033ff9c85a5',  # 20-column stamped era: c07b975..f59f38e (2026-08-13 runs
+                                #   through the 2026-08-19 deep/RSS ladders), superseded by
+                                #   the observability columns (smpl/task/kf/p1/p2/gc/rss)
+              PRE_STAMP_RUNTIME_SCHEMA_ID,),
 ))
 
 
@@ -96,6 +108,10 @@ SECTIONS = [
     # move the runtime_metrics schema id); only the human label tracks what it measures.
     ('inv_s',     'bin-accounting'),
     ('save_s',    'DB-save'),
+    # NOT in this list, deliberately: smpl_s/task_s (sub-splits of build_s), kf_s (a
+    # sub-span of pre_s), p1_s/p2_s (a split of sim_s), gc_pause_s (overlaps every
+    # section).  This list is a PARTITION for the stacked graph — adding an overlay
+    # column here double-counts its seconds.  Query the columns directly instead.
 ]
 
 
@@ -128,8 +144,9 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
         con.execute(
             'INSERT OR REPLACE INTO runtime '
             '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'
-            'batches,total_s,rate,reord_s,build_s,pre_s,sim_s,extract_s,inv_s,save_s) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'batches,total_s,rate,reord_s,build_s,pre_s,sim_s,extract_s,inv_s,save_s,'
+            'smpl_s,task_s,kf_s,p1_s,p2_s,gc_pause_s,gc_gen2,peak_rss_mib,live_objects) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             (cell or '', pair, config, channel, arm, initial, assignment,
              int(res.get('n_bins', 0) or 0), int(res.get('regime_bins', 0) or 0),
              int(res.get('n_aisles', 0) or 0), batches, total,
@@ -137,7 +154,14 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
              float(res.get('t_reord', 0.0) or 0.0), float(res.get('t_build', 0.0) or 0.0),
              float(res.get('t_pre', 0.0) or 0.0), float(res.get('t_sim', 0.0) or 0.0),
              float(res.get('t_extract', 0.0) or 0.0), float(res.get('t_inv', 0.0) or 0.0),
-             float(res.get('t_save', 0.0) or 0.0)))
+             float(res.get('t_save', 0.0) or 0.0),
+             # finer splits + memory observability (2026-08-19 column add; every read is a
+             # .get so a crashed/legacy result dict writes zeros/NULLs, never raises)
+             float(res.get('t_sample', 0.0) or 0.0), float(res.get('t_task', 0.0) or 0.0),
+             float(res.get('t_kf', 0.0) or 0.0),
+             float(res.get('p1_s', 0.0) or 0.0), float(res.get('p2_s', 0.0) or 0.0),
+             float(res.get('gc_pause_s', 0.0) or 0.0), int(res.get('gc_gen2', 0) or 0),
+             res.get('peak_rss_mib'), res.get('live_objects')))
         con.commit()                     # connect.close checkpoints, it does not commit
     finally:
         _connect.close(con)
