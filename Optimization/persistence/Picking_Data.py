@@ -102,7 +102,7 @@ class BinInventoryRecord:
     post_qty:     int   # quantity after all picks applied
 
 
-@dataclass
+@dataclass(slots=True)
 class PickerEventRecord:
     run_id:         int
     batch_id:       int

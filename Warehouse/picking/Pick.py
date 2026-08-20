@@ -53,7 +53,7 @@ class PickConfig:
 
 # ── events ───────────────────────────────────────────────────────────────────
 
-@dataclass
+@dataclass(slots=True)
 class PickEvent:
     time: float
     picker_id: int
