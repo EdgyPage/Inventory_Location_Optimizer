@@ -446,11 +446,17 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
     """
     n = 0
     if rt is not None:
-        for src in sorted(rt.whatif_outputs()):      # existing whatif artifacts at the run root
+        # Two passes — data files first, then PNGs — so the staged (src -> dst) sequence
+        # matches the literal route below line for line (the golden test compares the two
+        # logs as SEQUENCES; one mixed sorted() pass interleaves pngs before the json).
+        cands = sorted(rt.whatif_outputs())          # existing whatif artifacts at the run root
+        for src in cands:
             base = os.path.basename(src)
             if base.endswith(_WHATIF_DATA_EXT):
                 n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=base), dry, log)
-            elif fnmatch.fnmatch(base, DEFAULT_WHATIF_PNG_GLOB):
+        for src in cands:
+            base = os.path.basename(src)
+            if not base.endswith(_WHATIF_DATA_EXT) and fnmatch.fnmatch(base, DEFAULT_WHATIF_PNG_GLOB):
                 n += _copy(src, site_tree.path('whatif_delta', exp_dir, fname=base), dry, log)
         return n
     for fname in DEFAULT_WHATIF_DATA:
