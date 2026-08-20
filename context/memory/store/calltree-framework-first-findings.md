@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-20T18:55:11.996Z
+  modified: 2026-08-20T23:12:13.326Z
 ---
 
 Tests/calltree/ (2026-08-18) is the runtime measurement framework: deterministic tracer
@@ -182,3 +182,35 @@ t_extract, t_sim.**
 **2026-08-20 (commit 21f3b3c): the v2 sampler (t_sample fix above) became the default era for
 all new runs — see [[v2-sampler-era]] for the baselines, the v1 escape hatch, and the
 row-comparability trap.**
+
+**Round 3 (2026-08-20, single fix commit 2cdea43) — the honest-closure round: one small
+verified win, everything else CLOSED at its measured floor.**
+- Wall decomposition of the v2-era reference (`comparison_20260820_151204`, 10.4 min): parent
+  lead-in 1.1 min, worker phase 5.3 min, parent tail 4.0 min. The long-suspected "60s/arm
+  startup" line from earlier rounds was an amortization error — real per-arm startup measures
+  ~9s mean.
+- **R3-C2 LANDED**: inline `analyze_run` (`Optimization/run_simulation.py`) now passes
+  `granularity='graph'` whenever the analysis pool has >1 worker (was the `'config'` default —
+  4 jobs on 18 workers, 3.3 min with 14 idle; same fix class as
+  [[analyze-run-granularity-worker-saturation]], just wired at the inline call site). Honest
+  outcome: only ~0.5 min reclaimed (tail 4.0 → 3.5 min) — post-fix attribution shows the stage
+  is at its matplotlib CPU floor (savefig/tight_layout/tick layout; metric_grids 24s/job,
+  scorecards 13.6s/34 figures). Further reduction means rewriting the plot suite —
+  report-and-stop. Digest-only gate runs should pass `--no-analyze` instead (~3.5 min saved per
+  gate run, no product change).
+- Startup: CLOSED, no candidate — dominated by the initial fill (`_stock`/`_stock_per_unit` +
+  `enqueue_all`, ~3.2s), which IS the strategy under test; loaders already fast (inventory
+  0.33s, warehouse build 0.48s).
+- t_save remainder: CLOSED — 1.47s CPU (local-disk bundle) + ~3.7s drive in ONE commit per
+  checkpoint; local staging is disqualified because `--resume` and mid-run readers need the sim
+  DB at its canonical path.
+- In-era deep ladder (archive
+  `growth__knob-skus_ladder-deep_seed-42__20260820T231003Z_2cdea4386ab7`): t_reord 1.06, t_sim
+  0.92, t_save 0.79, t_extract 0.63; t_task k=3.92 in-era (v1-era read 3.28) — same standing
+  verdict, absolute cost still trivial, trigger still ~300k SKUs. 80k rung wall 17.3 min (was
+  24.9 pre-round-2).
+- **Standing state after three rounds**: at 40k the system is at a local optimum under the
+  byte-identical constraint — loop ~24s/arm, run wall ~10 min (~5.3 min worker + ~3 min
+  analysis CPU floor + ~1 min lead-in). Future levers are operational (more workers — RSS
+  headroom permits ~5x; `--no-analyze` for gate runs) or era-level decisions, not further
+  identical-refactors.
