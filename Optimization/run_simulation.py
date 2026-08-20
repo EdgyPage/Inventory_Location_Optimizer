@@ -478,8 +478,15 @@ def main():
     # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──
     if not args.no_analyze:
         from Optimization.analyze_run import analyze_run
+        _aw = args.analysis_workers or workers
+        # granularity 'config' emits ~4 jobs/cell — on an 18-worker pool the analysis
+        # stage ran 3.3 min with 14 workers idle (measured, comparison_20260820_151204,
+        # ~32% of that run's wall).  'graph' (one job per channel-run × evaluation,
+        # ~88/cell) is the documented pool-saturating mode; keep 'config' when the pool
+        # is a single worker, where finer jobs are pure dispatch overhead.
         analyze_run(base_dir, log, cells=info['cells'],
-                    workers=(args.analysis_workers or workers), reference=info['reference'])
+                    workers=_aw, reference=info['reference'],
+                    granularity=('graph' if _aw > 1 else 'config'))
 
     log.info(f'\nAll simulations complete.  Root: {base_dir}'
              + ('' if not args.no_analyze else
