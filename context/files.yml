@@ -486,6 +486,7 @@ files:
       - {name: "BinEvictionRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "save_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
@@ -1408,6 +1409,7 @@ files:
       - {name: "test_cluster_map_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_delta_lift_summation_order_is_value_bearing", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_choose_aisle_consumes_cached_values", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+      - {name: "test_co_demand_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_minlabor_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_minlabor_unrefreshed_cache_is_detectable", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
     notes: ""
@@ -1859,6 +1861,8 @@ files:
       - {name: "test_load_matrix_matches_frozen_oracle", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
       - {name: "test_load_matrix_row_order_irrelevant", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
       - {name: "test_load_matrix_empty_table", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
+      - {name: "test_sidecar_roundtrip_is_bit_identical", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
+      - {name: "test_sidecar_never_crosses_between_dbs_in_one_directory", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
       - {name: "test_comparison_rejects_float64_impostor", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_assignment_and_labor.py":
@@ -1911,7 +1915,7 @@ files:
       - {name: "test_travel_scores_stay_finite_for_every_valid_speed", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
     notes: ""
   "Tests/unit/test_batch_sampler_v2.py":
-    purpose: "gates the flag-gated Fenwick sampler v2 — v1 stays byte-identical (dispatch + fingerprint), v2 is deterministic, without-replacement, weight-faithful, and fingerprints apart from v1"
+    purpose: "gates the flag-gated Fenwick sampler v2 \u2014 v1 stays byte-identical (dispatch + fingerprint), v2 is deterministic, without-replacement, weight-faithful, and fingerprints apart from v1"
     layer: "tests"
     key_symbols:
       - {name: "test_default_config_dispatches_to_v1", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}

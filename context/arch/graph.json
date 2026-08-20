@@ -3541,14 +3541,29 @@
       "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_aisle_metrics"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_aisle_metrics"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
+      "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_batch_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_batch_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_bin_evictions"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -3561,6 +3576,11 @@
       "src": "Optimization/persistence/Picking_Data.py::save_bin_keyframe"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_bin_placements"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_bin_placements"
@@ -3571,14 +3591,74 @@
       "src": "Optimization/persistence/Picking_Data.py::save_bin_scores"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_picker_events"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_picker_events"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
+      "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_picks"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_picks"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_reorder_queue"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -3589,6 +3669,11 @@
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_sku_scores"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_task_stats"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -6306,27 +6391,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::save_aisle_metrics",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_batch_stats",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_bin_placements",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -6336,27 +6401,12 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::save_picker_events",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_picks",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_reorder_queue",
+      "dst": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_sku_scores",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_task_stats",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -8846,6 +8896,26 @@
       "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore.__init__"
     },
     {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._try_sidecar",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._load_matrix"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._write_sidecar",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._load_matrix"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._db_stamp",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._try_sidecar"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._sidecar_path",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._try_sidecar"
+    },
+    {
       "dst": "Schema/connect.py::read_only",
       "kind": "calls",
       "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._verify_shape"
@@ -8859,6 +8929,16 @@
       "dst": "Schema/shape.py::shape_of_ddl",
       "kind": "calls",
       "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._verify_shape"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._db_stamp",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._write_sidecar"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore._sidecar_path",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore._write_sidecar"
     },
     {
       "dst": "Schema/connect.py::close",
@@ -10951,14 +11031,14 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
       "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.aisle_key"
+      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
@@ -16036,6 +16116,70 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_aisle_metrics",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_batch_stats",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_bin_evictions",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_bin_placements",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_picker_events",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_picks",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_picks",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_reorder_queue",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_task_stats",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -16264,6 +16408,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_bin_scores",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_checkpoint_bundle",
       "public": true
     },
     {
@@ -21708,6 +21860,14 @@
     },
     {
       "file": "Warehouse/catalog/Affinity_Store.py",
+      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._db_stamp",
+      "kind": "function",
+      "module": "Warehouse/catalog/Affinity_Store.py",
+      "name": "_db_stamp",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Affinity_Store.py",
       "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._init_schema",
       "kind": "function",
       "module": "Warehouse/catalog/Affinity_Store.py",
@@ -21724,10 +21884,34 @@
     },
     {
       "file": "Warehouse/catalog/Affinity_Store.py",
+      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._sidecar_path",
+      "kind": "function",
+      "module": "Warehouse/catalog/Affinity_Store.py",
+      "name": "_sidecar_path",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Affinity_Store.py",
+      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._try_sidecar",
+      "kind": "function",
+      "module": "Warehouse/catalog/Affinity_Store.py",
+      "name": "_try_sidecar",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Affinity_Store.py",
       "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._verify_shape",
       "kind": "function",
       "module": "Warehouse/catalog/Affinity_Store.py",
       "name": "_verify_shape",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Affinity_Store.py",
+      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore._write_sidecar",
+      "kind": "function",
+      "module": "Warehouse/catalog/Affinity_Store.py",
+      "name": "_write_sidecar",
       "public": false
     },
     {
@@ -21793,6 +21977,14 @@
       "module": "Warehouse/catalog/Affinity_Store.py",
       "name": "sum_lift",
       "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Affinity_Store.py",
+      "id": "Warehouse/catalog/Affinity_Store.py::_log",
+      "kind": "const",
+      "module": "Warehouse/catalog/Affinity_Store.py",
+      "name": "_log",
+      "public": false
     },
     {
       "file": "Warehouse/catalog/Demand.py",
@@ -25217,14 +25409,6 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_co_demand_ranked_impl",
       "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.aisle_key",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "aisle_key",
-      "public": true
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",

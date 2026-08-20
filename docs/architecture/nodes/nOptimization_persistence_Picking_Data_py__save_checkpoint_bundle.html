@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>save_checkpoint_bundle · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_Picking_Data_py__save_checkpoint_bundle" data-id="Optimization/persistence/Picking_Data.py::save_checkpoint_bundle">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a> <span class="sep">›</span> <span class="here"><code>save_checkpoint_bundle</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>save_checkpoint_bundle</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def save_checkpoint_bundle(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list) -&gt; None</code></pre>
+<section class="doc">All eight per-checkpoint writers on ONE connection with ONE commit.
+
+strategy_runner&#x27;s checkpoint flush used to call the eight `save_*` writers back to
+back, each paying its own open + commit + close against a ~1 GB WAL DB — measured
+at 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by
+the per-writer connection churn (and the maker of the synchronized 18-worker save
+storm early in a run).  This bundles them: the INSERT bodies are the writers&#x27; own
+(shared `_insert_*` helpers), executed in exactly the historical call order, so
+every table receives identical rows in identical order — per-table rowids and the
+run digest are unchanged.  The three writers that early-return on empty keep that
+skip here (parity; the tables all pre-exist from init_run_db either way).</section>
+<section class="rel"><h2>Callees <span class="count">(9)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___insert_aisle_metrics.html"><code>_insert_aisle_metrics</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_batch_stats.html"><code>_insert_batch_stats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_bin_evictions.html"><code>_insert_bin_evictions</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_bin_placements.html"><code>_insert_bin_placements</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_picker_events.html"><code>_insert_picker_events</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_picks.html"><code>_insert_picks</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_reorder_queue.html"><code>_insert_reorder_queue</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___insert_task_stats.html"><code>_insert_task_stats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___open_db.html"><code>_open_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__save_checkpoint_bundle">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20save_checkpoint_bundle">Source ↗</a></p>
+</article>
+</main>
+</body></html>

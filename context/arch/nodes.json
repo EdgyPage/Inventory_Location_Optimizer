@@ -3682,6 +3682,62 @@
       "kind": "function",
       "signature": "(con: sqlite3.Connection) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_batch_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_bin_evictions": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_bin_placements": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_picker_events": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_picks": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_reorder_queue": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_task_stats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::_migrate_run_columns": {
       "decorators": [],
       "doc": "Add any simulation_runs column this build expects but an older file lacks.\n\nALTER TABLE ADD COLUMN is O(1) in SQLite (it only rewrites the schema), and adding the\ncolumn also lifts the file's observed shape onto the current declared id \u2014 which is exactly\nwhat the reader registry wants.  Existing rows keep NULL, and a NULL stamp is the documented\n\"derive it\" path.",
@@ -3884,6 +3940,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
+      "decorators": [],
+      "doc": "All eight per-checkpoint writers on ONE connection with ONE commit.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_picker_events": {
       "decorators": [],
@@ -8634,6 +8697,13 @@
       "kind": "function",
       "signature": "(self, db_path: str=':memory:', seed: int | None=None) -> None"
     },
+    "Warehouse/catalog/Affinity_Store.py::AffinityStore._db_stamp": {
+      "decorators": [],
+      "doc": "(main size, header change counter, mtime_ns, -wal size) \u2014 identity of the DB.\n\nThe WAL size is load-bearing: this store opens in WAL mode, so a committed write\nlives in `affinity.db-wal` and the MAIN file's header does not move until a\ncheckpoint \u2014 size+counter alone would serve a stale sidecar over fresh commits.\nA reader-created `-wal` is zero bytes and a clean writer close removes it, so the\nproduction read-only file stamps identically across opens.  mtime_ns catches a\nREGENERATED file: a deterministic generator can reproduce both the size and the\ncommit count, and a copied/restored file changing mtime only costs one spurious\nSQL reload \u2014 the safe direction.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[int, int, int, int]"
+    },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore._init_schema": {
       "decorators": [],
       "doc": "Create the tables ONLY when something is actually missing.\n\nThis used to run unconditionally, which meant opening a complete, generator-written\n`affinity.db` \u2014 even purely to read it \u2014 silently ADDED `sku_group` and changed the\nfile's shape.  A database whose structure depends on whether it has been opened yet\ncannot be fingerprinted, and the mutation also drifted it away from what\n`context/artifacts.yml` declares.  The generator now declares `sku_group` too, so the\ncommon path finds everything present and touches nothing.",
@@ -8648,6 +8718,20 @@
       "kind": "function",
       "signature": "(self) -> None"
     },
+    "Warehouse/catalog/Affinity_Store.py::AffinityStore._sidecar_path": {
+      "decorators": [],
+      "doc": "<db filename>.arrays.npz beside the DB \u2014 the NAME carries the db filename so\ntwo same-shaped stores in one directory can never serve each other's arrays\n(two seed-variant test DBs did exactly that under a fixed sidecar name).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str | None"
+    },
+    "Warehouse/catalog/Affinity_Store.py::AffinityStore._try_sidecar": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore._verify_shape": {
       "decorators": [
         "classmethod"
@@ -8656,6 +8740,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cls, db_path: str) -> None"
+    },
+    "Warehouse/catalog/Affinity_Store.py::AffinityStore._write_sidecar": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
     },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore.close": {
       "decorators": [],
@@ -8712,6 +8803,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, skus: list[int]) -> float"
+    },
+    "Warehouse/catalog/Affinity_Store.py::_log": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "logging.getLogger(__name__)"
     },
     "Warehouse/catalog/Demand.py": {
       "decorators": [],
@@ -11744,13 +11842,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.aisle_key": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aid)"
     },
     "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.priority": {
       "decorators": [],
