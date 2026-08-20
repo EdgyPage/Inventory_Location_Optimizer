@@ -113,6 +113,12 @@ def _singleton_fit_dims(h: int, w: int, l: int, quantity: int,
 
 
 class StorageUnit(ABC):
+    # Slots over __dict__: ~400k live units at full occupancy make this family one of the
+    # largest tracked-object populations in a worker (gen-2 walk cost + per-instance RAM).
+    # Class attributes (max_*/unit_category/TIERS) stay class attributes; only instance
+    # state is slotted.  ABC's own __slots__ is () so no __dict__ sneaks in from the base.
+    __slots__ = ('_height', '_width', '_length', '_stack_axis', 'order', 'quantity')
+
     def __init__(self, order: Order, quantity: int) -> None:
         self._height: int | None = None
         self._width: int | None = None
@@ -159,6 +165,7 @@ class Pallet(StorageUnit):
     max_length:    int = PALLET_FOOTPRINT
     max_width:     int = PALLET_FOOTPRINT
     unit_category: str = 'pallet'
+    __slots__ = ('storage_size',)
 
     def __init__(self, order: Order, quantity: int) -> None:
         self.storage_size: str | None = None
@@ -187,6 +194,7 @@ class Singleton(Pallet):
     max_width:     int = COMPACT_FOOTPRINT
     max_length:    int = COMPACT_FOOTPRINT
     unit_category: str = 'singleton'
+    __slots__ = ()
 
     def _fit(self, order: Order) -> None:
         """Validate fit in 16×16 footprint; set dimensions without size-tier logic."""
@@ -218,6 +226,7 @@ class FulfillmentBin(Pallet):
     max_width:     int = COMPACT_FOOTPRINT
     max_length:    int = COMPACT_FOOTPRINT
     unit_category: str = 'fulfillment'
+    __slots__ = ()
     # Ascending (name, height) size tiers — small, for a ~6 ft shelf.
     TIERS: tuple = (('ff_small', 6), ('ff_medium', 12), ('ff_large', 18))
 
