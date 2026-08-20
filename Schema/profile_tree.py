@@ -116,6 +116,14 @@ ARTIFACTS = {
     'affinity_plots': {
         'path': '{profile}/affinity/plots/**/*.png', 'format': 'png', 'scope': 'profile',
         'writer': 'generate_run@Warehouse/generation/generate_affinity.py'},
+    'affinity_arrays': {
+        'path': '{profile}/affinity/affinity.db.arrays.npz', 'format': 'npz', 'scope': 'profile',
+        'optional': True,
+        'writer': 'AffinityStore._write_sidecar@Warehouse/catalog/Affinity_Store.py',
+        'note': 'derived acceleration cache: the finished CSR arrays + sku index, written '
+                'lazily by the first SQL load and keyed on affinity.db\'s (size, change '
+                'counter). Bit-identical to a SQL load by construction; safe to delete — '
+                'the next open regenerates it.'},
     'cross_profile_dir': {
         'path': 'cross_profile', 'format': 'dir', 'scope': 'run', 'optional': True,
         'writer': 'main@Warehouse/generation/generate_profile_suite.py',

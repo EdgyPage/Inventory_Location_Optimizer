@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import logging
 import os
 import random
 import sqlite3
@@ -17,6 +18,8 @@ from Warehouse.catalog.Inventory_Builder import AffMatrix
 
 if TYPE_CHECKING:
     from Warehouse.catalog.Inventory_Builder import Inventory
+
+_log = logging.getLogger(__name__)
 
 
 class AffinityStore:
@@ -36,6 +39,7 @@ class AffinityStore:
 
     def __init__(self, db_path: str = ':memory:', seed: int | None = None) -> None:
         self._verify_shape(db_path)          # BEFORE the file is opened for writing
+        self._db_path = db_path              # sidecar cache lives next to the file
         self._conn = sqlite3.connect(db_path)
         self._conn.execute('PRAGMA journal_mode=WAL')
         self._conn.execute('PRAGMA synchronous=NORMAL')
@@ -115,6 +119,90 @@ class AffinityStore:
         self._conn.executescript(self._SCHEMA)
         self._conn.commit()
 
+    # ── sidecar array cache ────────────────────────────────────────────────────
+    # `affinity_arrays.npz` next to affinity.db: the FINISHED CSR arrays + sku index,
+    # written once after a SQL load and reused by every later open.  Measured need: in
+    # an 18-worker comparison every arm re-decoded the same 14M rows — 29s/arm under
+    # contention, 65.7 CPU-minutes (~16% of run wall) per 40k comparison.  The npz is
+    # ~108 MB of exactly the arrays the SQL path produces, so a sidecar load is
+    # bit-identical BY CONSTRUCTION (enforced by the oracle test).  Declared in the
+    # profiles-tree contract as an optional derived artifact; safe to delete any time.
+    # Staleness: keyed on the DB file's (size, sqlite change counter) — affinity.db is
+    # generated once and then read-only, so a regenerated file bumps both and the
+    # sidecar is ignored and rewritten.  All writes are tmp + os.replace (atomic;
+    # concurrent writers produce identical bytes, last one wins).
+
+    def _sidecar_path(self) -> str | None:
+        """<db filename>.arrays.npz beside the DB — the NAME carries the db filename so
+        two same-shaped stores in one directory can never serve each other's arrays
+        (two seed-variant test DBs did exactly that under a fixed sidecar name)."""
+        path = getattr(self, '_db_path', None)   # probes construct via __new__ without it
+        if not path or path == ':memory:' or not os.path.exists(path):
+            return None
+        return os.path.abspath(path) + '.arrays.npz'
+
+    def _db_stamp(self) -> tuple[int, int, int, int]:
+        """(main size, header change counter, mtime_ns, -wal size) — identity of the DB.
+
+        The WAL size is load-bearing: this store opens in WAL mode, so a committed write
+        lives in `affinity.db-wal` and the MAIN file's header does not move until a
+        checkpoint — size+counter alone would serve a stale sidecar over fresh commits.
+        A reader-created `-wal` is zero bytes and a clean writer close removes it, so the
+        production read-only file stamps identically across opens.  mtime_ns catches a
+        REGENERATED file: a deterministic generator can reproduce both the size and the
+        commit count, and a copied/restored file changing mtime only costs one spurious
+        SQL reload — the safe direction."""
+        path = self._db_path
+        with open(path, 'rb') as fh:
+            hdr = fh.read(28)
+        st = os.stat(path)
+        try:
+            wal = os.path.getsize(path + '-wal')
+        except OSError:
+            wal = 0
+        return st.st_size, int.from_bytes(hdr[24:28], 'big'), st.st_mtime_ns, wal
+
+    def _try_sidecar(self) -> bool:
+        sc = self._sidecar_path()
+        if sc is None or not os.path.exists(sc):
+            return False
+        try:
+            with np.load(sc) as z:
+                if tuple(z['stamp']) != self._db_stamp():
+                    _log.info('  Affinity sidecar STALE (db changed) — reloading from SQL')
+                    return False
+                all_skus = z['all_skus']
+                n = len(all_skus)
+                self._matrix = csr_matrix(
+                    (z['data'], z['indices'], z['indptr']), shape=(n, n), dtype=np.float32)
+        except Exception as e:                    # corrupt/truncated sidecar: never fatal
+            _log.warning(f'  Affinity sidecar unreadable ({e!r}) — reloading from SQL')
+            return False
+        self._sku_to_idx = {int(s): i for i, s in enumerate(all_skus)}
+        _log.info(f'  Affinity sidecar hit : {self._matrix.nnz:,} entries from {sc}')
+        return True
+
+    def _write_sidecar(self) -> None:
+        sc = self._sidecar_path()
+        if sc is None or self._matrix is None:
+            return
+        m = self._matrix
+        all_skus = np.fromiter(self._sku_to_idx.keys(), dtype=np.int64,
+                               count=len(self._sku_to_idx))
+        tmp = sc + f'.tmp.{os.getpid()}'
+        try:
+            with open(tmp, 'wb') as fh:
+                np.savez(fh, stamp=np.asarray(self._db_stamp(), dtype=np.int64),
+                         all_skus=all_skus, indptr=m.indptr, indices=m.indices, data=m.data)
+            os.replace(tmp, sc)
+            _log.info(f'  Affinity sidecar written : {sc}')
+        except OSError as e:                      # read-only dir etc. — degrade loudly
+            _log.warning(f'  Affinity sidecar not written ({e!r}) — every open pays the SQL load')
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
     def _load_matrix(self) -> None:
         """Read the full affinity table into a CSR sparse matrix.
 
@@ -127,6 +215,8 @@ class AffinityStore:
         matrix.  That path is only used for online/legacy generation and is not
         called by the comparison scripts.
         """
+        if self._try_sidecar():
+            return
         # Stream into COUNT(*)-presized arrays instead of fetchall + zip(*rows): the
         # one-shot form materialized every row tuple and cell object simultaneously
         # (~1.4 GB transient / ~26M GC-tracked objects on a 14M-row production
@@ -185,6 +275,7 @@ class AffinityStore:
             shape=(len(all_skus), len(all_skus)),
             dtype=np.float32,
         )
+        self._write_sidecar()
 
     def index_inventory(self, inventory: Inventory) -> None:
         """Store sku → lift_group for every order. Safe to call multiple times."""

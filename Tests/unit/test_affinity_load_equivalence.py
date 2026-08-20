@@ -18,6 +18,7 @@ dtype a careless rewrite would inherit from SQLite's REAL) is rejected.
 """
 from __future__ import annotations
 
+import os
 import random
 
 import numpy as np
@@ -118,6 +119,57 @@ def test_load_matrix_empty_table():
     st = AffinityStore(':memory:')          # __init__ already ran _load_matrix on 0 rows
     assert st._sku_to_idx == {}
     assert st._matrix is None
+
+
+def test_sidecar_roundtrip_is_bit_identical(tmp_path):
+    """The affinity_arrays.npz cache: a reopen served from the sidecar must produce the
+    SAME store, bit for bit, as the SQL load that wrote it — and a stale sidecar (the DB
+    file changed underneath) must be ignored and rewritten, not served."""
+    db = str(tmp_path / 'affinity.db')
+    st1 = AffinityStore(db)
+    st1._conn.executemany('INSERT OR REPLACE INTO affinity VALUES (?,?,?)',
+                          _adversarial_rows())
+    st1._conn.commit()
+    st1._load_matrix()                                  # SQL load; writes the sidecar
+    sc = st1._sidecar_path()
+    assert sc is not None and os.path.exists(sc), 'the SQL load must leave a sidecar'
+
+    st2 = AffinityStore(db)                             # fresh open: sidecar hit
+    _assert_bit_identical(st2, st1._sku_to_idx, st1._matrix)
+
+    # stale detection: grow the DB file -> stamp mismatch -> SQL reload + fresh sidecar
+    st1._conn.execute('INSERT OR REPLACE INTO affinity VALUES (77771, 77772, 4.5)')
+    st1._conn.commit()
+    st3 = AffinityStore(db)
+    assert 77771 in st3._sku_to_idx, 'a stale sidecar was served over the changed DB'
+    st4 = AffinityStore(db)                             # rewritten sidecar serves the new shape
+    _assert_bit_identical(st4, st3._sku_to_idx, st3._matrix)
+
+    # corruption: an unreadable sidecar degrades to the SQL path, never raises
+    with open(sc, 'wb') as fh:
+        fh.write(b'garbage')
+    st5 = AffinityStore(db)
+    _assert_bit_identical(st5, st3._sku_to_idx, st3._matrix)
+
+
+def test_sidecar_never_crosses_between_dbs_in_one_directory(tmp_path):
+    """Two same-shaped stores in one directory must never serve each other's arrays.
+    The first sidecar cut used a FIXED file name and a (size, change-counter) stamp —
+    two seed-variant DBs collided on both and one silently served the other's lifts."""
+    rng = random.Random(5)
+    rows_a = [(a, b, 1.0 + rng.random()) for a in range(1, 30) for b in range(31, 40)]
+    rows_b = [(a, b, 1.0 + rng.random()) for a in range(1, 30) for b in range(31, 40)]
+    for name, rows in (('aff1.db', rows_a), ('aff2.db', rows_b)):
+        st = AffinityStore(str(tmp_path / name))
+        st._conn.executemany('INSERT OR REPLACE INTO affinity VALUES (?,?,?)', rows)
+        st._conn.commit()
+        st._load_matrix()                                    # writes that DB's own sidecar
+    re1 = AffinityStore(str(tmp_path / 'aff1.db'))
+    re2 = AffinityStore(str(tmp_path / 'aff2.db'))
+    assert re1._sidecar_path() != re2._sidecar_path(), 'sidecar name must carry the db name'
+    assert re1._matrix.data.tobytes() != re2._matrix.data.tobytes(), (
+        'two different affinity DBs came back with identical lift arrays — a sidecar '
+        'served across files')
 
 
 def test_comparison_rejects_float64_impostor():
