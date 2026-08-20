@@ -55,9 +55,7 @@ from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
-    save_bin_placements, save_bin_evictions,
-    save_batch_stats, save_task_stats, save_picker_events, save_picks,
-    save_aisle_metrics, save_reorder_queue,
+    save_checkpoint_bundle,
     save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -768,15 +766,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
         if len(pb) >= checkpoint:
             t_s0 = time.perf_counter()
-            save_batch_stats(db_path, run_id, pb)
-            save_task_stats(db_path, run_id, pt)
-            save_picker_events(db_path, run_id, pe)
-            save_picks(db_path, run_id, pk)
             _bp, _be = bin_rec.drain()
-            save_bin_placements(db_path, run_id, _bp)
-            save_bin_evictions(db_path, run_id, _be)
-            save_aisle_metrics(db_path, run_id, pm)
-            save_reorder_queue(db_path, run_id, pq)
+            save_checkpoint_bundle(
+                db_path, run_id,
+                batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
+                bin_placements=_bp, bin_evictions=_be,
+                aisle_metrics=pm, reorder_queue=pq)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -859,15 +854,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     if pb:
         log.info(f'  Flushing final {len(pb)} batches to DB...')
         _ts_final = time.perf_counter()
-        save_batch_stats(db_path, run_id, pb)
-        save_task_stats(db_path, run_id, pt)
-        save_picker_events(db_path, run_id, pe)
-        save_picks(db_path, run_id, pk)
         _bp, _be = bin_rec.drain()
-        save_bin_placements(db_path, run_id, _bp)
-        save_bin_evictions(db_path, run_id, _be)
-        save_aisle_metrics(db_path, run_id, pm)
-        save_reorder_queue(db_path, run_id, pq)
+        save_checkpoint_bundle(
+            db_path, run_id,
+            batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
+            bin_placements=_bp, bin_evictions=_be,
+            aisle_metrics=pm, reorder_queue=pq)
         t_save_run += time.perf_counter() - _ts_final
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint

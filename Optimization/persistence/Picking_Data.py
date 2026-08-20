@@ -1190,28 +1190,32 @@ def save_bin_keyframe(path: str, run_id: int, batch_id: int, records: list) -> N
 
 # ── BatchStats DB ─────────────────────────────────────────────────────────────
 
+def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT INTO batch_stats '
+        '(run_id,batch_id,duration,num_tasks,total_items,'
+        'task_makespan,thr_task,thr_batch,'
+        'avg_concurrent_pickers,picking_pct,traveling_pct,'
+        'batch_start_time,batch_end_time,'
+        'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
+        'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [
+            (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
+             r.task_makespan, r.thr_task, r.thr_batch,
+             r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
+             r.batch_start_time, r.batch_end_time,
+             r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
+             r.queue_depth, r.lead_queue_depth, r.in_transit_qty, int(r.is_outlier))
+            for r in records
+        ],
+    )
+
+
 def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT INTO batch_stats '
-            '(run_id,batch_id,duration,num_tasks,total_items,'
-            'task_makespan,thr_task,thr_batch,'
-            'avg_concurrent_pickers,picking_pct,traveling_pct,'
-            'batch_start_time,batch_end_time,'
-            'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
-            'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
-                 r.task_makespan, r.thr_task, r.thr_batch,
-                 r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
-                 r.batch_start_time, r.batch_end_time,
-                 r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
-                 r.queue_depth, r.lead_queue_depth, r.in_transit_qty, int(r.is_outlier))
-                for r in records
-            ],
-        )
+        _insert_batch_stats(con, run_id, records)
         con.commit()
     finally:
         con.close()
@@ -1291,16 +1295,20 @@ def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
         return
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT INTO reorder_queue '
-            '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size) '
-            'VALUES (?,?,?,?,?,?,?,?)',
-            [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss)
-             for (b, k, s, q, rl, ut, ss) in records],
-        )
+        _insert_reorder_queue(con, run_id, records)
         con.commit()
     finally:
         con.close()
+
+
+def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT INTO reorder_queue '
+        '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss)
+         for (b, k, s, q, rl, ut, ss) in records],
+    )
 
 
 def load_reorder_queue(path: str, run_id: int, batch_id: int) -> list[dict]:
@@ -1406,22 +1414,26 @@ def load_sku_scores(path: str, run_id: int) -> list[dict]:
 
 # ── TaskStats DB ──────────────────────────────────────────────────────────────
 
+def _insert_task_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT INTO task_stats '
+        '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
+        'duration,W,lift_sum,num_bins_visited,total_items,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        [
+            (run_id, r.batch_id, r.aisle_id, r.picker_id,
+             r.task_start_time, r.task_end_time, r.duration,
+             r.W, r.lift_sum, r.num_bins_visited,
+             r.total_items, int(r.is_outlier))
+            for r in records
+        ],
+    )
+
+
 def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT INTO task_stats '
-            '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
-            'duration,W,lift_sum,num_bins_visited,total_items,is_outlier) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.aisle_id, r.picker_id,
-                 r.task_start_time, r.task_end_time, r.duration,
-                 r.W, r.lift_sum, r.num_bins_visited,
-                 r.total_items, int(r.is_outlier))
-                for r in records
-            ],
-        )
+        _insert_task_stats(con, run_id, records)
         con.commit()
     finally:
         con.close()
@@ -1460,43 +1472,51 @@ def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
         con.close()
 
 
+def _insert_picker_events(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT INTO picker_events '
+        '(run_id,batch_id,picker_id,time,event_type,aisle_id,bayX,bayY,'
+        'sku,quantity,bins_completed,total_bins,items_picked,total_items,'
+        'pick_travel_x,pick_travel_y,non_pick_travel_x,non_pick_travel_y,cart_move) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [
+            (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
+             r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
+             r.bins_completed, r.total_bins, r.items_picked, r.total_items,
+             r.pick_travel_x, r.pick_travel_y, r.non_pick_travel_x,
+             r.non_pick_travel_y, r.cart_move)
+            for r in records
+        ],
+    )
+
+
 def save_picker_events(path: str, run_id: int, records: list) -> None:
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT INTO picker_events '
-            '(run_id,batch_id,picker_id,time,event_type,aisle_id,bayX,bayY,'
-            'sku,quantity,bins_completed,total_bins,items_picked,total_items,'
-            'pick_travel_x,pick_travel_y,non_pick_travel_x,non_pick_travel_y,cart_move) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
-                 r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
-                 r.bins_completed, r.total_bins, r.items_picked, r.total_items,
-                 r.pick_travel_x, r.pick_travel_y, r.non_pick_travel_x,
-                 r.non_pick_travel_y, r.cart_move)
-                for r in records
-            ],
-        )
+        _insert_picker_events(con, run_id, records)
         con.commit()
     finally:
         con.close()
+
+
+def _insert_picks(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT INTO picks '
+        '(run_id,batch_id,picker_id,sim_time,aisle_id,bayX,bayY,sku,quantity) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [
+            (run_id, r.batch_id, r.picker_id, r.sim_time,
+             r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity)
+            for r in records
+        ],
+    )
 
 
 def save_picks(path: str, run_id: int, records: list) -> None:
     """Persist individual pick events extracted from the picker event stream."""
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT INTO picks '
-            '(run_id,batch_id,picker_id,sim_time,aisle_id,bayX,bayY,sku,quantity) '
-            'VALUES (?,?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.picker_id, r.sim_time,
-                 r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity)
-                for r in records
-            ],
-        )
+        _insert_picks(con, run_id, records)
         con.commit()
     finally:
         con.close()
@@ -1631,20 +1651,24 @@ def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
     """
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT OR REPLACE INTO aisle_metrics '
-            '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum,pick_load_sum) '
-            'VALUES (?,?,?,?,?,?,?,?)',
-            [
-                (run_id, r.batch_id, r.aisle_id,
-                 r.n_skus, r.n_bins, r.demand_sum, r.lift_sum,
-                 getattr(r, 'pick_load_sum', 0.0))
-                for r in records
-            ],
-        )
+        _insert_aisle_metrics(con, run_id, records)
         con.commit()
     finally:
         con.close()
+
+
+def _insert_aisle_metrics(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT OR REPLACE INTO aisle_metrics '
+        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum,pick_load_sum) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        [
+            (run_id, r.batch_id, r.aisle_id,
+             r.n_skus, r.n_bins, r.demand_sum, r.lift_sum,
+             getattr(r, 'pick_load_sum', 0.0))
+            for r in records
+        ],
+    )
 
 
 def load_aisle_metrics(
@@ -1731,15 +1755,19 @@ def save_bin_placements(path: str, run_id: int, records: list) -> None:
         return
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT OR REPLACE INTO bin_placement '
-            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause) '
-            'VALUES (?,?,?,?,?,?,?,?,?)',
-            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause)
-             for r in records])
+        _insert_bin_placements(con, run_id, records)
         con.commit()
     finally:
         con.close()
+
+
+def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT OR REPLACE INTO bin_placement '
+        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause)
+         for r in records])
 
 
 def save_bin_evictions(path: str, run_id: int, records: list) -> None:
@@ -1748,11 +1776,58 @@ def save_bin_evictions(path: str, run_id: int, records: list) -> None:
         return
     con = _open_db(path)
     try:
-        con.executemany(
-            'INSERT OR REPLACE INTO bin_eviction '
-            '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty) VALUES (?,?,?,?,?,?,?,?)',
-            [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty)
-             for r in records])
+        _insert_bin_evictions(con, run_id, records)
+        con.commit()
+    finally:
+        con.close()
+
+
+def _insert_bin_evictions(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT OR REPLACE INTO bin_eviction '
+        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty) VALUES (?,?,?,?,?,?,?,?)',
+        [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty)
+         for r in records])
+
+
+def save_checkpoint_bundle(
+    path           : str,
+    run_id         : int,
+    *,
+    batch_stats    : list,
+    task_stats     : list,
+    picker_events  : list,
+    picks          : list,
+    bin_placements : list,
+    bin_evictions  : list,
+    aisle_metrics  : list,
+    reorder_queue  : list,
+) -> None:
+    """All eight per-checkpoint writers on ONE connection with ONE commit.
+
+    strategy_runner's checkpoint flush used to call the eight `save_*` writers back to
+    back, each paying its own open + commit + close against a ~1 GB WAL DB — measured
+    at 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by
+    the per-writer connection churn (and the maker of the synchronized 18-worker save
+    storm early in a run).  This bundles them: the INSERT bodies are the writers' own
+    (shared `_insert_*` helpers), executed in exactly the historical call order, so
+    every table receives identical rows in identical order — per-table rowids and the
+    run digest are unchanged.  The three writers that early-return on empty keep that
+    skip here (parity; the tables all pre-exist from init_run_db either way).
+    """
+    con = _open_db(path)
+    try:
+        _insert_batch_stats(con, run_id, batch_stats)
+        _insert_task_stats(con, run_id, task_stats)
+        _insert_picker_events(con, run_id, picker_events)
+        _insert_picks(con, run_id, picks)
+        if bin_placements:
+            _insert_bin_placements(con, run_id, bin_placements)
+        if bin_evictions:
+            _insert_bin_evictions(con, run_id, bin_evictions)
+        _insert_aisle_metrics(con, run_id, aisle_metrics)
+        if reorder_queue:
+            _insert_reorder_queue(con, run_id, reorder_queue)
         con.commit()
     finally:
         con.close()
