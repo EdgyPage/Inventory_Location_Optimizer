@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-20T14:44:22.552Z
+  modified: 2026-08-20T18:55:11.996Z
 ---
 
 Tests/calltree/ (2026-08-18) is the runtime measurement framework: deterministic tracer
@@ -133,3 +133,48 @@ table in test_calltree_anchors.py in the same change — the anchors gate names 
 The gate already caught real rot: bench_sections._SEC_RE required 'inv=' after the log line
 renamed it 'cons=' (parsed zero rows from every current run.log); fixed to accept both.
 Related: [[build-inventory-tests-no-reorders]] (the dead-placement trap the scenarios fix).
+
+**Round 2 (2026-08-20, commits c8e2096, c2fcc2b, 2e7e8d0) — a fresh 40k section ranking made
+round 1's ranking obsolete: t_reord ~50%, t_save ~31% (never attributed before), then
+t_extract, t_sim.**
+- **C1 `save_checkpoint_bundle`** (`Optimization/persistence/Picking_Data.py`): the eight
+  per-checkpoint writers (`_insert_*` bodies extracted verbatim, public `save_*` callers
+  unchanged) now share one connection and one commit instead of eight separate
+  `_open_db`+commit+close pairs (92 opens per 15-batch arm). t_save 8.72→4.87s/arm, loop wall
+  27.8→24.2s. Attribution: only ~2s of the 8.7s was CPU (cProfile on local disk) — the rest
+  was drive latency × per-writer connection churn. Related finding, same investigation: the
+  within-run slowdown is NOT cumulative write-wait, it's a synchronized 18-worker checkpoint
+  storm early in the run (arm-identity-controlled quartile analysis; Q2 +8s dev with ALL
+  sections inflated) that decays as arms desynchronize; C1 shrinks the storm rather than
+  eliminating it.
+- **C2 affinity sidecar** `affinity.db.arrays.npz` (`Warehouse/catalog/Affinity_Store.py`,
+  written atomically via tmp+`os.replace`): holds the finished CSR arrays + sku index so every
+  worker after the first stops re-decoding the 14M-row SQL affinity.db. Worker load
+  29.1→0.3s/arm, RUN WALL 16.8→10.6 min (−37%). Declared in the profiles-tree contract as an
+  optional derived artifact (head `7de9027f83ab`), safe to delete, regenerated on demand.
+  Staleness stamp = main-db size + header change counter + mtime_ns + WAL size — TWO terms
+  earned by failing tests, kept as regressions
+  (`Tests/unit/test_affinity_load_equivalence.py`):
+  - WAL-mode commits don't move the main file's header, so size+counter alone served a stale
+    sidecar over fresh commits — WAL size added to the stamp.
+  - a fixed sidecar name + weak stamp let two same-shaped seed-variant DBs in one directory
+    serve each other's arrays — the sidecar name now carries the source db filename.
+- **C3 t_extract: CLOSED, report-and-stop.** `lift_sum` is a digest-stored column whose float
+  is locked to scipy's submatrix summation order — no byte-identical restructure exists.
+  `lift_cache` hit rate measured 24.4% (75% of task sku-sets are unique). A restructure here
+  is a results-era decision, same class as the sampler v2 opt-in.
+- **C4 `_co_demand_ranked_impl` SKU-run cache + priority sort-key memo**
+  (`Warehouse/placement/Assignment_Functions.py`): `aisle_key = (mass, ±d0)` cached per aisle
+  across a SKU's run, both components refreshed winner-only post-commit (the Phase-6 ulp
+  lesson applied from the start, not retrofitted). Meso `check_reorders` 6.33→2.94s; 40k comp
+  31.1→26.5, expn 21.2→17.6 s/arm. Frozen oracle verbatim in
+  `Tests/calltree/test_rank_cache_equivalence.py` (now 3 oracles, 6 tests).
+- Batches-ladder k=2.38 on StorageUnit/`_SortedBins` re-examined and closed as a WARM-UP RAMP
+  fitting artifact (production equilibria: early batches fire few reorders; count ratios
+  decelerate toward ×2 = linear) — not a quadratic, do not re-flag it.
+- Post-slots deep-RSS check: worker peak still flat ~1.15 GiB over an 8× SKU ladder — memory
+  headroom permits roughly 5× more workers if CPU allows.
+- Round-2 ledger at 40k vs round-1's close (`comparison_20260820_090918` →
+  `comparison_20260820_132857`): loop wall 27.8→24.1s, save 8.72→5.26s, run wall ~17→~10.6 min.
+  Cumulative vs the pre-campaign baseline (`comparison_20260819_121157`): loop wall
+  31.9→24.1s (−24%), run wall roughly halved.
