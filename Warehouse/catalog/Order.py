@@ -27,12 +27,26 @@ def _sample_weight(length: int, width: int, height: int) -> int:
 
 
 class Order:
+    # Every attribute ever set on an instance, across all four production construction
+    # paths (__init__, build, reorder, generate_inventory's inline __new__) plus the two
+    # duck-typed contracts: 'stock_qty' (the documented legacy fallback —
+    # inventory_common's hasattr probe must stay False until something assigns it) and
+    # '_is_reorder' (set only by reorder(); every reader is getattr-with-default).
+    # 'subtype' is set on generated orders and read back via getattr(c, 'subtype', None).
+    # ~263k live orders at production scale — slots drop the per-instance __dict__.
+    __slots__ = ('_sku', 'storage_type', 'storage_handle_config', 'lift_group',
+                 'length', 'width', 'height', 'weight', 'demand',
+                 'expected_batch_demand', 'equilibrium_qty', 'reorder_point',
+                 'lead_time_mean', 'supply_cv', 'stock_plan',
+                 'labor_cost', 'handle_var', 'subtype', 'stock_qty', '_is_reorder')
+
     next_sku: int = 1
-    # Per-unit pick-effort regression cost (intercept + weight/volume log terms).
-    # Config-dependent (depends on PickConfig coefficients), so it is computed once
-    # per worker via compute_labor_cost(); 0.0 until set.  Reorders copy it forward.
-    labor_cost: float = 0.0
-    handle_var: float = 0.0   # per-unit weight/volume handling term (no intercept) for height scaling
+    # labor_cost / handle_var: per-unit pick-effort regression cost (intercept +
+    # weight/volume log terms) and its no-intercept handling term.  Config-dependent
+    # (PickConfig coefficients), computed once per worker via compute_labor_cost().
+    # They USED to be class-level 0.0 defaults; a class attribute cannot share a name
+    # with a slot, so every construction path now assigns the 0.0 explicitly (direct
+    # non-getattr reads exist in Assignment_Functions and Storage_Primitive).
 
     # Physical bounds — every constructed order is clamped to these so the DB only ever
     # holds grounded integers (no float dims, no fractional/zero weights).  Tunable.
@@ -78,6 +92,8 @@ class Order:
         c.lead_time_mean  = float(lead_time_mean)
         c.supply_cv       = float(supply_cv)
         c.stock_plan      = stock_plan
+        c.labor_cost      = 0.0     # until compute_labor_cost() — was the class default
+        c.handle_var      = 0.0
         return c
 
     def __init__(self, storage_type: tuple[str, str], max_dim: int = _MAX_DIM) -> None:
@@ -91,6 +107,8 @@ class Order:
         Order.next_sku += 1
         self.demand: Demand = Demand()
         self.lift_group: tuple[str, str] = storage_type
+        self.labor_cost: float = 0.0    # until compute_labor_cost() — was the class default
+        self.handle_var: float = 0.0
 
     def volume(self) -> int:
         return self.length * self.width * self.height

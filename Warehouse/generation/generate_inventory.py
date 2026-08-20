@@ -526,6 +526,11 @@ def build_inventory_with_profile(
         else:
             c.supply_cv = 0.0
 
+        # Order is a slots class with no class-level defaults: assign what __init__ would
+        # have (direct non-getattr reads of labor_cost/handle_var exist downstream).
+        c.labor_cost = 0.0
+        c.handle_var = 0.0
+
         orders.append(c)
 
     return Inventory(orders)
