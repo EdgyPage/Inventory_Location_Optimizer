@@ -11379,6 +11379,47 @@
       "kind": "function",
       "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart) -> list[Task]"
     },
+    "Warehouse/picking/Workload_Builder.py::_Fenwick": {
+      "decorators": [],
+      "doc": "Prefix-sum tree over non-negative weights: O(log n) point-set and prefix-search.\n\nBacks the v2 sampler only.  Pure Python by choice: at 160k SKUs the whole v2 draw\nis ~0.5s (vs v1's 21.6s), so numpy adds nothing but a second float-grouping story.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/picking/Workload_Builder.py::_Fenwick.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, weights: list) -> None"
+    },
+    "Warehouse/picking/Workload_Builder.py::_Fenwick.find": {
+      "decorators": [],
+      "doc": "Smallest 0-based index whose prefix sum reaches `u` (the weighted draw).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, u: float) -> int"
+    },
+    "Warehouse/picking/Workload_Builder.py::_Fenwick.set": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, value: float) -> None"
+    },
+    "Warehouse/picking/Workload_Builder.py::_Fenwick.total": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Warehouse/picking/Workload_Builder.py::_SAMPLERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2}"
+    },
     "Warehouse/picking/Workload_Builder.py::_bin_location": {
       "decorators": [],
       "doc": null,
@@ -11396,6 +11437,13 @@
     "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample": {
       "decorators": [],
       "doc": "Sample k distinct items from candidates without replacement.\n\nWeight of a candidate B is the conditional-demand model\n    weight(B) = demand.relative_frequency(B) \u00b7 \u03a0 lift(A, B)\nover the already-selected partners A of B.  Lift enters MULTIPLICATIVELY (its\nnatural sense: lift = 1 = independence \u21d2 no change), so demand and affinity stay\ncommensurable.  affinity=None \u21d2 pure demand weighting (empty partner map).\n\nUses a numpy cumsum draw per step + the module-level partner-map cache.  Pass `rng`\n(a `random.Random`) to draw from a dedicated stream; default `None` uses the global\nmodule.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates: list, k: int, affinity: 'AffMatrix | AffinityStore | None', rng: random.Random | None=None) -> list"
+    },
+    "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2": {
+      "decorators": [],
+      "doc": "Fenwick-tree form of `_lift_weighted_sample`: same conditional-demand weight model\n(weight(B) = freq(B) \u00b7 \u03a0 lift(A,B) over selected partners A), O((k\u00b7(1+P))\u00b7log n)\ninstead of v1's O(k\u00b7n) full-array passes per draw.\n\nNOT byte-compatible with v1 \u2014 the tree groups float additions differently than v1's\nsequential cumsum, so draws eventually land on different SKUs and the batch sequence\nis a new version (BatchConfig.sampler='v2'; batch_precompute fingerprints it apart).\nDeterministic for a given rng seed, one rng.uniform consumed per draw like v1.",
       "is_async": false,
       "kind": "function",
       "signature": "(candidates: list, k: int, affinity: 'AffMatrix | AffinityStore | None', rng: random.Random | None=None) -> list"

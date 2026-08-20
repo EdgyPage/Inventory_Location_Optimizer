@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_Fenwick · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Workload_Builder_py___Fenwick" data-id="Warehouse/picking/Workload_Builder.py::_Fenwick">
+<nav class="crumbs"><a href="../layers.html">wh_picking</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a> <span class="sep">›</span> <span class="here"><code>_Fenwick</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_Fenwick</code></h1>
+<p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a></p>
+
+<pre class="sig"><code>class _Fenwick</code></pre>
+<section class="doc">Prefix-sum tree over non-negative weights: O(log n) point-set and prefix-search.
+
+Backs the v2 sampler only.  Pure Python by choice: at 160k SKUs the whole v2 draw
+is ~0.5s (vs v1&#x27;s 21.6s), so numpy adds nothing but a second float-grouping story.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py___lift_weighted_sample_v2.html"><code>_lift_weighted_sample_v2</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Workload_Builder_py___Fenwick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Workload_Builder.py#:~:text=class%20_Fenwick">Source ↗</a></p>
+</article>
+</main>
+</body></html>

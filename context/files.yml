@@ -1910,6 +1910,17 @@ files:
       - {name: "test_nonpositive_speed_is_rejected_at_the_config_boundary", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_travel_scores_stay_finite_for_every_valid_speed", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_batch_sampler_v2.py":
+    purpose: "gates the flag-gated Fenwick sampler v2 — v1 stays byte-identical (dispatch + fingerprint), v2 is deterministic, without-replacement, weight-faithful, and fingerprints apart from v1"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_default_config_dispatches_to_v1", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_unknown_sampler_raises", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_v2_deterministic_and_without_replacement", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_v2_weight_model_favors_heavy_candidates", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_fenwick_matches_linear_reference_exactly", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_bell_freq_profile.py":
     purpose: "test_bell_freq_profile.py"
     layer: "tests"

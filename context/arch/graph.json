@@ -10646,11 +10646,6 @@
       "src": "Warehouse/picking/Workload_Builder.py"
     },
     {
-      "dst": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample",
-      "kind": "calls",
-      "src": "Warehouse/picking/Workload_Builder.py::Batch.__init__"
-    },
-    {
       "dst": "Warehouse/picking/Workload_Builder.py::Task",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::Task.from_batch"
@@ -10661,9 +10656,29 @@
       "src": "Warehouse/picking/Workload_Builder.py::Task.from_batch"
     },
     {
+      "dst": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample",
+      "kind": "ref",
+      "src": "Warehouse/picking/Workload_Builder.py::_SAMPLERS"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2",
+      "kind": "ref",
+      "src": "Warehouse/picking/Workload_Builder.py::_SAMPLERS"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_Fenwick",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py",
@@ -24781,6 +24796,54 @@
     },
     {
       "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_Fenwick",
+      "kind": "class",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_Fenwick",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_Fenwick.__init__",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_Fenwick.find",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "find",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_Fenwick.set",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "set",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_Fenwick.total",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "total",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SAMPLERS",
+      "kind": "const",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_SAMPLERS",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
       "id": "Warehouse/picking/Workload_Builder.py::_bin_location",
       "kind": "const",
       "module": "Warehouse/picking/Workload_Builder.py",
@@ -24801,6 +24864,14 @@
       "kind": "function",
       "module": "Warehouse/picking/Workload_Builder.py",
       "name": "_lift_weighted_sample",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_lift_weighted_sample_v2",
       "public": false
     },
     {
