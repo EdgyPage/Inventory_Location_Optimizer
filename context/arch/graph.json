@@ -6246,229 +6246,244 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
-      "dst": "Optimization/config/strategies.py::StrategyContext",
+      "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
     },
     {
-      "dst": "Optimization/metrics/Simulation_Analytics.py::build_pre_snapshot",
+      "dst": "Optimization/config/strategies.py::StrategyContext",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_picker_events",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_picks",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_task_stats",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/metrics/Simulation_Analytics.py::fused_pre_snapshot",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/metrics/bin_recorder.py::BinRecorder",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::init_keyframe_db",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::keyframe_db_path",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_aisle_metrics",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_batch_stats",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_placements",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_scores",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_picker_events",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_picks",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_reorder_queue",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_sku_scores",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_task_stats",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::batch_fingerprint",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::load_batches",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.tracked_sigma_fd",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/picking/Workload_Builder.py::Task.from_batch",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/picking/fast_pick.py::DeferredPickSimulation",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._arm_aisle_state"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._arm_aisle_state"
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::keyframe_db_path",
@@ -11051,6 +11066,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
@@ -15329,6 +15349,14 @@
     },
     {
       "file": "Optimization/metrics/Simulation_Analytics.py",
+      "id": "Optimization/metrics/Simulation_Analytics.py::fused_pre_snapshot",
+      "kind": "function",
+      "module": "Optimization/metrics/Simulation_Analytics.py",
+      "name": "fused_pre_snapshot",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/Simulation_Analytics.py",
       "id": "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics",
       "kind": "function",
       "module": "Optimization/metrics/Simulation_Analytics.py",
@@ -18761,10 +18789,26 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_GC_THRESHOLD_DEFAULT",
+      "kind": "const",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_GC_THRESHOLD_DEFAULT",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_cleanup_checkpoints",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_gc_cb",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_gc_cb",
       "public": false
     },
     {
@@ -18793,18 +18837,18 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._arm_aisle_state",
+      "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_arm_aisle_state",
+      "name": "_run_strategy_worker_impl",
       "public": false
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._gc_cb",
+      "id": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_gc_cb",
+      "name": "_arm_aisle_state",
       "public": false
     },
     {

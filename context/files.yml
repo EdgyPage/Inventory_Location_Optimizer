@@ -409,6 +409,7 @@ files:
       - {name: "build_placed_affinity", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "snapshot_aisle_metrics", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "build_pre_snapshot", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
+      - {name: "fused_pre_snapshot", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "extract_picker_events", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "task_time_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
       - {name: "task_travel_breakdown", file: "Optimization/metrics/Simulation_Analytics.py", kind: "function"}
@@ -1398,6 +1399,18 @@ files:
       - {name: "test_counts_deterministic_and_seed_sensitive", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_section_attribution_covers_the_tree", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
+  "Tests/calltree/test_rank_cache_equivalence.py":
+    purpose: "frozen oracles for the Phase-6 SKU-run caches."
+    layer: "tests"
+    key_symbols:
+      - {name: "N_SKUS", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "const"}
+      - {name: "test_cluster_map_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+      - {name: "test_delta_lift_summation_order_is_value_bearing", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+      - {name: "test_choose_aisle_consumes_cached_values", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+      - {name: "test_minlabor_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+      - {name: "test_minlabor_unrefreshed_cache_is_detectable", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+    notes: ""
   "Tests/conftest.py":
     purpose: "single sys.path bootstrap for the whole suite."
     layer: "tests"
@@ -1757,6 +1770,7 @@ files:
       - {name: "test_warehouse_fingerprint_is_order_independent", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_aisle_layout_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_keyframe_db_path_and_roundtrip", file: "Tests/integration/test_visualization_data.py", kind: "function"}
+      - {name: "test_fused_pre_snapshot_matches_original", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_archived_pick_depletion_is_fully_accounted", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_archived_untouched_bin_writes_no_row_unless_full_snapshot", file: "Tests/integration/test_visualization_data.py", kind: "function"}
       - {name: "test_archived_restock_writes_no_delta_row", file: "Tests/integration/test_visualization_data.py", kind: "function"}
@@ -1837,6 +1851,15 @@ files:
       - {name: "test_sum_lift_subtracts_nnz", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
       - {name: "test_demand_weighted_delta_lift_weights_excess_by_freq", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
       - {name: "test_seed_equals_incremental_rebuild", file: "Tests/unit/test_affinity_lift_invariant.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_affinity_load_equivalence.py":
+    purpose: "frozen-oracle gate proving the streaming _load_matrix rewrite is bit-identical to the fetchall original."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_load_matrix_matches_frozen_oracle", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
+      - {name: "test_load_matrix_row_order_irrelevant", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
+      - {name: "test_load_matrix_empty_table", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
+      - {name: "test_comparison_rejects_float64_impostor", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_assignment_and_labor.py":
     purpose: "test_assignment_and_labor.py"

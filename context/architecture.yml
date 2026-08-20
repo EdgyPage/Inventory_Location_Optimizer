@@ -106,10 +106,10 @@ backbone:
   - {src: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function},
      dst: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
-  # worker body -> batch load + pick simulation
-  - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
+  # worker body -> batch load + pick simulation (wrapper delegates to the impl)
+  - {src: {name: _run_strategy_worker_impl, file: Optimization/simdriver/strategy_runner.py, kind: function},
      dst: {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
-  - {src: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
+  - {src: {name: _run_strategy_worker_impl, file: Optimization/simdriver/strategy_runner.py, kind: function},
      dst: {name: DeferredPickSimulation, file: Warehouse/picking/fast_pick.py, kind: class}, via: calls}
   # placement dispatch (the closures behind mgr.placement) — supplied by resolver_hints.yml
   - {src: {name: _stock_per_unit, file: Warehouse/inventory/Inventory_Management.py, kind: function},

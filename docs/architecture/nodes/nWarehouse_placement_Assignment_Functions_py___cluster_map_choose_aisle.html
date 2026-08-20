@@ -14,13 +14,18 @@
 <h1><span class="kind kind-function">function</span> <code>_cluster_map_choose_aisle</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target)</code></pre>
+<pre class="sig"><code>def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None)</code></pre>
 <section class="doc">Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap.
 
 Same argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is
 replaced by an O(log) ``_closest_abs`` bisect on the aisle&#x27;s pre-sorted ``prefs_by_aisle`` and
 is evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift
-→ no gap work at all).  ``row`` is the SKU&#x27;s pre-sliced affinity row (hoisted once per unit).</section>
+→ no gap work at all).  ``row`` is the SKU&#x27;s pre-sliced affinity row (hoisted once per unit).
+
+``lifts`` may carry the delta values precomputed by a caller&#x27;s same-SKU run cache (a
+superset keyed by aisle); values for the current live aisles are read from it instead
+of recomputed — identical numbers, because within a same-SKU run the member idx-sets
+gain only the SKU&#x27;s own index, which (self-pairs are not stored) is never in ``row``.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___closest_abs.html"><code>_closest_abs</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___delta_lift_from_row.html"><code>_delta_lift_from_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__place.html"><code>_place</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___cluster_map_choose_aisle">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_cluster_map_choose_aisle">Source ↗</a></p>
 </article>

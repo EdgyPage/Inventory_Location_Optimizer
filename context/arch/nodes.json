@@ -3088,6 +3088,13 @@
       "kind": "function",
       "signature": "(stats: list[TaskStats], iqr_factor: float=1.5) -> list[TaskStats]"
     },
+    "Optimization/metrics/Simulation_Analytics.py::fused_pre_snapshot": {
+      "decorators": [],
+      "doc": "One pass over the occupied bins: occupancy always, keyframe rows only on demand.\n\nThe fused replacement for `build_pre_snapshot` on the strategy_runner hot path.  That\nfunction materialises an id(bin)-keyed dict of ~400k row dicts EVERY batch (measured\n96 MiB/batch of churn at 8k SKUs), yet on a non-keyframe batch \u2014 the common case \u2014\nits only consumer is the conservation ledger's `sum(pre_qty)`.  This walks\n`manager._unavailable.values()` once at the same instant (start of batch, after the\nrestock pass, before any pick) and returns\n\n    (occupancy, rows)   \u2014 occupancy: \u03a3 quantity over occupied bins (the ledger term);\n                          rows: `save_bin_keyframe`-shaped dicts, or None unless\n                          `want_rows` (keyframe batches only).\n\nRow order is the `_unavailable` dict's iteration order minus the `storage is None`\nskip \u2014 the SAME order `build_pre_snapshot` produced, so keyframe rowids are\nunchanged.  `unit_type` comes from the storage UNIT's class and `storage_size` from\nthe BIN's tier, exactly as before (a FulfillmentBin holding a Singleton is\n'singleton'; the bin's tier is what the viewer bins by).\n\n`build_pre_snapshot` itself stays: Tests/integration/test_visualization_data.py\nreads `bin_ref` and post-mutation `pre_qty` off the materialised dict, and the\narchived bin_inventory writer it documents is a never-improve.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(manager, want_rows: bool) -> tuple[int, list[dict] | None]"
+    },
     "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics": {
       "decorators": [],
       "doc": "Capture the trip-cost equation state for every aisle in the manager.\n\nCall once per batch after check_reorders() and before picks \u2014 the same\nmoment as build_pre_snapshot() \u2014 so the snapshot reflects the current\nwarehouse layout after any reorder placements.\n\nFields captured\n---------------\nn_skus     : len(_aisle_sku_sets[aid])            \u2014 unique SKUs in aisle\nn_bins     : sum(_aisle_sku_counts[aid].values())  \u2014 occupied bin count\ndemand_sum : _aisle_demand_sum[aid]               \u2014 \u03a3 f_i * q_i secondary score\nlift_sum   : _aisle_lift_sum[aid]                 \u2014 affinity co-location quality\n\nStrategy A note\n---------------\nFor uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /\n_aisle_demand_sum are never populated.  Only aisles touched by B/C reorders\nwill have non-zero values.  Strategy A produces no rows here by design \u2014\nit has no structured placement state to track.",
@@ -3367,7 +3374,7 @@
     },
     "Optimization/persistence/Picking_Data.py::PickerEventRecord": {
       "decorators": [
-        "dataclass"
+        "dataclass(slots=True)"
       ],
       "doc": null,
       "kind": "class",
@@ -6079,12 +6086,26 @@
       "signature": null,
       "value_preview": "0.1"
     },
+    "Optimization/simdriver/strategy_runner.py::_GC_THRESHOLD_DEFAULT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "gc.get_threshold()"
+    },
     "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_gc_cb": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(phase, info, _st=_GC_STATE)"
     },
     "Optimization/simdriver/strategy_runner.py::_peak_rss_mib": {
       "decorators": [],
@@ -6101,24 +6122,24 @@
     },
     "Optimization/simdriver/strategy_runner.py::_run_strategy_worker": {
       "decorators": [],
-      "doc": "Simulate one assignment strategy in its own process.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "doc": "Simulate one assignment strategy in its own process.\n\nThin wrapper whose ONLY job is the finally: the impl freezes the startup object graph\nfor the duration of the batch loop (see the gc.freeze block there), and the thaw +\nGC-callback removal must happen on EVERY exit path.  Production workers die with\ntheir process either way; the guarantee exists for in-process callers (the calltree\nfullfid tier, e2e tests) where a mid-arm raise would otherwise leave the HOST process\nwith a permanently frozen heap and a leaked gc callback.  Both cleanups are no-ops on\nthe happy path (the impl already thawed and removed).",
       "is_async": false,
       "kind": "function",
       "signature": "(args: dict) -> dict"
     },
-    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._arm_aisle_state": {
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl": {
+      "decorators": [],
+      "doc": "One assignment strategy end-to-end \u2014 the body behind _run_strategy_worker.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict) -> dict"
+    },
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state": {
       "decorators": [],
       "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> None"
-    },
-    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker._gc_cb": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(phase, info, _st=_gc_state)"
     },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],
@@ -11199,7 +11220,7 @@
     },
     "Warehouse/picking/Pick.py::PickEvent": {
       "decorators": [
-        "dataclass"
+        "dataclass(slots=True)"
       ],
       "doc": null,
       "kind": "class",
@@ -11643,10 +11664,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_cluster_map_choose_aisle": {
       "decorators": [],
-      "doc": "Cohesion-first aisle: max \u03a3(lift\u22121)\u00b7f to members, tie-break / cold-start by anchor gap.\n\nSame argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is\nreplaced by an O(log) ``_closest_abs`` bisect on the aisle's pre-sorted ``prefs_by_aisle`` and\nis evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift\n\u2192 no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit).",
+      "doc": "Cohesion-first aisle: max \u03a3(lift\u22121)\u00b7f to members, tie-break / cold-start by anchor gap.\n\nSame argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is\nreplaced by an O(log) ``_closest_abs`` bisect on the aisle's pre-sorted ``prefs_by_aisle`` and\nis evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift\n\u2192 no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit).\n\n``lifts`` may carry the delta values precomputed by a caller's same-SKU run cache (a\nsuperset keyed by aisle); values for the current live aisles are read from it instead\nof recomputed \u2014 identical numbers, because within a same-SKU run the member idx-sets\ngain only the SKU's own index, which (self-pairs are not stored) is never in ``row``.",
       "is_async": false,
       "kind": "function",
-      "signature": "(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target)"
+      "signature": "(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_cluster_map_commit": {
       "decorators": [],
@@ -11846,10 +11867,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place": {
       "decorators": [],
-      "doc": "Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state.",
+      "doc": "Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state.\n\n`run_cache` (place_wave only) reuses the SKU's affinity row AND the per-aisle\ndelta-lift values across a same-SKU run (sorted_units clusters same-SKU units:\nidentical priority, stable sort).  Byte-identity argument: within a run the ONLY\nidx-set that mutates is the winner's (commit adds this SKU's own index), and the\nwinner's cached delta is recomputed fresh right after each commit below.  Every\nother aisle's set is untouched, so its cached value is bit-for-bit what a fresh\nrecompute would return \u2014 same operands AND same summation order (an unmutated\nset iterates identically; _delta_lift_from_row's iterate-the-smaller-side branch\nsees the same lengths).  A value-only argument is NOT enough here: the first cut\ncached across the winner's set growth and drifted by one ulp when the summation\norder flipped, moving one placement at 8k-SKU meso scale.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sku, by_aisle, prefs_by_aisle, f_s, q_s)"
+      "signature": "(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_one": {
       "decorators": [],

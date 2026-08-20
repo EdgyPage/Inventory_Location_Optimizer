@@ -14,9 +14,21 @@
 <h1><span class="kind kind-function">function</span> <code>_place</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s)</code></pre>
-<section class="doc">Shared aisle+bin choice; mutates the chosen aisle&#x27;s bin list + pref list + aisle state.</section>
-<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___affinity_row.html"><code>_affinity_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_choose_aisle.html"><code>_cluster_map_choose_aisle</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_commit.html"><code>_cluster_map_commit</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_pick_bin.html"><code>_cluster_map_pick_bin</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___demand_weighted_partner_centroid.html"><code>_demand_weighted_partner_centroid</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<pre class="sig"><code>def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None)</code></pre>
+<section class="doc">Shared aisle+bin choice; mutates the chosen aisle&#x27;s bin list + pref list + aisle state.
+
+`run_cache` (place_wave only) reuses the SKU&#x27;s affinity row AND the per-aisle
+delta-lift values across a same-SKU run (sorted_units clusters same-SKU units:
+identical priority, stable sort).  Byte-identity argument: within a run the ONLY
+idx-set that mutates is the winner&#x27;s (commit adds this SKU&#x27;s own index), and the
+winner&#x27;s cached delta is recomputed fresh right after each commit below.  Every
+other aisle&#x27;s set is untouched, so its cached value is bit-for-bit what a fresh
+recompute would return — same operands AND same summation order (an unmutated
+set iterates identically; _delta_lift_from_row&#x27;s iterate-the-smaller-side branch
+sees the same lengths).  A value-only argument is NOT enough here: the first cut
+cached across the winner&#x27;s set growth and drifted by one ulp when the summation
+order flipped, moving one placement at 8k-SKU meso scale.</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___affinity_row.html"><code>_affinity_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_choose_aisle.html"><code>_cluster_map_choose_aisle</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_commit.html"><code>_cluster_map_commit</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___cluster_map_pick_bin.html"><code>_cluster_map_pick_bin</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___delta_lift_from_row.html"><code>_delta_lift_from_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___demand_weighted_partner_centroid.html"><code>_demand_weighted_partner_centroid</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__place">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_place">Source ↗</a></p>
 </article>
 </main>
