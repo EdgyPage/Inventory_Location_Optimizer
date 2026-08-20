@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-20T04:30:45.577Z
+  modified: 2026-08-20T14:44:22.552Z
 ---
 
 Tests/calltree/ (2026-08-18) is the runtime measurement framework: deterministic tracer
@@ -98,9 +98,30 @@ Mechanism facts worth keeping:
   Production win modest (cluster 48.5→45.4s/arm; meso −55%) because 40k reorder waves carry
   short same-SKU runs; cluster_map_rank arms remain the top t_reord cost and their remaining
   time is NOT choose-aisle.
-- Still open (Phase 7 triggers): t_sample N² (_lift_weighted_sample); t_task true-scale
-  k=2.42 (chip task_78ce33c8) — unresolved by this campaign, carried forward from the
-  post-fix deep ladder receipt above.
+
+**Phase 7 (2026-08-20, commit e7c9ed9) closed all three Phase-6 open items — report-and-stop,
+one refactor:**
+- **t_sample N²: CONFIRMED quadratic** (0.83s/batch at 40k skus, 21.6s at 160k). Fixed as a
+  VERSION, not a rewrite: `BatchConfig.sampler` (Warehouse/picking/Workload_Builder.py) defaults
+  `'v1'` (byte-identical to pre-fix, digest-proven no-op at tiny+40k scales); `'v2'` is a Fenwick
+  sampler, ×45 faster at 160k (0.48s), fingerprinted apart in
+  `Optimization/simdriver/batch_precompute.py` so v2 batches never collide with v1 caches.
+  Byte-identity was impossible for ANY O(log n) sampler — v1's draws depend on the sequential-
+  cumsum float grouping order, so opting into v2 starts a new results era. Test:
+  `Tests/unit/test_batch_sampler_v2.py`.
+- **t_task k=2.42 chip (task_78ce33c8): investigated, no refactor.** Post-campaign deep ladder
+  reads k=3.28 r²=0.93 — steeper only because everything AROUND it flattened (t_reord 1.10,
+  t_sim 0.99), not because t_task itself got worse. True-scale attribution (one real 80k arm,
+  production bins 100k/132k, cProfile): the whole section is 0.81s/arm of distributed per-item
+  bin-selection work — per-SKU stocked-bin multiplicity is the growth factor, with no single
+  provable-identical restructure available. VERDICT: no fix; the trigger is catalogue growth
+  toward ~300k SKUs (~8s/arm at 160k, ~77s at 320k extrapolated) — revisit only past that scale.
+- **cluster_map remainder ("not choose-aisle"): attributed, no quadratic.** At 20k skus the time
+  is spread across the semantically-required per-wave `_group` rebuild (~31% of place_wave —
+  by_aisle must rebuild since bins fill between waves), cache-priming dictcomps, and
+  choose/centroid/pick constants. Report-and-stop.
+- Deep ladder archived: `growth__knob-skus_ladder-deep_seed-42__20260820T134318Z_10e360de945d`
+  in `Tests/calltree/out/archive`.
 
 **Why:** refactors must cite a capture/ladder, not intuition; traced seconds are never
 regression baselines (only untraced section walls are); an aggregate wall can hide a targeted
