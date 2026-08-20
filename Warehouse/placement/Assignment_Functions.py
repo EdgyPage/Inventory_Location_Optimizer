@@ -1253,6 +1253,23 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     matrix     = affinity._matrix
     result: list = []
 
+    # ── SKU-run cache (the _travel_balanced_impl precedent) ──────────────────
+    # sorted_units clusters same-SKU units (equal expected_labor, stable sort), and
+    # within such a run the per-aisle base cost bc_by_aid is a pure function of
+    # (var, deque ends): var is the SKU's handle_var (constant across the run) and the
+    # only deque that changes is the WINNER's (its end is popped).  So rebuild the dict
+    # only at a SKU change and refresh just the last winner inside a run.  Dict ORDER is
+    # part of byte-identity (fq·bc ties resolve by insertion order in sorted()): the
+    # rebuild iterates by_aisle_brkt exactly as the old per-unit build did, a value
+    # refresh keeps its slot, and a pop removes it — the same key sequence the old
+    # build would produce.  row_items/max_reward ride the same cache: the CSR row is
+    # static and self-pairs are not stored, so a run's row never changes.
+    last_sku    = None
+    last_winner = None
+    bc_by_aid: dict = {}
+    row_items: list = []
+    max_reward  = 0.0
+
     def _aisle_best_cost(aid, var):
         """Extremal (min, or max if maximize) over the aisle's bracket ends of the
         per-pick labor + travel:  M·(intercept + var) + D  (height scales the whole pick)."""
@@ -1271,27 +1288,37 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         var = c.handle_var
         fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
 
-        # Slice the SKU's affinity row ONCE per unit (not once per aisle): partners as
-        # (partner_idx, f_p·(lift−1)) pairs, all non-negative (association above
-        # independence, mirroring _demand_weighted_delta_lift).  max_reward bounds
-        # lam·delta over any aisle (all partners present), enabling the early-termination
-        # prune below — the same idea as build_load_*'s lazy CSR queries.
-        row_items: list = []
-        si = sku_to_idx.get(sku)
-        if si is not None and matrix is not None:
-            s = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
-            for ci, d in zip(matrix.indices[s:e], matrix.data[s:e]):
-                w = (float(d) - 1.0) * freq_by_idx.get(int(ci), 0.0)
-                if w:
-                    row_items.append((int(ci), w))
-        max_reward = lam * sum(w for _, w in row_items)
+        if sku != last_sku:
+            # Slice the SKU's affinity row ONCE per run (not once per unit/aisle):
+            # partners as (partner_idx, f_p·(lift−1)) pairs, all non-negative
+            # (association above independence, mirroring _demand_weighted_delta_lift).
+            # max_reward bounds lam·delta over any aisle (all partners present),
+            # enabling the early-termination prune below.
+            row_items = []
+            si = sku_to_idx.get(sku)
+            if si is not None and matrix is not None:
+                s = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
+                for ci, d in zip(matrix.indices[s:e], matrix.data[s:e]):
+                    w = (float(d) - 1.0) * freq_by_idx.get(int(ci), 0.0)
+                    if w:
+                        row_items.append((int(ci), w))
+            max_reward = lam * sum(w for _, w in row_items)
 
-        # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
-        bc_by_aid = {}
-        for aid in by_aisle_brkt:
-            bc = _aisle_best_cost(aid, var)
-            if bc is not None:
-                bc_by_aid[aid] = bc
+            # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
+            bc_by_aid = {}
+            for aid in by_aisle_brkt:
+                bc = _aisle_best_cost(aid, var)
+                if bc is not None:
+                    bc_by_aid[aid] = bc
+            last_sku = sku
+        elif last_winner is not None:
+            # Same SKU as the previous unit: only the winner aisle's deque changed.
+            bc = _aisle_best_cost(last_winner, var)
+            if bc is None:
+                bc_by_aid.pop(last_winner, None)
+            else:
+                bc_by_aid[last_winner] = bc
+        last_winner = None                      # set again only on a successful pop
         if not bc_by_aid:
             result.append((unit, None))
             continue
@@ -1343,6 +1370,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             result.append((unit, None))
             continue
         _drop(by_aisle_brkt[best_aid][chosen_m])
+        last_winner = best_aid                  # the one aisle whose cached bc is now stale
 
         if sku not in aisle_sku_sets[best_aid]:
             aisle_sku_sets[best_aid].add(sku)
@@ -1511,17 +1539,26 @@ def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
     return min(lst, key=cost)
 
 
-def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target):
+def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target,
+                              lifts=None):
     """Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap.
 
     Same argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is
     replaced by an O(log) ``_closest_abs`` bisect on the aisle's pre-sorted ``prefs_by_aisle`` and
     is evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift
-    → no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit)."""
+    → no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit).
+
+    ``lifts`` may carry the delta values precomputed by a caller's same-SKU run cache (a
+    superset keyed by aisle); values for the current live aisles are read from it instead
+    of recomputed — identical numbers, because within a same-SKU run the member idx-sets
+    gain only the SKU's own index, which (self-pairs are not stored) is never in ``row``."""
     live = [aid for aid, lst in by_aisle.items() if lst]
     if not live:
         return None
-    lifts = {a: _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx) for a in live}
+    if lifts is None:
+        lifts = {a: _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx) for a in live}
+    else:
+        lifts = {a: lifts[a] for a in live}
     best  = max(lifts.values())
     tied  = [a for a in live if lifts[a] == best]
     if len(tied) == 1:
@@ -1566,12 +1603,32 @@ def build_cluster_map_placement(mgr, affinity, wp,
                           for aid, lst in by_aisle.items()}
         return by_aisle, prefs_by_aisle
 
-    def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s):
-        """Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state."""
+    def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None):
+        """Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state.
+
+        `run_cache` (place_wave only) reuses the SKU's affinity row AND the per-aisle
+        delta-lift values across a same-SKU run (sorted_units clusters same-SKU units:
+        identical priority, stable sort).  Byte-identity argument: within a run the ONLY
+        idx-set that mutates is the winner's (commit adds this SKU's own index), and the
+        winner's cached delta is recomputed fresh right after each commit below.  Every
+        other aisle's set is untouched, so its cached value is bit-for-bit what a fresh
+        recompute would return — same operands AND same summation order (an unmutated
+        set iterates identically; _delta_lift_from_row's iterate-the-smaller-side branch
+        sees the same lengths).  A value-only argument is NOT enough here: the first cut
+        cached across the winner's set growth and drifted by one ulp when the summation
+        order flipped, moving one placement at 8k-SKU meso scale."""
         target = mgr._map_target.get(sku)
-        row    = _affinity_row(affinity, sku)             # hoist the CSR slice: once per unit
+        lifts = None
+        if run_cache is not None and run_cache.get('sku') == sku:
+            row, lifts = run_cache['row'], run_cache['lifts']
+        else:
+            row = _affinity_row(affinity, sku)            # hoist the CSR slice: once per run
+            if run_cache is not None:
+                lifts = {a: _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx)
+                         for a, lst in by_aisle.items() if lst}
+                run_cache.update(sku=sku, row=row, lifts=lifts)
         aid = _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row,
-                                        aisle_idx_sets, freq_by_idx, target)
+                                        aisle_idx_sets, freq_by_idx, target, lifts=lifts)
         if aid is None:
             return None
         _mass, cx = _demand_weighted_partner_centroid(
@@ -1584,6 +1641,10 @@ def build_cluster_map_placement(mgr, affinity, wp,
             del plst[k]
         _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
                             affinity, aid, sku, f_s, q_s, chosen.x_phys)
+        if run_cache is not None and run_cache.get('sku') == sku:
+            # The commit may have grown THIS aisle's idx-set: recompute its delta fresh so
+            # the next same-SKU unit sees exactly what a full per-unit recompute would.
+            run_cache['lifts'][aid] = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
         return chosen
 
     def place_one(unit, candidates):
@@ -1607,10 +1668,12 @@ def build_cluster_map_placement(mgr, affinity, wp,
         if not sorted_units:
             return result
         by_aisle, prefs_by_aisle = _group(candidates_fn(sorted_units[0]))   # one tier, once per wave
+        run_cache: dict = {}                    # same-SKU run reuse; _place owns the rules
         for unit in sorted_units:
             c = unit.order
             result.append((unit, _place(c.sku, by_aisle, prefs_by_aisle,
-                                        freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))))
+                                        freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0),
+                                        run_cache)))
         return result
 
     place_one.name = name
