@@ -291,6 +291,9 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     for key in ('n_batches', 'keyframe_interval', 'checkpoint_frac'):
         if spec.get(key) is not None:
             g[key] = spec[key]
+    # Batch-sampler era: a pre-field run_spec predates v2's adoption, so its absence
+    # means that run's batches were drawn with v1 — never this checkout's default.
+    g['sampler'] = spec.get('sampler') or 'v1'
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

@@ -146,6 +146,15 @@ CONFIG = {
         # at a fifth of the cost.  0 still disables the sidecar entirely.
         'keyframe_interval': 25,
         'max_skus'        : None,    # global input-catalog cap (preserves the store/ff mix)
+        # Batch-sampler VERSION — a results ERA, not a tuning knob.  'v2' (the Fenwick
+        # sampler, introduced e7c9ed9, adopted as default 2026-08-20) draws the same
+        # weight model as 'v1' in O((k·(1+partners))·log N) instead of O(k·N) — measured
+        # 0.83s -> 0.05s per batch at 40k SKUs, 21.6s -> 0.48s at 160k — but its float
+        # grouping differs, so its batch SEQUENCE differs: v2 runs are not row-comparable
+        # with the pre-2026-08-20 archive.  `--sampler v1` reproduces that archive
+        # exactly (byte-identical, digest-proven).  Batch caches are fingerprinted apart
+        # per sampler, so the two eras can never contaminate each other.
+        'sampler'         : 'v2',
     },
     'channels': {
         'store': {

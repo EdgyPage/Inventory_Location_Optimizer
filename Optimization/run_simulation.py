@@ -107,7 +107,9 @@ def _apply_run_spec(args, spec, explicit):
               'max_retries', 'resume_granularity',
               # Sizing params: a resume MUST rebuild the same warehouse, so these are as
               # load-bearing here as the bin caps beside them.
-              'store_fill', 'ff_fill', 'checkpoint_frac'):
+              'store_fill', 'ff_fill', 'checkpoint_frac',
+              # Batch-sampler era: a resume MUST regenerate the same batch sequence.
+              'sampler'):
         if f not in spec:
             continue
         if f in explicit:
@@ -195,6 +197,15 @@ def main():
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
+    # Defaulted FROM CONFIG (the --keyframe-interval precedent) so the assignment below is
+    # unconditional and sim_config's era value stays the single source of truth.
+    parser.add_argument('--sampler', choices=('v1', 'v2'),
+                        default=CONFIG['global']['sampler'],
+                        help='Batch-sampler VERSION — a results era, not a tuning knob. '
+                             f'Default {CONFIG["global"]["sampler"]!r} (the Fenwick sampler, '
+                             'adopted 2026-08-20). v1 reproduces the pre-2026-08-20 archive '
+                             'byte-identically; the two eras\' batch caches never mix '
+                             '(fingerprinted apart).')
     parser.add_argument('--spec', default='single',
                         help='Cell-matrix spec to run (see whatif_config.SPECS). EVERY run is a cell '
                              "matrix: 'single' (default) = one cell k1_off (a plain run, nested under "
@@ -275,6 +286,7 @@ def main():
         g['max_skus'] = args.max_skus
     g['workers']           = args.workers or 1
     g['keyframe_interval'] = args.keyframe_interval
+    g['sampler']           = args.sampler
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -382,6 +394,7 @@ def main():
             'store_fill'   : CONFIG['channels']['store']['fill'],
             'ff_fill'      : CONFIG['channels']['fulfillment']['fill'],
             'checkpoint_frac': g['checkpoint_frac'],
+            'sampler'      : g['sampler'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,

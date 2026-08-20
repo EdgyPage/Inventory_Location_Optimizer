@@ -52,12 +52,17 @@ class Channel:
     # Restock-rule subset this channel runs (keys like 'fifo', 'rank_labor'); None ⇒ full
     # suite.  Lets one section run a curated subset while another runs everything.
     restocks: tuple[str, ...] | None = None
+    # Batch-sampler VERSION (results era; see CONFIG['global']['sampler']).  The dataclass
+    # default here matches BatchConfig's own 'v1' so non-runner constructions (tests,
+    # Diagnostics) keep their frozen historical meaning; the runner passes the era in.
+    sampler: str = 'v1'
 
     def batch_config(self, inventory_size: int) -> BatchConfig:
         """Build this channel's BatchConfig for its SKU-subset size."""
         return BatchConfig(inventory_size=inventory_size,
                            mean_fraction=self.batch_mean_fraction,
-                           std_fraction=self.batch_std_fraction)
+                           std_fraction=self.batch_std_fraction,
+                           sampler=self.sampler)
 
 
 def fulfillment_pick_config() -> PickConfig:
@@ -79,7 +84,8 @@ def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
                  *, restocks: tuple[str, ...] | None = None,
                  batch_seed_offset: int = 0,
                  batch_mean_fraction: float = 0.20,
-                 batch_std_fraction: float = 0.05) -> Channel:
+                 batch_std_fraction: float = 0.05,
+                 sampler: str = 'v1') -> Channel:
     """Build a single Channel from a picker cost + pool size.
 
     The one-channel primitive the runner uses to sweep each section's configs
@@ -95,6 +101,7 @@ def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
         restocks=restocks,
         batch_mean_fraction=batch_mean_fraction,
         batch_std_fraction=batch_std_fraction,
+        sampler=sampler,
     )
 
 

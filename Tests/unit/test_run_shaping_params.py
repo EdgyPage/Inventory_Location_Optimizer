@@ -78,7 +78,8 @@ def test_checkpoint_every_follows_the_configured_fraction():
         CONFIG['global']['checkpoint_frac'] = orig
 
 
-@pytest.mark.parametrize('flag', ['--store-fill', '--ff-fill', '--checkpoint-frac'])
+@pytest.mark.parametrize('flag', ['--store-fill', '--ff-fill', '--checkpoint-frac',
+                                  '--sampler'])
 def test_the_new_flags_exist_and_are_documented(flag):
     import Optimization.run_simulation as rs
     src = inspect.getsource(rs)
@@ -90,7 +91,7 @@ def test_the_new_flags_are_recorded_in_run_spec_and_restored_on_resume():
     run_spec.json, and a resume must restore it."""
     import Optimization.run_simulation as rs
     src = inspect.getsource(rs)
-    for key in ("'store_fill'", "'ff_fill'", "'checkpoint_frac'"):
+    for key in ("'store_fill'", "'ff_fill'", "'checkpoint_frac'", "'sampler'"):
         assert src.count(key) >= 2, f'{key} must be written to run_spec AND restored on resume'
 
 
@@ -103,10 +104,10 @@ def test_apply_run_shape_restores_every_recorded_param(tmp_path):
         'n_batches': 10, 'max_skus': 10000, 'keyframe_interval': 5, 'checkpoint_frac': 0.5,
         's_max_bins': 50000, 's_min_bins': None, 's_max_aisles': None, 's_composition': None,
         'ff_max_bins': 50000, 'ff_min_bins': None, 'ff_max_aisles': None,
-        'store_fill': 0.9, 'ff_fill': 0.9,
+        'store_fill': 0.9, 'ff_fill': 0.9, 'sampler': 'v2',
     })
     saved = {k: CONFIG['global'].get(k) for k in ('n_batches', 'max_skus', 'keyframe_interval',
-                                                  'checkpoint_frac')}
+                                                  'checkpoint_frac', 'sampler')}
     saved_fill = (CONFIG['channels']['store']['fill'], CONFIG['channels']['fulfillment']['fill'])
     saved_sizing = (dict(CONFIG['channels']['store']['sizing']),
                     dict(CONFIG['channels']['fulfillment']['sizing']))
@@ -115,6 +116,7 @@ def test_apply_run_shape_restores_every_recorded_param(tmp_path):
         assert max_skus == 10000, 'max_skus must reach build_shared_assets — the other half'
         assert CONFIG['global']['n_batches'] == 10
         assert CONFIG['global']['checkpoint_frac'] == 0.5
+        assert CONFIG['global']['sampler'] == 'v2'
         assert CONFIG['channels']['store']['fill'] == 0.9
         assert CONFIG['channels']['fulfillment']['fill'] == 0.9
         assert CONFIG['channels']['store']['sizing']['max_bins'] == 50000
@@ -124,6 +126,21 @@ def test_apply_run_shape_restores_every_recorded_param(tmp_path):
         CONFIG['channels']['store']['fill'], CONFIG['channels']['fulfillment']['fill'] = saved_fill
         CONFIG['channels']['store']['sizing'].update(saved_sizing[0])
         CONFIG['channels']['fulfillment']['sizing'].update(saved_sizing[1])
+
+
+def test_apply_run_shape_pre_sampler_spec_means_v1(tmp_path):
+    """A run_spec.json written before the sampler field existed belongs to a run whose
+    batches were drawn with v1 — the re-analysis must restore 'v1', never this
+    checkout's default (which flipped to 'v2' on 2026-08-20)."""
+    from Optimization.run_analysis import _apply_run_shape
+    from Optimization.runschema.sim_manifest import _write_run_spec
+    _write_run_spec(str(tmp_path), {'n_batches': 10, 'max_skus': 1000})
+    saved = CONFIG['global'].get('sampler')
+    try:
+        _apply_run_shape(str(tmp_path), logging.getLogger('t'))
+        assert CONFIG['global']['sampler'] == 'v1'
+    finally:
+        CONFIG['global']['sampler'] = saved
 
 
 def test_apply_run_shape_finds_run_spec_from_a_CELL_dir(tmp_path):

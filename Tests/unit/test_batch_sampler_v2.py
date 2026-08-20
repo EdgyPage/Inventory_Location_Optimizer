@@ -121,6 +121,23 @@ def test_fenwick_matches_linear_reference_exactly():
             u += 0.5
 
 
+# ── the era reaches production BatchConfigs ────────────────────────────────────────────
+def test_config_sampler_reaches_both_production_construction_sites():
+    """The era lives in CONFIG['global']['sampler']; the ONLY two production BatchConfig
+    construction sites must pass it through (source-pinned like run_shaping's
+    'max_skus=max_skus' convention).  The dataclass default stays 'v1' on purpose —
+    tests/Diagnostics keep their frozen historical meaning."""
+    import inspect
+    from Optimization.simdriver import sim_assets
+    from Optimization.config import channels
+    assert "sampler        = CONFIG['global']['sampler']" in inspect.getsource(sim_assets), \
+        'build_shared_assets must pass the era into its BatchConfig'
+    assert 'sampler=self.sampler' in inspect.getsource(channels.Channel.batch_config), \
+        'Channel.batch_config must pass its sampler into BatchConfig'
+    from Optimization.config.sim_config import CONFIG
+    assert CONFIG['global']['sampler'] == 'v2', 'the 2026-08-20 era default'
+
+
 # ── fingerprint separation ─────────────────────────────────────────────────────────────
 def test_fingerprint_v1_unchanged_and_v2_distinct():
     inv = _Inventory(_world(30, seed=5))

@@ -148,6 +148,7 @@ def build_shared_assets(
         inventory_size = n_skus,
         mean_fraction  = _store_batch['mean'],
         std_fraction   = _store_batch['std'],
+        sampler        = CONFIG['global']['sampler'],
     )
 
     # Build warehouse once in the main process only to extract aisle metadata maps

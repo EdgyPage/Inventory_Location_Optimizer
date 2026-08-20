@@ -145,6 +145,7 @@ def _prepare_channel_run(
         'total_units'     : total_units_needed,
         'bin_slack_pct'   : round((total_bins / max(total_units_needed, 1) - 1) * 100, 2),
         'batch_mean_frac' : channel.batch_mean_fraction,   # this channel's actual mean fraction
+        'sampler'         : channel.sampler,               # batch-sampler era (v1 | v2)
         'n_batches'       : n_batches,
         'seed_world'      : SEED_WORLD,
         'seed_batches'    : SEED_BATCHES + channel.batch_seed_offset,   # this channel's actual seed
@@ -356,7 +357,8 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
                               restocks=chan['restocks'],
                               batch_seed_offset=chan['seed_offset'],
                               batch_mean_fraction=chan['batch']['mean'],
-                              batch_std_fraction=chan['batch']['std'])
+                              batch_std_fraction=chan['batch']['std'],
+                              sampler=CONFIG['global']['sampler'])
             runs.append((ch, cfg))
     return mixed, runs
 
