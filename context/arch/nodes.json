@@ -2260,7 +2260,7 @@
       "doc": "Build a single Channel from a picker cost + pool size.\n\nThe one-channel primitive the runner uses to sweep each section's configs\nindependently; build_channels() composes the standard store+fulfillment pair on\ntop of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream\n(store uses 0; fulfillment a large offset so its stream never overlaps store's).\n``batch_mean_fraction``/``batch_std_fraction`` set the channel's batch-stream shape\n(each channel may differ; the runner sources these from CONFIG).",
       "is_async": false,
       "kind": "function",
-      "signature": "(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05) -> Channel"
+      "signature": "(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str='v1') -> Channel"
     },
     "Optimization/config/channels.py::wp_by_regime": {
       "decorators": [],
@@ -2280,7 +2280,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 25, 'max_skus': None}, 'channels': {'store': {'regime': STORE, 'conf..."
+      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 25, 'max_skus': None, 'sampler': 'v2'}, 'channels': {'store': {'regi..."
     },
     "Optimization/config/sim_config.py::FULFILLMENT_CONFIGS": {
       "decorators": [],

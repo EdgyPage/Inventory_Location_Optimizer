@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>make_channel</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_channels_py.html"><code>Optimization/config/channels.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05) -&gt; Channel</code></pre>
+<pre class="sig"><code>def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str=&#x27;v1&#x27;) -&gt; Channel</code></pre>
 <section class="doc">Build a single Channel from a picker cost + pool size.
 
 The one-channel primitive the runner uses to sweep each section&#x27;s configs

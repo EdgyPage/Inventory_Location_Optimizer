@@ -1923,6 +1923,7 @@ files:
       - {name: "test_v2_deterministic_and_without_replacement", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_v2_weight_model_favors_heavy_candidates", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_fenwick_matches_linear_reference_exactly", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+      - {name: "test_config_sampler_reaches_both_production_construction_sites", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
     notes: ""
   "Tests/unit/test_bell_freq_profile.py":
@@ -2163,6 +2164,7 @@ files:
       - {name: "test_the_new_flags_exist_and_are_documented", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_the_new_flags_are_recorded_in_run_spec_and_restored_on_resume", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_restores_every_recorded_param", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_apply_run_shape_pre_sampler_spec_means_v1", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_finds_run_spec_from_a_CELL_dir", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_warns_loudly_when_the_run_predates_run_spec", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_run_analysis_threads_max_skus_into_the_rebuild", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
