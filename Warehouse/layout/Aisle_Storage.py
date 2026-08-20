@@ -10,6 +10,14 @@ class Aisle:
     next_aisle_id: int = 1
 
     class Bin:
+        # The single largest tracked-object population in a worker (~400k at production
+        # scale): slots drop the per-instance __dict__.  The 11 __init__ names plus '_D'
+        # (the per-bin travel cost init_travel_costs stamps on every bin).  Identity
+        # semantics (id(bin) keys, _SortedBins ordering) are unaffected.
+        __slots__ = ('aisle', 'bayX', 'bayY', 'storage_size', 'handling_type',
+                     'storage_type', 'unit_type', 'storage', 'x_step', 'y_step',
+                     '_y_phys', '_D')
+
         def __init__(
             self,
             aisle: Aisle,
