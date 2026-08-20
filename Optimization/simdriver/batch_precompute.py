@@ -79,6 +79,12 @@ def batch_fingerprint(inventory, batch_cfg, seed_batches: int, n_batches: int, a
                          float(batch_cfg.mean_fraction), float(batch_cfg.std_fraction)))
     h.update(struct.pack('<qq', int(seed_batches), int(n_batches)))
     h.update(_affinity_digest(affinity).encode('ascii'))
+    # Sampler VERSION: hashed only when not 'v1', so every fingerprint ever computed for
+    # a v1 config stays byte-identical, while v2 batches can never be served from (or
+    # poison) a v1 cache file.  Guarded getattr: pickled/legacy configs predate the field.
+    _sampler = getattr(batch_cfg, 'sampler', 'v1')
+    if _sampler != 'v1':
+        h.update(f'sampler={_sampler}'.encode('ascii'))
     return h.hexdigest()
 
 

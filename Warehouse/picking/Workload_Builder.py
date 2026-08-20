@@ -60,6 +60,14 @@ class BatchConfig:
     inventory_size: int
     mean_fraction: float = 0.20   # centre of num_skus distribution as fraction of inventory
     std_fraction: float  = 0.05   # spread of num_skus distribution as fraction of inventory
+    # Sampler VERSION, not a tuning knob.  'v1' (default) = the original O(k·N) cumsum
+    # sampler — every published run was drawn with it and it must stay byte-identical.
+    # 'v2' = the Fenwick-tree sampler (O((k·(1+partners))·log N)): same weight model,
+    # different float grouping, therefore a DIFFERENT batch sequence — opting in starts a
+    # new results era and gets a distinct batch-cache fingerprint (batch_precompute tags
+    # non-v1 samplers into the hash).  Trigger for v2: catalogue growth making the v1
+    # precompute wall bind (measured 2026-08-20: 21.6s vs 0.48s per batch at 160k SKUs).
+    sampler: str = 'v1'
 
 
 def _lift_weighted_sample(
@@ -114,6 +122,102 @@ def _lift_weighted_sample(
     return selected
 
 
+class _Fenwick:
+    """Prefix-sum tree over non-negative weights: O(log n) point-set and prefix-search.
+
+    Backs the v2 sampler only.  Pure Python by choice: at 160k SKUs the whole v2 draw
+    is ~0.5s (vs v1's 21.6s), so numpy adds nothing but a second float-grouping story.
+    """
+    __slots__ = ('n', 'tree', 'w')
+
+    def __init__(self, weights: list) -> None:
+        self.n = len(weights)
+        self.w = list(weights)
+        t = [0.0] * (self.n + 1)
+        for i, v in enumerate(weights, start=1):     # O(n) build
+            t[i] += v
+            j = i + (i & -i)
+            if j <= self.n:
+                t[j] += t[i]
+        self.tree = t
+
+    def total(self) -> float:
+        s, i, t = 0.0, self.n, self.tree
+        while i > 0:
+            s += t[i]
+            i -= i & -i
+        return s
+
+    def set(self, i: int, value: float) -> None:
+        d = value - self.w[i]
+        if d == 0.0:
+            return
+        self.w[i] = value
+        j, t = i + 1, self.tree
+        while j <= self.n:
+            t[j] += d
+            j += j & -j
+
+    def find(self, u: float) -> int:
+        """Smallest 0-based index whose prefix sum reaches `u` (the weighted draw)."""
+        pos, rem, t = 0, u, self.tree
+        bit = 1 << (self.n.bit_length() - 1) if self.n else 0
+        while bit:
+            nxt = pos + bit
+            if nxt <= self.n and t[nxt] < rem:
+                pos = nxt
+                rem -= t[nxt]
+            bit >>= 1
+        return min(pos, self.n - 1)
+
+
+def _lift_weighted_sample_v2(
+    candidates: list,
+    k: int,
+    affinity: 'AffMatrix | AffinityStore | None',
+    rng: random.Random | None = None,
+) -> list:
+    """Fenwick-tree form of `_lift_weighted_sample`: same conditional-demand weight model
+    (weight(B) = freq(B) · Π lift(A,B) over selected partners A), O((k·(1+P))·log n)
+    instead of v1's O(k·n) full-array passes per draw.
+
+    NOT byte-compatible with v1 — the tree groups float additions differently than v1's
+    sequential cumsum, so draws eventually land on different SKUs and the batch sequence
+    is a new version (BatchConfig.sampler='v2'; batch_precompute fingerprints it apart).
+    Deterministic for a given rng seed, one rng.uniform consumed per draw like v1.
+    """
+    r = rng or random
+    partner_map = _get_partner_map(affinity)
+
+    n = len(candidates)
+    sku_to_idx: dict[int, int] = {c.sku: i for i, c in enumerate(candidates)}
+    base = [c.demand.relative_frequency for c in candidates]
+    lift_mult = [1.0] * n
+    active = [True] * n
+    fw = _Fenwick(base)
+    selected: list = []
+
+    for _ in range(k):
+        total = fw.total()
+        if total <= 0.0:
+            break
+        idx = fw.find(r.uniform(0.0, total))
+        chosen = candidates[idx]
+        selected.append(chosen)
+        active[idx] = False
+        fw.set(idx, 0.0)
+        for partner_sku, lv in partner_map.get(chosen.sku, []):
+            j = sku_to_idx.get(partner_sku)
+            if j is not None and active[j]:
+                lift_mult[j] *= lv
+                fw.set(j, base[j] * lift_mult[j])
+
+    return selected
+
+
+_SAMPLERS = {'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2}
+
+
 class Batch:
     def __init__(
         self,
@@ -147,7 +251,12 @@ class Batch:
         if k <= 0:
             selected = []
         elif affinity is None or isinstance(affinity, (dict, AffinityStore)):
-            selected = _lift_weighted_sample(candidates, k, affinity, rng=r)
+            _sampler = _SAMPLERS.get(getattr(config, 'sampler', 'v1'))
+            if _sampler is None:
+                raise ValueError(
+                    f'BatchConfig.sampler must be one of {sorted(_SAMPLERS)}; got '
+                    f'{config.sampler!r}. Refusing to guess a batch-sequence version.')
+            selected = _sampler(candidates, k, affinity, rng=r)
         else:
             raise TypeError(
                 f'Batch affinity must be dict, AffinityStore, or None; got '
