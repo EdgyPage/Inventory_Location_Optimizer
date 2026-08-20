@@ -316,7 +316,8 @@ def _end_state(assets) -> str:
 
 
 def _run_arm(strategy, patch=None):
-    saved = (af._ranked_minlabor_impl, af._cluster_map_choose_aisle)
+    saved = (af._ranked_minlabor_impl, af._cluster_map_choose_aisle,
+             af._co_demand_ranked_impl)
     try:
         if patch is not None:
             patch()
@@ -324,7 +325,8 @@ def _run_arm(strategy, patch=None):
         res = cs.run_meso(assets, n_batches=N_BATCHES)
         return (res.placements, res.picks, res.reorders, _end_state(assets))
     finally:
-        af._ranked_minlabor_impl, af._cluster_map_choose_aisle = saved
+        (af._ranked_minlabor_impl, af._cluster_map_choose_aisle,
+         af._co_demand_ranked_impl) = saved
 
 
 # ── the gates ──────────────────────────────────────────────────────────────────────────
@@ -380,6 +382,82 @@ def test_choose_aisle_consumes_cached_values():
     forced = af._cluster_map_choose_aisle(by_aisle, prefs, row, idx_sets, freq, None,
                                           lifts=stale)
     assert forced == 2, 'a stale cached value did not reach the decision'
+
+
+# ── frozen oracle 3: _co_demand_ranked_impl as of commit c2fcc2b, verbatim ────────────
+
+def _oracle_co_demand_ranked_impl(units, candidates_fn, affinity, wp,
+                                  aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                                  aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+                                  beta, compact):
+    from Warehouse.placement.Assignment_Functions import (
+        _affinity_row, _demand_weighted_delta_lift)
+    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
+    all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+
+    def priority(unit):
+        c = unit.order
+        co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+        return c.demand.relative_frequency * c.labor_cost + co
+
+    sorted_units = sorted(units, key=priority, reverse=True)
+    result: list = []
+    if not sorted_units:
+        return result
+
+    cands = candidates_fn(sorted_units[0])
+    D_of  = _D_map(cands, x_pace, y_pace)
+    by_aisle: dict[int, list] = {}
+    for b in cands:
+        by_aisle.setdefault(b.location[0], []).append(b)
+    for lst in by_aisle.values():
+        lst.sort(key=lambda b: b.x_phys)
+    sku_to_idx = affinity._sku_to_idx
+
+    for unit in sorted_units:
+        live = [aid for aid, lst in by_aisle.items() if lst]
+        if not live:
+            result.append((unit, None))
+            continue
+        sku = unit.order.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+        row = _affinity_row(affinity, sku)
+
+        def aisle_key(aid):
+            mass = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
+            d0   = D_of[id(by_aisle[aid][0])]
+            return (mass, -d0) if compact else (mass, d0)
+        best_aid = (max if compact else min)(live, key=aisle_key)
+
+        lst = by_aisle[best_aid]
+        _mass, cx = _demand_weighted_partner_centroid(
+            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
+        if cx is not None:
+            j = (min if compact else max)(range(len(lst)), key=lambda k: abs(lst[k].x_phys - cx))
+        else:
+            j = 0 if compact else len(lst) - 1
+        chosen = lst.pop(j)
+
+        if sku not in aisle_sku_sets[best_aid]:
+            aisle_sku_sets[best_aid].add(sku)
+            aisle_demand_sum[best_aid] += f_s * q_s
+        idx = sku_to_idx.get(sku)
+        if idx is not None:
+            aisle_idx_sets[best_aid].add(idx)
+            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
+        result.append((unit, chosen))
+
+    return result
+
+
+def test_co_demand_cache_matches_frozen_oracle():
+    new = _run_arm('uni_comp_norsl')
+    def _patch():
+        af._co_demand_ranked_impl = _oracle_co_demand_ranked_impl
+    oracle = _run_arm('uni_comp_norsl', _patch)
+    assert new == oracle, (
+        f'co-demand SKU-run cache diverged from the frozen oracle: {new[:3]} vs {oracle[:3]}')
 
 
 def test_minlabor_cache_matches_frozen_oracle():

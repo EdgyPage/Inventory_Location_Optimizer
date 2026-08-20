@@ -726,10 +726,15 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     pi, pwt, pv = wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef
     all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
 
+    _co_by_sku: dict = {}                     # sort-key memo: all_idx is frozen during the sort,
+                                              # so a SKU's co term is one value — reuse is bit-safe
     def priority(unit):
         c = unit.order
-        # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
-        co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+        co = _co_by_sku.get(c.sku)
+        if co is None:
+            # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
+            co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+            _co_by_sku[c.sku] = co
         return c.demand.relative_frequency * c.labor_cost + co
 
     sorted_units = sorted(units, key=priority, reverse=True)
@@ -746,6 +751,16 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         lst.sort(key=lambda b: b.x_phys)          # ascending column
     sku_to_idx = affinity._sku_to_idx
 
+    # ── SKU-run cache (the Phase-6 precedent, both key components) ────────────
+    # sorted_units clusters same-SKU units (equal priority, stable sort).  aisle_key is
+    # (mass, ±d0): mass mutates only for the WINNER (commit adds this SKU's own index to
+    # its idx-set) and d0 only for the WINNER (its bin list pops) — so cache both per
+    # run and refresh just the winner after each placement.  The refresh recomputes with
+    # the same operands AND the same summation order a full per-unit recompute would use
+    # (the ulp lesson from the cluster_map cache: a value-only argument is not enough).
+    last_sku = None
+    key_cache: dict = {}                        # {aid: (mass, ±d0)} for the current run
+    cached_row = None
     for unit in sorted_units:
         live = [aid for aid, lst in by_aisle.items() if lst]
         if not live:
@@ -754,15 +769,19 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         sku = unit.order.sku
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
-        row = _affinity_row(affinity, sku)        # hoist the CSR slice: once per unit, not per aisle
 
-        # aisle: most (compact) / least (expand) lift to members; tie-break toward the
-        # front (compact) / back (expand) bay by the aisle's lowest-D representative.
-        def aisle_key(aid):
-            mass = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
-            d0   = D_of[id(by_aisle[aid][0])]
-            return (mass, -d0) if compact else (mass, d0)
-        best_aid = (max if compact else min)(live, key=aisle_key)
+        if sku != last_sku:
+            cached_row = _affinity_row(affinity, sku)   # hoist the CSR slice: once per run
+            # aisle: most (compact) / least (expand) lift to members; tie-break toward
+            # the front (compact) / back (expand) bay by the aisle's lowest-D rep.
+            key_cache = {}
+            for aid in live:
+                mass = _delta_lift_from_row(cached_row, aisle_idx_sets[aid], freq_by_idx)
+                d0   = D_of[id(by_aisle[aid][0])]
+                key_cache[aid] = (mass, -d0) if compact else (mass, d0)
+            last_sku = sku
+        row = cached_row
+        best_aid = (max if compact else min)(live, key=key_cache.__getitem__)
 
         lst = by_aisle[best_aid]
         _mass, cx = _demand_weighted_partner_centroid(
@@ -781,6 +800,13 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
             aisle_idx_sets[best_aid].add(idx)
             aisle_member_pos[best_aid][idx].append(chosen.x_phys)
         result.append((unit, chosen))
+        # winner refresh: exactly what the next same-SKU unit's fresh recompute would see
+        if lst:
+            mass = _delta_lift_from_row(row, aisle_idx_sets[best_aid], freq_by_idx)
+            d0   = D_of[id(lst[0])]
+            key_cache[best_aid] = (mass, -d0) if compact else (mass, d0)
+        else:
+            key_cache.pop(best_aid, None)         # aisle exhausted: leaves `live` next unit
 
     return result
 
