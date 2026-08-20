@@ -178,3 +178,7 @@ t_extract, t_sim.**
   `comparison_20260820_132857`): loop wall 27.8→24.1s, save 8.72→5.26s, run wall ~17→~10.6 min.
   Cumulative vs the pre-campaign baseline (`comparison_20260819_121157`): loop wall
   31.9→24.1s (−24%), run wall roughly halved.
+
+**2026-08-20 (commit 21f3b3c): the v2 sampler (t_sample fix above) became the default era for
+all new runs — see [[v2-sampler-era]] for the baselines, the v1 escape hatch, and the
+row-comparability trap.**
