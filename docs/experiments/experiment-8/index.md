@@ -1,0 +1,299 @@
+# {{ experiment().title }}
+
+**Two levers, two outcomes, one run — at full production scale.** Where restock gets put away
+(**placement**) decides how much work a day contains. Who picks what next (**scheduling**) decides
+how fast that work clears. This experiment moves each lever separately across the full
+**400,000-SKU catalogue** — of which the store warehouse stocks **~263,000 SKUs at capacity**
+(fulfillment stocks its own subset; the [lifecycle page](comparison-overview.md) carries the
+exact counts) — and measures both outcomes, so the two never get conflated.
+
+Both levers are rules inside dispatch software, not construction projects. The four that matter on
+this page, in plain terms:
+
+- **FIFO** — restock goes into the first free slot. The do-nothing baseline everything is
+  measured against.
+- **`Rank_labor` family** — restock goes where it least burdens the busiest aisle, so no single
+  aisle becomes the slow one everyone waits behind.
+- **`Map` family** — restock goes to a precomputed "ideal address" per product, so the layout
+  drifts toward a planned map instead of wherever space happened to be.
+- **LPT** (longest-processing-time) — hand pickers the biggest jobs first, so the crew finishes
+  together instead of everyone waiting on whoever drew the heaviest aisle last. (Who carries
+  those biggest jobs is a fair question with a concrete answer — the fairness box below.)
+
+!!! success "The finding"
+    - **Placement pays where supply is predictable.** With immediate replenishment, the
+      `Rank_labor` family cuts store hands-on **pick-hours** by **~2.6 %** against FIFO
+      (`Rank_cartlabor` — the same load-balancing rule scored with cart-swap effort included —
+      and `Rank_labor` finish within a rounding margin of each other). Put-away effort is
+      outside the model's ledger — the [labor page](full-results.md) says exactly what that
+      means and how the pilot closes it. When restock arrives
+      on unpredictable 0–5-batch lead times, the winner flips to the `Map` family and the prize
+      shrinks to **~0.8 %** — placement can only save travel it can plan for.
+    - **Scheduling speeds up both warehouses, under every supply model.** LPT clears the same
+      day's store work in about **two-thirds of the elapsed time** (**+45 %** throughput, a
+      modeled ceiling — the evidence box below says what the model leaves out) and **+5 %** in
+      fulfillment — while hands-on work changes by at most **±0.07 %** across all 136
+      comparisons. The speed-up costs nothing: the work itself did not change.
+    - **The two gains are independent, and they stack.** One removes work; the other removes
+      waiting. Adopt either without the other; together they compound.
+
+**Two warehouses, not one.** The experiment runs two independent simulated buildings over the
+same catalogue, and every finding names which one it belongs to:
+
+| | the work looks like | this experiment's lever |
+|---|---|---|
+| **store** channel | replenishment: big carts, long sweeps down each aisle — a retail backroom or DC | placement **and** scheduling |
+| **fulfillment** channel | e-commerce piece-picking: small totes, short frequent trips | scheduling only |
+
+A real network usually operates both kinds of building — apply each finding to the buildings
+whose work looks like its channel. (In the simulation the two channels share one physical
+build but operate fully disjoint racking and independent order streams — the
+[lifecycle page](comparison-overview.md) states exactly what is and isn't shared, including the
+one caveat for DCs where both channels pick from the same slots.) Every other term is one click
+away in the [glossary](glossary.md).
+
+## The quick read
+
+One inventory, one warehouse, four ways to run it. Hands-on hours are the work; elapsed hours are
+when the day's work was finished:
+
+| | do-nothing placement + naive schedule | best placement + LPT schedule | change |
+|---|---:|---:|---:|
+| hands-on pick-hours | 125.9 | 122.5 | **−2.7 %** (placement) |
+| elapsed hours to clear the run | 8.09 | 5.42 | **−33 %** (mostly scheduling) |
+| items picked | 2,535,417 | 2,535,381 | same work |
+
+<small>Store channel, `bell_lt0` inventory: `uni_fifo` under round-robin vs `opt_rank_cartlabor`
+under LPT. The variable-lead-time inventory reads the same direction with a smaller placement
+term — the [labor page](full-results.md) spans both. Arm names read
+`<starting layout>_<placement rule>`: `uni` = random start, `opt` = the rule's own ideal start
+([glossary](glossary.md#initial-layout)). All numbers from the committed
+[`data/whatif_volume.json`](data/whatif_volume.json).</small>
+
+The two rows move for different reasons, and that is the whole experiment. Placement made the day
+*smaller*; scheduling made it *denser*.
+
+!!! question "How can the day end 33 % sooner if the work barely shrank?"
+    Because pickers spend part of every batch **waiting**. Under a naive round-robin hand-out,
+    whoever draws the heaviest aisle finishes last while everyone else stands idle. LPT hands the
+    longest tasks out first, so the crew finishes together. No work was removed — the same ~123
+    hands-on hours of picking happened — it was packed into fewer elapsed hours. Across all 68
+    same-rule store comparisons the day ends **28.5–39.8 % sooner** (median **31 %**), and every
+    single comparison is positive. That is why labor and throughput are different columns
+    everywhere on this site.
+
+!!! warning "What kind of evidence this is"
+    This is a **controlled A/B experiment inside a simulation**: the same sequence of orders,
+    replayed identically under 34 placement rules × 2 schedulers — a workload no real building
+    could run twice. The units, in floor terms: a **batch is one wave of orders released
+    together**, and the run is **75 consecutive waves** — the store's crew of **25 pickers**
+    (fulfillment: 20) clears it in ~5–8 elapsed hours depending on the scheduler, i.e. roughly
+    one simulated workday, across a modeled footprint of **384 aisles / ~398,500 bins**. The demand is an **ordinary steady period** drawn from the
+    catalogue's own demand rates — not a peak, promo, or returns surge — so **pilot on ordinary
+    weeks and treat peak behavior as unproven**: do not schedule the pilot's evaluation over a
+    promo window, and treat any stress-day claim as outside this experiment's evidence. That control is what a simulation buys; what it cannot buy is your building's exact
+    numbers. Every "hour" is **modeled pick-time** (setup + handling + travel + cart swaps under a
+    stated cost model), so absolute *levels* are model-scale — but the **percentage comparisons
+    are exact**: the simulator is deterministic, each pair of runs replays the identical day, and
+    the difference is a recomputation, not an estimate with error bars. The model's size is
+    likewise a modeling choice: the mechanisms (waiting at the end of a batch; travel per pick)
+    exist in any building, and it is the *direction and ranking* of the results, not the third
+    decimal, that transfers.
+
+!!! note "This experiment is the new baseline"
+    The simulator's synthetic **demand stream was upgraded** before this sweep (a faster,
+    deterministic order-draw engine — "v2", 2026-08-20). The weighting model is identical, but
+    the specific sequence of simulated orders differs from earlier experiments, so numbers here
+    are compared **within this experiment**, and future sweeps will be compared against **these**
+    figures. Experiments 1–7 remain readable history on the previous stream; do not lay their
+    absolute numbers beside these.
+
+## Lever 1 — placement: less work to begin with
+
+<figure markdown>
+  ![Top runs vs FIFO — labor and throughput](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/top_vs_baseline_table.png){ width=920 }
+  <figcaption><strong>Figure 1.</strong> The top three store placement rules from each
+  initial-layout family, measured against the do-nothing FIFO baseline on labor and throughput at
+  once — immediate-replenishment inventory, where the <code>Rank</code> family (place each unit
+  where it least burdens the busiest aisle) holds the podium. Source:
+  <code>top_vs_baseline_table.png</code> (store, <code>bell_lt0</code>, cell
+  <code>{{ experiment().run }}</code>).</figcaption>
+</figure>
+
+Read the labor column as *how much work the rule removed* and the throughput column as *how much
+faster the day went*. Two boundaries matter, and each is a finding rather than a failure:
+
+- **The fulfillment channel barely moves** (best rule: under 0.3 %): small totes and short trips
+  leave placement little travel to save.
+- **Unpredictable supply shrinks the prize and changes the winner.** On the 0–5-batch-lead-time
+  inventory the best any placement rule saves is **~0.8 %**, and the leader is the `Map` family,
+  not `Rank_labor` — when you cannot know what arrives next, a fixed ideal-address map beats
+  reactive load-balancing. The [labor page](full-results.md) shows both inventories side by side.
+
+## Lever 2 — the scheduler: the same work, finished sooner
+
+<figure markdown>
+  ![Cumulative volume vs elapsed time, round-robin vs LPT](images/{{ experiment().whatif.scatter }}){ width=920 }
+  <figcaption><strong>Figure 2.</strong> Items picked so far (y) against elapsed hours (x), one
+  panel per channel, for the same placement rule under <strong>both</strong> schedulers. The slope
+  is throughput; the dot is the finish. Both lines reach the same height — the same work — but the
+  LPT line is steeper and stops sooner. Source: <code>whatif_volume_curves.png</code>.</figcaption>
+</figure>
+
+This is the whole argument in one picture. Nothing about the warehouse, the catalogue, or the
+placement changed between the two lines — only the order tasks were handed to pickers. One
+deliberately cross-lever comparison sizes the prize: a store that changes *only* its scheduler
+(keeping do-nothing placement) still clears work faster than one that adopts the *best* placement
+rule but keeps the naive schedule — **451,856 vs 321,773 items/h**. If only one change is on the
+table, change the scheduler.
+
+<small>That pair reads from the committed [`data/whatif_volume.json`](data/whatif_volume.json):
+`uni_fifo` under LPT vs `opt_rank_cartlabor` under round-robin, store, `bell_lt0`.</small>
+
+!!! question "Who ends up carrying the biggest jobs — and where do the saved hours go?"
+    Three floor questions the model cannot answer alone, stated plainly rather than skipped.
+    **Fairness:** LPT ranks *tasks*, not people — it says the longest task goes out first, not
+    who draws it. The model assumed interchangeable pickers, so a pilot should adopt a rotation
+    rule on day one; the default we propose unless the floor has a better one: **no picker
+    draws one of the shift's three longest tasks on consecutive shifts.** **Strain:** "longest"
+    here is *time*, not physical difficulty — heavy items, bad reach heights, and congested
+    aisles are not in the cost model, a long task is not necessarily a hard one, and the model
+    cannot say how often the two coincide — which is exactly why the rotation rule above is the
+    guardrail, not an afterthought. **The reclaimed hours:** the model shows the same work
+    ending ~31 % sooner; whether that becomes earlier truck cutoffs, more waves, training time,
+    or earlier finishes is a management decision the pilot should announce **before** it
+    starts, because the crew will ask on day one.
+
+## Reading the figures together
+
+<figure markdown>
+  ![Cumulative volume by placement rule, store](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/top3_by_initial_volume_curve.png){ width=920 }
+  <figcaption><strong>Figure 3.</strong> The same cumulative-volume lens, now holding the scheduler
+  fixed at LPT and varying the <strong>placement rule</strong>. Right panel: each rule's lead over
+  FIFO at matched elapsed time. These are the same six runs as Figure 1's table. Source:
+  <code>top3_by_initial_volume_curve.png</code> (store, <code>bell_lt0</code>, cell
+  <code>{{ experiment().run }}</code>).</figcaption>
+</figure>
+
+(A **cell** is one full copy of the sweep under one scheduler setting — `k1_off_rr` is the
+round-robin copy, `k1_off_lpt` the longest-first copy; comparing same-named arms across the two
+cells isolates the scheduler.)
+
+| Figure | Lever it isolates | Compared against | Cell | Inventory | Channel |
+|---|---|---|---|---|---|
+| **1** — takeaway table | placement | FIFO baseline | `{{ experiment().run }}` | `bell_lt0` | store |
+| **2** — volume curves, rr vs LPT | scheduler | cell `{{ experiment().whatif.reference }}` | both | `bell_lt0` | store + fulfillment |
+| **3** — volume curves by rule | placement | FIFO baseline | `{{ experiment().run }}` | `bell_lt0` | store |
+
+<small>Run <code>{{ experiment().whatif.source_run }}</code> ({{ run_commit() }} — the commit
+recorded by the run itself in its <code>run_spec.json</code> at simulation time, i.e. the exact
+code checkout the simulator ran as):
+{{ experiment().whatif.cells }} cells × {{ experiment().whatif.arms }} arms ×
+{{ experiment().whatif.n_batches }} batches over the full catalogue. Every percentage on this page
+is quoted from the committed <code>data/whatif_volume.json</code>,
+<code>data/whatif_labor.json</code>, or <code>data/whatif_delta.json</code>; the figures are
+rendered from the same run's databases by <code>Optimization/run_analysis.py</code>.</small>
+
+## The ask
+
+Nobody should re-slot a warehouse on a simulation's word — and nobody needs to. Both changes are
+dispatch-software settings, pilotable in one building in weeks, with no capital and no
+construction. What this experiment contributes is **which changes, out of 34 tested, are worth
+that pilot** — and exactly what to measure:
+
+1. **Both channels: dispatch the longest tasks first (LPT)** instead of dealing them out in turn.
+   Modeled effect: the same workload clears in **~31 % less elapsed time** in store, **~5 %** in
+   fulfillment — at zero labor cost, under every one of the 34 placement rules tested, on both
+   supply models. This is the highest-confidence, lowest-effort change on the board.
+   *What this means in the WMS:* when a wave's tasks are built, release them to pickers ordered
+   by estimated task time, longest first, instead of round-robin or free pick — in most systems
+   that is a task-release/priority setting on the wave template, not a custom build; if your
+   WMS cannot sort task release by estimated duration, that gap is the first thing to confirm
+   with the vendor. Apply the sort within whatever release unit your WMS actually dispatches —
+   wave, sub-wave, or task group; the simulated unit was a whole-aisle task, and finer grains
+   are untested (below). The estimate only needs to *rank* tasks, not predict minutes — and
+   that is not hand-waving: the simulation's own +45 % was earned sorting on a modeled
+   *estimate* (travel + handling + a cart proxy), not on realized times, so an estimator that
+   gets the big tasks near the top captures the mechanism. Adopt the rotation rule from the
+   fairness box above on day one — it is part of this ask, not an optional extra. Two things
+   the model did NOT test, named plainly:
+   dispatch at **finer grain** than whole-aisle tasks (if your waves split aisles across
+   pickers, the magnitude is untested — but this sweep brackets it with evidence, not a claim:
+   fulfillment's short, near-uniform tasks are the fine-grain end and gained **+5 %**, the
+   store's whole-aisle tasks the coarse end at **+45 %**; the closer your task unit is to
+   uniform-and-small, the closer to the low end you should plan), **floor congestion** when
+   several pickers start their longest aisles at once (walking between aisles is not modeled
+   for either scheduler), and **staffing swings** (the model runs a fixed, known crew — call-
+   outs, late starts, and mid-shift changes are untested; LPT re-balances only at each wave's
+   release against whoever is present) — make all three week-one watch items alongside the
+   measurement plan below.
+2. **Stores with reliable replenishment: place restock with the `Rank_labor` family** instead of
+   first-free-slot. Modeled saving: **~2.6 %** of hands-on pick-hours, needing only data any WMS
+   already has (demand rates and slot positions).
+3. **Stores living with variable lead times: pilot `Map`-based placement**, and expect a smaller
+   prize (**~0.8 %**) — or pair the pilot with supply-reliability work, which this sweep suggests
+   is itself a placement-value multiplier.
+4. **Measure the pilot the way the experiment measures — success criteria and exit both named
+   before day one.** Track three numbers: hands-on pick hours (did the work shrink?),
+   **restock-crew hours** (did put-away pay for the placement gain? — the model cannot answer
+   this, so the pilot must), and time-to-clear (did the day end sooner?). *What counts as a
+   comparable week:* same day-of-week mix, no promo/holiday, order volume within ~10 % of the
+   baseline weeks. *Duration:* at least four comparable weeks — enough for the placement effect
+   to touch most fast-moving slots. *Success:* the modeled effects are ceilings, so set the bar
+   beneath them with room for floor noise — e.g. time-to-clear improves by at least a third of
+   the modeled 31 % (≥10 %) with pick + restock hours flat within ±1 %; agree your own numbers,
+   but agree them in writing first. *Exit:* any missed cutoff attributable to dispatch, or two
+   consecutive days behind plan, reverts to the current rule that shift, no meeting required.
+   Both changes are settings, so reverting is minutes, not a project — which is what makes this
+   a low-risk pilot rather than a commitment.
+
+## Sizing the prize in your numbers
+
+The model deliberately reports **modeled hours and exact percentages**, never dollars — its
+absolute hours are model-scale, and pretending otherwise would be false precision. Turning the
+percentages into a dollar ask takes three numbers only your site has, so here is the arithmetic
+with the blanks left honest:
+
+- **Placement (the 2.6 %):** *annual store pick-hours × pick share of site labor × loaded
+  rate × 2.6 %*. Note what the 2.6 % is a percentage OF — pick-hours, not total site labor —
+  so the pick share is load-bearing; if picking is 20 % of your labor budget this is a modest
+  line, at 60 % it is a real one. The put-away offset is unmeasured (bounded qualitatively on
+  the [labor page](full-results.md), closed empirically by the pilot's restock-hours metric).
+- **Scheduling (the ~31 %):** this one is **not a labor-dollar saving** — hands-on hours are
+  provably unchanged — it is reclaimed *elapsed* time, and its value depends on which of three
+  paths your site converts it into: **capacity** (more volume through the same shift),
+  **service window** (later order cutoffs / earlier truck departures), or **overtime** (if your
+  crews currently run past shift to clear the day, the compression comes straight out of OT
+  hours — the one path that IS a direct labor-dollar line). Name the intended path before the
+  pilot; the measurement plan then prices that path, not an abstraction.
+
+Why trust the *selection*, even without trusting the exact percentages: the scheduler gain is
+positive in **all 136 same-rule comparisons** in this sweep — the third consecutive catalogue
+stream where that holds ([Experiment 7](../experiment-7/index.md) and
+[Experiment 6](../experiment-6/index.md) before it). The placement ranking is more sensitive: it
+holds within a supply model but **flips between supply models** — which is exactly why the pilot,
+not the simulation, should price your building.
+
+## Go deeper
+
+Ordered shallowest first — stop wherever the question is answered.
+
+1. **[Throughput — the scheduler lever](comparison.md)** — how the rate was measured, the windows
+   it was measured over, and the uplift across every placement rule.
+2. **[Labor — the placement lever](full-results.md)** — the two-inventory split, the proof the
+   scheduler doesn't touch labor, and every arm including the losers.
+3. **[How a run works](comparison-overview.md)** — the simulation lifecycle end-to-end, and what
+   the sweep holds constant versus varies.
+4. **[Formula reference](formula-reference.md)** — the pick-time cost model, the labor
+   decomposition, and every placement rule's scoring objective.
+5. **[Inventory distributions](inventory.md)** — the catalogue and the two supply models.
+6. **[Glossary](glossary.md)** — every term on these pages, each with a stable anchor.
+
+!!! warning "Not comparable with Experiment 7 — but it is the stress test"
+    [Experiment 7](../experiment-7/index.md) ran the same design on the same catalogue under the
+    previous demand stream, at reduced scale. Its percentages differ because the simulated order
+    sequence differs. Do not read 7→8 as a trend; read it as **the finding surviving a change of
+    demand stream**: the scheduler gain replicated (all comparisons positive, again), the
+    placement direction replicated where supply is predictable, and the sweep additionally
+    exposed that the placement *winner* depends on supply reliability. Current numbers come from
+    this page.

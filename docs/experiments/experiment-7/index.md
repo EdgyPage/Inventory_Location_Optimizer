@@ -1,5 +1,11 @@
 # {{ experiment().title }}
 
+!!! info "Superseded — kept for reference"
+    [**Experiment 8**](../experiment-8/index.md) is the current sweep: the same two-lever design
+    at full production scale on the upgraded (v2) demand stream. This page's numbers belong to
+    the previous demand stream and are not comparable with Experiment 8's — read this experiment
+    as the design's second replication, not as current results.
+
 **Two levers, two outcomes, one run.** Where restock gets put away (**placement**) decides how much
 work a day contains. Who picks what next (**scheduling**) decides how fast that work clears. This
 experiment moves each lever separately, on a fresh catalogue, and measures both outcomes — so the
@@ -79,11 +85,13 @@ The two rows move for different reasons, and that is the whole experiment. Place
     batch; travel per pick) exist in any building, and it is the *direction and ranking* of the
     results, not the third decimal, that transfers.
 
-!!! note "Nothing on this page carries a measurement caveat"
-    The simulator's measurement basis improved once (a determinism fix, commit `753d01e`); older
-    experiment pages carry a dated note about it rather than silently edited numbers. Experiment 7
-    is the first sweep run entirely on the corrected basis — these figures are the baseline later
-    sweeps will be compared against, with no correction pending.
+!!! note "Dated note — the demand stream changed after this sweep (2026-08-20)"
+    This sweep ran on the corrected measurement basis (post-`753d01e`) with no caveat of its own.
+    After it was published, the simulator's synthetic **demand stream was upgraded** (the v2
+    order-draw engine): [Experiment 8](../experiment-8/index.md) is the first sweep on that
+    stream and is the current baseline. These figures remain internally exact but are not
+    comparable with v2-era sweeps — the convention, as always, is a dated note rather than
+    silently edited numbers.
 
 ## Lever 1 — placement: less work to begin with
 

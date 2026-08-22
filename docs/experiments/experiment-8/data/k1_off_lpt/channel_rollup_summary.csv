@@ -1,0 +1,7 @@
+pair,channel,best_config,best_plan,baseline_fifo_ss,best_ss,saving_abs,saving_pct
+mixed_20260816_131535__mixed_realistic_bell_lt0,fulfillment,ful_calibrated,opt_map_norsl,963290.9915133974,962878.7284189418,412.2630944555858,0.04279735802448351
+mixed_20260816_131535__mixed_realistic_bell_lt0,store,store,opt_rank_cartlabor_norsl,6292811.253267151,6127399.080911841,165412.17235531006,2.6285894443350744
+mixed_20260816_131535__mixed_realistic_bell_lt0,(cumulative),(per-channel best),sum(best per channel),7256102.244780549,7090277.809330783,165824.43544976565,2.285310072209171
+mixed_20260816_131535__mixed_realistic_bell_ltrand0-5,fulfillment,ful_calibrated,opt_map_rank_norsl,857600.3475335989,855737.0208932859,1863.3266403130256,0.21727214146680654
+mixed_20260816_131535__mixed_realistic_bell_ltrand0-5,store,store,opt_map_rank_norsl,5121278.171132653,5082152.841409469,39125.329723184,0.7639758750798494
+mixed_20260816_131535__mixed_realistic_bell_ltrand0-5,(cumulative),(per-channel best),sum(best per channel),5978878.518666252,5937889.862302754,40988.65636349702,0.685557604750274

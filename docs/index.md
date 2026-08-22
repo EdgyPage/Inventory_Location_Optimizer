@@ -86,32 +86,37 @@ simulation is used at all.
 Each experiment is self-contained — its own definitions, inventory, strategy catalogue, results,
 and glossary — so a later sweep can change the setup without disturbing earlier ones.
 
-**[Experiment 7 — Results](experiments/experiment-7/index.md)** is the current sweep and the place
-to start. It repeats Experiment 6's two-lever design on a fresh catalogue, and the story holds:
-handing pickers the longest jobs first (**LPT**) instead of dealing tasks out in turn lifts
-throughput by a median **+45 % (store)** and **+5 % (fulfillment)** — while the hands-on work
-itself changes by less than a twentieth of a percent, the proof that the speed-up is free. On the
-same run the best placement rule, **Rank_labor** (put restock where it least burdens the busiest
-aisle), cuts store pick-hours by **2.7–3.4 %** against the do-nothing baseline in every inventory,
-while fulfillment placement savings stay under **0.3 %** — placement is a *store* lever on this
-catalogue. Two levers, two outcomes, one run — and they stack. (Experiment 6's catalogue showed
-the same scheduler win at **+13.7 %** — the size tracks how unevenly a catalogue loads the
-aisles; the direction has never flipped.)
+**[Experiment 8 — Results](experiments/experiment-8/index.md)** is the current sweep and the place
+to start. It runs the two-lever design at **full production scale** — the complete catalogue, 272
+simulated warehouse-days — and sharpens the story: handing pickers the longest jobs first
+(**LPT**) instead of dealing tasks out in turn lifts throughput by a median **+45 % (store)** and
+**+5 % (fulfillment)** — while the hands-on work itself changes by less than a tenth of a
+percent, the proof that the speed-up is free. The placement lever now comes with a condition
+worth knowing: where replenishment is **predictable**, the **Rank_labor** family (put restock
+where it least burdens the busiest aisle) cuts store pick-hours by **~2.6 %**; where lead times
+are erratic, the winner flips to **Map**-based placement and the prize shrinks to **~0.8 %** —
+placement optimization and supply reliability are complements. Two levers, two outcomes, one run
+— and they stack.
 
-One housekeeping note, told plainly: the simulator's measurement basis improved once (a
-determinism fix), which nudged *absolute* throughput readings by ~1.4 %. Older experiment pages
-carry a dated note about it instead of silently edited numbers; Experiment 7 is measured entirely
-on the corrected basis, so its pages need no caveat at all. And that fix is why tiny deltas are
-now meaningful: the simulator is deterministic, so a comparison replays the *identical* day under
-two rules and differs only by the decision under test — a ±0.06 % labor spread is an exact
-recomputation, not a statistical estimate fighting a noise floor.
+One housekeeping note, told plainly: before this sweep the simulator's synthetic **demand stream
+was upgraded** (a faster, deterministic order-draw engine — "v2"). Experiment 8 is the first sweep
+on that stream and is the baseline future sweeps will be compared against; older pages carry a
+dated note instead of silently edited numbers. Determinism is also why tiny deltas are
+meaningful: a comparison replays the *identical* day under two rules and differs only by the
+decision under test — a ±0.07 % labor spread is an exact recomputation, not a statistical
+estimate fighting a noise floor.
 
 ## Earlier experiments (reference)
 
-These are **superseded** by Experiment 7 and kept for reference. Each was a different run with
-different settings, so their headline numbers are not directly comparable with Experiment 7's or
+These are **superseded** by Experiment 8 and kept for reference. Each was a different run with
+different settings, so their headline numbers are not directly comparable with Experiment 8's or
 with each other — but each one is the only place a particular lever was measured.
 
+- **[Experiment 7](experiments/experiment-7/index.md)** — the same two-lever design on the
+  previous demand stream at reduced scale: LPT **+44.9 % (store)** / **+5.3 % (fulfillment)** at
+  ±0.06 % labor, and the `Rank_labor` family leading store labor in both inventories
+  (**2.7–3.4 %**). Experiment 8 replicated the scheduler finding almost exactly and showed the
+  placement winner tracks the supply model. The last sweep on the v1 demand stream.
 - **[Experiment 6](experiments/experiment-6/index.md)** — throughput measured as a *rate*
   (cumulative volume against elapsed time), the lens Experiment 7 inherits. On its catalogue,
   LPT lifted throughput **+13.7 % (store)** / **+5.6 % (fulfillment)** at **±0.07 %** labor, and
@@ -156,7 +161,7 @@ each one is self-contained:
 | **Glossary** | terms and symbols |
 
 Experiments 1–5 predate this ordering and still use the older page names (*Overview*,
-*Comparison*, *Full results*); Experiments 6 and 7 share the results-first names above.
+*Comparison*, *Full results*); Experiments 6–8 share the results-first names above.
 
 Setup parameters and the cross-cell matrix on these pages are rendered from the run's own committed
 JSON rather than typed by hand. As of Experiment 7 the quoted what-if numbers (throughput, labor)

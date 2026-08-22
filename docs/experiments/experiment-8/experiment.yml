@@ -1,0 +1,93 @@
+# Experiment 8 manifest — single source of truth for this experiment's docs.
+#
+# The same two-lever A/B as Experiment 7 (assignment functions × picker scheduler, layout &
+# zoning pinned off) at FULL production scale, and the first sweep of the v2 demand-stream
+# era: the batch sampler was upgraded on 2026-08-20 (deterministic, same weighting model,
+# different draw sequence), so this experiment is the NEW BASELINE — compare its numbers
+# within this experiment, not against Experiment 7's absolutes.  The headline story also
+# sharpened: which placement family wins now depends on supply predictability (rank_labor
+# family under immediate replenishment; the map family under variable lead times).
+#
+# Headline numbers render from data/whatif_delta.json (the cross-cell matrix) and are quoted
+# from data/whatif_volume.json and data/whatif_labor.json — all three staged by ingest from
+# the run root, so every percentage the pages quote has a committed, diffable source.
+
+title: "Experiment 8 — the full-scale baseline: placement pays where supply is predictable, scheduling pays everywhere"
+
+# Primary run folder = the WINNER cell (its config.json drives setup_table / run_section).
+run: k1_off_lpt
+
+# Run-tree contract the source run followed (verified against the stored contract doc at
+# build time by docs/macros.py:_verify_manifest_schema) and the cells ingest staged.
+schema_id: sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed
+cells:
+  - k1_off_rr
+  - k1_off_lpt
+
+catalogue: catalogue
+baseline: uni_fifo_norsl      # the FIFO baseline every assignment arm is measured against
+
+# The store channel's biggest labor savers.  Split podium this era: the rank_labor family
+# leads under lt0 (rank_cartlabor 2.63% / rank_labor 2.62% — a statistical tie), the map
+# family leads under ltrand0-5 (map_rank 0.76%).
+winners: [rank_cartlabor, rank_labor, map_rank]
+
+# Batch-sampler era of the source run (run_spec.json:sampler).  v2 = the Fenwick sampler
+# adopted 2026-08-20; v2 runs are not row-comparable with v1-era experiments (1-7).
+era: v2
+
+whatif:
+  source_run: comparison_whatif_20260820_193432
+  # The simulator commit this run was produced with — stamped by the run itself
+  # (run_spec.json:repo_commit, carried here by ingest --gen-manifest) and rendered beside
+  # the run id by docs/macros.py:run_commit().
+  commit: 9c99d3a45fa8
+  dirty: false
+  reference: k1_off_rr        # round-robin; every other cell is diffed against it
+  scatter: whatif_volume_curves.png    # cumulative volume vs elapsed hours, rr vs lpt
+  winner: k1_off_lpt
+  cells: 2
+  arms: 34
+  n_batches: 75
+
+inventories:
+  bell_lt0:
+    id: mixed_20260816_131535__mixed_realistic_bell_lt0
+    label: "bell · lt0 — immediate replenishment"
+  bell_ltrand0-5:
+    id: mixed_20260816_131535__mixed_realistic_bell_ltrand0-5
+    label: "bell · ltrand0-5 — lead time 0–5 batches"
+
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    # The run's config carries the same brackets as store (see the leaf config.json); they are
+    # ineffective for fulfillment BY GEOMETRY (all ff shelving sits below the first 96" step,
+    # so M(y)=1 for every ff bin) — the formula page states this reconciliation in prose.
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+
+# Curated figures — the registry defaults (figures.yml) plus the two rate-lens opt-ins
+# Experiment 6 introduced.  Listing them here is load-bearing: a name ingest cannot find
+# only logs MISSING and returns 0, so an unlisted figure is silently absent.
+figures:
+  top3:
+    - top3_by_initial_volume_curve.png
+    - top3_by_initial_prodtime_cum_improvement.png
+    - top3_by_initial_production_time_over_time.png
+    - top3_by_initial_prodtime_delta_trend.png
+    - top_vs_baseline_table.png
+    - top_vs_baseline.png
+  full_suite:
+    - top3_by_initial_labor_per_batch.png
+    - task_duration_by_strategy.png
+    - production_time_over_time.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png
+  - equilibrium_qty.png

@@ -74,11 +74,24 @@ nav:
   - Home: index.md
   - Code map: code-graph.md
   - Future experiment discussion: future-experiments.md
-  # Experiment 7 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
+  # Experiment 8 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
   # numbers before any method page.  Everything after "Labor" is progressively deeper
   # background — the lifecycle and formula pages used to sit above the results and made the
   # section read as methodology with findings buried inside it.
-  - Experiment 7:
+  - Experiment 8:
+      - Results: experiments/experiment-8/index.md
+      - Throughput — the scheduler lever: experiments/experiment-8/comparison.md
+      - Labor — the placement lever: experiments/experiment-8/full-results.md
+      - How a run works: experiments/experiment-8/comparison-overview.md
+      - Formula reference: experiments/experiment-8/formula-reference.md
+      - Inventory distributions: experiments/experiment-8/inventory.md
+      - Glossary: experiments/experiment-8/glossary.md
+  # Experiments 1-7 are superseded by Experiment 8 and kept for reference only.  Nesting them
+  # under one section keeps the sidebar dominated by the current sweep; each landing page
+  # carries a "Superseded" banner saying the same thing in prose.  Experiments 6-7 keep their
+  # results-first page labels; 1-5 keep the older names their pages were written under.
+  - Earlier experiments (reference):
+    - Experiment 7:
       - Results: experiments/experiment-7/index.md
       - Throughput — the scheduler lever: experiments/experiment-7/comparison.md
       - Labor — the placement lever: experiments/experiment-7/full-results.md
@@ -86,11 +99,6 @@ nav:
       - Formula reference: experiments/experiment-7/formula-reference.md
       - Inventory distributions: experiments/experiment-7/inventory.md
       - Glossary: experiments/experiment-7/glossary.md
-  # Experiments 1-6 are superseded by Experiment 7 and kept for reference only.  Nesting them
-  # under one section keeps the sidebar dominated by the current sweep; each landing page
-  # carries a "Superseded" banner saying the same thing in prose.  Experiment 6 keeps its
-  # results-first page labels; 1-5 keep the older names their pages were written under.
-  - Earlier experiments (reference):
     - Experiment 6:
       - Results: experiments/experiment-6/index.md
       - Throughput — the scheduler lever: experiments/experiment-6/comparison.md
