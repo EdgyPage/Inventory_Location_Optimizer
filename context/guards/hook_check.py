@@ -126,6 +126,15 @@ def _stop() -> int:
         if docref.verify(quiet=True) != 0:
             print('[docref] a "<doc>.md section N" reference no longer resolves — a heading was '
                   'renumbered or retitled: python context/guards/docref_guard.py --scan')
+
+    # Experiment citations only break when the docs experiments tree changed — a page edit can
+    # cite a file ingest never staged, and the strict build only catches macro-loaded paths.
+    if any(p.startswith('docs/experiments/') for p in changed):
+        expg = _load(os.path.join(_HERE, 'experiment_guard.py'), 'experiment_guard')
+        n = len(expg.verify(quiet=True))
+        if n:
+            print(f'[experiment] {n} current-experiment citation(s) point at unstaged files — '
+                  f'check: python context/guards/experiment_guard.py --scan')
     return ALLOW
 
 

@@ -298,6 +298,7 @@ def main(argv=None):
                                          rt=rt, cell=cell_name)
 
     n += _stage_whatif(source, exp_dir, args.dry_run, log, rt=rt)
+    n += _stage_rollups(exp_dir, args.dry_run, log, rt=rt, cells=[c for c, _d in cells])
 
     if args.gen_manifest and last_rm is not None:
         _write_starter_manifest(exp_dir, last_rm, args.catalogue, top3, full_suite,
@@ -466,6 +467,33 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
     for src in sorted(glob.glob(os.path.join(source, DEFAULT_WHATIF_PNG_GLOB))):
         n += _copy(src, site_tree.path('whatif_delta', exp_dir,
                                        fname=os.path.basename(src)), dry, log)
+    return n
+
+
+def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
+    """Per-cell channel-rollup CSVs into data/<cell>/ — the per-arm labor rows and the
+    per-channel best/saving summary the labor page's headline quotes.
+
+    Added for Experiment 8 after a reviewer traced the labor headline to the rollup
+    summary and found the site had never staged it: every quoted number must have a
+    committed, diffable source.  Resolver-only (the artifacts are
+    cell-scope contract members reached by NAME via `rt.rollup_csv` / `rt.path` — no
+    filename literals here, per the run-tree consumption ratchet); a pre-descriptor
+    tree logs a NOTE and stages nothing, matching the other resolver-gated stages.
+    """
+    if rt is None:
+        log.append('  NOTE     no run-tree descriptor: channel rollups not staged '
+                   '(labor-headline citations will dangle)')
+        return 0
+    n = 0
+    for cell in cells:
+        for src in (rt.rollup_csv(cell), rt.path('channel_rollup_summary_csv', cell=cell)):
+            if os.path.isfile(src):
+                n += _copy(src, site_tree.path('cell_data', exp_dir, run=cell,
+                                               fname=os.path.basename(src)), dry, log)
+            else:
+                log.append(f'  MISSING  {src}  (run Optimization/run_channel_rollup.py '
+                           f'on the cell first)')
     return n
 
 

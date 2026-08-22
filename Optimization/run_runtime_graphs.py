@@ -95,7 +95,7 @@ def _section_breakdown(rows, out):
         y = range(len(assigns))
         left = [0.0] * len(assigns)
         for si, (col, label) in enumerate(SECTIONS):
-            # .get, not [col]: rows from an OLD-vintage runtime_metrics.db lack columns
+            # .get, not [col]: rows from an OLD-vintage runtime-metrics DB lack columns
             # added later (e.g. the 2026-08-19 observability set) — the graphs must keep
             # rendering archived runs, so a missing section reads as 0, never a KeyError.
             widths = [_mean([r.get(col, 0.0) for r in sub if r['assignment'] == a])

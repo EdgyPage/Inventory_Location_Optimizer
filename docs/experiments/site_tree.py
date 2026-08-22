@@ -1,6 +1,6 @@
 """site_tree.py — the staged docs tree, declared as data.
 
-The website's file layout under ``docs/experiments/<exp>/`` is a five-template contract with
+The website's file layout under ``docs/experiments/<exp>/`` is a six-template contract with
 one writer (ingest.py, which copies files IN) and one reader (docs/macros.py, which renders
 paths OUT at mkdocs build time).  Both sides historically retyped the joins; this module is
 the single declaration, rendered through the same ``Schema.pathtpl`` vocabulary as the run
@@ -41,6 +41,11 @@ TEMPLATES = {
     # run-root what-if outputs: JSON/CSV data into data/, PNGs flat into images/
     'whatif_data':   'data/{fname}',
     'whatif_delta':  'images/{fname}',
+    # per-cell data artifacts (the channel rollup CSVs: the per-arm labor rows and the
+    # per-channel best/saving summary the labor page's headline quotes) — added for
+    # Experiment 8 after a reviewer traced the labor headline to a file the site never
+    # staged.  Keyed by cell because the rollup is a cell-scope run-tree artifact.
+    'cell_data':     'data/{run}/{fname}',
     # catalogue distribution plots (the profiles tree's PNGs, flattened per experiment)
     'catalogue_png': 'images/{catalogue}/{plot}',
 }

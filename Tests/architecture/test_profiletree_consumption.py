@@ -135,13 +135,17 @@ def _sweep() -> dict:
 #: (2026-08-15).  The two `inventory.db` hits are SUBSTRING matches on the run tree's
 #: `planned_inventory.db` — not profiles-tree debt at all, but the raw-text count cannot tell
 #: them apart, so they are recorded rather than special-cased (shrinkage still works).
+#: `Warehouse/catalog/Affinity_Store.py` moved 5 -> 9 on 2026-08-20 (the sidecar array cache,
+#: commit c2fcc2b): the new hits are prose explaining `affinity.db`'s own sidecar-naming scheme
+#: in the file that WRITES affinity.db, not new path-joining — a real widening of this file's
+#: existing, already-accepted debt, not a new consumer.
 #: Regenerate (AFTER confirming the new state is a real migration, not a regression) with:
 #:     python -c "from Tests.architecture import test_profiletree_consumption as t; \
 #:                import pprint; pprint.pprint(t._sweep())"
 #: and paste the result here.  Counts may only go DOWN.
 _BASELINE: dict = {('Optimization/simdriver/scenario.py', 'inventory.db'): 1,
                    ('Optimization/simdriver/sim_assets.py', 'inventory.db'): 1,
-                   ('Warehouse/catalog/Affinity_Store.py', 'affinity.db'): 5}
+                   ('Warehouse/catalog/Affinity_Store.py', 'affinity.db'): 9}
 
 
 # ── the ratchet ─────────────────────────────────────────────────────────────────

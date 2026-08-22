@@ -14,7 +14,7 @@
       "Bash(git merge *)",
       "Bash(git reset *)",
       "Bash(git read-tree *)",
-      "Bash(grep -viE \"mkdocs 2.0|material for mkdocs|underlying framework|plugins will|theme overrides|migration path|contribution model|unlicensed|full analysis|blog/2026|^ *│|will introduce|^ *$\")",
+      "Bash(grep -viE \"mkdocs 2.0|material for mkdocs|underlying framework|plugins will|theme overrides|migration path|contribution model|unlicensed|full analysis|blog/2026|^ *\u00e2\u201d\u201a|will introduce|^ *$\")",
       "Bash(grep -nE 'co\\\\\\\\_|per\\\\\\\\_inch|\\\\\\\\\\\\\\\\_' docs/experiments/experiment-1/glossary.md)",
       "Bash(grep -oE '.{15}\\(co\\\\\\\\_occur|sec\\\\\\\\_per\\\\\\\\_inch\\).{5}' site/experiments/experiment-1/glossary/index.html)",
       "Bash(python -)",
@@ -63,7 +63,8 @@
       "Bash(echo \"verifier with drift \\(expect 1\\): $?\")",
       "Bash(rm -f Optimization/_drift_probe.py)",
       "Bash(echo \"verifier after cleanup \\(expect 0\\): $?\")",
-      "Bash(python -m compileall -q Tests/bench/coverage_e2e.py)"
+      "Bash(python -m compileall -q Tests/bench/coverage_e2e.py)",
+      "Bash(python context/guards/experiment_guard.py --scan)"
     ]
   },
   "hooks": {

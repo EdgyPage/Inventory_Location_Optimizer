@@ -91,6 +91,7 @@ Tests/logs/*.log
 # settings.local.json stays ignored (per-machine state).
 .claude/*
 !.claude/agents/
+!.claude/skills/
 !.claude/settings.json
 
 # IPython

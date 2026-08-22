@@ -8,6 +8,7 @@ into a tracked file at all**, regardless of which layer it belongs to.
 |---|---|
 | `path_guard.py` | no machine-local filesystem path reaches a tracked file or a memory |
 | `docref_guard.py` | every `<doc>.md section N` reference still points at a real heading |
+| `experiment_guard.py` | every current-experiment `data/`/`images/` citation resolves to a staged file; manifests with a what-if block carry a `schema_id`; every staged PNG traces to a declared producer (no ad-hoc graphs) |
 | `hook_check.py` | the hook wiring: blocks the write on `PreToolUse`, nags on `Stop` |
 
 ## Why the path guard exists
@@ -50,6 +51,18 @@ is nothing to rot. Prefer that phrasing over a self-numbered cross-reference.
 
 ```bash
 python context/guards/docref_guard.py --scan
+```
+
+## Why the experiment guard exists
+
+The docs site's strict build only fails on files the *macros* load; a hand-typed markdown link
+to an unstaged `data/` or `images/` file ships silently and 404s on the public site. The
+Experiment-8 review loop hit exactly this class — a labor headline citing a rollup CSV ingest
+had never staged — so the guard turns it into a Stop-hook nag. Archived (superseded)
+experiments are skipped: their staging predates the rules and their pages are frozen history.
+
+```bash
+python context/guards/experiment_guard.py --scan
 ```
 
 ## Two rules this code follows, and must keep following
