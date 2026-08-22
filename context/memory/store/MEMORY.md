@@ -19,6 +19,6 @@
 - [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not the 291 MB its file suggests, so RAM is never the argument for fewer workers
 - [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — fixing a contract never rescues a finished run; validate the fix against preflight's canaries or a fresh run
 - [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — proven working 2026-08-16; always check ingest's BY-NAME resolve lines, a silent fallback hid a dead feature for months
-- [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers (simulation selects the pilot, pilot prices the magnitude); don't reintroduce hedging on index/home
+- [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers; Exp 8 (2026-08-21) codified the publish loop as a skill + 4 persona readers + no-ad-hoc-graphs guard
 - [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines; SECTION_MAP updates ride hot-path renames
 - [v2 sampler era](v2-sampler-era.md) — since 2026-08-20 (21f3b3c) new runs default to the v2 Fenwick sampler; v2 runs are not row-comparable with the pre-flip archive, --sampler v1 is the escape hatch

@@ -17,7 +17,7 @@
 <pre class="sig"><code>docs.experiments.site_tree</code></pre>
 <section class="doc">site_tree.py — the staged docs tree, declared as data.
 
-The website&#x27;s file layout under ``docs/experiments/&lt;exp&gt;/`` is a five-template contract with
+The website&#x27;s file layout under ``docs/experiments/&lt;exp&gt;/`` is a six-template contract with
 one writer (ingest.py, which copies files IN) and one reader (docs/macros.py, which renders
 paths OUT at mkdocs build time).  Both sides historically retyped the joins; this module is
 the single declaration, rendered through the same ``Schema.pathtpl`` vocabulary as the run

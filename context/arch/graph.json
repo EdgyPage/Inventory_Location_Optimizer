@@ -11438,6 +11438,11 @@
     {
       "dst": "docs/experiments/ingest.py::_copy",
       "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_rollups"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_copy",
+      "kind": "calls",
       "src": "docs/experiments/ingest.py::_stage_whatif"
     },
     {
@@ -11472,6 +11477,11 @@
     },
     {
       "dst": "docs/experiments/ingest.py::_stage_inventory_assets",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_stage_rollups",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
     },
@@ -26136,6 +26146,14 @@
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_stage_inventory_assets",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_stage_rollups",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_stage_rollups",
       "public": false
     },
     {

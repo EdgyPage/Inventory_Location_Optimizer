@@ -12476,6 +12476,13 @@
       "kind": "function",
       "signature": "(inv_src, inv, exp_dir, args, inv_plots, log, rt=None, cell=None)"
     },
+    "docs/experiments/ingest.py::_stage_rollups": {
+      "decorators": [],
+      "doc": "Per-cell channel-rollup CSVs into data/<cell>/ \u2014 the per-arm labor rows and the\nper-channel best/saving summary the labor page's headline quotes.\n\nAdded for Experiment 8 after a reviewer traced the labor headline to the rollup\nsummary and found the site had never staged it: every quoted number must have a\ncommitted, diffable source.  Resolver-only (the artifacts are\ncell-scope contract members reached by NAME via `rt.rollup_csv` / `rt.path` \u2014 no\nfilename literals here, per the run-tree consumption ratchet); a pre-descriptor\ntree logs a NOTE and stages nothing, matching the other resolver-gated stages.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(exp_dir, dry, log, rt=None, cells=())"
+    },
     "docs/experiments/ingest.py::_stage_whatif": {
       "decorators": [],
       "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's `whatif` group tag\n(`rt.whatif_outputs()` \u2014 a new group member surfaces here with no edit); what is STAGED is\nshape-based, never name-based: every group `.json` into data/ (the committed sources the\nprose quotes) and every group PNG into images/.  The literal joins below remain the\npre-descriptor route.",
@@ -12506,7 +12513,7 @@
     },
     "docs/experiments/site_tree.py": {
       "decorators": [],
-      "doc": "site_tree.py \u2014 the staged docs tree, declared as data.\n\nThe website's file layout under ``docs/experiments/<exp>/`` is a five-template contract with\none writer (ingest.py, which copies files IN) and one reader (docs/macros.py, which renders\npaths OUT at mkdocs build time).  Both sides historically retyped the joins; this module is\nthe single declaration, rendered through the same ``Schema.pathtpl`` vocabulary as the run\ntree and the profiles tree, so a site path can only move by editing a template here \u2014 where\na golden test and the committed snapshots will notice.\n\nmacros.py deliberately does NOT import this module: it runs inside mkdocs (mkdocs-macros\nloads it standalone, and the site must build from a bare checkout with no guarantee about\nsys.path).  Its f-string joins stay, PINNED to these templates by\n``Tests/architecture/test_site_tree.py`` \u2014 the same literal-equals-render tie the ingest\ndestinations get by construction.\n\nAll paths are RELATIVE to the experiment dir (``docs/experiments/<exp>/``); ingest joins them\nonto its ``exp_dir``, macros onto the site root.  ``{figure}``/``{plot}``/``{fname}`` are\nbasenames from the curated lists in ``experiment.yml``.",
+      "doc": "site_tree.py \u2014 the staged docs tree, declared as data.\n\nThe website's file layout under ``docs/experiments/<exp>/`` is a six-template contract with\none writer (ingest.py, which copies files IN) and one reader (docs/macros.py, which renders\npaths OUT at mkdocs build time).  Both sides historically retyped the joins; this module is\nthe single declaration, rendered through the same ``Schema.pathtpl`` vocabulary as the run\ntree and the profiles tree, so a site path can only move by editing a template here \u2014 where\na golden test and the committed snapshots will notice.\n\nmacros.py deliberately does NOT import this module: it runs inside mkdocs (mkdocs-macros\nloads it standalone, and the site must build from a bare checkout with no guarantee about\nsys.path).  Its f-string joins stay, PINNED to these templates by\n``Tests/architecture/test_site_tree.py`` \u2014 the same literal-equals-render tie the ingest\ndestinations get by construction.\n\nAll paths are RELATIVE to the experiment dir (``docs/experiments/<exp>/``); ingest joins them\nonto its ``exp_dir``, macros onto the site root.  ``{figure}``/``{plot}``/``{fname}`` are\nbasenames from the curated lists in ``experiment.yml``.",
       "kind": "module",
       "signature": null
     },
