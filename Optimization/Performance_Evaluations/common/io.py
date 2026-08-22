@@ -90,14 +90,25 @@ def _save_close(fig, path):
                     f'[artifact-map] {_CURRENT_EVAL} saved a figure outside its declared '
                     f"out_subdir {artifact_map.figure_subdir(_CURRENT_EVAL)!r}: {path}")
     if _FOOTER:
-        fig.text(0.99, 0.004, _FOOTER, ha='right', va='bottom',
+        # chartkit figures reserve a footer band and publish its centre as fig._footer_y;
+        # the stamp goes there, centred, where nothing else is allowed to draw.
+        fig.text(0.5 if getattr(fig, '_chartkit', False) else 0.99,
+                 getattr(fig, '_footer_y', 0.004), _FOOTER,
+                 ha='center' if getattr(fig, '_chartkit', False) else 'right',
+                 va='center' if getattr(fig, '_chartkit', False) else 'bottom',
                  fontsize=6, color='#999999', style='italic')
-    # Explicitly include every legend (incl. those placed OUTSIDE the axes on the right,
-    # and second legends added via add_artist) so bbox_inches='tight' never clips them.
-    extra = [a for parent in [fig, *fig.axes]
-             for a in parent.get_children() if isinstance(a, Legend)]
-    fig.savefig(path, dpi=150, bbox_inches='tight',
-                bbox_extra_artists=extra or None)
+    if getattr(fig, '_chartkit', False):
+        # Geometry is fully reserved up front — no tight-bbox rescue, so the canvas is
+        # exactly the computed size and the footer band survives verbatim.
+        fig.savefig(path, dpi=150)
+    else:
+        # Legacy path (pre-chartkit figures): include every legend (incl. those placed
+        # OUTSIDE the axes on the right, and second legends added via add_artist) so
+        # bbox_inches='tight' never clips them.
+        extra = [a for parent in [fig, *fig.axes]
+                 for a in parent.get_children() if isinstance(a, Legend)]
+        fig.savefig(path, dpi=150, bbox_inches='tight',
+                    bbox_extra_artists=extra or None)
     plt.close(fig)
 
 
