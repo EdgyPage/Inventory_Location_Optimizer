@@ -144,6 +144,10 @@ _RUN_DATA_EXT = ('.json', '.csv')
 #: Contract group tags whose members are staged from the run root.  A group, not a file
 #: list, so the next document its writers emit stages itself.
 _RUN_GROUPS = ('whatif', 'dossier')
+#: One artifact per group, used only to ask WHICH CONTRACT declares that group — a group
+#: tag has no name of its own to resolve, and a run's own document may not know the group
+#: exists.  Any member does; these are the stage roots, which never move.
+_GROUP_PROBE = {'whatif': ('whatif_delta_json',), 'dossier': ('dossier_dir',)}
 
 _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs
 
@@ -481,7 +485,12 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
         # json of a later group).
         cands = []
         for group in _RUN_GROUPS:
-            cands.extend(sorted(rt.group_outputs(group)))
+            # HEAD's contract per group, not the run's.  A finished run's own document
+            # predates the groups today's analysis writes into — the dossier does not exist
+            # in it at all — so resolving through it would stage nothing and say nothing.
+            # `_reader_tree` is the same rule the leaf tables use, applied per group.
+            rd = _reader_tree(rt, next(iter(_GROUP_PROBE[group]), None)) or rt
+            cands.extend(sorted(rd.group_outputs(group)))
         for src in cands:
             base = os.path.basename(src)
             if base.endswith(_RUN_DATA_EXT):

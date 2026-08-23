@@ -319,25 +319,36 @@ def test_ingest_sim_meta_lookup_contract_equals_walk(mixed, store_only):
         assert metas and metas[0] == golden
 
 
-def test_ingest_whatif_staging_contract_equals_glob(mixed, tmp_path):
+def test_ingest_run_root_staging_is_a_superset_of_the_legacy_route(mixed, tmp_path):
+    """The contract route stages everything the literal route did, and the CSVs it skipped.
+
+    The two routes used to agree line for line, and that agreement was the migration's
+    proof.  It is deliberately broken now: the legacy route predates the contract's group
+    tag and only ever knew `whatif_delta.json`, so it silently skipped every sibling CSV
+    those same writers emit — which is why a page wanting the per-arm rows behind a quoted
+    median had nothing committed to link to.  What must still hold is that the contract
+    route LOSES nothing.
+    """
     b, rt = mixed
     for fname in ('whatif_delta.json', 'whatif_delta.csv', 'whatif_delta.png',
                   'whatif_batch_hours_rr_vs_lpt.png', 'whatif_volume_curves.png'):
         _touch(b, fname)
 
-    # One shared destination: dry runs copy nothing, so both routes may log against the SAME
-    # exp_dir — which makes the two logs directly comparable, line for line.
+    # One shared destination: dry runs copy nothing, so both routes may log against the
+    # SAME exp_dir, which makes the two logs directly comparable.
     exp = str(tmp_path / 'exp')
     log_old, log_new = [], []
-    n_old = ingest._stage_whatif(b, exp, True, log_old)               # dry: the OLD literal route
-    n_new = ingest._stage_whatif(b, exp, True, log_new, rt=rt)        # dry: the contract route
-    assert n_old == n_new == 4                                        # delta.json + 3 pngs, no csv
-    assert log_old == log_new, 'the contract route staged a different (src -> dst) sequence'
+    n_old = ingest._stage_whatif(b, exp, True, log_old)               # the OLD literal route
+    n_new = ingest._stage_whatif(b, exp, True, log_new, rt=rt)        # the contract route
+    assert n_old == 4, 'the legacy route is frozen: delta.json + 3 pngs, no csv'
+    assert n_new == 5, 'the contract route adds the CSV the legacy route skipped'
+    assert set(log_old) <= set(log_new), 'the contract route dropped a legacy destination'
 
-    # Golden, from the old logic: whatif_delta.json to data/ (the csv is NOT in
-    # DEFAULT_WHATIF_DATA), then every whatif_*.png to images/, in sorted order.
     def line(src, *dst):
         return f"  copy     {src}  ->  {os.path.relpath(os.path.join(exp, *dst), ingest._DOCS)}"
+
+    # The legacy route, unchanged: whatif_delta.json to data/, then every whatif_*.png to
+    # images/, in sorted order.
     assert log_old == [
         line(os.path.join(b, 'whatif_delta.json'), 'data', 'whatif_delta.json'),
         line(os.path.join(b, 'whatif_batch_hours_rr_vs_lpt.png'),
@@ -345,6 +356,24 @@ def test_ingest_whatif_staging_contract_equals_glob(mixed, tmp_path):
         line(os.path.join(b, 'whatif_delta.png'), 'images', 'whatif_delta.png'),
         line(os.path.join(b, 'whatif_volume_curves.png'), 'images', 'whatif_volume_curves.png'),
     ]
+    # ...and the one addition, by name, so a future extension-list edit is visible here.
+    assert set(log_new) - set(log_old) == {
+        line(os.path.join(b, 'whatif_delta.csv'), 'data', 'whatif_delta.csv')}
+
+
+def test_run_root_staging_groups_are_declared_by_some_contract(mixed):
+    """Every group the stager walks must have a probe artifact a contract declares.
+
+    The probe is how the stager finds WHICH contract knows a group — a group tag has no
+    name of its own to resolve, and a finished run's document may not know the group
+    exists at all (the dossier's does not).  A typo'd probe silently stages nothing.
+    """
+    _b, rt = mixed
+    for group, probes in ingest._GROUP_PROBE.items():
+        assert group in ingest._RUN_GROUPS
+        rd = ingest._reader_tree(rt, next(iter(probes)))
+        assert rd is not None, f'no contract declares a probe for group {group!r}'
+        assert rd.by_group(group), f'{group!r} resolves to a contract with no members'
 
 
 # ── docs/macros.py ───────────────────────────────────────────────────────────────
