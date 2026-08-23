@@ -7,7 +7,7 @@ so a reader can scan the same arm across both without re-finding it:
     handling, reconstructed from picker events over the steady-state sample), in the
     time unit `chartkit.time_units` picks from both components of every bar pooled
     together, each bar annotated with its travel share.
-  * the percent view — the picking% / traveling% split of aggregate picker time
+  * the second absolute view — the picking% / traveling% split of aggregate picker time
     (already percent-of-time in the series scalars), as horizontal stacked bars.
 
 Movement is orange in both figures and stationary work is blue, so the two cuts read
@@ -65,7 +65,8 @@ def _breakdown_figure(ctx, out):
         bottom=min(0.55, min(2.8, need) / ch.fig.get_figheight()))
     ch.legend()
     ch.title('Picker time: travel vs handling',
-             'reconstructed from picker events over a steady-state batch sample')
+             'WITHIN a task, from picker events — not the same split as the '
+             'picking-vs-traveling share')
     ch.save(os.path.join(out, 'absolute_task_time_breakdown.png'), view='absolute')
 
 
@@ -99,13 +100,14 @@ def _split_figure(ctx, out):
         left=min(2.6, need) / ch.fig.get_figwidth())
     ch.legend()
     ch.title('Picking vs traveling share',
-             'steady-state share of aggregate picker time, per arm')
-    ch.save(os.path.join(out, 'percent_pick_vs_travel.png'), view='percent')
+             'share of aggregate picker time — a different cut from the travel-vs-'
+             'handling split, which decomposes time inside a task')
+    ch.save(os.path.join(out, 'absolute_pick_vs_travel.png'), view='absolute')
 
 
 @evaluation(key='task_time.breakdown', label='Picker-time decomposition (two cuts)',
             scope='config', needs=('breakdown', 'series'),
-            family='task_time', views=('absolute', 'percent'))
+            family='task_time', views=('absolute',))
 def render(ctx, params):
     out = io.out_dir(ctx)
     _breakdown_figure(ctx, out)

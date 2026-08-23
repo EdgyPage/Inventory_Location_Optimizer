@@ -197,17 +197,21 @@ def _table_figure(ctx, selected, S, baseline, out):
     rows, lab_ps, nb = [], [], 0
     for s in selected:
         lab_pct, lab_p, n, b_l, v_l = _paired(ctx, s, 'task_sum', 'duration')
-        thr_pct, _p, _n, _b, _v = _paired(ctx, s, 'batch', 'completion_rate')
+        _tp, _p, _n, b_t, v_t = _paired(ctx, s, 'batch', 'completion_rate')
         nb = max(nb, n)
-        # The point estimate and the interval beside it must estimate the SAME thing.
-        # The labor column is a median-based improvement (a per-batch ratio has a long
-        # right tail; one near-empty batch makes the mean of it unstable), so the
-        # interval is the bootstrap of the median of the per-batch improvements — not a
-        # t-interval on their mean, which can and does exclude the median it sits next to.
+        # BOTH columns are the median of the per-batch improvements, and the interval is
+        # the bootstrap of THAT median.  Two reasons, and they are the same reason twice:
+        # a per-batch ratio has a long right tail, so a mean of it is unstable and a
+        # t-interval on the mean can exclude the median printed beside it; and the
+        # published table has to agree with the arm-vs-baseline CSV, which uses this
+        # estimator.  Leaving throughput as a ratio-of-medians put +3.2% in the figure
+        # against +3.59% in the file, for the same arm and the same run.
         diffs = _pair_diffs(b_l, v_l, lower=True)
         lab = float(np.median(diffs)) if diffs.size else float('nan')
+        thr_diffs = _pair_diffs(b_t, v_t, lower=False)
+        thr = float(np.median(thr_diffs)) if thr_diffs.size else float('nan')
         g = _hedges_g_paired(b_l, v_l) if len(b_l) else float('nan')
-        rows.append(dict(s=s, lab=lab, thr=thr_pct, g=g, ci=_boot_ci(diffs)))
+        rows.append(dict(s=s, lab=lab, thr=thr, g=g, ci=_boot_ci(diffs)))
         lab_ps.append(lab_p)
     adj = _holm(np.asarray(lab_ps, float))
 

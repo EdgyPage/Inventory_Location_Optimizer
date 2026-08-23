@@ -81,13 +81,21 @@ hours, making the ledger complete by measurement rather than by assumption.
   <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 
-Two things read directly off that figure:
+Three things read directly off that figure:
 
-- **The raw line is dominated by demand, not policy** — a batch with more items simply costs more.
-  That is why the right-hand panel compares each arm against FIFO on the *same* batch.
 - **The advantage is steady, not growing or decaying.** The saving is a property of the placement
   rule, present from early batches and holding across the run — not something that accumulates or
   erodes as the warehouse churns.
+- **Comparing against FIFO on the same batch is what makes that visible.** Labor hours per batch
+  are dominated by demand — a batch with more items simply costs more — so the raw hours rise and
+  fall with the order stream whatever the rule does. The percentage above divides that out. (The
+  raw hours are the companion figure in the full curated set below, if you want to see the swing
+  this cancels.)
+- **A couple of batches are marked with a triangle and ignored.** Those are batches with almost no
+  work in them — a handful of items, a few seconds of picking. A percentage against a
+  near-zero baseline swings wildly on a difference of no operational consequence, so those batches
+  are flagged rather than read. Every arm faces the same batches, so nothing is tilted by
+  skipping them.
 
 ## The scheduler does not touch labor
 
@@ -111,10 +119,12 @@ therefore attributable to reduced idle time, not reduced work.
 
 <figure markdown>
   ![Labor hours saved vs FIFO](images/whatif_labor_saved_bars.png){ width=920 }
-  <figcaption>Modeled labor hours saved against the FIFO baseline, per placement rule. Some arms
-  <em>lose</em> to FIFO by design — the suite includes deliberate worst-case controls (such as
-  <code>rank_maxlabor</code>, which maximises labor) that bound how much the lever is worth in
-  each direction. Source: <code>whatif_labor_saved_bars.png</code>.</figcaption>
+  <figcaption>Modeled labor hours saved against the FIFO baseline, per placement rule,
+  <strong>store only</strong> — fulfillment is omitted because its whole spread is a couple of
+  minutes across the run, a ranking of noise. Some arms <em>lose</em> to FIFO by design: the suite
+  includes deliberate worst-case controls (such as <code>rank_maxlabor</code>, which maximises
+  labor) that bound how much the lever is worth in each direction.
+  Source: <code>whatif_labor_saved_bars.png</code>.</figcaption>
 </figure>
 
 **Why run 34 arms when three win?** The suite is built as brackets: for every lever there is a

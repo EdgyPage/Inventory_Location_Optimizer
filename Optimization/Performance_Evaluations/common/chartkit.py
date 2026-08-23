@@ -366,12 +366,24 @@ class Chart:
         tall figure (a 34-row ladder runs past 16 in) a fractional offset walks the
         subtitle straight down into the axes."""
         h = self.fig.get_figheight()
+        cx = self._panel_center_x()
         self._header = [(self.fig.suptitle(text[:80], fontsize=12, fontweight='bold',
-                                           y=1.0 - 0.13 / h, va='top'), 0.13)]
+                                           x=cx, y=1.0 - 0.13 / h, va='top'), 0.13)]
         if subtitle:
             self._header.append(
-                (self.fig.text(0.5, 1.0 - 0.36 / h, subtitle, ha='center', va='top',
+                (self.fig.text(cx, 1.0 - 0.36 / h, subtitle, ha='center', va='top',
                                fontsize=8.5, color='#555555'), 0.36))
+
+    def _panel_center_x(self):
+        """Figure-fraction centre of the PANEL area, not of the whole canvas.
+
+        A header centred on the canvas drifts right into the legend gutter, and a long
+        subtitle runs underneath it — which is how five trajectory figures ended up with
+        their explanatory line clipped by the legend box."""
+        if not self._margins:
+            return 0.5
+        m_l, m_r, _b, _t = self._margins
+        return (m_l + m_r) / 2.0 / self.fig.get_figwidth()
 
     def legend(self, handles=None, labels=None, *, title=None, ncol=None):
         """Place THE legend in the reserved gutter (or bottom strip).  Deduplicates
@@ -455,8 +467,9 @@ class Chart:
                 leg.set_bbox_to_anchor((x_in / nw, y_in / nh))
             # The header lines are placed a fixed distance below the TOP edge; growing
             # the canvas moves that edge, and a stale fraction walks them into the axes.
+            cx = self._panel_center_x()
             for artist, inches_down in self._header:
-                artist.set_y(1.0 - inches_down / nh)
+                artist.set_position((cx, 1.0 - inches_down / nh))
             fig._footer_y = 0.5 * band / nh
         return self
 

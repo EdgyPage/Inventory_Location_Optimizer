@@ -119,7 +119,10 @@ ramp over the run, i.e. no warm-up artifact inflates the comparison.
   ![LPT uplift by assignment function](images/whatif_volume_uplift_bars.png){ width=920 }
   <figcaption>Median throughput uplift of LPT over round-robin, per placement rule, faceted by
   channel. Every bar is positive: the scheduling win does not depend on which placement policy is
-  in use. Source: <code>whatif_volume_uplift_bars.png</code>.</figcaption>
+  in use. What DOES vary is its size — the headline medians (+44.8 % store, +5.5 % fulfillment) sit
+  inside a spread that runs to roughly triple the fulfillment median on the cluster rules, so read
+  the median as the number to plan against and this chart as the range to expect.
+  Source: <code>whatif_volume_uplift_bars.png</code>.</figcaption>
 </figure>
 
 Within the store's 34 arms, total items picked span only **0.25 %** while elapsed hours span

@@ -132,7 +132,15 @@ The two rows move for different reasons, and that is the whole experiment. Place
 </figure>
 
 Read the labor column as *how much work the rule removed* and the throughput column as *how much
-faster the day went*. Two boundaries matter, and each is a finding rather than a failure:
+faster the day went*. **Read both before you pick a rule.** The three `Rank` variants save almost
+the same labor (+2.2 % to +2.6 %), but `Rank_minlabor` does it while finishing the day's work
+**slower** than doing nothing (−3.2 % throughput on the optimal-start arm, −1.4 % on the uniform
+one), because it spreads work to the least-loaded aisle rather than the nearest one. If you pilot
+one rule, pilot `Rank_cartlabor` or `Rank_labor`, which are positive on both columns. That
+trade-off is the reason this table shows the two columns together instead of ranking on labor
+alone, and it is visible again in Figure 3.
+
+Two further boundaries matter, and each is a finding rather than a failure:
 
 - **The fulfillment channel barely moves** (best rule: under 0.3 %): small totes and short trips
   leave placement little travel to save.
@@ -151,12 +159,15 @@ faster the day went*. Two boundaries matter, and each is a finding rather than a
   LPT line is steeper and stops sooner. Source: <code>whatif_volume_curves.png</code>.</figcaption>
 </figure>
 
-This is the whole argument in one picture. Nothing about the warehouse, the catalogue, or the
-placement changed between the two lines — only the order tasks were handed to pickers. One
-deliberately cross-lever comparison sizes the prize: a store that changes *only* its scheduler
-(keeping do-nothing placement) still clears work faster than one that adopts the *best* placement
-rule but keeps the naive schedule — **451,856 vs 321,773 items/h**. If only one change is on the
-table, change the scheduler.
+This is the scheduler argument in one picture. Nothing about the warehouse, the catalogue, or the
+placement changed between the two lines — only the order tasks were handed to pickers.
+
+One further comparison sizes the prize across the two levers, and it is **not** on the figure
+above — that figure holds the placement rule fixed, so neither line is the one described here.
+Taken from the run's own volume data: a store that changes *only* its scheduler (keeping
+do-nothing placement) still clears work faster than one that adopts the *best* placement rule but
+keeps the naive schedule — **451,856 vs 321,773 items/h**. If only one change is on the table,
+change the scheduler.
 
 <small>That pair reads from the committed [`data/whatif_volume.json`](data/whatif_volume.json):
 `uni_fifo` under LPT vs `opt_rank_cartlabor` under round-robin, store, `bell_lt0`.</small>
@@ -183,7 +194,10 @@ table, change the scheduler.
   fixed at LPT and varying the <strong>placement rule</strong>: how far ahead of FIFO each rule is
   at matched elapsed time, as a share of what FIFO had picked by then, with the dot marking where
   the arm finished the run. These are the same six runs as Figure 1's table; the raw cumulative
-  curves are in the full results. Source: <code>percent_volume_lead.png</code> (store,
+  curves are in the full results. <strong>Two of the six run below zero for most of the day</strong>
+  — the <code>Rank_minlabor</code> pair, which saves labor but finishes later, the trade-off called
+  out under Figure 1. A rule can be on the labor podium and still be the wrong one to pilot.
+  Source: <code>percent_volume_lead.png</code> (store,
   <code>bell_lt0</code>, cell <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 
