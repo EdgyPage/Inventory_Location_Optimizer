@@ -293,14 +293,36 @@ python -m Optimization.analyze_run <run_dir> --reference k1_off_rr --preset BY_I
 
 | CLI | Produces |
 |-----|----------|
-| `run_analysis.py` | the per-cell graph + statistics suite → `compare/`, `per_strategy/`, `stats/`, `_aggregate/` |
+| `run_analysis.py` | the per-cell graph + statistics suite → `figures/<family>/`, `tables/`, `_aggregate/` |
 | `run_channel_rollup.py` | store + fulfillment combined into a whole-warehouse view |
 | `run_whatif_delta.py` | the cross-cell steady-state delta matrix (multi-cell) |
 | `run_whatif_labor.py` | the same runs told in modeled labor-hours |
 | `run_whatif_volume.py` | cumulative volume vs elapsed time — throughput as a *rate* |
 | `run_runtime_graphs.py` | compute cost per arm, from `runtime_metrics.db` |
 
-Three things worth knowing:
+#### What a leaf looks like
+
+Each analysis leaf holds one folder per **chart family** plus the tidy CSV surface. A figure's
+filename starts with its **view** — `absolute_`, `percent_`, `delta_`, `effect_`, `table_` — so
+the folder listing says what each file measures, and the save path refuses a filename whose
+prefix contradicts the view the evaluation declared.
+
+| Family | Answers |
+|---|---|
+| `headline/` | which arm wins, by how much, and how sure we are |
+| `trajectories/` | how each metric moves over the run, absolute and vs baseline |
+| `labor/` | the labor delta — cumulative, per batch, and per arm |
+| `throughput/` | volume against elapsed time, and the lead over baseline |
+| `task_time/` | task-duration distribution and where picker time goes |
+| `layout/` | travel cost and inventory churn |
+| `significance/` | effect sizes with significance — the assignments × metrics heatmap |
+| `diagnostics/` | raw per-arm read-outs for inspection, not comparison |
+
+`tables/` carries the tidy long CSVs (`batch_metrics`, `task_metrics`), the per-arm summary, and
+the statistics documents; `series.json` and `batches_long.csv` stay at the leaf root because the
+two family folders are wiped and rebuilt on every re-analysis.
+
+Three more things worth knowing:
 
 - `--preset` defaults to **`BY_INITIAL`** (keeps `uni_*` and `opt_*`). The older `DEFAULT` preset
   is uniform-only and silently drops every `opt_*` arm.
