@@ -107,6 +107,10 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   `context/` anchors rot unchecked.
 - **`nbstripout` is a git filter whose command lives in uncommitted `.git/config`.** A fresh clone
   needs `pip install nbstripout && nbstripout --install` or notebook checkout fails.
+- **`run_analysis.py` takes a CELL directory; handed a run root it does nothing and exits 0.**
+  It logs `Config stage: 0 job(s)` and reports success, because a run root contains no channel
+  runs to walk. The whole-run entry point is `python -m Optimization.analyze_run <run_root>`,
+  which drives every cell and then the cross-cell what-if writers.
 
 ## 4. Where things are
 

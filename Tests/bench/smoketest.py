@@ -392,8 +392,11 @@ _NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory')
 #   figures_significance_pngs — written by EITHER stats fork (both forks render into the
 #                   significance family folder), absent only under NO_STATS; which preset
 #                   produced the tree is not knowable from the tree alone.
+#   vs_baseline_csv — needs 3+ batches shared with the baseline arm. Every real run has
+#                   them, but a 2-batch smoke tree does not, and this stage cannot tell a
+#                   short run from a missing writer.
 _EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db',
-               'figures_significance_pngs')
+               'figures_significance_pngs', 'vs_baseline_csv')
 
 
 def _stage_verify_tree(ctx: _Ctx) -> StageResult:

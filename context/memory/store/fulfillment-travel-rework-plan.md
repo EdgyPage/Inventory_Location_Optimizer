@@ -5,12 +5,15 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 4489d670-51cd-451a-b42f-5e7cc534ea9e
-  modified: 2026-08-14T13:02:38.980Z
+  modified: 2026-08-23T09:21:14.854Z
 ---
 
 Approved 2026-07-08. Full plan: `~/.claude/plans/i-want-to-create-elegant-adleman.md`.
 
-Four deliverables, phased: **A** throughput-vs-labor scatter (`Optimization/Performance_Evaluations/compare/throughput_vs_labor.py`, DONE — no rerun); **B** one-way travel-model rework (pick/non_pick decomposition, aisle entry/exit, cart-swap→non_pick, per-task position reset, shared `aisle_traverse_cost` helper); **C** velocity zoning as a per-regime candidate-layer TOGGLE (not an arm) + optional per-band aisle depth geometry.
+Four deliverables, phased: **A** throughput-vs-labor scatter (as of 2026-08-23 living at
+`Optimization/Performance_Evaluations/headline/throughput_vs_labor.py` — the `compare/` package it
+originally shipped in was deleted wholesale by the analysis-suite rebuild (commits 0389da8,
+e73158b, 429a9ee); DONE — no rerun); **B** one-way travel-model rework (pick/non_pick decomposition, aisle entry/exit, cart-swap→non_pick, per-task position reset, shared `aisle_traverse_cost` helper); **C** velocity zoning as a per-regime candidate-layer TOGGLE (not an arm) + optional per-band aisle depth geometry.
 
 Decisions taken (adjustable): one-way is **fulfillment-only** (store two-way, flag-gated); cart-swap stays **flat/position-independent**, reclassified to non_pick_travel; scorer rewrites (`_D_map`, tmin, Compact→aisle-consolidation, rank_labor, rank_minlabor) land **together**, gated on `one_way`; **fresh-rerun DBs** + `col in row.keys()` guards (no ALTER TABLE); aisle far-end `L = aisle.aisle_width`.
 

@@ -22,3 +22,4 @@
 - [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers; Exp 8 (2026-08-21) codified the publish loop as a skill + 4 persona readers + no-ad-hoc-graphs guard
 - [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines; SECTION_MAP updates ride hot-path renames
 - [v2 sampler era](v2-sampler-era.md) — since 2026-08-20 (21f3b3c) new runs default to the v2 Fenwick sampler; v2 runs are not row-comparable with the pre-flip archive, --sampler v1 is the escape hatch
+- [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie; FIFO's uniform-random aisle pick has no ranking for an optimal initial placement to exploit

@@ -1,6 +1,6 @@
 {
-  "head": "sha256:3998be6e638f5421a90bebff7d50973f59945e2da25b436d5b365709f6e615ee",
-  "source_fingerprint": "sha256:092be2b1e8a855d18c42279bdd060d27d423c7126c34c6bf5feab1b5cdc981f8",
+  "head": "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5",
+  "source_fingerprint": "sha256:a3d41f13bde65ce825fb8cfc2b5a53494a4da9c0bcd1e551eb2c12518884e43d",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -86,11 +86,11 @@
         "artifact aggregate_stats_tests_json.optional: False -> True"
       ]
     },
-    "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722": {
-      "short": "7b14b788d59c",
+    "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5": {
+      "short": "9ef809beb2eb",
       "parent": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
-      "created": "2026-08-22T21:22:42",
-      "commit": "154c234",
+      "created": "2026-08-23T04:19:13",
+      "commit": "429a9ee",
       "label": "",
       "changes": [
         "artifact aggregate_by_initial_csv.path: '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv' -> '{cell}/_aggregate/{config}/{channel?}/tables/by_initial_summary.csv'",
@@ -122,16 +122,7 @@
         "artifact stats_tests_json.path: '{cell}/{pair}/{config}/{channel?}/stats/tests.json' -> '{cell}/{pair}/{config}/{channel?}/tables/tests.json'",
         "artifact REMOVED: summary_batch_csv (was {cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv)",
         "artifact REMOVED: summary_task_csv (was {cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv)",
-        "artifact ADDED: task_metrics_csv -> {cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv"
-      ]
-    },
-    "sha256:3998be6e638f5421a90bebff7d50973f59945e2da25b436d5b365709f6e615ee": {
-      "short": "3998be6e638f",
-      "parent": "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722",
-      "created": "2026-08-23T02:48:29",
-      "commit": "0bca6b6",
-      "label": "",
-      "changes": [
+        "artifact ADDED: task_metrics_csv -> {cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv",
         "artifact ADDED: vs_baseline_csv -> {cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv"
       ]
     }

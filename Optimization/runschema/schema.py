@@ -346,7 +346,10 @@ ARTIFACTS = {
     'vs_baseline_csv': {
         'evaluation': 'tables.vs_baseline',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv',
-        'format': 'csv', 'scope': 'channel_run',
+        'format': 'csv', 'scope': 'channel_run', 'optional': True,
+        'condition': 'needs at least 3 batches shared with the baseline arm — every real '
+                     'run has them; the 2-batch preflight canaries do not, and a paired '
+                     'statistic over two observations would be worse than absent.',
         'note': 'every arm against the baseline with effect size, bootstrap interval and '
                 'corrected p — the numbers the headline figure prints, in a form a '
                 'reader (and the docs site) can cite.',

@@ -1,5 +1,5 @@
 {
-  "schema_id": "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722",
+  "schema_id": "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5",
   "generated_by": "Optimization/runschema/contract.py",
   "generator_source": "Optimization/runschema/schema.py",
   "description": "Machine-readable contract for a simulation run directory, identified by the sha256 of its own shape. Levels marked optional are ABSENT under the stated condition \u2014 consumers must handle both shapes. Path templates use {name} for a required segment and {name?} for an optional one (dropped with its separator when that part is None).",
@@ -128,7 +128,7 @@
       "path": "{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv",
       "format": "csv",
       "scope": "channel_run",
-      "writer": "render@Optimization/Performance_Evaluations/tables/stats_csv.py"
+      "writer": "render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py"
     },
     "by_initial_tests_json": {
       "evaluation": "tables.by_initial",
@@ -136,7 +136,7 @@
       "format": "json",
       "scope": "channel_run",
       "note": "ONE consolidated document keyed by assignment fn \u2014 replaces the retired per-assignment subtree of test documents.",
-      "writer": "render@Optimization/Performance_Evaluations/tables/stats_csv.py"
+      "writer": "render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py"
     },
     "cell_analysis_log": {
       "path": "{cell}/analysis.log",
@@ -381,7 +381,7 @@
       "scope": "channel_run",
       "optional": true,
       "condition": "flat stats suite only (DEFAULT/NO_STATS presets; BY_INITIAL runs the by-initial fork instead).",
-      "writer": "render@Optimization/Performance_Evaluations/tables/stats_csv.py"
+      "writer": "render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py"
     },
     "stats_tests_json": {
       "evaluation": "tables.stats",
@@ -390,7 +390,7 @@
       "scope": "channel_run",
       "optional": true,
       "condition": "flat stats suite only (see stats_summary_csv).",
-      "writer": "render@Optimization/Performance_Evaluations/tables/stats_csv.py"
+      "writer": "render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py"
     },
     "task_metrics_csv": {
       "evaluation": "tables.tidy",
@@ -416,6 +416,16 @@
       "condition": "built on demand by the viewer, so it is absent from every simulation run (the preflight canaries never produce it) until someone opens that run in Visualization/. Deleting _viz/ costs time, never data.",
       "writer": "build_one@Visualization/precompute.py",
       "note": "lives under the reserved `_` prefix (RESERVED_PREFIX) so every tree walker skips it; named sim_{strategy}.viz.db beside the sim DB it would instead satisfy all three predicates of runlayout._sim_dbs_in and surface as an extra ARM."
+    },
+    "vs_baseline_csv": {
+      "evaluation": "tables.vs_baseline",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "needs at least 3 batches shared with the baseline arm \u2014 every real run has them; the 2-batch preflight canaries do not, and a paired statistic over two observations would be worse than absent.",
+      "note": "every arm against the baseline with effect size, bootstrap interval and corrected p \u2014 the numbers the headline figure prints, in a form a reader (and the docs site) can cite.",
+      "writer": "render@Optimization/Performance_Evaluations/tables/vs_baseline.py"
     },
     "warehouse_db": {
       "family": "warehouse_db",
