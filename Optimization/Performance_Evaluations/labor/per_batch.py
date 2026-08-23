@@ -17,10 +17,14 @@ percent view removes the demand signal entirely by expressing each batch against
 that same batch, so what remains is the policy effect alone.
 
 Both views draw the raw line faint UNDER the smoothed line, in the strategy's own color
-(the retired chart drew raw lines in one unmapped tan, so they could not be attributed):
-hiding the raw spread would overstate how cleanly separated the arms are.  Legends carry
-strategy names only — the retired chart printed six near-identical stat rows there; the
-compact steady-state h/batch listing now lives in the absolute view's subtitle instead.
+AND its own dash (the retired chart drew raw lines in one unmapped tan, so they could not
+be attributed): hiding the raw spread would overstate how cleanly separated the arms are.
+The raw stroke was still too pale and too thin to read as its arm's color, and nothing on
+the canvas said what it was — a reader saw beige lines swinging twice as far as anything
+in the legend.  So: the raw stroke carries the SAME color and dash as the arm's smoothed
+line and differs only in weight, and ONE legend row states that convention.  Everything
+else in the legend is a strategy name — the retired chart printed six near-identical stat
+rows there; the compact steady-state h/batch listing lives in the absolute view's subtitle.
 
 TWO THINGS NOT TO READ INTO IT.  (1) There is no warm-up transient: batch 0 measured 70%
 of median on a real run, well inside the family, so the opening batches are not excluded.
@@ -36,11 +40,31 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import chartkit, io
 from Optimization.Performance_Evaluations.common.series import _select_top
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS, _WIN, _SMOOTH
+
+# ── the raw/smoothed convention (one legend row, both views) ────────────────────
+#: The faint stroke differs from the bold one in WEIGHT only — same color, same dash, same
+#: arm.  Kept legible enough to read as that color: at alpha 0.30 / lw 0.6 it washed out to
+#: an unattributable beige.
+_RAW_KW = dict(lw=0.9, alpha=0.45)
+_RAW_LABEL = f'faint = raw · bold = {_SMOOTH}-batch mean'
+_RAW_TITLE = 'strategy · line weight'
+
+
+def _raw_handle():
+    """The one legend row that explains every faint stroke on the canvas."""
+    return Line2D([], [], color='#777777', **_RAW_KW)
+
+
+def _with_raw_note(ax, ch, **kw):
+    """Place the legend with the raw/smoothed row appended after the strategy rows."""
+    hs, ls = ax.get_legend_handles_labels()
+    return ch.legend(hs + [_raw_handle()], ls + [_RAW_LABEL], **kw)
 
 
 # ── data extraction (ported verbatim, units via chartkit) ───────────────────────
@@ -53,11 +77,20 @@ def labor_by_batch(task_df):
 
 
 def _smooth(y, win=_SMOOTH):
-    """Centred moving average, the same small window the over-time trajectories use."""
-    if y.size < win:
+    """Centred moving average over the window the over-time trajectories use.
+
+    The ends average only the batches that exist, rather than being padded with zeros.
+    `np.convolve(..., mode='same')` pads, so the smoothed line dived toward zero over the
+    first and last couple of batches — a fabricated collapse at exactly the two places a
+    reader looks for a trend to start or finish.
+    """
+    y = np.asarray(y, dtype=float)
+    if y.size < win or win < 2:
         return y
-    k = np.ones(win) / win
-    return np.convolve(y, k, mode='same')
+    k = np.ones(win)
+    total = np.convolve(y, k, mode='same')
+    count = np.convolve(np.ones_like(y), k, mode='same')   # how many real batches each
+    return total / count                                    # window actually covered
 
 
 def _sub_note(top_n, top_by):
@@ -66,7 +99,7 @@ def _sub_note(top_n, top_by):
 
 # ── the two views ───────────────────────────────────────────────────────────────
 def _absolute(ctx, arms, curves, base_curve, win, top_n, top_by, out):
-    labels = [_stitle(s) for s in arms] + ['FIFO baseline']
+    labels = [_stitle(s) for s in arms] + ['FIFO baseline', _RAW_LABEL]
     ch = chartkit.make(panel_w=7.4, panel_h=4.2, legend='gutter', legend_labels=labels)
     ax = ch.ax
     all_vals, ss_bits, drew = [], [], False
@@ -75,16 +108,18 @@ def _absolute(ctx, arms, curves, base_curve, win, top_n, top_by, out):
         if b.size == 0:
             continue
         col = chartkit.strategy_color(s, ctx.strategies)
-        ax.plot(b, h, color=col, lw=0.6, alpha=0.30)
-        ax.plot(b, _smooth(h), color=col, ls=chartkit.strategy_dash(s), lw=1.9,
-                label=_stitle(s))
+        dash = chartkit.strategy_dash(s)
+        # raw first, under its own smoothed line, in that line's color AND dash
+        ax.plot(b, h, color=col, ls=dash, **_RAW_KW)
+        ax.plot(b, _smooth(h), color=col, ls=dash, lw=1.9, label=_stitle(s))
         all_vals.append(h)
         ss = h[b >= (b.max() - win)]
         ss_bits.append(f'{_stitle(s)} {ss.mean():.2f}')
         drew = True
     b_b, b_h = base_curve
     if b_b.size:
-        ax.plot(b_b, b_h, color=chartkit.BASELINE_STYLE['color'], lw=0.6, alpha=0.22)
+        ax.plot(b_b, b_h, color=chartkit.BASELINE_STYLE['color'],
+                ls=chartkit.BASELINE_STYLE['ls'], **_RAW_KW)
         chartkit.mark_baseline(ax, b_b, _smooth(b_h))
         all_vals.append(b_h)
         ss_b = b_h[b_b >= (b_b.max() - win)]
@@ -96,7 +131,7 @@ def _absolute(ctx, arms, curves, base_curve, win, top_n, top_by, out):
     chartkit.data_ylim(ax, all_vals)
     ax.set_xlabel('batch')
     ax.set_ylabel(f'labor {chartkit.HOURS} per batch (↓ better)')
-    ch.legend(title='strategy')
+    _with_raw_note(ax, ch, title=_RAW_TITLE)
     listing = (f'{_sub_note(top_n, top_by)} — last-{win} mean h/batch: '
                + ' · '.join(ss_bits))
     ch.title('Labor per batch',
@@ -109,7 +144,7 @@ def _percent(ctx, arms, curves, base_curve, top_n, top_by, out):
     base_by = {int(b): v for b, v in zip(b_b, b_h) if v > 0}
     if not base_by:
         return
-    labels = [_stitle(s) for s in arms]
+    labels = [_stitle(s) for s in arms] + [_RAW_LABEL]
     ch = chartkit.make(panel_w=7.4, panel_h=4.2, legend='gutter', legend_labels=labels)
     ax = ch.ax
     pct_all, drew = [], False
@@ -122,9 +157,9 @@ def _percent(ctx, arms, curves, base_curve, top_n, top_by, out):
         if xs.size == 0:
             continue
         col = chartkit.strategy_color(s, ctx.strategies)
-        ax.plot(xs, pct, color=col, lw=0.6, alpha=0.30)
-        ax.plot(xs, _smooth(pct), color=col, ls=chartkit.strategy_dash(s), lw=1.9,
-                label=_stitle(s))
+        dash = chartkit.strategy_dash(s)
+        ax.plot(xs, pct, color=col, ls=dash, **_RAW_KW)
+        ax.plot(xs, _smooth(pct), color=col, ls=dash, lw=1.9, label=_stitle(s))
         pct_all.append(pct)
         drew = True
     if not drew:
@@ -148,7 +183,7 @@ def _percent(ctx, arms, curves, base_curve, top_n, top_by, out):
     ax.tick_params(axis='y', labelsize=9)
     ax.set_ylabel(f'% less labor than FIFO {chartkit.pct_axis(ax, better="up")}',
                   fontsize=9, labelpad=2)
-    ch.legend(title='strategy')
+    _with_raw_note(ax, ch, title=_RAW_TITLE)
     caveat = 'triangles = near-empty batches: ratio off-scale; shared demand, no bias'
     ch.title('Labor saved vs FIFO, per batch',
              subtitle=f'{_sub_note(top_n, top_by)} · {caveat}' if tiny

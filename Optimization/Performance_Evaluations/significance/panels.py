@@ -10,7 +10,10 @@ significance eval renders through:
   * `effect_heatmap` — assignments × metrics, fill = % improvement (diverging colormap
     centred at 0, positive = better per chartkit.improvement_pct), non-significant
     cells greyed/hatched.
-  * `forest_panel` — metrics as rows, % improvement with 95% CI whiskers.
+  * `forest_panel` — metrics as rows, % improvement with 95% CI whiskers.  Each file
+    hugs its OWN x range (one assignment's rows span ±0.1%, another's −5%…+20%), so it
+    carries chartkit.annotate_unshared: dot position is comparable down a panel, never
+    between panels.
 
 Everything draws through chartkit (reserved geometry, no legend in the data region) and
 saves with view='effect'; jitter is deterministic (np.random.default_rng(0)).
@@ -231,6 +234,13 @@ def forest_panel(metric_rows, out_path, *, title,
     `metric_rows` is a list of dicts with keys name / pct / lo / hi / p / effect
     (pct, lo, hi already improvement-oriented: positive = better).  Returns the saved
     path, or None when no row is drawable.
+
+    THE X AXIS IS PER FILE and says so.  One forest is written per assignment function
+    and their effect magnitudes differ by orders of magnitude — a family whose rows all
+    sit inside ±0.1% next to one spanning −5%…+20%.  A shared scale would flatten the
+    first into a vertical stack of dots, so each panel keeps its own range and carries
+    the `independent x scale` note: a reader flipping between files must compare the
+    printed effect labels, never the dot positions.
     """
     rows = [r for r in metric_rows if np.isfinite(r.get('pct', np.nan))]
     if not rows:
@@ -270,5 +280,7 @@ def forest_panel(metric_rows, out_path, *, title,
     ax.set_ylim(-0.7, len(rows) - 1 + 0.9)
     tag = chartkit.pct_axis(ax, better='right', axis='x')
     ax.set_xlabel(f'{xlabel} {tag}', fontsize=8)
+    # The range above was fitted to THIS panel's rows; every sibling file fits its own.
+    chartkit.annotate_unshared(ax, axis='x')
     ch.title(title)
     return ch.save(out_path, view='effect')

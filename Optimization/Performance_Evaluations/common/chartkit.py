@@ -351,6 +351,7 @@ class Chart:
         self._gutter_cols = gutter_cols
         self._legend_slot = 0
         self._legends = []
+        self._header = []                   # (text artist, inches below the top edge)
 
     @property
     def ax(self):
@@ -365,11 +366,12 @@ class Chart:
         tall figure (a 34-row ladder runs past 16 in) a fractional offset walks the
         subtitle straight down into the axes."""
         h = self.fig.get_figheight()
-        self.fig.suptitle(text[:80], fontsize=12, fontweight='bold',
-                          y=1.0 - 0.13 / h, va='top')
+        self._header = [(self.fig.suptitle(text[:80], fontsize=12, fontweight='bold',
+                                           y=1.0 - 0.13 / h, va='top'), 0.13)]
         if subtitle:
-            self.fig.text(0.5, 1.0 - 0.36 / h, subtitle,
-                          ha='center', va='top', fontsize=8.5, color='#555555')
+            self._header.append(
+                (self.fig.text(0.5, 1.0 - 0.36 / h, subtitle, ha='center', va='top',
+                               fontsize=8.5, color='#555555'), 0.36))
 
     def legend(self, handles=None, labels=None, *, title=None, ncol=None):
         """Place THE legend in the reserved gutter (or bottom strip).  Deduplicates
@@ -451,6 +453,10 @@ class Chart:
                              for leg, x_in, y_in in self._legends]
             for leg, x_in, y_in in self._legends:
                 leg.set_bbox_to_anchor((x_in / nw, y_in / nh))
+            # The header lines are placed a fixed distance below the TOP edge; growing
+            # the canvas moves that edge, and a stale fraction walks them into the axes.
+            for artist, inches_down in self._header:
+                artist.set_y(1.0 - inches_down / nh)
             fig._footer_y = 0.5 * band / nh
         return self
 

@@ -5,8 +5,14 @@ one y category order — arms sorted by duration improvement, best on top — so
 scans one ranking, not two.  The panels also share the x scale when the magnitudes
 allow it; when one panel's swings would flatten the other, each keeps its own scale
 and says so out loud.  Sign is carried by the zero reference line and the sort, not
-by red/green bars: bars wear their arm's suite color, and the FIFO row (always at 0)
-is edge-marked in the baseline style.
+by red/green bars: bars wear their arm's suite color.
+
+NO LEGEND, DELIBERATELY.  Every arm is already named on the y axis, so a colour key is
+one row of restatement per arm — a third of the canvas spent telling the reader what
+the tick label beside the bar just told them.  The single thing the axis cannot say is
+which row IS the reference, and that is marked IN PLACE on the FIFO row (dotted rule,
+bold tick label, a note at the zero line).  The gutter those rows used to occupy goes
+back to the panels.
 
 Ported data logic: the retired delta-bars chart — throughput Δ% off the steady-state
 throughput scalar and duration improvement % off the steady-state batch-makespan
@@ -52,10 +58,12 @@ def render(ctx, params):
               reverse=True)
 
     n = len(rows)
-    labels = ['FIFO baseline (zero line)']
-    ch = chartkit.make(panels=2, ncols=2, panel_w=4.6,
+    # legend='none': the y axis is the colour key.  The freed gutter widens the panels
+    # rather than shrinking the figure — 34 bars need the horizontal room more than a
+    # restatement of their names does.
+    ch = chartkit.make(panels=2, ncols=2, panel_w=5.5,
                        panel_h=chartkit.height_for_categories(n),
-                       legend='gutter', legend_labels=labels)
+                       legend='none')
     ypos = np.arange(n)
     base_key = baseline['key']
     panels = (('thr', 'throughput improvement vs FIFO'),
@@ -105,8 +113,25 @@ def render(ctx, params):
     else:
         chartkit.annotate_unshared(ch.axes[1], axis='x')
 
-    ch.legend(handles=[chartkit.baseline_handle('FIFO baseline (zero line)')])
+    # Mark the reference IN PLACE.  Its bars are zero-length by construction, so the row
+    # is otherwise empty and a legend row would be the only thing identifying it.
+    b_i = next((i for i, r in enumerate(rows) if r['s']['key'] == base_key), None)
+    if b_i is not None:
+        for ax in ch.axes:
+            ax.axhline(b_i, color=chartkit.BASELINE_STYLE['color'], lw=1.0, ls=':',
+                       alpha=0.55, zorder=2)
+        ax0 = ch.axes[0]
+        x0, x1 = ax0.get_xlim()
+        right = (x1 - 0.0) >= (0.0 - x0)     # annotate into whichever side has room
+        ax0.annotate('FIFO baseline — zero by definition', xy=(0.0, b_i),
+                     xytext=(6 if right else -6, 0), textcoords='offset points',
+                     ha='left' if right else 'right', va='center', fontsize=6.5,
+                     color=chartkit.BASELINE_STYLE['color'], zorder=4,
+                     bbox=dict(facecolor='white', edgecolor='none', alpha=0.85, pad=1.0))
+        tick = ax0.get_yticklabels()[b_i]
+        tick.set_color(chartkit.BASELINE_STYLE['color'])
+        tick.set_fontweight('bold')
     ch.title('All arms vs FIFO baseline',
-             'sorted by duration improvement — best on top; color = arm')
+             'sorted by duration improvement — best on top; the FIFO row is the zero line')
     ch.save(os.path.join(io.out_dir(ctx), 'percent_all_arms_vs_baseline.png'),
             view='percent')

@@ -258,6 +258,25 @@ def test_fit_keeps_the_gutter_legend_beside_the_data_after_growing(tmp_path):
         'the legend landed on the data after the canvas grew')
 
 
+def test_the_header_survives_the_canvas_growing():
+    """`fit` moves the top edge, so a header placed at a fraction of the OLD height
+    walks down into the data — the title's fixed-distance promise has to be re-applied
+    after every resize."""
+    ch = chartkit.make(panels=1, panel_h=14.0, legend='none')
+    ch.ax.plot([0, 1], [0, 1])
+    ch.ax.set_xticks([0, 1])
+    ch.ax.set_xticklabels(['a very long tick label indeed', 'another long one'],
+                          rotation=45, ha='right')
+    ch.title('A title', 'and its subtitle')
+    ch.fit()
+    ch.fig.canvas.draw()
+    ax_top = ch.ax.get_window_extent().y1
+    for txt in ch.fig.texts:
+        if txt.get_text() in ('A title', 'and its subtitle'):
+            assert txt.get_window_extent().y0 >= ax_top - 1, (
+                f'{txt.get_text()!r} fell into the axes after fit()')
+
+
 @pytest.mark.parametrize('panel_h', [3.6, 16.0])
 def test_title_and_subtitle_stay_out_of_the_axes_at_any_height(panel_h):
     """Both header lines sit a fixed distance from the top edge.  Positioned by
