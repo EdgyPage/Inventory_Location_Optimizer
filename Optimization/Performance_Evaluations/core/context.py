@@ -17,6 +17,7 @@ from Schema import identity as _identity
 from Optimization.Performance_Evaluations.core import requests as _requests
 from Optimization.Performance_Evaluations.common.series import _aggregate_series
 from Optimization.Performance_Evaluations.common.style import _focus_filter, _WIN
+from Optimization.Performance_Evaluations.core import baseline as _baseline
 
 
 def _provenance_parts(leaf_dir: str, max_up: int = 6) -> list[str]:
@@ -130,7 +131,19 @@ class EvalContext:
         self.strategies = _focus_filter(sim_result['strategies'], focus)
         # Before ANY of those files is read as numbers.  See `_verify_sim_dbs`.
         _verify_sim_dbs(self.strategies, log)
-        self.base       = self.strategies[0]
+        # The baseline is SELECTED, not counted.  `self.strategies[0]` was correct only
+        # because the run harness happens to assemble the list baseline-first — a fact no
+        # chart module can see and none of them states.  The switch was landed in two
+        # steps: `core/baseline.py` first resolved the declared arm and logged any
+        # disagreement with position 0 while still returning position 0, because a silent
+        # re-baseline renumbers every published figure without changing a filename.  Both
+        # Experiment-8 cells, both channels, both inventory profiles: zero disagreements.
+        self.base       = _baseline.resolve(self.strategies, log,
+                                            where=f'{self.name}/{focus}')
+        if self.base is not self.strategies[0]:
+            log.info(f'  [baseline] {self.name}/{focus}: using the declared arm '
+                     f'{self.base["key"]!r}, which is not position 0 '
+                     f'({self.strategies[0]["key"]!r})')
         self._by_key    = {s['key']: s for s in self.strategies}
 
         self._bcache: dict = {}

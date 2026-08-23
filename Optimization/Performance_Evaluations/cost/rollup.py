@@ -24,10 +24,15 @@ import statistics as st
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import io
+from Optimization.Performance_Evaluations.core import baseline as _baseline
 from Optimization.config.objectives import OBJECTIVES
 
-#: The do-nothing rule every cost is quoted against.
-BASE_RULE = 'fifo'
+#: The do-nothing rule every cost is quoted against — the SAME declaration the labor
+#: comparison resolves its baseline arm from, so the two families cannot end up quoting
+#: against different arms.  This stage works over rule NAMES rather than strategy dicts
+#: (it reads the run's cost rows, not `ctx.strategies`), which is why it takes the value
+#: rather than calling `baseline.resolve`.
+BASE_RULE = _baseline.BASELINE.value
 
 
 def _f(row, key):
