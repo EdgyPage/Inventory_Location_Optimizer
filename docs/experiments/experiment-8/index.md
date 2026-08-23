@@ -129,7 +129,17 @@ The two rows move for different reasons, and that is the whole experiment. Place
     one simulated workday, across a modeled footprint of **384 aisles / ~398,500 bins**. The demand is an **ordinary steady period** drawn from the
     catalogue's own demand rates — not a peak, promo, or returns surge — so **pilot on ordinary
     weeks and treat peak behavior as unproven**: do not schedule the pilot's evaluation over a
-    promo window, and treat any stress-day claim as outside this experiment's evidence. That control is what a simulation buys; what it cannot buy is your building's exact
+    promo window, and treat any stress-day claim as outside this experiment's evidence.
+    **It is also one draw, not many.** Every arm replays the *same* simulated demand sequence —
+    that is what makes the comparisons exact, but it means this sweep contains no estimate of how
+    much a different ordinary week would move the numbers. Two things bound that gap without
+    re-running: within this week, each arm's result is a median over 75 waves whose spread is
+    published as the interval on every row of Figure 1's table, so wave-to-wave variation is
+    visible rather than hidden; and across weeks, the scheduler finding has now replicated on
+    **three independently generated demand streams** (Experiments 6, 7 and 8) with the sign never
+    once negative. The placement ranking has no such cross-stream replication yet — treat its
+    *ordering* as this week's result until the pilot or another draw confirms it.
+    That control is what a simulation buys; what it cannot buy is your building's exact
     numbers. Every "hour" is **modeled pick-time** (setup + handling + travel + cart swaps under a
     stated cost model), so absolute *levels* are model-scale — but the **percentage comparisons
     are exact**: the simulator is deterministic, each pair of runs replays the identical day, and
@@ -205,7 +215,17 @@ Two further boundaries matter, and each is a finding rather than a failure:
   panel per channel, each holding its own placement rule fixed and varying only the
   <strong>scheduler</strong> (the two panels do not use the same rule — each names its own). The slope
   is throughput; the dot is the finish. Both lines reach the same height — the same work — but the
-  LPT line is steeper and stops sooner. Source: <code>whatif_volume_curves.png</code>.</figcaption>
+  LPT line is steeper and stops sooner.
+  <br><br>
+  <strong>The two panels are not on the same scale, and that is real, not a units error.</strong>
+  Fulfillment clears roughly <strong>5–6 million items in about an hour</strong>; the store clears
+  roughly <strong>2–2.5 million in five to eleven hours</strong>. Fulfillment's modeled pick is an
+  order of magnitude cheaper per item — small carts, short trips, and a per-channel cost model
+  whose handling term grows logarithmically rather than steeply
+  (<a href="formula-reference.md">formula reference</a>) — so its rate runs about
+  <strong>12× the store's</strong>. Compare each panel's two lines with each other; do not compare
+  heights across panels. Source: <code>whatif_volume_curves.png</code>; ranges from
+  <a href="data/whatif_volume.json"><code>data/whatif_volume.json</code></a>.</figcaption>
 </figure>
 
 This is the scheduler argument in one picture. Nothing about the warehouse, the catalogue, or the
@@ -333,7 +353,14 @@ that pilot** — and exactly what to measure:
    for either scheduler), and **staffing swings** (the model runs a fixed, known crew — call-
    outs, late starts, and mid-shift changes are untested; LPT re-balances only at each wave's
    release against whoever is present) — make all three week-one watch items alongside the
-   measurement plan below. **What LPT does inside a wave matters for whether your WMS can
+   measurement plan below. On congestion specifically, "watch it" is not a plan, so here is the
+   default posture we would run unless the floor knows better: **cap concurrent pickers per aisle
+   at whatever the floor already treats as safe (commonly one for a narrow aisle, two for a wide
+   one) and let the scheduler skip to the next-longest eligible task when the cap is hit.** That
+   is the same shape as the eligibility rule in the fairness box and costs a little of the modeled
+   gain; the alternative — releasing the longest aisles simultaneously and discovering the cap on
+   the floor — costs more. The trigger to revisit it: pickers queueing at aisle entrances, or
+   travel-time-per-pick rising against the baseline weeks. **What LPT does inside a wave matters for whether your WMS can
    reproduce this:** at each wave's release every task is handed out longest-first, and a picker
    who finishes early takes the longest task still unassigned *from that same wave* — the idle
    time the gain comes from is removed continuously, not at the next wave boundary. A WMS that
@@ -354,8 +381,15 @@ that pilot** — and exactly what to measure:
    to touch most fast-moving slots. *Success:* the modeled effects are ceilings, so set the bar
    beneath them with room for floor noise — e.g. time-to-clear improves by at least a third of
    the modeled 31 % (≥10 %) with pick + restock hours flat within ±1 %; agree your own numbers,
-   but agree them in writing first. *Exit:* any missed cutoff attributable to dispatch, or two
-   consecutive days behind plan, reverts to the current rule that shift, no meeting required.
+   but agree them in writing first. *Exit, and each lever has its own:* for the **scheduler**, any missed cutoff
+   attributable to dispatch, or two consecutive days behind plan, reverts to the current rule that
+   shift, no meeting required. For **placement**, the exit is the restock side, because that is
+   where the risk lives: if restock-crew hours rise enough to consume more than half the measured
+   pick-hour saving over any two comparable weeks, revert to first-free-slot put-away — and if
+   they rise past the whole saving in a single comparable week, revert immediately rather than
+   waiting for the second. Track the two exits separately: the levers are independent, so a
+   placement rollback is not a reason to drop LPT, and the pilot should be able to run one without
+   the other.
    Both changes are settings, so reverting is minutes, not a project — which is what makes this
    a low-risk pilot rather than a commitment.
 
@@ -381,6 +415,17 @@ with the blanks left honest:
   crews currently run past shift to clear the day, the compression comes straight out of OT
   hours — the one path that IS a direct labor-dollar line). Name the intended path before the
   pilot; the measurement plan then prices that path, not an abstraction.
+  *Worked on the overtime path, again with numbers that are yours to replace:* a store crew of 25
+  that currently runs **1 hour of overtime a day, 5 days a week** is buying 125 OT hours a week —
+  at a \$30 base and time-and-a-half, about **\$5,600 a week, or \$290k a year**. The modeled
+  compression is ~31 % of elapsed time, but the honest planning figure is the pilot bar, not the
+  ceiling: at the one-third-of-modeled success bar (≥10 %) a shift that ran an hour over now runs
+  roughly 6 minutes over, which is most of that OT line. Two conditions decide whether any of it
+  lands: the overtime has to be *caused by the day not clearing* (if it is caused by volume
+  arriving late, compression does not touch it), and the reclaimed time has to actually be sent
+  home rather than backfilled with more waves — which is the path decision above, made in advance.
+  On the capacity and service-window paths the same 31 % is worth real money too, but it shows up
+  as revenue or as a later cutoff, and only your site can price those.
 
 Why trust the *selection*, even without trusting the exact percentages: the scheduler gain is
 positive in **all 136 same-rule comparisons** in this sweep — the third consecutive catalogue

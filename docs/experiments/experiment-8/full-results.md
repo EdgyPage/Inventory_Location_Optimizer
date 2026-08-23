@@ -57,6 +57,17 @@ cadence and ownership are on the [formula reference](formula-reference.md#map)).
 once per restock arrival (not in the pick path), scoring candidate slots for the arriving unit;
 no real-time floor telemetry is involved.
 
+**What to actually ask your WMS vendor for.** The feature class is **directed put-away with a
+configurable slotting score** — the system already chooses a slot for arriving stock, and this
+lever changes the rule it chooses by. Ask whether put-away destination can be scored on a
+per-SKU demand rate and a per-slot position (rather than nearest-free-slot or a static zone
+map), and whether that score can be supplied or configured rather than hard-coded. If it cannot,
+the fallback is the same shape as the `Map` family: an offline job computes a target slot per
+SKU and feeds it as a put-away directive on a nightly or weekly cadence, which most systems can
+consume even when their own scoring is fixed. Either way the scoring runs once per arrival at
+the dock, not in the pick path, so it is not a latency question — one score per arriving pallet,
+against a catalogue-sized table the WMS already keeps indexed.
+
 **What the put-away side costs — the other half of the ledger, stated plainly.** The modeled
 labor on this page counts **pick time only**: the restocker's walk to the chosen slot is not
 modeled for *any* rule, FIFO included, so the 2.6 % is a pick-hours saving, not a

@@ -42,7 +42,10 @@ two read cleanly.)
   ![Cumulative volume vs elapsed time, round-robin vs LPT](images/{{ experiment().whatif.scatter }}){ width=920 }
   <figcaption>Items picked so far (y) against elapsed hours (x), for one placement rule under both
   schedulers. The slope is throughput; the dot is the finish. Both lines reach the same height —
-  the same work — but the LPT line is steeper and stops sooner.
+  the same work — but the LPT line is steeper and stops sooner. The channel panels sit on very
+  different scales — fulfillment clears ~5–6 M items in about an hour against the store's ~2–2.5 M
+  in five to eleven — because fulfillment's modeled pick is roughly 12× cheaper per item; read
+  each panel's two lines against each other, not across panels.
   Source: <code>whatif_volume_curves.png</code>.</figcaption>
 </figure>
 
@@ -153,7 +156,11 @@ aisles at once. Both exclusions are symmetric across the two schedulers, so they
 comparison inside the model — but a floor that dispatches at finer grain (line-level tasks,
 several pickers sharing an aisle) is running a different mechanism at the edges, and the
 magnitude there is untested. That, plus congestion, is what the pilot's week-one watch list is
-for.
+for — and congestion arrives with a default rather than an open question: cap concurrent pickers
+per aisle at the floor's existing safe number and let the scheduler skip to the next-longest
+eligible task when the cap is hit ([the ask](index.md#the-ask) states the trigger to revisit it).
+It costs a little of the modeled gain and it is the assumption most likely to bite on a real
+floor, so it is set deliberately rather than discovered.
 
 **What a pilot adds.** These are modeled hours: a 45 % modeled gain is not a claim that a shift
 ends 45 % sooner — staffing, breaks, and non-pick work sit outside the model. What the model
