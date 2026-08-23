@@ -981,6 +981,16 @@
       "src": "Optimization/Performance_Evaluations/common/series.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_block_len",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/stats_core.py::_boot_ci"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_moving_block_index",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/stats_core.py::_boot_ci"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_assignment_fn",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/common/stats_core.py::_group_by_assignment"
@@ -989,6 +999,16 @@
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_initial_of",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/common/stats_core.py::_group_by_assignment"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_block_len",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/stats_core.py::_rank_biserial_ci"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_moving_block_index",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/stats_core.py::_rank_biserial_ci"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_rank_biserial",
@@ -1783,6 +1803,11 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py::BASELINE_STYLE",
       "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_both_levers"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::annotate_points",
+      "kind": "calls",
       "src": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_both_levers"
     },
     {
@@ -3293,6 +3318,11 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py::BASELINE_STYLE",
       "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/throughput/volume.py::_percent"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::annotate_points",
+      "kind": "calls",
       "src": "Optimization/Performance_Evaluations/throughput/volume.py::_percent"
     },
     {
@@ -13907,6 +13937,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "id": "Optimization/Performance_Evaluations/common/chartkit.py::annotate_points",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "name": "annotate_points",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/chartkit.py",
       "id": "Optimization/Performance_Evaluations/common/chartkit.py::annotate_unshared",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/chartkit.py",
@@ -14363,6 +14401,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "id": "Optimization/Performance_Evaluations/common/stats_core.py::_block_len",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "name": "_block_len",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/stats_core.py",
       "id": "Optimization/Performance_Evaluations/common/stats_core.py::_boot_ci",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/stats_core.py",
@@ -14419,6 +14465,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "id": "Optimization/Performance_Evaluations/common/stats_core.py::_lag1_autocorr",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "name": "_lag1_autocorr",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/stats_core.py",
       "id": "Optimization/Performance_Evaluations/common/stats_core.py::_mean_ranks",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/stats_core.py",
@@ -14431,6 +14485,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/stats_core.py",
       "name": "_mirror",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "id": "Optimization/Performance_Evaluations/common/stats_core.py::_moving_block_index",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "name": "_moving_block_index",
       "public": false
     },
     {

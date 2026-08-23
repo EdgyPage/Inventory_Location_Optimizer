@@ -15,12 +15,16 @@
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _reader_tree(rt, artifact)</code></pre>
-<section class="doc">`rt`, or a HEAD-contract resolver when the run&#x27;s own document predates `artifact`.
+<section class="doc">A HEAD-contract resolver for an ANALYSIS artifact, falling back to `rt`.
 
-A re-analysed run is READ through the contract it was written with, but an analysis
-artifact added since then was produced by TODAY&#x27;s evaluations and is declared only by
-the current document — `rt.path` on the old one KeyErrors.  Same reasoning (and same
-shape) as the what-if writers&#x27; head fallback; returns None when nothing declares it.</section>
+Head first, deliberately.  A re-analysed run is read through the contract it was
+written with — correct for everything the SIMULATION produced — but these files were
+produced by today&#x27;s evaluations, and the run&#x27;s own document describes where the
+analysis of ITS era put them.  Preferring the run&#x27;s document silently resolved the
+per-arm summary to a directory the current suite no longer writes (and that the stale
+-output pruner had since removed): the name existed in both contracts, so an
+absence-only fallback never fired, `os.path.isfile` said no, and the file simply did
+not stage.  Returns None when neither document declares the name.</section>
 <section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__head.html"><code>head</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__load.html"><code>load</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree.html"><code>RunTree</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___stage_leaf_tables.html"><code>_stage_leaf_tables</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___reader_tree">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_reader_tree">Source ↗</a></p>
 </article>

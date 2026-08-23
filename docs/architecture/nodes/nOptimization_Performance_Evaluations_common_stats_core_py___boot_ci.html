@@ -14,12 +14,21 @@
 <h1><span class="kind kind-function">function</span> <code>_boot_ci</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a></p>
 
-<pre class="sig"><code>def _boot_ci(sample, stat=np.median, *, n_boot: int=_BOOT, seed: int=0, alpha: float=0.05) -&gt; tuple</code></pre>
-<section class="doc">(lo, hi) percentile-bootstrap interval for `stat` over a 1-D sample.
+<pre class="sig"><code>def _boot_ci(sample, stat=np.median, *, n_boot: int=_BOOT, seed: int=0, alpha: float=0.05, block: int | None=None) -&gt; tuple</code></pre>
+<section class="doc">(lo, hi) MOVING-BLOCK bootstrap interval for `stat` over a per-batch series.
+
+Blocks, not independent draws.  These samples are per-batch differences from one
+continuous run: each batch inherits the previous batch&#x27;s layout, so the differences
+carry serial correlation — measured on this design, lag-1 through lag-3 sit outside
+the +/-2/sqrt(n) white-noise band for some arms.  Resampling batches independently
+would treat 75 correlated observations as 75 independent ones and report an interval
+narrower than the data earns.  Resampling contiguous blocks keeps the local
+dependence intact; with no correlation present the block length collapses toward the
+i.i.d. case and costs nothing.
 
 Deterministic by construction: a seeded Generator, never the global RNG.  NaN pair
 when fewer than 3 finite observations survive — the same floor the paired tests use.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___table_figure.html"><code>_table_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___rows.html"><code>_rows</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_by_initial.html"><code>render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_vs_baseline_py__compute_vs_baseline.html"><code>compute_vs_baseline</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/vs_baseline.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___block_len.html"><code>_block_len</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___moving_block_index.html"><code>_moving_block_index</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___table_figure.html"><code>_table_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___rows.html"><code>_rows</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_by_initial.html"><code>render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_vs_baseline_py__compute_vs_baseline.html"><code>compute_vs_baseline</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/vs_baseline.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_stats_core_py___boot_ci">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/stats_core.py#:~:text=def%20_boot_ci">Source ↗</a></p>
 </article>
 </main>

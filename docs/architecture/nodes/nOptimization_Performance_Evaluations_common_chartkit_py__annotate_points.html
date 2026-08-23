@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>annotate_points · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_chartkit_py__annotate_points" data-id="Optimization/Performance_Evaluations/common/chartkit.py::annotate_points">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a> <span class="sep">›</span> <span class="here"><code>annotate_points</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>annotate_points</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a></p>
+
+<pre class="sig"><code>def annotate_points(ax, points, *, fontsize=6.5, dx=6.0, min_gap_frac=0.045, colors=None)</code></pre>
+<section class="doc">Label scattered points without letting the labels overlap each other.
+
+`points` is [(x, y, text), ...].  Labels are placed to the right of their point and
+pushed apart vertically to at least `min_gap_frac` of the axes height, with a leader
+line back to the point whenever one had to move.  Series that end up close together
+are exactly the ones a reader most needs told apart — on this suite the arms that
+finish within a few tenths of a percent of each other are the podium — and a pile of
+overlapping labels there is worse than none, because it looks like information.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_throughput_vs_labor_py___both_levers.html"><code>_both_levers</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/throughput_vs_labor.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py___percent.html"><code>_percent</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_chartkit_py__annotate_points">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/chartkit.py#:~:text=def%20annotate_points">Source ↗</a></p>
+</article>
+</main>
+</body></html>

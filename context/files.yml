@@ -75,6 +75,7 @@ files:
       - {name: "pct_axis", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "stars", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "effect_label", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "annotate_points", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "draw_ci", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "make", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "Chart", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "class"}
@@ -2319,6 +2320,9 @@ files:
       - {name: "test_interval_helpers_refuse_a_sample_too_small_to_resample", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_the_median_interval_contains_the_median_on_skewed_data", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_boot_ci_is_deterministic", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_a_correlated_series_gets_a_wider_interval_than_iid_resampling", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_block_resampling_costs_nothing_on_an_uncorrelated_series", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_the_resampling_index_stays_in_range_and_full_length", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_vs_baseline_rows_are_auditable_and_self_consistent", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_vs_baseline_effect_sizes_point_the_same_way_as_the_percentage", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_aggregate_by_initial_pairs_profiles_and_drops_half_pairs", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
