@@ -42,6 +42,18 @@ def prepare_aggregate_dir(out_dir):
     _fresh_dir(out_dir)
 
 
+def prepare_run_dir(out_dir):
+    """Wipe + recreate the run-root dossier root, then every declared run-scope subdir.
+
+    No shared-top/single-owner rule here, unlike `prepare_config_dirs`: run-scope
+    evaluations execute serially in the parent after every cell has finished, so there is
+    no worker to race.  One wipe of the root, then `artifact_map.run_dirs()`.
+    """
+    _fresh_dir(out_dir)
+    for sub in artifact_map.run_dirs():
+        os.makedirs(os.path.join(out_dir, *sub.split('/')), exist_ok=True)
+
+
 def resolve_params(ev, overrides, cli_set):
     p = dict(ev.defaults)
     p.update(overrides.get(ev.key, {}))
@@ -86,6 +98,21 @@ def run_aggregate(ctx, keys, overrides, cli_set):
         _run_one(ctx, ev, overrides, cli_set)
 
 
+def run_at_root(ctx, keys, overrides, cli_set):
+    """Run all run-scope evaluations named in `keys`, over the whole run root.
+
+    Called by analyze_run AFTER every cell and after the cross-cell what-if writers: these
+    evaluations read what those stages produced, so ordering is a data dependency, not a
+    preference.  Serial in the parent — there are a handful of them and each one reads the
+    entire run, so a pool would buy nothing and cost the wipe-race rule.
+    """
+    for k in keys:
+        ev = EVAL_BY_KEY.get(k)
+        if ev is None or ev.scope != 'run':
+            continue
+        _run_one(ctx, ev, overrides, cli_set)
+
+
 def run_one(ctx, key, overrides, cli_set):
     """Run a single evaluation by key (graph granularity)."""
     ev = EVAL_BY_KEY.get(key)
@@ -101,3 +128,8 @@ def config_keys(preset):
 def aggregate_keys(preset):
     return [k for k in preset['keys']
             if (EVAL_BY_KEY.get(k) and EVAL_BY_KEY[k].scope == 'aggregate')]
+
+
+def run_root_keys(preset):
+    return [k for k in preset['keys']
+            if (EVAL_BY_KEY.get(k) and EVAL_BY_KEY[k].scope == 'run')]

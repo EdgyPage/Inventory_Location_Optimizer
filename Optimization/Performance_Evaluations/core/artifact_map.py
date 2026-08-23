@@ -48,11 +48,16 @@ def owned_artifacts() -> dict:
 def _rel_dir(template: str) -> str:
     """A template's directory relative to its stage root — the segments after the tree levels
     (`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`
-    aggregate).  Level placeholders are exactly the `{...}`-braced segments; `{initial_group}`
-    is NOT a level (it is a subdir the eval creates), so braced segments only strip from the
-    FRONT."""
+    aggregate, `_dossier/...` run).  Level placeholders are exactly the `{...}`-braced
+    segments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced
+    segments only strip from the FRONT.
+
+    A leading `_`-prefixed segment is a RESERVED STAGE ROOT, not an output subdir: the
+    contract uses that prefix for exactly these (`_aggregate`, `_dossier`, `_frozen`) and
+    the run tree reserves it, so matching the prefix is the rule rather than listing the
+    names.  This read `parts[0] == '_aggregate'` when `_aggregate` was the only one."""
     parts = template.split('/')[:-1]                       # drop the basename
-    while parts and (parts[0].startswith('{') or parts[0] == '_aggregate'):
+    while parts and (parts[0].startswith('{') or parts[0].startswith('_')):
         parts = parts[1:]
     return '/'.join(parts)
 
@@ -141,3 +146,19 @@ def config_dirs() -> tuple:
                                and ev.out_subdir.split('/')[0] in tops}))
         _MEMO['config_dirs'] = (tops, nested)
     return _MEMO['config_dirs']
+
+
+def run_dirs() -> tuple:
+    """Every declared out_subdir of a RUN-scope evaluation, deepest-safe creation order.
+
+    The config stage needs the shared-top/single-owner distinction because its evaluations
+    run in a worker pool and two owners must not race to wipe one directory.  Run scope has
+    no such hazard — `analyze_run` executes these serially in the parent, after every cell
+    is finished — so the whole `_dossier/` root is wiped once and every declared subdir is
+    recreated, with no ownership rule to get wrong.
+    """
+    if 'run_dirs' not in _MEMO:
+        _MEMO['run_dirs'] = tuple(sorted(
+            {ev.out_subdir for ev in EVALUATIONS
+             if ev.scope == 'run' and isinstance(ev.out_subdir, str) and ev.out_subdir}))
+    return _MEMO['run_dirs']

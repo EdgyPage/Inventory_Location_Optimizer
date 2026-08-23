@@ -67,6 +67,11 @@ _LITERALS = {
     'agg.traj':                       ('figures', 'trajectories'),
     'agg.tables':                     ('tables',),
     'agg.sig':                        ('figures', 'significance'),
+    # Run scope: the same two tops, under the run root's dossier rather than a leaf.  The
+    # shape is deliberately identical — a reader who has learned one stage's tree has
+    # learned all three.
+    'cost.compute':                   ('figures', 'cost'),
+    'cost.rollup':                    ('tables',),
 }
 
 

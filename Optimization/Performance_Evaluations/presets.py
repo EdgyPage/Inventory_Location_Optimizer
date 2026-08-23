@@ -21,11 +21,16 @@ _DETAIL   = ['task_time.duration', 'task_time.breakdown',
              'layout.travel', 'layout.churn',
              'diagnostics.metric_grids', 'diagnostics.scorecards']
 _AGG      = ['agg.traj', 'agg.tables', 'agg.sig']
+# Run scope: the whole run root, across cells.  These answer the questions the pages keep
+# ASSERTING rather than showing — how broadly a comparison holds, what a rule costs to
+# run, what the rules and the inventory model actually were, and what was held fixed.
+_RUN      = ['cost.compute', 'cost.rollup', 'tables.census',
+             'catalog.rules', 'catalog.inventory', 'catalog.fixed']
 
 
 def _keys(stats):
     """stats: 'assignment' (flat suite) | 'initial' (uni-vs-opt per fn) | None."""
-    base = _TABLES + _HEADLINE + _TRENDS + _DETAIL + _AGG
+    base = _TABLES + _HEADLINE + _TRENDS + _DETAIL + _AGG + _RUN
     if stats == 'assignment':
         return base + ['tables.stats', 'sig.suite']
     if stats == 'initial':

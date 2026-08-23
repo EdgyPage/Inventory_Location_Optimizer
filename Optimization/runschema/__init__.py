@@ -46,6 +46,33 @@ def head() -> str | None:
     return contract.head()
 
 
+def reader_for(rt: RunTree, artifact: str) -> RunTree | None:
+    """A resolver for reading an ANALYSIS artifact out of `rt`'s run — HEAD contract first.
+
+    A run is resolved through the contract it was written with, which is right for
+    everything the SIMULATION produced: those bytes are on disk exactly where that era's
+    document says.  It is wrong for anything the ANALYSIS produced, because the analysis
+    that wrote them is today's, and today's contract is where today's evaluations put
+    their output.
+
+    An absence-only fallback is not enough, and the failure is silent.  When a name exists
+    in BOTH documents but the artifact MOVED, the run's older document wins, the reader
+    looks in a directory the current suite no longer writes, `os.path.exists` says no, and
+    nothing reports a problem — the file simply never appears.  That happened to the
+    per-arm summary when the analysis suite grew its `tables/` layout, and only the
+    experiment guard noticed, one layer downstream.
+
+    Returns None when neither document declares the name, so a caller can distinguish
+    "not in this vintage" from "declared but absent on disk".
+    """
+    from Optimization.runschema import contract
+    sid = contract.head()
+    doc = contract.load(sid) if sid else None
+    if doc and artifact in doc.get('artifacts', {}):
+        return RunTree(rt.base, doc, layout=rt.layout)
+    return rt if artifact in rt.artifacts else None
+
+
 def _resolver_for_contract(base: str, doc: dict, layout: dict | None) -> RunTree:
     missing = sorted(set(doc.get('features', [])) - set(SUPPORTED_FEATURES))
     if missing:

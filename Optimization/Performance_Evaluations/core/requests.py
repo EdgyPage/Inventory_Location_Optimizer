@@ -213,6 +213,51 @@ def _agg_series(ctx):
     return ctx.profile_series_list
 
 
+# ── compose functions: run scope ─────────────────────────────────────────────────
+
+@request('runtime', 'run')
+def _run_runtime(ctx):
+    """Per-arm wall-clock compute rows from the run root's runtime metrics DB.
+
+    Denied when the DB is absent — a re-analysis of a run made before it existed is a
+    normal thing to do, and the cost figures should be skipped with a reason rather than
+    rendered empty.
+    """
+    rows = ctx.runtime_rows()
+    if not rows:
+        return Denied('no runtime metrics at the run root '
+                      '(the run predates the DB, or the supervisor never wrote it)')
+    return rows
+
+
+@request('whatif', 'run')
+def _run_whatif(ctx):
+    """The cross-cell what-if comparison rows — the only place a scheduler pair is joined.
+
+    Denied on a single-cell run, where there is no second cell to compare against and the
+    what-if writers correctly emit nothing.
+    """
+    rows = ctx.whatif_rows('whatif_volume_csv')
+    if not rows:
+        return Denied('no cross-cell what-if rows (single-cell run, or the what-if '
+                      'writers have not run yet)')
+    return rows
+
+
+@request('catalogue', 'run')
+def _run_catalogue(ctx):
+    """The run's own frozen catalogue — what the inventory model REALLY produced.
+
+    Not the generator's parameters and not the config's averages: the per-SKU rows the
+    simulation actually stocked, which is the only population a published distribution
+    may be computed over.
+    """
+    pairs = ctx.catalogue_dbs()
+    if not pairs:
+        return Denied('no frozen catalogue under the run root')
+    return pairs
+
+
 # ── resolution + the access tally ────────────────────────────────────────────────
 
 #: Per-process grant/denial counts, keyed by evaluation key.  Snapshotted (and reset) by
@@ -226,7 +271,7 @@ def resolve_needs(ctx, ev) -> dict:
     (resources are materialized into the context's caches as a side effect), else
     {need: Denied} for exactly the requests that could not be served.  Tallies either way.
     """
-    scope = 'aggregate' if ev.scope == 'aggregate' else 'config'
+    scope = ev.scope if ev.scope in ('aggregate', 'run') else 'config'
     denials = {}
     for need in ev.needs:
         req = REQUESTS.get((scope, need))

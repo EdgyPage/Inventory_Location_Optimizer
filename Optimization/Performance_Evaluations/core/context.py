@@ -237,3 +237,159 @@ class AggregateContext:
         if self._agg is None:
             self._agg = _aggregate_series(self.profile_series_list)
         return self._agg
+
+
+class RunContext:
+    """Whole-run context: the run ROOT and everything under it, across cells.
+
+    The third scope, and the one the other two structurally cannot be.  `EvalContext` sees
+    one channel-run leaf; `AggregateContext` sees the profiles of one cell x config x
+    channel.  Neither can see two cells, so every cross-cell question — the scheduler
+    comparison, the compute cost of a rule across the whole sweep, what the run held fixed
+    — had to live outside the registry, in hand-written writers whose figures the family
+    grammar never checked and whose PNGs the site guard needs a hardcoded exemption for.
+    This is the scope those belong in.
+
+    Reads are memoised and lazy, in the same spirit as `EvalContext`: nothing is opened
+    until an evaluation's `needs=` resolves it through the broker.
+    """
+
+    def __init__(self, run_root: str, out_dir: str, log: logging.Logger) -> None:
+        self.run_root = run_root
+        self.out_dir = out_dir                  # <run_root>/_dossier — io.out_dir's root
+        self.log = log
+        self._rt = None
+        self._runtime = None
+        self._spec = None
+        self._whatif: dict = {}
+
+    @classmethod
+    def from_run_root(cls, run_root: str, out_dir: str) -> 'RunContext':
+        return cls(run_root, out_dir, logging.getLogger('analysis'))
+
+    @property
+    def rt(self):
+        """The run-tree resolver for this run — the ONLY way to reach a path under it.
+
+        Bound to the contract the RUN recorded, which is right for everything the
+        simulation wrote.  Artifacts the ANALYSIS writes go through `reader()` instead.
+        """
+        if self._rt is None:
+            from Optimization.runschema import resolver_for
+            self._rt = resolver_for(self.run_root)
+        return self._rt
+
+    def reader(self, artifact: str):
+        """A resolver for an analysis-produced artifact — HEAD's contract, then the run's.
+
+        Run-scope evaluations read what the SAME analysis pass just wrote, so they must
+        look where today's suite puts things.  `runschema.reader_for` carries the whole
+        argument, including why an absence-only fallback silently loses a moved file.
+        """
+        from Optimization.runschema import reader_for
+        return reader_for(self.rt, artifact)
+
+    def footer(self) -> str:
+        return (f'sim: {os.path.basename(os.path.abspath(self.run_root))}     '
+                f'whole run (all cells)')
+
+    def run_spec(self) -> dict:
+        """The run's own recorded invocation spec, or {} when it has none."""
+        if self._spec is None:
+            import json
+            self._spec = {}
+            try:
+                path = self.rt.path('run_spec')
+            except Exception:                              # noqa: BLE001 - absence is data
+                return self._spec
+            if os.path.exists(path):
+                with open(path, encoding='utf-8') as fh:
+                    self._spec = json.load(fh)
+        return self._spec
+
+    def run_workers(self):
+        """How many worker processes the sweep ran, or None if unrecorded.
+
+        Load-bearing provenance for anything quoting a wall time: these seconds were
+        measured under that much contention, so they are an upper bound rather than a
+        clean benchmark, and a ratio against an uncontended measurement is not a ratio.
+        """
+        w = self.run_spec().get('workers')
+        return int(w) if w else None
+
+    def runtime_rows(self) -> list:
+        """Per-arm compute-cost rows, or [] when the run predates the runtime DB.
+
+        These are REAL wall seconds, contended against whatever worker pool the sweep
+        ran — never the modeled warehouse seconds every other context serves.  Anything
+        rendering them says which kind of second it means.
+        """
+        if self._runtime is None:
+            from Optimization.persistence.runtime_metrics import load_rows
+            self._runtime = load_rows(self.run_root)
+        return self._runtime
+
+    def whatif_rows(self, artifact: str) -> list:
+        """A cross-cell what-if CSV as a list of dicts, resolved through the contract."""
+        if artifact not in self._whatif:
+            import csv
+            try:
+                path = self.rt.path(artifact)
+            except Exception as exc:                       # noqa: BLE001 - absence is data
+                self.log.info(f'  whatif {artifact}: unresolvable ({exc!r})')
+                self._whatif[artifact] = []
+                return self._whatif[artifact]
+            if not os.path.exists(path):
+                self._whatif[artifact] = []
+            else:
+                with open(path, newline='', encoding='utf-8') as fh:
+                    self._whatif[artifact] = list(csv.DictReader(fh))
+        return self._whatif[artifact]
+
+    def catalogue_dbs(self) -> list:
+        """[(pair, planned_inventory_db_path)] for the catalogues this run actually stocked.
+
+        `planned_inventory` is a contract ALIAS: a multi-cell run freezes one catalogue per
+        pair under the run root, a single-cell run writes one per cell.  Both `cell` and
+        `pair` are supplied so the alias can resolve either shape — which is the whole
+        reason to go through the resolver instead of joining `_frozen/<pair>/`.
+        """
+        out, seen = [], set()
+        for cell, cr in self.rt.channel_runs():
+            if cr.pair in seen:
+                continue
+            try:
+                path = self.rt.path('planned_inventory', cell=cell, pair=cr.pair)
+            except Exception:                              # noqa: BLE001 - absence is data
+                continue
+            if os.path.exists(path):
+                seen.add(cr.pair)
+                out.append((cr.pair, path))
+        return out
+
+    def leaf_rows(self, artifact: str) -> list:
+        """Every channel-run leaf's copy of a per-leaf CSV, each row tagged with its leaf.
+
+        The tag is what makes a run-scope reduction possible at all: the per-leaf tables
+        carry no cell/pair/config/channel columns, because at leaf scope those are the
+        directory.  Positional resolution through the resolver, never a name match — the
+        store CONFIG and the store CHANNEL are both called `store`.
+        """
+        import csv
+        rd = self.reader(artifact)
+        if rd is None:
+            self.log.info(f'  leaf {artifact}: declared by no contract this build knows')
+            return []
+        out = []
+        for cell, cr in self.rt.channel_runs():
+            try:
+                path = rd.leaf_path(cr, artifact)
+            except Exception as exc:                       # noqa: BLE001 - absence is data
+                self.log.info(f'  leaf {artifact}: unresolvable ({exc!r})')
+                return out
+            if not os.path.exists(path):
+                continue
+            tag = {f'_{k}': v for k, v in self.rt.parts_of(cell, cr).items()}
+            with open(path, newline='', encoding='utf-8') as fh:
+                out.extend({**row, **tag} for row in csv.DictReader(fh))
+        return out

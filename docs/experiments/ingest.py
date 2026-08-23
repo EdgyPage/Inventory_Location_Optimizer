@@ -520,22 +520,13 @@ def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
 def _reader_tree(rt, artifact):
     """A HEAD-contract resolver for an ANALYSIS artifact, falling back to `rt`.
 
-    Head first, deliberately.  A re-analysed run is read through the contract it was
-    written with — correct for everything the SIMULATION produced — but these files were
-    produced by today's evaluations, and the run's own document describes where the
-    analysis of ITS era put them.  Preferring the run's document silently resolved the
-    per-arm summary to a directory the current suite no longer writes (and that the stale
-    -output pruner had since removed): the name existed in both contracts, so an
-    absence-only fallback never fired, `os.path.isfile` said no, and the file simply did
-    not stage.  Returns None when neither document declares the name.
+    Thin alias for `runschema.reader_for`, which now owns the rule — contract SELECTION
+    belongs in the resolver layer, and the analysis suite's run-scope evaluations hit the
+    identical problem from the other side.  The argument (and the silent failure it
+    prevents) lives in that docstring.
     """
-    from Optimization.runschema import contract as _contract
-    from Optimization.runschema.resolver import RunTree
-    head = _contract.head()
-    doc = _contract.load(head) if head else None
-    if doc and artifact in doc.get('artifacts', {}):
-        return RunTree(rt.base, doc, layout=rt.layout)
-    return rt if artifact in rt.artifacts else None
+    from Optimization.runschema import reader_for
+    return reader_for(rt, artifact)
 
 
 def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):

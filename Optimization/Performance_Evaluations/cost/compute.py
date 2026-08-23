@@ -1,0 +1,197 @@
+"""cost.compute — three views of what a placement rule costs to RUN.
+
+THE QUESTION THIS ANSWERS, and who asked it.  A WMS engineer reviewing the published
+experiment could not tell whether the winning rules are cheap enough to run: the site
+described the `Map` family's offline address-map build without a number, and nothing said
+what per-arrival scoring costs either.  Both were measured all along — the per-arrival
+cost sat in the run's runtime DB, unread by anything but a set of absolute-second bar
+charts nobody staged; the offline build was outside every clock until the setup span was
+added.
+
+WHY THE PRIMARY VIEW IS A MULTIPLE.  Absolute seconds do not survive leaving the machine
+that produced them: they are contended against the sweep's worker pool, they scale with
+catalogue size, and on a 210-second bar the difference between the best and second-best
+rule is invisible.  The FIFO floor is the right denominator because FIFO does the same
+reorder bookkeeping and then picks a slot at random — so the RATIO isolates the scoring.
+
+THE ONE THING NOT TO DO.  `precomp_s` is not a slice of `total_s` (the batch loop's clock
+starts after setup), so it must never be stacked onto the section breakdown.  Every view
+here keeps the two spans visibly separate; `runtime_metrics.OUTSIDE_TOTAL` is the
+declaration that makes that checkable rather than remembered.
+"""
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.common import chartkit, io
+from Optimization.Performance_Evaluations.cost.rollup import BASE_RULE, cost_rows
+from Optimization.persistence.runtime_metrics import SECTIONS
+
+#: Rules whose scoring cost is a ceiling rather than a proposal — deliberate worst-case
+#: controls.  Drawn, because the bracket is the point, but hatched so nobody quotes one.
+_CONTROL_HATCH = '///'
+
+
+def _by_channel(rows):
+    return [(ch, [r for r in rows if r['channel'] == ch])
+            for ch in sorted({r['channel'] for r in rows})]
+
+
+def _sorted_rules(sub, key):
+    got = [r for r in sub if r.get(key) is not None]
+    return sorted(got, key=lambda r: r[key])
+
+
+def _bar_style(r):
+    return dict(color=('#b0b7c3' if r['control'] else '#4c78a8'),
+                hatch=(_CONTROL_HATCH if r['control'] else None),
+                edgecolor='#33383f', linewidth=0.6)
+
+
+def _percent(ctx, rows, out):
+    """Scoring cost as a multiple of the do-nothing floor — the view that travels."""
+    panels = _by_channel(rows)
+    if not panels:
+        return
+    n = max(len(sub) for _ch, sub in panels)
+    ch = chartkit.make(panels=len(panels), panel_w=5.4,
+                       panel_h=chartkit.height_for_categories(n), legend='none',
+                       panel_titles=True)
+    axes = ch.fig.axes
+    for ax, (chan, sub) in zip(axes, panels):
+        got = _sorted_rules(sub, 'x_reord_vs_fifo')
+        if not got:
+            continue
+        y = np.arange(len(got))
+        ax.barh(y, [r['x_reord_vs_fifo'] for r in got], **_bar_style(got[0]))
+        for i, r in enumerate(got):
+            ax.barh(i, r['x_reord_vs_fifo'], **_bar_style(r))
+        ax.set_yticks(y)
+        ax.set_yticklabels([r['label'] for r in got], fontsize=8)
+        # 1.0 is the floor, not zero: a bar at 1.0 costs exactly what doing nothing costs.
+        ax.axvline(1.0, **{**chartkit.BASELINE_STYLE, 'lw': 1.4})
+        ax.text(1.0, len(got) - 0.3, f' {BASE_RULE} = 1.0x', fontsize=7,
+                color=chartkit.BASELINE_STYLE['color'], va='top')
+        for i, r in enumerate(got):
+            ax.text(r['x_reord_vs_fifo'], i, f"  {r['x_reord_vs_fifo']:.2f}x",
+                    va='center', fontsize=7)
+        ax.set_xlabel('placement scoring cost, multiple of the do-nothing rule')
+        ax.set_title(chan, fontsize=10)
+        ax.set_xlim(0, max(r['x_reord_vs_fifo'] for r in got) * 1.18)
+    ch.title('What each placement rule costs to run',
+             subtitle=('real CPU wall time, not modeled warehouse labor - '
+                       f'hatched = deliberate worst-case control - {ctx.run_workers() or "?"}'
+                       ' workers, so contended'))
+    ch.save(os.path.join(out, 'percent_cost_vs_fifo.png'), view='percent')
+
+
+def _absolute(ctx, rows, out):
+    """The same cost in units a WMS reader can compare against their own dock."""
+    panels = _by_channel(rows)
+    got_any = False
+    ch = chartkit.make(panels=2 * len(panels), ncols=2, panel_w=5.0,
+                       panel_h=chartkit.height_for_categories(
+                           max((len(s) for _c, s in panels), default=4)),
+                       legend='none', panel_titles=True)
+    axes = ch.fig.axes
+    for i, (chan, sub) in enumerate(panels):
+        for j, (col, xlabel) in enumerate((
+                ('scoring_ms_per_unit', 'milliseconds of scoring per unit put away'),
+                ('reord_s_per_wave', 'seconds of placement per wave'))):
+            ax = axes[2 * i + j]
+            got = _sorted_rules(sub, col)
+            if not got:
+                continue
+            got_any = True
+            for k, r in enumerate(got):
+                ax.barh(k, r[col], **_bar_style(r))
+            ax.set_yticks(np.arange(len(got)))
+            ax.set_yticklabels([r['label'] for r in got], fontsize=7.5)
+            ax.set_xlabel(xlabel, fontsize=8.5)
+            ax.set_title(f'{chan}', fontsize=9.5)
+            # Not zero-anchored by habit: these ARE counts from zero, and the spread is
+            # two orders of magnitude, so the axis is honest as-is.
+            ax.set_xlim(0, max(r[col] for r in got) * 1.15)
+    if not got_any:
+        plt.close(ch.fig)
+        return
+    units = {r['channel']: r['units_per_wave'] for r in rows if r['units_per_wave']}
+    ch.title('Placement scoring in operational units',
+             subtitle=('left: per arriving unit - right: per wave - '
+                       + ' - '.join(f'{c}: {u:,.0f} units/wave' for c, u in units.items())))
+    ch.save(os.path.join(out, 'absolute_compute_cost.png'), view='absolute')
+
+
+def _delta(ctx, rows, out):
+    """Where the extra seconds go, as a DIFFERENCE from the floor rather than a stack.
+
+    A stacked absolute breakdown is the natural chart here and the wrong one twice over:
+    every rule's stack is dominated by the sections it shares with FIFO, and the setup
+    span is not in the total the stack adds up to.  Differences against the floor show
+    only what the rule changed, and the setup span gets its own marker beside them.
+    """
+    rt_rows = ctx.runtime_rows()
+    if not rt_rows:
+        return
+    import statistics as st
+    sects = [c for c, _lbl in SECTIONS]
+    labels = dict(SECTIONS)
+    panels = _by_channel(rows)
+    ch = chartkit.make(panels=len(panels), panel_w=5.6,
+                       panel_h=chartkit.height_for_categories(
+                           max((len(s) for _c, s in panels), default=4)),
+                       legend='gutter', legend_labels=[labels[c] for c in sects],
+                       panel_titles=True)
+    drew = False
+    for ax, (chan, sub) in zip(ch.fig.axes, panels):
+        per = {}
+        for r in rt_rows:
+            if r.get('channel') != chan:
+                continue
+            per.setdefault(r.get('assignment'), []).append(r)
+        if BASE_RULE not in per:
+            continue
+        base = {c: st.median([float(x.get(c) or 0.0) for x in per[BASE_RULE]])
+                for c in sects}
+        order = [r['rule'] for r in _sorted_rules(sub, 'x_reord_vs_fifo')]
+        y = np.arange(len(order))
+        left_pos = np.zeros(len(order))
+        left_neg = np.zeros(len(order))
+        for si, col in enumerate(sects):
+            vals = np.array([st.median([float(x.get(col) or 0.0) for x in per[rule]])
+                             - base[col] for rule in order])
+            starts = np.where(vals >= 0, left_pos, left_neg + vals)
+            ax.barh(y, vals, left=starts, color=plt.cm.tab10.colors[si % 10],
+                    edgecolor='none', label=labels[col])
+            left_pos = left_pos + np.clip(vals, 0, None)
+            left_neg = left_neg + np.clip(vals, None, 0)
+            drew = True
+        ax.axvline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        ax.set_yticks(y)
+        ax.set_yticklabels([next(r['label'] for r in sub if r['rule'] == k) for k in order],
+                           fontsize=7.5)
+        ax.set_xlabel(f'seconds more (or less) than {BASE_RULE}, by section')
+        ax.set_title(chan, fontsize=10)
+    if not drew:
+        plt.close(ch.fig)
+        return
+    ch.legend(title='section')
+    ch.title('Where a rule spends its extra compute',
+             subtitle=('difference from the do-nothing rule, per loop section - the setup '
+                       'span is NOT here: it sits outside this total (see the table)'))
+    ch.save(os.path.join(out, 'delta_cost_sections.png'), view='delta')
+
+
+@evaluation(key='cost.compute', label='What each placement rule costs to run',
+            scope='run', needs=('runtime',),
+            family='cost', views=('percent', 'absolute', 'delta'))
+def render(ctx, params):
+    rows = cost_rows(ctx)
+    if not rows:
+        return
+    out = io.out_dir(ctx)
+    _percent(ctx, rows, out)
+    _absolute(ctx, rows, out)
+    _delta(ctx, rows, out)

@@ -15,7 +15,12 @@ from typing import Callable
 class Evaluation:
     key:        str                          # 'headline.top_vs_baseline'
     label:      str
-    scope:      str                          # 'per_strategy' | 'config' | 'aggregate'
+    scope:      str                          # 'per_strategy' | 'config' | 'aggregate' | 'run'
+                                             #   per_strategy/config: one channel-run leaf
+                                             #   aggregate: cross-PROFILE within one cell
+                                             #   run: the whole run root, across cells — the
+                                             #     only scope that can see both schedulers,
+                                             #     which is what a cross-cell claim needs
     needs:      tuple = ()                    # subset of {'batch','task','series','breakdown'}
     defaults:   dict = field(default_factory=dict)
     out_subdir: str | tuple = ''             # relative dir(s) under the run/agg root; a tuple

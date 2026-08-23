@@ -47,7 +47,9 @@ from Optimization.Performance_Evaluations.common import io as _io
 # ── geometry constants (inches) ─────────────────────────────────────────────────
 _PANEL_W, _PANEL_H = 4.8, 3.6      # default data-panel size
 _TITLE_BAND  = 0.55                # suptitle strip
+_PANEL_TITLE = 0.30                # extra strip when the TOP row carries ax.set_title
 _FOOTER_BAND = 0.32                # provenance strip — reserved, nothing else draws here
+_ROW_GAP     = 0.42 * _PANEL_H     # inches between stacked panel rows (see _hspace)
 _GUTTER_MIN, _GUTTER_MAX = 1.1, 3.4
 _CHAR_W_IN   = 0.062               # approx glyph advance at legend fontsize (8pt)
 
@@ -316,9 +318,24 @@ def _gutter_layout(labels, title, content_h):
     return 1, _gutter_width(labels, title), _LEGEND_HEAD_H + n * _LEGEND_ROW_H
 
 
+def _hspace(panel_h: float) -> float:
+    """Row gap as a CONSTANT physical distance, expressed in matplotlib's fraction units.
+
+    `hspace` is a fraction of the mean axes height, so a tall panel gets a proportionally
+    taller gap: a 17-category ladder at ~6 in per panel opened a 2.5-inch band of white
+    between rows, which reads as two unrelated figures stacked in one file.  The gap has
+    to clear one x-label plus the next row's title, and that is a fixed number of inches
+    no matter how tall the panels are.
+
+    Capped at the historical 0.42 so nothing SHORTER than the default panel moves — this
+    only ever shrinks an oversized gap.
+    """
+    return min(0.42, _ROW_GAP / max(panel_h, 0.1))
+
+
 def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
          legend='gutter', legend_labels=(), legend_title=None,
-         sharex=False, sharey=False, footer=True):
+         sharex=False, sharey=False, footer=True, panel_titles=False):
     """Build a Chart whose geometry is computed from its content.
 
     panels     total data panels; laid out on `ncols` columns (default: all in one row
@@ -327,6 +344,11 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     legend     'gutter' reserves a right-hand strip sized to `legend_labels`;
                'bottom' reserves a strip below the panels (wide categorical charts);
                'none' reserves nothing.
+    panel_titles  the caller will `ax.set_title` each panel — matplotlib draws those
+               ABOVE the axes, i.e. into the suptitle band, so the band grows to hold
+               them.  Without this a faceted chart's first-row titles overprint the
+               subtitle, which is legible enough in a thumbnail to ship and illegible
+               at full size.
     The suptitle band and the provenance footer band are always part of the geometry, so
     neither can ever collide with data, ticks, or the legend.
     """
@@ -342,17 +364,18 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     # The panels stretch to whatever the gutter needs: a legend taller than the data area
     # would otherwise run off the bottom of the canvas and through the footer band.
     content_h = max(nrows * panel_h, gut_h)
-    fh = content_h + _TITLE_BAND + bot_leg + (_FOOTER_BAND if footer else 0.12)
+    top_band = _TITLE_BAND + (_PANEL_TITLE if panel_titles else 0.0)
+    fh = content_h + top_band + bot_leg + (_FOOTER_BAND if footer else 0.12)
     fig = plt.figure(figsize=(fw, fh))
     # Margins are tracked in INCHES (not fractions) because `fit` may grow the canvas and
     # must move the panels by an exact distance; a fraction of the old size would drift.
     m_left = 0.75
     m_right = fw - (gut + 0.15)
-    m_top = fh - _TITLE_BAND
+    m_top = fh - top_band
     m_bottom = (_FOOTER_BAND if footer else 0.12) + bot_leg + 0.42
     gs = fig.add_gridspec(nrows, ncols, left=m_left / fw, right=m_right / fw,
                           top=m_top / fh, bottom=m_bottom / fh,
-                          hspace=0.42, wspace=0.28)
+                          hspace=_hspace(panel_h), wspace=0.28)
     axes = []
     for i in range(panels):
         r, c = divmod(i, ncols)

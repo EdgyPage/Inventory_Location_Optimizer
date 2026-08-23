@@ -32,7 +32,16 @@ FAMILIES: dict = {
     'layout':       dict(views=('absolute', 'delta'),            required=('absolute',)),
     'significance': dict(views=('effect',),                      required=('effect',)),
     'diagnostics':  dict(views=('absolute',),                    required=()),
+    # What a rule costs to RUN, in real wall-clock seconds — orthogonal to every family
+    # above, which measure modeled warehouse labor.  `percent` is required because the
+    # honest unit here is "times the do-nothing floor": absolute seconds are contended,
+    # machine-specific, and put a 10-second difference on a 210-second bar.
+    'cost':         dict(views=('absolute', 'percent', 'delta'), required=('percent',)),
 }
+
+#: Families whose evaluations live at RUN scope, so their required views are checked
+#: against a run-root render rather than the per-leaf fixture.
+RUN_SCOPE_FAMILIES = ('cost',)
 
 
 def check_view(eval_key: str, view: str) -> None:
