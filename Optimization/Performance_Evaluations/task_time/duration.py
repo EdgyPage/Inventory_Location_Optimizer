@@ -151,7 +151,7 @@ def _delta_figure(ctx, out):
     for x, (s, m, _lo, _hi) in zip(xs, rows):
         ax.plot([x], [m], 'o', ms=6, color=chartkit.strategy_color(s, ctx.strategies),
                 markeredgecolor='white', markeredgewidth=0.5, zorder=3)
-    ax.axhline(0, color=chartkit.BASELINE_STYLE['color'], lw=1.4, zorder=2)
+    chartkit.reference_line(ax, 0.0, orient='y')
     xlabels = [_stitle(s) for s, *_r in rows]
     ax.set_xticks(xs)
     ax.set_xticklabels(xlabels, rotation=90, fontsize=6)

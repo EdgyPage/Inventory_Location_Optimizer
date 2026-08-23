@@ -155,7 +155,7 @@ def _percent_figure(ctx, selected, S, baseline, out, top_n, top_by):
                     ax.text(rx, vv, f'{vv:+.1f}%', ha='center',
                             va='bottom' if vv >= 0 else 'top', fontsize=6)
             panel_vals.extend(v)
-        ax.axhline(0, color=chartkit.BASELINE_STYLE['color'], lw=1.2)
+        chartkit.reference_line(ax, 0.0, orient='y')
         ax.set_xticks(x)
         ax.set_xticklabels(group, fontsize=7)
         tag = chartkit.pct_axis(ax, better='up')

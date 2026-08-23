@@ -81,7 +81,7 @@ def _delta_figure(ctx, rows, out):
                         zorder=2)
         ax.scatter([pct], [y], s=38, color=chartkit.strategy_color(s, ctx.strategies),
                    edgecolors='black', linewidths=0.5, zorder=3)
-    ax.axvline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+    chartkit.reference_line(ax, 0.0, orient='x')
     ax.set_yticks(ys)
     ax.set_yticklabels(labels, fontsize=7)
     ax.set_ylim(-0.8, len(rows) - 0.2)
@@ -125,10 +125,9 @@ def _absolute_figure(ctx, rows, baseline, S, out):
                 color=(chartkit.BASELINE_STYLE['color'] if is_base
                        else chartkit.strategy_color(s, ctx.strategies)))
     if floor is not None and np.isfinite(float(floor)) and float(floor) > 0:
-        ax.axvline(float(floor), color='#1a7a4d', lw=1.6, ls='--', zorder=3,
-                   label='layout floor (best achievable)')
-        ax.text(float(floor), -0.75, ' layout floor', color='#1a7a4d', fontsize=7,
-                ha='left', va='bottom')
+        chartkit.reference_line(ax, float(floor), orient='x', label='layout floor',
+                                style=chartkit.BOUND_STYLE,
+                                legend_label='layout floor (best achievable)')
     ax.set_yticks(ys)
     ax.set_yticklabels(labels, fontsize=7)
     ax.set_ylim(-0.9, len(entries) - 0.3)

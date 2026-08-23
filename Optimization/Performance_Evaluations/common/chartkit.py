@@ -263,14 +263,169 @@ def annotate_points(ax, points, *, fontsize=6.5, dx=6.0, min_gap_frac=0.045,
                                         shrinkA=0, shrinkB=2))
 
 
-def draw_ci(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, **kw):
+def draw_ci(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, orient='v', **kw):
     """Draw the confidence interval the stats layer computes (and, until now, nothing
-    ever rendered).  band=True fills between series; band=False draws error whiskers."""
+    ever rendered).  band=True fills between series; band=False draws error whiskers.
+
+    `orient='h'` puts the interval along X with `x` as the row positions — the ranked
+    category case, where three modules hand-drew a line plus two end caps in a loop
+    because this function only knew how to draw vertically.
+    """
+    lo_a, hi_a = np.asarray(lo, dtype=float), np.asarray(hi, dtype=float)
+    if orient == 'h':
+        mid, err = (lo_a + hi_a) / 2.0, (hi_a - lo_a) / 2.0
+        return ax.errorbar(mid, x, xerr=err, fmt='none', ecolor=color,
+                           elinewidth=1.2, capsize=2.5, zorder=2, **kw)
     if band:
-        return ax.fill_between(x, lo, hi, color=color, alpha=alpha, lw=0, **kw)
-    return ax.errorbar(x, (np.asarray(lo) + np.asarray(hi)) / 2.0,
-                       yerr=(np.asarray(hi) - np.asarray(lo)) / 2.0,
+        return ax.fill_between(x, lo_a, hi_a, color=color, alpha=alpha, lw=0, **kw)
+    return ax.errorbar(x, (lo_a + hi_a) / 2.0, yerr=(hi_a - lo_a) / 2.0,
                        fmt='none', ecolor=color, elinewidth=1.0, capsize=2.5, **kw)
+
+
+# ── category-chart primitives ───────────────────────────────────────────────────
+# Every one of these replaced a shape that had been re-typed per module.  The counts in
+# each docstring are what was actually there before the primitive existed; they are the
+# argument for the primitive, and they are why a new figure must reach for these rather
+# than hand-roll the sixth variant.
+
+#: The reference line a comparison view is read against — the zero of an improvement
+#: axis, a floor, a target.  DISTINCT from `BASELINE_STYLE`, which is the style of the
+#: baseline arm's own SERIES: one is a datum, the other is data.  Sixteen sites drew this
+#: line with five different widths and three idioms, two of which bypassed the palette
+#: contract entirely, so "the zero line" looked like a different object chart to chart.
+REFERENCE_STYLE = dict(color=BASELINE_STYLE['color'], lw=1.2, ls='-', zorder=3)
+
+#: A reference that is NOT the baseline — a floor, a target, an achievable bound.  Drawn
+#: dashed and in the accent green so it cannot be mistaken for the zero of a comparison.
+BOUND_STYLE = dict(color='#1a7a4d', lw=1.6, ls='--', zorder=3)
+
+
+def reference_line(ax, value=0.0, *, orient='y', label=None, legend_label=None,
+                   style=None, **kw):
+    """Draw the datum a comparison is read against, in the one house style.
+
+    `orient='y'` means the QUANTITY is on y, so the datum is a horizontal line; 'x' means
+    the quantity is on x (a ranked horizontal bar chart) and the datum is vertical.  That
+    is deliberately named after the quantity rather than after the line's direction: at 16
+    call sites the axis the quantity lives on is the thing the author knows, and half the
+    `axhline`/`axvline` confusion came from translating it by hand.
+    """
+    opts = {**(style or REFERENCE_STYLE), **kw}
+    if legend_label:                     # `label` is the on-chart text, not the legend's
+        opts['label'] = legend_label
+    line = ax.axhline(value, **opts) if orient == 'y' else ax.axvline(value, **opts)
+    if label:
+        if orient == 'y':
+            ax.text(0.995, value, f' {label}', transform=ax.get_yaxis_transform(),
+                    fontsize=7, color=opts.get('color'), ha='right', va='bottom')
+        else:
+            ax.text(value, 0.005, f' {label}', transform=ax.get_xaxis_transform(),
+                    fontsize=7, color=opts.get('color'), ha='left', va='bottom')
+    return line
+
+
+def category_axis(ax, labels, *, orient='h', fontsize=7, pad=0.8):
+    """Tick, label and bound one axis of categories, so N categories always look alike.
+
+    `orient='h'` lays the categories down the y axis (horizontal bars/dots, first at the
+    TOP); 'v' lays them along x.  Returns the positions, which is what the caller plots
+    against.
+
+    Eight modules did this by hand with four different tick fontsizes and four different
+    limit paddings, so the same 34 arms occupied visibly different amounts of chart from
+    one family to the next.
+    """
+    n = len(labels)
+    pos = np.arange(n)
+    if orient == 'h':
+        ax.set_yticks(pos)
+        ax.set_yticklabels(labels, fontsize=fontsize)
+        ax.set_ylim(-pad, n - 1 + pad)
+        ax.invert_yaxis()               # first category at the TOP, always
+    else:
+        ax.set_xticks(pos)
+        ax.set_xticklabels(labels, fontsize=fontsize, rotation=45, ha='right')
+        ax.set_xlim(-pad, n - 1 + pad)
+    return pos
+
+
+def mark_baseline_row(ax, index, *, orient='h', label=None):
+    """Shade the baseline's own row/column so it reads as the datum, not a competitor.
+
+    Four modules marked it four incompatible ways — a black bar, a grey bar, an annotation
+    with no mark, and nothing at all — so on one chart the baseline was the darkest thing
+    and on the next it was invisible.
+    """
+    span = ax.axhspan if orient == 'h' else ax.axvspan
+    patch = span(index - 0.5, index + 0.5, color=BASELINE_STYLE['color'], alpha=0.07,
+                 zorder=0, lw=0)
+    if label:
+        if orient == 'h':
+            ax.text(0.01, index, label, transform=ax.get_yaxis_transform(),
+                    fontsize=6.5, color=BASELINE_STYLE['color'], va='center')
+        else:
+            ax.text(index, 0.99, label, transform=ax.get_xaxis_transform(),
+                    fontsize=6.5, color=BASELINE_STYLE['color'], ha='center', va='top')
+    return patch
+
+
+def annotate_bars(ax, positions, values, *, orient='h', fmt='{:+.1f}', fontsize=6.5,
+                  gap=0.01):
+    """Print each bar's value just past its end, on the outside, in the bar's direction.
+
+    Four modules did this with four offset conventions, two of which put the text INSIDE
+    a short bar where it collided with the axis.  The offset is a fraction of the axis
+    range, so it does not shrink when the data does.
+    """
+    lo, hi = (ax.get_xlim() if orient == 'h' else ax.get_ylim())
+    off = (hi - lo) * gap
+    for p, v in zip(positions, values):
+        if v is None or not np.isfinite(v):
+            continue
+        end = v + (off if v >= 0 else -off)
+        if orient == 'h':
+            ax.text(end, p, fmt.format(v), fontsize=fontsize, va='center',
+                    ha=('left' if v >= 0 else 'right'))
+        else:
+            ax.text(p, end, fmt.format(v), fontsize=fontsize, ha='center',
+                    va=('bottom' if v >= 0 else 'top'))
+
+
+def rank(values, *, lower_is_better):
+    """Sort indices best-first, with ONE convention for a value that is not a number.
+
+    Six sites sorted a ranked chart and used three different infinities to push the
+    undefined entries somewhere; two of them pushed them to the TOP, so a metric that
+    failed to compute for an arm presented that arm as the winner.  Undefined always
+    sorts LAST here, whichever direction is better.
+    """
+    vals = np.asarray(values, dtype=float)
+    return sorted(range(vals.size),
+                  key=lambda i: (not np.isfinite(vals[i]),
+                                 vals[i] if lower_is_better else -vals[i]))
+
+
+def rolling_mean(y, win, *, centred=True):
+    """Moving average that does not fabricate a collapse at the ends.
+
+    `np.convolve(..., mode='same')` pads with zeros, so a smoothed line dives toward zero
+    over the first and last few points — at exactly the two places a reader looks for a
+    trend to start or finish.  Here the ends average only the points that exist.
+
+    NOTE the scope.  This is the CHART-time smoother, promoted from `labor/per_batch`,
+    which was the only edge-correct implementation of the three.  The trailing pandas
+    smoothing in `common/frames.py` and `common/series.py` is a different convention
+    applied at a different layer (data preparation, not drawing) and is deliberately left
+    alone: switching those to centred would move every published trajectory curve, which
+    is a decision about the numbers rather than a cleanup.
+    """
+    y = np.asarray(y, dtype=float)
+    if y.size < win or win < 2:
+        return y
+    k = np.ones(win)
+    total = np.convolve(y, k, mode='same')
+    count = np.convolve(np.ones_like(y), k, mode='same')   # how many real points each
+    return total / count                                    # window actually covered
 
 
 # ── figure construction ─────────────────────────────────────────────────────────
@@ -520,6 +675,18 @@ class Chart:
                 artist.set_position((cx, 1.0 - inches_down / nh))
             fig._footer_y = 0.5 * band / nh
         return self
+
+    def abandon(self):
+        """Close the figure and return None — the "nothing could be drawn" exit.
+
+        Eight renders reached for `import matplotlib.pyplot as plt; plt.close(ch.fig)`
+        mid-function to do this, and a render that forgot the close leaked a figure per
+        arm per leaf across a 21-minute pass.  The idiom is
+        `if not drawn: return ch.abandon()`.
+        """
+        import matplotlib.pyplot as plt
+        plt.close(self.fig)
+        return None
 
     def save(self, path, *, view=None):
         """Save through io._save_close.  `view` asserts the family-grammar filename

@@ -77,7 +77,7 @@ def _dot_chart(rows, xlabel, title, subtitle, path, view, *, strategies,
         left=min(2.6, need) / ch.fig.get_figwidth())
     handles = []
     if zero_line:
-        ax.axvline(0, color=chartkit.BASELINE_STYLE['color'], lw=1.6, zorder=2)
+        chartkit.reference_line(ax, 0.0, orient='x')
         tag = chartkit.pct_axis(ax, better='right', axis='x')
         ax.set_xlabel(f'{xlabel} {tag}', fontsize=8)
         handles.append(chartkit.baseline_handle('FIFO baseline (zero line)'))

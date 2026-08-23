@@ -191,9 +191,7 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
         ch.title(m['t'], _LEVEL_NOTE if len(strategies) > _SPAGHETTI else None)
     else:                                              # percent view
         if db is None:
-            import matplotlib.pyplot as plt
-            plt.close(ch.fig)
-            return None
+            return ch.abandon()
         bx = {int(b): v for b, v in zip(db[m['x']], np.asarray(db[m['y']], float))
               if v == v and v != 0}
         allv = []
@@ -215,16 +213,14 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
                     ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
             allv.append(ys)
             drawn += 1
-        ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        chartkit.reference_line(ax, 0.0, orient='y')
         tag = chartkit.pct_axis(ax, better='up')
         ax.set_ylabel(f'improvement vs FIFO {tag}')
         if allv:
             chartkit.shared_ylim([ax], allv, include=(0.0,))
         ch.title(f"{m['t']} — % vs baseline")
     if not drawn:
-        import matplotlib.pyplot as plt
-        plt.close(ch.fig)
-        return None
+        return ch.abandon()
     ax.set_xlabel('batch')
     ch.legend(title='strategy')
     path = os.path.join(out_dir_path, f"{view}_{m['f']}.png")

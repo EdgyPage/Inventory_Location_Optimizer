@@ -34,7 +34,6 @@ Params: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
@@ -116,9 +115,8 @@ def _percent(ctx, curves, base_curve, xlim, top_n, top_by, out):
         finish_colors.append(col)
         all_pct.append(pct)
     if not all_pct:
-        plt.close(ch.fig)
-        return
-    ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        return ch.abandon()
+    chartkit.reference_line(ax, 0.0, orient='y')
     chartkit.data_ylim(ax, all_pct, include=(0.0,))
     ax.set_xlim(*xlim)
     # after the limits: the collision sweep measures gaps against the axes height
@@ -165,8 +163,7 @@ def _absolute(ctx, curves, base_curve, xlim, top_n, top_by, out):
         all_items.append(b_items)
         drew = True
     if not drew:
-        plt.close(ch.fig)
-        return
+        return ch.abandon()
     chartkit.data_ylim(ax, all_items, include=(0.0,))    # curves start at ~0 by nature
     ax.set_xlim(*xlim)
     ax.set_xlabel(_HOURS_LABEL)

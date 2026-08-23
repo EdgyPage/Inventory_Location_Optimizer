@@ -149,8 +149,7 @@ def _absolute(ctx, rows, out):
             hi = max(r[col] for r in got)
             ax.set_xlim(0, hi * 1.28 if hi else 1.0)
     if not drew:
-        plt.close(ch.fig)
-        return
+        return ch.abandon()
     units = {r['channel']: r['units_per_wave'] for r in rows if r['units_per_wave']}
     ch.title('Placement cost in operational units',
              subtitle=('absolute, not against the floor - the offline build is a SEPARATE '
@@ -204,7 +203,7 @@ def _delta(ctx, rows, out):
             left_pos = left_pos + np.clip(vals, 0, None)
             left_neg = left_neg + np.clip(vals, None, 0)
             drew = True
-        ax.axvline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        chartkit.reference_line(ax, 0.0, orient='x')
         ax.set_yticks(y)
         # Controls are hatched in the other two views; this one colours by SECTION, so the
         # marker has to move to the label or the same family says two things with one cue.
@@ -213,8 +212,7 @@ def _delta(ctx, rows, out):
         ax.set_xlabel(f'seconds more (or less) than {BASE_RULE}, by section')
         ax.set_title(chan, fontsize=10)
     if not drew:
-        plt.close(ch.fig)
-        return
+        return ch.abandon()
     ch.legend(title='section')
     ch.title('Where a rule spends its extra compute',
              subtitle=('difference from the do-nothing rule, per loop section - * marks a '

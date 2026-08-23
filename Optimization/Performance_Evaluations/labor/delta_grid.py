@@ -57,7 +57,7 @@ def render(ctx, params):
         col = chartkit.strategy_color(s, ctx.strategies)
         ax.plot(batches, pb, color=col, lw=0.8, alpha=0.35)
         ax.plot(batches, cum, color=col, lw=1.8)
-        ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 0.9})
+        chartkit.reference_line(ax, 0.0, orient='y', lw=0.9)
         ax.set_title(_stitle(s), fontsize=7)
         ax.tick_params(labelsize=6)
         all_vals.append(np.concatenate([pb, cum]))

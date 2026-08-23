@@ -213,8 +213,8 @@ def _both_levers(ctx, S, base, bd):
     # reached left of the zero line and called losing arms winners.
     ax.add_patch(Rectangle((0, 0), x1, y1, facecolor='#e8f4ea', zorder=0,
                            label='better on both'))
-    ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.1})
-    ax.axvline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.1})
+    chartkit.reference_line(ax, 0.0, orient='y')
+    chartkit.reference_line(ax, 0.0, orient='x')
     for s, lab, thr in pts:
         ax.scatter([lab], [thr], s=46, zorder=3, edgecolors='black', linewidths=0.5,
                    color=chartkit.strategy_color(s, ctx.strategies))

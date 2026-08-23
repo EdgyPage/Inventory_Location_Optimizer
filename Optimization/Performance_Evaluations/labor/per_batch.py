@@ -39,7 +39,6 @@ win (steady-state tail for the subtitle means).
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
@@ -79,18 +78,13 @@ def labor_by_batch(task_df):
 def _smooth(y, win=_SMOOTH):
     """Centred moving average over the window the over-time trajectories use.
 
-    The ends average only the batches that exist, rather than being padded with zeros.
-    `np.convolve(..., mode='same')` pads, so the smoothed line dived toward zero over the
-    first and last couple of batches — a fabricated collapse at exactly the two places a
-    reader looks for a trend to start or finish.
+    Promoted to `chartkit.rolling_mean` — this module's implementation was the only
+    edge-correct one of the three in the package, and the primitive carries the reason
+    (a `mode='same'` convolution pads with zeros and fabricates a collapse at exactly the
+    two places a reader looks for a trend to start or finish).  Kept as a named alias
+    because `_SMOOTH` is this family's window and the call sites read better for it.
     """
-    y = np.asarray(y, dtype=float)
-    if y.size < win or win < 2:
-        return y
-    k = np.ones(win)
-    total = np.convolve(y, k, mode='same')
-    count = np.convolve(np.ones_like(y), k, mode='same')   # how many real batches each
-    return total / count                                    # window actually covered
+    return chartkit.rolling_mean(y, win)
 
 
 def _sub_note(top_n, top_by):
@@ -126,8 +120,7 @@ def _absolute(ctx, arms, curves, base_curve, win, top_n, top_by, out):
         ss_bits.append(f'FIFO {ss_b.mean():.2f}')
         drew = True
     if not drew:
-        plt.close(ch.fig)
-        return
+        return ch.abandon()
     chartkit.data_ylim(ax, all_vals)
     ax.set_xlabel('batch')
     ax.set_ylabel(f'labor {chartkit.HOURS} per batch (↓ better)')
@@ -163,9 +156,8 @@ def _percent(ctx, arms, curves, base_curve, top_n, top_by, out):
         pct_all.append(pct)
         drew = True
     if not drew:
-        plt.close(ch.fig)
-        return
-    ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        return ch.abandon()
+    chartkit.reference_line(ax, 0.0, orient='y')
     # A near-empty batch divides two tiny numbers, so its ratio is wild and would set
     # the y-scale, hiding the real few-percent signal.  Scale to the 2–98 percentile of
     # the signal (the data is NOT clipped — raw excursions simply exit the frame).

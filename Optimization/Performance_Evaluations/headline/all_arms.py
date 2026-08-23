@@ -76,7 +76,7 @@ def render(ctx, params):
         widths = [1.4 if r['s']['key'] == base_key else 0.0 for r in rows]
         ax.barh(ypos, vals, color=colors, edgecolor=edges, linewidth=widths,
                 height=0.72)
-        ax.axvline(0, color=chartkit.BASELINE_STYLE['color'], lw=1.4, zorder=3)
+        chartkit.reference_line(ax, 0.0, orient='x')
         ax.margins(y=0.03)
         ax.invert_yaxis()
         tag = chartkit.pct_axis(ax, better='right', axis='x')

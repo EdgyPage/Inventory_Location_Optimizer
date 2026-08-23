@@ -46,7 +46,7 @@ def _ylim_zero_aware(ax, values):
     near = (lo - 0.25 * span) <= 0.0 <= (hi + 0.25 * span)
     chartkit.data_ylim(ax, flat, include=(0.0,) if near else ())
     if near:
-        ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        chartkit.reference_line(ax, 0.0, orient='y')
 
 
 @evaluation(key='labor.delta_topn',
