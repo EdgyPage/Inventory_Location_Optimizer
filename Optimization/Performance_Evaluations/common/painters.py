@@ -87,6 +87,60 @@ def _time_axis(m, S, strategies, baseline):
     return chartkit.time_units(np.concatenate(pool) if pool else [0.0])
 
 
+#: above this many arms the absolute view stops drawing one line per arm
+_SPAGHETTI = 8
+_LEVEL_NOTE = ('band = the middle half of all arms; only the extremes are drawn '
+               'individually — the percent view separates the rest')
+
+
+def _paint_levels(ax, strategies, S, m, baseline, div):
+    """The absolute view's body.  Returns how many series were drawn.
+
+    Up to `_SPAGHETTI` arms, every arm is a line.  Beyond that they are not: 34 arms of
+    the same warehouse trace the same demand curve within a few percent, so the overlay
+    becomes one opaque ribbon in which no arm can be followed — an SME reading this very
+    chart at 34 arms attributed a 6-12% gap to two arms whose sim databases are in fact
+    byte-identical.  So the large case draws the SHAPE honestly: the cross-arm median,
+    the interquartile band, and only the extreme arms named.  Which arm is which at this
+    scale is the percent view's question, and it answers it against a baseline.
+    """
+    avail = [s for s in strategies
+             if S.get(s['key']) is not None
+             and not (baseline and s['key'] == baseline['key'])]
+    if not avail:
+        return 0
+    if len(avail) <= _SPAGHETTI:
+        for s in avail:
+            d = S[s['key']]
+            ax.plot(d[m['x']], _conv(m, d[m['y']], div),
+                    color=chartkit.strategy_color(s, strategies),
+                    ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
+            if m['blo'] and len(avail) <= 3 and d.get(m['blo']) is not None:
+                chartkit.draw_ci(ax, d[m['x']], _conv(m, d[m['blo']], div),
+                                 _conv(m, d[m['bhi']], div),
+                                 color=chartkit.strategy_color(s, strategies))
+        return len(avail)
+
+    # pool onto the shortest shared x so the quantiles are taken across arms at the
+    # same batch rather than across ragged tails
+    n = min(len(S[s['key']][m['x']]) for s in avail)
+    xs = np.asarray(S[avail[0]['key']][m['x']][:n], dtype=float)
+    M = np.vstack([_conv(m, S[s['key']][m['y']], div)[:n] for s in avail])
+    med = np.nanmedian(M, axis=0)
+    lo, hi = np.nanpercentile(M, 25, axis=0), np.nanpercentile(M, 75, axis=0)
+    chartkit.draw_ci(ax, xs, lo, hi, color='#4c72b0', alpha=0.20,
+                     label='middle half of arms')
+    ax.plot(xs, med, color='#1a4d7a', lw=2.0, label='median arm')
+    # name the extremes by their run-long mean, the two a reader will ask about
+    order = np.argsort(np.nanmean(M, axis=1))
+    for idx, tag in ((order[0], 'lowest'), (order[-1], 'highest')):
+        s = avail[int(idx)]
+        ax.plot(xs, M[int(idx)], color=chartkit.strategy_color(s, strategies),
+                ls=chartkit.strategy_dash(s), lw=1.3,
+                label=f'{tag}: {_label(s)}')
+    return len(avail)
+
+
 def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False):
     """Render one over-time metric in one view and return the saved path (or None
     when nothing could be drawn).
@@ -99,7 +153,14 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
     upstream; the absolute view is skipped there by the caller).
     """
     import os
-    labels = [_label(s) for s in strategies] + ['FIFO baseline']
+    # Size the gutter for what will actually be legended: the large-N absolute view
+    # summarises instead of listing every arm, so reserving 34 rows there would leave a
+    # column of empty gutter beside a four-entry legend.
+    if view == 'absolute' and len(strategies) > _SPAGHETTI:
+        labels = ['middle half of arms', 'median arm', 'lowest: an arm name here',
+                  'highest: an arm name here', 'FIFO baseline']
+    else:
+        labels = [_label(s) for s in strategies] + ['FIFO baseline']
     ch = chartkit.make(panels=1, panel_w=6.4, panel_h=4.2,
                        legend='gutter', legend_labels=labels)
     ax = ch.ax
@@ -112,25 +173,14 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
                      else (None, ''))
         if db is not None:
             chartkit.mark_baseline(ax, db[m['x']], _conv(m, db[m['y']], div))
-        for s in strategies:
-            d = S.get(s['key'])
-            if d is None or (baseline and s['key'] == baseline['key']):
-                continue
-            ax.plot(d[m['x']], _conv(m, d[m['y']], div),
-                    color=chartkit.strategy_color(s, strategies),
-                    ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
-            if m['blo'] and len(strategies) <= 3 and d.get(m['blo']) is not None:
-                chartkit.draw_ci(ax, d[m['x']], _conv(m, d[m['blo']], div),
-                                 _conv(m, d[m['bhi']], div),
-                                 color=chartkit.strategy_color(s, strategies))
-            drawn += 1
+        drawn = _paint_levels(ax, strategies, S, m, baseline, div)
         yl = f"{m['yl']} ({unit})" if m.get('time') and unit else m['yl']
         ax.set_ylabel('× baseline' if agg else yl)
         vals = [_conv(m, S[s['key']][m['y']], div)
                 for s in strategies if S.get(s['key'])]
         if vals:
             chartkit.shared_ylim([ax], vals)
-        ch.title(m['t'])
+        ch.title(m['t'], _LEVEL_NOTE if len(strategies) > _SPAGHETTI else None)
     else:                                              # percent view
         if db is None:
             import matplotlib.pyplot as plt

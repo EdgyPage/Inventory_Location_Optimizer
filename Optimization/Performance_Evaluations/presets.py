@@ -11,7 +11,8 @@ stats flavours stay mutually exclusive per preset, exactly as before the redesig
 'assignment' runs the flat suite, 'initial' the uni-vs-opt per-assignment fork.
 """
 
-_TABLES   = ['config.series', 'tables.per_run', 'tables.tidy']
+_TABLES   = ['config.series', 'tables.per_run', 'tables.tidy',
+             'tables.vs_baseline']
 _HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
              'headline.throughput_vs_labor']
 _TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',

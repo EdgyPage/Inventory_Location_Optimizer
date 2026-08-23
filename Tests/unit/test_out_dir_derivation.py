@@ -44,6 +44,7 @@ _LITERALS = {
     'config.series':                  (),
     'tables.per_run':                 ('tables',),
     'tables.tidy':                    ('tables',),
+    'tables.vs_baseline':             ('tables',),
     'tables.stats':                   ('tables',),
     'tables.by_initial':              ('tables',),
     'headline.top_vs_baseline':       ('figures', 'headline'),

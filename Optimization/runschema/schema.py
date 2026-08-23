@@ -343,6 +343,14 @@ ARTIFACTS = {
         'path': '{cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv',
         'format': 'csv', 'scope': 'channel_run',
         'writer': 'render@Optimization/Performance_Evaluations/tables/tidy.py'},
+    'vs_baseline_csv': {
+        'evaluation': 'tables.vs_baseline',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv',
+        'format': 'csv', 'scope': 'channel_run',
+        'note': 'every arm against the baseline with effect size, bootstrap interval and '
+                'corrected p — the numbers the headline figure prints, in a form a '
+                'reader (and the docs site) can cite.',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/vs_baseline.py'},
     'stats_summary_csv': {
         'evaluation': 'tables.stats',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv',

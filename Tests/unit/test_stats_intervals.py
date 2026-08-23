@@ -98,6 +98,63 @@ def test_boot_ci_is_deterministic():
 
 # ── 4. the aggregate by-initial test pairs by profile ───────────────────────────
 
+def test_vs_baseline_rows_are_auditable_and_self_consistent():
+    """The headline figure's claim must exist as numbers a reader can check: the point
+    estimate inside its own interval, the effect oriented the same way as the percentage,
+    and every arm present — including the ones that did not make the podium."""
+    import pandas as pd
+    from Optimization.Performance_Evaluations.tables.vs_baseline import (
+        compute_vs_baseline)
+
+    rng = np.random.default_rng(5)
+    n = 60
+    arms = {'uni_fifo_norsl': 1.00, 'opt_rank_labor_norsl': 0.93,
+            'opt_rank_maxlabor_norsl': 1.06}
+
+    class _Ctx:
+        strategies = [dict(key=k, initial=k[:3], assignment=k.split('_', 1)[1],
+                           reslot='noRSL', color=None, label=k) for k in arms]
+        base = strategies[0]
+        log = type('L', (), {'info': staticmethod(lambda *a: None),
+                             'warning': staticmethod(lambda *a: None)})()
+
+        def _frame(self, key):
+            base = 100.0 + rng.normal(0, 4.0, n)
+            return pd.DataFrame({
+                'batch_id': np.arange(n), 'duration': base * arms[key],
+                'completion_rate': 1.0 / (base * arms[key]),
+                'thr_task': 1.0 / (base * arms[key]),
+                'task_makespan': base * arms[key], 'sigma_fd': base * arms[key],
+                'picking_pct': 90.0, 'queue_depth': 0.0, 'reload_moves': 0.0,
+                'reorder_placements': 0.0, 'total_items': 1000.0, 'W': base,
+                'is_outlier': 0})
+
+        def batch_df(self, key):
+            return self._frame(key)
+
+        def task_df(self, key):
+            f = self._frame(key)
+            return pd.DataFrame({'batch_id': f['batch_id'], 'duration': f['duration'],
+                                 'W': f['W']})
+
+    rows = compute_vs_baseline(_Ctx())
+    assert rows, 'no rows produced'
+    keys = {r['strategy'] for r in rows}
+    assert 'opt_rank_maxlabor_norsl' in keys, 'a losing arm must still get a row'
+    assert 'uni_fifo_norsl' not in keys, 'the baseline is not compared with itself'
+    for r in rows:
+        if np.isfinite(r['ci_lo']) and np.isfinite(r['ci_hi']):
+            assert r['ci_lo'] <= r['pct_median'] <= r['ci_hi'], r
+        assert r['n_batches'] >= 3
+        assert r['better'] in ('arm', 'baseline', 'tie')
+        if r['better'] == 'arm':
+            assert r['pct_median'] > 0
+    # the 7%-faster arm must read as an improvement on a duration metric
+    fast = [r for r in rows if r['strategy'] == 'opt_rank_labor_norsl'
+            and r['metric'] == 'makespan']
+    assert fast and fast[0]['pct_median'] > 0 and fast[0]['rank_biserial'] > 0
+
+
 def test_aggregate_by_initial_pairs_profiles_and_drops_half_pairs():
     """A profile present for one arm only must shrink BOTH arms' samples, never just
     one: equal lengths achieved by independent filtering are what let a mispaired
