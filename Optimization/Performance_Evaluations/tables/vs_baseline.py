@@ -68,9 +68,12 @@ def compute_vs_baseline(ctx):
                 p = float(st.wilcoxon(v, b).pvalue) if np.any(v != b) else 1.0
             except ValueError:
                 p = float('nan')
-            # rank-biserial oriented the same way as the percentage: positive = the arm
-            # is better, whichever direction "better" runs for this metric
+            # BOTH effect sizes are oriented like the percentage — positive = the arm is
+            # better, whichever direction "better" runs for this metric.  Leaving either
+            # in its raw sign prints an improvement of +0.05% beside an effect of -0.70
+            # in the same row, and a reader cannot tell which of them means good.
             rb = _rank_biserial(b, v) if lower else _rank_biserial(v, b)
+            g = _hedges_g_paired(b, v) if lower else _hedges_g_paired(v, b)
             med = float(np.median(diffs))
             per_metric.append(dict(
                 strategy=s['key'], initial=s.get('initial', ''),
@@ -78,7 +81,7 @@ def compute_vs_baseline(ctx):
                 metric=name, n_batches=len(common),
                 baseline_median=float(np.median(b)), arm_median=float(np.median(v)),
                 pct_median=med, ci_lo=lo, ci_hi=hi,
-                hedges_g=_hedges_g_paired(v, b), rank_biserial=rb,
+                hedges_g=g, rank_biserial=rb,
                 p_wilcoxon=p, p_holm=float('nan'),
                 better=('arm' if med > 0 else 'baseline' if med < 0 else 'tie')))
         # Holm across the ARMS within one metric: that is the family of comparisons a

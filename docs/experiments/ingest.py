@@ -314,6 +314,8 @@ def main(argv=None):
 
     n += _stage_whatif(source, exp_dir, args.dry_run, log, rt=rt)
     n += _stage_rollups(exp_dir, args.dry_run, log, rt=rt, cells=[c for c, _d in cells])
+    n += _stage_leaf_tables(exp_dir, args.dry_run, log, rt=rt,
+                            cells=[c for c, _d in cells])
 
     if args.gen_manifest and last_rm is not None:
         # A STARTER manifest names the current figures, never whatever this run happened to
@@ -512,6 +514,28 @@ def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
             else:
                 log.append(f'  MISSING  {src}  (run Optimization/run_channel_rollup.py '
                            f'on the cell first)')
+    return n
+
+
+def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):
+    """The per-leaf arm-vs-baseline table into data/<cell>/<pair>/<config>/.
+
+    The headline figure prints an effect size, an interval and a corrected p for each
+    arm; before this stage those numbers existed only as pixels, and a reader who wanted
+    to check one — or to ask why an arm that is NOT on the podium missed it — had nothing
+    to open.  Resolver-only and reached by NAME, like the rollup stage beside it.
+    """
+    if rt is None:
+        return 0
+    n = 0
+    for cell in cells:
+        for _c, cr in rt.channel_runs(cell):
+            src = rt.leaf_path(cr, 'vs_baseline_csv')
+            if not os.path.isfile(src):
+                continue
+            n += _copy(src, site_tree.path('leaf_data', exp_dir, run=cell, inv=cr.pair,
+                                           cfg=cr.config,
+                                           fname=os.path.basename(src)), dry, log)
     return n
 
 

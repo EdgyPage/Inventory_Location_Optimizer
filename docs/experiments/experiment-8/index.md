@@ -108,15 +108,26 @@ The two rows move for different reasons, and that is the whole experiment. Place
     figures. Experiments 1–7 remain readable history on the previous stream; do not lay their
     absolute numbers beside these.
 
+!!! note "The charts on this page were rebuilt on 2026-08-23"
+    Same run, same simulation, same numbers — **the presentation changed**. The analysis suite was
+    redesigned so that every comparison carries a percentage against the baseline, an effect size
+    and an interval, in a unit a person reads (hours, or seconds where a task is seconds). Charts
+    that plotted the demand curve rather than the effect were dropped, and the figures that rank
+    every arm now publish their numbers to a table you can open beside them. If you read this page
+    before that date, the conclusions are unchanged; the evidence behind them is easier to check.
+
 ## Lever 1 — placement: less work to begin with
 
 <figure markdown>
-  ![Top runs vs FIFO — labor and throughput](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/top_vs_baseline_table.png){ width=920 }
+  ![Top runs vs FIFO — labor and throughput](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/table_top_vs_baseline.png){ width=920 }
   <figcaption><strong>Figure 1.</strong> The top three store placement rules from each
   initial-layout family, measured against the do-nothing FIFO baseline on labor and throughput at
   once — immediate-replenishment inventory, where the <code>Rank</code> family (place each unit
-  where it least burdens the busiest aisle) holds the podium. Source:
-  <code>top_vs_baseline_table.png</code> (store, <code>bell_lt0</code>, cell
+  where it least burdens the busiest aisle) holds the podium. Each row carries its effect size
+  and a 95% interval; with 75 paired batches the p column separates almost nothing, so the
+  magnitude is what ranks the rules. Every arm's row, including the ones that did not place,
+  is in the run's <code>vs_baseline</code> table. Source:
+  <code>table_top_vs_baseline.png</code> (store, <code>bell_lt0</code>, cell
   <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 
@@ -167,12 +178,13 @@ table, change the scheduler.
 ## Reading the figures together
 
 <figure markdown>
-  ![Cumulative volume by placement rule, store](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/top3_by_initial_volume_curve.png){ width=920 }
+  ![Lead over FIFO by placement rule, store](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/percent_volume_lead.png){ width=920 }
   <figcaption><strong>Figure 3.</strong> The same cumulative-volume lens, now holding the scheduler
-  fixed at LPT and varying the <strong>placement rule</strong>. Right panel: each rule's lead over
-  FIFO at matched elapsed time. These are the same six runs as Figure 1's table. Source:
-  <code>top3_by_initial_volume_curve.png</code> (store, <code>bell_lt0</code>, cell
-  <code>{{ experiment().run }}</code>).</figcaption>
+  fixed at LPT and varying the <strong>placement rule</strong>: how far ahead of FIFO each rule is
+  at matched elapsed time, as a share of what FIFO had picked by then, with the dot marking where
+  the arm finished the run. These are the same six runs as Figure 1's table; the raw cumulative
+  curves are in the full results. Source: <code>percent_volume_lead.png</code> (store,
+  <code>bell_lt0</code>, cell <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 
 (A **cell** is one full copy of the sweep under one scheduler setting — `k1_off_rr` is the

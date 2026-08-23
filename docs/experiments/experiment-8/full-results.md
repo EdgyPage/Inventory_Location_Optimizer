@@ -73,11 +73,11 @@ hours, making the ledger complete by measurement rather than by assumption.
 ## Labor per batch, and whether the advantage holds
 
 <figure markdown>
-  ![Labor per batch, store](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/top3_by_initial_labor_per_batch.png){ width=920 }
-  <figcaption>Left: labor hours per batch over batch order — thin raw line, heavy 5-batch mean.
-  Right: the same arms as a percentage against FIFO <em>on the same batch</em>, which cancels the
-  batch-to-batch demand swing and leaves only the policy effect.
-  Source: <code>top3_by_initial_labor_per_batch.png</code> (store, <code>bell_lt0</code>, cell
+  ![Labor per batch against FIFO, store](images/{{ experiment().run }}/{{ experiment().inventories.bell_lt0.id }}/store/percent_labor_per_batch.png){ width=920 }
+  <figcaption>Each arm as a percentage against FIFO <em>on the same batch</em>, which cancels the
+  batch-to-batch demand swing and leaves only the policy effect — faint line raw, heavy line the
+  5-batch mean. The hours themselves are the companion figure in the curated set above.
+  Source: <code>percent_labor_per_batch.png</code> (store, <code>bell_lt0</code>, cell
   <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 

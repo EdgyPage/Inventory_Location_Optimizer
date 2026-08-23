@@ -177,11 +177,16 @@ def _tree_for(cell_dir: str):
         return RunTree(root, doc, layout={}), cell
 
 
-def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None):
+def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None,
+                 only=()):
     """Parent pre-pass: build slim shared assets per pair, prepare each config's output
-    dirs once, and emit the flat config-stage job list."""
+    dirs once, and emit the flat config-stage job list.
+
+    `only` restricts the run to a subset of keys AND suppresses the directory pre-pass:
+    a partial re-render replaces the artifacts it produces and must leave every other
+    artifact where it is, so wiping the shared tops would be exactly wrong."""
     preset = PRESETS[preset_name]
-    cfg_keys = driver.config_keys(preset)
+    cfg_keys = [k for k in driver.config_keys(preset) if not only or k in only]
     jobs = []
     # Store-only writes its sim_meta at <config>/; a mixed run writes one per channel at
     # <config>/<channel>/.  iter_channel_runs discovers both (its default marker is the
@@ -212,7 +217,8 @@ def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=
         for meta in config_metas:
             sim_result = _sim_result_from_meta(meta)
             run_dir = sim_result['run_dir']
-            driver.prepare_config_dirs(run_dir)         # wipe shared dirs ONCE (no worker race)
+            if not only:
+                driver.prepare_config_dirs(run_dir)     # wipe shared dirs ONCE (no worker race)
             common = dict(stage='config', preset=preset_name, set=cli_set,
                           sim_result=sim_result, slim=slim, run_dir=run_dir)
             if granularity == 'graph':
@@ -223,11 +229,11 @@ def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=
     return jobs
 
 
-def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log):
+def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=()):
     """Group every config's series doc by leaf pick-config name across profiles, prepare
     each aggregate group dir once, and emit the flat aggregate-stage job list."""
     preset = PRESETS[preset_name]
-    agg_keys = driver.aggregate_keys(preset)
+    agg_keys = [k for k in driver.aggregate_keys(preset) if not only or k in only]
     if not agg_keys:
         return []
     # store-only: the series doc sits at <config>/ (group by config); mixed: at
@@ -250,7 +256,8 @@ def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log):
         # group_key already folds the optional channel level in (`<config>` store-only,
         # `<config>/<channel>` mixed) — aggregate_dir splits it back onto the template.
         out_dir = rt.aggregate_dir(cell, cfg)
-        driver.prepare_aggregate_dir(out_dir)
+        if not only:
+            driver.prepare_aggregate_dir(out_dir)
         common = dict(stage='aggregate', preset=preset_name, set=cli_set,
                       profile_series_list=plist, out_dir=out_dir, pickcfg=cfg)
         if granularity == 'graph':
@@ -313,7 +320,7 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
 
 def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
                  preset: str = 'BY_INITIAL', granularity: str = 'config',
-                 cli_set: dict | None = None) -> None:
+                 cli_set: dict | None = None, only=()) -> None:
     """Re-run analysis on all completed sims under *base_dir* via the registry.
 
     Two sequential flat-pool stages (config, then cross-profile aggregate); each stage is a
@@ -330,14 +337,19 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
             if workers and workers > 1 else None)
     tally = {'granted': {}, 'denied': {}}
     try:
-        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log, max_skus)
+        if only:
+            log.info(f'  PARTIAL re-render: only {sorted(only)} — output dirs are NOT '
+                     f'wiped, every other artifact is left as it is')
+        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log, max_skus,
+                                only=only)
         log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
                  f'(preset={preset}, granularity={granularity}, workers={workers})')
         _merge_tally(tally, _drain(pool, cfg_jobs, log))
 
         # aggregate stage needs every series doc on disk first
         log.info('  Building cross-profile aggregate suites...')
-        agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log)
+        agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log,
+                                   only=only)
         _merge_tally(tally, _drain(pool, agg_jobs, log))
     finally:
         if pool is not None:
@@ -400,6 +412,12 @@ def main() -> None:
     parser.add_argument('--set', action='append', default=[], dest='set',
                         metavar='KEY.PARAM=VALUE',
                         help='Ad-hoc per-graph param override, e.g. labor.delta_topn.top_n=3.')
+    parser.add_argument('--only', action='append', default=[], metavar='KEY',
+                        help='Re-run ONLY these evaluation keys (repeatable, or one '
+                             'comma-separated list). A partial run does NOT wipe the '
+                             'output dirs, so the artifacts it does not produce are left '
+                             'in place: this is how you re-render one chart after fixing '
+                             'it, instead of paying for the whole suite.')
     args = parser.parse_args()
 
     if args.base_dir is None:
@@ -420,8 +438,13 @@ def main() -> None:
     log = _setup_logging(os.path.join(base_dir, 'analysis.log'))
     log.info(f'run_analysis  dir: {base_dir}  (preset={args.preset}, workers={args.workers}, '
              f'granularity={args.granularity})')
+    only = tuple(k.strip() for spec in args.only for k in spec.split(',') if k.strip())
+    unknown = [k for k in only if k not in EVAL_BY_KEY]
+    if unknown:
+        parser.error(f'--only names unregistered evaluation key(s): {unknown}. '
+                     f'Known keys: {sorted(EVAL_BY_KEY)}')
     run_analysis(base_dir, log, workers=args.workers, preset=args.preset,
-                 granularity=args.granularity, cli_set=cli_set)
+                 granularity=args.granularity, cli_set=cli_set, only=only)
     log.info('Done.')
 
 

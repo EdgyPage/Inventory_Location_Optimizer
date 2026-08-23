@@ -155,6 +155,50 @@ def test_vs_baseline_rows_are_auditable_and_self_consistent():
     assert fast and fast[0]['pct_median'] > 0 and fast[0]['rank_biserial'] > 0
 
 
+def test_vs_baseline_effect_sizes_point_the_same_way_as_the_percentage():
+    """Every quantity in a row must agree on which direction is good.  Left raw, Hedges
+    g comes out negative for an arm whose duration fell — an improvement printed beside
+    a negative effect, in the same row, under one heading."""
+    from Optimization.Performance_Evaluations.tables.vs_baseline import (
+        compute_vs_baseline)
+    import pandas as pd
+
+    n = 40
+    rng = np.random.default_rng(9)
+    base = 100.0 + rng.normal(0, 3.0, n)
+    arms = {'uni_fifo_norsl': 1.00, 'opt_fast_norsl': 0.90, 'opt_slow_norsl': 1.10}
+
+    class _Ctx:
+        strategies = [dict(key=k, initial=k[:3], assignment=k.split('_', 1)[1],
+                           reslot='noRSL', color=None, label=k) for k in arms]
+        base = strategies[0]
+        log = type('L', (), {'info': staticmethod(lambda *a: None),
+                             'warning': staticmethod(lambda *a: None)})()
+
+        def _frame(self, key):
+            v = base * arms[key]
+            return pd.DataFrame({
+                'batch_id': np.arange(n), 'duration': v, 'completion_rate': 1.0 / v,
+                'thr_task': 1.0 / v, 'task_makespan': v, 'sigma_fd': v,
+                'picking_pct': 90.0, 'queue_depth': 0.0, 'reload_moves': 0.0,
+                'reorder_placements': 0.0, 'total_items': 1000.0, 'W': v,
+                'is_outlier': 0})
+
+        def batch_df(self, key):
+            return self._frame(key)
+
+        def task_df(self, key):
+            f = self._frame(key)
+            return pd.DataFrame({'batch_id': f['batch_id'], 'duration': f['duration'],
+                                 'W': f['W']})
+
+    for r in compute_vs_baseline(_Ctx()):
+        if abs(r['pct_median']) < 0.5:
+            continue                       # a tie says nothing about direction
+        assert np.sign(r['hedges_g']) == np.sign(r['pct_median']), r
+        assert np.sign(r['rank_biserial']) == np.sign(r['pct_median']), r
+
+
 def test_aggregate_by_initial_pairs_profiles_and_drops_half_pairs():
     """A profile present for one arm only must shrink BOTH arms' samples, never just
     one: equal lengths achieved by independent filtering are what let a mispaired

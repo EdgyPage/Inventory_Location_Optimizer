@@ -20,17 +20,26 @@ Two views of one quantity, both against the FIFO baseline:
 import os
 
 import numpy as np
+import pandas as pd
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import chartkit, io
-from Optimization.Performance_Evaluations.common.frames import _metric_series
 from Optimization.Performance_Evaluations.common.stats_core import _boot_ci
 from Optimization.Performance_Evaluations.common.style import _stitle
 
 
 def _per_batch(ctx, key):
-    """Steady-state Σ f·D per batch for one arm, indexed by batch."""
-    return _metric_series(ctx.batch_df(key), ctx.task_df(key), 'batch', 'sigma_fd', 0)
+    """Σ f·D per batch for one arm, indexed by batch.
+
+    Read straight off the batch frame rather than through the generic metric-series
+    helper: that helper takes a task frame it does not consult for a batch-scoped
+    column, and asking the broker for the task frame would both cost a real read per arm
+    and make this evaluation's `needs=` declaration a lie.
+    """
+    d = ctx.batch_df(key)
+    if d is None or d.empty or 'sigma_fd' not in d:
+        return pd.Series(dtype=float)
+    return d.set_index('batch_id')['sigma_fd'].astype(float)
 
 
 def _rows(ctx, S, baseline):

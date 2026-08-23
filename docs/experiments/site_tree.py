@@ -46,6 +46,10 @@ TEMPLATES = {
     # Experiment 8 after a reviewer traced the labor headline to a file the site never
     # staged.  Keyed by cell because the rollup is a cell-scope run-tree artifact.
     'cell_data':     'data/{run}/{fname}',
+    # per-leaf data artifacts: the arm-vs-baseline table behind the headline figure's
+    # effect sizes and intervals, so a reader can check the claim rather than read it
+    # off a picture.  Keyed by leaf because it is a channel-run-scope artifact.
+    'leaf_data':     'data/{run}/{inv}/{cfg}/{fname}',
     # catalogue distribution plots (the profiles tree's PNGs, flattened per experiment)
     'catalogue_png': 'images/{catalogue}/{plot}',
 }

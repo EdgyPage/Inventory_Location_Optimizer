@@ -72,18 +72,25 @@ configs:
 # Curated figures — the registry defaults (figures.yml) plus the two rate-lens opt-ins
 # Experiment 6 introduced.  Listing them here is load-bearing: a name ingest cannot find
 # only logs MISSING and returns 0, so an unlisted figure is silently absent.
+# Re-staged 2026-08-23 from the same run, re-analysed by the redesigned chart-family
+# suite: the figures are new, the simulation behind them is not.  Retired names (the
+# top3_by_initial_* set, top_vs_baseline*, task_duration_by_strategy) have no producer
+# any more and stay only in the registry for the archived experiments that cite them.
 figures:
   top3:
-    - top3_by_initial_volume_curve.png
-    - top3_by_initial_prodtime_cum_improvement.png
-    - top3_by_initial_production_time_over_time.png
-    - top3_by_initial_prodtime_delta_trend.png
-    - top_vs_baseline_table.png
-    - top_vs_baseline.png
+    - percent_volume_lead.png
+    - absolute_volume_curve.png
+    - delta_prodtime_top3_by_initial.png
+    - percent_labor_per_batch.png
+    - table_top_vs_baseline.png
+    - percent_top_vs_baseline.png
   full_suite:
-    - top3_by_initial_labor_per_batch.png
-    - task_duration_by_strategy.png
-    - production_time_over_time.png
+    - absolute_labor_per_batch.png
+    - absolute_task_duration_ranked.png
+    - delta_task_duration_vs_fifo.png
+    - percent_all_arms_vs_baseline.png
+    - delta_travel_vs_baseline.png
+    - effect_heatmap.png
 
 inventory_plots:
   - group_sizes.png

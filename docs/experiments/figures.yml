@@ -127,6 +127,22 @@ figures:
     caption: >-
       The same arms as a percent change against FIFO, each with its 95% confidence interval —
       the view that says which of the ranked differences are real.
+  - name: delta_travel_vs_baseline.png
+    eval: layout.travel
+    section: full_suite
+    default: true
+    caption: >-
+      Travel cost — demand-weighted distance, the quantity the placement rules actually
+      optimise — for every arm against FIFO, with the interval around each estimate. Where
+      an interval crosses zero the arm has not been shown to move travel at all.
+  - name: absolute_travel_per_arm.png
+    eval: layout.travel
+    section: full_suite
+    default: false
+    caption: >-
+      The same travel cost in absolute terms, with the layout floor marked where the run
+      publishes one — the gap between a bar and that line is the improvement still
+      available to a better placement.
   - name: delta_prodtime_by_arm_grid.png
     eval: labor.delta_grid
     section: full_suite
