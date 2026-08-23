@@ -36,7 +36,7 @@ for maximum core utilization on sparse runs.
 Usage:
   python run_analysis.py &lt;base_dir&gt;                        # default preset BY_INITIAL
   python run_analysis.py &lt;base_dir&gt; --preset DEFAULT        # uni-only (drops opt_* arms)
-  python run_analysis.py &lt;base_dir&gt; --granularity graph --set compare.top_metric.top_n=3
+  python run_analysis.py &lt;base_dir&gt; --granularity graph --set labor.delta_topn.top_n=3
 
 The default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum
 (opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the

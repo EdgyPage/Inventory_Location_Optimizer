@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.headline.all_arms · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_headline_all_arms_py" data-id="Optimization/Performance_Evaluations/headline/all_arms.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/headline/all_arms.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.headline.all_arms</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_headline_all_arms_py.html"><code>Optimization/Performance_Evaluations/headline/all_arms.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.headline.all_arms</code></pre>
+<section class="doc">headline.all_arms — every arm&#x27;s % improvement vs the FIFO baseline, at a glance.
+
+Two horizontal-bar panels (throughput improvement, duration improvement) that SHARE
+one y category order — arms sorted by duration improvement, best on top — so a reader
+scans one ranking, not two.  The panels also share the x scale when the magnitudes
+allow it; when one panel&#x27;s swings would flatten the other, each keeps its own scale
+and says so out loud.  Sign is carried by the zero reference line and the sort, not
+by red/green bars: bars wear their arm&#x27;s suite color, and the FIFO row (always at 0)
+is edge-marked in the baseline style.
+
+Ported data logic: the retired delta-bars chart — throughput Δ% off the steady-state
+throughput scalar and duration improvement % off the steady-state batch-makespan
+scalar, both against strategies[0] (the FIFO arm).</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_all_arms_py___SHARE_RATIO.html"><code>_SHARE_RATIO</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/all_arms.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_all_arms_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/all_arms.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_headline_all_arms_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/headline/all_arms.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.throughput.volume · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_throughput_volume_py" data-id="Optimization/Performance_Evaluations/throughput/volume.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/throughput/volume.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.throughput.volume</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_throughput_volume_py.html"><code>Optimization/Performance_Evaluations/throughput/volume.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.throughput.volume</code></pre>
+<section class="doc">throughput.volume — cumulative pick volume against elapsed time, in two views.
+
+WHY A CURVE AND NOT A BAR.  Throughput as a single number hides *when* the work
+happened.  Plotting running items against running elapsed hours makes the rate itself
+the visible thing: the SLOPE of the curve IS throughput, so a steeper line that
+terminates further left finished the same demand sooner.  That is the whole &quot;better
+throughput at equal labor&quot; story in one picture — the arms do not do less work, they do
+it in less elapsed time.
+
+THE TIME AXIS IS SYNTHESIZED, AND HAS TO BE.  There is no global clock in the data:
+every batch&#x27;s sim clock restarts at zero, so elapsed time is the running sum of batch
+makespans — exactly the quantity run_whatif_labor calls `batch_hours`, converted with
+the same `chartkit.to_hours`, so numbers reconcile across the suite.  These are modeled
+pick-time hours, not wall-clock; the axis label carries the qualifier.  HOURS IS FIXED
+on this x-axis, not chosen from the data like the duration axes elsewhere in the suite:
+elapsed run time is the one quantity the whole comparison is denominated in — the
+what-if layer, the finish annotations and the site all say &quot;hours&quot; — and a cumulative
+axis that renamed its unit per run would stop reconciling with them.
+
+THE PRIMARY VIEW IS THE PERCENT LEAD.  The cumulative curves are near-identical straight
+lines (measured shape index ~1.0007 on a real 100-batch arm), so overlaying them shows
+almost nothing, and the retired companion panel plotted the lead in absolute items —
+±150k reads as huge while being a few percent.  The percent view interpolates each arm
+and FIFO onto a shared hour grid spanning only the hours BOTH actually cover (never
+extrapolating past the shorter run) and plots the lead as a % of FIFO&#x27;s cumulative at
+that same moment — FIFO is the zero line, and each arm&#x27;s finish dot is annotated with
+its finish hour, because the finish point is where arms genuinely differ.  The absolute
+view keeps the raw curves as the honest-units companion, decluttered: names in the
+legend, the per-arm rate/finish numbers in one compact subtitle block, and x-limits
+identical across both files so the views superimpose mentally.
+
+Params: top_n (int), top_by (&#x27;global&#x27; | &#x27;initial&#x27; | &#x27;assignment&#x27; | &#x27;reslot&#x27;).</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_series_py.html"><code>Optimization.Performance_Evaluations.common.series</code></a> <span class="dim">Optimization/Performance_Evaluations/common/series.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py___HOURS_LABEL.html"><code>_HOURS_LABEL</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py___absolute.html"><code>_absolute</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py___percent.html"><code>_percent</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py___sub_note.html"><code>_sub_note</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py__cumulative_curve.html"><code>cumulative_curve</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py__lead_pct_curve.html"><code>lead_pct_curve</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_volume_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/volume.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_throughput_volume_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/throughput/volume.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

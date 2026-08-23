@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paint_overtime · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_painters_py__paint_overtime" data-id="Optimization/Performance_Evaluations/common/painters.py::paint_overtime">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a> <span class="sep">›</span> <span class="here"><code>paint_overtime</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>paint_overtime</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a></p>
+<div class="badges"><span class="badge fanout">high fan-out</span></div>
+<pre class="sig"><code>def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)</code></pre>
+<section class="doc">Render one over-time metric in one view and return the saved path (or None
+when nothing could be drawn).
+
+view=&#x27;absolute&#x27;: every strategy in presentation units, baseline in BASELINE_STYLE.
+view=&#x27;percent&#x27; : per-batch % improvement vs the baseline strategy, aligned on the
+                 metric&#x27;s own x — the baseline IS the zero line, so it is drawn as
+                 a reference line, not a series.
+agg=True labels the aggregate stage (values are already ×-baseline normalized
+upstream; the absolute view is skipped there by the caller).</section>
+<section class="rel"><h2>Callees <span class="count">(12)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__BASELINE_STYLE.html"><code>BASELINE_STYLE</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__draw_ci.html"><code>draw_ci</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__improvement_pct.html"><code>improvement_pct</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__make.html"><code>make</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__mark_baseline.html"><code>mark_baseline</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__pct_axis.html"><code>pct_axis</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__shared_ylim.html"><code>shared_ylim</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__strategy_color.html"><code>strategy_color</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__strategy_dash.html"><code>strategy_dash</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py___conv.html"><code>_conv</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py___label.html"><code>_label</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py___time_axis.html"><code>_time_axis</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_traj_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/traj.py</span></li><li><a href="nOptimization_Performance_Evaluations_trajectories_overtime_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/trajectories/overtime.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_painters_py__paint_overtime">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/painters.py#:~:text=def%20paint_overtime">Source ↗</a></p>
+</article>
+</main>
+</body></html>

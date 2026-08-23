@@ -517,6 +517,23 @@ def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
     return n
 
 
+def _reader_tree(rt, artifact):
+    """`rt`, or a HEAD-contract resolver when the run's own document predates `artifact`.
+
+    A re-analysed run is READ through the contract it was written with, but an analysis
+    artifact added since then was produced by TODAY's evaluations and is declared only by
+    the current document — `rt.path` on the old one KeyErrors.  Same reasoning (and same
+    shape) as the what-if writers' head fallback; returns None when nothing declares it.
+    """
+    if artifact in rt.artifacts:
+        return rt
+    from Optimization.runschema import contract as _contract
+    from Optimization.runschema.resolver import RunTree
+    head = _contract.head()
+    doc = _contract.load(head) if head else None
+    return RunTree(rt.base, doc, layout=rt.layout) if doc else None
+
+
 def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):
     """The per-leaf arm-vs-baseline table into data/<cell>/<pair>/<config>/.
 
@@ -527,10 +544,14 @@ def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):
     """
     if rt is None:
         return 0
+    reader = _reader_tree(rt, 'vs_baseline_csv')
+    if reader is None:
+        log.append('  NOTE     no contract declares the arm-vs-baseline table: not staged')
+        return 0
     n = 0
     for cell in cells:
         for _c, cr in rt.channel_runs(cell):
-            src = rt.leaf_path(cr, 'vs_baseline_csv')
+            src = reader.leaf_path(cr, 'vs_baseline_csv')
             if not os.path.isfile(src):
                 continue
             n += _copy(src, site_tree.path('leaf_data', exp_dir, run=cell, inv=cr.pair,

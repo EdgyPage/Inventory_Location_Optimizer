@@ -167,9 +167,13 @@ def define_env(env):
         return _load_yaml("experiments/figures.yml").get("figures", [])
 
     def _figs(kind):
-        """[(filename, caption, width)] for kind in {'top3','full_suite'}: manifest names
-        (captions from the registry) else the registry's default entries for the section —
-        which is byte-for-byte the old hardcoded list, per the registry golden test."""
+        """[(filename, caption, width)] for kind in {'top3','full_suite'}.
+
+        A manifest names its own figures.  WITHOUT one the experiment is a legacy
+        snapshot, and it renders the registry's `legacy` set — frozen to what that sweep
+        actually produced — NOT the `default` starter set, which names the figures the
+        CURRENT suite writes and which a 2026-06 run never had.  Conflating the two
+        pointed Experiment 1 at chart names that postdate it by two months."""
         m = _manifest()
         entries = _registry()
         caps = {f["name"]: (f.get("caption") or f["name"], f.get("width", 820))
@@ -178,7 +182,7 @@ def define_env(env):
             return [(n, *caps.get(n, (n, 820)))
                     for n in m.get("figures", {}).get(kind, [])]
         return [(f["name"], *caps[f["name"]]) for f in entries
-                if f["section"] == kind and f.get("default")]
+                if f["section"] == kind and f.get("legacy")]
 
     # ---- loading -------------------------------------------------------------
 

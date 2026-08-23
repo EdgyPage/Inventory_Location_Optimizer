@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.tables.stats_csv · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_tables_stats_csv_py" data-id="Optimization/Performance_Evaluations/tables/stats_csv.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/tables/stats_csv.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.tables.stats_csv</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_tables_stats_csv_py.html"><code>Optimization/Performance_Evaluations/tables/stats_csv.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.tables.stats_csv</code></pre>
+<section class="doc">tables.stats / tables.by_initial — the per-config significance DATA products.
+
+The retired stats suite computed the paired tests once and wrote CSVs, JSON and four PNGs
+per metric into per-assignment subdirectories.  Post-redesign the split is clean: the
+NUMBERS live here (flat, in the declared tables dir), the FIGURES live in the
+significance family — and both are built from the same shared computation in this module
+(`compute_config_stats` / `compute_by_initial`), so the panels can never disagree with
+the tables they sit beside.
+
+  * `tables.stats`      — per-strategy descriptives (the exact retired columns,
+                          including sem and the 95% CI bounds) plus the omnibus+pairwise
+                          test document over all strategies.
+  * `tables.by_initial` — the uni-vs-opt contrast per assignment function: the combined
+                          summary CSV (exact retired columns) plus ONE consolidated test
+                          document keyed by assignment function, replacing the retired
+                          17 per-function copies.
+
+ss_lo=0 throughout: every batch is a fair paired observation, so the tests use the full
+n (~100), not just the steady-state tail window (the retired suite&#x27;s deliberate choice).</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_significance_suite_py.html"><code>Optimization.Performance_Evaluations.significance.suite</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__by_initial_tests_doc.html"><code>by_initial_tests_doc</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__compute_by_initial.html"><code>compute_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__compute_config_stats.html"><code>compute_config_stats</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__render_by_initial.html"><code>render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__render_stats.html"><code>render_stats</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_tables_stats_csv_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/tables/stats_csv.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

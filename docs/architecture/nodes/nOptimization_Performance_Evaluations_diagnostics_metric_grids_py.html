@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.diagnostics.metric_grids · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py" data-id="Optimization/Performance_Evaluations/diagnostics/metric_grids.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/diagnostics/metric_grids.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.diagnostics.metric_grids</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_diagnostics_metric_grids_py.html"><code>Optimization/Performance_Evaluations/diagnostics/metric_grids.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.diagnostics.metric_grids</code></pre>
+<section class="doc">diagnostics.metric_grids — small-multiple grids, one panel per arm.
+
+Four grids (batch duration over time, layout efficiency, task-duration distribution,
+task duration over time), ported from the retired per-strategy grids MINUS the churn
+grid, which moved to the layout family as a single overlay.  What changed beyond the
+move: every grid now FORCES one shared y scale across its panels — the retired grids
+let every facet autoscale, the cardinal small-multiples sin, so two arms whose panels
+looked identical could differ by half their range.  Each duration grid picks ONE time
+unit from its own pooled values (`chartkit.time_units`) and names it in the axis label —
+a batch is hours-ish while a task is seconds, so no single fixed unit serves both — only
+edge panels carry axis labels, the histogram grid additionally bins every arm on one
+common edge set IN THAT UNIT, and any line-role encoding (median / mean / IQR) gets one
+shared legend below the panels instead of thirty in-panel copies.
+
+Raw operational read-outs for inspection, not comparison — the diagnostics exemption
+in the family grammar.</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py___eff_series.html"><code>_eff_series</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/metric_grids.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py___finish_panels.html"><code>_finish_panels</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/metric_grids.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py___grid_chart.html"><code>_grid_chart</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/metric_grids.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py___pool.html"><code>_pool</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/metric_grids.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_metric_grids_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/metric_grids.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_diagnostics_metric_grids_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/diagnostics/metric_grids.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

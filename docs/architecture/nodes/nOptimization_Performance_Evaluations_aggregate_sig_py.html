@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.aggregate.sig · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_aggregate_sig_py" data-id="Optimization/Performance_Evaluations/aggregate/sig.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/aggregate/sig.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.aggregate.sig</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_aggregate_sig_py.html"><code>Optimization/Performance_Evaluations/aggregate/sig.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.aggregate.sig</code></pre>
+<section class="doc">agg.sig — the cross-profile significance FIGURES (the aggregate mirror of the
+per-config significance suite, over the steady-state scalar metrics).
+
+Reuses the shared significance painters and the shared aggregate computation from the
+aggregate tables module, so the panels show exactly the numbers the tables carry.  The
+`by_initial` fork (default True) renders the headline assignments × metrics improvement
+heatmap plus one forest plot per assignment function; the all-strategies fork renders
+one merged distribution+effect panel per steady-state metric.  Distribution axes are in
+presentation units — items-per-hour for rates, and for a DURATION the time unit resolved
+at render time from that metric&#x27;s own pooled values, because a fixed hours axis reads
+0.0008 whenever the metric&#x27;s magnitude is seconds; effects and % improvements are
+unitless.</section>
+<section class="rel"><h2>Imports <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_tables_py.html"><code>Optimization.Performance_Evaluations.aggregate.tables</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/tables.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization.Performance_Evaluations.significance.panels</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___PER_HOUR.html"><code>_PER_HOUR</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___PRESENT_cf023a4c.html"><code>_PRESENT</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___TIME.html"><code>_TIME</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___present_b3385ef3.html"><code>_present</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___render_all.html"><code>_render_all</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___render_by_initial.html"><code>_render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_aggregate_sig_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/aggregate/sig.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

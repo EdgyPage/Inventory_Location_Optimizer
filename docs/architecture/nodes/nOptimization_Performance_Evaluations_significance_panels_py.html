@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.significance.panels · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_significance_panels_py" data-id="Optimization/Performance_Evaluations/significance/panels.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/significance/panels.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.significance.panels</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.significance.panels</code></pre>
+<section class="doc">Shared significance painters (not evaluations) — the three figure shapes every
+significance eval renders through:
+
+  * `merged_effect_panel` — ONE figure per metric replacing the retired four-file set
+    (distribution boxes, p heatmap, effect heatmap, rank bars).  Left: the per-strategy
+    distribution on a data-hugging axis in presentation units.  Right: the pairwise
+    rank-biserial ladder, dot-with-CI, each row annotated via chartkit.effect_label with
+    the Holm-corrected p baked into the stars — the label carries the significance, so
+    the separate p-matrix and rank-bar figures are gone on purpose.
+  * `effect_heatmap` — assignments × metrics, fill = % improvement (diverging colormap
+    centred at 0, positive = better per chartkit.improvement_pct), non-significant
+    cells greyed/hatched.
+  * `forest_panel` — metrics as rows, % improvement with 95% CI whiskers.
+
+Everything draws through chartkit (reserved geometry, no legend in the data region) and
+saves with view=&#x27;effect&#x27;; jitter is deterministic (np.random.default_rng(0)).</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py.html"><code>Optimization.Performance_Evaluations.aggregate.sig</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py.html"><code>Optimization.Performance_Evaluations.significance.suite</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_significance_panels_py___rb_ci.html"><code>_rb_ci</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_panels_py__effect_heatmap.html"><code>effect_heatmap</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_panels_py__forest_panel.html"><code>forest_panel</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_panels_py__merged_effect_panel.html"><code>merged_effect_panel</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_significance_panels_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/significance/panels.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>forest_panel · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_significance_panels_py__forest_panel" data-id="Optimization/Performance_Evaluations/significance/panels.py::forest_panel">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a> <span class="sep">›</span> <span class="here"><code>forest_panel</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>forest_panel</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a></p>
+
+<pre class="sig"><code>def forest_panel(metric_rows, out_path, *, title, xlabel=&#x27;% improvement (opt vs uni)&#x27;)</code></pre>
+<section class="doc">Forest plot: one row per metric — % improvement dot, 95% CI whiskers, and an
+effect_label annotation (oriented rank-biserial + significance stars).
+
+`metric_rows` is a list of dicts with keys name / pct / lo / hi / p / effect
+(pct, lo, hi already improvement-oriented: positive = better).  Returns the saved
+path, or None when no row is drawable.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__effect_label.html"><code>effect_label</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__height_for_categories.html"><code>height_for_categories</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__make.html"><code>make</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__pct_axis.html"><code>pct_axis</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___render_by_initial.html"><code>_render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_by_initial.html"><code>render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_significance_panels_py__forest_panel">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/significance/panels.py#:~:text=def%20forest_panel">Source ↗</a></p>
+</article>
+</main>
+</body></html>

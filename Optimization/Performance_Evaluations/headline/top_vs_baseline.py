@@ -235,11 +235,12 @@ def _table_figure(ctx, selected, S, baseline, out):
     ax = ch.ax
     ax.axis('off')
     ax.grid(False)
-    tbl = ax.table(cellText=cell_text, colLabels=col_labels,
-                   loc='center', cellLoc='center')
+    # bbox, not loc='center': a centred table keeps its natural height and leaves the rest
+    # of the panel as blank canvas — on a six-row podium that was half the figure.
+    tbl = ax.table(cellText=cell_text, colLabels=col_labels, cellLoc='center',
+                   bbox=[0.0, 0.0, 1.0, 1.0])
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(8)
-    tbl.scale(1, 1.6)
     cells = tbl.get_celld()
     for c in range(len(col_labels)):
         hc = cells[(0, c)]

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scripts.prune_stale_analysis · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nscripts_prune_stale_analysis_py" data-id="scripts/prune_stale_analysis.py">
+<nav class="crumbs"><a href="../layers.html">scripts</a> <span class="sep">›</span> <span class="here"><code>scripts/prune_stale_analysis.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>scripts.prune_stale_analysis</code></h1>
+<p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_prune_stale_analysis_py.html"><code>scripts/prune_stale_analysis.py</code></a></p>
+
+<pre class="sig"><code>scripts.prune_stale_analysis</code></pre>
+<section class="doc">prune_stale_analysis.py — delete analysis output the CURRENT contract cannot have written.
+
+Re-analysing an existing run with newer code writes the new layout beside the old one: nothing
+in the pipeline removes a folder the current evaluations no longer produce, because the parent
+pre-pass only wipes the tops it is told about.  A tree re-analysed across a layout change
+therefore carries both — the live outputs and an orphaned copy of the previous suite, which
+costs disk, confuses a reader browsing the tree, and shows up as a wall of `undeclared`
+findings the next time anyone validates the run.
+
+The rule this applies, in two steps so a tree LEVEL is never mistaken for an orphan:
+
+  PROTECT   every directory whose name a HEAD template spells literally (figures, tables, and
+            each family folder), plus all of its ancestors — an ancestor leads to live output
+            even though its own name is run-chosen and unknowable from the contract.
+  PRUNE     a directory that is not protected, whose parent is, AND which has at least one
+            protected SIBLING — so an orphan is removed only where its replacement is
+            demonstrably sitting beside it.
+
+That sibling clause is the load-bearing one.  Without it, a stage that has not run yet (an
+interrupted analysis, or a cell caught between the config and aggregate stages) presents its
+previous output with no replacement in sight, and the tool would happily delete the only copy.
+
+HEAD, deliberately, not the run&#x27;s own stamped contract — the question here is &quot;could the
+analysis code that just ran have written this?&quot;, and the run&#x27;s stamped contract predates that
+code (it is the contract the SIMULATION was written with, which is why validating a re-analysed
+tree against it reports the NEW files as undeclared).
+
+Files are never touched, only whole directories.  The tool refuses to act on a tree that holds
+no current-layout output at all, because there every directory would look stale — that state
+means &quot;the analysis has not been re-run yet&quot;, not &quot;delete everything&quot;.  Dry-run is the default;
+`--apply` is required to delete.
+
+    python scripts/prune_stale_analysis.py &lt;run_or_cell_dir&gt;            # report only
+    python scripts/prune_stale_analysis.py &lt;run_or_cell_dir&gt; --apply    # delete</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_contract_py.html"><code>Optimization.runschema.contract</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nscripts_prune_stale_analysis_py___HERE.html"><code>_HERE</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py___PLACEHOLDER.html"><code>_PLACEHOLDER</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py___SKIP.html"><code>_SKIP</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py___protected.html"><code>_protected</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py___size_mb.html"><code>_size_mb</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py__declared_dir_names.html"><code>declared_dir_names</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py__find_stale.html"><code>find_stale</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li><li><a href="nscripts_prune_stale_analysis_py__main.html"><code>main</code></a> <span class="dim">scripts/prune_stale_analysis.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_prune_stale_analysis_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/prune_stale_analysis.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

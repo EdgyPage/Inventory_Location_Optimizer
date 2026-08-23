@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.diagnostics.scorecards · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_diagnostics_scorecards_py" data-id="Optimization/Performance_Evaluations/diagnostics/scorecards.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/diagnostics/scorecards.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.diagnostics.scorecards</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_diagnostics_scorecards_py.html"><code>Optimization/Performance_Evaluations/diagnostics/scorecards.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.diagnostics.scorecards</code></pre>
+<section class="doc">diagnostics.scorecards — one three-panel read-out per arm.
+
+Batch duration (rolling mean) · layout efficiency (optimal ÷ realised total f·D when
+the optimal floor is known, raw f·D otherwise) · inventory churn (% of bins moved per
+batch).  Ported from the retired per-strategy scorecards; the shared panel helpers that
+module imported are inlined here (their home module is gone).  A raw operational
+read-out for inspecting one arm in isolation — the diagnostics exemption in the family
+grammar.
+
+The duration panel&#x27;s unit is chosen once, from every arm&#x27;s batch durations pooled
+together, so all the arms&#x27; scorecards in a leaf read in the SAME named unit and stay
+comparable at a glance — and so a run whose batches are seconds does not print 0.0008.</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_diagnostics_scorecards_py___churn_series.html"><code>_churn_series</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/scorecards.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_scorecards_py___eff_series.html"><code>_eff_series</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/scorecards.py</span></li><li><a href="nOptimization_Performance_Evaluations_diagnostics_scorecards_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/diagnostics/scorecards.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_diagnostics_scorecards_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/diagnostics/scorecards.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

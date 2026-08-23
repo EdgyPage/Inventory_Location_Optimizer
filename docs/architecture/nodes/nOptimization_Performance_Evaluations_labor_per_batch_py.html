@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.labor.per_batch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_labor_per_batch_py" data-id="Optimization/Performance_Evaluations/labor/per_batch.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/labor/per_batch.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.labor.per_batch</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_labor_per_batch_py.html"><code>Optimization/Performance_Evaluations/labor/per_batch.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.labor.per_batch</code></pre>
+<section class="doc">labor.per_batch — labor cost of the scheduled tasks, batch by batch, in two views.
+
+WHAT &quot;LABOR&quot; IS HERE.  The per-batch sum of task durations — the serial makespan a lone
+picker would incur, i.e. total work, independent of how many pickers ran in parallel.
+That is the quantity the assignment function actually moves; the scheduler does not
+change it.  Durations are sim milliseconds and render in hours via `chartkit.to_hours`,
+the same conversion the what-if layer uses, so figures reconcile across the suite.
+HOURS IS FIXED HERE, not chosen from the data like the duration axes elsewhere in the
+suite: &quot;labor hours per batch&quot; is the reader-facing quantity itself — the staffing
+number the what-if layer, the tables and the site all quote — so the axis names the unit
+the question is asked in, and a run whose batches happen to be small simply reads small.
+
+WHY IT IS PLOTTED AGAINST BATCH NUMBER.  Labor per batch is demand-driven: a batch with
+more items costs more, whatever the policy.  Plotting over batch order shows whether a
+policy&#x27;s advantage HOLDS as the warehouse fills and reorders churn, or decays.  The
+percent view removes the demand signal entirely by expressing each batch against FIFO on
+that same batch, so what remains is the policy effect alone.
+
+Both views draw the raw line faint UNDER the smoothed line, in the strategy&#x27;s own color
+(the retired chart drew raw lines in one unmapped tan, so they could not be attributed):
+hiding the raw spread would overstate how cleanly separated the arms are.  Legends carry
+strategy names only — the retired chart printed six near-identical stat rows there; the
+compact steady-state h/batch listing now lives in the absolute view&#x27;s subtitle instead.
+
+TWO THINGS NOT TO READ INTO IT.  (1) There is no warm-up transient: batch 0 measured 70%
+of median on a real run, well inside the family, so the opening batches are not excluded.
+(2) One batch in the store channel carries ~4 items; its FIFO ratio divides two tiny
+numbers, so the percent view is scaled by percentile to the real signal and the offending
+batches are marked with triangles at the axis bottom edge — identified, never removed.
+The batch sequence is shared across arms, so it biases no comparison.
+
+Params: top_n (int), top_by (&#x27;global&#x27; | &#x27;initial&#x27; | &#x27;assignment&#x27; | &#x27;reslot&#x27;),
+win (steady-state tail for the subtitle means).</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_series_py.html"><code>Optimization.Performance_Evaluations.common.series</code></a> <span class="dim">Optimization/Performance_Evaluations/common/series.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___absolute.html"><code>_absolute</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___percent.html"><code>_percent</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___smooth.html"><code>_smooth</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___sub_note.html"><code>_sub_note</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py__labor_by_batch.html"><code>labor_by_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_labor_per_batch_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/labor/per_batch.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

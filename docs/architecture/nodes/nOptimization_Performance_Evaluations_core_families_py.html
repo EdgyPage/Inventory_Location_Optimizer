@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.core.families · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_families_py" data-id="Optimization/Performance_Evaluations/core/families.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/core/families.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.core.families</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_families_py.html"><code>Optimization/Performance_Evaluations/core/families.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>Optimization.Performance_Evaluations.core.families</code></pre>
+<section class="doc">The chart-family grammar — which VIEWS each family of figures must and may carry.
+
+A family is one folder under a leaf&#x27;s figures/ tree (figures/&lt;family&gt;/) holding every
+figure that answers one class of question.  A VIEW is the measurement stance of a single
+figure, named by its filename prefix:
+
+    absolute_  raw quantities in honest units (hours, items, % of time)
+    percent_   improvement vs the baseline, positive = better (chartkit.improvement_pct)
+    delta_     paired per-batch / cumulative differences over time
+    effect_    effect sizes + significance (the discriminating stance at n=75, where
+               p-stars alone are all ***)
+    table_     a tabular summary rendered as a figure
+
+The grammar exists so &quot;absolute counts, percent views, deltas and significance baked in
+as appropriate&quot; is a CHECKED property, not an editorial habit: every evaluation declares
+its family and views, `chartkit.Chart.save(view=...)` validates each file it writes, and
+the writer-paths golden test asserts each family&#x27;s `required` views actually exist on the
+fixture render.  `diagnostics` is the deliberate exemption — raw operational read-outs
+(grids, scorecards) whose job is inspection, not comparison.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_families_py__VIEWS.html"><code>VIEWS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__check_view.html"><code>check_view</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__figures_subdir.html"><code>figures_subdir</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_families_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/families.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

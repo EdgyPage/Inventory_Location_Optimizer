@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.task_time.duration · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_task_time_duration_py" data-id="Optimization/Performance_Evaluations/task_time/duration.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/task_time/duration.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.task_time.duration</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_task_time_duration_py.html"><code>Optimization/Performance_Evaluations/task_time/duration.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.task_time.duration</code></pre>
+<section class="doc">task_time.duration — per-arm task-duration distributions, absolute and vs FIFO.
+
+Two figures in the task_time family:
+
+  * the absolute view — one box per arm of steady-state task durations, in the time
+    unit `chartkit.to_time` picks from every arm&#x27;s values pooled together (a per-task
+    duration is seconds, so a fixed hours axis read 0.0008 and nothing else),
+    arms sorted by median (best on the left), the y-range trimmed to the pooled
+    2–98 percentile band (stated in a corner note) so a handful of outlier tasks
+    cannot flatten the boxes.  The FIFO baseline&#x27;s box is edge-marked in the
+    baseline style and is the ONLY legend entry — the x labels already name every
+    arm, so a color legend would restate them.
+  * the delta view — per-arm % improvement vs FIFO as a dot with a 95% CI whisker:
+    per-batch MEAN task durations are paired against FIFO&#x27;s on the batches the two
+    runs share, each pair becomes a % improvement, and the t-interval of those
+    paired diffs is the whisker.  Sorted, with the zero line as the FIFO reference.
+
+Data logic ported from the retired steady-state task-duration box chart (the `win`
+steady-state tail and the per-arm duration pulls).  Baseline = strategies[0].
+Params: win (steady-state tail width in batches).</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_task_time_duration_py___absolute_figure.html"><code>_absolute_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/task_time/duration.py</span></li><li><a href="nOptimization_Performance_Evaluations_task_time_duration_py___delta_figure.html"><code>_delta_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/task_time/duration.py</span></li><li><a href="nOptimization_Performance_Evaluations_task_time_duration_py___room_below.html"><code>_room_below</code></a> <span class="dim">Optimization/Performance_Evaluations/task_time/duration.py</span></li><li><a href="nOptimization_Performance_Evaluations_task_time_duration_py___ss_durations.html"><code>_ss_durations</code></a> <span class="dim">Optimization/Performance_Evaluations/task_time/duration.py</span></li><li><a href="nOptimization_Performance_Evaluations_task_time_duration_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/task_time/duration.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_task_time_duration_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/task_time/duration.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

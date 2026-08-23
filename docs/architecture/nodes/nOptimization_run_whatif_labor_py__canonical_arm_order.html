@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>canonical_arm_order · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_whatif_labor_py__canonical_arm_order" data-id="Optimization/run_whatif_labor.py::canonical_arm_order">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a> <span class="sep">›</span> <span class="here"><code>canonical_arm_order</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>canonical_arm_order</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a></p>
+
+<pre class="sig"><code>def canonical_arm_order(rows, reference, baseline=&#x27;fifo&#x27;)</code></pre>
+<section class="doc">THE one arm ordering every what-if figure shares (this writer and the volume writer
+alike): assignment functions sorted by mean labor hours saved vs `baseline` in the
+`reference` cell, largest saving first; arms with no reference sample sort last,
+alphabetically.  Computed once per run and passed to every chart, so a reader can track
+a strategy across figures by position alone.
+
+Works off the long-row fields both writers emit (cell / pair / pickcfg / channel /
+initial / assignment / labor_hours); the saving is matched-initial (uni vs uni,
+opt vs opt), isolating the assignment function.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li><li><a href="nOptimization_run_whatif_volume_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_labor_py__canonical_arm_order">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_labor.py#:~:text=def%20canonical_arm_order">Source ↗</a></p>
+</article>
+</main>
+</body></html>

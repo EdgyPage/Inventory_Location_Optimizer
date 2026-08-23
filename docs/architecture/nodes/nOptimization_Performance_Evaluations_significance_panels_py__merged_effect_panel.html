@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>merged_effect_panel · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_significance_panels_py__merged_effect_panel" data-id="Optimization/Performance_Evaluations/significance/panels.py::merged_effect_panel">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a> <span class="sep">›</span> <span class="here"><code>merged_effect_panel</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>merged_effect_panel</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a></p>
+
+<pre class="sig"><code>def merged_effect_panel(keys, colors, box_values, tests, out_path, *, title, lower_is_better, conv=None, unit_label=&#x27;&#x27;, max_ladder=28)</code></pre>
+<section class="doc">One metric, one figure: distribution (left) + pairwise effect ladder (right).
+
+`box_values` are RAW per-block samples per key; `conv` maps them into presentation
+units for the left panel only (effects are unitless).  `tests` is a
+stats_core._run_tests document over the same keys.  With more pairs than
+`max_ladder` (a 17-arm family gives 136), the ladder keeps only baseline-vs-each —
+every pairwise number still lives in the tests JSON beside this figure.
+Returns the saved path, or None when there is nothing to draw.</section>
+<section class="rel"><h2>Callees <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__data_ylim.html"><code>data_ylim</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__effect_label.html"><code>effect_label</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__height_for_categories.html"><code>height_for_categories</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__make.html"><code>make</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__width_for_categories.html"><code>width_for_categories</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py___short.html"><code>_short</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_panels_py___rb_ci.html"><code>_rb_ci</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___render_all.html"><code>_render_all</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_suite.html"><code>render_suite</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_significance_panels_py__merged_effect_panel">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/significance/panels.py#:~:text=def%20merged_effect_panel">Source ↗</a></p>
+</article>
+</main>
+</body></html>

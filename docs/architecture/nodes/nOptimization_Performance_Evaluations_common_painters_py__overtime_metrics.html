@@ -14,9 +14,20 @@
 <h1><span class="kind kind-function">function</span> <code>overtime_metrics</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a></p>
 
-<pre class="sig"><code>def overtime_metrics(agg=False)</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_cross_profile_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/cross_profile.py</span></li></ul></section>
+<pre class="sig"><code>def overtime_metrics()</code></pre>
+<section class="doc">The five over-time metric specs — stem (`f`), short title (`t`), units, and
+direction.  `lower_is_better` orients the percent view.
+
+A spec is either a TIME metric or a fixed-unit one:
+
+  time=True  the quantity is a sim-millisecond duration whose readable unit depends
+             on the data (a picker task is seconds, a batch of labor is hours), so
+             `yl` is a UNITLESS label stem and there is no `conv` — `paint_overtime`
+             pools every series that will share the axis, resolves the unit once,
+             and composes the axis label from what came back.
+  otherwise  `conv` maps raw series values into fixed presentation units and `yl`
+             is the complete axis label.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_traj_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/traj.py</span></li><li><a href="nOptimization_Performance_Evaluations_trajectories_overtime_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/trajectories/overtime.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_painters_py__overtime_metrics">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/painters.py#:~:text=def%20overtime_metrics">Source ↗</a></p>
 </article>
 </main>

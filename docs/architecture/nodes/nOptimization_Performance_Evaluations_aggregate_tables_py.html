@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.aggregate.tables · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_aggregate_tables_py" data-id="Optimization/Performance_Evaluations/aggregate/tables.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/aggregate/tables.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.aggregate.tables</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_aggregate_tables_py.html"><code>Optimization/Performance_Evaluations/aggregate/tables.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.aggregate.tables</code></pre>
+<section class="doc">agg.tables — the cross-profile significance DATA products (strategies paired by
+profile over the steady-state scalars).
+
+The aggregate mirror of the per-config tables evaluations: the numbers land flat in the
+declared tables dir under the aggregate root, the figures live in the aggregate
+significance eval, and BOTH are built from the shared computation in this module
+(`compute_aggregate_stats` / `compute_aggregate_by_initial`) so they cannot disagree.
+The retired per-assignment-function directory tree is gone — the by-initial fork writes
+one combined CSV (exact retired columns) plus ONE consolidated test document keyed by
+assignment function.
+
+Values are the RAW per-profile steady-state scalars from each profile&#x27;s series
+document — not the ×-baseline-normalized curves the trajectory painter draws — so the
+descriptives keep honest units, exactly as the retired suite computed them.  The
+`by_initial` param picks the fork (default True, matching the by-initial preset).</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py.html"><code>Optimization.Performance_Evaluations.aggregate.sig</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_tables_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/tables.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_tables_py__compute_aggregate_by_initial.html"><code>compute_aggregate_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/tables.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_tables_py__compute_aggregate_stats.html"><code>compute_aggregate_stats</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/tables.py</span></li><li><a href="nOptimization_Performance_Evaluations_aggregate_tables_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/tables.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_aggregate_tables_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/aggregate/tables.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

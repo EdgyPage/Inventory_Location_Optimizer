@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.headline.top_vs_baseline · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py" data-id="Optimization/Performance_Evaluations/headline/top_vs_baseline.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/headline/top_vs_baseline.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.headline.top_vs_baseline</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_headline_top_vs_baseline_py.html"><code>Optimization/Performance_Evaluations/headline/top_vs_baseline.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.headline.top_vs_baseline</code></pre>
+<section class="doc">headline.top_vs_baseline — how the best arms compare to the FIFO baseline.
+
+Two figures in the headline family:
+
+  * the percent view — grouped bars of % improvement of each top arm vs the FIFO
+    baseline across the headline metric groups (positive = better, one-decimal data
+    labels).  Metric groups whose swings are an order of magnitude larger than the
+    rest (layout f·D, typically) move to a SECOND panel that says out loud its scale
+    is independent, so they stop crushing the 2–3% labor effects — the flaw of the
+    retired single-axis chart.  Each metric group is annotated with the best arm&#x27;s
+    paired effect vs FIFO: matched-pairs rank-biserial r plus a Holm-corrected
+    Wilcoxon p.
+  * the table view — one row per top arm: labor and throughput % vs FIFO, paired
+    Hedges g, the 95% t-interval of the paired per-batch % (labor), and the Wilcoxon
+    p LAST — demoted, because with n≈75 paired batches essentially every p is
+    three-star; the subtitle says exactly that and the effect columns carry the
+    discrimination.
+
+Both figures pair each arm against FIFO over the batches the two runs share
+(`_paired`, ported verbatim from the retired compare module), so labor and
+throughput answer one question with one method.  Baseline = strategies[0] (the
+FIFO/uniform-random arm).  Params: top_n, top_by.</section>
+<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_series_py.html"><code>Optimization.Performance_Evaluations.common.series</code></a> <span class="dim">Optimization/Performance_Evaluations/common/series.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___METRIC_GROUPS.html"><code>_METRIC_GROUPS</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___UNSHARED_RATIO.html"><code>_UNSHARED_RATIO</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___impr.html"><code>_impr</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___pair_diffs.html"><code>_pair_diffs</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___paired.html"><code>_paired</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___percent_figure.html"><code>_percent_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___table_figure.html"><code>_table_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_headline_top_vs_baseline_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/headline/top_vs_baseline.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
