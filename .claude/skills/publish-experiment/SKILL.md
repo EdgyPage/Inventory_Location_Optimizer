@@ -100,12 +100,18 @@ Per iteration:
    conflict with managerial clarity. When a gap needs a stat or figure that does not exist,
    CREATE it from the run's data stores via the declared pipeline — and ONLY that way:
    **no ad-hoc graphs, ever.** A new figure is a registered evaluation (figures.yml entry +
-   `@evaluation` in Optimization/Performance_Evaluations/) or a declared whatif artifact
-   (runschema writer); a new data file is a site_tree template + resolver-accessor ingest
-   stage. Then RE-RUN THE PRODUCER on the run root and re-ingest, so every FUTURE run
-   generates the resource automatically and the documentation step is pure re-run + re-stage.
-   `context/guards/experiment_guard.py --scan` enforces this mechanically: a PNG with no
-   declared producer in a current experiment is a finding.
+   `@evaluation` in Optimization/Performance_Evaluations/, declaring its chart `family=`
+   and `views=` per core/families.py — outputs land in the leaf's `figures/<family>/`
+   folder with a view-prefixed basename, drawn through common/chartkit.py) or a declared
+   whatif artifact (runschema writer); a new data file is a site_tree template +
+   resolver-accessor ingest stage. Then RE-RUN THE PRODUCER on the run root and re-ingest,
+   so every FUTURE run generates the resource automatically and the documentation step is
+   pure re-run + re-stage. `context/guards/experiment_guard.py --scan` enforces this
+   mechanically: a PNG with no declared producer in a current experiment is a finding.
+   Before the stakeholder rounds, run one `analysis-sme` round (the analytical SME agent)
+   against a rendered leaf whenever the figure set changed — it audits legibility, missing
+   views, and unanswered analytical questions at the chart level, which the persona
+   readers are not equipped to catch.
 4. Show the user each round's verdicts and the fix mapping. Rebuild, next round.
 5. Converge when the managerial pair reports NO BLOCKING GAPS in the same round; cap at 4
    rounds and surface residuals to the user instead of iterating past the cap.
