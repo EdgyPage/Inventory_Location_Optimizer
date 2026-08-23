@@ -94,16 +94,25 @@ import site_tree                          # noqa: E402
 # run output) because which plots are "curated" is a docs decision. Override per
 # experiment via experiment.yml `figures:` / `inventory_plots:`.
 #
-# The default lists are DERIVED from the figure registry (figures.yml, beside this
-# script): section membership + default: true, in registry order.  They were literals
-# here once, and the same names lived independently in macros'
-# caption tables and every experiment.yml — the param_frequency -> param_relative_frequency
-# rename silently staged nothing for months because only the MISSING log ever noticed the
-# drift.  Tests/architecture/test_figure_registry.py pins the derived defaults to those
-# historical literals byte-for-byte and ties every registry name back to its writer.
+# Both lists below are DERIVED from the figure registry (figures.yml, beside this script),
+# in registry order.  They were literals here once, and the same names lived independently
+# in macros' caption tables and every experiment.yml — the param_frequency ->
+# param_relative_frequency rename silently staged nothing for months because only the
+# MISSING log ever noticed the drift.  Tests/architecture/test_figure_registry.py pins the
+# derived lists and ties every registry name back to its writer.
+#
+# They are two lists because the flag serves two masters that parted ways when the chart
+# families replaced the old suite:
+#   default:  what a NEW experiment's scaffolded manifest starts from — the current figures.
+#   legacy:   what a no-manifest experiment renders.  Experiment 1 is the only one, its
+#             sweep predates every figure since, and its set is frozen.
+# Conflating them would hand each new experiment a manifest full of retired names whose
+# only symptom is a MISSING line in the ingest log — the exact failure this registry exists
+# to end.
 
-def _registry_defaults():
-    """(top3, full_suite, inventory_plots) from figures.yml, or None if pyyaml is absent."""
+def _registry_lists(flag: str):
+    """(top3, full_suite, inventory_plots) for entries carrying `flag`, or None without
+    pyyaml."""
     if yaml is None:
         return None
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
@@ -111,13 +120,15 @@ def _registry_defaults():
         figs = (yaml.safe_load(fh) or {}).get('figures', [])
     by = {'top3': [], 'full_suite': [], 'inventory': []}
     for f in figs:
-        if f.get('default'):
+        if f.get(flag):
             by[f['section']].append(f['name'])
     return by['top3'], by['full_suite'], by['inventory']
 
 
-_DEFAULTS = _registry_defaults()
+_DEFAULTS = _registry_lists('default')
 DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
+_LEGACY = _registry_lists('legacy')
+LEGACY_TOP3, LEGACY_FULL_SUITE, LEGACY_INVENTORY_PLOTS = _LEGACY or (None, None, None)
 # Cross-cell what-if artifacts at the RUN ROOT.  The resolver route stages EVERY .json in
 # the contract's `whatif` group (so the volume/labor numbers the pages quote always have a
 # committed source, and a new group member auto-stages with no edit here — the ratchet in
@@ -240,8 +251,10 @@ def main(argv=None):
             sys.exit(f"--cell {sorted(missing)} not in this run: {[c for c, _d in cells]}")
         cells = [(c, d) for c, d in cells if c in wanted]
 
-    # figure schema: experiment.yml override, else defaults
-    top3, full_suite, inv_plots = DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS
+    # Figure schema: the manifest names them when there is one.  Without a manifest this is
+    # a legacy experiment, and it renders the frozen legacy set — NOT the starter defaults,
+    # which are the current figures its sweep never produced.
+    top3, full_suite, inv_plots = LEGACY_TOP3, LEGACY_FULL_SUITE, LEGACY_INVENTORY_PLOTS
     yml = os.path.join(exp_dir, "experiment.yml")
     ymldoc = {}
     if yaml and os.path.isfile(yml):
@@ -303,8 +316,11 @@ def main(argv=None):
     n += _stage_rollups(exp_dir, args.dry_run, log, rt=rt, cells=[c for c, _d in cells])
 
     if args.gen_manifest and last_rm is not None:
-        _write_starter_manifest(exp_dir, last_rm, args.catalogue, top3, full_suite,
-                                inv_plots, args.dry_run, log,
+        # A STARTER manifest names the current figures, never whatever this run happened to
+        # render with (`top3` above is the legacy set when no manifest existed yet).
+        _write_starter_manifest(exp_dir, last_rm, args.catalogue,
+                                DEFAULT_TOP3, DEFAULT_FULL_SUITE,
+                                DEFAULT_INVENTORY_PLOTS, args.dry_run, log,
                                 cells=[c for c, _d in cells], schema_id=schema_id,
                                 commit=commit, dirty=dirty)
 

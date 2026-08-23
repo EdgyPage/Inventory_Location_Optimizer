@@ -43,7 +43,11 @@ _ALLOWED_DIRS = ('Optimization/runschema',)
 #: broker names resources in its denial reasons, and site_tree IS the docs-tree declaration.
 _ALLOWED_FILES = ('Optimization/Performance_Evaluations/core/artifact_map.py',
                   'Optimization/Performance_Evaluations/core/requests.py',
-                  'docs/experiments/site_tree.py')
+                  'docs/experiments/site_tree.py',
+                  # the stale-output pruner's subject IS the contract's directory
+                  # vocabulary: it derives every declared name from the contract and
+                  # names only the reserved subtrees it must refuse to walk into.
+                  'scripts/prune_stale_analysis.py')
 _SKIP_DIRS = {'.git', '__pycache__', 'node_modules', 'site', '_build'}
 
 _PLACEHOLDER = re.compile(r'\{\w+\??\}')

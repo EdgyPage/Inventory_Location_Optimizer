@@ -5,10 +5,12 @@ task duration over time), ported from the retired per-strategy grids MINUS the c
 grid, which moved to the layout family as a single overlay.  What changed beyond the
 move: every grid now FORCES one shared y scale across its panels — the retired grids
 let every facet autoscale, the cardinal small-multiples sin, so two arms whose panels
-looked identical could differ by half their range.  Durations render in hours, only
+looked identical could differ by half their range.  Each duration grid picks ONE time
+unit from its own pooled values (`chartkit.time_units`) and names it in the axis label —
+a batch is hours-ish while a task is seconds, so no single fixed unit serves both — only
 edge panels carry axis labels, the histogram grid additionally bins every arm on one
-common edge set, and any line-role encoding (median / mean / IQR) gets one shared
-legend below the panels instead of thirty in-panel copies.
+common edge set IN THAT UNIT, and any line-role encoding (median / mean / IQR) gets one
+shared legend below the panels instead of thirty in-panel copies.
 
 Raw operational read-outs for inspection, not comparison — the diagnostics exemption
 in the family grammar.
@@ -27,6 +29,13 @@ from Optimization.Performance_Evaluations.common.style import _stitle, _WIN
 
 
 # ── series builders (the retired shared panel helpers, inlined) ─────────────────
+
+def _pool(arrays):
+    """One flat array of every value that will share a grid's axis — the input to the
+    grid's single `chartkit.time_units` call.  Empty in, harmless zero out."""
+    parts = [np.asarray(a, dtype=float).ravel() for a in arrays if len(np.ravel(a))]
+    return np.concatenate(parts) if parts else np.array([0.0])
+
 
 def _eff_series(df, optimal):
     if df.empty:
@@ -76,19 +85,24 @@ def render(ctx, params):
     out = io.out_dir(ctx)
     optimal = ctx.optimal
 
-    # ── grid 1: batch duration over time (hours) ────────────────────────────────
+    # ── grid 1: batch duration over time ────────────────────────────────────────
     ch, ncols = _grid_chart(n)
+    # the panels share one y scale, so they must also share one unit: pool every arm's
+    # rolled durations into a single unit decision before any panel is drawn
+    rolled = {s['key']: np.asarray(_roll(ctx.batch_df(s['key']), 'duration', _WIN),
+                                   dtype=float)
+              for s in strategies}
+    div, unit = chartkit.time_units(_pool(rolled.values()))
     vals = []
     for ax, s in zip(ch.axes, strategies):
-        df = ctx.batch_df(s['key'])
-        d = df.sort_values('batch_id')
-        y = chartkit.to_hours(_roll(df, 'duration', _WIN))
+        d = ctx.batch_df(s['key']).sort_values('batch_id')
+        y = rolled[s['key']] / div
         ax.plot(d['batch_id'].values, y, color=chartkit.strategy_color(s, strategies),
                 lw=1.2)
         vals.append(y)
     chartkit.shared_ylim(ch.axes, vals)
     _finish_panels(ch, ncols, n, strategies, 'batch',
-                   f'batch duration ({chartkit.HOURS})')
+                   f'batch duration ({unit})')
     ch.legend()
     ch.title('Batch duration per arm — rolling mean, shared y')
     ch.save(os.path.join(out, 'absolute_grid_batch_duration.png'), view='absolute')
@@ -112,16 +126,20 @@ def render(ctx, params):
              else 'Total f·D per arm — shared y')
     ch.save(os.path.join(out, 'absolute_grid_sigma_fd.png'), view='absolute')
 
-    # ── grid 3: task-duration distribution (hours, common bins) ────────────────
+    # ── grid 3: task-duration distribution (one unit, common bins) ─────────────
     ch, ncols = _grid_chart(n, legend_labels=('mean', 'median'))
-    hours_by_key = {s['key']: chartkit.to_hours(ctx.task_df(s['key'])['duration'].values)
-                    for s in strategies}
-    pooled = np.concatenate([h for h in hours_by_key.values() if len(h)] or
-                            [np.array([0.0])])
+    raw_by_key = {s['key']: np.asarray(ctx.task_df(s['key'])['duration'].values,
+                                       dtype=float)
+                  for s in strategies}
+    # the unit is decided from every arm's tasks at once, and the COMMON BIN EDGES are
+    # then computed in that unit — bins and axis label can never disagree
+    div, unit = chartkit.time_units(_pool(raw_by_key.values()))
+    dur_by_key = {k: v / div for k, v in raw_by_key.items()}
+    pooled = _pool(dur_by_key.values())
     edges = np.histogram_bin_edges(pooled[np.isfinite(pooled)], bins=30)
     counts = []
     for ax, s in zip(ch.axes, strategies):
-        h = hours_by_key[s['key']]
+        h = dur_by_key[s['key']]
         if not len(h):
             continue
         cnt, _e, _p = ax.hist(h, bins=edges,
@@ -132,25 +150,27 @@ def render(ctx, params):
         counts.append(cnt)
     chartkit.shared_ylim(ch.axes, counts, include=(0.0,))
     _finish_panels(ch, ncols, n, strategies,
-                   f'task duration ({chartkit.HOURS})', 'count')
+                   f'task duration ({unit})', 'count')
     ch.legend(handles=[Line2D([], [], color='red', lw=1.2, ls='--', label='mean'),
                        Line2D([], [], color='black', lw=1.0, ls=':', label='median')])
     ch.title('Task duration distribution — shared bins & y')
     ch.save(os.path.join(out, 'absolute_grid_task_duration.png'), view='absolute')
 
-    # ── grid 4: task duration over time (median, mean, IQR — hours) ────────────
+    # ── grid 4: task duration over time (median, mean, IQR) ────────────────────
     S = ctx.series()
     ch, ncols = _grid_chart(n, legend_labels=('median', 'mean', 'IQR'))
+    _FIELDS = ('task_p25', 'task_p75', 'task_median', 'task_mean')
+    # median, mean and both band edges of every arm share the one y scale, so all four
+    # series of every panel go into the single unit decision
+    div, unit = chartkit.time_units(_pool(
+        [S[s['key']][f] for s in strategies if S.get(s['key']) for f in _FIELDS]))
     vals = []
     for ax, s in zip(ch.axes, strategies):
         d = S.get(s['key'])
         if d is None:
             continue
         x = d['task_batch']
-        p25 = chartkit.to_hours(d['task_p25'])
-        p75 = chartkit.to_hours(d['task_p75'])
-        med = chartkit.to_hours(d['task_median'])
-        mean = chartkit.to_hours(d['task_mean'])
+        p25, p75, med, mean = (np.asarray(d[f], dtype=float) / div for f in _FIELDS)
         chartkit.draw_ci(ax, x, p25, p75, band=True,
                          color=chartkit.strategy_color(s, strategies))
         ax.plot(x, med, color=chartkit.strategy_color(s, strategies), lw=1.3)
@@ -158,7 +178,7 @@ def render(ctx, params):
         vals.extend([p25, p75, med, mean])
     chartkit.shared_ylim(ch.axes, [v[np.isfinite(v)] for v in vals if len(v)])
     _finish_panels(ch, ncols, n, strategies, 'batch',
-                   f'task duration ({chartkit.HOURS})')
+                   f'task duration ({unit})')
     ch.legend(handles=[Line2D([], [], color='#555555', lw=1.3, label='median'),
                        Line2D([], [], color='black', lw=1.0, ls='--', label='mean'),
                        Patch(color='#555555', alpha=0.25, label='IQR')])

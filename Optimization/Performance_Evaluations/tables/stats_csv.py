@@ -42,8 +42,13 @@ def compute_config_stats(strategies, df_b, df_t, ss_lo, travel_handling=None):
     Returns (summary_rows, per_metric):
       summary_rows  list of {'strategy', 'metric', **descriptives} — the CSV body,
                     including the travel/handling decomposition rows when provided;
-      per_metric    {metric_name: {'box_values', 'tests', 'lower'}} — everything the
-                    merged effect panels need, in _METRICS order.
+      per_metric    {metric_name: {'box_values', 'paired', 'tests', 'lower'}} —
+                    everything the merged effect panels need, in _METRICS order.
+                    `box_values` are each key's own observations (what the boxes show);
+                    `paired` is the aligned block × key matrix (what every paired
+                    statistic and its resampled interval must be computed over).  They
+                    are different objects on purpose: a key with a missing block belongs
+                    in its own box but not in a pair.
     """
     keys = [s['key'] for s in strategies]
     summary_rows, per_metric = [], {}
@@ -54,7 +59,7 @@ def compute_config_stats(strategies, df_b, df_t, ss_lo, travel_handling=None):
         for k, vals in zip(keys, box_values):
             summary_rows.append({'strategy': k, 'metric': name, **_descriptives(vals)})
         M = _aligned(series_by_key, keys)
-        per_metric[name] = dict(box_values=box_values,
+        per_metric[name] = dict(box_values=box_values, paired=M,
                                 tests=_run_tests(M, keys, lower), lower=lower)
 
     # travel vs handling decomposition (parallelism-independent; from picker_events)

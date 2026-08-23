@@ -127,6 +127,59 @@ def _hedges_g_paired(a: np.ndarray, b: np.ndarray) -> float:
     return float(g * (1 - 3 / (4 * n - 1)))   # bias correction
 
 
+# ── resampled intervals ──────────────────────────────────────────────────────────
+#
+# A published point estimate and the interval printed beside it MUST be the same
+# estimator, or the interval can exclude its own point — which reads as an arithmetic
+# error and invites a reader to quote whichever number is larger.  The t-interval in
+# `_descriptives` only serves a mean; this suite reports MEDIANS wherever a per-batch
+# ratio is involved (one near-empty batch makes the mean of a ratio unstable), so the
+# median needs an interval of its own.  A percentile bootstrap gives one for any
+# statistic, and a fixed seed keeps it as reproducible as the rest of the pipeline.
+
+_BOOT = 2000
+
+
+def _boot_ci(sample, stat=np.median, *, n_boot: int = _BOOT, seed: int = 0,
+             alpha: float = 0.05) -> tuple:
+    """(lo, hi) percentile-bootstrap interval for `stat` over a 1-D sample.
+
+    Deterministic by construction: a seeded Generator, never the global RNG.  NaN pair
+    when fewer than 3 finite observations survive — the same floor the paired tests use.
+    """
+    a = np.asarray(sample, dtype=float)
+    a = a[np.isfinite(a)]
+    if a.size < 3:
+        return float('nan'), float('nan')
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, a.size, size=(n_boot, a.size))
+    draws = stat(a[idx], axis=1)
+    lo, hi = np.percentile(draws, [alpha / 2 * 100, (1 - alpha / 2) * 100])
+    return float(lo), float(hi)
+
+
+def _rank_biserial_ci(a, b, *, n_boot: int = _BOOT, seed: int = 0,
+                      alpha: float = 0.05) -> tuple:
+    """(lo, hi) for the matched-pairs rank-biserial, resampling the PAIRS.
+
+    The obvious closed form — the signed-rank null variance — depends only on n, so it
+    hands every row of a panel an identical whisker and is widest exactly where the true
+    uncertainty is smallest (an arm that wins every batch has r = 1 with almost no
+    sampling error).  Resampling the pairs lets the data set the width.
+    """
+    x = np.asarray(a, dtype=float)
+    y = np.asarray(b, dtype=float)
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+    if x.size < 3:
+        return float('nan'), float('nan')
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, x.size, size=(n_boot, x.size))
+    draws = np.array([_rank_biserial(x[i], y[i]) for i in idx], dtype=float)
+    lo, hi = np.percentile(draws, [alpha / 2 * 100, (1 - alpha / 2) * 100])
+    return float(max(-1.0, lo)), float(min(1.0, hi))
+
+
 # ── descriptive statistics ───────────────────────────────────────────────────────
 
 def _descriptives(a: np.ndarray) -> dict:

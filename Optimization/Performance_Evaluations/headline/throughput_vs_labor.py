@@ -18,7 +18,13 @@ The thesis stays: throughput does NOT track task makespan (total labor) — a pl
 that lowers Σ task labor can pile work onto the busiest picker, raising batch
 makespan and lowering throughput.  So throughput tracks 1/batch-makespan (Panel B,
 tight) — not task makespan (Panel A, a scattered cloud).  The Spearman ρ triplet in
-the subtitle quantifies it.  Labor axes render in hours; throughput in items/hour.
+the subtitle quantifies it.
+
+UNITS.  Throughput is items/hour on its face.  The two makespan axes are not: a makespan
+is whatever the run makes it (a small cell's batch finishes in seconds, a full run's in
+hours), so both resolve ONE shared time unit from their pooled magnitudes and name it in
+the axis label — panels A and B measure the same kind of quantity and must never be read
+in different units.  The ρ triplet is rank-based, hence unit-invariant.
 """
 import os
 
@@ -98,9 +104,9 @@ def render(ctx, params):
         d = S.get(s['key'])
         if not d:
             continue
-        prod = float(chartkit.to_hours(_f(d.get('ss_prod_hours'))))
+        prod = _f(d.get('ss_prod_hours'))       # raw sim milliseconds
         thr = _f(d.get('ss_thr')) * _PER_HOUR
-        dur = float(chartkit.to_hours(_f(d.get('ss_dur'))))
+        dur = _f(d.get('ss_dur'))               # raw sim milliseconds
         if not (np.isfinite(prod) and np.isfinite(thr)):
             continue
         xs_prod.append(prod)
@@ -112,14 +118,23 @@ def render(ctx, params):
     if len(xs_prod) < 2:
         return
 
+    # ONE unit for both makespan axes: every arm's task makespan and batch makespan,
+    # plus the baseline's, pooled into a single decision so panels A and B are read in
+    # the same named unit whatever scale the run turned out to be.
+    base_prod = _f(bd.get('ss_prod_hours')) if bd else float('nan')
+    base_dur = _f(bd.get('ss_dur')) if bd else float('nan')
+    div, unit = chartkit.time_units(np.concatenate(
+        [np.asarray(xs_prod, float), np.asarray(xs_dur, float),
+         np.asarray([base_prod, base_dur], float)]))
+    xs_prod = list(np.asarray(xs_prod, float) / div)
+    xs_dur = list(np.asarray(xs_dur, float) / div)
+
     rho_pl = _rho(xs_prod, ys_thr)        # task makespan (labor) vs throughput — expected ~0
     rho_dl = _rho(xs_dur, ys_thr)         # batch makespan vs throughput — expected strongly negative
     rho_tt = _rho(xs_thr_task, ys_thr)    # thr/task vs thr/batch — how coupled the two are
 
-    base_a = ((float(chartkit.to_hours(_f(bd.get('ss_prod_hours')))),
-               _f(bd.get('ss_thr')) * _PER_HOUR) if bd else None)
-    base_b = ((float(chartkit.to_hours(_f(bd.get('ss_dur')))),
-               _f(bd.get('ss_thr')) * _PER_HOUR) if bd else None)
+    base_a = ((base_prod / div, _f(bd.get('ss_thr')) * _PER_HOUR) if bd else None)
+    base_b = ((base_dur / div, _f(bd.get('ss_thr')) * _PER_HOUR) if bd else None)
     base_c = ((_f(bd.get('ss_thr_task')) * _PER_HOUR,
                _f(bd.get('ss_thr')) * _PER_HOUR) if bd else None)
 
@@ -128,10 +143,10 @@ def render(ctx, params):
                        sharey=True)
     a1, a2, a3 = ch.axes
     _panel(a1, xs_prod, ys_thr, colors, labels, base_a,
-           f'task makespan ({chartkit.HOURS}, ← better)',
+           f'task makespan ({unit}, ← better)',
            'A: throughput vs task makespan (labor)', sizes=_sizes(xs_dur))
     _panel(a2, xs_dur, ys_thr, colors, labels, base_b,
-           f'batch makespan ({chartkit.HOURS}, ← better)',
+           f'batch makespan ({unit}, ← better)',
            'B: throughput vs batch makespan')
     _panel(a3, xs_thr_task, ys_thr, colors, labels, base_c,
            'throughput / task makespan (items / hour, → better)',

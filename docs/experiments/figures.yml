@@ -12,18 +12,21 @@
 #
 # Fields:
 #   name      figure basename, exactly as the analysis/generator writes it (never renamed
-#             here — committed experiment snapshots pin these bytes)
+#             here — committed experiment snapshots pin these bytes).  Analysis figures
+#             carry the view prefix their chart family declares: absolute_ | percent_ |
+#             delta_ | effect_ | table_ (see Performance_Evaluations/core/families.py).
 #   eval      the @evaluation key that owns the figure; null = generator-owned (the
 #             catalogue plots from Warehouse/generation/generate_inventory.py)
 #   section   top3 | full_suite | inventory — which curated list it belongs to
-#   default   true = in the DEFAULT_* starter lists AND rendered by legacy-mode
-#             (no-manifest) experiments; false = opt-in per experiment.yml only.
-#             The default sets are FROZEN to the historical lists — the registry
-#             golden test pins them byte-for-byte.
-#   retired   true = the producing evaluation no longer exists (the chart-family
-#             redesign superseded the figure); the entry stays so archived experiment
-#             snapshots keep resolving, but it may not be cited by a CURRENT
-#             experiment and the writer-tie tests skip it
+#   default   true = written into a NEW experiment's scaffolded manifest (the starter list).
+#             Forward-looking; curate the manifest afterwards regardless.
+#   legacy    true = rendered by a no-manifest experiment.  Experiment 1 is the only one and
+#             its sweep predates everything since, so this set is FROZEN — the registry
+#             golden test pins it byte-for-byte.  Never add to it.
+#   retired   true = the producing evaluation no longer exists (the chart-family redesign
+#             superseded the figure).  The entry stays so archived experiment snapshots keep
+#             resolving, but it may not start a new experiment, and the writer-tie test
+#             skips it because there is no writer left to tie to.
 #   width     image width in the rendered section (omit = 820)
 #   caption   the reader-facing caption; null for inventory plots (rendered caption-less)
 #
@@ -31,81 +34,186 @@
 version: 1
 figures:
   # ── top3 (the curated per-config comparison set) ────────────────────────────────
-  - name: top3_by_initial_prodtime_cum_improvement.png
-    eval: compare.delta_over_time
-    retired: true
+  - name: percent_top_vs_baseline.png
+    eval: headline.top_vs_baseline
     section: top3
     default: true
+    caption: >-
+      Top arms against the FIFO baseline — percent improvement across the headline metrics,
+      positive meaning better. Each group carries its effect size and Holm-corrected p; with
+      75 paired batches nearly everything clears significance, so the magnitude is what
+      separates the arms.
+  - name: table_top_vs_baseline.png
+    eval: headline.top_vs_baseline
+    section: top3
+    default: true
+    caption: >-
+      The same comparison as a table — labor and throughput against FIFO, each with its
+      paired effect size and 95% confidence interval, both measured over every batch the arm
+      shares with the baseline.
+  - name: delta_prodtime_top3_by_initial.png
+    eval: labor.delta_topn
+    section: top3
+    default: true
+    caption: >-
+      Labor saved against FIFO over the run. Top: the honest cumulative measure — task time
+      saved divided by the baseline's running total. Bottom: the same comparison batch by
+      batch, smoothed over five batches with its spread band.
+  - name: percent_labor_per_batch.png
+    eval: labor.per_batch
+    section: top3
+    default: true
+    caption: >-
+      Labor per batch as a percentage against FIFO on the same batch, which cancels the
+      demand swing that dominates the raw series.
+  - name: absolute_labor_per_batch.png
+    eval: labor.per_batch
+    section: top3
+    default: false
+    caption: >-
+      Labor hours per batch over the run — the raw per-batch line with a five-batch mean, and
+      the FIFO baseline marked.
+  - name: percent_volume_lead.png
+    eval: throughput.volume
+    section: top3
+    default: false
+    caption: >-
+      How far ahead of FIFO each arm is at matched elapsed time, as a percentage of what FIFO
+      had picked by then. The dot marks where the arm finished the run.
+  - name: absolute_volume_curve.png
+    eval: throughput.volume
+    section: top3
+    default: false
+    caption: >-
+      Cumulative items picked against elapsed pick-time hours — the slope is throughput, and
+      the gap at the right edge is the finishing margin.
+  - name: percent_production_time.png
+    eval: trajectories.overtime
+    section: top3
+    default: false
+    caption: >-
+      Production time per batch against the FIFO baseline, batch by batch. The absolute
+      series is dominated by the demand curve; this view shows only the treatment effect.
+
+  # ── full_suite (every strategy arm, for the compiled Full-results report) ───────
+  # Captions are shared by every experiment, so they must not hard-code a family count —
+  # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
+  - name: effect_heatmap.png
+    eval: sig.by_initial
+    section: full_suite
+    default: true
+    caption: >-
+      Every assignment function against every metric: the fill is the percent change from
+      optimal-start placement over uniform, oriented so positive is better, and cells whose
+      paired test does not clear significance are greyed out.
+  - name: percent_all_arms_vs_baseline.png
+    eval: headline.all_arms
+    section: full_suite
+    default: true
+    caption: >-
+      Every arm against FIFO on throughput and on labor, sharing one ranking so an arm can be
+      followed between the two panels.
+  - name: absolute_task_duration_ranked.png
+    eval: task_time.duration
+    section: full_suite
+    default: true
+    caption: >-
+      Steady-state task duration for every arm, ranked by median, with the FIFO baseline's box
+      marked. The range is trimmed to the pooled 2nd–98th percentile so the boxes stay legible.
+  - name: delta_task_duration_vs_fifo.png
+    eval: task_time.duration
+    section: full_suite
+    default: true
+    caption: >-
+      The same arms as a percent change against FIFO, each with its 95% confidence interval —
+      the view that says which of the ranked differences are real.
+  - name: delta_prodtime_by_arm_grid.png
+    eval: labor.delta_grid
+    section: full_suite
+    default: false
+    caption: >-
+      One panel per arm: cumulative labor saved against FIFO in bold, the per-batch series
+      behind it. Every panel shares one scale, so the panels are comparable across the grid.
+
+  # ── retired: superseded by the chart-family redesign ────────────────────────────
+  # Kept so archived experiment snapshots keep resolving, and because Experiment 1 renders
+  # its own frozen set with no manifest to name them.  Nothing new may use these.
+  - name: top3_by_initial_prodtime_cum_improvement.png
+    eval: compare.delta_over_time
+    section: top3
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Cumulative production-time improvement vs FIFO — top 3 initial-placement strategies.
   - name: top3_by_initial_production_time_over_time.png
     eval: compare.top_metric
-    retired: true
     section: top3
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Production time per batch over the run.
   - name: top3_by_initial_prodtime_delta_trend.png
     eval: compare.delta_over_time
-    retired: true
     section: top3
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Production-time delta vs FIFO — smoothed trend.
   - name: top_vs_baseline_table.png
     eval: compare.top_vs_baseline
-    retired: true
     section: top3
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Top runs vs the FIFO baseline — total task time (labor) and throughput side by side,
       both paired over every batch the run shares with FIFO, with the task-time Wilcoxon p.
   - name: top_vs_baseline.png
     eval: compare.top_vs_baseline
-    retired: true
     section: top3
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Top runs vs the FIFO baseline — grouped bars of % improvement across the five headline
       metrics (task makespan, batch makespan, throughput off each, and layout total f·D),
       measured on the steady-state window.
-  # opt-in (experiment-6 leads with these; kept out of the defaults so legacy-mode
-  # Experiment 1 never demands an image its sweep predates)
   - name: top3_by_initial_volume_curve.png
     eval: compare.volume_curve
-    retired: true
     section: top3
     default: false
+    retired: true
     caption: >-
       Cumulative items picked against elapsed hours — the slope is throughput. Left: the
       selected arms against the FIFO baseline. Right: each arm's lead over FIFO at matched
       elapsed time.
   - name: top3_by_initial_labor_per_batch.png
     eval: compare.labor_per_batch
-    retired: true
     section: top3
     default: false
+    retired: true
     caption: >-
       Labor hours per batch over the run. Left: raw per-batch line plus a 5-batch mean, with
       each arm's last-window mean and fitted trend in the legend. Right: the same arms as a
       percentage against FIFO on the same batch, which cancels the demand swing.
-
-  # ── full_suite (every strategy arm, for the compiled Full-results report) ───────
-  # Captions are shared by every experiment, so they must not hard-code a family count —
-  # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
   - name: task_duration_by_strategy.png
     eval: compare.task_duration_by_strategy
-    retired: true
     section: full_suite
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Steady-state task duration for every strategy arm (Uni|… and Opt|… across the whole
       restock-family suite); diamond = mean. The full suite, ranked.
   - name: production_time_over_time.png
     eval: compare.faceted
-    retired: true
     section: full_suite
-    default: true
+    default: false
+    legacy: true
+    retired: true
     caption: >-
       Production time per batch, every assignment function overlaid
       (Opt = solid, Uni = dashed).
@@ -115,26 +223,31 @@ figures:
     eval: null
     section: inventory
     default: true
+    legacy: true
     caption: null
   - name: demand.png
     eval: null
     section: inventory
     default: true
+    legacy: true
     caption: null
   - name: param_relative_frequency.png
     eval: null
     section: inventory
     default: true
+    legacy: true
     caption: null
   - name: param_quantity.png
     eval: null
     section: inventory
     default: true
+    legacy: true
     caption: null
   - name: equilibrium_qty.png
     eval: null
     section: inventory
     default: true
+    legacy: true
     caption: null
   # opt-in extras every committed manifest since experiment-2 lists
   - name: weight.png

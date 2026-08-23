@@ -18,7 +18,9 @@ of the canvas.  This module replaces all of that with ONE set of policies:
             that they don't (`annotate_unshared`).
   SIGN      `improvement_pct` — positive = better than baseline, everywhere.  No chart may
             invent its own convention.
-  UNITS     durations render in HOURS via `to_hours`; the phrase "sim units" is banned.
+  UNITS     durations render in a NAMED time unit — `to_time` picks hours/minutes/seconds
+            from the data's own magnitude (a picker task is seconds, a batch of labor is
+            hours) and returns the label with it; the phrase "sim units" is banned.
   COLOR     one palette contract: color = assignment function (stable across every chart
             of a run), dash = initial family, and the baseline is always drawn in
             BASELINE_STYLE so FIFO is recognisable at a glance.
@@ -52,19 +54,85 @@ _CHAR_W_IN   = 0.062               # approx glyph advance at legend fontsize (8p
 # ── the single unit policy ──────────────────────────────────────────────────────
 HOURS = 'hours'
 
+#: (label, milliseconds per unit), largest first.
+_TIME_UNITS = (('hours', 3.6e6), ('minutes', 6.0e4), ('seconds', 1.0e3))
+
+
 def to_hours(sim_ms):
-    """Duration sim values are milliseconds; every duration axis renders in hours."""
+    """Duration sim values are milliseconds; render an HOURS axis.
+
+    Use this only where hours is the right unit on its face — a run's elapsed time, a
+    batch's labor total.  For anything whose magnitude depends on the data, use
+    `to_time`: durations in this model span five orders of magnitude (one picker task is
+    seconds, a batch of labor is hours), and a fixed unit turns half the suite into
+    columns of `0.0008`.
+    """
     return np.asarray(sim_ms, dtype=float) / 3.6e6
+
+
+def time_units(values):
+    """(divisor, unit_label) — the largest time unit keeping typical magnitudes >= 1.
+
+    Chosen from the pooled MEDIAN absolute magnitude so one outlier cannot drag the whole
+    axis into a smaller unit.  Deterministic, so the same quantity picks the same unit on
+    every re-render; the unit always appears in the axis label, so no chart can be read in
+    the wrong one.  Falls back to seconds on empty/degenerate input.
+    """
+    vals = np.abs(np.asarray([v for v in np.ravel(values) if np.isfinite(v)], dtype=float))
+    vals = vals[vals > 0]
+    typical = float(np.median(vals)) if vals.size else 0.0
+    for label, per in _TIME_UNITS:
+        if typical >= per:
+            return per, label
+    return _TIME_UNITS[-1][1], _TIME_UNITS[-1][0]
+
+
+def to_time(sim_ms):
+    """(converted_values, unit_label) for a set of sim-millisecond durations.
+
+    Pool everything that shares an axis into ONE call so every series on it lands in the
+    same unit.
+    """
+    div, label = time_units(sim_ms)
+    return np.asarray(sim_ms, dtype=float) / div, label
 
 
 # ── the single sign convention ──────────────────────────────────────────────────
 def improvement_pct(value, baseline, *, lower_is_better):
     """Percent improvement vs baseline, POSITIVE = BETTER — the only sign convention
-    any chart in this package may use.  0 when the baseline is 0/absent."""
-    if not baseline:
-        return 0.0
-    raw = (value - baseline) / abs(baseline) * 100.0
+    any chart in this package may use.
+
+    Returns NaN when the comparison is UNDEFINED (a zero, missing or non-finite
+    baseline), never 0.0.  A zero would read as "no change", and a batch where the
+    baseline did no work at all is not a batch where the two arms tied: fabricating
+    ties there drags a mean toward zero and tightens the interval around it, exactly
+    on the observations where the contrast is largest.  Callers that aggregate must
+    use `improvement_pct_series`, which drops the undefined pairs; callers that draw
+    one value get a point matplotlib skips.
+    """
+    try:
+        b = float(baseline)
+    except (TypeError, ValueError):
+        return float('nan')
+    if not np.isfinite(b) or b == 0.0:
+        return float('nan')
+    v = float(value) if value is not None else float('nan')
+    raw = (v - b) / abs(b) * 100.0
     return -raw if lower_is_better else raw
+
+
+def improvement_pct_series(values, baselines, *, lower_is_better):
+    """Paired per-element improvement percentages with the UNDEFINED pairs dropped.
+
+    THE way to build a sample of paired improvements: every statistic downstream (a
+    mean, a median, a confidence interval, a test) is only honest over the pairs where
+    the comparison exists.  Returns a float array that may be shorter than its inputs —
+    and empty when no pair is comparable.
+    """
+    out = [improvement_pct(v, b, lower_is_better=lower_is_better)
+           for v, b in zip(values, baselines)]
+    arr = np.asarray(out, dtype=float)
+    return arr[np.isfinite(arr)]
 
 
 # ── the single palette contract ─────────────────────────────────────────────────
@@ -179,10 +247,36 @@ def draw_ci(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, **kw):
 
 
 # ── figure construction ─────────────────────────────────────────────────────────
-def _gutter_width(labels, title):
+_LEGEND_ROW_H = 0.165        # inches per legend row at fontsize 8
+_LEGEND_HEAD_H = 0.34        # the legend's own title + frame padding
+_GUTTER_MAX_COLS = 3
+
+
+def _gutter_width(labels, title, ncol=1):
     texts = [str(t) for t in (*labels, title or '')]
     chars = max((len(t) for t in texts), default=0)
-    return min(_GUTTER_MAX, max(_GUTTER_MIN, 0.45 + chars * _CHAR_W_IN))
+    one = min(_GUTTER_MAX, max(_GUTTER_MIN, 0.45 + chars * _CHAR_W_IN))
+    return one * ncol
+
+
+def _gutter_layout(labels, title, content_h):
+    """(ncol, width, height) for a gutter legend that must FIT beside the panels.
+
+    A reserved gutter only guarantees the legend cannot overlap the data if the legend
+    also fits vertically.  With one entry per arm a 34-arm overlay needs ~5.9 in of
+    column — taller than the panels — and a single column simply runs off the canvas and
+    through the footer band.  So: add columns until it fits (up to a limit), then let the
+    caller grow the figure for whatever is still too tall.
+    """
+    n = len(labels)
+    if not n:
+        return 1, 0.0, 0.0
+    for ncol in range(1, _GUTTER_MAX_COLS + 1):
+        rows = math.ceil(n / ncol)
+        h = _LEGEND_HEAD_H + rows * _LEGEND_ROW_H
+        if h <= content_h or ncol == _GUTTER_MAX_COLS:
+            return ncol, _gutter_width(labels, title, ncol), h
+    return 1, _gutter_width(labels, title), _LEGEND_HEAD_H + n * _LEGEND_ROW_H
 
 
 def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
@@ -202,12 +296,16 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     if ncols is None:
         ncols = panels if panels <= 3 else math.ceil(math.sqrt(panels))
     nrows = math.ceil(panels / ncols)
-    gut = _gutter_width(legend_labels, legend_title) if legend == 'gutter' else 0.0
+    gut_cols, gut, gut_h = (_gutter_layout(legend_labels, legend_title, nrows * panel_h)
+                            if legend == 'gutter' else (1, 0.0, 0.0))
     leg_rows = (math.ceil(len(legend_labels) / max(1, ncols * 2)) if legend == 'bottom'
                 else 0)
     bot_leg = 0.28 * max(1, leg_rows) if legend == 'bottom' else 0.0
     fw = ncols * panel_w + gut + 0.9            # 0.9 ≈ y-labels + left margin
-    fh = nrows * panel_h + _TITLE_BAND + bot_leg + (_FOOTER_BAND if footer else 0.12)
+    # The panels stretch to whatever the gutter needs: a legend taller than the data area
+    # would otherwise run off the bottom of the canvas and through the footer band.
+    content_h = max(nrows * panel_h, gut_h)
+    fh = content_h + _TITLE_BAND + bot_leg + (_FOOTER_BAND if footer else 0.12)
     fig = plt.figure(figsize=(fw, fh))
     left  = 0.75 / fw
     right = 1.0 - (gut + 0.15) / fw
@@ -229,18 +327,21 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     fig._chartkit = True                        # io._save_close: no tight-bbox rescue
     fig._footer_y = (0.5 * _FOOTER_BAND / fh) if footer else 0.004
     return Chart(fig, axes, gutter_frac=(1.0 - (gut + 0.05) / fw) if gut else None,
-                 legend_mode=legend, legend_title=legend_title, footer=footer)
+                 legend_mode=legend, legend_title=legend_title, footer=footer,
+                 gutter_cols=gut_cols)
 
 
 class Chart:
     """A figure plus the reserved-geometry bookkeeping `make` computed for it."""
 
-    def __init__(self, fig, axes, *, gutter_frac, legend_mode, legend_title, footer):
+    def __init__(self, fig, axes, *, gutter_frac, legend_mode, legend_title, footer,
+                 gutter_cols=1):
         self.fig, self.axes = fig, axes
         self._gutter_frac = gutter_frac
         self._legend_mode = legend_mode
         self._legend_title = legend_title
         self._footer = footer
+        self._gutter_cols = gutter_cols
         self._legend_slot = 0
 
     @property
@@ -286,7 +387,7 @@ class Chart:
         y = 0.96 - self._legend_slot * 0.34
         self._legend_slot += 1
         return self.fig.legend(H, L, title=title or self._legend_title,
-                               loc='upper left',
+                               loc='upper left', ncol=ncol or self._gutter_cols,
                                bbox_to_anchor=(self._gutter_frac or 0.99, y),
                                fontsize=8, frameon=True)
 

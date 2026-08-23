@@ -11,10 +11,12 @@ Two figures in the headline family:
     paired effect vs FIFO: matched-pairs rank-biserial r plus a Holm-corrected
     Wilcoxon p.
   * the table view — one row per top arm: labor and throughput % vs FIFO, paired
-    Hedges g, the 95% t-interval of the paired per-batch % (labor), and the Wilcoxon
-    p LAST — demoted, because with n≈75 paired batches essentially every p is
-    three-star; the subtitle says exactly that and the effect columns carry the
-    discrimination.
+    Hedges g, a 95% interval for the labor figure, and the Wilcoxon p LAST — demoted,
+    because with n≈75 paired batches essentially every p is three-star; the subtitle
+    says exactly that and the effect columns carry the discrimination.  The labor
+    figure and its interval are the same estimator (the median of the per-batch
+    improvements, and the bootstrap of that median), so the interval always contains
+    the number it sits beside.
 
 Both figures pair each arm against FIFO over the batches the two runs share
 (`_paired`, ported verbatim from the retired compare module), so labor and
@@ -34,7 +36,7 @@ from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS
 from Optimization.Performance_Evaluations.common.series import _select_top
 from Optimization.Performance_Evaluations.common.frames import _metric_series
 from Optimization.Performance_Evaluations.common.stats_core import (
-    _rank_biserial, _hedges_g_paired, _descriptives, _holm)
+    _rank_biserial, _hedges_g_paired, _boot_ci, _holm)
 
 # ── the headline metric groups ──────────────────────────────────────────────────
 # (label, ss_field, lower_is_better, per-batch source, per-batch column)
@@ -87,9 +89,9 @@ def _paired(ctx, s, source, col):
 
 
 def _pair_diffs(b, v, lower):
-    """Per-batch paired % improvement (positive = better) for an aligned pair."""
-    return np.array([chartkit.improvement_pct(vi, bi, lower_is_better=lower)
-                     for bi, vi in zip(b, v) if bi], dtype=float)
+    """Per-batch paired % improvement (positive = better) for an aligned pair, with the
+    pairs where the comparison is undefined dropped by the shared rule."""
+    return chartkit.improvement_pct_series(v, b, lower_is_better=lower)
 
 
 # ── the percent view ────────────────────────────────────────────────────────────
@@ -197,13 +199,15 @@ def _table_figure(ctx, selected, S, baseline, out):
         lab_pct, lab_p, n, b_l, v_l = _paired(ctx, s, 'task_sum', 'duration')
         thr_pct, _p, _n, _b, _v = _paired(ctx, s, 'batch', 'completion_rate')
         nb = max(nb, n)
+        # The point estimate and the interval beside it must estimate the SAME thing.
+        # The labor column is a median-based improvement (a per-batch ratio has a long
+        # right tail; one near-empty batch makes the mean of it unstable), so the
+        # interval is the bootstrap of the median of the per-batch improvements — not a
+        # t-interval on their mean, which can and does exclude the median it sits next to.
         diffs = _pair_diffs(b_l, v_l, lower=True)
-        desc = _descriptives(diffs)
+        lab = float(np.median(diffs)) if diffs.size else float('nan')
         g = _hedges_g_paired(b_l, v_l) if len(b_l) else float('nan')
-        rows.append(dict(s=s,
-                         lab=(-lab_pct if np.isfinite(lab_pct) else float('nan')),
-                         thr=thr_pct, g=g,
-                         ci=(desc['ci_lo'], desc['ci_hi'])))
+        rows.append(dict(s=s, lab=lab, thr=thr_pct, g=g, ci=_boot_ci(diffs)))
         lab_ps.append(lab_p)
     adj = _holm(np.asarray(lab_ps, float))
 
@@ -242,6 +246,10 @@ def _table_figure(ctx, selected, S, baseline, out):
         hc.set_facecolor('#34495e')
         hc.set_text_props(color='white', fontweight='bold', fontsize=7)
 
+    # HOURS IS FIXED HERE, deliberately: this is the labor-hours-per-batch quantity the
+    # labor family plots on an explicit hours axis, quoted as a reader-facing figure in
+    # a subtitle.  "Hours" is the unit the sentence is about, not a scale chosen from
+    # the data, so it must not float with the run's magnitude — the two would disagree.
     base_txt = ('' if base_prod is None or not np.isfinite(base_prod)
                 else f' · FIFO Σ task time / batch ≈ '
                      f'{float(chartkit.to_hours(base_prod)):,.1f} {chartkit.HOURS}')

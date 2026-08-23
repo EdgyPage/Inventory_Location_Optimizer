@@ -4,8 +4,9 @@ One render, two figures, ONE shared category order (the strategy declaration ord
 so a reader can scan the same arm across both without re-finding it:
 
   * the absolute view — the stacked per-arm picker-time decomposition (travel vs
-    handling, reconstructed from picker events over the steady-state sample) in
-    HOURS, each bar annotated with its travel share.
+    handling, reconstructed from picker events over the steady-state sample), in the
+    time unit `chartkit.time_units` picks from both components of every bar pooled
+    together, each bar annotated with its travel share.
   * the percent view — the picking% / traveling% split of aggregate picker time
     (already percent-of-time in the series scalars), as horizontal stacked bars.
 
@@ -32,8 +33,12 @@ def _breakdown_figure(ctx, out):
     if not keys:
         return
     by_key = {s['key']: s for s in ctx.strategies}
-    travel = chartkit.to_hours([th[k][0] for k in keys])
-    handling = chartkit.to_hours([th[k][1] for k in keys])
+    travel_ms = np.asarray([th[k][0] for k in keys], dtype=float)
+    handling_ms = np.asarray([th[k][1] for k in keys], dtype=float)
+    # travel and handling stack on ONE axis, so they pick their unit together — the
+    # sample's magnitude is what decides it, not a fixed hours assumption
+    div, unit = chartkit.time_units(np.concatenate([travel_ms, handling_ms]))
+    travel, handling = travel_ms / div, handling_ms / div
     idx = np.arange(len(keys))
 
     ch = chartkit.make(panels=1, panel_w=chartkit.width_for_categories(len(keys)),
@@ -50,7 +55,7 @@ def _breakdown_figure(ctx, out):
     xlabels = [_stitle(by_key[k]) for k in keys]
     ax.set_xticks(idx)
     ax.set_xticklabels(xlabels, rotation=90, fontsize=6)
-    ax.set_ylabel(f'Σ picker time ({chartkit.HOURS}, steady-state sample)',
+    ax.set_ylabel(f'Σ picker time ({unit}, steady-state sample)',
                   fontsize=8)
     ax.grid(axis='y', alpha=0.3)
     # deepen the reserved bottom margin so the rotated category labels are not

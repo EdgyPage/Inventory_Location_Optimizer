@@ -5,6 +5,10 @@ picker would incur, i.e. total work, independent of how many pickers ran in para
 That is the quantity the assignment function actually moves; the scheduler does not
 change it.  Durations are sim milliseconds and render in hours via `chartkit.to_hours`,
 the same conversion the what-if layer uses, so figures reconcile across the suite.
+HOURS IS FIXED HERE, not chosen from the data like the duration axes elsewhere in the
+suite: "labor hours per batch" is the reader-facing quantity itself — the staffing
+number the what-if layer, the tables and the site all quote — so the axis names the unit
+the question is asked in, and a run whose batches happen to be small simply reads small.
 
 WHY IT IS PLOTTED AGAINST BATCH NUMBER.  Labor per batch is demand-driven: a batch with
 more items costs more, whatever the policy.  Plotting over batch order shows whether a

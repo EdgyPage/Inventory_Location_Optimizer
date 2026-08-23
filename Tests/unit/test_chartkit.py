@@ -56,6 +56,25 @@ def test_stacked_second_legend_stays_in_the_gutter():
         'stacked gutter legends overlap each other')
 
 
+def test_a_many_series_legend_fits_inside_the_canvas():
+    """A reserved gutter only prevents overlap if the legend also fits VERTICALLY: at
+    34 arms a single column is taller than the panels, and it ran off the bottom of the
+    figure and through the provenance band."""
+    labels = [f'Uni|Strategy_number_{i:02d}|noRSL' for i in range(34)]
+    ch = chartkit.make(panels=1, legend='gutter', legend_labels=labels)
+    for lab in labels:
+        ch.ax.plot([0, 1], [0, 1], label=lab)
+    leg = ch.legend(title='strategy')
+    ch.fig.canvas.draw()
+    fig_box = ch.fig.get_window_extent()
+    lbox = leg.get_window_extent()
+    assert lbox.y0 >= fig_box.y0 - 1 and lbox.y1 <= fig_box.y1 + 1, (
+        'the legend runs off the canvas')
+    assert _bbox_disjoint(lbox, ch.ax.get_window_extent())
+    footer_top = ch.fig._footer_y * ch.fig.get_figheight() * ch.fig.dpi * 2
+    assert lbox.y0 >= footer_top, 'the legend reaches into the reserved footer band'
+
+
 def test_legend_deduplicates_identical_labels():
     ch = chartkit.make(panels=2, legend='gutter', legend_labels=['same'])
     for ax in ch.axes:
@@ -121,12 +140,48 @@ def test_improvement_pct_positive_means_better_both_directions():
     # …and a throughput rising 100 -> 110 is also +10%
     assert chartkit.improvement_pct(110, 100, lower_is_better=False) == pytest.approx(10.0)
     assert chartkit.improvement_pct(110, 100, lower_is_better=True) == pytest.approx(-10.0)
-    assert chartkit.improvement_pct(5, 0, lower_is_better=True) == 0.0
+
+
+def test_an_undefined_comparison_is_nan_never_a_fabricated_tie():
+    """A zero/missing baseline makes the ratio undefined.  Returning 0.0 there would
+    assert "no change" on exactly the observations where the contrast is largest, and
+    those fabricated ties then drag a mean toward zero and tighten its interval."""
+    for baseline in (0, 0.0, None, float('nan')):
+        assert np.isnan(chartkit.improvement_pct(5, baseline, lower_is_better=True))
+
+
+def test_improvement_pct_series_drops_the_undefined_pairs():
+    vals = [90.0, 5.0, 80.0]
+    bases = [100.0, 0.0, 100.0]          # the middle pair is undefined
+    got = chartkit.improvement_pct_series(vals, bases, lower_is_better=True)
+    assert list(got) == pytest.approx([10.0, 20.0])
+    assert chartkit.improvement_pct_series([], [], lower_is_better=True).size == 0
 
 
 def test_to_hours():
     assert chartkit.to_hours(3.6e6) == pytest.approx(1.0)
     assert list(chartkit.to_hours([3.6e6, 7.2e6])) == pytest.approx([1.0, 2.0])
+
+
+def test_to_time_picks_the_unit_that_keeps_numbers_readable():
+    # a picker task of ~3 seconds must not render as 0.0008 hours
+    vals, unit = chartkit.to_time([3000.0, 2800.0, 3200.0])
+    assert unit == 'seconds' and vals[0] == pytest.approx(3.0)
+    vals, unit = chartkit.to_time([5.4e6, 7.2e6])
+    assert unit == 'hours' and vals[0] == pytest.approx(1.5)
+    vals, unit = chartkit.to_time([1.2e5, 1.8e5])
+    assert unit == 'minutes' and vals[0] == pytest.approx(2.0)
+
+
+def test_time_unit_is_chosen_from_the_median_not_an_outlier():
+    # one 4-hour straggler among second-scale tasks must not drag the axis into hours
+    _vals, unit = chartkit.to_time([3000.0] * 20 + [1.44e7])
+    assert unit == 'seconds'
+
+
+def test_time_units_degenerate_input_falls_back():
+    assert chartkit.time_units([])[1] == 'seconds'
+    assert chartkit.time_units([0.0, float('nan')])[1] == 'seconds'
 
 
 def test_effect_label_leads_with_magnitude():

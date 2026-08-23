@@ -15,35 +15,41 @@ significance eval renders through:
 Everything draws through chartkit (reserved geometry, no legend in the data region) and
 saves with view='effect'; jitter is deterministic (np.random.default_rng(0)).
 """
-import math
-
 import numpy as np
 from matplotlib.patches import Rectangle
 
 from Optimization.Performance_Evaluations.common import chartkit
+from Optimization.Performance_Evaluations.common.stats_core import _rank_biserial_ci
 from Optimization.Performance_Evaluations.common.style import _short
 
 
-def _rb_ci(r, n):
-    """Approximate 95% CI for a matched-pairs rank-biserial r: the signed-rank null
-    variance 2(2n+1)/(3n(n+1)) as the SE — a whisker honest about paired-n, without a
-    bootstrap's runtime.  Clipped to the statistic's [-1, 1] support."""
-    if not (np.isfinite(r) and n and n > 1):
-        return np.nan, np.nan
-    se = math.sqrt(2.0 * (2 * n + 1) / (3.0 * n * (n + 1)))
-    return max(-1.0, r - 1.96 * se), min(1.0, r + 1.96 * se)
+def _rb_ci(a, b):
+    """95% CI for the matched-pairs rank-biserial of (a, b), resampling the PAIRS.
+
+    Replaces a closed form that used the signed-rank NULL variance: that expression
+    depends only on n, so every row of a panel got an identical whisker regardless of
+    what the runs showed — widest, absurdly, where the effect was most decisive.  See
+    stats_core._rank_biserial_ci.
+    """
+    return _rank_biserial_ci(a, b)
 
 
 def merged_effect_panel(keys, colors, box_values, tests, out_path, *, title,
-                        lower_is_better, conv=None, unit_label='', max_ladder=28):
+                        lower_is_better, conv=None, unit_label='', max_ladder=28,
+                        paired=None):
     """One metric, one figure: distribution (left) + pairwise effect ladder (right).
 
-    `box_values` are RAW per-block samples per key; `conv` maps them into presentation
-    units for the left panel only (effects are unitless).  `tests` is a
-    stats_core._run_tests document over the same keys.  With more pairs than
-    `max_ladder` (a 17-arm family gives 136), the ladder keeps only baseline-vs-each —
-    every pairwise number still lives in the tests JSON beside this figure.
-    Returns the saved path, or None when there is nothing to draw.
+    `box_values` are RAW per-key samples (what the boxes show); `conv` maps them into
+    presentation units for the left panel only (effects are unitless).  `tests` is a
+    stats_core._run_tests document over the same keys.  `paired` is the ALIGNED
+    block × key matrix those tests were computed over — the ladder's resampled interval
+    needs it, because a bootstrap of a PAIRED statistic has to resample pairs, and
+    box_values are not aligned with each other.  Without it the dots still draw and the
+    whiskers are simply omitted rather than invented.
+
+    With more pairs than `max_ladder` (a 17-arm family gives 136), the ladder keeps only
+    baseline-vs-each — every pairwise number still lives in the tests JSON beside this
+    figure.  Returns the saved path, or None when there is nothing to draw.
     """
     vals = []
     for v in box_values:
@@ -88,7 +94,6 @@ def merged_effect_panel(keys, colors, box_values, tests, out_path, *, title,
     R = np.asarray(tests.get('rank_biserial'), dtype=float)
     P = np.asarray(tests.get('p_wilcoxon_holm'), dtype=float)
     MP = np.asarray(tests.get('median_pct'), dtype=float)
-    n = int(tests.get('n_blocks') or 0)
     sign = -1.0 if lower_is_better else 1.0
     drawn = 0
     for row, (i, j) in enumerate(pairs):
@@ -96,7 +101,11 @@ def merged_effect_panel(keys, colors, box_values, tests, out_path, *, title,
         r = sign * R[i, j]
         if not np.isfinite(r):
             continue
-        lo, hi = _rb_ci(r, n)
+        lo, hi = (np.nan, np.nan)
+        if paired is not None and getattr(paired, 'ndim', 0) == 2:
+            lo, hi = _rb_ci(paired[:, i], paired[:, j])
+            if sign < 0 and np.isfinite(lo):
+                lo, hi = -hi, -lo            # the ladder plots the oriented statistic
         if np.isfinite(lo):
             ax2.errorbar([r], [y], xerr=[[r - lo], [hi - r]], fmt='none',
                          ecolor='#666666', elinewidth=1.2, capsize=2.5, zorder=2)

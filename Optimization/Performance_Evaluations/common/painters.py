@@ -7,8 +7,8 @@ Post-redesign this module holds exactly three things:
     site composes from these two functions, so THIS module is where those names are
     minted (and where the figure-registry test looks for the stems).
   * `paint_overtime` — the one over-time painter, drawn through chartkit for both its
-    views: 'absolute' (honest units — hours, items/hour, f·D) and 'percent'
-    (improvement vs the baseline strategy, positive = better).  The config-stage
+    views: 'absolute' (honest units — a data-chosen time unit, items/hour, f·D) and
+    'percent' (improvement vs the baseline strategy, positive = better).  The config-stage
     trajectories family and the aggregate stage both render with it, which is what
     keeps their charts visually identical.
   * unit helpers binding the metric vocabulary to chartkit's unit policy.
@@ -25,26 +25,33 @@ from Optimization.Performance_Evaluations.common.style import _TOP_DIMS
 
 def overtime_metrics():
     """The five over-time metric specs — stem (`f`), short title (`t`), units, and
-    direction.  `conv` maps raw series values into presentation units; `yl` is the
-    absolute-view axis label; `lower_is_better` orients the percent view."""
+    direction.  `lower_is_better` orients the percent view.
+
+    A spec is either a TIME metric or a fixed-unit one:
+
+      time=True  the quantity is a sim-millisecond duration whose readable unit depends
+                 on the data (a picker task is seconds, a batch of labor is hours), so
+                 `yl` is a UNITLESS label stem and there is no `conv` — `paint_overtime`
+                 pools every series that will share the axis, resolves the unit once,
+                 and composes the axis label from what came back.
+      otherwise  `conv` maps raw series values into fixed presentation units and `yl`
+                 is the complete axis label.
+    """
     per_h = 3.6e6            # raw rates are items per sim-millisecond
     return [
         dict(x='task_batch', y='task_median', blo='task_p25', bhi='task_p75',
              f='task_duration', t='Task duration (median + IQR)',
-             conv=chartkit.to_hours, yl=f'task duration ({chartkit.HOURS})',
-             lower_is_better=True),
+             time=True, yl='task duration', lower_is_better=True),
         dict(x='task_batch', y='task_mean', blo=None, bhi=None,
              f='avg_task_duration', t='Average task duration',
-             conv=chartkit.to_hours, yl=f'mean task duration ({chartkit.HOURS})',
-             lower_is_better=True),
+             time=True, yl='mean task duration', lower_is_better=True),
         dict(x='batch', y='thr', blo=None, bhi=None,
              f='throughput', t='Throughput',
              conv=lambda v: np.asarray(v, dtype=float) * per_h,
              yl='throughput (items / hour)', lower_is_better=False),
         dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
              f='production_time', t='Production time per batch',
-             conv=chartkit.to_hours,
-             yl=f'total task time per batch ({chartkit.HOURS})', lower_is_better=True),
+             time=True, yl='total task time per batch', lower_is_better=True),
         dict(x='batch', y='sigma_fd', blo=None, bhi=None,
              f='layout_travel', t='Layout travel cost',
              conv=None, yl='total f·D (lower = better)', lower_is_better=True),
@@ -55,8 +62,29 @@ def top_tag(top_n, top_by):
     return f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
 
 
-def _conv(m, vals):
+def _conv(m, vals, div=None):
+    """Raw series values -> presentation units.  `div` is the shared time divisor a
+    time metric resolved for its axis; a fixed-unit metric uses its own `conv`."""
+    if div is not None:
+        return np.asarray(vals, dtype=float) / div
     return m['conv'](vals) if m.get('conv') else np.asarray(vals, dtype=float)
+
+
+def _time_axis(m, S, strategies, baseline):
+    """(divisor, unit_label) for a time metric — ONE unit for its whole y-axis.
+
+    Every value that will share the axis is pooled into a single `chartkit.time_units`
+    call: each arm's series, the baseline's, and the IQR band edges.  Fixing the unit at
+    hours instead would print a column of 0.0008 for a metric whose median is seconds."""
+    pool = []
+    for s in list(strategies) + ([baseline] if baseline else []):
+        d = S.get(s['key'])
+        if d is None:
+            continue
+        for field in (m['y'], m.get('blo'), m.get('bhi')):
+            if field and d.get(field) is not None:
+                pool.append(np.asarray(d[field], dtype=float).ravel())
+    return chartkit.time_units(np.concatenate(pool) if pool else [0.0])
 
 
 def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False):
@@ -78,22 +106,28 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
     db = S.get(baseline['key']) if baseline else None
     drawn = 0
     if view == 'absolute':
+        # a time metric resolves ONE divisor+unit for the whole axis before anything
+        # is drawn, so every arm and the baseline land in the same named unit
+        div, unit = (_time_axis(m, S, strategies, baseline) if m.get('time')
+                     else (None, ''))
         if db is not None:
-            chartkit.mark_baseline(ax, db[m['x']], _conv(m, db[m['y']]))
+            chartkit.mark_baseline(ax, db[m['x']], _conv(m, db[m['y']], div))
         for s in strategies:
             d = S.get(s['key'])
             if d is None or (baseline and s['key'] == baseline['key']):
                 continue
-            ax.plot(d[m['x']], _conv(m, d[m['y']]),
+            ax.plot(d[m['x']], _conv(m, d[m['y']], div),
                     color=chartkit.strategy_color(s, strategies),
                     ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
             if m['blo'] and len(strategies) <= 3 and d.get(m['blo']) is not None:
-                chartkit.draw_ci(ax, d[m['x']], _conv(m, d[m['blo']]),
-                                 _conv(m, d[m['bhi']]),
+                chartkit.draw_ci(ax, d[m['x']], _conv(m, d[m['blo']], div),
+                                 _conv(m, d[m['bhi']], div),
                                  color=chartkit.strategy_color(s, strategies))
             drawn += 1
-        ax.set_ylabel(('× baseline' if agg else m['yl']))
-        vals = [_conv(m, S[s['key']][m['y']]) for s in strategies if S.get(s['key'])]
+        yl = f"{m['yl']} ({unit})" if m.get('time') and unit else m['yl']
+        ax.set_ylabel('× baseline' if agg else yl)
+        vals = [_conv(m, S[s['key']][m['y']], div)
+                for s in strategies if S.get(s['key'])]
         if vals:
             chartkit.shared_ylim([ax], vals)
         ch.title(m['t'])

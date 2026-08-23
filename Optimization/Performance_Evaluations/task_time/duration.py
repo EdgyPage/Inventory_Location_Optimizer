@@ -2,7 +2,9 @@
 
 Two figures in the task_time family:
 
-  * the absolute view — one box per arm of steady-state task durations in HOURS,
+  * the absolute view — one box per arm of steady-state task durations, in the time
+    unit `chartkit.to_time` picks from every arm's values pooled together (a per-task
+    duration is seconds, so a fixed hours axis read 0.0008 and nothing else),
     arms sorted by median (best on the left), the y-range trimmed to the pooled
     2–98 percentile band (stated in a corner note) so a handful of outlier tasks
     cannot flatten the boxes.  The FIFO baseline's box is edge-marked in the
@@ -38,12 +40,14 @@ def _room_below(ch, labels):
 
 
 def _ss_durations(ctx, s, win):
-    """Steady-state task durations for one arm, in hours (ported tail selection)."""
+    """Steady-state task durations for one arm, RAW sim milliseconds (ported tail
+    selection).  Unit conversion waits for the caller, which pools every arm on the
+    axis before choosing one."""
     df = ctx.task_df(s['key'])
     if df.empty:
         return np.array([])
     d = df[df['batch_id'] >= df['batch_id'].max() - win]['duration'].values
-    return chartkit.to_hours(d)
+    return np.asarray(d, dtype=float)
 
 
 def _absolute_figure(ctx, out, win):
@@ -55,6 +59,9 @@ def _absolute_figure(ctx, out, win):
             data.append(d)
     if not avail:
         return
+    # every box shares one y-axis, so every arm's durations go into ONE unit decision
+    div, unit = chartkit.time_units(np.concatenate(data))
+    data = [np.asarray(d, dtype=float) / div for d in data]
     order = np.argsort([float(np.median(d)) for d in data])
     avail = [avail[i] for i in order]
     data = [data[i] for i in order]
@@ -79,7 +86,7 @@ def _absolute_figure(ctx, out, win):
                for s in avail]
     ax.set_xticks(xs)
     ax.set_xticklabels(xlabels, rotation=90, fontsize=6)
-    ax.set_ylabel(f'task duration ({chartkit.HOURS}, steady state)', fontsize=8)
+    ax.set_ylabel(f'task duration ({unit}, steady state)', fontsize=8)
     ax.grid(axis='y', alpha=0.3)
     _room_below(ch, xlabels)
 

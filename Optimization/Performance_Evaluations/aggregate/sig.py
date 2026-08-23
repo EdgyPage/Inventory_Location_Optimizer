@@ -6,7 +6,10 @@ aggregate tables module, so the panels show exactly the numbers the tables carry
 `by_initial` fork (default True) renders the headline assignments × metrics improvement
 heatmap plus one forest plot per assignment function; the all-strategies fork renders
 one merged distribution+effect panel per steady-state metric.  Distribution axes are in
-presentation units (hours / items-per-hour); effects and % improvements are unitless.
+presentation units — items-per-hour for rates, and for a DURATION the time unit resolved
+at render time from that metric's own pooled values, because a fixed hours axis reads
+0.0008 whenever the metric's magnitude is seconds; effects and % improvements are
+unitless.
 """
 import os
 
@@ -23,14 +26,34 @@ from Optimization.Performance_Evaluations.aggregate.tables import (
 
 _PER_HOUR = 3.6e6            # raw rates are items per sim-millisecond
 
-#: metric -> (conv into presentation units, axis label) for the distribution panels.
+#: Marker for a sim-millisecond DURATION: its conv/unit cannot be frozen here, because
+#: the readable unit depends on the metric's own magnitude.  `_present` resolves it from
+#: the very values that will share the panel's axis.
+_TIME = 'time'
+
+#: metric -> (conv into presentation units, axis label stem) for the distribution panels.
 _PRESENT = {
-    'makespan':           (chartkit.to_hours, f'batch makespan ({chartkit.HOURS})'),
+    'makespan':           (_TIME, 'batch makespan'),
     'throughput':         (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'),
     'throughput_task':    (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'),
-    'task_mean_duration': (chartkit.to_hours, f'mean task duration ({chartkit.HOURS})'),
-    'productivity_hours': (chartkit.to_hours, f'Σ task time per batch ({chartkit.HOURS})'),
+    'task_mean_duration': (_TIME, 'mean task duration'),
+    'productivity_hours': (_TIME, 'Σ task time per batch'),
 }
+
+
+def _present(name, box_values):
+    """(conv, axis label) for one metric, resolved against the samples it will plot.
+
+    A `_TIME` metric pools every key's box values — exactly what shares the panel's
+    axis — into one `chartkit.time_units` call, so all boxes convert with the same
+    divisor and the label names the unit that came back."""
+    conv, label = _PRESENT.get(name, (None, name))
+    if conv is not _TIME:
+        return conv, label
+    parts = [np.asarray(v, dtype=float).ravel() for v in box_values
+             if len(np.ravel(v))]
+    div, unit = chartkit.time_units(np.concatenate(parts) if parts else [0.0])
+    return (lambda a, _d=div: np.asarray(a, dtype=float) / _d), f'{label} ({unit})'
 
 
 @evaluation(key='agg.sig', label='Cross-profile significance figures',
@@ -52,7 +75,7 @@ def _render_all(ctx, out):
         return
     n_done = 0
     for name, d in per_metric.items():
-        conv, unit = _PRESENT.get(name, (None, name))
+        conv, unit = _present(name, d['box_values'])
         try:
             path = merged_effect_panel(
                 keys, colors, d['box_values'], d['tests'],
@@ -100,12 +123,14 @@ def _render_by_initial(ctx, out):
             if det is None or not len(det['u']):
                 continue
             lower = lower_of[name]
-            arr = np.array([chartkit.improvement_pct(o_i, u_i, lower_is_better=lower)
-                            for u_i, o_i in zip(det['u'], det['o'])], dtype=float)
-            desc = _descriptives(arr)
+            # Median dot with the bootstrap of that same median, matching the heatmap
+            # cell above (a ratio of medians) — see the per-config twin.
+            arr = chartkit.improvement_pct_series(det['o'], det['u'],
+                                                  lower_is_better=lower)
+            pct_v = float(np.median(arr)) if arr.size else float('nan')
+            lo, hi = _boot_ci(arr)
             r = _rank_biserial(det['o'], det['u'])
-            rows.append(dict(name=name, pct=desc['mean'],
-                             lo=desc['ci_lo'], hi=desc['ci_hi'],
+            rows.append(dict(name=name, pct=pct_v, lo=lo, hi=hi,
                              p=det['p_wilcoxon'], effect=(-r if lower else r)))
         forest_panel(rows, os.path.join(out, f'effect_{fn}.png'),
                      title=f'{fn} — opt vs uni (profiles)')

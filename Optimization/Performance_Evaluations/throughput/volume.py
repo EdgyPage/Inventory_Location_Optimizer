@@ -11,7 +11,11 @@ THE TIME AXIS IS SYNTHESIZED, AND HAS TO BE.  There is no global clock in the da
 every batch's sim clock restarts at zero, so elapsed time is the running sum of batch
 makespans — exactly the quantity run_whatif_labor calls `batch_hours`, converted with
 the same `chartkit.to_hours`, so numbers reconcile across the suite.  These are modeled
-pick-time hours, not wall-clock; the axis label carries the qualifier.
+pick-time hours, not wall-clock; the axis label carries the qualifier.  HOURS IS FIXED
+on this x-axis, not chosen from the data like the duration axes elsewhere in the suite:
+elapsed run time is the one quantity the whole comparison is denominated in — the
+what-if layer, the finish annotations and the site all say "hours" — and a cumulative
+axis that renamed its unit per run would stop reconciling with them.
 
 THE PRIMARY VIEW IS THE PERCENT LEAD.  The cumulative curves are near-identical straight
 lines (measured shape index ~1.0007 on a real 100-batch arm), so overlaying them shows

@@ -1,13 +1,19 @@
 """diagnostics.scorecards — one three-panel read-out per arm.
 
-Batch duration (hours, rolling mean) · layout efficiency (optimal ÷ realised total
-f·D when the optimal floor is known, raw f·D otherwise) · inventory churn (% of bins
-moved per batch).  Ported from the retired per-strategy scorecards; the shared panel
-helpers that module imported are inlined here (their home module is gone).  A raw
-operational read-out for inspecting one arm in isolation — the diagnostics exemption
-in the family grammar.
+Batch duration (rolling mean) · layout efficiency (optimal ÷ realised total f·D when
+the optimal floor is known, raw f·D otherwise) · inventory churn (% of bins moved per
+batch).  Ported from the retired per-strategy scorecards; the shared panel helpers that
+module imported are inlined here (their home module is gone).  A raw operational
+read-out for inspecting one arm in isolation — the diagnostics exemption in the family
+grammar.
+
+The duration panel's unit is chosen once, from every arm's batch durations pooled
+together, so all the arms' scorecards in a leaf read in the SAME named unit and stay
+comparable at a glance — and so a run whose batches are seconds does not print 0.0008.
 """
 import os
+
+import numpy as np
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import chartkit, io
@@ -45,8 +51,13 @@ def _churn_series(df, total_bins):
 def render(ctx, params):
     out = io.out_dir(ctx)
     optimal = ctx.optimal
+    frames = {s['key']: ctx.batch_df(s['key']) for s in ctx.strategies}
+    rolled = {k: np.asarray(_roll(df, 'duration', _WIN), dtype=float)
+              for k, df in frames.items() if not df.empty}
+    pool = [v for v in rolled.values() if len(v)]
+    div, unit = chartkit.time_units(np.concatenate(pool) if pool else [0.0])
     for s in ctx.strategies:
-        df = ctx.batch_df(s['key'])
+        df = frames[s['key']]
         if df.empty:
             continue
         color = chartkit.strategy_color(s, ctx.strategies)
@@ -55,10 +66,9 @@ def render(ctx, params):
         a1, a2, a3 = ch.axes
 
         d = df.sort_values('batch_id')
-        a1.plot(d['batch_id'].values, chartkit.to_hours(_roll(df, 'duration', _WIN)),
-                color=color, lw=1.2)
+        a1.plot(d['batch_id'].values, rolled[s['key']] / div, color=color, lw=1.2)
         a1.set_title('Batch duration', fontsize=9)
-        a1.set_ylabel(f'{chartkit.HOURS} (rolling mean)', fontsize=7)
+        a1.set_ylabel(f'{unit} (rolling mean)', fontsize=7)
 
         eff = _eff_series(df, optimal)
         if eff is not None:

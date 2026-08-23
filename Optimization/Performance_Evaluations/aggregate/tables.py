@@ -97,26 +97,12 @@ def compute_aggregate_by_initial(profile_series_list):
         uk, ok = pair['uni'], pair['opt']
         fn_metrics = {}
         for name, field, lower in _AGG_METRICS:
-            u = np.array([v for v in (pp[uk].get(field) for pp in per_profile if uk in pp)
-                          if _finite(v)], float)
-            o = np.array([v for v in (pp[ok].get(field) for pp in per_profile if ok in pp)
-                          if _finite(v)], float)
-            if u.size < 3 or o.size < 3:
-                continue
-            um, om = float(np.median(u)), float(np.median(o))
-            p = float('nan')
-            if u.size == o.size:
-                try:
-                    p = float(st.wilcoxon(u, o).pvalue) if np.any(u != o) else 1.0
-                except ValueError:
-                    p = float('nan')
-            combined.append({
-                'assignment': fn, 'metric': name, 'n_profiles': int(min(u.size, o.size)),
-                'uni_median': um, 'opt_median': om,
-                'pct_change_opt_vs_uni': ((om - um) / um * 100.0) if um else float('nan'),
-                'p_wilcoxon': p, 'better': _opt_better(um, om, lower),
-            })
-            # profile-paired arrays for the test doc + panels
+            # PROFILE-PAIRED from the start.  Filtering each arm's profiles independently
+            # and then handing the two arrays to a paired test is the classic way to
+            # publish a p from a broken pairing: a profile missing on one side only
+            # shortens that array, and if two different profiles drop out — one per arm —
+            # the lengths still match and Wilcoxon silently compares profile i of one arm
+            # against a DIFFERENT profile i of the other.
             up, op_ = [], []
             for pp in per_profile:
                 if uk in pp and ok in pp:
@@ -124,10 +110,23 @@ def compute_aggregate_by_initial(profile_series_list):
                     if _finite(a) and _finite(b):
                         up.append(float(a))
                         op_.append(float(b))
-            up, op_ = np.array(up, float), np.array(op_, float)
-            tests = _run_tests(np.column_stack([up, op_]) if up.size >= 3 else None,
-                               [uk, ok], lower)
-            fn_metrics[name] = dict(u=up, o=op_, lower=lower, n=int(up.size),
+            u, o = np.array(up, float), np.array(op_, float)
+            if u.size < 3:
+                continue
+            um, om = float(np.median(u)), float(np.median(o))
+            p = float('nan')
+            try:
+                p = float(st.wilcoxon(u, o).pvalue) if np.any(u != o) else 1.0
+            except ValueError:
+                p = float('nan')
+            combined.append({
+                'assignment': fn, 'metric': name, 'n_profiles': int(u.size),
+                'uni_median': um, 'opt_median': om,
+                'pct_change_opt_vs_uni': ((om - um) / um * 100.0) if um else float('nan'),
+                'p_wilcoxon': p, 'better': _opt_better(um, om, lower),
+            })
+            tests = _run_tests(np.column_stack([u, o]), [uk, ok], lower)
+            fn_metrics[name] = dict(u=u, o=o, lower=lower, n=int(u.size),
                                     uni_median=um, opt_median=om, p_wilcoxon=p,
                                     tests=tests)
         if fn_metrics:
