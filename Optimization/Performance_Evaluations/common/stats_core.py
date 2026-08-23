@@ -247,6 +247,127 @@ def _descriptives(a: np.ndarray) -> dict:
     )
 
 
+# ── the comparison census ────────────────────────────────────────────────────────
+#
+# WHY THIS EXISTS.  The published pages keep making one shape of claim — "positive in
+# all 68 same-rule comparisons", "median +44.8%, range 28.5-39.8%" — and until now every
+# instance was hand-counted at the call site and restated in prose, so a reader could
+# only check it by recomputing.  This is that count, generalised: ONE reduction over any
+# flat comparison row set, grouped by any key, emitted as an artifact the page renders.
+# The claim then IS the artifact instead of a transcription of it.
+#
+# Public name, unlike its underscore-prefixed neighbours, because the what-if writers at
+# Optimization/ root consume it from outside this package.
+
+def _sign_test(n_pos: int, n_neg: int, alpha: float = 0.05) -> tuple:
+    """(p, ci_lo, ci_hi) for "more comparisons land in the claimed direction than not".
+
+    Exact binomial against p=0.5, one-sided (the claim is directional), with a
+    Clopper-Pearson interval on the win rate.  Ties are excluded from the denominator
+    here — the standard sign-test convention — and reported separately by the caller so
+    the exclusion is visible rather than assumed.
+
+    (nan, nan, nan) when nothing is left to test: an all-ties group has no direction to
+    have been right about, and reporting p=1 there would read as evidence of no effect.
+    """
+    n = n_pos + n_neg
+    if n == 0:
+        return float('nan'), float('nan'), float('nan')
+    res = st.binomtest(n_pos, n, 0.5, alternative='greater')
+    ci = res.proportion_ci(confidence_level=1.0 - alpha, method='exact')
+    return float(res.pvalue), float(ci.low), float(ci.high)
+
+
+def _pluck(row, spec):
+    """Read `spec` off `row` — a mapping key, an attribute, or a callable applied to it."""
+    if callable(spec):
+        return spec(row)
+    if isinstance(row, dict):
+        return row.get(spec)
+    return getattr(row, spec, None)
+
+
+def census(rows, *, value, group_by=(), better='higher', alpha: float = 0.05) -> list:
+    """Count/span evidence for a directional claim, over any flat comparison row set.
+
+    One dict per group plus a trailing overall row (``group={}``), each carrying:
+
+        n n_pos n_neg n_zero n_nan     the population and how it splits
+        win_rate                       n_pos / (n_pos + n_neg), ties excluded
+        p_sign ci_lo ci_hi             exact one-sided sign test + Clopper-Pearson
+        median q1 q3 iqr min max       the span, over the FINITE values
+
+    `value` may be a mapping key, an attribute name, or a callable taking the row.  Each
+    member of `group_by` is a NAME (used as the ``group_<name>`` column) or a
+    ``(name, callable)`` pair when the group is derived rather than stored — a bare
+    callable is refused, because a group column with no name cannot be written to a CSV
+    or looked up from a page.  `better` fixes the sign convention — with ``'lower'`` a
+    negative value counts as positive evidence — so `n_pos` always means "in the claimed
+    direction" no matter which way the underlying metric points.  That is the whole
+    reason this takes a direction rather than leaving it to the caller: a census whose
+    sign convention lives at the call site is exactly the hand-rolled count it replaces.
+
+    NaNs are dropped from every statistic and counted in `n_nan`; zeros are counted in
+    `n_zero`, kept in the span, and excluded from the sign test.  `n` is the finite
+    count, so ``n == n_pos + n_neg + n_zero``.
+    """
+    if better not in ('higher', 'lower'):
+        raise ValueError(f"better must be 'higher' or 'lower', got {better!r}")
+    sign = 1.0 if better == 'higher' else -1.0
+    specs = []
+    for g in group_by:
+        name, getter = g if isinstance(g, tuple) else (g, g)
+        if not isinstance(name, str):
+            raise ValueError(f'group_by needs a name: pass (name, callable), got {g!r}')
+        specs.append((name, getter))
+    keys = tuple(name for name, _ in specs)
+
+    buckets: dict = {}
+    order: list = []
+    for row in rows:
+        g = tuple(_pluck(row, getter) for _, getter in specs)
+        if g not in buckets:
+            buckets[g] = []
+            order.append(g)
+        buckets[g].append(_pluck(row, value))
+
+    out = []
+    for g in order + ([()] if keys else []):
+        vals = buckets[g] if g in buckets else [v for b in buckets.values() for v in b]
+        # Every row carries every group column — None marks the overall row — so the
+        # result drops straight into a DictWriter without a heterogeneous-keys dance.
+        group = {k: None for k in keys}
+        group.update(zip(keys, g))
+        out.append(_census_one(group, vals, sign, alpha))
+    return out
+
+
+def _census_one(group: dict, values, sign: float, alpha: float) -> dict:
+    raw = np.asarray([np.nan if v is None else v for v in values], dtype=float)
+    n_nan = int((~np.isfinite(raw)).sum())
+    a = raw[np.isfinite(raw)] * sign
+    n_pos = int((a > 0).sum())
+    n_neg = int((a < 0).sum())
+    n_zero = int((a == 0).sum())
+    p, lo, hi = _sign_test(n_pos, n_neg, alpha)
+    n = int(a.size)
+    # The span is reported in the ORIGINAL orientation — a reader comparing it against a
+    # number on the page must see the same sign the page shows.
+    o = a * sign
+    return dict(
+        **{f'group_{k}': v for k, v in group.items()},
+        n=n, n_pos=n_pos, n_neg=n_neg, n_zero=n_zero, n_nan=n_nan,
+        win_rate=(n_pos / (n_pos + n_neg)) if (n_pos + n_neg) else float('nan'),
+        p_sign=p, ci_lo=lo, ci_hi=hi,
+        median=float(np.median(o)) if n else float('nan'),
+        q1=float(np.percentile(o, 25)) if n else float('nan'),
+        q3=float(np.percentile(o, 75)) if n else float('nan'),
+        iqr=float(np.percentile(o, 75) - np.percentile(o, 25)) if n else float('nan'),
+        min=float(o.min()) if n else float('nan'),
+        max=float(o.max()) if n else float('nan'),
+    )
+
+
 # ── core: tests over an aligned (n_blocks × k) paired matrix ─────────────────────
 
 def _mean_ranks(M: np.ndarray, lower_better: bool) -> np.ndarray:

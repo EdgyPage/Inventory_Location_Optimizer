@@ -50,6 +50,7 @@ from Schema import compat as _compat
 from Schema import connect
 from Optimization.Performance_Evaluations.common import chartkit as _ck
 from Optimization.Performance_Evaluations.common import io as _io
+from Optimization.Performance_Evaluations.common.stats_core import census
 from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
 
 MS_PER_HOUR = 3.6e6
@@ -494,10 +495,15 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
         chan_out = {}
         for ch, d in by_channel.items():
             dt, dth = [x for x in d['dtask_ms'] if x == x], [x for x in d['dthr_batch'] if x == x]
+            # The count of positive throughput comparisons used to be hand-rolled right
+            # here (`'n': len(dth), 'pos_thr': sum(x > 0 ...)`) and then RESTATED in prose
+            # on the site — "positive in all 68 comparisons" — with no interval and no
+            # test.  `census` is that count generalised; the page renders it instead of
+            # repeating it.  NaN filtering moves inside, so `dth` no longer needs it.
             chan_out[ch] = {
                 'dtask_ms': {'med': _med(dt), 'min': min(dt) if dt else None, 'max': max(dt) if dt else None},
                 'dthr_batch': {'med': _med(dth), 'min': min(dth) if dth else None, 'max': max(dth) if dth else None},
-                'n': len(dth), 'pos_thr': sum(1 for x in dth if x > 0),
+                'census': census(d['dthr_batch'], value=lambda x: x)[0],
                 'labor_hours_med': _med(d['hours']),
             }
         json_cells.append({
