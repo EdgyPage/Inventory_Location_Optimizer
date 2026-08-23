@@ -43,6 +43,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 from Optimization.Performance_Evaluations.common import io as _io
+from Optimization.Performance_Evaluations.common import units as _units
 
 # ── geometry constants (inches) ─────────────────────────────────────────────────
 _PANEL_W, _PANEL_H = 4.8, 3.6      # default data-panel size
@@ -54,10 +55,14 @@ _GUTTER_MIN, _GUTTER_MAX = 1.1, 3.4
 _CHAR_W_IN   = 0.062               # approx glyph advance at legend fontsize (8pt)
 
 # ── the single unit policy ──────────────────────────────────────────────────────
+# The policy itself now lives in `common/units.py`, which is stdlib-only so the quantity
+# table can import it without dragging matplotlib into a test or a schema tool.  These
+# names are re-exported because ~20 call sites reach for `chartkit.time_units`, and
+# moving the import is churn with no reader benefit.
 HOURS = 'hours'
 
-#: (label, milliseconds per unit), largest first.
-_TIME_UNITS = (('hours', 3.6e6), ('minutes', 6.0e4), ('seconds', 1.0e3))
+_TIME_UNITS = _units.TIME_UNITS
+time_units = _units.time_units
 
 
 def to_hours(sim_ms):
@@ -70,23 +75,6 @@ def to_hours(sim_ms):
     columns of `0.0008`.
     """
     return np.asarray(sim_ms, dtype=float) / 3.6e6
-
-
-def time_units(values):
-    """(divisor, unit_label) — the largest time unit keeping typical magnitudes >= 1.
-
-    Chosen from the pooled MEDIAN absolute magnitude so one outlier cannot drag the whole
-    axis into a smaller unit.  Deterministic, so the same quantity picks the same unit on
-    every re-render; the unit always appears in the axis label, so no chart can be read in
-    the wrong one.  Falls back to seconds on empty/degenerate input.
-    """
-    vals = np.abs(np.asarray([v for v in np.ravel(values) if np.isfinite(v)], dtype=float))
-    vals = vals[vals > 0]
-    typical = float(np.median(vals)) if vals.size else 0.0
-    for label, per in _TIME_UNITS:
-        if typical >= per:
-            return per, label
-    return _TIME_UNITS[-1][1], _TIME_UNITS[-1][0]
 
 
 def to_time(sim_ms):

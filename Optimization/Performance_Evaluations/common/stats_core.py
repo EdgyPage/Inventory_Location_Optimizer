@@ -11,40 +11,29 @@ import math
 import numpy as np
 import scipy.stats as st
 
+from Optimization.Performance_Evaluations.core import quantities as _quantities
+
 
 # ── metric specs ────────────────────────────────────────────────────────────────
-# (name, source, column, lower_is_better)
-#   source: 'batch'      -> per-batch column of df_b
-#           'task_mean'  -> per-batch mean of a df_t column
-#           'task_sum'   -> per-batch sum  of a df_t column (productivity hours)
-# Ordered with the optimization target FIRST: productivity-hours = Σ task length
-# (total labor), then mean task time — both parallelism-independent.  Batch-duration
-# "makespan" is wall-time (parallelism-dependent) and is reported as secondary.
-_METRICS = [
-    ('production_time',    'task_sum',  'duration',           True),   # PRIMARY: Σ task time/batch (sim units)
-    # Analytical objective: E[labor of a random task] = mean task W (D+P+C), and its sum
-    # (total analytical labor).  Scored from task structure, so robust to sim wall-timing
-    # noise / reorder starvation — the direct yardstick for the slotting objective.
-    ('objective_task_labor', 'task_mean', 'W',                True),   # E[task labor] (objective)
-    ('objective_total_labor', 'task_sum', 'W',                True),   # Σ analytical task labor
-    ('task_mean_duration', 'task_mean', 'duration',           True),
-    ('makespan',           'batch',     'duration',           True),   # BATCH makespan (parallel wall-clock)
-    ('throughput',         'batch',     'completion_rate',    False),  # throughput / batch makespan (d)
-    ('throughput_task',    'batch',     'thr_task',           False),  # throughput / task makespan  (c)
-    ('queue_depth',        'batch',     'queue_depth',        True),   # put-away backlog (honesty)
-    ('sigma_fd',           'batch',     'sigma_fd',           True),
-    ('picking_pct',        'batch',     'picking_pct',        False),
-    ('reorder_churn',      'batch',     'reorder_placements', True),
-]
-
-# cross-profile steady-state scalars (from series.json): (name, ss_field, lower_is_better)
-_AGG_METRICS = [
-    ('makespan',           'ss_dur',        True),    # BATCH makespan (parallel wall-clock)
-    ('throughput',         'ss_thr',        False),   # throughput / batch makespan (d)
-    ('throughput_task',    'ss_thr_task',   False),   # throughput / task makespan  (c)
-    ('task_mean_duration', 'ss_task_mean',  True),
-    ('productivity_hours', 'ss_prod_hours', True),    # task makespan = Σ task time = total labor (a)
-]
+# DERIVED, not declared.  Both tables come from `core/quantities.py`, which is the one
+# place a measurable thing is described — unit, label, direction, and where to read it at
+# each scope.  They were literals here for as long as this module existed, and the cost of
+# that was four competing tables downstream that had already drifted apart on labels.
+#
+# The shapes are unchanged and are what every consumer in this package iterates:
+#   _METRICS      (name, source, column, lower_is_better)
+#                 source: 'batch'     -> per-batch column of df_b
+#                         'task_mean' -> per-batch mean of a df_t column
+#                         'task_sum'  -> per-batch sum  of a df_t column
+#   _AGG_METRICS  (name, ss_field, lower_is_better) — the cross-profile steady-state
+#                 scalars read out of a profile's series document
+#
+# ORDER IS THE ROW ORDER OF PUBLISHED CSVs and is pinned in the quantity table (see
+# `QUANTITIES` for the per-batch order, `AGGREGATE_ORDER` for the cross-profile one).
+# `Tests/unit/test_quantities.py` asserts both derived tuples equal the literals they
+# replaced, element for element.
+_METRICS = _quantities.metric_specs()
+_AGG_METRICS = _quantities.aggregate_specs()
 
 
 def _clean(obj):
