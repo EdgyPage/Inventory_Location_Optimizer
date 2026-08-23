@@ -9,6 +9,8 @@ unchanged.  All instance state it reads (`self._key`, `self._execute_placement`,
 """
 from __future__ import annotations
 
+import logging
+import time
 from collections import defaultdict, deque
 
 from Warehouse.catalog.Order import Order
@@ -18,8 +20,30 @@ from Warehouse.inventory.inventory_common import (
     _SIZE_RANKS, _SIZES_DESCENDING, _equilibrium_qty, _wp_for, binkey_of,
 )
 
+log = logging.getLogger(__name__)
+
+#: Which branch a BinKey class actually took in `_optimal_work_assign`.
+#:   'lap'          the exact scipy assignment ran
+#:   'greedy_gate'  the class was too big for the exact solve (the DESIGNED path at scale)
+#:   'greedy_error' the exact solve was attempted and failed — a DEFECT, always logged
+#:   'greedy_empty' scipy returned nothing to assign
+#: The site described the Map family as solving "the full linear assignment problem".  At
+#: production catalogue size most classes are far past the gate, so that description was
+#: reporting a branch the run rarely took.  The split is now recorded rather than assumed.
+BRANCHES = ('lap', 'greedy_gate', 'greedy_error', 'greedy_empty')
+
 
 class OptimalLayoutMixin:
+
+    #: Optional per-class observer, `fn(dict) -> None`, called once per BinKey class in
+    #: `_optimal_work_assign`.  Default None so production is byte-identical with it off;
+    #: the map-precompute measurement CLI sets it to capture the per-class detail.
+    _assign_probe = None
+
+    #: Solver split from the last `_optimal_work_assign`: how many BinKey classes and how
+    #: many UNITS took the exact branch.  Populated on every call, probe or not, so a
+    #: production run can record it without instrumentation.
+    _map_lap_stats: dict = {}
 
     # ── optimal layout (pure global-D) + Sigma f*D objective ─────────────────
 
@@ -137,6 +161,12 @@ class OptimalLayoutMixin:
         W_var = 0.0
         sku_target: dict[int, list] = defaultdict(list)
         _LAP_CAP = 1200            # exact LAP up to this many units/class; else greedy
+        # Which branch each class took, accumulated on the manager so a PRODUCTION run
+        # records the split without the probe being armed.  `n_units` is the weight that
+        # matters: a report of "k of N classes solved exactly" is misleading when the
+        # exact classes are the tiny ones, which at catalogue scale they are.
+        stats = {'classes': 0, 'units': 0, 'lap_classes': 0, 'lap_units': 0,
+                 'greedy_error': 0, 'cap': _LAP_CAP, 'prod_cap': 4_000_000}
 
         for key, units in units_by_key.items():
             bins = bins_by_key.get(key)
@@ -171,7 +201,13 @@ class OptimalLayoutMixin:
             Mc = [_Mk(bn) for bn in cand]
 
             assigned: list[tuple[int, int]] = []     # (unit_idx, cand_idx)
-            if n <= _LAP_CAP and n * m_cnt <= 4_000_000:
+            # BOTH gate terms are recorded, not just the verdict: `m_cnt` is
+            # Σ_brackets min(len(bracket), n), so it is only bounded ABOVE by 3n — which
+            # of the two terms binds varies class by class, and a published statement
+            # about "the cap" that names only one of them is wrong for half the classes.
+            gate_n, gate_prod = n <= _LAP_CAP, n * m_cnt <= 4_000_000
+            branch, err, t0 = 'greedy_gate', None, time.perf_counter()
+            if gate_n and gate_prod:
                 try:
                     import numpy as _np
                     from scipy.optimize import linear_sum_assignment
@@ -179,8 +215,30 @@ class OptimalLayoutMixin:
                          + _np.asarray(b_)[:, None] * _np.asarray(Mc)[None, :])
                     ri, ci = linear_sum_assignment(C)
                     assigned = list(zip(ri.tolist(), ci.tolist()))
-                except Exception:
-                    assigned = []
+                    branch = 'lap' if assigned else 'greedy_empty'
+                except ImportError as exc:
+                    # scipy absent: every class silently degrades and the run still looks
+                    # fine.  This used to be indistinguishable from "too big to solve".
+                    branch, err = 'greedy_error', f'{type(exc).__name__}: {exc}'
+                    log.warning('optimal map: scipy unavailable, every eligible BinKey '
+                                'class falls back to greedy (%s)', err)
+                except Exception as exc:              # noqa: BLE001 - reported, not hidden
+                    branch, err = 'greedy_error', f'{type(exc).__name__}: {exc}'
+                    log.warning('optimal map: exact solve failed for BinKey %s '
+                                '(n=%d, m=%d) — falling back to greedy: %s',
+                                key, n, m_cnt, err)
+            solve_s = time.perf_counter() - t0
+            stats['classes'] += 1
+            stats['units'] += n
+            if branch == 'lap':
+                stats['lap_classes'] += 1
+                stats['lap_units'] += len(assigned)
+            elif branch == 'greedy_error':
+                stats['greedy_error'] += 1
+            if self._assign_probe is not None:
+                self._assign_probe({'key': key, 'n': n, 'm_cnt': m_cnt,
+                                    'gate_n_ok': gate_n, 'gate_prod_ok': gate_prod,
+                                    'branch': branch, 'solve_s': solve_s, 'error': err})
             if not assigned:                          # greedy fallback (feasible, near-opt)
                 order = sorted(range(n), key=lambda i: b_[i] + a[i], reverse=True)
                 pools: dict = defaultdict(deque)
@@ -213,6 +271,7 @@ class OptimalLayoutMixin:
                 sku_target[units[i].order.sku].append(pref)
 
         target = {sku: sum(p) / len(p) for sku, p in sku_target.items() if p}
+        self._map_lap_stats = stats
         return W_var, target
 
     def optimal_work(self, orders: list[Order], freq_of: dict,
@@ -226,7 +285,14 @@ class OptimalLayoutMixin:
         """Build the optimal map (the score-match basis) on this manager and return W*.
         Sets `_bin_pref` (quantity-free location score for EVERY bin) and `_map_target`
         (each SKU's optimal preferred score).  Call once at warehouse build, after the
-        inventory is assigned."""
+        inventory is assigned.
+
+        Also leaves `_map_lap_stats` on the manager — how much of the assignment was
+        actually solved exactly rather than greedily.  Read it rather than assuming: at
+        production catalogue size the large BinKey classes are far past the exact-solve
+        gate, so "the optimal map" is exact on a tail of small classes and near-optimal
+        on the bulk.  The return value stays W* alone; a second return would have to be
+        unpacked at four call sites for a number only the analysis layer wants."""
         brackets = getattr(wp, 'height_brackets', ())
         xs, ys = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
         intercept = wp.pick_intercept
