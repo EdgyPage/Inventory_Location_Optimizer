@@ -15,7 +15,12 @@ mistakes made and caught en route — do not rediscover them.
   per-leaf curated figure PNGs, and per-cell `channel_rollup*.csv`. A run made with the inline
   analysis (default since `2cdea43`) has all of them; regenerate any gap with
   `Optimization/run_analysis.py <cell>`, `run_whatif_{delta,labor,volume} <root>`,
-  `run_channel_rollup.py <cell>` (analysis before rollup). Verify with the resolver
+  `run_channel_rollup.py <cell>` (analysis before rollup).  The RUN DOSSIER
+  (`<root>/_dossier/`) comes from the run-scope evaluations at the end of `analyze_run`;
+  `run_map_precompute <root>` backfills the map family's offline build time and MUST run
+  AFTER `analyze_run`, because the dossier stage wipes the tree its per-class census lands
+  in.  Pool-driving CLIs run as `-m` modules — a spawn pool launched from a heredoc hangs
+  silently. Verify with the resolver
   (`Optimization.runschema.resolver_for`), never by joining path strings.
 - Extract the story numbers FROM the artifacts, never from run logs: winners + savings from the
   per-cell `channel_rollup_summary.csv`; day-length/throughput/labor-invariance stats computed

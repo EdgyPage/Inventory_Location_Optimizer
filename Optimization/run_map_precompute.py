@@ -9,6 +9,12 @@ stamped `backfill` so nothing downstream mistakes it for an inline measurement.
 
     python -m Optimization.run_map_precompute <run_root>
 
+RUN IT AFTER `analyze_run`, not before.  The measurements themselves go into the run's
+runtime table and survive anything, but the per-class detail lands under the dossier tree,
+and the dossier stage WIPES that tree on every analysis pass (it is a derived directory —
+a stale figure from a previous suite is worse than a missing one).  Backfill first and the
+census is silently gone by the time the site stages.
+
 THE GATE, and why it is not optional.  A hand-rolled rebuild of the worker's setup phase is
 a SECOND implementation of something the simulator already does — the exact drift class the
 run dossier exists to end, reintroduced by the fix for it.  So the measurement is refused
@@ -225,12 +231,12 @@ def run(base_dir: str, log=None) -> None:
     # declaration and no new forbidden filename token.  HEAD's contract, not the run's:
     # this is an ANALYSIS output, and a finished run's own document predates the dossier
     # — resolving through it raises for a directory that is perfectly legal to write.
-    from Optimization.runschema import reader_for
-    rd = reader_for(rt, 'dossier_dir')
-    if rd is None:
+    from Optimization.runschema import analysis_path
+    root = analysis_path(rt, 'dossier_dir')
+    if root is None:
         log.warning('  no contract declares the dossier tree — solver census not written')
         return
-    tdir = os.path.join(rd.dossier_dir(), 'tables')
+    tdir = os.path.join(root, 'tables')
     os.makedirs(tdir, exist_ok=True)
     path = os.path.join(tdir, 'map_solver_census.csv')
     with open(path, 'w', newline='', encoding='utf-8') as fh:

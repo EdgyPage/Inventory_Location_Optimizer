@@ -76,7 +76,16 @@ an address map offline. Both are measured here, from the run's own compute recor
 
 {{ rule_cost_table('store') }}
 
-Read the middle column first. **Scoring one arriving unit costs well under a millisecond** for
+<figure markdown>
+  ![Compute cost of each placement rule, against the do-nothing floor](images/percent_cost_vs_fifo.png){ width=920 }
+  <figcaption>The same comparison as a picture, both channels. FIFO does the same
+  replenishment bookkeeping and then picks a slot at random, so the multiple against it
+  isolates the scoring itself — and the multiple, not the raw seconds, is what carries to a
+  different machine. Hatched bars are the deliberate worst-case controls.
+  Source: <code>percent_cost_vs_fifo.png</code>.</figcaption>
+</figure>
+
+Read the middle column of the table first. **Scoring one arriving unit costs well under a millisecond** for
 every rule on the board, and a few hundredths of a millisecond for the winners — against a dock
 that receives on the order of ten thousand units per wave. Placement scoring is not a capacity
 question, a latency question, or a licensing question; it is a rounding error against the
@@ -146,7 +155,7 @@ This is the claim the [throughput page](comparison.md) rests on, so it is stated
 rather than as a round number, and the table below is **generated from the run's own
 comparison census** rather than transcribed — so it cannot drift from the data it describes:
 
-{{ census_table('labor_delta_vs_ref_pct') }}
+{{ census_table('labor_delta_vs_ref_pct', places=3) }}
 
 The last column is the part a median alone cannot give you. A scheduler re-packs tasks across
 pickers; it cannot change how long those tasks take, and the right way to state that is not

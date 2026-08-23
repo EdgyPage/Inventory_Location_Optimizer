@@ -1,0 +1,218 @@
+{
+  "note": "Derived from the run's own tree and leaf configs: a factor is VARIED when more than one distinct value appears in this run and FIXED when exactly one does, so the fixed list cannot be incomplete. ABSENT names knobs the model has no parameter for \u2014 a different answer from \"held constant\", and the only one that implies a code change to explore.",
+  "spec": {
+    "n_batches": 75,
+    "max_skus": null,
+    "s_max_aisles": null,
+    "s_max_bins": 150000,
+    "s_min_bins": null,
+    "ff_max_aisles": null,
+    "ff_max_bins": 250000,
+    "ff_min_bins": null,
+    "s_composition": null,
+    "store_fill": 0.9,
+    "ff_fill": 0.9,
+    "checkpoint_frac": 0.1,
+    "sampler": "v2",
+    "keyframe_interval": 5,
+    "whatif": false,
+    "spec": "scheduler_ab",
+    "profiles_dir": "H:\\Data\\Inventory_Optimizer_Data\\generated\\catalogue",
+    "all_profiles": false,
+    "workers": 20,
+    "max_tasks_per_child": 1,
+    "max_retries": 2,
+    "resume_granularity": "strategy",
+    "repo_commit": "9c99d3a45fa8",
+    "repo_dirty": false
+  },
+  "varied": [
+    {
+      "factor": "avg_lead_time_mean",
+      "label": "mean lead time",
+      "n_levels": 2,
+      "levels": [
+        0.0,
+        2.498
+      ]
+    },
+    {
+      "factor": "avg_reorder_point",
+      "label": "mean reorder point",
+      "n_levels": 2,
+      "levels": [
+        1.01,
+        1.51
+      ]
+    },
+    {
+      "factor": "batch_mean_frac",
+      "label": "wave size, as a share of the catalogue",
+      "n_levels": 2,
+      "levels": [
+        0.15,
+        0.2
+      ]
+    },
+    {
+      "factor": "cart_capacity",
+      "label": "cart capacity",
+      "n_levels": 2,
+      "levels": [
+        125000,
+        25000
+      ]
+    },
+    {
+      "factor": "cart_swap_coef",
+      "label": "cart-swap seconds",
+      "n_levels": 2,
+      "levels": [
+        240,
+        300
+      ]
+    },
+    {
+      "factor": "cell",
+      "label": "scheduler cell",
+      "n_levels": 2,
+      "levels": [
+        "k1_off_lpt",
+        "k1_off_rr"
+      ]
+    },
+    {
+      "factor": "channel",
+      "label": "channel",
+      "n_levels": 2,
+      "levels": [
+        "fulfillment",
+        "store"
+      ]
+    },
+    {
+      "factor": "config",
+      "label": "pick configuration",
+      "n_levels": 2,
+      "levels": [
+        "ful_calibrated",
+        "store"
+      ]
+    },
+    {
+      "factor": "inventory",
+      "label": "inventory model (supply)",
+      "n_levels": 2,
+      "levels": [
+        "mixed_20260816_131535__mixed_realistic_bell_lt0",
+        "mixed_20260816_131535__mixed_realistic_bell_ltrand0-5"
+      ]
+    },
+    {
+      "factor": "num_pickers",
+      "label": "crew size",
+      "n_levels": 2,
+      "levels": [
+        20,
+        25
+      ]
+    },
+    {
+      "factor": "pick_intercept",
+      "label": "per-pick setup seconds",
+      "n_levels": 2,
+      "levels": [
+        10,
+        15
+      ]
+    }
+  ],
+  "fixed": [
+    {
+      "factor": "avg_equilibrium_qty",
+      "label": "mean equilibrium quantity",
+      "n_levels": 1,
+      "levels": [
+        3.5
+      ]
+    },
+    {
+      "factor": "avg_supply_cv",
+      "label": "supply variability",
+      "n_levels": 1,
+      "levels": [
+        0.075
+      ]
+    },
+    {
+      "factor": "height_brackets",
+      "label": "height multipliers",
+      "n_levels": 1,
+      "levels": [
+        "[[96.0, 1.0], [240.0, 1.2], [null, 1.4]]"
+      ]
+    },
+    {
+      "factor": "n_batches",
+      "label": "waves per run",
+      "n_levels": 1,
+      "levels": [
+        75
+      ]
+    },
+    {
+      "factor": "n_skus",
+      "label": "stocked SKUs",
+      "n_levels": 1,
+      "levels": [
+        263257
+      ]
+    },
+    {
+      "factor": "sampler",
+      "label": "demand sampler",
+      "n_levels": 1,
+      "levels": [
+        "v2"
+      ]
+    },
+    {
+      "factor": "total_aisles",
+      "label": "aisles",
+      "n_levels": 1,
+      "levels": [
+        384
+      ]
+    },
+    {
+      "factor": "total_bins",
+      "label": "bins",
+      "n_levels": 1,
+      "levels": [
+        398500
+      ]
+    }
+  ],
+  "absent": [
+    {
+      "factor": "safety_stock",
+      "why": "The plan builder this run used derives the reorder point from lead time alone; it takes no safety-stock parameter, so there is no value to hold fixed. Varying it means changing the builder signature, not the run spec."
+    },
+    {
+      "factor": "breaks_and_shifts",
+      "why": "The model has no shift structure: no breaks, lunches or shift changes."
+    },
+    {
+      "factor": "inter_aisle_travel",
+      "why": "Walking between aisles is not modeled, for either scheduler."
+    },
+    {
+      "factor": "aisle_congestion",
+      "why": "Several pickers heading for the same aisle is not modeled."
+    },
+    {
+      "factor": "cold_start_skus",
+      "why": "Every SKU has demand history from batch zero; there is no new-item case."
+    }
+  ]
+}

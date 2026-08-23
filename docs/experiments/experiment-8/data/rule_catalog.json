@@ -1,0 +1,458 @@
+{
+  "families": {
+    "baseline": "Baseline",
+    "ranked": "Ranked (effort / labor)",
+    "map": "Map (optimal-map score matching)",
+    "cluster_map": "Cluster-map (map + cohesion)",
+    "travel": "Travel bracket",
+    "affinity": "Affinity bracket",
+    "codemand": "Co-demand bracket"
+  },
+  "n_rules": 17,
+  "n_ran": 17,
+  "note": "The objective is transcribed once, in Optimization/config/objectives.py, and tied by test to the symbol each builder actually calls. `ran` and `arms` come from this run, not from the registry.",
+  "rules": [
+    {
+      "rule": "fifo",
+      "label": "FIFO",
+      "family": "baseline",
+      "sense": "none",
+      "stage": "per_unit",
+      "symbol": "_uniform_assignment",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "builder": "_build_uniform@Optimization/config/strategies.py",
+      "latex": "",
+      "notes": "First-in-first-out: drop each arriving unit into a uniform-random bin of its BinKey pool. No ordering, no affinity, no demand awareness \u2014 the do-nothing control every other family is measured against. It has no objective, which is the point.",
+      "control": false,
+      "precompute": "",
+      "anchor": "fifo",
+      "family_label": "Baseline",
+      "ran": true,
+      "arms": [
+        "opt_fifo_norsl",
+        "uni_fifo_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_random",
+      "label": "Rank_random",
+      "family": "ranked",
+      "sense": "none",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_uniform_assignment_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_uniform_trip_min_ranked@Optimization/config/strategies.py",
+      "latex": "",
+      "notes": "Rank by pick-effort priority, then place each unit in a uniform-random aisle at its lowest-$D$ (front) bin. Isolates the *ordering* effect from the *placement* effect \u2014 how much of a win is just sequencing hot units first.",
+      "control": false,
+      "precompute": "",
+      "anchor": "rank-random",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_random_norsl",
+        "uni_rank_random_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_popularity",
+      "label": "Rank_popularity",
+      "family": "ranked",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_popularity_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_rank_popularity@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{a}\\ \\sum_{s \\in a} f_s\\,q_s$",
+      "notes": "Rank by expected popularity ($f\\cdot q$), place each into the aisle with the least total popularity. Spreads demand mass evenly across aisles \u2014 a dispersal control.",
+      "control": false,
+      "precompute": "",
+      "anchor": "rank-popularity",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_popularity_norsl",
+        "uni_rank_popularity_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_labor",
+      "label": "Rank_labor",
+      "family": "ranked",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_labor_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_rank_labor@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{(a,\\,b)}\\ \\bigl(L_a + f_s\\,q_s\\,\\ell(b)\\bigr),\\qquad L_a = \\sum_{s\\in a} f_s\\,q_s\\,\\ell(b_s)$",
+      "notes": "Travel-aware LPT (longest-processing-time) labor balance. Aisle $a$ carries total expected labor $L_a$; each unit is placed where it least raises the busiest aisle, costliest SKU first.",
+      "control": false,
+      "precompute": "",
+      "anchor": "rank-labor",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_labor_norsl",
+        "uni_rank_labor_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_cartlabor",
+      "label": "Rank_cartlabor",
+      "family": "ranked",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_cartlabor_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_rank_cartlabor@Optimization/config/strategies.py",
+      "latex": "$C_a = c_{\\text{swap}} \\cdot \\max\\!\\left(0,\\ \\frac{V_a}{\\hat{V}} - 1\\right),\\qquad \\arg\\min_{(a,\\,b)}\\ \\bigl(L_a + C_a + f_s\\,q_s\\,\\ell(b)\\bigr)$",
+      "notes": "Rank_labor plus a cart-swap term: the load being balanced also carries each aisle's *expected cart-swap* cost, so demand mass that would overflow a picker's cart disperses rather than concentrating. $V_a = \\sum_{s\\in a} f_s q_s v_s$ is the raw expected picked volume and $\\hat{V}$ the cart capacity rescaled to the same units. With a large cart $C_a \\approx 0$ and this is effectively Rank_labor; with a small cart the term bites. Setting the cart tuple to `None` makes it byte-identical to Rank_labor.",
+      "control": false,
+      "precompute": "",
+      "anchor": "rank-cartlabor",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_cartlabor_norsl",
+        "uni_rank_cartlabor_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_minlabor",
+      "label": "Rank_minlabor",
+      "family": "ranked",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_minlabor_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_rank_minlabor@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{(a,\\,b)}\\ \\Bigl[\\,f_s\\bigl(M(y_b)(t_0 + h) + D_b\\bigr)\\;-\\; \\lambda\\!\\!\\sum_{p\\,\\in\\,\\text{aisle}}\\!\\!\\bigl(\\text{lift}(s,p)-1\\bigr) f_p\\,\\Bigr]$",
+      "notes": "Greedy minimiser of expected total task labor. Fuses golden-zone height, effort-to-front and affinity compaction into one marginal-cost score \u2014 it CONSOLIDATES rather than balances, which is the opposite of Rank_labor.",
+      "control": false,
+      "precompute": "",
+      "anchor": "rank-minlabor",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_minlabor_norsl",
+        "uni_rank_minlabor_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "rank_maxlabor",
+      "label": "Rank_maxlabor",
+      "family": "ranked",
+      "sense": "max",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_maxlabor_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_rank_maxlabor@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{(a,\\,b)}\\ \\Bigl[\\,f_s\\bigl(M(y_b)(t_0 + h) + D_b\\bigr)\\;-\\; \\lambda\\!\\!\\sum_{p\\,\\in\\,\\text{aisle}}\\!\\!\\bigl(\\text{lift}(s,p)-1\\bigr) f_p\\,\\Bigr]$",
+      "notes": "The exact maximiser mirror of Rank_minlabor \u2014 high/far bins, scattered partners. A worst-case control that should land *worst* on task labor.",
+      "control": true,
+      "precompute": "",
+      "anchor": "rank-maxlabor",
+      "family_label": "Ranked (effort / labor)",
+      "ran": true,
+      "arms": [
+        "opt_rank_maxlabor_norsl",
+        "uni_rank_maxlabor_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "map",
+      "label": "Map",
+      "family": "map",
+      "sense": "min",
+      "stage": "precomputed_map",
+      "symbol": "build_optmap_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_map@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{b}\\ \\bigl|\\operatorname{pref}(b) - \\operatorname{target}(s)\\bigr|,\\qquad \\operatorname{pref}(b) = D_b + M(y_b)(t_0 + \\bar h)$",
+      "notes": "Optimal-map score matching. Every bin gets a quantity-free preferred score $\\operatorname{pref}(b)$; every SKU gets a $\\operatorname{target}(s)$ \u2014 the $\\operatorname{pref}$ of its bin in the labor-minimising assignment solved offline at setup. Arriving units go to the free bin whose score is closest to their target. The assignment is solved ONCE per arm at setup, from the demand model, and is not re-solved as realized demand drifts \u2014 as a WMS job that is a periodic offline re-slot computation, not a live service.",
+      "control": false,
+      "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
+      "anchor": "map",
+      "family_label": "Map (optimal-map score matching)",
+      "ran": true,
+      "arms": [
+        "opt_map_norsl",
+        "uni_map_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": 0.000892912903731307
+    },
+    {
+      "rule": "map_rank",
+      "label": "Map_rank",
+      "family": "map",
+      "sense": "min",
+      "stage": "precomputed_map",
+      "symbol": "build_optmap_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_map_rank@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{\\,b\\,:\\,\\operatorname{pref}(b)\\,\\ge\\,\\operatorname{target}(s)}\\ \\bigl(\\operatorname{pref}(b) - \\operatorname{target}(s)\\bigr)$",
+      "notes": "The same map, upgrade-capped: a SKU never reloads into a bin more prime than its optimal rank, reserving prime spots for the higher-ranked SKUs future orders bring. Rank-relative, and deliberately non-greedy.",
+      "control": false,
+      "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
+      "anchor": "map-rank",
+      "family_label": "Map (optimal-map score matching)",
+      "ran": true,
+      "arms": [
+        "opt_map_rank_norsl",
+        "uni_map_rank_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": 0.000892912903731307
+    },
+    {
+      "rule": "cluster_map",
+      "label": "CluMap",
+      "family": "cluster_map",
+      "sense": "min",
+      "stage": "precomputed_map",
+      "symbol": "build_cluster_map_placement",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_cluster_map@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{a}\\ \\text{co-occur}(s,a)\\ \\ \\text{then}\\ \\ \\arg\\min_{b\\,\\in\\,a}\\ \\lvert x_b - c_x \\rvert$",
+      "notes": "Mix `map` with clustering: choose the aisle cohesion-first (most demand-weighted affinity to existing members), anchor the unit at its favoured map location, then compact it toward the partners' column centroid. Uncapped score-match, so it may upgrade into prime bins.",
+      "control": false,
+      "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
+      "anchor": "cluster-map",
+      "family_label": "Cluster-map (map + cohesion)",
+      "ran": true,
+      "arms": [
+        "opt_cluster_map_norsl",
+        "uni_cluster_map_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": 0.000892912903731307
+    },
+    {
+      "rule": "cluster_map_rank",
+      "label": "CluMapRk",
+      "family": "cluster_map",
+      "sense": "min",
+      "stage": "precomputed_map",
+      "symbol": "build_cluster_map_placement",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_cluster_map_rank@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{a}\\ \\text{co-occur}(s,a)\\ \\ \\text{then}\\ \\ \\arg\\min_{b\\,\\in\\,a\\,:\\,\\operatorname{pref}(b)\\,\\ge\\,\\operatorname{target}(s)}\\ \\lvert x_b - c_x \\rvert$",
+      "notes": "Upgrade-capped `cluster_map` \u2014 the same cohesion and compaction, but it never settles more prime than its map target.",
+      "control": false,
+      "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
+      "anchor": "cluster-map-rank",
+      "family_label": "Cluster-map (map + cohesion)",
+      "ran": true,
+      "arms": [
+        "opt_cluster_map_rank_norsl",
+        "uni_cluster_map_rank_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": 0.000892912903731307
+    },
+    {
+      "rule": "tmin",
+      "label": "TripMin",
+      "family": "travel",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_minimizing_assignment_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_trip_min@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{b}\\ \\bigl(f_s\\,D_b - \\beta\\,\\text{co-occur}\\bigr)$",
+      "notes": "Hot SKUs to low-$D$ (front) bins, so there is less within-aisle walking.",
+      "control": false,
+      "precompute": "",
+      "anchor": "tmin",
+      "family_label": "Travel bracket",
+      "ran": true,
+      "arms": [
+        "opt_tmin_norsl",
+        "uni_tmin_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "tmax",
+      "label": "TripMax",
+      "family": "travel",
+      "sense": "max",
+      "stage": "ranked_wave",
+      "symbol": "build_ranked_maximizing_assignment_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_trip_max@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{b}\\ \\bigl(f_s\\,D_b - \\beta\\,\\text{co-occur}\\bigr)$",
+      "notes": "Hot items to the back. Worst-case travel control; brackets `tmin`.",
+      "control": true,
+      "precompute": "",
+      "anchor": "tmax",
+      "family_label": "Travel bracket",
+      "ran": true,
+      "arms": [
+        "opt_tmax_norsl",
+        "uni_tmax_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "cmax",
+      "label": "MaxClu",
+      "family": "affinity",
+      "sense": "max",
+      "stage": "per_unit",
+      "symbol": "build_cluster_maximizing_assignment_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_max_cluster@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{a}\\ \\sum_{p\\,\\in\\,a} \\bigl(\\text{lift}(s,p) - 1\\bigr) f_p$",
+      "notes": "Send each SKU to the aisle where its co-picked partners already sit, so a batch visits fewer aisles.",
+      "control": false,
+      "precompute": "",
+      "anchor": "cmax",
+      "family_label": "Affinity bracket",
+      "ran": true,
+      "arms": [
+        "opt_cmax_norsl",
+        "uni_cmax_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "cmin",
+      "label": "MinClu",
+      "family": "affinity",
+      "sense": "min",
+      "stage": "per_unit",
+      "symbol": "build_cluster_minimizing_assignment_fn",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_min_cluster@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{a}\\ \\sum_{p\\,\\in\\,a} \\bigl(\\text{lift}(s,p) - 1\\bigr) f_p$",
+      "notes": "Scatter partners across aisles. Anti-affinity control; brackets `cmax`.",
+      "control": true,
+      "precompute": "",
+      "anchor": "cmin",
+      "family_label": "Affinity bracket",
+      "ran": true,
+      "arms": [
+        "opt_cmin_norsl",
+        "uni_cmin_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "comp",
+      "label": "Compact",
+      "family": "codemand",
+      "sense": "min",
+      "stage": "ranked_wave",
+      "symbol": "build_co_demand_placement",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_compaction@Optimization/config/strategies.py",
+      "latex": "$\\arg\\min_{b}\\ \\lvert x_b - c_x \\rvert,\\qquad c_x = \\frac{\\sum_p (\\text{lift}(s,p)-1)\\,f_p\\,x_p}{\\sum_p (\\text{lift}(s,p)-1)\\,f_p}$",
+      "notes": "Minimise within-aisle span: place the SKU in the column nearest the demand-weighted centroid of its co-demanded partners already in that aisle, shortening the sweep path.",
+      "control": false,
+      "precompute": "",
+      "anchor": "comp",
+      "family_label": "Co-demand bracket",
+      "ran": true,
+      "arms": [
+        "opt_comp_norsl",
+        "uni_comp_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    },
+    {
+      "rule": "expn",
+      "label": "Expand",
+      "family": "codemand",
+      "sense": "max",
+      "stage": "ranked_wave",
+      "symbol": "build_co_demand_placement",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "builder": "_build_expansion@Optimization/config/strategies.py",
+      "latex": "$\\arg\\max_{b}\\ \\lvert x_b - c_x \\rvert$",
+      "notes": "Maximise within-aisle span \u2014 farthest from the centroid. Counter control; the `comp` to `expn` gap measures what the co-demand lever is worth.",
+      "control": true,
+      "precompute": "",
+      "anchor": "expn",
+      "family_label": "Co-demand bracket",
+      "ran": true,
+      "arms": [
+        "opt_expn_norsl",
+        "uni_expn_norsl"
+      ],
+      "channels": [
+        "fulfillment",
+        "store"
+      ],
+      "map_lap_pct": null
+    }
+  ]
+}

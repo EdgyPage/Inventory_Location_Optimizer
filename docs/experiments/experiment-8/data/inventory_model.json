@@ -1,0 +1,156 @@
+{
+  "note": "Measured from the run's own frozen catalogue, not from the generator's parameters or a config average. Where a published formula and these numbers disagree, these are what the simulation stocked.",
+  "source": "planned_inventory@run tree (contract alias)",
+  "pairs": {
+    "mixed_20260816_131535__mixed_realistic_bell_lt0": {
+      "n_skus": 263257,
+      "distributions": {
+        "equilibrium_qty": {
+          "n": 263257,
+          "mean": 3.4927010487850274,
+          "median": 3.0,
+          "p5": 1.0,
+          "p25": 2.0,
+          "p75": 4.0,
+          "p95": 8.0,
+          "min": 1.0,
+          "max": 519.0
+        },
+        "reorder_point": {
+          "n": 263257,
+          "mean": 1.0107385558598632,
+          "median": 1.0,
+          "p5": 1.0,
+          "p25": 1.0,
+          "p75": 1.0,
+          "p95": 1.0,
+          "min": 1.0,
+          "max": 88.0
+        },
+        "lead_time_mean": {
+          "n": 263257,
+          "mean": 0.0,
+          "median": 0.0,
+          "p5": 0.0,
+          "p25": 0.0,
+          "p75": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "expected_batch_demand": {
+          "n": 263257,
+          "mean": 3.91651071941717,
+          "median": 2.95684516234989,
+          "p5": 0.38161338494771135,
+          "p25": 1.4485510660432175,
+          "p75": 5.45357968838105,
+          "p95": 10.802179425478757,
+          "min": 1e-06,
+          "max": 20.0
+        }
+      },
+      "rop_formulas": [
+        {
+          "name": "ceil_lead_plus_1",
+          "expression": "ceil(dbar * (lead + 1)), clamped to [1, eq-1] \u2014 build_inventory_from_plan",
+          "match_pct": 52.85215587809631
+        },
+        {
+          "name": "round_lead_plus_safety",
+          "expression": "round(dbar * (lead + 2)), clamped to [1, eq-1] \u2014 build_inventory_with_profile, safety=REORDER_SAFETY_BATCHES",
+          "match_pct": 50.3082539115769
+        }
+      ],
+      "capacity_rescale": {
+        "note": "stored equilibrium / (coverage x expected demand). 1.0 would mean the planner had its way; anything else is the warehouse-fit rescale in sample_to_capacity@Warehouse/inventory/inventory_planning.py.",
+        "ratio_at_coverage_10": {
+          "n": 263257,
+          "mean": 4.615419212973659,
+          "median": 0.10199120265714091,
+          "p5": 0.02315382934121921,
+          "p25": 0.05122455529732475,
+          "p75": 0.22733407943929013,
+          "p95": 0.8054296749854936,
+          "min": 0.006277193462685747,
+          "max": 100000.00000000001
+        }
+      }
+    },
+    "mixed_20260816_131535__mixed_realistic_bell_ltrand0-5": {
+      "n_skus": 263257,
+      "distributions": {
+        "equilibrium_qty": {
+          "n": 263257,
+          "mean": 3.4927010487850274,
+          "median": 3.0,
+          "p5": 1.0,
+          "p25": 2.0,
+          "p75": 4.0,
+          "p95": 8.0,
+          "min": 1.0,
+          "max": 519.0
+        },
+        "reorder_point": {
+          "n": 263257,
+          "mean": 1.5093767687089041,
+          "median": 1.0,
+          "p5": 1.0,
+          "p25": 1.0,
+          "p75": 2.0,
+          "p95": 3.0,
+          "min": 1.0,
+          "max": 295.0
+        },
+        "lead_time_mean": {
+          "n": 263257,
+          "mean": 2.4982507587642493,
+          "median": 2.0,
+          "p5": 0.0,
+          "p25": 1.0,
+          "p75": 4.0,
+          "p95": 5.0,
+          "min": 0.0,
+          "max": 5.0
+        },
+        "expected_batch_demand": {
+          "n": 263257,
+          "mean": 3.91651071941717,
+          "median": 2.95684516234989,
+          "p5": 0.38161338494771135,
+          "p25": 1.4485510660432175,
+          "p75": 5.45357968838105,
+          "p95": 10.802179425478757,
+          "min": 1e-06,
+          "max": 20.0
+        }
+      },
+      "rop_formulas": [
+        {
+          "name": "ceil_lead_plus_1",
+          "expression": "ceil(dbar * (lead + 1)), clamped to [1, eq-1] \u2014 build_inventory_from_plan",
+          "match_pct": 54.4031117881006
+        },
+        {
+          "name": "round_lead_plus_safety",
+          "expression": "round(dbar * (lead + 2)), clamped to [1, eq-1] \u2014 build_inventory_with_profile, safety=REORDER_SAFETY_BATCHES",
+          "match_pct": 53.603512917035445
+        }
+      ],
+      "capacity_rescale": {
+        "note": "stored equilibrium / (coverage x expected demand). 1.0 would mean the planner had its way; anything else is the warehouse-fit rescale in sample_to_capacity@Warehouse/inventory/inventory_planning.py.",
+        "ratio_at_coverage_10": {
+          "n": 263257,
+          "mean": 4.615419212973659,
+          "median": 0.10199120265714091,
+          "p5": 0.02315382934121921,
+          "p25": 0.05122455529732475,
+          "p75": 0.22733407943929013,
+          "p95": 0.8054296749854936,
+          "min": 0.006277193462685747,
+          "max": 100000.00000000001
+        }
+      }
+    }
+  }
+}

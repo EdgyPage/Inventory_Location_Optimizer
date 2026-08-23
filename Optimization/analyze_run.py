@@ -111,16 +111,20 @@ def _run_root_stage(base_dir, log, preset_name):
     from Optimization.Performance_Evaluations import driver
     from Optimization.Performance_Evaluations.core.context import RunContext
     from Optimization.Performance_Evaluations.presets import PRESETS
-    from Optimization.runschema import resolver_for
+    from Optimization.runschema import analysis_path, resolver_for
 
     preset = PRESETS[preset_name]
     keys = driver.run_root_keys(preset)
     if not keys:
         return
-    # The output root comes from the contract, never a joined literal: the dossier is a
-    # declared artifact tree and this is the same rule every other writer follows.
+    # The output root comes from the contract, never a joined literal.  HEAD's contract,
+    # via `analysis_path`: a finished run's own document predates this tree, so resolving
+    # through it raises for a directory the analysis is entitled to create.
     rt = resolver_for(base_dir)
-    out_dir = rt.dossier_dir()
+    out_dir = analysis_path(rt, 'dossier_dir')
+    if out_dir is None:
+        log.warning('  no contract declares the dossier tree — run-scope stage skipped')
+        return
     log.info(f'  run dossier: {len(keys)} evaluation(s) -> {os.path.basename(out_dir)}')
     driver.prepare_run_dir(out_dir)
     ctx = RunContext(base_dir, out_dir, log)

@@ -73,6 +73,21 @@ def reader_for(rt: RunTree, artifact: str) -> RunTree | None:
     return rt if artifact in rt.artifacts else None
 
 
+def analysis_path(rt: RunTree, artifact: str, **parts) -> str | None:
+    """Render an ANALYSIS artifact's path for `rt`'s run — HEAD contract first.
+
+    `reader_for` in one call, because the two-step dance was written out at three separate
+    call sites and got forgotten at each of them in turn: the analysis writes into
+    directories a finished run's own contract has never heard of, so `rt.path(...)` raises
+    `KeyError` for a location that is perfectly legal to write.
+
+    None when no contract declares the name, so a caller can log that rather than crash a
+    best-effort analysis step.
+    """
+    rd = reader_for(rt, artifact)
+    return None if rd is None else rd.path(artifact, **parts)
+
+
 def _resolver_for_contract(base: str, doc: dict, layout: dict | None) -> RunTree:
     missing = sorted(set(doc.get('features', [])) - set(SUPPORTED_FEATURES))
     if missing:
