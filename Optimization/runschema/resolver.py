@@ -213,17 +213,22 @@ class RunTree:
     def runtime_db(self) -> str:
         return self.path('runtime_metrics_db')
 
-    def whatif_outputs(self) -> list[str]:
-        """Existing cross-cell what-if artifacts at the run root (empty on a single-cell run).
+    def group_outputs(self, group: str) -> list[str]:
+        """Every EXISTING file declared under a contract group tag, globs expanded.
 
-        Driven by the `whatif` group tag, so adding a what-if output to the contract surfaces it
-        here automatically.
+        The tag is the unit of discovery, so a producer that emits a new document gets it
+        staged and consumed with no edit at either end — which is what separates the
+        group-driven stages from the ones that name their artifacts one at a time.
         """
         out: list[str] = []
-        for name in self.by_group('whatif'):
+        for name in self.by_group(group):
             p = self.path(name)
             out.extend(sorted(_glob.glob(p)) if '*' in p else [p])
         return [p for p in dict.fromkeys(out) if os.path.exists(p)]
+
+    def whatif_outputs(self) -> list[str]:
+        """Existing cross-cell what-if artifacts at the run root (empty on a single-cell run)."""
+        return self.group_outputs('whatif')
 
     # ── cells ──────────────────────────────────────────────────────────────────
     def cells(self) -> list[tuple[str, str]]:

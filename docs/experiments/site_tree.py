@@ -38,9 +38,13 @@ TEMPLATES = {
     'figure_png':    'images/{run}/{inv}/{cfg}/{figure}',
     # per pair: the catalogue's generation parameters
     'pair_params':   'data/{inv}/params.json',
-    # run-root what-if outputs: JSON/CSV data into data/, PNGs flat into images/
-    'whatif_data':   'data/{fname}',
-    'whatif_delta':  'images/{fname}',
+    # run-root outputs — the what-if writers and the run dossier alike: data files flat
+    # into data/, PNGs flat into images/.  ONE pair of templates for both groups, because
+    # the destination is identical and it is the contract's GROUP TAG, not the template
+    # name, that says where a file came from.  (Named `whatif_*` while the what-if trio
+    # was the only run-root producer.)
+    'run_data':      'data/{fname}',
+    'run_png':       'images/{fname}',
     # per-cell data artifacts (the channel rollup CSVs: the per-arm labor rows and the
     # per-channel best/saving summary the labor page's headline quotes) — added for
     # Experiment 8 after a reviewer traced the labor headline to a file the site never

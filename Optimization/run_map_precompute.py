@@ -42,8 +42,8 @@ if _REPO_ROOT not in sys.path:
 from Optimization.config.objectives import OBJECTIVES
 from Optimization.config.sim_config import _OUTPUT_DIR, _setup_logging, regime_sizing_from_config
 from Optimization.persistence import runtime_metrics as rm
+from Optimization.run_analysis import _apply_run_shape
 from Optimization.runschema import resolver_for
-from Optimization.runschema.runlayout import iter_channel_runs
 
 #: The rules that HAVE an offline build, straight from the rule registry — so adding a
 #: precomputing rule does not need an edit here, and a rule that stops precomputing does
@@ -52,11 +52,47 @@ MAP_RULES = tuple(sorted(k for k, o in OBJECTIVES.items() if o.precompute))
 
 
 def _metas_by_pair(base_dir, rt) -> dict:
+    """{pair: [(cell, ChannelRun, sim_meta), ...]} across the WHOLE run.
+
+    `rt.channel_runs()` spans cells; the raw walker takes one cell directory, which is the
+    shape the per-cell analysis uses and the wrong one here — it silently yields nothing
+    when handed a run root.
+    """
     out: dict = {}
-    for run in iter_channel_runs(base_dir):
+    for cell, run in rt.channel_runs():
         with open(rt.leaf_path(run, 'sim_meta'), encoding='utf-8') as fh:
-            out.setdefault(run.pair, []).append((run, json.load(fh)))
+            out.setdefault(run.pair, []).append((cell, run, json.load(fh)))
     return out
+
+
+def _workload_params(rt, cell, run):
+    """WorkloadParams from the leaf's committed config.json, or None when it is absent."""
+    import dataclasses
+    from Optimization.config.sim_config import _CART_TYPES
+    from Optimization.metrics.Workload import WorkloadParams
+    from Warehouse.picking.Pick import PickConfig, StoreCart
+    try:
+        path = rt.path('config_json', cell=cell, pair=run.pair, config=run.config)
+    except Exception:                                      # noqa: BLE001 - absence is data
+        return None
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding='utf-8') as fh:
+        cfg = json.load(fh)
+    fields = {f.name for f in dataclasses.fields(PickConfig)}
+    kw = {k: v for k, v in cfg.items() if k in fields}
+    # `cart` is serialised as its NAME; PickConfig wants the class.  The same registry the
+    # sim resolves it through, so a store leaf gets the store cart and a fulfillment leaf
+    # does not silently inherit it — the cart term is where the two channels diverge most.
+    kw['cart'] = _CART_TYPES.get(cfg.get('cart'), StoreCart)
+    # The top height bracket's threshold is infinity, and JSON has no infinity — it
+    # round-trips as null.  Restoring it is not cosmetic: `height_multiplier` compares
+    # against the threshold, so a null makes every bin's height multiplier raise.
+    if kw.get('height_brackets'):
+        kw['height_brackets'] = tuple(
+            (float('inf') if thr is None else thr, mult)
+            for thr, mult in kw['height_brackets'])
+    return WorkloadParams.from_pick_config(PickConfig(**kw))
 
 
 def _recorded(rows, cell, pair, config, channel, arm) -> dict | None:
@@ -67,32 +103,33 @@ def _recorded(rows, cell, pair, config, channel, arm) -> dict | None:
     return None
 
 
-def _identity_matches(log, rec, shared, n_skus) -> bool:
-    """The gate: does the rebuild reproduce what the run recorded about its warehouse?"""
+def _identity_matches(log, rec, shared) -> bool:
+    """The gate: does the rebuild reproduce what the run recorded about its warehouse?
+
+    A refusal here is the DESIGNED outcome, not a failure of this script.  It already
+    caught the real thing once: without the run's own shaping params applied first, the
+    rebuild produced 5,814 aisles / 6.2 M bins against a run that recorded 384 / 398,500,
+    and the timing taken on it would have been published as if it meant something.
+
+    `regime_bins` is deliberately not checked: it is the per-CHANNEL slice, and the whole
+    warehouse is what the map is built over.
+    """
     want = {'n_aisles': rec.get('n_aisles'), 'n_bins': rec.get('n_bins')}
-    got = {'n_aisles': len(shared['warehouse'].aisles),
-           'n_bins': len(shared['warehouse'].bins)}
+    got = {'n_aisles': shared['total_aisles'], 'n_bins': shared['total_bins']}
     bad = {k: (want[k], got[k]) for k in want if want[k] and want[k] != got[k]}
-    if int(rec.get('regime_bins') or 0) and n_skus:
-        pass                      # regime_bins is per-channel; checked by the caller's slice
-    if bad:
-        for k, (w, g) in bad.items():
-            log.error(f'    REFUSING to record: {k} recorded {w:,} but the rebuild made {g:,}')
-        return False
-    return True
+    for k, (w, g) in bad.items():
+        log.error(f'    REFUSING to record: {k} recorded {w:,} but the rebuild made {g:,}')
+    return not bad
 
 
-def measure_pair(base_dir, rt, pair, metas, rows, log) -> list:
+def measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list:
     """Time `build_optimal_map` once per (channel, map rule) for one inventory pair."""
     from Optimization.simdriver.sim_assets import build_shared_assets
-    from Optimization.Performance_Evaluations.core.context import _provenance_parts  # noqa: F401
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
     from Warehouse.inventory import inventory_optimal as io_mod
-    from Optimization.metrics.Workload import WorkloadParams
-    from Warehouse.picking.Pick import PickConfig
 
-    inv_db = next((m.get('inv_db') for _r, m in metas if m.get('inv_db')), None)
-    aff_db = next((m.get('aff_db') for _r, m in metas if m.get('aff_db')), None)
+    inv_db = next((m.get('inv_db') for _c, _r, m in metas if m.get('inv_db')), None)
+    aff_db = next((m.get('aff_db') for _c, _r, m in metas if m.get('aff_db')), None)
     if not inv_db or not aff_db:
         log.warning(f'  {pair}: no inv/aff db recorded in sim_meta — skipped')
         return []
@@ -104,19 +141,21 @@ def measure_pair(base_dir, rt, pair, metas, rows, log) -> list:
     # inventory and the run's own per-regime sizing.  Sizing this differently from the run
     # is the silent wrong-warehouse bug the gate below exists to catch.
     log.info(f'  {pair}: rebuilding the warehouse shape')
-    shared = build_shared_assets(inv_db, aff_db, log,
+    shared = build_shared_assets(inv_db, aff_db, log, max_skus=max_skus,
                                  regime_sizing=regime_sizing_from_config())
     orders = shared['inventory'].orders
     n_skus = len(orders)
 
     out = []
-    for run, meta in metas:
-        cell = os.path.basename(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.abspath(run.path)))))
-        cfg = meta.get('pick_config') or {}
-        wp = WorkloadParams.from_pick_config(PickConfig(**cfg)) if cfg else shared.get('wp')
+    for cell, run, meta in metas:
+        # The cost constants are per CHANNEL (store and fulfillment differ in pick
+        # intercept, cart size and both pick-time exponents), and the leaf's committed
+        # config.json is the run's own record of them — sim_meta does not carry them.
+        # Timing the map against the wrong channel's constants would measure a build the
+        # run never performed.
+        wp = _workload_params(rt, cell, run)
         if wp is None:
-            log.warning(f'  {pair}/{run.config}: no pick config recorded — skipped')
+            log.warning(f'  {pair}/{run.config}: no leaf config.json — skipped')
             continue
         for rule in MAP_RULES:
             for initial in ('uni', 'opt'):
@@ -124,9 +163,12 @@ def measure_pair(base_dir, rt, pair, metas, rows, log) -> list:
                 rec = _recorded(rows, cell, pair, run.config, run.channel or '', arm)
                 if rec is None:
                     continue
-                if not _identity_matches(log, rec, shared, n_skus):
+                if not _identity_matches(log, rec, shared):
                     continue
-                mgr = Inventory_Manager(shared['warehouse'], affinity=None)
+                # `warehouse_meta` is the parent's copy of the same geometry the workers
+                # each rebuilt from `warehouse_cfg` — the gate above is what certifies
+                # it is the geometry this arm actually ran on.
+                mgr = Inventory_Manager(shared['warehouse_meta'], affinity=None)
                 classes = []
                 io_mod.OptimalLayoutMixin._assign_probe = classes.append
                 try:
@@ -166,11 +208,16 @@ def run(base_dir: str, log=None) -> None:
     if not rows:
         log.warning('no runtime metrics at the run root — nothing to backfill')
         return
+    # THE RUN'S OWN SHAPE, FIRST.  `regime_sizing_from_config()` reads whatever CONFIG this
+    # checkout holds; the run's caps and max_skus live in its run_spec.  Skipping this step
+    # rebuilt a 5,814-aisle / 6.2 M-bin warehouse against a run that recorded 384 / 398,500 —
+    # the gate below caught it, which is precisely why the gate is not optional.
+    max_skus = _apply_run_shape(base_dir, log)
     log.info(f'map precompute backfill: {len(MAP_RULES)} precomputing rule(s) '
              f'{MAP_RULES}')
     detail = []
     for pair, metas in _metas_by_pair(base_dir, rt).items():
-        detail.extend(measure_pair(base_dir, rt, pair, metas, rows, log))
+        detail.extend(measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=max_skus))
     if not detail:
         log.warning('nothing measured (no map arms, or the gate refused every one)')
         return

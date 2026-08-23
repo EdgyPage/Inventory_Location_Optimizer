@@ -136,7 +136,14 @@ LEGACY_TOP3, LEGACY_FULL_SUITE, LEGACY_INVENTORY_PLOTS = _LEGACY or (None, None,
 # literal below serves only the pre-descriptor legacy route, which predates the group tag.
 DEFAULT_WHATIF_DATA = ["whatif_delta.json"]
 DEFAULT_WHATIF_PNG_GLOB = "whatif_*.png"
-_WHATIF_DATA_EXT = ".json"
+#: Data extensions staged into data/.  CSV joined JSON when the run dossier arrived: the
+#: JSON-only rule dated from when the only run-root data files were the what-if summaries,
+#: and it silently skipped the sibling CSVs those same writers emit — so a page wanting the
+#: per-arm rows behind a quoted median had nothing committed to link to.
+_RUN_DATA_EXT = ('.json', '.csv')
+#: Contract group tags whose members are staged from the run root.  A group, not a file
+#: list, so the next document its writers emit stages itself.
+_RUN_GROUPS = ('whatif', 'dossier')
 
 _DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # …/docs
 
@@ -453,39 +460,43 @@ def _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log, rt=None
 
 
 def _stage_whatif(source, exp_dir, dry, log, rt=None):
-    """Cross-cell what-if outputs from the RUN ROOT into data/ + images/.
+    """Run-root outputs — the cross-cell what-if summaries AND the run dossier — into
+    data/ + images/.
 
     whatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no
     producer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.
     Absent on a single-cell run, which is not an error.
 
-    With a resolver the candidates come from the contract's `whatif` group tag
-    (`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED is
-    shape-based, never name-based: every group `.json` into data/ (the committed sources the
-    prose quotes) and every group PNG into images/.  The literal joins below remain the
-    pre-descriptor route.
+    With a resolver the candidates come from the contract's GROUP TAGS (`_RUN_GROUPS`), so a
+    new document its writers emit stages itself with no edit here; what is STAGED is
+    shape-based, never name-based: every group data file into data/ (the committed sources
+    the prose quotes) and every group PNG into images/.  That is why this function can serve
+    two producers where `_stage_rollups` and `_stage_leaf_tables` name their artifacts one at
+    a time and cost an edit each.  The literal joins below remain the pre-descriptor route.
     """
     n = 0
     if rt is not None:
         # Two passes — data files first, then PNGs — so the staged (src -> dst) sequence
-        # matches the literal route below line for line (the golden test compares the two
-        # logs as SEQUENCES; one mixed sorted() pass interleaves pngs before the json).
-        cands = sorted(rt.whatif_outputs())          # existing whatif artifacts at the run root
+        # is grouped rather than interleaved (one mixed sorted() pass puts pngs before the
+        # json of a later group).
+        cands = []
+        for group in _RUN_GROUPS:
+            cands.extend(sorted(rt.group_outputs(group)))
         for src in cands:
             base = os.path.basename(src)
-            if base.endswith(_WHATIF_DATA_EXT):
-                n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=base), dry, log)
+            if base.endswith(_RUN_DATA_EXT):
+                n += _copy(src, site_tree.path('run_data', exp_dir, fname=base), dry, log)
         for src in cands:
             base = os.path.basename(src)
-            if not base.endswith(_WHATIF_DATA_EXT) and fnmatch.fnmatch(base, DEFAULT_WHATIF_PNG_GLOB):
-                n += _copy(src, site_tree.path('whatif_delta', exp_dir, fname=base), dry, log)
+            if not base.endswith(_RUN_DATA_EXT) and base.endswith('.png'):
+                n += _copy(src, site_tree.path('run_png', exp_dir, fname=base), dry, log)
         return n
     for fname in DEFAULT_WHATIF_DATA:
         src = os.path.join(source, fname)
         if os.path.isfile(src):
-            n += _copy(src, site_tree.path('whatif_data', exp_dir, fname=fname), dry, log)
+            n += _copy(src, site_tree.path('run_data', exp_dir, fname=fname), dry, log)
     for src in sorted(glob.glob(os.path.join(source, DEFAULT_WHATIF_PNG_GLOB))):
-        n += _copy(src, site_tree.path('whatif_delta', exp_dir,
+        n += _copy(src, site_tree.path('run_png', exp_dir,
                                        fname=os.path.basename(src)), dry, log)
     return n
 

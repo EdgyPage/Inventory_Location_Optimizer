@@ -500,6 +500,210 @@ def define_env(env):
             r"if no free bin is at or below the SKU's tier, fall back to the least-prime bin.",
         ])
 
+    # ── the run dossier: claims rendered FROM the artifact ────────────────────
+    # Every macro below composes a sentence or a table out of a document the ANALYSIS
+    # emitted.  The page then carries the CALL, not the number — which is the whole point:
+    # a count, a formula or a rule objective typed into prose can drift from the run, and
+    # every one of these replaced a claim that had.
+    #
+    # One loader, one name dict.  The filename ratchet counts raw text, so spelling each
+    # document name exactly once keeps this file's contribution to it at one apiece.
+
+    _DOSSIER_DOCS = {
+        "census":    "comparison_census.json",
+        "rules":     "rule_catalog.json",
+        "inventory": "inventory_model.json",
+        "fixed":     "held_fixed.json",
+        "cost":      "dossier.json",
+    }
+
+    def _dossier(kind):
+        """A staged dossier document by short name; raises when it is not staged.
+
+        Loud on purpose, matching `_verify_manifest_schema`: under `--strict` a missing
+        document must fail the build.  A macro that degraded to a blank sentence would put
+        an EMPTY claim on a published page, which is worse than no page at all.
+        """
+        return _load_json(f"{_exp_dir()}/data/{_DOSSIER_DOCS[kind]}")
+
+    def _census_row(metric, grouping, group=None):
+        doc = _dossier("census")
+        for b in doc.get("blocks", []):
+            if b["metric"] != metric or b["grouping"] != grouping:
+                continue
+            for r in b["rows"]:
+                got = next((v for k, v in r.items() if k.startswith("group_")), None)
+                if (group is None and got is None) or (group is not None and got == group):
+                    return r
+        raise KeyError(f"macros: no census row for metric={metric!r} "
+                       f"grouping={grouping!r} group={group!r}")
+
+    def _pct(v, places=1):
+        return "—" if v is None else f"{v:+.{places}f} %"
+
+    @env.macro
+    def census_claim(metric, grouping="channel", group=None, places=1):
+        """One count/span claim, composed from the census artifact.
+
+        Renders the sentence the pages used to type by hand beside a figure: how many
+        comparisons went the claimed way, the exact sign test and its interval, the median
+        and the span.
+        """
+        r = _census_row(metric, grouping, group)
+        n, pos = r["n"], r["n_pos"]
+        head = (f"positive in **all {n}** comparisons" if pos == n and n
+                else f"positive in **{pos} of {n}** comparisons")
+        p = r.get("p_sign")
+        test = ("" if p is None else
+                f" (sign test *p* = {p:.1e}, 95 % CI "
+                f"[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}])")
+        return (f"{head}{test}, median **{_pct(r['median'], places)}**, "
+                f"range {_pct(r['min'], places)} to {_pct(r['max'], places)}")
+
+    @env.macro
+    def census_table(metric, grouping="channel", places=1):
+        """The full census grid for one metric — every group, plus the overall row."""
+        doc = _dossier("census")
+        block = next((b for b in doc.get("blocks", [])
+                      if b["metric"] == metric and b["grouping"] == grouping), None)
+        if block is None:
+            raise KeyError(f"macros: no census block {metric!r}/{grouping!r}")
+        gcols = [k for k in block["rows"][0] if k.startswith("group_")]
+        head = " | ".join(c[len("group_"):] for c in gcols)
+        out = [f"| {head} | comparisons | went the claimed way | median | range | sign test |",
+               "|" + "---|" * (len(gcols) + 5)]
+        for r in block["rows"]:
+            label = " | ".join(str(r[c] if r[c] is not None else "**all**") for c in gcols)
+            p = r.get("p_sign")
+            ptxt = "—" if p is None else f"{p:.1e}"
+            out.append(
+                f"| {label} | {r['n']} | {r['n_pos']} | {_pct(r['median'], places)} | "
+                f"{_pct(r['min'], places)} to {_pct(r['max'], places)} | {ptxt} |")
+        out += ["",
+                f"<small>{block['label']}. Source: the run's comparison census "
+                f"({doc['n_comparisons']} same-rule comparisons against cell "
+                f"<code>{doc['reference_cell']}</code>).</small>"]
+        return "\n".join(out)
+
+    @env.macro
+    def rule_catalog(only=None, family=None):
+        """The placement-rule catalogue, generated from the registry the run emitted.
+
+        Replaces per-rule prose that existed in three places at once.  Anchors reproduce
+        the ones the docs already link to (`#rank-labor`, `#map`, …) — `docref_guard`
+        checks a different reference form, so a renamed anchor here would be a silently
+        broken published link.
+        """
+        doc = _dossier("rules")
+        rules = [r for r in doc["rules"]
+                 if (only is None or r["rule"] in only)
+                 and (family is None or r["family"] == family)]
+        out, seen = [], set()
+        for r in rules:
+            if only is None and r["family"] not in seen:
+                seen.add(r["family"])
+                out += [f"## {r['family_label']}", ""]
+            out.append(f"### {r['label']} — `{r['rule']}` {{ #{r['anchor']} }}")
+            if r["control"]:
+                out.append("*A deliberate worst-case control — designed to lose. The "
+                           "distance to its mirror is what the lever is worth.*")
+            out.append(r["notes"])
+            if r["latex"]:
+                out += ["", r["latex"], ""]
+            bits = [f"Implemented by `{r['symbol']}` in `{r['module']}`"]
+            if r["precompute"]:
+                bits.append("with an **offline build step** "
+                            f"(`{r['precompute'].split('@')[0]}`) run once per arm before "
+                            "the simulation")
+            if not r["ran"]:
+                bits.append("**not swept in this run**")
+            out += [f"<small>{'; '.join(bits)}.</small>", ""]
+        return "\n".join(out)
+
+    @env.macro
+    def inventory_model(inv_key=None):
+        """The realised inventory model — distributions, not a formula.
+
+        The pages used to state an equilibrium formula that, measured against the run's own
+        catalogue, is off by an order of magnitude: the planner's figures are rescaled to
+        fit the warehouse after they are computed.  A distribution is the only honest thing
+        to publish for a quantity nothing closed-form reproduces.
+        """
+        doc = _dossier("inventory")
+        pairs = doc["pairs"]
+        key = _inv1((inv_key,)) if inv_key else None
+        name = next((k for k in sorted(pairs) if key and key in k), sorted(pairs)[0])
+        m = pairs[name]
+        d = m["distributions"]
+        labels = [("equilibrium_qty", "equilibrium quantity (units held per SKU)"),
+                  ("reorder_point", "reorder point (units)"),
+                  ("lead_time_mean", "lead time (waves)"),
+                  ("expected_batch_demand", "expected demand per wave (units)")]
+        rows = ["| quantity | median | mean | p5 – p95 | min – max |",
+                "|---|---:|---:|---:|---:|"]
+        for k, label in labels:
+            v = d.get(k) or {}
+            if not v:
+                continue
+            rows.append(f"| {label} | {v['median']:,.2f} | {v['mean']:,.2f} | "
+                        f"{v['p5']:,.2f} – {v['p95']:,.2f} | "
+                        f"{v['min']:,.2f} – {v['max']:,.2f} |")
+        best = max(m["rop_formulas"], key=lambda f: f["match_pct"])
+        rows += ["",
+                 f"<small>Measured over the run's own {m['n_skus']:,} stocked SKUs. The "
+                 f"closest closed form for the reorder point reproduces only "
+                 f"**{best['match_pct']:.0f} %** of the stored values, because the "
+                 f"planner's figures are rescaled to fit the warehouse after they are "
+                 f"computed — the distribution above is what the simulation actually "
+                 f"stocked.</small>"]
+        return "\n".join(rows)
+
+    @env.macro
+    def held_fixed_table():
+        """What the sweep varied, what it held fixed, and what it has no knob for."""
+        doc = _dossier("fixed")
+        out = ["| factor | levels in this run |", "|---|---|"]
+        for r in doc["varied"]:
+            vals = ", ".join(f"`{v}`" for v in r["levels"][:6])
+            out.append(f"| **{r['label']}** (varied) | {r['n_levels']} — {vals} |")
+        for r in doc["fixed"]:
+            out.append(f"| {r['label']} | held at `{r['levels'][0]}` |")
+        for r in doc["absent"]:
+            out.append(f"| {r['factor'].replace('_', ' ')} | **not a parameter of this "
+                       f"model** — {r['why']} |")
+        return "\n".join(out)
+
+    @env.macro
+    def rule_cost_table(channel="store", top=None):
+        """What each rule costs to RUN — real CPU seconds, not modeled warehouse labor."""
+        doc = _dossier("cost")
+        rows = [r for r in doc["cost"] if r["channel"] == channel]
+        rows.sort(key=lambda r: (r["x_reord_vs_fifo"] is None, r["x_reord_vs_fifo"] or 0.0))
+        if top:
+            rows = rows[:top]
+        out = ["| rule | vs do-nothing | per unit put away | per wave | offline build |",
+               "|---|---:|---:|---:|---:|"]
+        for r in rows:
+            x, ms = r["x_reord_vs_fifo"], r["scoring_ms_per_unit"]
+            per_wave, pre = r["reord_s_per_wave"], r["precomp_s"]
+            build = ("—" if not r["has_precompute"]
+                     else ("unmeasured" if pre is None else f"{pre:,.0f} s"))
+            out.append(
+                f"| {r['label']}{' *(control)*' if r['control'] else ''} "
+                f"| {'—' if x is None else f'{x:.2f}×'} "
+                f"| {'—' if ms is None else f'{ms:.3f} ms'} "
+                f"| {'—' if per_wave is None else f'{per_wave:.2f} s'} "
+                f"| {build} |")
+        w = doc.get("workers")
+        contention = (f"contended against {w} workers" if w else "contention unrecorded")
+        out += ["",
+                f"<small>Wall-clock CPU time on the machine that ran the sweep, "
+                f"{contention}; the multiple against the do-nothing rule is the figure that "
+                f"travels between machines. The offline build is measured separately and is "
+                f"NOT part of the per-wave column — it runs once per arm, before the "
+                f"simulation starts.</small>"]
+        return "\n".join(out)
+
     @env.macro
     def reorder_formula(*args):
         """Equilibrium / reorder-point model with this config's averages."""

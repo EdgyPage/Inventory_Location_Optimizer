@@ -160,6 +160,41 @@ figures:
       One panel per arm: cumulative labor saved against FIFO in bold, the per-batch series
       behind it. Every panel shares one scale, so the panels are comparable across the grid.
 
+  # ── cost: what a rule costs to RUN (run scope, whole-run figures) ───────────────
+  # The only family measuring the SIMULATOR rather than the warehouse.  Run-scope, so one
+  # copy per RUN rather than per leaf; `default: false` keeps them out of a new scaffolded
+  # manifest, since an experiment that is not making a feasibility argument does not need
+  # them.
+  - name: percent_cost_vs_fifo.png
+    eval: cost.compute
+    section: full_suite
+    default: false
+    width: 920
+    caption: >-
+      What each placement rule costs to run, as a multiple of the do-nothing rule — real CPU
+      time, not modeled warehouse labor. FIFO does the same replenishment bookkeeping and
+      then picks a slot at random, so the ratio isolates the scoring itself. Hatched bars are
+      the deliberate worst-case controls.
+  - name: absolute_compute_cost.png
+    eval: cost.compute
+    section: full_suite
+    default: false
+    width: 920
+    caption: >-
+      The same cost in operational units: milliseconds of scoring per unit put away, and
+      seconds of placement per wave. The per-unit figure is the one a WMS reader can compare
+      against their own dock throughput.
+  - name: delta_cost_sections.png
+    eval: cost.compute
+    section: full_suite
+    default: false
+    width: 920
+    caption: >-
+      Where a rule's extra compute goes, as a difference from the do-nothing rule rather than
+      a stack of absolutes. The offline map build is deliberately absent: it is measured
+      outside the loop this total covers, so stacking it here would add a span the total does
+      not contain.
+
   # ── retired: superseded by the chart-family redesign ────────────────────────────
   # Kept so archived experiment snapshots keep resolving, and because Experiment 1 renders
   # its own frozen set with no manifest to name them.  Nothing new may use these.

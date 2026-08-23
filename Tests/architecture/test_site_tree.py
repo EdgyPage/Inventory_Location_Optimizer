@@ -41,9 +41,14 @@ def test_templates_render_the_committed_snapshot_literals():
         os.path.join(exp, 'images', 'k1_off_lpt', 'mix', 'calibrated', 'top_vs_baseline.png')
     assert st.path('pair_params', exp, inv='mix') == \
         os.path.join(exp, 'data', 'mix', 'params.json')
-    assert st.path('whatif_data', exp, fname='whatif_delta.json') == \
+    # ONE pair of run-root templates serves every run-root producer — the what-if trio and
+    # the dossier alike.  The destination is the same; the contract's GROUP TAG, not the
+    # template name, records which producer a file came from.
+    assert st.path('run_data', exp, fname='whatif_delta.json') == \
         os.path.join(exp, 'data', 'whatif_delta.json')
-    assert st.path('whatif_delta', exp, fname='whatif_delta.png') == \
+    assert st.path('run_data', exp, fname='rule_catalog.json') == \
+        os.path.join(exp, 'data', 'rule_catalog.json')
+    assert st.path('run_png', exp, fname='whatif_delta.png') == \
         os.path.join(exp, 'images', 'whatif_delta.png')
     assert st.path('catalogue_png', exp, catalogue='catalogue', plot='demand.png') == \
         os.path.join(exp, 'images', 'catalogue', 'demand.png')
@@ -73,7 +78,7 @@ def test_macros_fstring_joins_equal_the_templates():
     assert 'images/{run}/{inv}/{cfg}/{fname}' in src
     assert st.TEMPLATES['pair_params'] == 'data/{inv}/params.json'
     assert 'data/{inv}/params.json' in src
-    assert st.TEMPLATES['whatif_data'] == 'data/{fname}'
+    assert st.TEMPLATES['run_data'] == 'data/{fname}'
     assert 'data/whatif_delta.json' in src                        # the concrete whatif read
 
 
