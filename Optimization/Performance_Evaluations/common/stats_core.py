@@ -140,9 +140,33 @@ def _hedges_g_paired(a: np.ndarray, b: np.ndarray) -> float:
 _BOOT = 2000
 
 
+def _block_len(n: int) -> int:
+    """Moving-block length for a series of n observations — the standard n^(1/3) rule."""
+    return int(max(1, min(n // 2, round(n ** (1.0 / 3.0)))))
+
+
+def _moving_block_index(rng, n: int, n_boot: int, block: int) -> np.ndarray:
+    """(n_boot, n) resampling index built from overlapping blocks of `block` batches."""
+    if block <= 1:
+        return rng.integers(0, n, size=(n_boot, n))
+    n_blocks = int(np.ceil(n / block))
+    starts = rng.integers(0, n - block + 1, size=(n_boot, n_blocks))
+    idx = (starts[:, :, None] + np.arange(block)[None, None, :]).reshape(n_boot, -1)
+    return idx[:, :n]
+
+
 def _boot_ci(sample, stat=np.median, *, n_boot: int = _BOOT, seed: int = 0,
-             alpha: float = 0.05) -> tuple:
-    """(lo, hi) percentile-bootstrap interval for `stat` over a 1-D sample.
+             alpha: float = 0.05, block: int | None = None) -> tuple:
+    """(lo, hi) MOVING-BLOCK bootstrap interval for `stat` over a per-batch series.
+
+    Blocks, not independent draws.  These samples are per-batch differences from one
+    continuous run: each batch inherits the previous batch's layout, so the differences
+    carry serial correlation — measured on this design, lag-1 through lag-3 sit outside
+    the +/-2/sqrt(n) white-noise band for some arms.  Resampling batches independently
+    would treat 75 correlated observations as 75 independent ones and report an interval
+    narrower than the data earns.  Resampling contiguous blocks keeps the local
+    dependence intact; with no correlation present the block length collapses toward the
+    i.i.d. case and costs nothing.
 
     Deterministic by construction: a seeded Generator, never the global RNG.  NaN pair
     when fewer than 3 finite observations survive — the same floor the paired tests use.
@@ -152,10 +176,25 @@ def _boot_ci(sample, stat=np.median, *, n_boot: int = _BOOT, seed: int = 0,
     if a.size < 3:
         return float('nan'), float('nan')
     rng = np.random.default_rng(seed)
-    idx = rng.integers(0, a.size, size=(n_boot, a.size))
+    idx = _moving_block_index(rng, a.size, n_boot,
+                              _block_len(a.size) if block is None else block)
     draws = stat(a[idx], axis=1)
     lo, hi = np.percentile(draws, [alpha / 2 * 100, (1 - alpha / 2) * 100])
     return float(lo), float(hi)
+
+
+def _lag1_autocorr(sample) -> float:
+    """Lag-1 autocorrelation of a series; NaN when it cannot be computed.
+
+    Reported beside an interval so a reader can see WHY the interval is block-based:
+    compare it against the white-noise band 2/sqrt(n).
+    """
+    x = np.asarray(sample, dtype=float)
+    x = x[np.isfinite(x)]
+    if x.size < 4 or x.var() == 0:
+        return float('nan')
+    x = x - x.mean()
+    return float(np.dot(x[:-1], x[1:]) / np.dot(x, x))
 
 
 def _rank_biserial_ci(a, b, *, n_boot: int = _BOOT, seed: int = 0,
@@ -174,7 +213,7 @@ def _rank_biserial_ci(a, b, *, n_boot: int = _BOOT, seed: int = 0,
     if x.size < 3:
         return float('nan'), float('nan')
     rng = np.random.default_rng(seed)
-    idx = rng.integers(0, x.size, size=(n_boot, x.size))
+    idx = _moving_block_index(rng, x.size, n_boot, _block_len(x.size))
     draws = np.array([_rank_biserial(x[i], y[i]) for i in idx], dtype=float)
     lo, hi = np.percentile(draws, [alpha / 2 * 100, (1 - alpha / 2) * 100])
     return float(max(-1.0, lo)), float(min(1.0, hi))

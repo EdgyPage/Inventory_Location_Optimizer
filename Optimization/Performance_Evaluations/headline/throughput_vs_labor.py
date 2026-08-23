@@ -224,13 +224,10 @@ def _both_levers(ctx, S, base, bd):
     # leader-lined back to their point instead of written on top of one another.
     winners = sorted([p for p in pts if p[1] > 0 and p[2] > 0],
                      key=lambda p: -min(p[1], p[2]))[:4]
-    span = (y1 - y0) or 1.0
-    for i, (s, lab, thr) in enumerate(winners):
-        ty = y1 - span * (0.06 + 0.055 * i)
-        ax.annotate(_stitle(s), xy=(lab, thr), xytext=(x0 + (x1 - x0) * 0.03, ty),
-                    fontsize=7, va='center', ha='left',
-                    arrowprops=dict(arrowstyle='-', lw=0.6, color='#888888',
-                                    shrinkA=0, shrinkB=3))
+    chartkit.annotate_points(ax, [(lab, thr, _stitle(s)) for s, lab, thr in winners],
+                             fontsize=7,
+                             colors=[chartkit.strategy_color(s, ctx.strategies)
+                                     for s, _l, _t in winners])
     chartkit.pct_axis(ax, better='up', axis='x')
     chartkit.pct_axis(ax, better='up', axis='y')
     ax.set_xlabel('labor saved vs FIFO (↑ better)')

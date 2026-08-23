@@ -90,10 +90,14 @@ def _percent(ctx, curves, base_curve, xlim, top_n, top_by, out):
     b_hrs, b_items = base_curve
     if b_hrs.size == 0:
         return
-    labels = [_stitle(s) for s, *_ in curves]
-    ch = chartkit.make(panel_w=7.2, panel_h=4.4, legend='gutter', legend_labels=labels)
+    # NO legend: every curve is labelled at its own finish point, which beats a legend
+    # (the name sits next to the line instead of asking the reader to match a hue), and
+    # a gutter here would be a box for the labels to disappear behind.  chartkit's fit
+    # grows the canvas around the annotations.
+    ch = chartkit.make(panel_w=7.2, panel_h=4.4, legend='none')
     ax = ch.ax
     all_pct = []
+    finish_labels, finish_colors = [], []
     for s, hrs, items in curves:
         grid, pct = lead_pct_curve(hrs, items, b_hrs, b_items)
         if grid.size == 0:
@@ -101,11 +105,15 @@ def _percent(ctx, curves, base_curve, xlim, top_n, top_by, out):
         col = chartkit.strategy_color(s, ctx.strategies)
         ax.plot(grid, pct, color=col, ls=chartkit.strategy_dash(s), lw=1.8,
                 label=_stitle(s))
-        # Finish dot, annotated with the arm's OWN finish hour — the arms' curves end at
-        # the shared grid's edge, but when they finished is where they truly differ.
+        # Finish dot, annotated with the arm's NAME and its own finish hour.  The name is
+        # on the curve rather than only in the legend because colour here is the
+        # assignment function and neighbouring functions land on neighbouring hues: a
+        # site director reading this chart matched a negative curve to the wrong arm and
+        # reported the page as self-contradictory, which it was not.  A line that says
+        # what it is cannot be mismatched.
         ax.plot([grid[-1]], [pct[-1]], marker='o', ms=5, color=col, zorder=5)
-        ax.annotate(f'{float(hrs[-1]):.1f} h', (grid[-1], pct[-1]),
-                    textcoords='offset points', xytext=(5, 4), fontsize=7, color=col)
+        finish_labels.append((grid[-1], pct[-1], f'{_stitle(s)} · {float(hrs[-1]):.1f} h'))
+        finish_colors.append(col)
         all_pct.append(pct)
     if not all_pct:
         plt.close(ch.fig)
@@ -113,12 +121,13 @@ def _percent(ctx, curves, base_curve, xlim, top_n, top_by, out):
     ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
     chartkit.data_ylim(ax, all_pct, include=(0.0,))
     ax.set_xlim(*xlim)
+    # after the limits: the collision sweep measures gaps against the axes height
+    chartkit.annotate_points(ax, finish_labels, colors=finish_colors)
     ax.set_xlabel(_HOURS_LABEL)
     # % tick labels are wide; shrink them so the rotated ylabel fits the reserved margin.
     ax.tick_params(axis='y', labelsize=9)
     ax.set_ylabel(f'volume lead over FIFO {chartkit.pct_axis(ax, better="up")}',
                   fontsize=9, labelpad=2)
-    ch.legend(title='strategy')
     ch.title('Volume lead over FIFO',
              subtitle=(f'{_sub_note(top_n, top_by)} · % more items done than FIFO '
                        f'by the same hour · dot = finish (labeled)'))

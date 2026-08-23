@@ -119,6 +119,15 @@ this design deliberately excludes.
 
 {{ setup_table(inv0) }}
 
+<small>**The table above is the shared build and the STORE channel's crew.** Fulfillment runs the
+same racking with its own numbers, and they are collected here so this page answers a headcount
+question without sending you elsewhere: **20 pickers** (store: 25), **248,700** bins in its own
+regime partition (store: 149,800), and its own subset of the 400,000-SKU catalogue. The two
+channels also differ in three pick-time constants — `pick_intercept`, `cart_swap_coef` and
+`batch_mean_frac` — whose per-channel values are in each leaf's committed `config.json`; the
+batch-size fraction is the one that shows up in the formulas above ($0.15$ store, $0.20$
+fulfillment).</small>
+
 ## 3. Pick
 
 **Batch → tasks.** Each batch first samples a set of SKUs to pick — the batch size is

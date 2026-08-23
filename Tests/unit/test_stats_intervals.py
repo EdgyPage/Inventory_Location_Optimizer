@@ -96,6 +96,52 @@ def test_boot_ci_is_deterministic():
     assert _boot_ci(sample) == _boot_ci(sample)
 
 
+# ── 5. serial correlation widens the interval instead of being ignored ──────────
+
+def test_a_correlated_series_gets_a_wider_interval_than_iid_resampling():
+    """Per-batch differences come from ONE continuous run, where each batch inherits the
+    previous batch's layout. Resampling batches independently would treat correlated
+    observations as independent ones and report an interval narrower than the data
+    earns; blocks keep the local dependence."""
+    from Optimization.Performance_Evaluations.common.stats_core import (
+        _block_len, _lag1_autocorr)
+
+    rng = np.random.default_rng(2)
+    n = 300
+    e = rng.normal(0, 1.0, n)
+    ar = np.empty(n)                       # a strongly autocorrelated series
+    ar[0] = e[0]
+    for i in range(1, n):
+        ar[i] = 0.8 * ar[i - 1] + e[i]
+    assert _lag1_autocorr(ar) > 2 / np.sqrt(n), 'fixture is not correlated'
+
+    lo_b, hi_b = _boot_ci(ar, np.mean)                 # block (the default)
+    lo_i, hi_i = _boot_ci(ar, np.mean, block=1)        # independent draws
+    assert (hi_b - lo_b) > (hi_i - lo_i), (
+        'the block interval is no wider than the i.i.d. one on a correlated series')
+    assert _block_len(n) > 1 and _block_len(75) >= 4
+
+
+def test_block_resampling_costs_nothing_on_an_uncorrelated_series():
+    rng = np.random.default_rng(4)
+    white = rng.normal(0.0, 1.0, 300)
+    lo_b, hi_b = _boot_ci(white, np.mean)
+    lo_i, hi_i = _boot_ci(white, np.mean, block=1)
+    widths = (hi_b - lo_b), (hi_i - lo_i)
+    assert abs(widths[0] - widths[1]) / widths[1] < 0.35, (
+        'blocks should behave close to i.i.d. when there is no dependence to preserve')
+
+
+def test_the_resampling_index_stays_in_range_and_full_length():
+    from Optimization.Performance_Evaluations.common.stats_core import (
+        _moving_block_index)
+    rng = np.random.default_rng(0)
+    for n, block in ((75, 4), (10, 3), (5, 1), (7, 4)):
+        idx = _moving_block_index(rng, n, 50, block)
+        assert idx.shape == (50, n), (n, block, idx.shape)
+        assert idx.min() >= 0 and idx.max() < n, (n, block)
+
+
 # ── 4. the aggregate by-initial test pairs by profile ───────────────────────────
 
 def test_vs_baseline_rows_are_auditable_and_self_consistent():

@@ -236,6 +236,43 @@ def effect_label(p, effect, *, kind='g', pct=None):
     return ' '.join(bits)
 
 
+def annotate_points(ax, points, *, fontsize=6.5, dx=6.0, min_gap_frac=0.045,
+                    colors=None):
+    """Label scattered points without letting the labels overlap each other.
+
+    `points` is [(x, y, text), ...].  Labels are placed to the right of their point and
+    pushed apart vertically to at least `min_gap_frac` of the axes height, with a leader
+    line back to the point whenever one had to move.  Series that end up close together
+    are exactly the ones a reader most needs told apart — on this suite the arms that
+    finish within a few tenths of a percent of each other are the podium — and a pile of
+    overlapping labels there is worse than none, because it looks like information.
+    """
+    pts = [(float(x), float(y), str(t)) for x, y, t in points
+           if np.isfinite(x) and np.isfinite(y)]
+    if not pts:
+        return
+    y0, y1 = ax.get_ylim()
+    gap = abs(y1 - y0) * min_gap_frac
+    order = sorted(range(len(pts)), key=lambda i: pts[i][1])
+    placed = {}
+    last = None
+    for i in order:                       # sweep upward, pushing each label clear
+        _x, y, _t = pts[i]
+        ty = y if last is None else max(y, last + gap)
+        placed[i] = ty
+        last = ty
+    for i, (x, y, text) in enumerate(pts):
+        ty = placed[i]
+        col = (colors[i] if colors is not None else '#333333')
+        ax.annotate(text, xy=(x, y), xytext=(dx, 0), textcoords='offset points',
+                    fontsize=fontsize, color=col, va='center', ha='left',
+                    annotation_clip=False) if abs(ty - y) < gap * 0.25 else \
+            ax.annotate(text, xy=(x, y), xytext=(x, ty), fontsize=fontsize, color=col,
+                        va='center', ha='left', annotation_clip=False,
+                        arrowprops=dict(arrowstyle='-', lw=0.5, color=col, alpha=0.6,
+                                        shrinkA=0, shrinkB=2))
+
+
 def draw_ci(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, **kw):
     """Draw the confidence interval the stats layer computes (and, until now, nothing
     ever rendered).  band=True fills between series; band=False draws error whiskers."""

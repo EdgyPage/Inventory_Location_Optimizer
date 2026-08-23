@@ -264,3 +264,34 @@ Maximise within-aisle span — place it **farthest** from the centroid (counter 
 $$\arg\max_{b}\ \lvert x_b - c_x \rvert.$$
 
 The `comp ↔ expn` gap measures how much the co-demand lever is worth.
+
+## How the comparison statistics are computed { #comparison-statistics }
+
+Every arm-versus-baseline number the pages quote comes from one per-leaf table,
+`vs_baseline.csv`, staged beside each experiment's figures. One row per (arm, metric). The
+columns, and what each is:
+
+| column | what it is |
+|---|---|
+| `pct_median` | the **median** of the per-batch improvements against the baseline arm, oriented so **positive = better** whichever direction the metric runs. Batches where the baseline value is zero are dropped, not counted as ties — the comparison is undefined there. |
+| `ci_lo` / `ci_hi` | a 95 % **moving-block bootstrap** interval *of that same median*, so the interval always brackets the number printed beside it. |
+| `hedges_g` | the paired standardised effect size on the raw per-batch values, oriented the same way as `pct_median`. |
+| `rank_biserial` | its distribution-free companion, in [−1, 1]; ±1 means the arm won (or lost) on every batch. |
+| `p_wilcoxon` / `p_holm` | the paired signed-rank test, raw and Holm-corrected. The correction family is **the arms within one metric** — the set a reader scans when looking down a column for a winner. |
+| `n_batches` | the batches the two arms actually share. |
+
+**Why the interval is block-based.** The 75 batches are one continuous run: each batch inherits
+the previous batch's layout, so the per-batch differences are not independent draws. Measured on
+this run, lag-1 through lag-3 autocorrelation sits outside the ±2/√n white-noise band for some
+arms. Resampling batches independently would treat correlated observations as independent and
+report an interval narrower than the data earns, so the bootstrap resamples contiguous **blocks**
+of batches (length ≈ n^⅓) and preserves the local dependence. Where there is no correlation this
+costs nothing.
+
+**Why two labor-ish metrics can disagree.** `production_time` and `task_mean_duration` are
+*measured outcomes* — time the simulated pickers actually spent. `objective_task_labor` and
+`objective_total_labor` are the **scorer's own objective**, the analytical quantity an assignment
+function minimises when it chooses a slot. A rule can move its objective slightly while the
+realised time moves more (or the reverse): the objective is a model of the work, the duration is
+the work. When the two disagree for one arm, the measured outcome is the one the findings on
+these pages are stated in; the objective column is there to show what the rule was *trying* to do.

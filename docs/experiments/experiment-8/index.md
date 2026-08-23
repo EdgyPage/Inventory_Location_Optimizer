@@ -24,9 +24,9 @@ this page, in plain terms:
     - **Placement pays where supply is predictable.** With immediate replenishment, the
       `Rank_labor` family cuts store hands-on **pick-hours** by **~2.6 %** against FIFO
       (`Rank_cartlabor` — the same load-balancing rule scored with cart-swap effort included —
-      and `Rank_labor` finish within a rounding margin of each other). Put-away effort is
-      outside the model's ledger — the [labor page](full-results.md) says exactly what that
-      means and how the pilot closes it. When restock arrives
+      and `Rank_labor` finish within a rounding margin of each other). **Put-away effort is
+      outside that ledger, and the margin against it is thin** — see the box below before
+      you plan around the 2.6 %. When restock arrives
       on unpredictable 0–5-batch lead times, the winner flips to the `Map` family and the prize
       shrinks to **~0.8 %** — placement can only save travel it can plan for.
     - **Scheduling speeds up both warehouses, under every supply model.** LPT clears the same
@@ -36,6 +36,28 @@ this page, in plain terms:
       comparisons. The speed-up costs nothing: the work itself did not change.
     - **The two gains are independent, and they stack.** One removes work; the other removes
       waiting. Adopt either without the other; together they compound.
+
+!!! danger "How much put-away could cost before the placement gain is gone"
+    The model prices picking, not restocking, and the placement lever is the one exposed to
+    that: it works by choosing *which slot* an arriving unit goes to, so if a computed slot is
+    farther from the dock than the nearest free one, the restock crew pays for the pickers'
+    saving. Here is the size of the margin, from the run's own counts rather than an argument.
+
+    On the store channel a wave costs about **1.7 hours** of hands-on picking, and the winning
+    rule saves **2.6 %** of it — roughly **2.7 minutes per wave**. That same wave puts away
+    about **11,600 units**. Spread across them, the entire saving is worth about **0.014
+    seconds per unit put away** — and at the roughly 39 units a restock trip carries, about
+    **half a second per trip**.
+
+    Read that as the honest bound it is: **the placement gain survives only if the new slotting
+    adds essentially nothing to the average put-away walk.** It does not mean the gain is
+    illusory — there are real reasons to expect slotting to help restock too (the same rules
+    bias toward near, low bins, and a unit is put away once but picked from many times) — but
+    those reasons are arguments, and this number is the exposure. It is why the pilot's
+    restock-crew hours are a *primary* measurement rather than a nice-to-have, and why a
+    placement pilot that does not measure them cannot tell a win from a transfer. The
+    scheduling lever carries no equivalent exposure: it changes the order tasks are handed
+    out, and touches no slot.
 
 **Two warehouses, not one.** The experiment runs two independent simulated buildings over the
 same catalogue, and every finding names which one it belongs to:
@@ -131,14 +153,24 @@ The two rows move for different reasons, and that is the whole experiment. Place
   <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
 
+**Reading that table if you are not a statistics person:** the first two columns are the answer —
+how much work the rule removed, and how much faster the day went. The last three
+(*Hedges g*, the *95 % CI*, *Wilcoxon p*) only say whether the difference is **real** rather than
+how big it is, and here they all say yes; you can skip them. If you want them:
+*g* is the size of the difference relative to how much it bounced around wave to wave (above ~0.8
+is a large, consistent effect — these are around 3); the *CI* is the range the true value is very
+likely in; *p* is the chance of seeing this by luck, and at 75 waves it is tiny for everything,
+which is exactly why it does not rank the rules. Full definitions are in the
+[formula reference](formula-reference.md#comparison-statistics).
+
 Read the labor column as *how much work the rule removed* and the throughput column as *how much
 faster the day went*. **Read both before you pick a rule.** The three `Rank` variants save almost
-the same labor (+2.2 % to +2.6 %), but `Rank_minlabor` does it while finishing the day's work
-**slower** than doing nothing (−3.2 % throughput on the optimal-start arm, −1.4 % on the uniform
-one), because it spreads work to the least-loaded aisle rather than the nearest one. If you pilot
-one rule, pilot `Rank_cartlabor` or `Rank_labor`, which are positive on both columns. That
-trade-off is the reason this table shows the two columns together instead of ranking on labor
-alone, and it is visible again in Figure 3.
+the same labor (+2.2 % to +2.6 %), but they do not buy the same speed: `Rank_cartlabor` and
+`Rank_labor` add **+3.2 % to +3.6 %** throughput, while `Rank_minlabor` adds only **+1.2 %** on
+the uniform-start arm and *loses* **−3.1 %** on the optimal-start one — it spreads work to the
+least-loaded aisle rather than the nearest one, which evens the load and lengthens the walk. If
+you pilot one rule, pilot `Rank_cartlabor` or `Rank_labor`. Every arm's row, with its interval,
+is in the run's `vs_baseline` table beside this page.
 
 Two further boundaries matter, and each is a finding rather than a failure:
 
@@ -177,11 +209,18 @@ change the scheduler.
     **Fairness:** LPT ranks *tasks*, not people — it says the longest task goes out first, not
     who draws it. The model assumed interchangeable pickers, so a pilot should adopt a rotation
     rule on day one; the default we propose unless the floor has a better one: **no picker
-    draws one of the shift's three longest tasks on consecutive shifts.** **Strain:** "longest"
+    draws one of the shift's three longest tasks on consecutive shifts.** Someone has to own
+    that, or it is a sentence rather than a rule: the **dispatch lead** holds the list of who
+    drew a top-three task each shift and it is read out at the start of the next one, so a
+    picker can see their own history and say so when it is wrong — the pilot does not depend on
+    the WMS being able to enforce it. **Strain:** "longest"
     here is *time*, not physical difficulty — heavy items, bad reach heights, and congested
     aisles are not in the cost model, a long task is not necessarily a hard one, and the model
     cannot say how often the two coincide — which is exactly why the rotation rule above is the
-    guardrail, not an afterthought. **The reclaimed hours:** the model shows the same work
+    guardrail, not an afterthought. What the model cannot supply, the floor can: **week one of
+    the pilot asks the crew directly** — which aisles actually congest, where the heavy and
+    awkward items really are, and how the pace changes late in a shift — and those answers
+    amend the rotation rule rather than being filed as feedback. **The reclaimed hours:** the model shows the same work
     ending ~31 % sooner; whether that becomes earlier truck cutoffs, more waves, training time,
     or earlier finishes is a management decision the pilot should announce **before** it
     starts, because the crew will ask on day one.
@@ -193,10 +232,18 @@ change the scheduler.
   <figcaption><strong>Figure 3.</strong> The same cumulative-volume lens, now holding the scheduler
   fixed at LPT and varying the <strong>placement rule</strong>: how far ahead of FIFO each rule is
   at matched elapsed time, as a share of what FIFO had picked by then, with the dot marking where
-  the arm finished the run. These are the same six runs as Figure 1's table; the raw cumulative
-  curves are in the full results. <strong>Two of the six run below zero for most of the day</strong>
-  — the <code>Rank_minlabor</code> pair, which saves labor but finishes later, the trade-off called
-  out under Figure 1. A rule can be on the labor podium and still be the wrong one to pilot.
+  the arm finished the run — each curve is labelled at its finish, so no colour matching is
+  needed. These are the same six runs as Figure 1's table. <strong>Two of the six run below zero
+  for most of the day</strong>: the <code>Rank_minlabor</code> pair, which saves labor but does
+  not convert it into a faster finish.
+  <br><br>
+  <strong>This chart and Figure 1 measure different things, and for one arm they disagree in
+  sign.</strong> Figure 1's throughput column is a per-batch rate, paired wave against wave and
+  summarised by its median; this chart is cumulative items at matched elapsed time across the
+  whole run. <code>Uni|Rank_minlabor</code> is mildly positive on the first (+1.2 %) and negative
+  on the second — it is a little quicker on the typical wave and still behind on the day, because
+  the waves where it loses are the big ones. When the two disagree, the day-level view is the one
+  that decides whether the shift ends sooner.
   Source: <code>percent_volume_lead.png</code> (store,
   <code>bell_lt0</code>, cell <code>{{ experiment().run }}</code>).</figcaption>
 </figure>
@@ -252,7 +299,12 @@ that pilot** — and exactly what to measure:
    for either scheduler), and **staffing swings** (the model runs a fixed, known crew — call-
    outs, late starts, and mid-shift changes are untested; LPT re-balances only at each wave's
    release against whoever is present) — make all three week-one watch items alongside the
-   measurement plan below.
+   measurement plan below. **What LPT does inside a wave matters for whether your WMS can
+   reproduce this:** at each wave's release every task is handed out longest-first, and a picker
+   who finishes early takes the longest task still unassigned *from that same wave* — the idle
+   time the gain comes from is removed continuously, not at the next wave boundary. A WMS that
+   only re-releases work between waves will not reproduce the modeled gain; the setting to look
+   for is whether a freed picker pulls from the current wave's remaining pool.
 2. **Stores with reliable replenishment: place restock with the `Rank_labor` family** instead of
    first-free-slot. Modeled saving: **~2.6 %** of hands-on pick-hours, needing only data any WMS
    already has (demand rates and slot positions).
@@ -280,11 +332,14 @@ absolute hours are model-scale, and pretending otherwise would be false precisio
 percentages into a dollar ask takes three numbers only your site has, so here is the arithmetic
 with the blanks left honest:
 
-- **Placement (the 2.6 %):** *annual store pick-hours × pick share of site labor × loaded
-  rate × 2.6 %*. Note what the 2.6 % is a percentage OF — pick-hours, not total site labor —
-  so the pick share is load-bearing; if picking is 20 % of your labor budget this is a modest
-  line, at 60 % it is a real one. The put-away offset is unmeasured (bounded qualitatively on
-  the [labor page](full-results.md), closed empirically by the pilot's restock-hours metric).
+- **Placement (the 2.6 %):** *annual store pick-hours × loaded rate × 2.6 %*. Note what the
+  2.6 % is a percentage OF — pick-hours, not total site labor — so the pick share is
+  load-bearing; if picking is 20 % of your labor budget this is a modest line, at 60 % it is a
+  real one. *Worked, with numbers that are yours to replace:* a site running 200,000 pick-hours
+  a year at a $30 loaded rate is spending $6M on picking, and 2.6 % of that is about **$156k a
+  year** — against which you must set whatever the pilot's restock-crew hours turn out to cost
+  (see the exposure box at the top: the margin against put-away is thin, and unmeasured until
+  the pilot measures it).
 - **Scheduling (the ~31 %):** this one is **not a labor-dollar saving** — hands-on hours are
   provably unchanged — it is reclaimed *elapsed* time, and its value depends on which of three
   paths your site converts it into: **capacity** (more volume through the same shift),
