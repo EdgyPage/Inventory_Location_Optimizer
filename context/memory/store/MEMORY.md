@@ -23,3 +23,6 @@
 - [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines; SECTION_MAP updates ride hot-path renames
 - [v2 sampler era](v2-sampler-era.md) — since 2026-08-20 (21f3b3c) new runs default to the v2 Fenwick sampler; v2 runs are not row-comparable with the pre-flip archive, --sampler v1 is the escape hatch
 - [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie; FIFO's uniform-random aisle pick has no ranking for an optimal initial placement to exploit
+- [Per-batch series are autocorrelated](per-batch-series-are-autocorrelated.md) — lag-1..3 all outside the white-noise band, so an iid bootstrap under-reports every CI; use stats_core._boot_ci's moving-block form
+- [Put-away break-even is ~0.5 s per trip](putaway-break-even-is-half-a-second-per-trip.md) — the 2.6% placement gain buys only 0.014 s/unit of extra restock walk; quote that number and insist it be measured
+- [Ingest must prefer the HEAD contract](ingest-must-prefer-head-contract.md) — an artifact present in BOTH contracts silently resolves to the run's older path, so a moved file never restages; only experiment_guard notices
