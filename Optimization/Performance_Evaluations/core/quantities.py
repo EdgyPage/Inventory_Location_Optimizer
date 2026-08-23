@@ -90,6 +90,14 @@ DIRECTIONS = ('lower', 'higher')
 #: `runtime`        a column of the run's own COST rows — wall-clock seconds spent by the
 #:                  optimiser, which is not a warehouse measurement and comes from no sim
 #:                  database.
+#: frame-source kind -> the sim-DB table its rows come from.  `_bdf` builds the per-batch
+#: frame out of `batch_stats` rows and `_tdf` the per-task frame out of `task_stats` rows,
+#: so this mapping is a property of those two builders and nothing else.
+FRAME_TABLE = {'batch': 'batch_stats',
+               'task_mean': 'task_stats',
+               'task_sum': 'task_stats'}
+
+
 @dataclass(frozen=True)
 class Source:
     per_batch: tuple | None = None
@@ -97,6 +105,20 @@ class Source:
     steady_state_name: str | None = None
     series: tuple | None = None
     runtime: str | None = None
+    #: The sim-DB columns the per-batch FRAME column is built from, when they are not the
+    #: same name.  They usually are — but `completion_rate` is `total_items / duration`,
+    #: computed in `common/frames._bdf` and present in no database, and declaring the
+    #: frame name as if it were a column is how a quantity comes to claim a read the
+    #: schema layer cannot check.  Empty means "the frame column IS the DB column".
+    db_columns: tuple = ()
+
+    @property
+    def db_reads(self) -> tuple:
+        """(table, columns) this quantity reads out of a sim database, or ()."""
+        if not self.per_batch:
+            return ()
+        kind, column = self.per_batch
+        return (FRAME_TABLE[kind], tuple(self.db_columns) or (column,))
 
     @property
     def readable(self) -> bool:
@@ -139,6 +161,12 @@ class Quantity:
     #: ((view, reason), ...) — views the derivation would produce that must NOT be drawn.
     #: The reason is mandatory and is what makes this a decision rather than an omission.
     views_suppressed: tuple = ()
+    #: A `Picking_Data.SIM_CAPABILITIES` key, when this quantity reads something only SOME
+    #: vetted vintages carry.  The split is `Schema/compat.py`'s own: a read inside
+    #: `guaranteed_surface` is version-free by construction and needs nothing here; a read
+    #: outside it is a CAPABILITY, and naming one is how a quantity says "some runs simply
+    #: cannot answer this".  `era_findings()` refuses a quantity that is neither.
+    capability: str = ''
     notes: str = ''
 
     def __post_init__(self):
@@ -228,12 +256,16 @@ QUANTITIES: tuple = (
         key='throughput', label='Thr / batch makespan',
         axis_stem='throughput / batch makespan', unit=RATE_PER_HOUR, direction='higher',
         source=Source(per_batch=('batch', 'completion_rate'), steady_state='ss_thr',
-                      series=('batch', 'thr', None, None)),
+                      series=('batch', 'thr', None, None),
+                      # `completion_rate` is computed in `frames._bdf`, not stored
+                      db_columns=('total_items', 'duration')),
         stem='throughput', series_title='Throughput'),
     Quantity(
         key='throughput_task', label='Thr / task makespan',
         axis_stem='throughput / task makespan', unit=RATE_PER_HOUR, direction='higher',
-        source=Source(per_batch=('batch', 'thr_task'), steady_state='ss_thr_task')),
+        source=Source(per_batch=('batch', 'thr_task'), steady_state='ss_thr_task',
+                      # likewise derived: total_items / task_makespan
+                      db_columns=('total_items', 'task_makespan'))),
     Quantity(
         key='queue_depth', label='Put-away queue depth',
         axis_stem='put-away queue depth', unit=_COUNT_UNITS, direction='lower',
@@ -491,3 +523,61 @@ def suppression_reason(q: Quantity, view: str) -> str:
         if v == view:
             return reason
     return ''
+
+
+# ── the data-era gate ────────────────────────────────────────────────────────────
+
+def requires_for(q: Quantity):
+    """The `Schema.compat.Requires` this quantity's sim-DB read amounts to, or None.
+
+    DERIVED, not declared: the table comes from the frame builder the source names and the
+    columns from the source itself, so a quantity cannot describe a read it does not make.
+    A quantity with no per-batch source reads no database — its numbers come from a series
+    document the analysis wrote, or from the run's own cost rows.
+    """
+    from Schema import compat
+    reads = q.source.db_reads
+    if not reads:
+        return None
+    table, columns = reads
+    return compat.Requires(family='sim_db',
+                           label=f'quantity {q.key}',
+                           tables={table: tuple(columns)})
+
+
+def era_findings() -> list:
+    """Quantities that read something not every vetted sim vintage carries, unnamed.
+
+    THE STATIC RULE, no database, runnable in CI: every quantity must satisfy EITHER
+    `compat.validate(requires) == []` — inside the guaranteed surface, so version-free by
+    construction — OR name a real `SIM_CAPABILITIES` key.  Neither of those is a failure.
+    Being neither is: it means a figure will be silently absent, or silently wrong, on
+    every archived run made before the column existed, and nothing anywhere says so.
+
+    That split is `Schema/compat.py`'s own docstring, applied to the quantity table rather
+    than reinvented beside it.
+    """
+    from Schema import compat
+    import Optimization.persistence.Picking_Data as _pd  # registers the family
+
+    out = []
+    for q in QUANTITIES:
+        req = requires_for(q)
+        if req is None:
+            continue
+        gaps = compat.validate(req)
+        if not gaps:
+            continue
+        if q.capability and q.capability in _pd.SIM_CAPABILITIES:
+            continue
+        if q.capability:
+            out.append(f'{q.key} names capability {q.capability!r}, which is not in '
+                       f'SIM_CAPABILITIES')
+            continue
+        out.append(
+            f'{q.key} reads {"; ".join(gaps)} — outside the guaranteed sim_db surface, and '
+            f'it names no capability. Either the read is version-free and the surface '
+            f'needs re-deriving, or some vetted vintage cannot answer this quantity and '
+            f'that has to be said out loud: name a SIM_CAPABILITIES key, or declare the '
+            f'columns the frame actually builds it from in Source.db_columns.')
+    return out

@@ -102,17 +102,29 @@ Per iteration:
    (managers+worker: index/comparison/full-results[+overview]; engineer: all seven + the
    committed `data/` files for number spot-checks).
 3. Triage: managerial BLOCKING items must be fixed; engineer/worker items fixed unless they
-   conflict with managerial clarity. When a gap needs a stat or figure that does not exist,
-   CREATE it from the run's data stores via the declared pipeline — and ONLY that way:
-   **no ad-hoc graphs, ever.** A new figure is a registered evaluation (figures.yml entry +
-   `@evaluation` in Optimization/Performance_Evaluations/, declaring its chart `family=`
-   and `views=` per core/families.py — outputs land in the leaf's `figures/<family>/`
-   folder with a view-prefixed basename, drawn through common/chartkit.py) or a declared
-   whatif artifact (runschema writer); a new data file is a site_tree template +
-   resolver-accessor ingest stage. Then RE-RUN THE PRODUCER on the run root and re-ingest,
-   so every FUTURE run generates the resource automatically and the documentation step is
-   pure re-run + re-stage. `context/guards/experiment_guard.py --scan` enforces this
-   mechanically: a PNG with no declared producer in a current experiment is a finding.
+   conflict with managerial clarity. When a gap needs a stat or figure the pages do not
+   carry, **invoke the `route-reviewer-finding` skill** — do not start building. It picks
+   between four routes that cost wildly different amounts, first match wins:
+
+   - **R1** an artifact already answers it (most "we need a number for X" findings are a
+     STAGING gap) — no re-run, no code;
+   - **R2** the view already renders and nobody staged it. Views are DERIVED from the
+     quantity and the mark (`core/quantities.derive_views`), so "is there a percent
+     version?" has a mechanical answer, and if it is in `EVAL_BY_KEY[key].views` the file
+     is already on the run drive — one `figures.yml` entry plus a caption;
+   - **R3** a new quantity from data the run already recorded — usually one `Quantity`
+     entry and zero renderer code. Re-run the analysis and re-ingest;
+   - **R4** it needs data the simulation never recorded. **Stop.** It cannot be
+     backfilled; give the reviewer the two honest options the era gate prints.
+
+   Whichever route: **no ad-hoc graphs, ever.** A new figure is a registered evaluation
+   (figures.yml entry + `@evaluation` declaring its `family=`, `shape=` and `quantities=`
+   — outputs land in the leaf's `figures/<family>/` folder with a view-prefixed basename,
+   drawn through common/chartkit.py) or a declared whatif artifact (runschema writer); a
+   new data file is a site_tree template + resolver-accessor ingest stage. So every FUTURE
+   run generates the resource automatically and the documentation step is pure re-run +
+   re-stage. `context/guards/experiment_guard.py --scan` enforces this mechanically: a PNG
+   with no declared producer in a current experiment is a finding.
    Before the stakeholder rounds, run one `analysis-sme` round (the analytical SME agent)
    against a rendered leaf whenever the figure set changed — it audits legibility, missing
    views, and unanswered analytical questions at the chart level, which the persona
