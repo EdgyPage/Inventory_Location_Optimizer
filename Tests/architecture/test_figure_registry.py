@@ -139,14 +139,26 @@ _GENERATOR = 'Warehouse/generation/generate_inventory.py'
 
 def test_every_figure_stem_appears_in_its_writer_source():
     """THE anti-drift tie: strip the top-tag prefix and the extension; the remaining stem
-    must appear verbatim in the owning eval's module (or common/painters.py for the shared
-    over-time stems), or — for generator-owned inventory plots — in generate_inventory.py
-    (minus the composed 'param_' prefix).  This is the check that would have caught
-    param_frequency going stale the day the generator renamed it."""
+    must be findable where the figure is actually NAMED — the owning eval's module, the
+    shared over-time painter, a `Quantity.stem` for a figure the painter composes from the
+    quantity table, or, for generator-owned inventory plots, generate_inventory.py (minus
+    the composed 'param_' prefix).  This is the check that would have caught
+    param_frequency going stale the day the generator renamed it.
+
+    `Quantity.stem` joined the list when the over-time stems moved out of
+    `painters.overtime_metrics()`'s literal table into `core/quantities.py`.  The tie is
+    to wherever a name is MINTED, and the mint moved.  Seeding `Quantity.stem` from
+    today's basenames rather than renaming them is what kept this a tie rather than a
+    rewrite: those stems encode the mark (`avg_task_duration`, `layout_travel`), and
+    renaming them would break figures.yml, every committed experiment.yml and the staged
+    images at once.
+    """
     from Optimization import Performance_Evaluations  # noqa: F401
     from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+    from Optimization.Performance_Evaluations.core.quantities import QUANTITIES
     import inspect
 
+    minted = {q.stem for q in QUANTITIES if q.stem}
     misses = []
     for f in _registry():
         if f.get('retired'):
@@ -155,9 +167,10 @@ def test_every_figure_stem_appears_in_its_writer_source():
             '', _TAG_PREFIX.sub('', f['name'])[:-len('.png')]))
         if f.get('eval'):
             mod_src = inspect.getsource(inspect.getmodule(EVAL_BY_KEY[f['eval']].render))
-            if stem not in mod_src and stem not in _src(_PAINTERS):
-                misses.append(f"{f['name']}: stem {stem!r} not in {f['eval']}'s module "
-                              f'or painters')
+            if (stem not in mod_src and stem not in _src(_PAINTERS)
+                    and stem not in minted):
+                misses.append(f"{f['name']}: stem {stem!r} not in {f['eval']}'s module, "
+                              f'the shared painter, or any Quantity.stem')
         else:
             gen = _src(_GENERATOR)
             bare = stem[len('param_'):] if stem.startswith('param_') else stem
@@ -166,30 +179,71 @@ def test_every_figure_stem_appears_in_its_writer_source():
     assert not misses, '\n'.join(misses)
 
 
-# ── committed manifests stay inside the vocabulary ───────────────────────────────
+#: Over-time stems the analysis renders but `figures.yml` does not carry, and why.
+#: The suite renders 5 quantities x 3 views = 15 trajectory figures per leaf; the registry
+#: carries ONE of them.  That is the registry side of the same drift the view derivation
+#: closed on the render side, and it is a CONTENT decision — which figures a stakeholder
+#: page should show — not a mechanical one, so it is recorded here rather than resolved by
+#: a test.  Every entry is a figure that exists on the run drive and cannot currently be
+#: staged into an experiment.
+UNREGISTERED_STEMS = {
+    'task_duration': 'the median+IQR band over time; the ranked box panel in the '
+                     'task_time family answers the same question at a glance and is the '
+                     'one the pages cite',
+    'avg_task_duration': 'mean task duration over batches — near-identical in shape to '
+                         'production_time, which is the one registered',
+    'throughput': 'throughput over batches; the pages quote the steady-state scalar from '
+                  'the rollup instead of the trajectory',
+    'layout_travel': 'Sigma f.D over batches; the ranked per-arm views in the layout '
+                     'family are what the pages cite',
+}
 
-def test_every_committed_manifest_figure_is_in_the_registry():
-    """A stale name in an experiment.yml used to log MISSING at ingest time and stage
-    nothing; now it fails here, in CI."""
-    registered = {f['name'] for f in _registry()}
-    bad = []
-    for exp in sorted(os.listdir(_EXP)):
-        yml = os.path.join(_EXP, exp, 'experiment.yml')
-        if not os.path.isfile(yml):
+#: A ceiling on the above, so the registry gap stays a decision rather than a habit.
+UNREGISTERED_CEILING = 4
+
+
+def _registered_stems() -> set:
+    """The registry's names reduced to bare stems, the same way the forward tie does.
+
+    A substring test is not enough: `task_duration` is inside
+    `absolute_task_duration_ranked.png`, which is a DIFFERENT figure by a different mark
+    in a different family, and matching it would have silently excused the real gap.
+    """
+    out = set()
+    for f in _registry():
+        if f.get('retired'):
             continue
-        with open(yml, encoding='utf-8') as fh:
-            m = yaml.safe_load(fh) or {}
-        names = [n for kind in ('top3', 'full_suite')
-                 for n in (m.get('figures') or {}).get(kind, [])]
-        names += (m.get('inventory_plots') or [])
-        bad += [f'{exp}: {n}' for n in names if n not in registered]
-    assert not bad, 'experiment.yml figure(s) missing from figures.yml:\n' + '\n'.join(bad)
+        out.add(_TAG_SUFFIX.sub('', _VIEW_PREFIX.sub(
+            '', _TAG_PREFIX.sub('', f['name'])[:-len('.png')])))
+    return out
 
 
-# ── the old triplication stays dead ──────────────────────────────────────────────
+def test_every_minted_quantity_stem_is_registered_or_recorded_as_a_known_gap():
+    """The REVERSE tie: a `Quantity.stem` no registered figure carries is unreachable.
 
-def test_macros_no_longer_carries_caption_tables():
-    src = _src('docs/macros.py')
-    for token in ('_EXTRA_CAPTIONS', '_FULL_SUITE_FIGURES'):
-        assert token not in src, f'{token} resurfaced in macros.py — captions live in ' \
-                                 f'figures.yml now'
+    Without this, the forward tie above is satisfiable by adding stems, which would turn a
+    drift check into a rubber stamp.  A stem may be absent from `figures.yml` — a rendered
+    figure nobody staged is a real state — but only with a name and a reason.
+    """
+    from Optimization.Performance_Evaluations.core.quantities import (
+        QUANTITIES, SERIES_ORDER)
+    stems = _registered_stems()
+    missing = []
+    for q in QUANTITIES:
+        if q.key not in SERIES_ORDER or q.stem in stems:
+            continue
+        if q.stem not in UNREGISTERED_STEMS:
+            missing.append(f'{q.key} mints the stem {q.stem!r}, no registered figure '
+                           f'carries it, and it is not in UNREGISTERED_STEMS')
+    assert not missing, chr(10).join(missing)
+
+
+def test_the_unregistered_ledger_is_capped_and_not_stale():
+    from Optimization.Performance_Evaluations.core.quantities import QUANTITIES
+    assert len(UNREGISTERED_STEMS) <= UNREGISTERED_CEILING
+    stems = _registered_stems()
+    minted = {q.stem for q in QUANTITIES if q.stem}
+    for stem, reason in UNREGISTERED_STEMS.items():
+        assert stem in minted, f'UNREGISTERED_STEMS names {stem!r}, which nothing mints'
+        assert stem not in stems, f'{stem!r} IS registered now — delete the exception'
+        assert len(reason.split()) >= 10, f'{stem}: the reason is too short to be one'

@@ -170,7 +170,12 @@ def _delta_figure(ctx, out):
 
 @evaluation(key='task_time.duration', label='Task duration: ranked boxes + paired deltas',
             scope='config', needs=('task',), defaults={'win': 50},
-            family='task_time', views=('absolute', 'delta'))
+            family='task_time', shape=('ranked', 'serial'),
+            quantities=('task_mean_duration',),
+            views_pending=(
+                ('percent', 'the ranked improvement in mean task duration, which is '
+                            'the view a reader compares arms with when the absolute '
+                            'durations differ by a few percent; not written yet'),))
 def render(ctx, params):
     win = int(params.get('win', _WIN) or _WIN)
     out = io.out_dir(ctx)

@@ -31,7 +31,15 @@ _LEGEND_ROWS = ('cumulative % saved (bold)', 'per-batch % (light)')
 @evaluation(key='labor.delta_grid',
             label='Task-time delta vs FIFO, one panel per arm',
             scope='per_strategy', needs=('series',),
-            family='labor', views=('delta',))
+            family='labor', shape='facet', quantities=('production_time',),
+            views_pending=(
+                ('absolute', 'the level of each arm over batches, one panel per arm. '
+                             'trajectories.overtime already draws it overlaid; the '
+                             'facet version is worth having at 34 arms, where the '
+                             'overlay is one opaque ribbon, and is not written yet'),
+                ('percent', 'the same facet expressed as improvement rather than as '
+                            'hours saved — the ratio a reader compares across arms '
+                            'of different absolute size; not written yet'),))
 def render(ctx, params):
     S = ctx.series()
     base = ctx.base

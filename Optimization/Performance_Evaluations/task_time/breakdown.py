@@ -107,7 +107,7 @@ def _split_figure(ctx, out):
 
 @evaluation(key='task_time.breakdown', label='Picker-time decomposition (two cuts)',
             scope='config', needs=('breakdown', 'series'),
-            family='task_time', views=('absolute',))
+            family='task_time', shape='composite')
 def render(ctx, params):
     out = io.out_dir(ctx)
     _breakdown_figure(ctx, out)

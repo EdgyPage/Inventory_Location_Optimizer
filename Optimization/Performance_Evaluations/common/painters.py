@@ -189,12 +189,19 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
         if vals:
             chartkit.shared_ylim([ax], vals)
         ch.title(m['t'], _LEVEL_NOTE if len(strategies) > _SPAGHETTI else None)
-    else:                                              # percent view
+    else:                                    # the two comparison views, percent + delta
         if db is None:
             return ch.abandon()
+        # A DELTA needs the baseline's own value at every batch, including where it is
+        # zero; a PERCENT cannot divide by zero, so it drops those pairs.  That is the
+        # only place the two branches differ, and keeping them one loop is what stops
+        # them from drifting into two conventions the way the retired suite's did.
         bx = {int(b): v for b, v in zip(db[m['x']], np.asarray(db[m['y']], float))
-              if v == v and v != 0}
-        allv = []
+              if v == v and (v != 0 or view == 'delta')}
+        # The delta axis is in the metric's own units, so a time metric resolves ONE
+        # divisor for it from the DIFFERENCES rather than from the levels — a difference
+        # of two hour-scale curves is minutes, and an hours axis would read 0.02.
+        diffs_pool, per_arm = [], []
         for s in strategies:
             d = S.get(s['key'])
             if d is None or s['key'] == baseline['key']:
@@ -206,19 +213,36 @@ def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False)
                     continue
                 xs.append(int(b))
                 ys.append(chartkit.improvement_pct(
-                    v, bv, lower_is_better=m['lower_is_better']))
+                    v, bv, lower_is_better=m['lower_is_better']) if view == 'percent'
+                    else (v - bv))
             if not xs:
                 continue
-            ax.plot(xs, ys, color=chartkit.strategy_color(s, strategies),
+            per_arm.append((s, xs, ys))
+            diffs_pool.extend(ys)
+        if view == 'delta':
+            div, unit = (chartkit.time_units(diffs_pool or [0.0]) if m.get('time')
+                         else (None, ''))
+        allv = []
+        for s, xs, ys in per_arm:
+            plot_y = (np.asarray(ys, float) / div) if (view == 'delta' and div) \
+                else (_conv(m, ys) if view == 'delta' else ys)
+            ax.plot(xs, plot_y, color=chartkit.strategy_color(s, strategies),
                     ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
-            allv.append(ys)
+            allv.append(plot_y)
             drawn += 1
         chartkit.reference_line(ax, 0.0, orient='y')
-        tag = chartkit.pct_axis(ax, better='up')
-        ax.set_ylabel(f'improvement vs FIFO {tag}')
+        if view == 'percent':
+            tag = chartkit.pct_axis(ax, better='up')
+            ax.set_ylabel(f'improvement vs FIFO {tag}')
+            ch.title(f"{m['t']} — % vs baseline")
+        else:
+            unit_txt = f' ({unit})' if m.get('time') and unit else ''
+            better = 'lower' if m['lower_is_better'] else 'higher'
+            ax.set_ylabel(f"{m['yl']}{unit_txt}, difference vs FIFO "
+                          f'({better} = better)')
+            ch.title(f"{m['t']} — difference vs baseline")
         if allv:
             chartkit.shared_ylim([ax], allv, include=(0.0,))
-        ch.title(f"{m['t']} — % vs baseline")
     if not drawn:
         return ch.abandon()
     ax.set_xlabel('batch')

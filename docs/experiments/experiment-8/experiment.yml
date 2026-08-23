@@ -90,7 +90,7 @@ figures:
     - absolute_task_duration_ranked.png
     - delta_task_duration_vs_fifo.png
     - percent_all_arms_vs_baseline.png
-    - delta_travel_vs_baseline.png
+    - percent_travel_per_arm.png
     - effect_heatmap.png
 
 inventory_plots:

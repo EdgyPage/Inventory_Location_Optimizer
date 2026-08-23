@@ -126,6 +126,8 @@ def test_views_come_from_the_quantity_and_the_shape_never_from_the_family():
     assert Q.derive_views(thr, Q.SERIAL) == {'absolute', 'percent', 'delta'}
     # same quantity, a mark whose categories are arms rather than paired instances
     assert Q.derive_views(thr, Q.RANKED) == {'absolute', 'percent'}
+    # a cumulative curve: comparable, but its instances are prefixes
+    assert Q.derive_views(thr, Q.CURVE) == {'absolute', 'percent'}
     # ...and a mark with no baseline in it at all
     assert Q.derive_views(thr, Q.INSPECTION) == {'absolute'}
 
@@ -139,13 +141,27 @@ def test_a_share_never_gets_a_percent_view():
     assert Q.suppression_reason(pick, 'percent')
 
 
-def test_an_effect_stance_quantity_only_ever_has_the_effect_view():
+def test_a_contrast_quantity_carries_the_delta_view_and_nothing_else():
     """`cost.scoring_ms_per_unit` shipped for one day under an `absolute_` prefix; the
-    stance field is what makes that unrepresentable."""
-    q = Q.Quantity(key='x', label='x', axis_stem='x', unit=units.NONE, direction='lower',
-                   stance='effect', source=Q.Source(per_batch=('batch', 'x')))
+    stance field is what makes that unrepresentable.
+
+    A contrast IS a difference: there is no level of it, and a percent of a difference
+    restates the baseline twice. Note that `contrast` is NOT the effect VIEW — an effect
+    size with its interval is a property of the significance MARK, which is why the
+    self-describing shapes answer for themselves here.
+    """
+    q = Q.BY_KEY['scoring_ms_per_unit']
+    assert q.stance == 'contrast'
     for shape in Q.SHAPES:
-        assert Q.derive_views(q, shape) == {'absolute'} - {'absolute'} | {'effect'}
+        got = Q.derive_views(q, shape)
+        assert got == (shape.fixed if shape.self_describing else {'delta'}), shape.name
+
+
+def test_the_effect_view_comes_from_the_mark_not_from_any_quantity():
+    for q in Q.QUANTITIES:
+        assert 'effect' not in Q.derive_views(q, Q.RANKED)
+        assert 'effect' not in Q.derive_views(q, Q.SERIAL)
+        assert Q.derive_views(q, Q.EFFECT) == {'effect'}
 
 
 def test_every_quantity_derives_at_least_one_view_for_some_shape():
@@ -157,9 +173,16 @@ def test_every_quantity_derives_at_least_one_view_for_some_shape():
 # ── 4. internal consistency of the table itself ──────────────────────────────────
 
 def test_every_quantity_is_readable_somewhere():
+    """A declaration nothing can read is a declaration nothing can draw."""
     for q in Q.QUANTITIES:
-        assert q.source.per_batch or q.source.steady_state or q.source.series, \
+        assert q.source.readable, \
             f'{q.key} declares no source at any scope, so nothing can ever read it'
+
+
+def test_a_sourceless_quantity_is_refused_at_construction():
+    with pytest.raises(ValueError, match='no source'):
+        Q.Quantity(key='x', label='x', axis_stem='x', unit=units.NONE,
+                   direction='lower', source=Q.Source())
 
 
 def test_keys_and_stems_are_unique():

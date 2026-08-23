@@ -223,7 +223,9 @@ def _delta(ctx, rows, out):
 
 @evaluation(key='cost.compute', label='What each placement rule costs to run',
             scope='run', needs=('runtime',),
-            family='cost', views=('percent', 'absolute', 'delta'))
+            family='cost', shape='ranked',
+            quantities=('reord_ms_per_unit', 'scoring_ms_per_unit',
+                        'x_reord_vs_fifo'))
 def render(ctx, params):
     rows = cost_rows(ctx)
     if not rows:

@@ -136,7 +136,7 @@ figures:
     caption: >-
       The same arms as a percent change against FIFO, each with its 95% confidence interval —
       the view that says which of the ranked differences are real.
-  - name: delta_travel_vs_baseline.png
+  - name: percent_travel_per_arm.png
     eval: layout.travel
     section: full_suite
     default: true

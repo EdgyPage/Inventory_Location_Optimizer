@@ -50,7 +50,13 @@ def _churn_series(df, total_bins):
 
 @evaluation(key='layout.churn', label='Inventory churn overlay (median + IQR + outliers)',
             scope='config', needs=('batch', 'series'),
-            family='layout', views=('absolute',))
+            family='layout', shape='ranked', quantities=('reorder_churn',),
+            views_suppressed=(
+                ('percent', 'churn is exactly zero on every arm when reslotting is '
+                            'off, which is the common case, and an improvement '
+                            'percent against a zero baseline is NaN for every arm — '
+                            'a chart of thirty-four empty rows under a caption '
+                            'asserting a comparison'),))
 def render(ctx, params):
     S = ctx.series()
     curves = {}

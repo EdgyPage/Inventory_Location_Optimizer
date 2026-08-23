@@ -35,7 +35,7 @@ from Optimization.Performance_Evaluations.tables.stats_csv import (
 
 @evaluation(key='sig.suite', label='Merged effect panels (all strategies)',
             scope='config', needs=('batch', 'task', 'breakdown'),
-            family='significance', views=('effect',))
+            family='significance', shape='effect')
 def render_suite(ctx, params):
     _, per_metric = compute_config_stats(
         ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0)
@@ -60,7 +60,7 @@ def render_suite(ctx, params):
 
 @evaluation(key='sig.by_initial', label='Opt-vs-uni heatmap + per-fn forests',
             scope='config', needs=('batch', 'task', 'breakdown'),
-            family='significance', views=('effect',), by_initial=True)
+            family='significance', shape='effect', by_initial=True)
 def render_by_initial(ctx, params):
     _, per_fn = compute_by_initial(
         ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0)

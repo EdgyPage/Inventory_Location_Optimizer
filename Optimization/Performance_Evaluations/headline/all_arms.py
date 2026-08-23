@@ -33,7 +33,15 @@ _SHARE_RATIO = 3.0
 
 @evaluation(key='headline.all_arms', label='All arms vs FIFO (% improvement panels)',
             scope='config', needs=('series',),
-            family='headline', views=('percent',))
+            family='headline', shape='ranked',
+            quantities=('throughput', 'makespan'),
+            views_suppressed=(
+                ('absolute', 'this is the 34-bar wall headline/rollup.py retired: at '
+                             'full arm count the absolute values differ by a few '
+                             'percent, so every bar is the same length and the '
+                             'figure carries no information the rollup does not. '
+                             'The absolute level of these two quantities is '
+                             'headline.rollup\'s job, at top-N.'),))
 def render(ctx, params):
     S = ctx.series()
     baseline = ctx.base

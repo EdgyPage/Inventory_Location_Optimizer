@@ -187,7 +187,12 @@ def _percent(ctx, arms, curves, base_curve, top_n, top_by, out):
             label='Labor hours per batch + % saved vs FIFO, over batch order',
             scope='config', needs=('task', 'series'),
             defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN},
-            family='labor', views=('absolute', 'percent'))
+            family='labor', shape='serial', quantities=('production_time',),
+            views_pending=(
+                ('delta', 'hours saved per batch against the baseline, in hours '
+                          'rather than as a percentage. labor.delta_topn draws this '
+                          'for the top N arms only; the full-arm version belongs '
+                          'here and is not written yet'),))
 def render(ctx, params):
     top_n  = int(params.get('top_n', 3) or 3)
     top_by = params.get('top_by', 'initial') or 'initial'

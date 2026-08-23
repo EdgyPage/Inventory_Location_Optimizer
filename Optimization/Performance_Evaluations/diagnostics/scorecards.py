@@ -47,7 +47,7 @@ def _churn_series(df, total_bins):
 
 @evaluation(key='diagnostics.scorecards', label='Per-arm scorecards',
             scope='per_strategy', needs=('batch',),
-            family='diagnostics', views=('absolute',))
+            family='diagnostics', shape='inspection')
 def render(ctx, params):
     out = io.out_dir(ctx)
     optimal = ctx.optimal

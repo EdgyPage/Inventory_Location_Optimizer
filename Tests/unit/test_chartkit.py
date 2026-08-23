@@ -299,19 +299,30 @@ def test_save_rejects_a_filename_that_contradicts_its_view(tmp_path):
 
 
 def test_view_grammar_enforced_inside_a_render(tmp_path):
+    """A save must match the evaluation's DERIVED views, not a hand-written claim.
+
+    Rewritten when `views=` stopped being a declaration: the old version registered a
+    probe with `views=('delta',)` inside family `labor` and asserted two distinct
+    messages, one for "not among its declared views" and one for "not in family". The
+    second no longer exists — there is no family allow-list, because an allow-list is
+    what left `layout.travel`'s percent view with nowhere honest to go.
+    """
     @registry.evaluation(key='zz_test.family_probe', label='probe', scope='config',
-                         family='labor', views=('delta',))
+                         family='labor', shape='serial',
+                         quantities=('production_time',))
     def _probe(ctx, params):  # pragma: no cover — never driven
         pass
     try:
-        assert registry.EVAL_BY_KEY['zz_test.family_probe'].out_subdir == 'figures/labor'
+        ev = registry.EVAL_BY_KEY['zz_test.family_probe']
+        assert ev.out_subdir == 'figures/labor'
+        assert set(ev.views) == {'absolute', 'percent', 'delta'}
         io.set_current_eval('zz_test.family_probe')
         ch = chartkit.make(panels=1, legend='none')
-        with pytest.raises(ValueError, match='not among its declared'):
-            ch.save(str(tmp_path / 'percent_y.png'), view='percent')
+        with pytest.raises(ValueError, match='drawn with'):
+            ch.save(str(tmp_path / 'table_y.png'), view='table')
         ch2 = chartkit.make(panels=1, legend='none')
-        with pytest.raises(ValueError, match='not in family'):
-            ch2.save(str(tmp_path / 'table_y.png'), view='table')
+        with pytest.raises(ValueError, match='is not a view'):
+            ch2.save(str(tmp_path / 'sideways_y.png'), view='sideways')
     finally:
         io.set_current_eval(None)
         registry.EVAL_BY_KEY.pop('zz_test.family_probe')
@@ -327,14 +338,53 @@ def test_family_and_out_subdir_are_mutually_exclusive():
             pass
 
 
-def test_family_grammar_rejects_undeclared_views_at_registration():
-    with pytest.raises(ValueError, match='not allowed in family'):
+def test_a_figure_evaluation_may_not_hand_write_its_views():
+    """The retired failure mode, from the other side.
+
+    An evaluation used to declare `views=` freely, and the drift that produced is
+    catalogued in `core/families.py`. Now views come from the quantities and the mark, and
+    passing both is an error rather than a tie-break.
+    """
+    with pytest.raises(ValueError, match='DERIVED'):
         @registry.evaluation(key='zz_test.badview', label='x', scope='config',
-                             family='significance', views=('percent',))
+                             family='significance', shape='effect', views=('percent',))
+        def _bad(ctx, params):  # pragma: no cover
+            pass
+    with pytest.raises(ValueError, match='LEGACY_VIEWS'):
+        @registry.evaluation(key='zz_test.noshape', label='x', scope='config',
+                             family='significance', views=('effect',))
+        def _bad2(ctx, params):  # pragma: no cover
+            pass
+
+
+def test_a_comparison_mark_must_say_what_it_draws():
+    """A ranked mark's views depend on the quantity, so it cannot omit one; an
+    inspection mark's do not, so it may."""
+    with pytest.raises(ValueError, match='must declare the quantities'):
+        @registry.evaluation(key='zz_test.noq', label='x', scope='config',
+                             family='labor', shape='ranked')
         def _bad(ctx, params):  # pragma: no cover
             pass
 
 
-def test_every_family_view_set_is_within_the_grammar_vocabulary():
+def test_a_stale_view_exception_is_refused():
+    """Withholding a view the derivation never produced licenses a future regression."""
+    with pytest.raises(ValueError, match='does not produce'):
+        @registry.evaluation(key='zz_test.stale', label='x', scope='config',
+                             family='labor', shape='ranked',
+                             quantities=('production_time',),
+                             views_suppressed=(('effect', 'a real-looking reason here '
+                                                          'that is nonetheless stale'),))
+        def _bad(ctx, params):  # pragma: no cover
+            pass
+
+
+def test_every_family_declares_a_charter_and_a_scope():
+    """A family says what it IS. What its figures SHOW is derived per evaluation."""
     for fam, spec in families.FAMILIES.items():
-        assert set(spec['required']) <= set(spec['views']) <= set(families.VIEWS), fam
+        assert spec['scope'] in ('leaf', 'run'), fam
+        assert len(spec['charter'].split()) >= 6, fam
+        assert 'views' not in spec and 'required' not in spec,             f'{fam} still carries an editorial view list'
+    assert set(families.LEAF_FAMILIES) | set(families.RUN_SCOPE_FAMILIES) ==         set(families.FAMILIES)
+    assert families.RUN_SCOPE_FAMILIES == ('cost',)
+

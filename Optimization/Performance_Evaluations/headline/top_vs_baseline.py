@@ -283,7 +283,15 @@ def _table_figure(ctx, selected, S, baseline, out):
             label='Top arms vs FIFO baseline (% bars + effect table)',
             scope='config', needs=('series', 'batch', 'task'),
             defaults={'top_n': 3, 'top_by': 'initial'},
-            family='headline', views=('percent', 'table'))
+            family='headline', shape=('ranked', 'table'),
+            quantities=('production_time', 'makespan', 'throughput',
+                        'throughput_task', 'sigma_fd'),
+            views_pending=(
+                ('absolute', 'the top-N arms\' own steady-state levels beside the '
+                             'baseline\'s, which is what a reader asks for after '
+                             'seeing a 2.6% bar and wanting to know 2.6% of what. '
+                             'The table view carries the numbers today; a bar of '
+                             'them is not written yet'),))
 def render(ctx, params):
     S = ctx.series()
     baseline = ctx.base

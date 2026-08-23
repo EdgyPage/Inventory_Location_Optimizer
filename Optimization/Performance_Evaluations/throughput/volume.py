@@ -182,7 +182,7 @@ def _absolute(ctx, curves, base_curve, xlim, top_n, top_by, out):
             label='Cumulative pick volume vs elapsed time + % lead over FIFO',
             scope='config', needs=('batch', 'series'),
             defaults={'top_n': 3, 'top_by': 'initial'},
-            family='throughput', views=('percent', 'absolute'))
+            family='throughput', shape='curve', quantities=('pick_volume',))
 def render(ctx, params):
     top_n  = int(params.get('top_n', 3) or 3)
     top_by = params.get('top_by', 'initial') or 'initial'

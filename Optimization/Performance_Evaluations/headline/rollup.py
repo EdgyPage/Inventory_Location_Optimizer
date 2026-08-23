@@ -93,7 +93,8 @@ def _dot_chart(rows, xlabel, title, subtitle, path, view, *, strategies,
 
 @evaluation(key='headline.rollup', label='Per-run rollup dot plots',
             scope='per_strategy', needs=('batch', 'task'),
-            family='headline', views=('percent', 'absolute'))
+            family='headline', shape='ranked',
+            quantities=('production_time', 'throughput'))
 def render(ctx, params):
     summ = _summaries(ctx)
     if not summ:

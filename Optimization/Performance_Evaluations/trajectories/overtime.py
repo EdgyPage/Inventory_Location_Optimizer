@@ -11,17 +11,29 @@ The ctx access idiom is the retired overlay module's, verbatim: the strategy lis
 baseline come off the context facade (`ctx.strategies` / `ctx.base` — focus-filtered once
 at context build, baseline = first strategy), and the series dict via `ctx.series()`.
 """
-from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.core.registry import (
+    evaluation, EVAL_BY_KEY)
 from Optimization.Performance_Evaluations.common import io, painters
+from Optimization.Performance_Evaluations.core.quantities import SERIES_ORDER
+
+#: what the shared over-time painter draws, in its declared render order — the
+#: SAME tuple `painters.overtime_metrics()` walks, so this evaluation cannot come
+#: to declare a different set from the one it renders.
+SERIES_QUANTITIES = SERIES_ORDER
 
 
 @evaluation(key='trajectories.overtime',
             label='Over-time trajectories, absolute + % vs baseline',
             scope='config', needs=('series',),
-            family='trajectories', views=('absolute', 'percent'))
+            family='trajectories', shape='serial',
+            quantities=SERIES_QUANTITIES)
 def render(ctx, params):
     S = ctx.series()
     out = io.out_dir(ctx)                 # figures/trajectories, from the family
+    views = EVAL_BY_KEY['trajectories.overtime'].views
+    n = 0
     for m in painters.overtime_metrics():
-        for view in ('absolute', 'percent'):
-            painters.paint_overtime(ctx.strategies, S, m, ctx.base, out, view=view)
+        for view in views:
+            n += bool(painters.paint_overtime(ctx.strategies, S, m, ctx.base, out,
+                                              view=view))
+    ctx.log.info(f'  trajectories: {n} figures over {len(views)} views -> {out}')

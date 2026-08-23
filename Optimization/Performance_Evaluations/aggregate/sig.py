@@ -27,7 +27,7 @@ from Optimization.Performance_Evaluations.aggregate.tables import (
 
 @evaluation(key='agg.sig', label='Cross-profile significance figures',
             scope='aggregate', needs=('series',),
-            family='significance', views=('effect',),
+            family='significance', shape='effect',
             defaults={'by_initial': True})
 def render(ctx, params):
     out = io.out_dir(ctx)

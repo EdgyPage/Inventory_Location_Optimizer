@@ -58,12 +58,22 @@ from Optimization.Performance_Evaluations.common import units
 from Optimization.Performance_Evaluations.common.units import (
     DURATION, NONE, RATE_PER_HOUR, Unit)
 
-#: The stances a quantity can be measured in.  A `level` is a measurement of one arm; an
-#: `effect` is ALREADY a contrast between two arms, so asking for its "percent vs
-#: baseline" view is a category error rather than a missing feature.  `cost`'s
-#: `scoring_ms_per_unit` — placement time minus FIFO's, per unit — is the live example;
-#: it shipped for one day under an `absolute_` prefix before a human eye caught it.
-STANCES = ('level', 'effect')
+#: The stances a quantity can be measured in.
+#:
+#:   level     a measurement of ONE arm.  Comparing it against the baseline arm is
+#:             meaningful, so it can carry percent and delta views.
+#:   contrast  ALREADY a difference between two arms.  There is no absolute of it (the
+#:             number IS the comparison) and a percent of a difference restates the
+#:             baseline twice, so it carries exactly the delta view.
+#:
+#: `cost`'s `scoring_ms_per_unit` — placement time minus the do-nothing rule's, per unit —
+#: is the live example: it shipped for one day under an `absolute_` prefix, passing every
+#: save-time check, before a human eye caught it.
+#:
+#: NOTE that `contrast` is NOT the `effect` VIEW.  An effect size with its interval is a
+#: property of the significance MARK, not of the quantity, which is why it comes from the
+#: shape below and never from a stance.
+STANCES = ('level', 'contrast')
 
 DIRECTIONS = ('lower', 'higher')
 
@@ -77,12 +87,26 @@ DIRECTIONS = ('lower', 'higher')
 #: `steady_state_name`  the name that scalar goes out under in aggregate products, when
 #:                  history gave it a different one — see `production_time`.
 #: `series`         (x_column, y_column, band_lo, band_hi) in the over-time series frame.
+#: `runtime`        a column of the run's own COST rows — wall-clock seconds spent by the
+#:                  optimiser, which is not a warehouse measurement and comes from no sim
+#:                  database.
 @dataclass(frozen=True)
 class Source:
     per_batch: tuple | None = None
     steady_state: str | None = None
     steady_state_name: str | None = None
     series: tuple | None = None
+    runtime: str | None = None
+
+    @property
+    def readable(self) -> bool:
+        """True when SOMETHING can actually read this quantity.
+
+        A declaration with no source at any scope is a declaration nothing can draw — and
+        it would still satisfy the view derivation, which is why the check lives at
+        construction rather than in a linter.
+        """
+        return bool(self.per_batch or self.steady_state or self.series or self.runtime)
 
     @property
     def agg_name(self) -> str | None:
@@ -122,6 +146,9 @@ class Quantity:
             raise ValueError(f'{self.key}: direction must be one of {DIRECTIONS}')
         if self.stance not in STANCES:
             raise ValueError(f'{self.key}: stance must be one of {STANCES}')
+        if not self.source.readable:
+            raise ValueError(f'{self.key} declares no source at any scope, so nothing '
+                             f'can ever read it')
         for entry in self.views_suppressed:
             view, reason = entry
             if not (reason or '').strip():
@@ -233,7 +260,47 @@ QUANTITIES: tuple = (
         axis_stem='reorder placements / batch', unit=Unit('count'), direction='lower',
         source=Source(per_batch=('batch', 'reorder_placements'))),
 
+    # ── the compute-cost family: what a RULE costs to run, in wall-clock seconds ──
+    # Read from the run's own cost rows rather than from a sim DB, which is what
+    # `Source.runtime` names.  These measure the optimiser, not the warehouse.
+    Quantity(
+        key='reord_ms_per_unit', label='Placement time per unit',
+        axis_stem='ms of placement per unit put away', unit=Unit('duration_ms'),
+        direction='lower', source=Source(runtime='reord_ms_per_unit'),
+        notes='Wall-clock milliseconds the reorder-time placement decision costs, per '
+              'unit actually put away — the denominator that makes a 200-second rule '
+              'comparable with a 3-second one.'),
+    Quantity(
+        key='scoring_ms_per_unit', label='Scoring cost over the do-nothing rule',
+        axis_stem='ms of scoring per unit, over the do-nothing rule',
+        unit=Unit('duration_ms'), direction='lower', stance='contrast',
+        source=Source(runtime='scoring_ms_per_unit'),
+        notes='(this rule - fifo) / units. A CONTRAST, not a level: it shipped for one '
+              'day under an `absolute_` prefix and passed every save-time check, because '
+              'each of those checks compared a declaration against another declaration '
+              'and none of them ever saw a number.'),
+    Quantity(
+        key='x_reord_vs_fifo', label='Times the do-nothing floor',
+        axis_stem='placement time as a multiple of the do-nothing rule',
+        unit=Unit('dimensionless', 'x'), direction='lower',
+        source=Source(runtime='x_reord_vs_fifo'),
+        views_suppressed=(
+            ('percent', 'this quantity is ALREADY a ratio against the baseline, so an '
+                        'improvement-percent of it would be a comparison of a comparison; '
+                        'the multiple is the honest unit here and the absolute view '
+                        'carries it'),),
+        notes='The honest unit for compute cost: absolute seconds are contended, '
+              'machine-specific, and put a 10-second difference on a 210-second bar.'),
+
     # ── series-only quantities: no per-batch scalar, so no significance row ──────
+    Quantity(
+        key='pick_volume', label='Cumulative items picked',
+        axis_stem='items completed', unit=Unit('count', 'items'), direction='higher',
+        source=Source(series=('batch', 'cum_items', None, None)),
+        stem='volume', series_title='Cumulative pick volume',
+        notes='Drawn against ELAPSED HOURS rather than batch index, and cumulative, so '
+              'its instances are prefixes: a per-point difference double-counts every '
+              'point behind it, which is why its mark is a curve and not a serial.'),
     Quantity(
         key='task_duration', label='Task duration (median + IQR)',
         axis_stem='task duration', unit=DURATION, direction='lower',
@@ -258,10 +325,10 @@ for _q in QUANTITIES:
 # membership is derived from them, with a check that every named key can actually be read
 # at that scope.  Three of them, because three different published artifacts fixed three
 # different orders before this module existed and each is now committed evidence:
-# reordering `AGGREGATE_ORDER` rewrites the row order of `aggregate_summary.csv`, and
-# reordering `HEADLINE_ORDER` renumbers the panels of the headline figure.
+# reordering `AGGREGATE_ORDER` rewrites the row order of the cross-profile summary CSV,
+# and reordering `HEADLINE_ORDER` renumbers the panels of the headline figure.
 
-#: row order of `aggregate_summary.csv` and the cross-profile panels
+#: row order of the cross-profile summary CSV and the panels beside it
 AGGREGATE_ORDER: tuple = ('makespan', 'throughput', 'throughput_task',
                           'task_mean_duration', 'production_time')
 
@@ -269,9 +336,18 @@ AGGREGATE_ORDER: tuple = ('makespan', 'throughput', 'throughput_task',
 HEADLINE_ORDER: tuple = ('production_time', 'makespan', 'throughput',
                          'throughput_task', 'sigma_fd')
 
-#: render order of the over-time (trajectories) family
+#: render order of the over-time (trajectories) family.  `pick_volume` has a series
+#: source but is NOT here: it is drawn against elapsed hours by `throughput.volume`, not
+#: against batch index by the shared over-time painter, so it is listed as a deliberate
+#: exclusion rather than left to be noticed as an absence.
 SERIES_ORDER: tuple = ('task_duration', 'task_mean_duration', 'throughput',
                        'production_time', 'sigma_fd')
+
+#: series-sourced quantities the over-time painter does NOT draw, and why.
+SERIES_ELSEWHERE: dict = {
+    'pick_volume': 'drawn by throughput.volume against elapsed hours as a cumulative '
+                   'curve, which is a different x axis and a different mark',
+}
 
 
 def _check_order(name: str, keys: tuple, attr: str) -> None:
@@ -292,7 +368,8 @@ _check_order('SERIES_ORDER', SERIES_ORDER, 'series')
 #: every quantity with a series source must appear in SERIES_ORDER — the check that stops
 #: a new over-time quantity from being declared and silently never drawn
 _missing = [q.key for q in QUANTITIES
-            if q.source.series is not None and q.key not in SERIES_ORDER]
+            if q.source.series is not None and q.key not in SERIES_ORDER
+            and q.key not in SERIES_ELSEWHERE]
 if _missing:
     raise AssertionError(f'quantities declare a series source but are absent from '
                          f'SERIES_ORDER, so nothing would render them: {_missing}')
@@ -337,30 +414,51 @@ class Shape:
     `comparable`  the mark can place an arm beside a baseline arm at all.
     `paired`      the mark's instances (batches, bins, tasks) line up 1:1 between two
                   arms, so a per-instance difference is defined.
+    `fixed`       for a mark whose view is a property of the mark itself rather than of
+                  anything it draws — an effect panel IS the contrast, a rendered table
+                  IS its cells.  A fixed shape needs no quantity to know its views.
 
     These live on the shape rather than the family because that is what lets `throughput`
     carry a delta (it has a per-batch series) without forcing one onto a ranked churn
     chart whose categories are arms, not paired instances.
     """
     name: str
-    comparable: bool
-    paired: bool
+    comparable: bool = False
+    paired: bool = False
+    fixed: frozenset | None = None
+
+    @property
+    def self_describing(self) -> bool:
+        """True when the mark's views do not depend on what it draws."""
+        return self.fixed is not None
 
 
 #: One bar/dot per arm, sorted.  Comparable (the baseline is one of the categories) but
 #: not paired — a category is an arm, and arms do not pair with themselves.
-RANKED = Shape('ranked', comparable=True, paired=False)
+RANKED = Shape('ranked', comparable=True)
 #: One line per arm over batches.  Batch i of one arm pairs with batch i of another.
 SERIAL = Shape('serial', comparable=True, paired=True)
+#: Small multiples of the serial mark — one panel per arm.  Same capabilities; the facet
+#: is a LAYOUT around the mark, and a layout does not change what can be measured.
+FACET = Shape('facet', comparable=True, paired=True)
 #: A cumulative curve — comparable, but its instances are prefixes, so a per-point
-#: difference double-counts the history behind it.
-CURVE = Shape('curve', comparable=True, paired=False)
-#: A distribution/effect panel: the contrast IS the mark.
-EFFECT = Shape('effect', comparable=False, paired=False)
-#: Raw read-outs — grids, scorecards, tables. No baseline in the mark at all.
-INSPECTION = Shape('inspection', comparable=False, paired=False)
+#: difference double-counts every point behind it.
+CURVE = Shape('curve', comparable=True)
+#: One POINT per arm in a two-quantity plane.  Comparable against the baseline's point;
+#: not paired, because a point has no instances.
+SCATTER = Shape('scatter', comparable=True)
+#: A stack or decomposition — travel/pick/cart inside one task.  The MEANING is the split,
+#: and a split has no single value to compare, so it carries the level view alone.
+COMPOSITE = Shape('composite', fixed=frozenset({'absolute'}))
+#: Raw read-outs — grids, scorecards.  No baseline in the mark at all.
+INSPECTION = Shape('inspection', fixed=frozenset({'absolute'}))
+#: A distribution + effect-size panel: the contrast IS the mark.
+EFFECT = Shape('effect', fixed=frozenset({'effect'}))
+#: A rendered table: the cells are the figure.
+TABLE = Shape('table', fixed=frozenset({'table'}))
 
-SHAPES = (RANKED, SERIAL, CURVE, EFFECT, INSPECTION)
+SHAPES = (RANKED, SERIAL, FACET, CURVE, SCATTER, COMPOSITE, INSPECTION, EFFECT, TABLE)
+SHAPE_BY_NAME: dict = {sh.name: sh for sh in SHAPES}
 
 
 def derive_views(q: Quantity, shape: Shape) -> frozenset:
@@ -371,9 +469,13 @@ def derive_views(q: Quantity, shape: Shape) -> frozenset:
     can structurally show.  Two figures of the same quantity through the same shape get
     the same view set, in every family, or the derivation is wrong and gets fixed once.
     """
-    if q.stance == 'effect' or shape is EFFECT:
-        return frozenset({'effect'})
-    v = {'absolute'}                                   # every quantity has a level
+    if shape.self_describing:
+        return shape.fixed
+    if q.stance == 'contrast':
+        # The number IS the comparison: there is no level of it, and a percent of a
+        # difference restates the baseline twice.
+        return frozenset({'delta'}) - {v for v, _r in q.views_suppressed}
+    v = {'absolute'}                                   # every level has a level
     if shape.comparable:
         v.add('percent')
     if shape.paired:

@@ -76,7 +76,7 @@ def _finish_panels(ch, ncols, n, strategies, xlabel, ylabel):
 
 @evaluation(key='diagnostics.metric_grids', label='Per-arm metric grids (shared scales)',
             scope='per_strategy', needs=('batch', 'task', 'series'),
-            family='diagnostics', views=('absolute',))
+            family='diagnostics', shape='inspection')
 def render(ctx, params):
     strategies = [s for s in ctx.strategies if not ctx.batch_df(s['key']).empty]
     n = len(strategies)

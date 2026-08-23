@@ -53,7 +53,13 @@ def _ylim_zero_aware(ax, values):
             label='Task-time saved vs FIFO — cumulative + per-batch (top-N)',
             scope='config', needs=('series',),
             defaults={'top_n': 3, 'top_by': 'initial'},
-            family='labor', views=('delta',))
+            family='labor', shape='serial', quantities=('production_time',),
+            views_pending=(
+                ('absolute', 'the top-N arms\' own labor hours over batches, which '
+                             'labor.per_batch draws for the same arm selection; '
+                             'consolidating the two is the fix, not a third figure'),
+                ('percent', 'the cumulative saving as a fraction rather than in '
+                            'hours; not written yet'),))
 def render(ctx, params):
     S = ctx.series()
     top_n  = int(params.get('top_n', 3) or 3)

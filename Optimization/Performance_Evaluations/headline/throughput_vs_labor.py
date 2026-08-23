@@ -99,7 +99,8 @@ def _panel(ax, xs, ys, colors, labels, base_xy, xlabel, title, sizes=None):
 @evaluation(key='headline.throughput_vs_labor',
             label='Throughput vs total labor (scatter + Spearman ρ)',
             scope='config', needs=('series',),
-            family='headline', views=('absolute', 'percent'))
+            family='headline', shape='scatter',
+            quantities=('throughput', 'production_time'))
 def render(ctx, params):
     S = ctx.series()
     base = ctx.base
