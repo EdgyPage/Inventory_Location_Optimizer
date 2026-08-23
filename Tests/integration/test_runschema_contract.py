@@ -524,3 +524,71 @@ def test_feature_edits_change_the_id():
     b['features'] = list(a['features']) + ['new-vocabulary']
     assert contract.schema_id(a) != contract.schema_id(b)
     assert any(m.startswith('features') for m in contract.diff_shape(a, b))
+
+# ── the generated per-leaf figure tree ───────────────────────────────────────────
+# Eight near-identical dict literals became one tuple and two attribution tables.  The
+# tuple is duplicated into `schema.py` on purpose — that module imports NOTHING, which is
+# load-bearing, and importing `core.families` fires the evaluations package's `__init__`
+# (Agg backend, ~25 chart modules).  These tests are the tie that makes the duplicate
+# safe, and they run in both directions so neither side can drift alone.
+
+def _families():
+    from Optimization.Performance_Evaluations.core import families
+    return families
+
+
+def test_the_schema_family_tuple_equals_the_declared_leaf_families():
+    from Optimization.runschema import schema
+    assert schema._LEAF_FIGURE_FAMILIES == _families().LEAF_FAMILIES, (
+        'the run-tree contract and core/families.py disagree about which chart families '
+        'have a per-leaf figure tree; the contract is the one that mints schema_id')
+
+
+def test_a_run_scope_family_has_no_per_leaf_glob():
+    """`cost` renders at run scope. Nine families, eight globs — and a generator that
+    iterated all nine would move `schema_id`."""
+    from Optimization.runschema import schema
+    fams = _families()
+    assert set(fams.RUN_SCOPE_FAMILIES) & set(schema._LEAF_FIGURE_FAMILIES) == set()
+    assert len(schema._LEAF_FIGURE_FAMILIES) == len(fams.FAMILIES) - 1
+
+
+def test_every_leaf_family_glob_is_generated_and_complete():
+    from Optimization.runschema import schema
+    for family in schema._LEAF_FIGURE_FAMILIES:
+        entry = schema.ARTIFACTS[f'figures_{family}_pngs']
+        assert entry['path'].endswith(f'figures/{family}/*.png')
+        assert entry['format'] == 'png' and entry['scope'] == 'channel_run'
+        assert entry['group'] == 'figures'
+        assert entry['evaluation'], f'{family} attributes to no evaluation'
+
+
+def test_the_evaluation_attribution_matches_the_registry_both_ways():
+    """The gap this closed: four of eight entries named ONE arbitrary evaluation and the
+    other four named none, so a consumer reading this field could attribute half the
+    figure tree and silently gave up on the rest."""
+    from Optimization import Performance_Evaluations  # noqa: F401
+    from Optimization.Performance_Evaluations.core.registry import EVALUATIONS
+    from Optimization.runschema import schema
+    leaf_scopes = ('per_strategy', 'config')
+    want: dict = {f: set() for f in schema._LEAF_FIGURE_FAMILIES}
+    for ev in EVALUATIONS:
+        if ev.family in want and ev.scope in leaf_scopes:
+            want[ev.family].add(ev.key)
+    for family, keys in want.items():
+        got = set(schema.ARTIFACTS[f'figures_{family}_pngs']['evaluation'])
+        assert got == keys, (
+            f'figures_{family}_pngs attributes {sorted(got)} but the registry has '
+            f'{sorted(keys)} writing leaf-scope figures into that family')
+
+
+def test_the_attribution_field_is_unhashed_so_completing_it_moved_nothing():
+    """If `evaluation` were part of the shape, populating it would have minted a new
+    schema — and a new schema on an ARCHIVE of finished runs is not a correction, it is a
+    second vocabulary."""
+    from Optimization.runschema import contract
+    doc = contract.build()
+    shaped = contract._shape_only(doc)
+    blob = json.dumps(shaped, sort_keys=True)
+    assert 'headline.all_arms' not in blob, 'evaluation attribution leaked into the shape'
+    assert 'prepare_config_dirs' not in blob, 'writer attribution leaked into the shape'

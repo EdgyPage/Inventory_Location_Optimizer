@@ -87,6 +87,85 @@ AXES = ('cell', 'pair', 'config', 'channel', 'strategy')
 #               EXISTS on disk.  Expresses a run-shape fallback as DATA instead of Python.
 # HASHED: path, format, scope, optional, tables, resolves_via, group.  NOT hashed: writer, note,
 # condition — attribution and prose must never mint a new schema id.
+# ── the per-leaf figure tree, generated ──────────────────────────────────────────
+# Eight near-identical dict literals lived here, one per chart family, and the eighth was
+# the one nobody noticed had a different `writer` from the seventh.  They are generated
+# now, from one tuple and one attribution table.
+#
+# WHY THE FAMILY LIST IS SPELLED HERE rather than imported from
+# `Performance_Evaluations.core.families`, which is its real home: **this module imports
+# nothing**, and that is load-bearing.  The run-tree contract has to be readable by a tool
+# that cannot import matplotlib, and importing anything from the evaluations package fires
+# that package's `__init__`, which sets the Agg backend and walks ~25 chart modules.  So
+# the tuple is duplicated and TIED BY TEST — `Tests/architecture/test_runschema_contract.py`
+# asserts it equals `core.families.LEAF_FAMILIES`, in order.  A tie is not as good as an
+# import; it is much better than eight hand-typed literals, and it is the only option that
+# keeps this file dependency-free.
+#
+# `cost` is deliberately absent: its figures render at RUN scope into the dossier tree, not
+# into a per-leaf one, which is why there are nine families and eight globs here.  A
+# generator that iterated all nine would move `schema_id`.
+_LEAF_FIGURE_FAMILIES = ('headline', 'trajectories', 'labor', 'throughput',
+                         'task_time', 'layout', 'significance', 'diagnostics')
+
+#: The folder pre-pass that guarantees every family directory exists, empty or not.  It is
+#: the honest writer for a GLOB: the individual figures come from many evaluations, and
+#: naming one of them made the entry read as if that evaluation owned the folder.
+_FIGURE_DIR_WRITER = 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'
+
+#: family -> every LEAF-SCOPE evaluation that writes into it.
+#:
+#: `evaluation` is UNHASHED attribution — `contract._shape_only` drops it — so this table
+#: cannot move `schema_id`, which is exactly why the lists can be COMPLETE.  Before, four
+#: of the eight entries named one arbitrary evaluation each and the other four named none,
+#: so the site guard reading this field could attribute half the figure tree and silently
+#: gave up on the rest.  `Tests/architecture/test_runschema_contract.py` ties every list to
+#: the registry, in both directions.
+#:
+#: AGGREGATE-scope evaluations are deliberately absent even where they share a family:
+#: `agg.traj` and `agg.sig` write into the aggregate root's figures tree, which these
+#: per-leaf globs do not cover.
+_FIGURE_FAMILY_EVALUATIONS: dict = {
+    'headline':     ['headline.all_arms', 'headline.rollup',
+                     'headline.throughput_vs_labor', 'headline.top_vs_baseline'],
+    'trajectories': ['trajectories.overtime'],
+    'labor':        ['labor.delta_grid', 'labor.delta_topn', 'labor.per_batch'],
+    'throughput':   ['throughput.volume'],
+    'task_time':    ['task_time.breakdown', 'task_time.duration'],
+    'layout':       ['layout.churn', 'layout.travel'],
+    'significance': ['sig.by_initial', 'sig.suite'],
+    'diagnostics':  ['diagnostics.metric_grids', 'diagnostics.scorecards'],
+}
+
+#: family -> anything else the entry needs.  Prose and flags only.
+_FIGURE_FAMILY_EXTRAS: dict = {
+    'significance': {
+        'optional': True,
+        'condition': 'presets that run a stats fork; NO_STATS writes no significance '
+                     'figures.'},
+}
+
+
+def _figure_globs() -> dict:
+    """`figures_<family>_pngs` for every family whose figures land in a per-leaf tree.
+
+    One glob per family rather than one for the whole tree, so preflight can name WHICH
+    family an undeclared file violated.
+    """
+    out: dict = {}
+    for family in _LEAF_FIGURE_FAMILIES:
+        entry = {
+            'evaluation': list(_FIGURE_FAMILY_EVALUATIONS[family]),
+            'path': '{cell}/{pair}/{config}/{channel?}/figures/'
+                    + family + '/*.png',
+            'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+            'writer': _FIGURE_DIR_WRITER,
+        }
+        entry.update(_FIGURE_FAMILY_EXTRAS.get(family, {}))
+        out[f'figures_{family}_pngs'] = entry
+    return out
+
+
 ARTIFACTS = {
     # ── run root ────────────────────────────────────────────────────────────────
     'run_layout': {
@@ -345,46 +424,10 @@ ARTIFACTS = {
         'format': 'json', 'scope': 'channel_run',
         'writer': '_dump_series@Optimization/Performance_Evaluations/common/series.py'},
     # ── analysis outputs at the channel-run leaf ────────────────────────────────
-    # The figures tree is one folder per chart family (core/families.py); filenames carry
-    # a `<view>_` prefix (absolute/percent/delta/effect/table) validated at save time.
-    # Family folders are created by the parent pre-pass; a glob per family keeps preflight
-    # able to name which family an undeclared file violated.
-    'figures_headline_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/headline/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'figures_trajectories_pngs': {
-        'evaluation': 'trajectories.overtime',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'paint_overtime@Optimization/Performance_Evaluations/common/painters.py'},
-    'figures_labor_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/labor/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'figures_throughput_pngs': {
-        'evaluation': 'throughput.volume',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/throughput/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'render@Optimization/Performance_Evaluations/throughput/volume.py'},
-    'figures_task_time_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'figures_layout_pngs': {
-        'evaluation': 'layout.churn',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/layout/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'render@Optimization/Performance_Evaluations/layout/churn.py'},
-    'figures_significance_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/significance/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures', 'optional': True,
-        'condition': 'presets that run a stats fork; NO_STATS writes no significance figures.',
-        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'figures_diagnostics_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png',
-        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
-        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
+    # The figures tree is one folder per chart family; the eight per-leaf globs are
+    # GENERATED from `_LEAF_FIGURE_FAMILIES` above, byte-for-byte as they were typed out
+    # here before.  Filenames carry a `<view>_` prefix validated at save time.
+    **_figure_globs(),
     'batches_long_csv': {
         'evaluation': 'tables.per_run',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',

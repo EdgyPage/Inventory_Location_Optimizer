@@ -38,14 +38,22 @@ def test_every_attributed_evaluation_is_registered():
 # ── the derived prepare-list vs the adopted layout ───────────────────────────────
 
 def test_config_dirs_derive_exactly_the_family_tree():
-    """The clean-slate layout: two shared tops, one nested folder per chart family.  The
-    shared-top rule must reproduce this set exactly — a new value here means an output
-    moved, which is an adoption decision, not a side effect."""
+    """The clean-slate layout: two shared tops, one nested folder per LEAF chart family.
+
+    `tops` stays hand-written because it IS the adopted design — two shared, pre-wiped
+    roots — and a change to it means an output moved, which is a decision rather than a
+    side effect.  The nested set is derived, because "one folder per leaf family" is a
+    restatement of `core/families.py` and restating it here bought nothing except a second
+    list to forget: `cost` renders at run scope and must NOT appear, which the derivation
+    knows and a literal only remembered.
+    """
+    from Optimization.Performance_Evaluations.core.families import (
+        LEAF_FAMILIES, figures_subdir)
     tops, nested = artifact_map.config_dirs()
     assert set(tops) == {'figures', 'tables'}
-    assert set(nested) == {'figures/diagnostics', 'figures/headline', 'figures/labor',
-                           'figures/layout', 'figures/significance', 'figures/task_time',
-                           'figures/throughput', 'figures/trajectories'}
+    assert set(nested) == {figures_subdir(f) for f in LEAF_FAMILIES}
+    assert len(nested) == 8, 'the leaf family count changed; that is an adoption decision'
+    assert 'figures/cost' not in nested, 'cost renders at run scope, not per leaf'
 
 
 def test_no_config_eval_wipes_its_own_leaf():
@@ -130,6 +138,14 @@ def test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order():
                             else ev.out_subdir)
     missing = declared - set(pref)
     assert not missing, f'out_subdir(s) not in ingest._FIGURE_DIR_PREFERENCE: {sorted(missing)}'
+    # THE REVERSE, which the forward check alone never gave: an entry here that no
+    # evaluation declares is a folder that will never exist.  It is harmless at walk time —
+    # the path simply misses — and that is exactly why it survives a family being retired:
+    # nothing fails, the literal just quietly describes a tree that is gone.
+    stale = set(pref) - declared
+    assert not stale, (
+        f'ingest._FIGURE_DIR_PREFERENCE lists {sorted(stale)}, which no config-stage '
+        f'evaluation writes to. A retired family must leave this literal too.')
     assert list(pref) == sorted(pref), (
         'preference must stay in lexicographic (walk) order so the pick matches every '
         'committed snapshot — reorder only with an ingest dry-run diff proving no figure moves')

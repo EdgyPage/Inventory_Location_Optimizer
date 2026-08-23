@@ -32,15 +32,23 @@ _MEMO: dict = {}
 def owned_artifacts() -> dict:
     """{eval_key: ((artifact_name, path_template), ...)} from the HEAD run-tree contract's
     unhashed `evaluation:` attributions.  Artifacts with no attribution belong to no
-    evaluation (sim writers, run-root docs) and do not appear."""
+    evaluation (sim writers, run-root docs) and do not appear.
+
+    An attribution is a STRING for an artifact one evaluation writes and a LIST for a glob
+    several write into — a family's figure folder is filled by every evaluation in that
+    family, and naming one of them made the entry read as if that one owned the folder.
+    Both shapes land here as one entry per (evaluation, artifact) pair.
+    """
     if 'owned' not in _MEMO:
         from Optimization.runschema import contract
         doc = contract.load(contract.head()) or contract.build()
         out: dict = {}
         for name, art in sorted(doc['artifacts'].items()):
             ev = art.get('evaluation')
-            if ev:
-                out.setdefault(ev, []).append((name, art['path']))
+            if not ev:
+                continue
+            for key in ([ev] if isinstance(ev, str) else ev):
+                out.setdefault(key, []).append((name, art['path']))
         _MEMO['owned'] = {k: tuple(v) for k, v in out.items()}
     return _MEMO['owned']
 

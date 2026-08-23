@@ -223,6 +223,10 @@
       "note": "ONE glob for a directory THREE evaluations write into, so no single one may be named its owner \u2014 and so a future dossier table costs no new declaration and no new forbidden filename token."
     },
     "figures_diagnostics_pngs": {
+      "evaluation": [
+        "diagnostics.metric_grids",
+        "diagnostics.scorecards"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png",
       "format": "png",
       "scope": "channel_run",
@@ -230,6 +234,12 @@
       "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_headline_pngs": {
+      "evaluation": [
+        "headline.all_arms",
+        "headline.rollup",
+        "headline.throughput_vs_labor",
+        "headline.top_vs_baseline"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/headline/*.png",
       "format": "png",
       "scope": "channel_run",
@@ -237,6 +247,11 @@
       "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_labor_pngs": {
+      "evaluation": [
+        "labor.delta_grid",
+        "labor.delta_topn",
+        "labor.per_batch"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/labor/*.png",
       "format": "png",
       "scope": "channel_run",
@@ -244,23 +259,34 @@
       "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_layout_pngs": {
-      "evaluation": "layout.churn",
+      "evaluation": [
+        "layout.churn",
+        "layout.travel"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/layout/*.png",
       "format": "png",
       "scope": "channel_run",
       "group": "figures",
-      "writer": "render@Optimization/Performance_Evaluations/layout/churn.py"
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_significance_pngs": {
+      "evaluation": [
+        "sig.by_initial",
+        "sig.suite"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/significance/*.png",
       "format": "png",
       "scope": "channel_run",
       "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py",
       "optional": true,
-      "condition": "presets that run a stats fork; NO_STATS writes no significance figures.",
-      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+      "condition": "presets that run a stats fork; NO_STATS writes no significance figures."
     },
     "figures_task_time_pngs": {
+      "evaluation": [
+        "task_time.breakdown",
+        "task_time.duration"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png",
       "format": "png",
       "scope": "channel_run",
@@ -268,20 +294,24 @@
       "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_throughput_pngs": {
-      "evaluation": "throughput.volume",
+      "evaluation": [
+        "throughput.volume"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/throughput/*.png",
       "format": "png",
       "scope": "channel_run",
       "group": "figures",
-      "writer": "render@Optimization/Performance_Evaluations/throughput/volume.py"
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "figures_trajectories_pngs": {
-      "evaluation": "trajectories.overtime",
+      "evaluation": [
+        "trajectories.overtime"
+      ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png",
       "format": "png",
       "scope": "channel_run",
       "group": "figures",
-      "writer": "paint_overtime@Optimization/Performance_Evaluations/common/painters.py"
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
     },
     "frozen_inventory_db": {
       "family": "inventory_db",
