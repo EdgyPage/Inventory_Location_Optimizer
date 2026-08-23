@@ -101,7 +101,12 @@ def _delta_figure(ctx, rows, out):
 
 
 def _absolute_figure(ctx, rows, baseline, S, out):
-    floor = getattr(ctx, 'optimal_sigma_fd', None)
+    # `ctx.optimal` — NOT `optimal_sigma_fd`, which is the key inside `sim_result` and not
+    # an attribute of the context.  The misspelling made `floor` unconditionally None, so
+    # the layout-floor line this module's docstring promises has never once been drawn.
+    # The context coerces the value to 0.0 when the run publishes none, which is why the
+    # `> 0` guard below is the right absence test rather than an `is not None`.
+    floor = getattr(ctx, 'optimal', None)
     entries = [(baseline, S[baseline['key']].get('ss_sigma'))] + \
               [(s, ss) for s, _p, _lo, _hi, ss in rows]
     entries = [(s, float(v)) for s, v in entries

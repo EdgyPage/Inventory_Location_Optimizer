@@ -13,6 +13,12 @@ BEFORE its render runs.  All granted -> render exactly as before (the resolution
 context caches the render reads).  Any denied -> the render is SKIPPED, gracefully, and the
 `[access]` log line carries the reason the broker actually hit — a missing resource is an
 answerable event, never a crash and never a silent half-figure.
+
+It also catches every render exception, so one broken evaluation cannot sink the rest.
+That swallow is deliberate and it was also, for a long time, invisible: the only trace was
+a log call from inside a worker whose logger reaches no file.  Every caught exception is
+now recorded in the broker's tally and reported at the end of the run, because a grant is
+a statement about an evaluation's INPUTS and says nothing about whether anything came out.
 """
 import os
 
@@ -75,7 +81,13 @@ def _run_one(ctx, ev, overrides, cli_set):
             ctx.log.info(f"[access] {ev.key} requested {','.join(ev.needs)} -> granted")
         ev.render(ctx, resolve_params(ev, overrides, cli_set))
     except Exception as exc:                                       # noqa: BLE001 — one dies, rest live
+        # The log line alone is not enough, and this is the fix for a real, long-lived
+        # failure: a worker's logger is not wired to the run's log file, so `agg.sig`
+        # raised NameError on every publish run, wrote none of its declared figures, and
+        # left no trace anywhere while the run summary reported zero denials.  The tally
+        # travels back to the parent with the access counts and is printed at WARNING.
         ctx.log.error(f'  {ev.key} failed: {exc!r}')
+        requests.record_error(ev.key, exc)
     finally:
         io.set_current_eval(None)
 

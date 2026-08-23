@@ -139,7 +139,11 @@ def test_tally_counts_grants_and_denials_per_eval_and_resets(tmp_path):
     snap = requests.tally_snapshot(reset=True)
     assert snap['granted'] == {'a.ok': 1}
     assert snap['denied'] == {'c.gone': 1}
-    assert requests.tally_snapshot() == {'granted': {}, 'denied': {}}
+    # The third bucket answers a different question — see test_render_error_surfacing.
+    # Resolving needs never touches it: a grant is about INPUTS, and an evaluation whose
+    # inputs were all granted can still render nothing at all.
+    assert snap['errors'] == {}
+    assert requests.tally_snapshot() == {'granted': {}, 'denied': {}, 'errors': {}}
 
 
 # ── the composed-SQL half ────────────────────────────────────────────────────────

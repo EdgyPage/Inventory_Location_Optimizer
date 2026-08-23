@@ -18,11 +18,11 @@ import numpy as np
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import chartkit, io
 from Optimization.Performance_Evaluations.common.stats_core import (
-    _AGG_METRICS, _descriptives, _rank_biserial)
+    _AGG_METRICS, _boot_ci, _rank_biserial)
 from Optimization.Performance_Evaluations.significance.panels import (
     effect_heatmap, forest_panel, merged_effect_panel)
 from Optimization.Performance_Evaluations.aggregate.tables import (
-    compute_aggregate_by_initial, compute_aggregate_stats)
+    compute_aggregate_by_initial, compute_aggregate_stats, paired_profile_diagnosis)
 
 _PER_HOUR = 3.6e6            # raw rates are items per sim-millisecond
 
@@ -91,8 +91,13 @@ def _render_all(ctx, out):
 def _render_by_initial(ctx, out):
     _, per_fn = compute_aggregate_by_initial(ctx.profile_series_list)
     if not per_fn:
-        ctx.log.warning(f'  aggregate by-initial significance {ctx.pickcfg}: '
-                        f'no uni/opt pairs')
+        # Say WHICH reason.  The retired message asserted "no uni/opt pairs" for every
+        # empty result; on a two-inventory sweep there are 17 pairs and the real reason is
+        # that a paired test over 2 profiles is not a test.  An absence the reader cannot
+        # diagnose reads as a bug — and this one spent its whole life behind a NameError,
+        # so nobody ever saw either message.
+        ctx.log.warning(f'  aggregate by-initial significance {ctx.pickcfg}: nothing to '
+                        f'render — {paired_profile_diagnosis(ctx.profile_series_list)}')
         return
     fns = list(per_fn)
     names = [name for name, _f, _l in _AGG_METRICS]

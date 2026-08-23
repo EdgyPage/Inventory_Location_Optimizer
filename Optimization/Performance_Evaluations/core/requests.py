@@ -263,7 +263,24 @@ def _run_catalogue(ctx):
 #: Per-process grant/denial counts, keyed by evaluation key.  Snapshotted (and reset) by
 #: run_analysis._run_job so each worker's counts travel back to the parent for the run-end
 #: summary.  See the module docstring for why process-global is safe here.
-_TALLY: dict = {'granted': {}, 'denied': {}}
+#:
+#: `errors` rides the same channel, and it is not an afterthought.  `driver._run_one`
+#: catches every render exception so one bad evaluation cannot sink the rest — but the
+#: only trace was a `ctx.log.error` from inside a WORKER, and a worker's logger is not
+#: wired to the run's log file.  The result: `aggregate.sig` raised `NameError` on every
+#: publish run of this suite, produced not one of its declared figures, appeared in no log,
+#: and the summary line printed "all 82 evaluation requests granted, 0 denials".  A grant
+#: is a statement about the INPUTS; it says nothing about whether anything came out.
+_TALLY: dict = {'granted': {}, 'denied': {}, 'errors': {}}
+
+
+def record_error(eval_key: str, exc: BaseException) -> None:
+    """Record that an evaluation's render raised.  Called only by `driver._run_one`.
+
+    Stores `(count, last_repr)` so the run-end summary can name both how often and what.
+    """
+    n, _prev = _TALLY['errors'].get(eval_key, (0, ''))
+    _TALLY['errors'][eval_key] = (n + 1, repr(exc))
 
 
 def resolve_needs(ctx, ev) -> dict:
@@ -287,11 +304,17 @@ def resolve_needs(ctx, ev) -> dict:
 
 
 def tally_snapshot(reset: bool = False) -> dict:
-    """A picklable copy of this process's access tally; optionally reset (per-job snapshots)."""
-    snap = {'granted': dict(_TALLY['granted']), 'denied': dict(_TALLY['denied'])}
+    """A picklable copy of this process's access tally; optionally reset (per-job snapshots).
+
+    The reset is load-bearing at `granularity='graph'`: a worker is reused across jobs, so
+    without it every later job re-reports the earlier jobs' counts.
+    """
+    snap = {'granted': dict(_TALLY['granted']), 'denied': dict(_TALLY['denied']),
+            'errors': dict(_TALLY['errors'])}
     if reset:
         _TALLY['granted'] = {}
         _TALLY['denied'] = {}
+        _TALLY['errors'] = {}
     return snap
 
 

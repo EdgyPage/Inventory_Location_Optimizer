@@ -127,12 +127,16 @@ def _merge_tally(total: dict, part: dict) -> None:
     for bucket in ('granted', 'denied'):
         for key, n in part.get(bucket, {}).items():
             total[bucket][key] = total[bucket].get(key, 0) + n
+    # errors carry (count, last_repr), not a bare count
+    for key, (n, msg) in part.get('errors', {}).items():
+        prev_n, _prev = total['errors'].get(key, (0, ''))
+        total['errors'][key] = (prev_n + n, msg)
 
 
 def _drain(pool, jobs, log) -> dict:
     """Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the
     merged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs."""
-    tally = {'granted': {}, 'denied': {}}
+    tally = {'granted': {}, 'denied': {}, 'errors': {}}
     if pool is None:
         for job in jobs:
             tgt, err, part = _run_job(job)
@@ -364,6 +368,19 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
                     f'({per_eval}) — see the DENIED lines above for reasons')
     else:
         log.info(f'[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
+
+    # Run-end RENDER summary — the other half, and the one that was missing.  A grant says
+    # an evaluation got its inputs; it says nothing about whether it produced anything.
+    # `driver._run_one` swallows render exceptions so one failure cannot sink the pool, and
+    # a worker's log reaches no file — so without this line a broken evaluation is
+    # completely silent.  One was, for the whole life of this suite.
+    errs = tally.get('errors', {})
+    if errs:
+        per_eval = '; '.join(f'{k} x{n}: {msg}' for k, (n, msg) in sorted(errs.items()))
+        log.warning(f'[render] run summary: {len(errs)} evaluation(s) RAISED and produced '
+                    f'nothing — {per_eval}')
+    else:
+        log.info('[render] run summary: no evaluation raised')
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────
