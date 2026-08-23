@@ -112,6 +112,15 @@ Per iteration:
    against a rendered leaf whenever the figure set changed — it audits legibility, missing
    views, and unanswered analytical questions at the chart level, which the persona
    readers are not equipped to catch.
+   **Run it against a FULL-SCALE leaf, not a toy fixture.** A small fixture renders every
+   chart shape correctly but degenerates the data: at four batches nothing reaches
+   significance, arms come out bit-identical, and churn is exactly zero — and the SME
+   reports each of those as a finding, correctly, because from inside one leaf it cannot
+   tell a fixture artifact from a result. Every such claim must be checked against the
+   real run's tables before you fix anything; in the Experiment-8 round, two of the
+   fourteen findings ("every uniform arm is identical", "MaxClu ties MinClu") evaporated
+   against the 34-arm cell, where all 17 uniform arms differ. Re-analysing one real cell
+   costs minutes and is the cheapest way to keep the loop honest.
 4. Show the user each round's verdicts and the fix mapping. Rebuild, next round.
 5. Converge when the managerial pair reports NO BLOCKING GAPS in the same round; cap at 4
    rounds and surface residuals to the user instead of iterating past the cap.

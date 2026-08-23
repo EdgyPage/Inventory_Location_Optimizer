@@ -163,8 +163,19 @@ def effect_heatmap(rows, cols, pct_matrix, effect_matrix, p_matrix, out_path, *,
         rows = [rows[i] for i in keep_r]
         cols = [cols[j] for j in keep_c]
 
-    vmax = float(np.nanmax(np.abs(pct)))
-    vmax = vmax if vmax > 0 else 1.0
+    # Colour is normalised PER COLUMN, and the printed number stays the absolute value.
+    # One shared scale hands the whole colour channel to whichever metric happens to be
+    # the most volatile: put-away queue depth swings +/-100% (it is a count near zero)
+    # while labor moves 1-2%, so a global scale paints ten of eleven columns the same
+    # pale mid-tone and the heatmap stops distinguishing anything a reader would act on.
+    # Comparing a labor % against a queue-depth % across columns was never meaningful in
+    # the first place; comparing assignment functions WITHIN a metric is the whole job.
+    norm = np.full_like(pct, np.nan, dtype=float)
+    for j in range(pct.shape[1]):
+        col = pct[:, j]
+        vmax_j = float(np.nanmax(np.abs(col))) if np.any(np.isfinite(col)) else 0.0
+        if vmax_j > 0:
+            norm[:, j] = col / vmax_j
 
     import matplotlib.pyplot as plt
     ch = chartkit.make(
@@ -175,11 +186,15 @@ def effect_heatmap(rows, cols, pct_matrix, effect_matrix, p_matrix, out_path, *,
     ax.grid(False)
     cmap = plt.cm.RdYlGn.copy()
     cmap.set_bad('#f2f2f2')
-    im = ax.imshow(np.ma.masked_invalid(pct), cmap=cmap, vmin=-vmax, vmax=vmax,
+    im = ax.imshow(np.ma.masked_invalid(norm), cmap=cmap, vmin=-1.0, vmax=1.0,
                    aspect='auto')
     for i in range(len(rows)):
         for j in range(len(cols)):
             if not np.isfinite(pct[i, j]):
+                # measured nowhere for this pair: say so rather than leaving a blank the
+                # reader has to tell apart from a pale zero
+                ax.text(j, i, 'n/a', ha='center', va='center', fontsize=6.5,
+                        color='#999999')
                 continue
             sig = np.isfinite(P[i, j]) and P[i, j] < 0.05
             if sig:
@@ -195,11 +210,13 @@ def effect_heatmap(rows, cols, pct_matrix, effect_matrix, p_matrix, out_path, *,
     ax.set_xticklabels([str(c) for c in cols], rotation=40, ha='right', fontsize=7)
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([_short(str(r)) for r in rows], fontsize=7)
-    cb = ch.fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cb.set_label(cbar_label, fontsize=8)
+    cb = ch.fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[-1, 0, 1])
+    cb.ax.set_yticklabels(['worst\nin column', '0', 'best\nin column'], fontsize=7)
+    cb.set_label(f'{cbar_label} — shaded within each metric', fontsize=8)
     n_sig = int(np.sum(np.isfinite(P) & (P < 0.05)))
     n_cell = int(np.sum(np.isfinite(pct)))
-    note = f'{n_sig} of {n_cell} cells reach significance'
+    note = (f'{n_sig} of {n_cell} cells reach significance · colour is relative within '
+            f'each column; the printed number is the actual %')
     if dropped:
         note += f' · not measured in this run: {", ".join(dropped)}'
     ch.title(title, note)
