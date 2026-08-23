@@ -3,9 +3,9 @@
 **Two levers, two outcomes, one run — at full production scale.** Where restock gets put away
 (**placement**) decides how much work a day contains. Who picks what next (**scheduling**) decides
 how fast that work clears. This experiment moves each lever separately across the full
-**400,000-SKU catalogue** — of which the store warehouse stocks **~263,000 SKUs at capacity**
-(fulfillment stocks its own subset; the [lifecycle page](comparison-overview.md) carries the
-exact counts) — and measures both outcomes, so the two never get conflated.
+**400,000-SKU catalogue** — of which the shared build stocks **~263,000 SKUs at capacity**
+across both channels (the [lifecycle page](comparison-overview.md) carries what is recorded per
+channel, which is bins, not SKUs) — and measures both outcomes, so the two never get conflated.
 
 Both levers are rules inside dispatch software, not construction projects. The four that matter on
 this page, in plain terms:
@@ -43,11 +43,27 @@ this page, in plain terms:
     farther from the dock than the nearest free one, the restock crew pays for the pickers'
     saving. Here is the size of the margin, from the run's own counts rather than an argument.
 
+    <small>Provenance, since this box decides whether the placement lever is worth piloting:
+    the pick-hours per wave are the store labor total in
+    [`data/whatif_volume.json`](data/whatif_volume.json) divided by the run's 75 waves, and the
+    2.6 % is the store row of the per-cell
+    [`channel_rollup_summary.csv`](data/k1_off_lpt/channel_rollup_summary.csv). The units put
+    away per wave are the mean of `reorder_placements` in the run's per-batch table
+    (`batch_metrics`, a declared run-tree artifact) — that file is ~3 MB per leaf and is
+    deliberately **not** staged to this site, so unlike every other number on this page it is
+    recomputable from the run rather than clickable here. The 39-unit restock order is a model
+    input, not a measurement — see the substitution above.</small>
+
     On the store channel a wave costs about **1.7 hours** of hands-on picking, and the winning
     rule saves **2.6 %** of it — roughly **2.7 minutes per wave**. That same wave puts away
     about **11,600 units**. Spread across them, the entire saving is worth about **0.014
-    seconds per unit put away** — and at the roughly 39 units a restock trip carries, about
-    **half a second per trip**.
+    seconds per unit put away**.
+
+    Turn that into trips with your own number, because ours is a model input rather than a
+    measurement: **exposure per trip ≈ 0.014 s × (units your restock crew carries per trip)**.
+    The simulator restocks in orders of about 39 units, which puts it at roughly **half a
+    second per trip**; a floor running 100-unit pallets is nearer a second and a half. Either
+    way the order of magnitude is the point, and it is *seconds*, not minutes.
 
     Read that as the honest bound it is: **the placement gain survives only if the new slotting
     adds essentially nothing to the average put-away walk.** It does not mean the gain is
@@ -186,7 +202,8 @@ Two further boundaries matter, and each is a finding rather than a failure:
 <figure markdown>
   ![Cumulative volume vs elapsed time, round-robin vs LPT](images/{{ experiment().whatif.scatter }}){ width=920 }
   <figcaption><strong>Figure 2.</strong> Items picked so far (y) against elapsed hours (x), one
-  panel per channel, for the same placement rule under <strong>both</strong> schedulers. The slope
+  panel per channel, each holding its own placement rule fixed and varying only the
+  <strong>scheduler</strong> (the two panels do not use the same rule — each names its own). The slope
   is throughput; the dot is the finish. Both lines reach the same height — the same work — but the
   LPT line is steeper and stops sooner. Source: <code>whatif_volume_curves.png</code>.</figcaption>
 </figure>
@@ -336,8 +353,8 @@ with the blanks left honest:
   2.6 % is a percentage OF — pick-hours, not total site labor — so the pick share is
   load-bearing; if picking is 20 % of your labor budget this is a modest line, at 60 % it is a
   real one. *Worked, with numbers that are yours to replace:* a site running 200,000 pick-hours
-  a year at a $30 loaded rate is spending $6M on picking, and 2.6 % of that is about **$156k a
-  year** — against which you must set whatever the pilot's restock-crew hours turn out to cost
+  a year at a \$30 loaded rate is spending \$6M on picking, and 2.6 % of that is about
+  **\$156k a year** — against which you must set whatever the pilot's restock-crew hours cost
   (see the exposure box at the top: the margin against put-away is thin, and unmeasured until
   the pilot measures it).
 - **Scheduling (the ~31 %):** this one is **not a labor-dollar saving** — hands-on hours are

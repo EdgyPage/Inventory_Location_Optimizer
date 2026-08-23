@@ -81,9 +81,16 @@ and — derived from that demand — an equilibrium quantity and a reorder point
     and demand distributions — is on the [Inventory distributions](inventory.md) page,
     generated from the same snapshot.
 
-The catalogue lists {{ '{:,}'.format(inv_params(inv0)['num_skus']) }} SKUs; each channel's
-warehouse stocks the subset bound to it (the setup table's `n_skus` row below), which is why the
-two counts differ — one is the catalogue, the other is one warehouse's shelves.
+The catalogue lists {{ '{:,}'.format(inv_params(inv0)['num_skus']) }} SKUs; the shared build
+stocks the subset that fits its racking (the setup table's `n_skus` row below), which is why the
+two counts differ — one is the catalogue, the other is what got shelved. **`n_skus` is a
+build-level number, not a per-channel one**: both channels' `config.json` files report the same
+value because they describe the same build. What is partitioned per channel is **bins** — every
+bin belongs to exactly one channel's regime — and the run records those counts. It does not
+record how many distinct SKUs land in each partition, so this site quotes no per-channel SKU
+figure; "two warehouses" is a claim about disjoint bins and independent order streams, which the
+data supports, and not a claim that the two channels hold disjoint SKU sets, which it does not
+measure either way.
 
 This experiment's inventory variants:
 {% for key, inv in experiment().inventories.items() %}
@@ -120,10 +127,23 @@ this design deliberately excludes.
 {{ setup_table(inv0) }}
 
 <small>**The table above is the shared build and the STORE channel's crew.** Fulfillment runs the
-same racking with its own numbers, and they are collected here so this page answers a headcount
-question without sending you elsewhere: **20 pickers** (store: 25), **248,700** bins in its own
-regime partition (store: 149,800), and its own subset of the 400,000-SKU catalogue. The two
-channels also differ in three pick-time constants — `pick_intercept`, `cart_swap_coef` and
+same racking with its own numbers, collected here so this page answers a headcount question
+without sending you elsewhere: **20 pickers** (store: 25) and **248,700** bins in its own regime
+partition (store: 149,800). Note what is *not* recorded per channel: `config.json`'s SKU total
+(263,257) is the whole shared build's stocked catalogue, and the run does not separately record
+how many distinct SKUs each channel's partition holds — bins are partitioned and counted, SKUs
+are not, so no per-channel SKU figure is quoted anywhere on this site.
+
+**How many tasks a wave actually contains.** A task is one aisle's worth of picking, and it is
+the unit the scheduler hands out, so the ratio of tasks to pickers is what decides whether
+longest-first has anything to rebalance. Per wave the store generates **103–139 tasks**
+(median 137) for its **25** pickers — about five and a half aisles each — and fulfillment
+**235** for its **20** — closer to twelve. Both are comfortably task-rich: a picker who finishes
+early has more work to pull from the same wave, so the scheduling gain is genuine rebalancing
+rather than an artifact of the crew running out of aisles. <small>Counts from the run's
+per-batch `num_tasks` column.</small>
+
+The two channels also differ in three pick-time constants — `pick_intercept`, `cart_swap_coef` and
 `batch_mean_frac` — whose per-channel values are in each leaf's committed `config.json`; the
 batch-size fraction is the one that shows up in the formulas above ($0.15$ store, $0.20$
 fulfillment).</small>

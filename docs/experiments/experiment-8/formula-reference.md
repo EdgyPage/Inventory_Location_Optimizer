@@ -52,8 +52,13 @@ One pick at bin $b$, from [`Warehouse/picking/Pick.py`](https://github.com/EdgyP
 
 {{ pick_time_formula(inv0) }}
 
-The **calibrations** keep this shape and differ only in the weight exponent $e_w$ and the
-height multipliers $M(y)$:
+The **calibrations** differ by more than coefficients, and the table below is authoritative
+where this sentence is not: the two channels use different **function families**, not one shape
+with different constants. Store weights by a power law and takes volume in $\log_2$; fulfillment
+weights logarithmically and takes volume in natural $\log$. The fixed per-pick intercept differs
+too (15 store, 10 fulfillment), as do the height multipliers $M(y)$. Each leaf's committed
+`config.json` carries the exact pair — `pick_weight_fn` / `pick_volume_fn` name the family,
+`pick_weight_coef` / `pick_volume_coef` the coefficient:
 
 {{ pick_calibration_table(inv0) }}
 
@@ -277,8 +282,14 @@ columns, and what each is:
 | `ci_lo` / `ci_hi` | a 95 % **moving-block bootstrap** interval *of that same median*, so the interval always brackets the number printed beside it. |
 | `hedges_g` | the paired standardised effect size on the raw per-batch values, oriented the same way as `pct_median`. |
 | `rank_biserial` | its distribution-free companion, in [−1, 1]; ±1 means the arm won (or lost) on every batch. |
-| `p_wilcoxon` / `p_holm` | the paired signed-rank test, raw and Holm-corrected. The correction family is **the arms within one metric** — the set a reader scans when looking down a column for a winner. |
+| `p_wilcoxon` / `p_holm` | the paired signed-rank test, raw and Holm-corrected. The correction family is **every non-baseline arm in this leaf, for this one metric** — 33 comparisons on a 34-arm run — because that is the set a reader scans when looking down a column for a winner. Nothing is pooled across metrics, channels, inventories or cells: each leaf's file corrects within itself. |
 | `n_batches` | the batches the two arms actually share. |
+
+**Reproducing an interval exactly.** 2,000 resamples, overlapping moving blocks of length
+round(n^⅓) (4 batches at n = 75), drawn from a Generator seeded to 0 — so re-running the
+analysis on the same databases reproduces every printed bound to the digit, and a bound that
+moves means the data moved. Blocks do not wrap the series end; the last block is truncated to
+fill exactly n observations.
 
 **Why the interval is block-based.** The 75 batches are one continuous run: each batch inherits
 the previous batch's layout, so the per-batch differences are not independent draws. Measured on
@@ -295,3 +306,14 @@ function minimises when it chooses a slot. A rule can move its objective slightl
 realised time moves more (or the reverse): the objective is a model of the work, the duration is
 the work. When the two disagree for one arm, the measured outcome is the one the findings on
 these pages are stated in; the objective column is there to show what the rule was *trying* to do.
+
+
+**When the p-value and the interval seem to disagree.** They can, and one row here does:
+`opt_rank_minlabor` on throughput reports a corrected p of 2 × 10⁻⁴ beside a 95 % interval of
+[−6.8 %, +0.4 %] that includes zero. Both are honest, because they answer different questions.
+The signed-rank test asks *how consistently* one arm beat the other wave by wave — it is a
+question about direction, and 75 waves leaning the same way answer it decisively. The interval
+asks *how large* the effect is, and a heavy-tailed spread of per-wave ratios leaves that range
+wide enough to touch zero. Read it as: the arm is reliably worse, and how much worse is not
+pinned down. Where the two disagree, believe the interval about the magnitude and the test about
+the direction — and treat a magnitude whose interval crosses zero as unproven, whatever the p.
