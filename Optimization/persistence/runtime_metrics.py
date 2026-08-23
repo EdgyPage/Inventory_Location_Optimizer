@@ -54,6 +54,12 @@ CREATE TABLE IF NOT EXISTS runtime (
     gc_gen2     INTEGER NOT NULL DEFAULT 0,
     peak_rss_mib REAL,
     live_objects INTEGER,
+    -- Measured OUTSIDE the section partition below; see OUTSIDE_TOTAL.  All three are
+    -- NULLABLE on purpose: NULL means "not measured", 0 would mean "measured as zero",
+    -- and telling those apart is the entire job of `precomp_src`.
+    precomp_s   REAL,
+    precomp_src TEXT,
+    map_lap_pct REAL,
     UNIQUE(cell, pair, config, channel, arm)
 )
 """
@@ -81,15 +87,20 @@ def declared_runtime_shape() -> dict:
 #: 2026-07-29 vintage (`comparison_whatif_20260729_115451` and `_125755`; no earlier run wrote
 #: this DB at all).  DERIVED from those files, never chosen.  It differs from the declaration by
 #: exactly one absent table, the stamp itself: that vintage's twenty `runtime` columns read
-#: identically, so `load_rows` returns the same dicts from any vetted shape.  Three vintages
-#: now: pre-stamp, the 20-column stamped era, and the current 29-column declaration.
+#: identically, so `load_rows` returns the same dicts from any vetted shape.  Four vintages
+#: now: pre-stamp, the 20-column stamped era, the 29-column observability era (what the
+#: published Experiment-8 run carries), and the current 32-column declaration.
 PRE_STAMP_RUNTIME_SCHEMA_ID = 'a683d2d07c72'
 
 RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
     name='runtime_metrics_db',
     declared_shape=declared_runtime_shape,
     meta_table='schema_meta',
-    known_ids=('c033ff9c85a5',  # 20-column stamped era: c07b975..f59f38e (2026-08-13 runs
+    known_ids=('397b7e750e1d',  # 29-column observability era: d5bdedc..3b712fb (2026-08-19
+                                #   through 2026-08-23) — the shape EXPERIMENT 8's run carries,
+                                #   superseded by the setup-phase columns (precomp_s/_src,
+                                #   map_lap_pct), which the batch loop's clock never covered
+              'c033ff9c85a5',  # 20-column stamped era: c07b975..f59f38e (2026-08-13 runs
                                 #   through the 2026-08-19 deep/RSS ladders), superseded by
                                 #   the observability columns (smpl/task/kf/p1/p2/gc/rss)
               PRE_STAMP_RUNTIME_SCHEMA_ID,),
@@ -112,6 +123,16 @@ SECTIONS = [
     # sub-span of pre_s), p1_s/p2_s (a split of sim_s), gc_pause_s (overlaps every
     # section).  This list is a PARTITION for the stacked graph — adding an overlay
     # column here double-counts its seconds.  Query the columns directly instead.
+]
+
+#: Spans measured OUTSIDE `total_s` — the batch loop's clock starts after setup, so the
+#: map precompute is in neither `total_s` nor any SECTION.  Kept as its own list for the
+#: same reason SECTIONS excludes its overlays, and the failure mode is the mirror image:
+#: SECTIONS must not gain an overlay (double-counts), and this must never be folded INTO
+#: SECTIONS (stacks a span onto a total that does not contain it).  An arm's real cost is
+#: the SUM of the two lists, and any chart showing it says so.
+OUTSIDE_TOTAL = [
+    ('precomp_s', 'map precompute (setup, once per arm)'),
 ]
 
 
@@ -145,8 +166,9 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
             'INSERT OR REPLACE INTO runtime '
             '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'
             'batches,total_s,rate,reord_s,build_s,pre_s,sim_s,extract_s,inv_s,save_s,'
-            'smpl_s,task_s,kf_s,p1_s,p2_s,gc_pause_s,gc_gen2,peak_rss_mib,live_objects) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'smpl_s,task_s,kf_s,p1_s,p2_s,gc_pause_s,gc_gen2,peak_rss_mib,live_objects,'
+            'precomp_s,precomp_src,map_lap_pct) '
+            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             (cell or '', pair, config, channel, arm, initial, assignment,
              int(res.get('n_bins', 0) or 0), int(res.get('regime_bins', 0) or 0),
              int(res.get('n_aisles', 0) or 0), batches, total,
@@ -161,8 +183,71 @@ def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
              float(res.get('t_kf', 0.0) or 0.0),
              float(res.get('p1_s', 0.0) or 0.0), float(res.get('p2_s', 0.0) or 0.0),
              float(res.get('gc_pause_s', 0.0) or 0.0), int(res.get('gc_gen2', 0) or 0),
-             res.get('peak_rss_mib'), res.get('live_objects')))
+             res.get('peak_rss_mib'), res.get('live_objects'),
+             # Setup-phase spans (2026-08-23 column add).  NOT coerced to 0.0 like the
+             # section columns above: a worker that did not measure the precompute must
+             # write NULL, or the analysis cannot tell "no map to build" from "0.0 s".
+             res.get('t_precompute'),
+             ('inline' if res.get('t_precompute') is not None else None),
+             res.get('map_lap_pct')))
         con.commit()                     # connect.close checkpoints, it does not commit
+    finally:
+        _connect.close(con)
+
+
+#: The setup-phase columns, in DDL order — the ones a pre-2026-08-23 DB predates.
+_SETUP_COLUMNS = (('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'))
+
+
+def _migrate_setup_columns(con) -> bool:
+    """Add the setup-phase columns to a DB written before they existed; True if it changed.
+
+    `CREATE TABLE IF NOT EXISTS` cannot widen an existing table, so a finished run whose
+    arms predate these columns needs an explicit ALTER before a backfill can write to it.
+    Every added column is NULLABLE with no default, so existing rows read NULL — "never
+    measured", which is exactly what they are.
+
+    Re-stamping afterwards is not optional: the file's recorded schema id describes its
+    old shape, and leaving the two disagreeing turns every later read into an unvetted
+    warning.  A migrated run legitimately IS the current shape.
+    """
+    have = {r[1] for r in con.execute('PRAGMA table_info(runtime)')}
+    added = [c for c, _t in _SETUP_COLUMNS if c not in have]
+    for col, typ in _SETUP_COLUMNS:
+        if col not in have:
+            con.execute(f'ALTER TABLE runtime ADD COLUMN {col} {typ}')
+    if added:
+        _compat.stamp_checked(con, RUNTIME_DB_FAMILY, strict=False)
+        con.commit()
+    return bool(added)
+
+
+def record_precompute(run_root: str, cell: str, uid, seconds: float,
+                      source: str, map_lap_pct=None) -> bool:
+    """Fill an existing arm's setup-phase measurement; True when a row was updated.
+
+    The inline path (`record_arm`) writes these at simulation time.  This is the other
+    door: a finished run whose arms predate the columns can be measured afterwards by
+    rebuilding the arm's warehouse and timing the precompute alone, without re-simulating
+    hundreds of GB.  `source` separates the two so nothing downstream has to guess —
+    'inline' seconds are contended against the sweep's whole worker pool, a 'backfill'
+    measurement is not, and the two are not comparable as ratios.
+
+    Updates only; a missing row means the arm never ran, and inventing one here would put
+    a measurement in the table with no simulation behind it.
+    """
+    if source not in ('inline', 'backfill'):
+        raise ValueError(f"source must be 'inline' or 'backfill', got {source!r}")
+    pair, config, channel, arm = uid
+    con = sqlite3.connect(runtime_db_path(run_root))
+    try:
+        _migrate_setup_columns(con)
+        cur = con.execute(
+            'UPDATE runtime SET precomp_s=?, precomp_src=?, map_lap_pct=? '
+            'WHERE cell=? AND pair=? AND config=? AND channel=? AND arm=?',
+            (float(seconds), source, map_lap_pct, cell or '', pair, config, channel, arm))
+        con.commit()
+        return cur.rowcount > 0
     finally:
         _connect.close(con)
 

@@ -84,6 +84,37 @@ def _gc_cb(phase, info, _st=_GC_STATE):
         _st['gen'][info.get('generation', 0)] += 1
 
 
+def _timed_build(strat, mgr, ctx) -> float:
+    """Run the strategy's build hook and return its wall seconds.
+
+    SETUP, not loop time.  The batch loop's clock (`t_loop` .. `elapsed`) starts long
+    after this, so every section column in runtime_metrics excludes it — which is why the
+    Map family's offline address-map solve was, for a long time, an unmeasured cost that
+    the published pages could only describe qualitatively.  It is a real number now, and
+    `runtime_metrics.OUTSIDE_TOTAL` is where it says it is not part of `total_s`.
+
+    For rules with no build step this is a few microseconds of function call; the number
+    is still recorded, because "measured, and it was nothing" is a different statement
+    from "never measured".
+    """
+    t0 = time.perf_counter()
+    strat.build(mgr, ctx)
+    return time.perf_counter() - t0
+
+
+def _map_lap_pct(mgr) -> float | None:
+    """Share of assigned UNITS the optimal map solved exactly, or None for a non-map arm.
+
+    Units rather than classes: at catalogue scale the classes small enough for the exact
+    solver hold a tiny slice of the inventory, so a class-weighted figure would read far
+    more favourably than the placement it produced.
+    """
+    stats = getattr(mgr, '_map_lap_stats', None)
+    if not stats or not stats.get('units'):
+        return None
+    return stats['lap_units'] / stats['units']
+
+
 def _peak_rss_mib() -> float | None:
     """This process's peak working-set (high-water RSS) in MiB, or None if unreadable.
 
@@ -446,7 +477,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)   # NOTE(cluster): _aisle_index is maintained
                                         # incrementally by _index_add/remove during the fill
-        strat.build(mgr, ctx)
+        t_precompute = _timed_build(strat, mgr, ctx)
         mgr.enqueue_all(inventory.orders)   # placed by the strategy's own policy
         _arm_aisle_state()                   # authoritative rebuild over the final layout
     else:
@@ -455,7 +486,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _arm_aisle_state()
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)
-        strat.build(mgr, ctx)
+        t_precompute = _timed_build(strat, mgr, ctx)
+    map_lap_pct = _map_lap_pct(mgr)
 
     # Fill rate is over THIS channel's regime bins: a per-channel worker only stocks its own
     # regime's units, so dividing by the whole (mixed) warehouse would understate fill by the
@@ -940,6 +972,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         'n_bins'    : n_bins,
         'regime_bins': regime_bins,
         'n_aisles'  : n_aisles,
+        # SETUP spans, measured before the batch loop's clock starts — so they are NOT
+        # part of `elapsed` and must never be stacked onto the section totals below.
+        # runtime_metrics.OUTSIDE_TOTAL is the declaration of that separation.
+        't_precompute': t_precompute,   # strat.build(): the map family's offline solve
+        'map_lap_pct' : map_lap_pct,    # None on every non-map arm
         't_reord'   : t_reord_run,
         't_build'   : t_build_run,
         't_sample'  : t_sample_run,     # build sub-split: batch sampling

@@ -62,6 +62,105 @@ def test_missing_observability_keys_write_nulls_not_raises(tmp_path):
     assert r['peak_rss_mib'] is None and r['live_objects'] is None
 
 
+def test_setup_spans_are_nullable_and_stamped_with_their_provenance(tmp_path):
+    """`precomp_s` is measured outside `total_s`, so NULL and 0.0 must stay distinguishable.
+
+    Every other timing column coerces a missing key to 0.0, which is right for a section
+    of a loop that ran.  It is wrong here: a worker that never measured the setup phase
+    has not observed a zero, and a chart that treats the two alike would report the map
+    family's offline solve as free.
+    """
+    root = str(tmp_path)
+    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
+    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'opt_map_norsl'),
+                  _res(t_precompute=41.5, map_lap_pct=0.031))
+    by_arm = {r['arm']: r for r in rm.load_rows(root)}
+    assert by_arm['uni_fifo_norsl']['precomp_s'] is None
+    assert by_arm['uni_fifo_norsl']['precomp_src'] is None
+    assert abs(by_arm['opt_map_norsl']['precomp_s'] - 41.5) < 1e-9
+    assert by_arm['opt_map_norsl']['precomp_src'] == 'inline'
+    assert abs(by_arm['opt_map_norsl']['map_lap_pct'] - 0.031) < 1e-9
+
+
+def test_a_measured_zero_survives_as_a_zero(tmp_path):
+    """A rule with no build step measures ~0 s; that is data, not a missing value."""
+    root = str(tmp_path)
+    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'),
+                  _res(t_precompute=0.0))
+    r = rm.load_rows(root)[0]
+    assert r['precomp_s'] == 0.0 and r['precomp_src'] == 'inline'
+
+
+def test_backfill_updates_an_existing_arm_and_says_it_was_a_backfill(tmp_path):
+    root = str(tmp_path)
+    uid = ('p', 'store', 'store', 'opt_map_norsl')
+    rm.record_arm(root, 'k1_off', uid, _res())
+    assert rm.load_rows(root)[0]['precomp_s'] is None
+    assert rm.record_precompute(root, 'k1_off', uid, 38.25, 'backfill', map_lap_pct=0.02)
+    r = rm.load_rows(root)[0]
+    assert abs(r['precomp_s'] - 38.25) < 1e-9
+    # The provenance is the whole point: an inline second is contended against the sweep's
+    # worker pool, a backfilled one is not, and the two do not form a ratio.
+    assert r['precomp_src'] == 'backfill'
+    assert abs(r['total_s'] - 10.0) < 1e-9, 'a backfill must not disturb the loop timings'
+
+
+def test_backfill_migrates_a_db_written_before_the_columns_existed(tmp_path):
+    """A finished run cannot be re-simulated, so the backfill has to widen its table.
+
+    CREATE TABLE IF NOT EXISTS cannot add a column, and the file's recorded schema id
+    describes its old shape — so the migration must ALTER and then re-stamp, or every
+    later read of that run reports an unvetted shape.
+    """
+    import sqlite3
+    import warnings
+    root = str(tmp_path)
+    uid = ('p', 'store', 'store', 'opt_map_norsl')
+    rm.record_arm(root, 'k1_off', uid, _res())
+    # Reproduce the older vintage faithfully: drop the columns AND restore the stamp that
+    # vintage carried, so this exercises a genuine old file rather than a corrupted new one.
+    con = sqlite3.connect(rm.runtime_db_path(root))
+    for col, _t in rm._SETUP_COLUMNS:
+        con.execute(f'ALTER TABLE runtime DROP COLUMN {col}')
+    con.execute("INSERT OR REPLACE INTO schema_meta VALUES ('schema_id', '397b7e750e1d')")
+    con.commit()
+    con.close()
+    with warnings.catch_warnings(record=True) as before:
+        warnings.simplefilter('always')
+        assert 'precomp_s' not in rm.load_rows(root)[0]
+    assert not [w for w in before if 'not vetted' in str(w.message)], \
+        'the outgoing vintage must still be vetted, or old runs stop reading cleanly'
+
+    assert rm.record_precompute(root, 'k1_off', uid, 12.5, 'backfill')
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        r = rm.load_rows(root)[0]
+    assert abs(r['precomp_s'] - 12.5) < 1e-9 and r['precomp_src'] == 'backfill'
+    assert not [w for w in caught if 'not vetted' in str(w.message)], \
+        'a migrated run must re-stamp, or it reads unvetted from then on'
+    assert abs(r['reord_s'] - 2.0) < 1e-9, 'the migration must not disturb existing rows'
+
+
+def test_backfill_refuses_to_invent_a_row_or_an_unknown_source(tmp_path):
+    import pytest
+    root = str(tmp_path)
+    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
+    # no such arm: a measurement with no simulation behind it must not appear in the table
+    assert not rm.record_precompute(root, 'k1_off', ('p', 'store', 'store', 'ghost'),
+                                    1.0, 'backfill')
+    assert len(rm.load_rows(root)) == 1
+    with pytest.raises(ValueError):
+        rm.record_precompute(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'),
+                             1.0, 'guessed')
+
+
+def test_the_setup_span_is_not_a_section(tmp_path):
+    """Stacking `precomp_s` onto SECTIONS would add a span `total_s` does not contain."""
+    assert 'precomp_s' not in dict(rm.SECTIONS)
+    assert 'precomp_s' in dict(rm.OUTSIDE_TOTAL)
+    assert not set(dict(rm.SECTIONS)) & set(dict(rm.OUTSIDE_TOTAL))
+
+
 def test_key_is_unique_and_overwrites(tmp_path):
     root = str(tmp_path)
     uid = ('pairA', 'store', 'store', 'uni_fifo_norsl')
