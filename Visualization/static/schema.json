@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5",
-  "schema_short": "9ef809beb2eb",
+  "schema_id": "sha256:6c44b3ce7341d8ca36b7fa500ba0ee21f7abf25dcd1808b202d024433405e78e",
+  "schema_short": "6c44b3ce7341",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -128,11 +128,41 @@
       "scope": "channel_run",
       "optional": true
     },
+    "comparison_census_json": {
+      "path": "_dossier/comparison_census.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
     "config_json": {
       "path": "{cell}/{pair}/{config}/config.json",
       "format": "json",
       "scope": "config",
       "optional": false
+    },
+    "dossier_cost_pngs": {
+      "path": "_dossier/figures/cost/*.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true
+    },
+    "dossier_dir": {
+      "path": "_dossier",
+      "format": "dir",
+      "scope": "run",
+      "optional": true
+    },
+    "dossier_json": {
+      "path": "_dossier/dossier.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
+    "dossier_tables_csv": {
+      "path": "_dossier/tables/*.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true
     },
     "figures_diagnostics_pngs": {
       "path": "{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png",
@@ -194,6 +224,18 @@
       "scope": "run",
       "optional": true
     },
+    "held_fixed_json": {
+      "path": "_dossier/held_fixed.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
+    "inventory_model_json": {
+      "path": "_dossier/inventory_model.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
     "keyframes_db": {
       "path": "{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db",
       "format": "sqlite",
@@ -224,6 +266,12 @@
       "scope": "channel_run",
       "optional": true
     },
+    "rule_catalog_json": {
+      "path": "_dossier/rule_catalog.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
     "run_layout": {
       "path": "run_layout.json",
       "format": "json",
@@ -251,12 +299,6 @@
     "runtime_metrics_db": {
       "path": "runtime_metrics.db",
       "format": "sqlite",
-      "scope": "run",
-      "optional": false
-    },
-    "runtime_pngs": {
-      "path": "_runtime/*.png",
-      "format": "png",
       "scope": "run",
       "optional": false
     },
