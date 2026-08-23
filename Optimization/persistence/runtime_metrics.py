@@ -6,10 +6,10 @@ row per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single par
 write contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.
 
 This is RUNTIME (how long an arm took to COMPUTE) — orthogonal to the sim-modeled batch_stats
-durations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read
-it to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so
-recurring hot-paths (e.g. a reorder/reslot-dominated arm — the valid-aisle recompute suspicion) are
-visible.
+durations.  The `cost` chart family (Performance_Evaluations/cost/, a RUN-scope evaluation) reads it
+to rank rules by what they cost to run and to show WHERE the time goes, so recurring hot-paths (e.g.
+a reorder/reslot-dominated arm — the valid-aisle recompute suspicion) stay visible — and so a WMS
+reader can be told what scoring one arriving unit costs.
 """
 from __future__ import annotations
 

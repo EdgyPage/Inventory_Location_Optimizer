@@ -298,7 +298,6 @@ python -m Optimization.analyze_run <run_dir> --reference k1_off_rr --preset BY_I
 | `run_whatif_delta.py` | the cross-cell steady-state delta matrix (multi-cell) |
 | `run_whatif_labor.py` | the same runs told in modeled labor-hours |
 | `run_whatif_volume.py` | cumulative volume vs elapsed time — throughput as a *rate* |
-| `run_runtime_graphs.py` | compute cost per arm, from `runtime_metrics.db` |
 
 #### What a leaf looks like
 
@@ -431,7 +430,7 @@ adding a file, since it is what keeps these directories from sprawling.
 
 **`Optimization/` — the run harness.** The eight entry points stay at the package root —
 `run_simulation`, `analyze_run`, `run_analysis`, `run_channel_rollup`, `run_whatif_delta`,
-`run_whatif_labor`, `run_whatif_volume`, `run_runtime_graphs`: what you RUN is at the top,
+`run_whatif_labor`, `run_whatif_volume`: what you RUN is at the top,
 everything else is organised beneath.
 
 | Package | What |

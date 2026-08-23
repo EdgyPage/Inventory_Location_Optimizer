@@ -248,6 +248,10 @@ class RunTree:
         config, _, channel = group_key.partition('/')
         return self.path('aggregate_dir', cell=cell, config=config, channel=channel or None)
 
+    def dossier_dir(self) -> str:
+        """<run>/_dossier — the run-scope stage root, the twin of `aggregate_dir`."""
+        return self.path('dossier_dir')
+
     # ── channel runs (the analysis leaf) ───────────────────────────────────────
     def channel_runs(self, cell: str | None = None) -> Iterator[tuple[str, runlayout.ChannelRun]]:
         """Yield (cell_name, ChannelRun) for every analyzed leaf.  `cell=None` spans the whole run.

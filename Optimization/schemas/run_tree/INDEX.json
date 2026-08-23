@@ -1,6 +1,6 @@
 {
-  "head": "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5",
-  "source_fingerprint": "sha256:a3d41f13bde65ce825fb8cfc2b5a53494a4da9c0bcd1e551eb2c12518884e43d",
+  "head": "sha256:6c44b3ce7341d8ca36b7fa500ba0ee21f7abf25dcd1808b202d024433405e78e",
+  "source_fingerprint": "sha256:4e5e0601e0b0fae3cb9410f8313f61e63df73207465545d03cf93b63d225b3a3",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -124,6 +124,24 @@
         "artifact REMOVED: summary_task_csv (was {cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv)",
         "artifact ADDED: task_metrics_csv -> {cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv",
         "artifact ADDED: vs_baseline_csv -> {cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv"
+      ]
+    },
+    "sha256:6c44b3ce7341d8ca36b7fa500ba0ee21f7abf25dcd1808b202d024433405e78e": {
+      "short": "6c44b3ce7341",
+      "parent": "sha256:9ef809beb2eb177f4ef26bbd79522630c4be7fe84be110d52b56e28b19a3bcc5",
+      "created": "2026-08-23T12:56:17",
+      "commit": "303746a",
+      "label": "run dossier: cost family, comparison census, rule catalogue",
+      "changes": [
+        "artifact ADDED: comparison_census_json -> _dossier/comparison_census.json",
+        "artifact ADDED: dossier_cost_pngs -> _dossier/figures/cost/*.png",
+        "artifact ADDED: dossier_dir -> _dossier",
+        "artifact ADDED: dossier_json -> _dossier/dossier.json",
+        "artifact ADDED: dossier_tables_csv -> _dossier/tables/*.csv",
+        "artifact ADDED: held_fixed_json -> _dossier/held_fixed.json",
+        "artifact ADDED: inventory_model_json -> _dossier/inventory_model.json",
+        "artifact ADDED: rule_catalog_json -> _dossier/rule_catalog.json",
+        "artifact REMOVED: runtime_pngs (was _runtime/*.png)"
       ]
     }
   }

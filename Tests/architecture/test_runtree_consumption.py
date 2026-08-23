@@ -82,7 +82,7 @@ def _contract_tokens() -> tuple:
             if literal == seg and '.' in seg:
                 tokens.add(seg)                       # fully literal filename
             elif seg.startswith('_') and literal == seg:
-                tokens.add(seg)                       # reserved directory (_frozen, _runtime, ...)
+                tokens.add(seg)                       # reserved directory (_frozen, _dossier, ...)
             elif len(literal) >= 6:
                 tokens.add(literal)                   # distinctive fragment (.viz.db, _ckpt_...)
     # `analysis.log` and `run.log` are contract artifacts but 'run.log' is too generic to police
@@ -148,6 +148,17 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  # save path composes `<view>_<stem>.png` from the family grammar), and the table writers
  # name each output once instead of repeating it across prose and code.
  ('Optimization/Performance_Evaluations/aggregate/sig.py', '_aggregate'): 4,
+ # ── the run dossier's own writers ───────────────────────────────────────────────────
+ # Same sanctioned class as the block above: each names the ONE document it writes, once.
+ # The reserved directory itself is deliberately absent — RunContext derives its root from
+ # `rt.dossier_dir()` and the stager is group-tag driven, so no module spells `_dossier`.
+ ('Optimization/Performance_Evaluations/catalog/fixed.py', 'held_fixed.json'): 1,
+ ('Optimization/Performance_Evaluations/catalog/inventory.py', 'inventory_model.json'): 1,
+ ('Optimization/Performance_Evaluations/catalog/rules.py', 'rule_catalog.json'): 1,
+ ('Optimization/Performance_Evaluations/cost/rollup.py', 'dossier.json'): 1,
+ ('Optimization/Performance_Evaluations/tables/census.py', 'comparison_census.json'): 1,
+ # The CLI bootstrap every analysis entry point shares (see analyze_run / run_analysis).
+ ('Optimization/run_map_precompute.py', 'analysis.log'): 1,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', '_aggregate'): 6,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', 'aggregate_summary.csv'): 1,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', 'aggregate_tests.json'): 1,
@@ -171,14 +182,12 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/Performance_Evaluations/tables/tidy.py', 'batch_metrics.csv'): 1,
  ('Optimization/Performance_Evaluations/tables/tidy.py', 'task_metrics.csv'): 1,
  ('Optimization/Performance_Evaluations/tables/vs_baseline.py', 'vs_baseline.csv'): 1,
- ('Optimization/analyze_run.py', '_runtime'): 2,
  ('Optimization/analyze_run.py', 'analysis.log'): 1,
  ('Optimization/analyze_run.py', 'runtime_metrics.db'): 1,
  ('Optimization/config/whatif_config.py', '_frozen'): 2,
  ('Optimization/persistence/Picking_Data.py', 'warehouse.db'): 1,
  ('Optimization/persistence/Warehouse_Data.py', '_frozen'): 3,
  ('Optimization/persistence/Warehouse_Data.py', 'warehouse.db'): 7,
- ('Optimization/persistence/runtime_metrics.py', '_runtime'): 3,
  ('Optimization/persistence/runtime_metrics.py', 'runtime_metrics.db'): 3,
  ('Optimization/run_analysis.py', '_aggregate'): 3,
  ('Optimization/run_analysis.py', 'analysis.log'): 1,
@@ -186,7 +195,6 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  # `_load_run_spec`, and the one literal is the operator-facing warning that has to name the
  # file the reader must go look for.  Vaguer wording would blunt the whole point of the warning.
  ('Optimization/run_analysis.py', 'run_spec.json'): 1,
- ('Optimization/run_runtime_graphs.py', '_runtime'): 5,
  ('Optimization/run_simulation.py', 'run_layout.json'): 1,
  # Raised 5 -> 6 (2026-08-16): one more operator-facing log line, same rationale as run_analysis.
  ('Optimization/run_simulation.py', 'run_spec.json'): 6,

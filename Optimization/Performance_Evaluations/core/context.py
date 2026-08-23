@@ -256,7 +256,7 @@ class RunContext:
 
     def __init__(self, run_root: str, out_dir: str, log: logging.Logger) -> None:
         self.run_root = run_root
-        self.out_dir = out_dir                  # <run_root>/_dossier — io.out_dir's root
+        self.out_dir = out_dir                  # the dossier root; io.out_dir's base
         self.log = log
         self._rt = None
         self._runtime = None
@@ -368,7 +368,7 @@ class RunContext:
         `planned_inventory` is a contract ALIAS: a multi-cell run freezes one catalogue per
         pair under the run root, a single-cell run writes one per cell.  Both `cell` and
         `pair` are supplied so the alias can resolve either shape — which is the whole
-        reason to go through the resolver instead of joining `_frozen/<pair>/`.
+        reason to go through the resolver instead of joining the frozen pair directory.
         """
         out, seen = [], set()
         for cell, cr in self.rt.channel_runs():

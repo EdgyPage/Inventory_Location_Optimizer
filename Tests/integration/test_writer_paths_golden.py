@@ -2,7 +2,7 @@
 literals their old hand-joins produced.
 
 The 2026-08 consumer migration moved every analysis-side writer (run_whatif_delta / _labor /
-_volume, run_channel_rollup, run_runtime_graphs, run_analysis) off hand-joined output paths and
+_volume, run_channel_rollup, run_analysis) off hand-joined output paths and
 onto the run-tree contract accessors (`rt.path` / `rt.leaf_path` / `rt.aggregate_dir`).  The
 migration's whole promise is that NO RENDERED PATH MOVES: every artifact must land at exactly the
 byte string the old `os.path.join` calls produced, on BOTH tree shapes (mixed catalog with a
@@ -259,15 +259,32 @@ def test_volume_outputs_render_on_a_run_predating_their_artifacts(tmp_path):
     assert _writer_tree(current) is current
 
 
-# ── the runtime PNG dir (run_runtime_graphs) ─────────────────────────────────────
+# ── the run dossier (run-scope evaluations) ──────────────────────────────────────
+# Replaces the retired `_runtime/` pin: that writer drew pre-chartkit absolute-second bars
+# and its output was never staged anywhere, so nothing depended on the literal it produced.
 
-def test_runtime_png_dir_renders_the_old_literal(tmp_path):
-    """The out dir derives from the runtime_pngs template's dirname (the glob star is in the
-    filename segment) and must equal the old `os.path.join(run_root, '_runtime')`."""
-    base = _mixed_tree(tmp_path)
-    rt = resolver_for(base)
-    assert os.path.dirname(rt.path('runtime_pngs')) == os.path.join(base, '_runtime')
+def test_dossier_tree_renders_on_both_run_shapes(tmp_path):
+    """The dossier is a RUN-scope tree, so it must render identically whether the run has a
+    channel level or not — the store-only shape is where a level-counting join goes wrong."""
+    for base in (_mixed_tree(tmp_path), _store_only_tree(tmp_path)):
+        rt = resolver_for(base)
+        root = os.path.join(base, '_dossier')
+        assert rt.dossier_dir() == root
+        assert os.path.dirname(rt.path('dossier_cost_pngs')) == \
+            os.path.join(root, 'figures', 'cost')
+        assert os.path.dirname(rt.path('dossier_tables_csv')) == os.path.join(root, 'tables')
+        for name in ('dossier_json', 'rule_catalog_json', 'inventory_model_json',
+                     'held_fixed_json', 'comparison_census_json'):
+            assert os.path.dirname(rt.path(name)) == root, name
 
-    store_only = _store_only_tree(tmp_path)
-    rt2 = resolver_for(store_only)
-    assert os.path.dirname(rt2.path('runtime_pngs')) == os.path.join(store_only, '_runtime')
+
+def test_dossier_documents_are_grouped_so_staging_needs_no_name_list(tmp_path):
+    """Every dossier artifact carries the group tag ingest stages by.
+
+    The rollup and leaf-table stages name their artifacts one at a time, which is why each
+    new one costs an ingest edit.  The dossier follows the what-if pattern instead: a group
+    tag, so the seventh document stages itself."""
+    rt = resolver_for(_mixed_tree(tmp_path))
+    tagged = {n for n, a in rt.artifacts.items() if a.get('group') == 'dossier'}
+    assert 'dossier_json' in tagged and 'comparison_census_json' in tagged
+    assert 'dossier_dir' not in tagged, 'the stage root is not a document to stage'

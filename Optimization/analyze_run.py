@@ -9,7 +9,10 @@ run without re-simulating:
 For each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)
 and the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs
 the cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`,
-`run_whatif_volume.run`) at the run root.  Each
+`run_whatif_volume.run`) at the run root, and finally the RUN DOSSIER — the registry's
+run-scope evaluations, over the whole tree.  The dossier goes last because it reads what
+every earlier stage produced (the runtime DB, the what-if rows, the per-leaf tables): the
+ordering is a data dependency, not a preference.  Each
 step is isolated in try/except so one failure never sinks the rest — the sim's DBs are already safe
 on disk, so analysis is best-effort.
 """
@@ -21,7 +24,7 @@ import os
 import sys
 
 from Optimization import (run_analysis, run_channel_rollup, run_whatif_delta, run_whatif_labor,
-                          run_whatif_volume, run_runtime_graphs)
+                          run_whatif_volume)
 from Optimization.runschema import runlayout
 from Optimization.config.sim_config import _OUTPUT_DIR, _setup_logging
 from Optimization.runschema.sim_manifest import read_run_layout
@@ -95,9 +98,33 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
         _step(log, 'whatif_labor', lambda: run_whatif_labor.run(base_dir, reference=ref, log=log))
         _step(log, 'whatif_volume', lambda: run_whatif_volume.run(base_dir, reference=ref, log=log))
 
-    # Runtime (compute-cost) graphs from runtime_metrics.db at the run root — always attempted;
-    # skips gracefully when the DB is absent (e.g. a re-analysis of an old run without it).
-    _step(log, 'runtime_graphs', lambda: run_runtime_graphs.run(base_dir, log=log))
+    # The run dossier: every run-scope evaluation, over the whole tree.  LAST, because it
+    # reads what the stages above wrote — the per-arm runtime rows, the cross-cell what-if
+    # rows, and the per-leaf tables.  Each evaluation states its own `needs=` and the broker
+    # skips it with a reason when the run cannot serve them, so a single-cell run (no
+    # what-if) or a run predating the runtime DB degrades one artifact at a time.
+    _step(log, 'dossier', lambda: _run_root_stage(base_dir, log, preset))
+
+
+def _run_root_stage(base_dir, log, preset_name):
+    """Render the run-scope evaluations into the run root's dossier."""
+    from Optimization.Performance_Evaluations import driver
+    from Optimization.Performance_Evaluations.core.context import RunContext
+    from Optimization.Performance_Evaluations.presets import PRESETS
+    from Optimization.runschema import resolver_for
+
+    preset = PRESETS[preset_name]
+    keys = driver.run_root_keys(preset)
+    if not keys:
+        return
+    # The output root comes from the contract, never a joined literal: the dossier is a
+    # declared artifact tree and this is the same rule every other writer follows.
+    rt = resolver_for(base_dir)
+    out_dir = rt.dossier_dir()
+    log.info(f'  run dossier: {len(keys)} evaluation(s) -> {os.path.basename(out_dir)}')
+    driver.prepare_run_dir(out_dir)
+    ctx = RunContext(base_dir, out_dir, log)
+    driver.run_at_root(ctx, keys, preset.get('overrides', {}), {})
 
 
 def main(argv=None):

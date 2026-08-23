@@ -68,7 +68,11 @@ SHAPE_SOURCES = (
     'Optimization/run_channel_rollup.py',
     'Optimization/run_whatif_delta.py',
     'Optimization/run_whatif_labor.py',
-    'Optimization/run_runtime_graphs.py',
+    # run_whatif_volume declares two run-root artifacts and was never listed here, so
+    # editing it did not move the source fingerprint.  Fixed while the dossier's own
+    # writers were added.
+    'Optimization/run_whatif_volume.py',
+    'Optimization/run_map_precompute.py',
     'Optimization/persistence/runtime_metrics.py',
     'Optimization/simdriver/batch_precompute.py',
     'Optimization/config/whatif_config.py',

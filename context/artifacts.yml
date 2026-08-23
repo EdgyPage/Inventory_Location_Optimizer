@@ -226,17 +226,62 @@ artifacts:
     writer: {function: record_arm, file: Optimization/persistence/runtime_metrics.py}
     readers:
       - {function: load_rows, file: Optimization/persistence/runtime_metrics.py}
-      - {function: run, file: Optimization/run_runtime_graphs.py}
+      - {function: cost_rows, file: Optimization/Performance_Evaluations/cost/rollup.py}
+      - {function: run, file: Optimization/run_map_precompute.py}
     match: "runtime_metrics.db"
     schema_file: Optimization/persistence/runtime_metrics.py
     tables: [runtime]
 
-  runtime_pngs:
-    path_pattern: "comparison_<ts>/_runtime/*.png"
+  # ── the run dossier (run-scope evaluations) ──────────────────────────────────────
+  # Replaces _runtime/: same source DB, but every figure is now a registered evaluation
+  # drawn through chartkit, and the tree carries the identity documents the published
+  # pages used to assert in prose.
+  dossier_cost_pngs:
+    path_pattern: "comparison_<ts>/_dossier/figures/cost/*.png"
     format: png
-    writer: {function: run, file: Optimization/run_runtime_graphs.py}
+    writer: {function: render, file: Optimization/Performance_Evaluations/cost/compute.py}
     readers: []
-    match: "runtime"
+    # The writer never spells its directory — the family grammar derives it — so the anchor
+    # is a filename the writer really does compose.
+    match: "percent_cost_vs_fifo.png"
+  dossier_tables_csv:
+    path_pattern: "comparison_<ts>/_dossier/tables/*.csv"
+    format: csv
+    # Three run-scope evaluations write into this one directory, so no single writer owns
+    # it; the driver's dispatch is the honest anchor.
+    writer: {function: run_at_root, file: Optimization/Performance_Evaluations/driver.py}
+    readers: []
+    match: "run-scope"
+  dossier_json:
+    path_pattern: "comparison_<ts>/_dossier/dossier.json"
+    format: json
+    writer: {function: render, file: Optimization/Performance_Evaluations/cost/rollup.py}
+    readers: []
+    match: "dossier.json"
+  rule_catalog_json:
+    path_pattern: "comparison_<ts>/_dossier/rule_catalog.json"
+    format: json
+    writer: {function: render, file: Optimization/Performance_Evaluations/catalog/rules.py}
+    readers: []
+    match: "rule_catalog.json"
+  inventory_model_json:
+    path_pattern: "comparison_<ts>/_dossier/inventory_model.json"
+    format: json
+    writer: {function: render, file: Optimization/Performance_Evaluations/catalog/inventory.py}
+    readers: []
+    match: "inventory_model.json"
+  held_fixed_json:
+    path_pattern: "comparison_<ts>/_dossier/held_fixed.json"
+    format: json
+    writer: {function: render, file: Optimization/Performance_Evaluations/catalog/fixed.py}
+    readers: []
+    match: "held_fixed.json"
+  comparison_census_json:
+    path_pattern: "comparison_<ts>/_dossier/comparison_census.json"
+    format: json
+    writer: {function: render, file: Optimization/Performance_Evaluations/tables/census.py}
+    readers: []
+    match: "comparison_census.json"
 
   # ── analysis outputs ────────────────────────────────────────────────────────────
   series_json:

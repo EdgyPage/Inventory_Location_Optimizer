@@ -104,9 +104,73 @@ ARTIFACTS = {
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],
         'writer': 'record_arm@Optimization/persistence/runtime_metrics.py',
         'note': 'the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path.'},
-    'runtime_pngs': {
-        'path': '_runtime/*.png', 'format': 'png', 'scope': 'run',
-        'writer': 'run@Optimization/run_runtime_graphs.py'},
+    # ── the run dossier: what the run WAS, and what its rules cost to run ──────
+    # A reserved run-root subtree, the run-scope twin of `<cell>/_aggregate/`.  It replaces
+    # `_runtime/`, whose absolute-second bar charts predated the chart-family grammar and
+    # were never staged anywhere.  Everything under it is written by a REGISTERED
+    # evaluation, so the family grammar validates its figures and the site guard needs no
+    # filename exemption to accept them — which is exactly what the what-if PNGs still need.
+    'dossier_dir': {
+        'path': '_dossier', 'format': 'dir', 'scope': 'run', 'optional': True,
+        'condition': 'present once the analysis has run; absent on a run analyzed before '
+                     'the run scope existed, or one whose analysis never completed.',
+        'writer': 'prepare_run_dir@Optimization/Performance_Evaluations/driver.py',
+        'note': 'the run-scope stage root; wiped and recreated on every analysis pass.'},
+    'dossier_cost_pngs': {
+        'group': 'dossier',
+        'path': '_dossier/figures/cost/*.png', 'format': 'png', 'scope': 'run',
+        'optional': True,
+        'condition': 'needs the run root runtime metrics DB; absent on a run that '
+                     'predates it.',
+        'evaluation': 'cost.compute',
+        'writer': 'render@Optimization/Performance_Evaluations/cost/compute.py'},
+    'dossier_tables_csv': {
+        'group': 'dossier',
+        'path': '_dossier/tables/*.csv', 'format': 'csv', 'scope': 'run', 'optional': True,
+        'condition': 'one file per run-scope table evaluation whose `needs` the run can '
+                     'serve; the set therefore varies with what the run carries.',
+        'writer': 'run_at_root@Optimization/Performance_Evaluations/driver.py',
+        'note': 'ONE glob for a directory THREE evaluations write into, so no single one '
+                'may be named its owner — and so a future dossier table costs no new '
+                'declaration and no new forbidden filename token.'},
+    'dossier_json': {
+        'group': 'dossier',
+        'path': '_dossier/dossier.json', 'format': 'json', 'scope': 'run', 'optional': True,
+        'condition': 'needs the run root runtime metrics DB.',
+        'evaluation': 'cost.rollup',
+        'writer': 'render@Optimization/Performance_Evaluations/cost/rollup.py',
+        'note': 'the index a page loads first: run identity, contention, and the cost rows.'},
+    'rule_catalog_json': {
+        'group': 'dossier',
+        'path': '_dossier/rule_catalog.json', 'format': 'json', 'scope': 'run',
+        'optional': True,
+        'condition': 'needs the run root runtime metrics DB (it reports which rules '
+                     'actually ran, not which are registered).',
+        'evaluation': 'catalog.rules',
+        'writer': 'render@Optimization/Performance_Evaluations/catalog/rules.py'},
+    'inventory_model_json': {
+        'group': 'dossier',
+        'path': '_dossier/inventory_model.json', 'format': 'json', 'scope': 'run',
+        'optional': True,
+        'condition': 'needs a readable planned inventory (frozen on a multi-cell run, '
+                     'per-cell on a single-cell one).',
+        'evaluation': 'catalog.inventory',
+        'writer': 'render@Optimization/Performance_Evaluations/catalog/inventory.py'},
+    'held_fixed_json': {
+        'group': 'dossier',
+        'path': '_dossier/held_fixed.json', 'format': 'json', 'scope': 'run',
+        'optional': True,
+        'condition': 'derived from the run tree alone, so present whenever the dossier is.',
+        'evaluation': 'catalog.fixed',
+        'writer': 'render@Optimization/Performance_Evaluations/catalog/fixed.py'},
+    'comparison_census_json': {
+        'group': 'dossier',
+        'path': '_dossier/comparison_census.json', 'format': 'json', 'scope': 'run',
+        'optional': True,
+        'condition': 'multi-cell runs only — a same-rule comparison needs a second cell '
+                     'to compare against (same rule as the whatif group).',
+        'evaluation': 'tables.census',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/census.py'},
     'frozen_inventory_db': {
         'family': 'inventory_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '_frozen/{pair}/planned_inventory.db', 'format': 'sqlite', 'scope': 'run',

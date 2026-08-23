@@ -55,7 +55,7 @@ def _load_captures(out_dir: str) -> list[dict]:
 
 
 def _save(fig, path: str) -> None:
-    fig.savefig(path, dpi=150, bbox_inches='tight')   # run_runtime_graphs convention
+    fig.savefig(path, dpi=150, bbox_inches='tight')   # diagnostic render, outside the chartkit contract
     plt.close(fig)
 
 

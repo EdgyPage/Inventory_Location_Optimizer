@@ -1,10 +1,11 @@
 """test_runtime_metrics.py
 
-Locks the runtime-metrics capture + graphs (Phase 4):
+Locks the runtime-metrics capture:
   - runtime_metrics.record_arm writes one row per arm (arm name parsed to initial/assignment,
     rate = batches/total_s, section totals persisted) and load_rows round-trips it;
   - the (cell,pair,config,channel,arm) key is UNIQUE — a re-run/resume overwrites the row;
-  - run_runtime_graphs.run emits the ranked + section-breakdown PNGs from synthetic rows.
+  - record_precompute fills the SETUP span on a finished run, migrating and re-stamping
+    a DB written before those columns existed.
 
 Synthetic rows only (no sim); Agg backend. Run:  python -m pytest Tests/test_runtime_metrics.py -q
 """
@@ -13,7 +14,6 @@ from __future__ import annotations
 import os
 
 from Optimization.persistence import runtime_metrics as rm
-from Optimization import run_runtime_graphs as rg
 
 
 def _res(elapsed=10.0, done=100, **kw):
@@ -172,22 +172,3 @@ def test_key_is_unique_and_overwrites(tmp_path):
 
 def test_load_absent_is_empty(tmp_path):
     assert rm.load_rows(str(tmp_path / 'nope')) == []
-
-
-def test_graphs_emitted(tmp_path):
-    root = str(tmp_path)
-    for cell in ('k1_off_rr', 'k1_off_lpt'):                 # >1 cell → by-cell chart too
-        for ch in ('store', 'fulfillment'):
-            for arm in ('uni_fifo_norsl', 'uni_rank_labor_norsl'):
-                rm.record_arm(root, cell, ('mixed__bell_lt0', ch, ch, arm),
-                              _res(elapsed=(10.0 if 'fifo' in arm else 16.0)))
-    out = rg.run(root)
-    assert out and os.path.isdir(out)
-    pngs = set(f for f in os.listdir(out) if f.endswith('.png'))
-    assert {'runtime_slowest_arms.png', 'runtime_by_assignment.png',
-            'runtime_by_warehouse.png', 'runtime_section_breakdown.png',
-            'runtime_by_cell.png'} <= pngs
-
-
-def test_graphs_skip_without_db(tmp_path):
-    assert rg.run(str(tmp_path)) is None                     # no runtime_metrics.db → graceful skip
