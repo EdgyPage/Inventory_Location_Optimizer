@@ -518,20 +518,24 @@ def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
 
 
 def _reader_tree(rt, artifact):
-    """`rt`, or a HEAD-contract resolver when the run's own document predates `artifact`.
+    """A HEAD-contract resolver for an ANALYSIS artifact, falling back to `rt`.
 
-    A re-analysed run is READ through the contract it was written with, but an analysis
-    artifact added since then was produced by TODAY's evaluations and is declared only by
-    the current document — `rt.path` on the old one KeyErrors.  Same reasoning (and same
-    shape) as the what-if writers' head fallback; returns None when nothing declares it.
+    Head first, deliberately.  A re-analysed run is read through the contract it was
+    written with — correct for everything the SIMULATION produced — but these files were
+    produced by today's evaluations, and the run's own document describes where the
+    analysis of ITS era put them.  Preferring the run's document silently resolved the
+    per-arm summary to a directory the current suite no longer writes (and that the stale
+    -output pruner had since removed): the name existed in both contracts, so an
+    absence-only fallback never fired, `os.path.isfile` said no, and the file simply did
+    not stage.  Returns None when neither document declares the name.
     """
-    if artifact in rt.artifacts:
-        return rt
     from Optimization.runschema import contract as _contract
     from Optimization.runschema.resolver import RunTree
     head = _contract.head()
     doc = _contract.load(head) if head else None
-    return RunTree(rt.base, doc, layout=rt.layout) if doc else None
+    if doc and artifact in doc.get('artifacts', {}):
+        return RunTree(rt.base, doc, layout=rt.layout)
+    return rt if artifact in rt.artifacts else None
 
 
 def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):
@@ -549,14 +553,19 @@ def _stage_leaf_tables(exp_dir, dry, log, rt=None, cells=()):
         log.append('  NOTE     no contract declares the arm-vs-baseline table: not staged')
         return 0
     n = 0
+    per_run = _reader_tree(rt, 'per_run_summary_csv')
     for cell in cells:
         for _c, cr in rt.channel_runs(cell):
-            src = reader.leaf_path(cr, 'vs_baseline_csv')
-            if not os.path.isfile(src):
-                continue
-            n += _copy(src, site_tree.path('leaf_data', exp_dir, run=cell, inv=cr.pair,
-                                           cfg=cr.config,
-                                           fname=os.path.basename(src)), dry, log)
+            wanted = [reader.leaf_path(cr, 'vs_baseline_csv')]
+            if per_run is not None:
+                # small per-arm aggregate; carries the put-away volume the published
+                # exposure argument divides by, so that argument is checkable on the site
+                wanted.append(per_run.leaf_path(cr, 'per_run_summary_csv'))
+            for src in wanted:
+                if os.path.isfile(src):
+                    n += _copy(src, site_tree.path('leaf_data', exp_dir, run=cell,
+                                                   inv=cr.pair, cfg=cr.config,
+                                                   fname=os.path.basename(src)), dry, log)
     return n
 
 

@@ -66,6 +66,15 @@ def _per_run_rows(strategies, df_b, df_t, title):
             mean_completion_rate=float(bb['completion_rate'].mean()),
             mean_queue_depth=float(qd.mean()), max_queue_depth=float(qd.max()),
             mean_in_transit=float(it.mean()),
+            # Put-away VOLUME per batch.  Added because the published exposure argument —
+            # how much a restock trip may lengthen before it cancels the pick saving —
+            # divides the saving by this number, and a reader was told to recompute it
+            # from a per-batch table too large to publish.  It is an aggregate of a
+            # column this same evaluation already writes, so it costs nothing and makes
+            # the argument checkable in a file small enough to commit.
+            mean_reorder_placements=float(bb['reorder_placements'].mean())
+            if 'reorder_placements' in bb else float('nan'),
+            mean_batch_prod_hours=float(tot_prod / len(bb) / 3.6e6) if len(bb) else float('nan'),
         ))
     return rows, summ
 

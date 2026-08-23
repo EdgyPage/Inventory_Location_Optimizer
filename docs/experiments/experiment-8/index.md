@@ -47,16 +47,16 @@ this page, in plain terms:
     the pick-hours per wave are the store labor total in
     [`data/whatif_volume.json`](data/whatif_volume.json) divided by the run's 75 waves, and the
     2.6 % is the store row of the per-cell
-    [`channel_rollup_summary.csv`](data/k1_off_lpt/channel_rollup_summary.csv). The units put
-    away per wave are the mean of `reorder_placements` in the run's per-batch table
-    (`batch_metrics`, a declared run-tree artifact) — that file is ~3 MB per leaf and is
-    deliberately **not** staged to this site, so unlike every other number on this page it is
-    recomputable from the run rather than clickable here. The 39-unit restock order is a model
-    input, not a measurement — see the substitution above.</small>
+    [`channel_rollup_summary.csv`](data/k1_off_lpt/channel_rollup_summary.csv). Both per-wave
+    counts — `mean_batch_prod_hours` 1.678 and `mean_reorder_placements` 11,225 on the FIFO row
+    — are in the committed
+    [`per_run_summary.csv`](data/k1_off_lpt/mixed_20260816_131535__mixed_realistic_bell_lt0/store/per_run_summary.csv)
+    for this leaf, so every term of the exposure divides two numbers you can open. The 39-unit
+    restock order is a model input, not a measurement — see the substitution above.</small>
 
     On the store channel a wave costs about **1.7 hours** of hands-on picking, and the winning
     rule saves **2.6 %** of it — roughly **2.7 minutes per wave**. That same wave puts away
-    about **11,600 units**. Spread across them, the entire saving is worth about **0.014
+    about **11,200 units**. Spread across them, the entire saving is worth about **0.014
     seconds per unit put away**.
 
     Turn that into trips with your own number, because ours is a model input rather than a
@@ -223,14 +223,31 @@ change the scheduler.
 
 !!! question "Who ends up carrying the biggest jobs — and where do the saved hours go?"
     Three floor questions the model cannot answer alone, stated plainly rather than skipped.
+    **Can everyone actually take every aisle?** The model assumes a **fully cross-trained
+    crew**: any picker may be handed any aisle, because that is the only way "whoever frees up
+    takes the longest remaining task" works. Real floors are not like that — reach-truck and
+    hazmat certifications, zone assignments, and individual physical restrictions all limit who
+    is eligible for what. **Before LPT is switched on, the pilot has to define the eligible set
+    per picker**, and the scheduler then picks the longest task *that picker may take* rather
+    than the longest outright. That narrows the pool a freed picker draws from, so expect a
+    smaller gain than the modeled one on a heavily zoned or certification-split crew — the
+    modeled figure is the fully-cross-trained ceiling.
     **Fairness:** LPT ranks *tasks*, not people — it says the longest task goes out first, not
-    who draws it. The model assumed interchangeable pickers, so a pilot should adopt a rotation
+    who draws it. Combined with the assumption above, a pilot should adopt a rotation
     rule on day one; the default we propose unless the floor has a better one: **no picker
     draws one of the shift's three longest tasks on consecutive shifts.** Someone has to own
     that, or it is a sentence rather than a rule: the **dispatch lead** holds the list of who
     drew a top-three task each shift and it is read out at the start of the next one, so a
     picker can see their own history and say so when it is wrong — the pilot does not depend on
-    the WMS being able to enforce it. **Strain:** "longest"
+    the WMS being able to enforce it. **That rule alone is not enough, because the mechanism
+    runs inside the shift, not between shifts.** LPT re-sorts at every wave release, and a
+    shift is ~75 waves, so a consistently fast picker can draw the longest task again and again
+    in a single day without ever breaking a consecutive-shift rule — which is exactly the "why
+    does John always get the worst aisle" question a crew asks in week one. So the rule has a
+    within-shift half: **no picker takes the wave's longest task more than twice in a row**; on
+    the third the scheduler hands it to the next eligible picker and gives them the next-longest
+    instead. It costs a little of the modeled gain, and it is the difference between a rule the
+    floor accepts and one it works around. **Strain:** "longest"
     here is *time*, not physical difficulty — heavy items, bad reach heights, and congested
     aisles are not in the cost model, a long task is not necessarily a hard one, and the model
     cannot say how often the two coincide — which is exactly why the rotation rule above is the
