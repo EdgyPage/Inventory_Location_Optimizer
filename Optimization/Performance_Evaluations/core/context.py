@@ -329,6 +329,22 @@ class RunContext:
             self._runtime = load_rows(self.run_root)
         return self._runtime
 
+    def whatif_doc(self, artifact: str) -> dict:
+        """A cross-cell what-if JSON summary, resolved through the contract ({} if absent)."""
+        if artifact not in self._whatif:
+            import json
+            try:
+                path = self.rt.path(artifact)
+            except Exception:                              # noqa: BLE001 - absence is data
+                self._whatif[artifact] = {}
+                return self._whatif[artifact]
+            if not os.path.exists(path):
+                self._whatif[artifact] = {}
+            else:
+                with open(path, encoding='utf-8') as fh:
+                    self._whatif[artifact] = json.load(fh)
+        return self._whatif[artifact]
+
     def whatif_rows(self, artifact: str) -> list:
         """A cross-cell what-if CSV as a list of dicts, resolved through the contract."""
         if artifact not in self._whatif:

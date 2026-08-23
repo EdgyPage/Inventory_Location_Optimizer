@@ -27,11 +27,11 @@ from Optimization.Performance_Evaluations.common import io
 
 
 class _Ctx:
-    """Duck-typed context: config scope carries run_dir, aggregate scope carries out_dir —
-    exactly the attributes EvalContext / AggregateContext expose."""
+    """Duck-typed context: config scope carries run_dir; aggregate and run scope carry
+    out_dir — exactly the attributes EvalContext / AggregateContext / RunContext expose."""
 
     def __init__(self, root, scope):
-        if scope == 'aggregate':
+        if scope in ('aggregate', 'run'):
             self.out_dir = root
         else:
             self.run_dir = root
@@ -72,6 +72,12 @@ _LITERALS = {
     # learned all three.
     'cost.compute':                   ('figures', 'cost'),
     'cost.rollup':                    ('tables',),
+    'tables.census':                  ('tables',),
+    'catalog.rules':                  (),
+    'catalog.fixed':                  (),
+    # The only production tuple declaration: a dossier document at the root that macros
+    # load by name, plus its flat table beside the others.
+    'catalog.inventory':              {'': (), 'tables': ('tables',)},
 }
 
 
@@ -121,9 +127,8 @@ def _unregister(key):
 
 
 def test_tuple_declaration_requires_a_declared_pick(tmp_path):
-    # No production eval declares a tuple since the aggregate mirror was collapsed to
-    # single-family evals, but the mechanism stays contract-tested for the next multi-dir
-    # owner.
+    # catalog.inventory is the production tuple declaration (pinned above); this probe
+    # keeps the ERROR behaviour covered — an undeclared pick, and a missing one.
     from Optimization.Performance_Evaluations.core import artifact_map
     _throwaway('zz_probe.tuple', ('alpha', 'beta'))
     artifact_map._MEMO.pop('subdir', None)          # memo may predate the probe registration

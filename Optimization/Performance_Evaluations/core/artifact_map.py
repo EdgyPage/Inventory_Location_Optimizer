@@ -158,7 +158,15 @@ def run_dirs() -> tuple:
     recreated, with no ownership rule to get wrong.
     """
     if 'run_dirs' not in _MEMO:
-        _MEMO['run_dirs'] = tuple(sorted(
-            {ev.out_subdir for ev in EVALUATIONS
-             if ev.scope == 'run' and isinstance(ev.out_subdir, str) and ev.out_subdir}))
+        subs: set = set()
+        for ev in EVALUATIONS:
+            if ev.scope != 'run':
+                continue
+            # A tuple declaration is a multi-dir owner; both members are real directories
+            # and both must exist before its render writes.  Flattening here is why
+            # `prepare_run_dir` needs no knowledge of which evals declare tuples.
+            for s in ((ev.out_subdir,) if isinstance(ev.out_subdir, str) else ev.out_subdir):
+                if s:
+                    subs.add(s)
+        _MEMO['run_dirs'] = tuple(sorted(subs))
     return _MEMO['run_dirs']
