@@ -92,22 +92,36 @@ question, a latency question, or a licensing question; it is a rounding error ag
 put-away walk it is choosing.
 
 The offline build is the same story at a different cadence: the whole address map for a
-263,000-SKU catalogue is built in **under half a minute**, once per plan, on one core. That is
-a nightly cron job, not a service.
+263,000-SKU catalogue is built in **under half a minute**, on one core. It is solved over the
+whole catalogue **once per inventory plan** — a two-channel building does not pay it twice,
+which is why the same figure appears on both channels' rows. That is a nightly cron job, not a
+service.
 
-Two honest qualifications. These are wall-clock seconds on the machine that ran the sweep, so
-the *multiple against the do-nothing rule* is the figure that travels between machines and the
-raw seconds are not. And the offline build was measured on its own, uncontended, while the
-per-wave figures were measured with the sweep's whole worker pool running — the two are not a
-ratio, which is why the table keeps them in separate columns.
+Three qualifications, because this is the kind of number that gets quoted out of context.
+These are wall-clock seconds on the machine that ran the sweep, so the *multiple against the
+do-nothing rule* is the figure that travels between machines and the raw seconds are not. The
+offline build was measured on its own, uncontended, while the per-wave figures were measured
+with the sweep's whole worker pool running — the two are not a ratio, which is why the table
+keeps them in separate columns. And the build time is a **backfill**: this run predates the
+timer, so it was re-measured afterwards by rebuilding the same catalogue and warehouse and
+timing the solve alone, with the measurement refused unless the rebuild reproduced the aisle
+and bin counts the run itself recorded. Every column in the table carries its own provenance
+(`precomp_src`), and you can re-run it yourself:
+
+```
+python -m Optimization.run_map_precompute <run_root>
+```
 
 One thing the measurement changed. The `Map` family's address map is described as solving an
 assignment problem exactly; the exact solver has a size limit, and at this catalogue's scale
-the large bin classes are far past it, so **about a tenth of a percent of units get the exact
-solve and the rest get a near-optimal greedy pass**. The results on this page are what that
-produced. It is not a defect — the greedy pass is what earned the numbers — but "solved
-exactly" was the wrong description, and the
-[formula reference](formula-reference.md#map) now carries the measured share instead.
+the large bin classes are far past it. Measured: **320 of 1,632 bin classes take the exact
+solver, but only 0.09 % of the stocking positions being assigned** — the classes small enough
+to solve exactly are the nearly-empty ones. (Positions, not picks: the denominator is slots
+being filled at equilibrium stock, not pick volume, so a small-stock fast-moving class counts
+once here and many times on the floor.) The results on this page are what the greedy pass
+produced. It is not a defect — that pass is what earned the numbers — but "solved exactly" was
+the wrong description, and the [formula reference](formula-reference.md#map) now carries the
+measured share instead.
 
 **What the put-away side costs — the other half of the ledger, stated plainly.** The modeled
 labor on this page counts **pick time only**: the restocker's walk to the chosen slot is not

@@ -72,7 +72,7 @@ def _metas_by_pair(base_dir, rt) -> dict:
 
 
 def _workload_params(rt, cell, run):
-    """WorkloadParams from the leaf's committed config.json, or None when it is absent."""
+    """WorkloadParams from the leaf's own committed config, or None when it is absent."""
     import dataclasses
     from Optimization.config.sim_config import _CART_TYPES
     from Optimization.metrics.Workload import WorkloadParams
@@ -155,13 +155,13 @@ def measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list:
     out = []
     for cell, run, meta in metas:
         # The cost constants are per CHANNEL (store and fulfillment differ in pick
-        # intercept, cart size and both pick-time exponents), and the leaf's committed
-        # config.json is the run's own record of them — sim_meta does not carry them.
+        # intercept, cart size and both pick-time exponents), and the leaf's own committed
+        # config document is the run's record of them — sim_meta does not carry them.
         # Timing the map against the wrong channel's constants would measure a build the
         # run never performed.
         wp = _workload_params(rt, cell, run)
         if wp is None:
-            log.warning(f'  {pair}/{run.config}: no leaf config.json — skipped')
+            log.warning(f'  {pair}/{run.config}: no leaf config document — skipped')
             continue
         for rule in MAP_RULES:
             for initial in ('uni', 'opt'):

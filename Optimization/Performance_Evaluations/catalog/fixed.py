@@ -57,6 +57,32 @@ _ABSENT = (
 )
 
 
+#: run_spec keys whose VALUE is a machine-local path.  They are dropped rather than
+#: sanitised: this document is committed to the site, and CLAUDE.md's rule is that no
+#: tracked file carries a drive letter, a home directory or a username.  The path guard
+#: caught exactly this — `profiles_dir` rode into a staged artifact on the first render.
+_PATH_KEYS = ('profiles_dir', 'base_dir', 'output_dir', 'inv_db', 'aff_db')
+
+
+def _publishable_spec(spec: dict) -> dict:
+    """The run's shaping scalars, with anything path-shaped removed.
+
+    Scalars only (a nested list is the sweep's own matrix, reported by `varied` instead),
+    and no value that looks like a filesystem location — a key name is not enough to go
+    on, so the value is checked too.
+    """
+    out = {}
+    for k, v in spec.items():
+        if k in _PATH_KEYS:
+            continue
+        if not (isinstance(v, (str, int, float, bool)) or v is None):
+            continue
+        if isinstance(v, str) and any(c in v for c in ('\\', '/', ':')):
+            continue
+        out[k] = v
+    return out
+
+
 def _levels(ctx) -> dict:
     """{factor: sorted distinct values} across the whole run, from the tree and the leaves."""
     import json as _json
@@ -103,8 +129,7 @@ def register(ctx) -> dict:
                  'exactly one does, so the fixed list cannot be incomplete. ABSENT names '
                  'knobs the model has no parameter for — a different answer from "held '
                  'constant", and the only one that implies a code change to explore.'),
-        'spec': {k: v for k, v in ctx.run_spec().items()
-                 if isinstance(v, (str, int, float, bool)) or v is None},
+        'spec': _publishable_spec(ctx.run_spec()),
         'varied': varied,
         'fixed': fixed,
         'absent': [{'factor': k, 'why': why} for k, why in _ABSENT],

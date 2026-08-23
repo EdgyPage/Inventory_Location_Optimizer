@@ -113,6 +113,15 @@ def cost_rows(ctx) -> list:
                 precomp_src=('/'.join(sorted(srcs)) if srcs else None),
                 has_precompute=bool(obj and obj.precompute),
                 map_lap_pct=_med([_f(r, 'map_lap_pct') for r in arms]),
+                # Scope, so nobody reads the repeated value as an independent confirmation:
+                # the map is solved over the whole catalogue, once per inventory pair, and
+                # its exact/greedy split depends on bin geometry rather than on the channel's
+                # pick constants.  Every channel row therefore carries the SAME measurement.
+                map_lap_scope=('per catalogue (one solve per inventory pair; the same value '
+                               'appears on every channel row)' if obj and obj.precompute
+                               else None),
+                precomp_scope=('once per arm, per inventory pair — a two-channel site does '
+                               'not pay it twice' if obj and obj.precompute else None),
                 # loop sections
                 reord_s=reord,
                 sim_s=_med([_f(r, 'sim_s') for r in arms]),
@@ -121,6 +130,13 @@ def cost_rows(ctx) -> list:
                 x_reord_vs_fifo=_ratio(reord, base),
                 x_total_vs_fifo=_ratio(_med([_f(r, 'total_s') for r in arms]), base_total),
                 scoring_s=scoring,
+                # TWO per-unit numbers, because they answer different questions and mixing
+                # them in one figure is what an SME review caught: the ABSOLUTE cost is what
+                # a WMS engineer sizes against their dock, and the DELTA over the floor is
+                # what the rule itself adds.  FIFO has a real absolute cost and a zero delta;
+                # one column cannot be both.
+                reord_ms_per_unit=((reord * 1000.0 / placed_total)
+                                   if (reord is not None and placed_total) else None),
                 scoring_ms_per_unit=((scoring * 1000.0 / placed_total)
                                      if (scoring is not None and placed_total) else None),
                 reord_s_per_wave=(reord / batches) if (reord is not None and batches) else None,

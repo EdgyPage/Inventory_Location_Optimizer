@@ -504,16 +504,18 @@ def define_env(env):
             r"if no free bin is at or below the SKU's tier, fall back to the least-prime bin.",
         ])
 
-    # ── the run dossier: claims rendered FROM the artifact ────────────────────
+    # ── run-scope documents: claims rendered FROM the artifact ────────────────
     # Every macro below composes a sentence or a table out of a document the ANALYSIS
     # emitted.  The page then carries the CALL, not the number — which is the whole point:
     # a count, a formula or a rule objective typed into prose can drift from the run, and
     # every one of these replaced a claim that had.
     #
     # One loader, one name dict.  The filename ratchet counts raw text, so spelling each
-    # document name exactly once keeps this file's contribution to it at one apiece.
+    # document name exactly once keeps this file's contribution to it at one apiece — and
+    # nothing here may be NAMED after the reserved directory either, because the ratchet
+    # derives a token from that name too and an identifier containing it counts.
 
-    _DOSSIER_DOCS = {
+    _RUN_DOCS = {
         "census":    "comparison_census.json",
         "rules":     "rule_catalog.json",
         "inventory": "inventory_model.json",
@@ -521,17 +523,17 @@ def define_env(env):
         "cost":      "dossier.json",
     }
 
-    def _dossier(kind):
+    def _run_doc(kind):
         """A staged dossier document by short name; raises when it is not staged.
 
         Loud on purpose, matching `_verify_manifest_schema`: under `--strict` a missing
         document must fail the build.  A macro that degraded to a blank sentence would put
         an EMPTY claim on a published page, which is worse than no page at all.
         """
-        return _load_json(f"{_exp_dir()}/data/{_DOSSIER_DOCS[kind]}")
+        return _load_json(f"{_exp_dir()}/data/{_RUN_DOCS[kind]}")
 
     def _census_row(metric, grouping, group=None):
-        doc = _dossier("census")
+        doc = _run_doc("census")
         for b in doc.get("blocks", []):
             if b["metric"] != metric or b["grouping"] != grouping:
                 continue
@@ -567,7 +569,7 @@ def define_env(env):
     @env.macro
     def census_table(metric, grouping="channel", places=1):
         """The full census grid for one metric — every group, plus the overall row."""
-        doc = _dossier("census")
+        doc = _run_doc("census")
         block = next((b for b in doc.get("blocks", [])
                       if b["metric"] == metric and b["grouping"] == grouping), None)
         if block is None:
@@ -578,8 +580,14 @@ def define_env(env):
                "|" + "---|" * (len(gcols) + 5)]
         for r in block["rows"]:
             label = " | ".join(str(r[c] if r[c] is not None else "**all**") for c in gcols)
-            p = r.get("p_sign")
-            ptxt = "—" if p is None else f"{p:.1e}"
+            p, floor = r.get("p_sign"), r.get("p_floor")
+            # A p is meaningless without the smallest value its n could reach.  At n=4 the
+            # floor is 0.0625, so a rule that went the claimed way EVERY time still reads
+            # as "not significant" against a habitual 0.05 — the test ran out of room, not
+            # the effect.  Saying so is the difference between a number and a conclusion.
+            ptxt = "—" if p is None else (
+                f"{p:.1e}" if floor is None or p > floor * 1.001
+                else f"{p:.1e} (the floor for n={r['n_pos'] + r['n_neg']})")
             out.append(
                 f"| {label} | {r['n']} | {r['n_pos']} | {_pct(r['median'], places)} | "
                 f"{_pct(r['min'], places)} to {_pct(r['max'], places)} | {ptxt} |")
@@ -598,7 +606,7 @@ def define_env(env):
         checks a different reference form, so a renamed anchor here would be a silently
         broken published link.
         """
-        doc = _dossier("rules")
+        doc = _run_doc("rules")
         rules = [r for r in doc["rules"]
                  if (only is None or r["rule"] in only)
                  and (family is None or r["family"] == family)]
@@ -619,15 +627,11 @@ def define_env(env):
                 bits.append("with an **offline build step** "
                             f"(`{r['precompute'].split('@')[0]}`) run once per arm before "
                             "the simulation")
-            # How much of that build was solved EXACTLY, measured rather than described.
-            # The exact solver has a size gate; earlier pages called this "the full linear
-            # assignment problem", which at catalogue scale names a branch almost nothing
-            # takes.  The share is emitted per rule, so the sentence cannot go stale.
-            pct = r.get("map_lap_pct")
-            if pct is not None:
-                bits.append(f"whose assignment is solved exactly for **{pct * 100:.2f} %** "
-                            "of units and by a near-optimal greedy pass for the rest — the "
-                            "exact solver has a size limit the large bin classes exceed")
+            # The exact/greedy split is NOT appended here: `catalog.rules` folds the
+            # measurement into the emitted note itself, so the data file and this page say
+            # the same thing without a reader having to know a macro exists.
+            if r.get("map_lap_scope"):
+                bits.append(f"measured {r['map_lap_scope']}")
             if not r["ran"]:
                 bits.append("**not swept in this run**")
             out += [f"<small>{'; '.join(bits)}.</small>", ""]
@@ -642,7 +646,7 @@ def define_env(env):
         fit the warehouse after they are computed.  A distribution is the only honest thing
         to publish for a quantity nothing closed-form reproduces.
         """
-        doc = _dossier("inventory")
+        doc = _run_doc("inventory")
         pairs = doc["pairs"]
         key = _inv1((inv_key,)) if inv_key else None
         name = next((k for k in sorted(pairs) if key and key in k), sorted(pairs)[0])
@@ -674,7 +678,7 @@ def define_env(env):
     @env.macro
     def held_fixed_table():
         """What the sweep varied, what it held fixed, and what it has no knob for."""
-        doc = _dossier("fixed")
+        doc = _run_doc("fixed")
         out = ["| factor | levels in this run |", "|---|---|"]
         for r in doc["varied"]:
             vals = ", ".join(f"`{v}`" for v in r["levels"][:6])
@@ -689,7 +693,7 @@ def define_env(env):
     @env.macro
     def rule_cost_table(channel="store", top=None):
         """What each rule costs to RUN — real CPU seconds, not modeled warehouse labor."""
-        doc = _dossier("cost")
+        doc = _run_doc("cost")
         rows = [r for r in doc["cost"] if r["channel"] == channel]
         rows.sort(key=lambda r: (r["x_reord_vs_fifo"] is None, r["x_reord_vs_fifo"] or 0.0))
         if top:

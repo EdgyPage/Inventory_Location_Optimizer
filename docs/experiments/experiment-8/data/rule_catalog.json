@@ -36,7 +36,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_random",
@@ -62,7 +63,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_popularity",
@@ -88,7 +90,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_labor",
@@ -114,7 +117,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_cartlabor",
@@ -140,7 +144,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_minlabor",
@@ -166,7 +171,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "rank_maxlabor",
@@ -192,7 +198,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "map",
@@ -204,7 +211,7 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "builder": "_build_map@Optimization/config/strategies.py",
       "latex": "$\\arg\\min_{b}\\ \\bigl|\\operatorname{pref}(b) - \\operatorname{target}(s)\\bigr|,\\qquad \\operatorname{pref}(b) = D_b + M(y_b)(t_0 + \\bar h)$",
-      "notes": "Optimal-map score matching. Every bin gets a quantity-free preferred score $\\operatorname{pref}(b)$; every SKU gets a $\\operatorname{target}(s)$ \u2014 the $\\operatorname{pref}$ of its bin in the labor-minimising assignment solved offline at setup. Arriving units go to the free bin whose score is closest to their target. The assignment is solved ONCE per arm at setup, from the demand model, and is not re-solved as realized demand drifts \u2014 as a WMS job that is a periodic offline re-slot computation, not a live service.",
+      "notes": "Optimal-map score matching. Every bin gets a quantity-free preferred score $\\operatorname{pref}(b)$; every SKU gets a $\\operatorname{target}(s)$ \u2014 the $\\operatorname{pref}$ of its bin in the labor-minimising assignment solved offline at setup. Arriving units go to the free bin whose score is closest to their target. The assignment is solved ONCE per arm at setup, from the demand model, and is not re-solved as realized demand drifts \u2014 as a WMS job that is a periodic offline re-slot computation, not a live service. Measured on this run: the exact solver reaches 0.09\u2009% of assigned units and a near-optimal greedy pass covers the rest, because the large bin classes exceed its size limit. The result the run produced is the greedy one.",
       "control": false,
       "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
       "anchor": "map",
@@ -218,7 +225,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": 0.000892912903731307
+      "map_lap_pct": 0.000892912903731307,
+      "map_lap_scope": "once per inventory pair, over the whole catalogue \u2014 the same value on every channel"
     },
     {
       "rule": "map_rank",
@@ -230,7 +238,7 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "builder": "_build_map_rank@Optimization/config/strategies.py",
       "latex": "$\\arg\\min_{\\,b\\,:\\,\\operatorname{pref}(b)\\,\\ge\\,\\operatorname{target}(s)}\\ \\bigl(\\operatorname{pref}(b) - \\operatorname{target}(s)\\bigr)$",
-      "notes": "The same map, upgrade-capped: a SKU never reloads into a bin more prime than its optimal rank, reserving prime spots for the higher-ranked SKUs future orders bring. Rank-relative, and deliberately non-greedy.",
+      "notes": "The same map, upgrade-capped: a SKU never reloads into a bin more prime than its optimal rank, reserving prime spots for the higher-ranked SKUs future orders bring. Rank-relative, and deliberately non-greedy. Measured on this run: the exact solver reaches 0.09\u2009% of assigned units and a near-optimal greedy pass covers the rest, because the large bin classes exceed its size limit. The result the run produced is the greedy one.",
       "control": false,
       "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
       "anchor": "map-rank",
@@ -244,7 +252,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": 0.000892912903731307
+      "map_lap_pct": 0.000892912903731307,
+      "map_lap_scope": "once per inventory pair, over the whole catalogue \u2014 the same value on every channel"
     },
     {
       "rule": "cluster_map",
@@ -256,7 +265,7 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "builder": "_build_cluster_map@Optimization/config/strategies.py",
       "latex": "$\\arg\\max_{a}\\ \\text{co-occur}(s,a)\\ \\ \\text{then}\\ \\ \\arg\\min_{b\\,\\in\\,a}\\ \\lvert x_b - c_x \\rvert$",
-      "notes": "Mix `map` with clustering: choose the aisle cohesion-first (most demand-weighted affinity to existing members), anchor the unit at its favoured map location, then compact it toward the partners' column centroid. Uncapped score-match, so it may upgrade into prime bins.",
+      "notes": "Mix `map` with clustering: choose the aisle cohesion-first (most demand-weighted affinity to existing members), anchor the unit at its favoured map location, then compact it toward the partners' column centroid. Uncapped score-match, so it may upgrade into prime bins. Measured on this run: the exact solver reaches 0.09\u2009% of assigned units and a near-optimal greedy pass covers the rest, because the large bin classes exceed its size limit. The result the run produced is the greedy one.",
       "control": false,
       "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
       "anchor": "cluster-map",
@@ -270,7 +279,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": 0.000892912903731307
+      "map_lap_pct": 0.000892912903731307,
+      "map_lap_scope": "once per inventory pair, over the whole catalogue \u2014 the same value on every channel"
     },
     {
       "rule": "cluster_map_rank",
@@ -282,7 +292,7 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "builder": "_build_cluster_map_rank@Optimization/config/strategies.py",
       "latex": "$\\arg\\max_{a}\\ \\text{co-occur}(s,a)\\ \\ \\text{then}\\ \\ \\arg\\min_{b\\,\\in\\,a\\,:\\,\\operatorname{pref}(b)\\,\\ge\\,\\operatorname{target}(s)}\\ \\lvert x_b - c_x \\rvert$",
-      "notes": "Upgrade-capped `cluster_map` \u2014 the same cohesion and compaction, but it never settles more prime than its map target.",
+      "notes": "Upgrade-capped `cluster_map` \u2014 the same cohesion and compaction, but it never settles more prime than its map target. Measured on this run: the exact solver reaches 0.09\u2009% of assigned units and a near-optimal greedy pass covers the rest, because the large bin classes exceed its size limit. The result the run produced is the greedy one.",
       "control": false,
       "precompute": "build_optimal_map@Warehouse/inventory/inventory_optimal.py",
       "anchor": "cluster-map-rank",
@@ -296,7 +306,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": 0.000892912903731307
+      "map_lap_pct": 0.000892912903731307,
+      "map_lap_scope": "once per inventory pair, over the whole catalogue \u2014 the same value on every channel"
     },
     {
       "rule": "tmin",
@@ -322,7 +333,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "tmax",
@@ -348,7 +360,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "cmax",
@@ -374,7 +387,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "cmin",
@@ -400,7 +414,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "comp",
@@ -426,7 +441,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     },
     {
       "rule": "expn",
@@ -452,7 +468,8 @@
         "fulfillment",
         "store"
       ],
-      "map_lap_pct": null
+      "map_lap_pct": null,
+      "map_lap_scope": null
     }
   ]
 }

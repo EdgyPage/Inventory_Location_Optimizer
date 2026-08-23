@@ -260,22 +260,30 @@ def _descriptives(a: np.ndarray) -> dict:
 # Optimization/ root consume it from outside this package.
 
 def _sign_test(n_pos: int, n_neg: int, alpha: float = 0.05) -> tuple:
-    """(p, ci_lo, ci_hi) for "more comparisons land in the claimed direction than not".
+    """(p, p_floor, ci_lo, ci_hi) for "more comparisons land in the claimed direction".
 
     Exact binomial against p=0.5, one-sided (the claim is directional), with a
     Clopper-Pearson interval on the win rate.  Ties are excluded from the denominator
     here — the standard sign-test convention — and reported separately by the caller so
     the exclusion is visible rather than assumed.
 
-    (nan, nan, nan) when nothing is left to test: an all-ties group has no direction to
-    have been right about, and reporting p=1 there would read as evidence of no effect.
+    `p_floor` is 0.5**n: the SMALLEST p this many comparisons can produce, reached only by
+    a clean sweep.  It is returned because without it a small group is silently
+    unfalsifiable — at n=4 the floor is 0.0625, so a rule that went the claimed way in
+    every single comparison still prints "not significant" against a conventional
+    threshold, and a reader scanning the column would draw the opposite conclusion from
+    the one the data supports.  Publish the floor beside the p and the reader can see when
+    the test, rather than the effect, ran out of room.
+
+    (nan, …) when nothing is left to test: an all-ties group has no direction to have been
+    right about, and reporting p=1 there would read as evidence of no effect.
     """
     n = n_pos + n_neg
     if n == 0:
-        return float('nan'), float('nan'), float('nan')
+        return float('nan'), float('nan'), float('nan'), float('nan')
     res = st.binomtest(n_pos, n, 0.5, alternative='greater')
     ci = res.proportion_ci(confidence_level=1.0 - alpha, method='exact')
-    return float(res.pvalue), float(ci.low), float(ci.high)
+    return float(res.pvalue), float(0.5 ** n), float(ci.low), float(ci.high)
 
 
 def _pluck(row, spec):
@@ -295,6 +303,8 @@ def census(rows, *, value, group_by=(), better='higher', alpha: float = 0.05) ->
         n n_pos n_neg n_zero n_nan     the population and how it splits
         win_rate                       n_pos / (n_pos + n_neg), ties excluded
         p_sign ci_lo ci_hi             exact one-sided sign test + Clopper-Pearson
+        p_floor                        the smallest p this n could ever reach (0.5**n) —
+                                       read `p_sign` against it, not against 0.05
         median q1 q3 iqr min max       the span, over the FINITE values
 
     `value` may be a mapping key, an attribute name, or a callable taking the row.  Each
@@ -349,7 +359,7 @@ def _census_one(group: dict, values, sign: float, alpha: float) -> dict:
     n_pos = int((a > 0).sum())
     n_neg = int((a < 0).sum())
     n_zero = int((a == 0).sum())
-    p, lo, hi = _sign_test(n_pos, n_neg, alpha)
+    p, p_floor, lo, hi = _sign_test(n_pos, n_neg, alpha)
     n = int(a.size)
     # The span is reported in the ORIGINAL orientation — a reader comparing it against a
     # number on the page must see the same sign the page shows.
@@ -358,7 +368,7 @@ def _census_one(group: dict, values, sign: float, alpha: float) -> dict:
         **{f'group_{k}': v for k, v in group.items()},
         n=n, n_pos=n_pos, n_neg=n_neg, n_zero=n_zero, n_nan=n_nan,
         win_rate=(n_pos / (n_pos + n_neg)) if (n_pos + n_neg) else float('nan'),
-        p_sign=p, ci_lo=lo, ci_hi=hi,
+        p_sign=p, p_floor=p_floor, ci_lo=lo, ci_hi=hi,
         median=float(np.median(o)) if n else float('nan'),
         q1=float(np.percentile(o, 25)) if n else float('nan'),
         q3=float(np.percentile(o, 75)) if n else float('nan'),

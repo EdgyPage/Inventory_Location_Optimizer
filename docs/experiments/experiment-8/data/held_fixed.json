@@ -17,7 +17,6 @@
     "keyframe_interval": 5,
     "whatif": false,
     "spec": "scheduler_ab",
-    "profiles_dir": "H:\\Data\\Inventory_Optimizer_Data\\generated\\catalogue",
     "all_profiles": false,
     "workers": 20,
     "max_tasks_per_child": 1,

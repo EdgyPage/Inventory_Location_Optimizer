@@ -44,14 +44,32 @@ def catalog(rows) -> dict:
     entries = []
     for e in as_dicts():
         obs = seen.get(e['rule'])
+        pct = obs['map_lap_pct'] if obs else None
+        notes = e['notes']
+        if pct is not None:
+            # Fold the measurement into the PERSISTED note, not just the rendered page.
+            # A reader diffing this file against the site should not find the old, weaker
+            # description here and the correction only in a macro.
+            notes += (f' Measured on this run: the exact solver reaches '
+                      f'{pct * 100:.2f} % of assigned units and a near-optimal greedy '
+                      f'pass covers the rest, because the large bin classes exceed its size '
+                      f'limit. The result the run produced is the greedy one.')
         entries.append({
             **e,
+            'notes': notes,
             'ran': obs is not None,
             'arms': obs['arms'] if obs else [],
             'channels': obs['channels'] if obs else [],
             # None means "not measured", not "no exact solves" — the columns are nullable
             # for exactly this distinction, so the site can say which it is.
             'map_lap_pct': obs['map_lap_pct'] if obs else None,
+            # The split is a property of the CATALOGUE — the map is solved once per
+            # inventory pair over the whole warehouse, and which classes clear the exact
+            # solver's size gate depends on bin geometry, not on a channel's pick
+            # constants.  Every channel therefore reports the same number, and saying so
+            # stops a reader reading the repetition as independent confirmation.
+            'map_lap_scope': ('once per inventory pair, over the whole catalogue — the '
+                              'same value on every channel' if pct is not None else None),
         })
     return {
         'families': FAMILIES,

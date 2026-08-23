@@ -39,9 +39,28 @@ def _by_channel(rows):
             for ch in sorted({r['channel'] for r in rows})]
 
 
-def _sorted_rules(sub, key):
-    got = [r for r in sub if r.get(key) is not None]
-    return sorted(got, key=lambda r: r[key])
+def _rule_order(rows):
+    """One rule order for every panel of the family, cheapest-first by the FIFO multiple.
+
+    Sorting each panel by its own values scrambles cross-channel reading: a reader
+    following one rule has to hunt for it again in the next panel.  The multiple is the
+    right key because it is the family's primary view and it is unit-free.
+    """
+    seen: dict = {}
+    for r in rows:
+        x = r.get('x_reord_vs_fifo')
+        if x is not None:
+            seen.setdefault(r['rule'], []).append(x)
+    # The MEAN across channels, not the min: the channels genuinely disagree about a few
+    # rules, and taking either channel's own order (or the extreme) leaves the other panel
+    # visibly out of sequence.  The mean keeps both close to monotone, and every bar carries
+    # its value so a reader never has to infer one from position.
+    return [k for k, _v in sorted(seen.items(), key=lambda kv: sum(kv[1]) / len(kv[1]))]
+
+
+def _in_order(sub, order, key):
+    by = {r['rule']: r for r in sub if r.get(key) is not None}
+    return [by[k] for k in order if k in by]
 
 
 def _bar_style(r):
@@ -55,13 +74,14 @@ def _percent(ctx, rows, out):
     panels = _by_channel(rows)
     if not panels:
         return
+    order = _rule_order(rows)
     n = max(len(sub) for _ch, sub in panels)
     ch = chartkit.make(panels=len(panels), panel_w=5.4,
                        panel_h=chartkit.height_for_categories(n), legend='none',
                        panel_titles=True)
     axes = ch.fig.axes
     for ax, (chan, sub) in zip(axes, panels):
-        got = _sorted_rules(sub, 'x_reord_vs_fifo')
+        got = _in_order(sub, order, 'x_reord_vs_fifo')
         if not got:
             continue
         y = np.arange(len(got))
@@ -88,38 +108,53 @@ def _percent(ctx, rows, out):
 
 
 def _absolute(ctx, rows, out):
-    """The same cost in units a WMS reader can compare against their own dock."""
+    """The cost in units a WMS reader can size against, INCLUDING the offline build.
+
+    Three panels per channel, because the family's charter asks two questions and the old
+    two-panel form answered one and a half.  Left: absolute milliseconds of placement per
+    arriving unit — absolute, not the delta over FIFO, which is a different quantity and
+    was previously drawn in an `absolute` view (FIFO showed a real per-wave bar beside a
+    zero-width per-unit one, in the same figure).  Middle: seconds per wave.  Right: the
+    OFFLINE build, the one span no view carried at all despite being the reason half this
+    family exists — a rule with a bar there is a job somebody has to schedule.
+
+    Every bar carries its value, because the interesting rules are the cheap ones and a
+    linear axis scaled to the most expensive rule compresses them into a sliver.
+    """
     panels = _by_channel(rows)
-    got_any = False
-    ch = chartkit.make(panels=2 * len(panels), ncols=2, panel_w=5.0,
+    order = _rule_order(rows)
+    cols = (('reord_ms_per_unit', 'ms of placement per unit put away', '{:.3f}'),
+            ('reord_s_per_wave', 'seconds of placement per wave', '{:.2f}'),
+            ('precomp_s', 'seconds of OFFLINE build, once per plan', '{:.0f}'))
+    ch = chartkit.make(panels=len(cols) * len(panels), ncols=len(cols), panel_w=4.2,
                        panel_h=chartkit.height_for_categories(
                            max((len(s) for _c, s in panels), default=4)),
                        legend='none', panel_titles=True)
-    axes = ch.fig.axes
+    axes, drew = ch.fig.axes, False
     for i, (chan, sub) in enumerate(panels):
-        for j, (col, xlabel) in enumerate((
-                ('scoring_ms_per_unit', 'milliseconds of scoring per unit put away'),
-                ('reord_s_per_wave', 'seconds of placement per wave'))):
-            ax = axes[2 * i + j]
-            got = _sorted_rules(sub, col)
+        for j, (col, xlabel, fmt) in enumerate(cols):
+            ax = axes[len(cols) * i + j]
+            got = _in_order(sub, order, col)
             if not got:
+                ax.set_axis_off()
                 continue
-            got_any = True
+            drew = True
             for k, r in enumerate(got):
                 ax.barh(k, r[col], **_bar_style(r))
+                ax.text(r[col], k, '  ' + fmt.format(r[col]), va='center', fontsize=6.5)
             ax.set_yticks(np.arange(len(got)))
-            ax.set_yticklabels([r['label'] for r in got], fontsize=7.5)
-            ax.set_xlabel(xlabel, fontsize=8.5)
-            ax.set_title(f'{chan}', fontsize=9.5)
-            # Not zero-anchored by habit: these ARE counts from zero, and the spread is
-            # two orders of magnitude, so the axis is honest as-is.
-            ax.set_xlim(0, max(r[col] for r in got) * 1.15)
-    if not got_any:
+            ax.set_yticklabels([r['label'] for r in got], fontsize=7)
+            ax.set_xlabel(xlabel, fontsize=8)
+            ax.set_title(chan, fontsize=9.5)
+            hi = max(r[col] for r in got)
+            ax.set_xlim(0, hi * 1.28 if hi else 1.0)
+    if not drew:
         plt.close(ch.fig)
         return
     units = {r['channel']: r['units_per_wave'] for r in rows if r['units_per_wave']}
-    ch.title('Placement scoring in operational units',
-             subtitle=('left: per arriving unit - right: per wave - '
+    ch.title('Placement cost in operational units',
+             subtitle=('absolute, not against the floor - the offline build is a SEPARATE '
+                       'span, not part of the per-wave column - '
                        + ' - '.join(f'{c}: {u:,.0f} units/wave' for c, u in units.items())))
     ch.save(os.path.join(out, 'absolute_compute_cost.png'), view='absolute')
 
@@ -155,7 +190,8 @@ def _delta(ctx, rows, out):
             continue
         base = {c: st.median([float(x.get(c) or 0.0) for x in per[BASE_RULE]])
                 for c in sects}
-        order = [r['rule'] for r in _sorted_rules(sub, 'x_reord_vs_fifo')]
+        order = [r['rule'] for r in _in_order(sub, _rule_order(rows),
+                                              'x_reord_vs_fifo')]
         y = np.arange(len(order))
         left_pos = np.zeros(len(order))
         left_neg = np.zeros(len(order))
@@ -170,8 +206,10 @@ def _delta(ctx, rows, out):
             drew = True
         ax.axvline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
         ax.set_yticks(y)
-        ax.set_yticklabels([next(r['label'] for r in sub if r['rule'] == k) for k in order],
-                           fontsize=7.5)
+        # Controls are hatched in the other two views; this one colours by SECTION, so the
+        # marker has to move to the label or the same family says two things with one cue.
+        lab = {r['rule']: (r['label'] + (' *' if r['control'] else '')) for r in sub}
+        ax.set_yticklabels([lab[k] for k in order], fontsize=7.5)
         ax.set_xlabel(f'seconds more (or less) than {BASE_RULE}, by section')
         ax.set_title(chan, fontsize=10)
     if not drew:
@@ -179,8 +217,9 @@ def _delta(ctx, rows, out):
         return
     ch.legend(title='section')
     ch.title('Where a rule spends its extra compute',
-             subtitle=('difference from the do-nothing rule, per loop section - the setup '
-                       'span is NOT here: it sits outside this total (see the table)'))
+             subtitle=('difference from the do-nothing rule, per loop section - * marks a '
+                       'worst-case control - the offline build is NOT here: it sits outside '
+                       'this total (see the absolute view)'))
     ch.save(os.path.join(out, 'delta_cost_sections.png'), view='delta')
 
 

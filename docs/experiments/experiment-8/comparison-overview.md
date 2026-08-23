@@ -101,6 +101,16 @@ stocked:
 
 {{ inventory_model(inv0) }}
 
+**If you need to reproduce this, read the catalogue, not a formula.** There is no closed
+form: the planner derives each SKU's equilibrium and reorder point from its expected demand
+and lead time, and then `sample_to_capacity`
+(`Warehouse/inventory/inventory_planning.py`) rescales the whole catalogue so it fits the
+warehouse, which is what breaks the arithmetic. The authoritative artefact is the run's own
+frozen catalogue — one row per SKU — and the distribution above is computed from it. A pilot
+does not need to reproduce these numbers anyway: it inherits whatever reorder policy the site
+already runs, and the placement rules score arriving stock without caring how the reorder was
+triggered.
+
 The catalogue lists {{ '{:,}'.format(inv_params(inv0)['num_skus']) }} SKUs; the shared build
 stocks the subset that fits its racking (the setup table's `n_skus` row below), which is why the
 two counts differ — one is the catalogue, the other is what got shelved. **`n_skus` is a

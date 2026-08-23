@@ -159,6 +159,15 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/Performance_Evaluations/tables/census.py', 'comparison_census.json'): 1,
  # The CLI bootstrap every analysis entry point shares (see analyze_run / run_analysis).
  ('Optimization/run_map_precompute.py', 'analysis.log'): 1,
+ # docs/macros.py READS the staged dossier documents by name.  A reader naming its source
+ # is a weaker claim than a writer naming its output, but it is the same recorded class the
+ # what-if reads already occupy — and one loader with one name dict is what keeps it at a
+ # single occurrence each instead of one per macro.
+ ('docs/macros.py', 'comparison_census.json'): 1,
+ ('docs/macros.py', 'dossier.json'): 1,
+ ('docs/macros.py', 'held_fixed.json'): 1,
+ ('docs/macros.py', 'inventory_model.json'): 1,
+ ('docs/macros.py', 'rule_catalog.json'): 1,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', '_aggregate'): 6,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', 'aggregate_summary.csv'): 1,
  ('Optimization/Performance_Evaluations/aggregate/tables.py', 'aggregate_tests.json'): 1,
