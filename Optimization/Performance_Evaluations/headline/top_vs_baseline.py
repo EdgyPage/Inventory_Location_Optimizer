@@ -31,6 +31,7 @@ from matplotlib import transforms as mtransforms
 from matplotlib.patches import Patch
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
+from Optimization.Performance_Evaluations.core import quantities as _quantities
 from Optimization.Performance_Evaluations.common import chartkit, io
 from Optimization.Performance_Evaluations.common.style import _stitle, _TOP_DIMS
 from Optimization.Performance_Evaluations.common.series import _select_top
@@ -39,16 +40,17 @@ from Optimization.Performance_Evaluations.common.stats_core import (
     _rank_biserial, _hedges_g_paired, _boot_ci, _holm)
 
 # ── the headline metric groups ──────────────────────────────────────────────────
-# (label, ss_field, lower_is_better, per-batch source, per-batch column)
-# ss_* scalars feed the bars; source/column feed the paired per-batch effect stats.
-# All four success metrics: task makespan (a) & batch makespan (b), the throughput
-# off each (c, d), plus the layout travel objective.
+# (label, ss_field, lower_is_better, per-batch source, per-batch column) — DERIVED.
+# The ss_* scalar feeds the bars and the source/column pair feeds the paired per-batch
+# effect stats, and this list was the fourth place those two facts were written down: it
+# is a hand-join of `stats_core._METRICS` and `_AGG_METRICS`, and that join is now the
+# `Source` dataclass in the quantity table.  All four success metrics: task makespan (a)
+# and batch makespan (b), the throughput off each (c, d), plus the layout travel
+# objective.  The ORDER is the panel order of a published figure, so it is declared
+# (`quantities.HEADLINE_ORDER`) rather than inferred.
 _METRIC_GROUPS = [
-    ('Task makespan',        'ss_prod_hours', True,  'task_sum', 'duration'),
-    ('Batch makespan',       'ss_dur',        True,  'batch',    'duration'),
-    ('Thr / batch makespan', 'ss_thr',        False, 'batch',    'completion_rate'),
-    ('Thr / task makespan',  'ss_thr_task',   False, 'batch',    'thr_task'),
-    ('Layout total f·D',     'ss_sigma',      True,  'batch',    'sigma_fd'),
+    (q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch)
+    for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)
 ]
 
 #: a metric group whose largest |%| swing exceeds this multiple of the median group

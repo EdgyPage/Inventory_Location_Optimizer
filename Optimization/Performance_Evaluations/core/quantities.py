@@ -135,7 +135,18 @@ class Quantity:
         return self.direction == 'lower'
 
     def axis_label(self, samples=None) -> str:
-        return units.axis_label(self.axis_stem, self.unit, samples)
+        """The axis text: stem, unit, and — for a `score` — which way is good.
+
+        A `score` is a model quantity with no physical unit (Σ f·D, analytical labor W).
+        When it also carries no unit noun, nothing on the axis tells a reader whether up
+        or down is the win, so the direction is stated.  Every other kind names a unit
+        that already carries the answer ('items / hour', 'units', '% of time picking'),
+        and appending a hint there is noise.
+        """
+        label = units.axis_label(self.axis_stem, self.unit, samples)
+        if self.unit.kind == 'score' and not self.unit.suffix:
+            return f'{label} ({self.direction} = better)'
+        return label
 
 
 # ── the table ────────────────────────────────────────────────────────────────────
@@ -152,7 +163,7 @@ _SHARE = Unit('share')
 
 QUANTITIES: tuple = (
     Quantity(
-        key='production_time', label='Production time per batch',
+        key='production_time', label='Task makespan',
         axis_stem='Σ task time per batch', unit=DURATION, direction='lower',
         source=Source(per_batch=('task_sum', 'duration'), steady_state='ss_prod_hours',
                       steady_state_name='productivity_hours',
@@ -203,7 +214,7 @@ QUANTITIES: tuple = (
         notes='The honesty metric: a placement rule that wins on picking by deferring '
               'put-away shows it here.'),
     Quantity(
-        key='sigma_fd', label='Layout travel cost',
+        key='sigma_fd', label='Layout total f·D',
         axis_stem='total f·D', unit=_SCORE, direction='lower',
         source=Source(per_batch=('batch', 'sigma_fd'), steady_state='ss_sigma',
                       series=('batch', 'sigma_fd', None, None)),
@@ -242,17 +253,49 @@ for _q in QUANTITIES:
     if _agg and _agg != _q.key:
         BY_ANY_NAME[_agg] = _q
 
-#: Cross-profile order — DIFFERENT from `QUANTITIES` order, and pinned here rather than
-#: inferred, because it is the row order of `aggregate_summary.csv`.  Editorial, so it is
-#: declared; membership is not, so it is derived (every key must have a steady-state
-#: source, asserted below).
+# ── the three published orders ───────────────────────────────────────────────────
+# ORDER is editorial and MEMBERSHIP is not — so the orders are declared and the
+# membership is derived from them, with a check that every named key can actually be read
+# at that scope.  Three of them, because three different published artifacts fixed three
+# different orders before this module existed and each is now committed evidence:
+# reordering `AGGREGATE_ORDER` rewrites the row order of `aggregate_summary.csv`, and
+# reordering `HEADLINE_ORDER` renumbers the panels of the headline figure.
+
+#: row order of `aggregate_summary.csv` and the cross-profile panels
 AGGREGATE_ORDER: tuple = ('makespan', 'throughput', 'throughput_task',
                           'task_mean_duration', 'production_time')
 
-for _k in AGGREGATE_ORDER:
-    if BY_KEY[_k].source.steady_state is None:
-        raise AssertionError(f'{_k} is in AGGREGATE_ORDER but declares no steady_state '
-                             f'field to read it from')
+#: panel order of the headline top-vs-baseline figure
+HEADLINE_ORDER: tuple = ('production_time', 'makespan', 'throughput',
+                         'throughput_task', 'sigma_fd')
+
+#: render order of the over-time (trajectories) family
+SERIES_ORDER: tuple = ('task_duration', 'task_mean_duration', 'throughput',
+                       'production_time', 'sigma_fd')
+
+
+def _check_order(name: str, keys: tuple, attr: str) -> None:
+    seen = set()
+    for k in keys:
+        if k in seen:
+            raise AssertionError(f'{name} names {k!r} twice')
+        seen.add(k)
+        if getattr(BY_KEY[k].source, attr) is None:
+            raise AssertionError(f'{k} is in {name} but declares no {attr} to read it '
+                                 f'from, so it can never be rendered there')
+
+
+_check_order('AGGREGATE_ORDER', AGGREGATE_ORDER, 'steady_state')
+_check_order('HEADLINE_ORDER', HEADLINE_ORDER, 'steady_state')
+_check_order('SERIES_ORDER', SERIES_ORDER, 'series')
+
+#: every quantity with a series source must appear in SERIES_ORDER — the check that stops
+#: a new over-time quantity from being declared and silently never drawn
+_missing = [q.key for q in QUANTITIES
+            if q.source.series is not None and q.key not in SERIES_ORDER]
+if _missing:
+    raise AssertionError(f'quantities declare a series source but are absent from '
+                         f'SERIES_ORDER, so nothing would render them: {_missing}')
 
 
 def quantity_for(name: str) -> Quantity:

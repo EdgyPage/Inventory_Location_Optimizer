@@ -16,44 +16,13 @@ import os
 import numpy as np
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
-from Optimization.Performance_Evaluations.common import chartkit, io
+from Optimization.Performance_Evaluations.common import chartkit, io, present
 from Optimization.Performance_Evaluations.common.stats_core import (
     _AGG_METRICS, _boot_ci, _rank_biserial)
 from Optimization.Performance_Evaluations.significance.panels import (
     effect_heatmap, forest_panel, merged_effect_panel)
 from Optimization.Performance_Evaluations.aggregate.tables import (
     compute_aggregate_by_initial, compute_aggregate_stats, paired_profile_diagnosis)
-
-_PER_HOUR = 3.6e6            # raw rates are items per sim-millisecond
-
-#: Marker for a sim-millisecond DURATION: its conv/unit cannot be frozen here, because
-#: the readable unit depends on the metric's own magnitude.  `_present` resolves it from
-#: the very values that will share the panel's axis.
-_TIME = 'time'
-
-#: metric -> (conv into presentation units, axis label stem) for the distribution panels.
-_PRESENT = {
-    'makespan':           (_TIME, 'batch makespan'),
-    'throughput':         (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'),
-    'throughput_task':    (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'),
-    'task_mean_duration': (_TIME, 'mean task duration'),
-    'productivity_hours': (_TIME, 'Σ task time per batch'),
-}
-
-
-def _present(name, box_values):
-    """(conv, axis label) for one metric, resolved against the samples it will plot.
-
-    A `_TIME` metric pools every key's box values — exactly what shares the panel's
-    axis — into one `chartkit.time_units` call, so all boxes convert with the same
-    divisor and the label names the unit that came back."""
-    conv, label = _PRESENT.get(name, (None, name))
-    if conv is not _TIME:
-        return conv, label
-    parts = [np.asarray(v, dtype=float).ravel() for v in box_values
-             if len(np.ravel(v))]
-    div, unit = chartkit.time_units(np.concatenate(parts) if parts else [0.0])
-    return (lambda a, _d=div: np.asarray(a, dtype=float) / _d), f'{label} ({unit})'
 
 
 @evaluation(key='agg.sig', label='Cross-profile significance figures',
@@ -75,7 +44,7 @@ def _render_all(ctx, out):
         return
     n_done = 0
     for name, d in per_metric.items():
-        conv, unit = _present(name, d['box_values'])
+        conv, unit = present.for_metric(name, present.pooled(d['box_values']))
         try:
             path = merged_effect_panel(
                 keys, colors, d['box_values'], d['tests'],

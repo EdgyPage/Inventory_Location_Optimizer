@@ -5,7 +5,9 @@ Post-redesign this module holds exactly three things:
   * `overtime_metrics` / `top_tag` — the shared filename-stem vocabulary.  Every
     over-time figure basename and every `top{n}[_by_{dim}]` suffix in the published
     site composes from these two functions, so THIS module is where those names are
-    minted (and where the figure-registry test looks for the stems).
+    minted (and where the figure-registry test looks for the stems).  What each name
+    MEANS — its unit, axis label and direction — comes from `core/quantities.py`;
+    `overtime_metrics` is a projection of that table, not a second copy of it.
   * `paint_overtime` — the one over-time painter, drawn through chartkit for both its
     views: 'absolute' (honest units — a data-chosen time unit, items/hour, f·D) and
     'percent' (improvement vs the baseline strategy, positive = better).  The config-stage
@@ -19,43 +21,49 @@ it now.
 """
 import numpy as np
 
-from Optimization.Performance_Evaluations.common import chartkit
+from Optimization.Performance_Evaluations.common import chartkit, present
 from Optimization.Performance_Evaluations.common.style import _TOP_DIMS
+from Optimization.Performance_Evaluations.core import quantities as _quantities
 
 
 def overtime_metrics():
-    """The five over-time metric specs — stem (`f`), short title (`t`), units, and
-    direction.  `lower_is_better` orients the percent view.
+    """The over-time metric specs, DERIVED from the quantity table.
 
-    A spec is either a TIME metric or a fixed-unit one:
+    Every over-time figure basename in the published site composes from `f` here, so this
+    stays the place those names are minted (and where the figure-registry test looks for
+    the stems) — but the names themselves, and the units, labels and directions beside
+    them, now come from `core/quantities.py`.  They were a literal here, a literal in each
+    of the two significance `_PRESENT` tables, and a literal in the headline module's
+    `_METRIC_GROUPS`, and the four had drifted: the same quantity was `Σ task time per
+    batch` on one axis and `total task time per batch` on another.
 
-      time=True  the quantity is a sim-millisecond duration whose readable unit depends
-                 on the data (a picker task is seconds, a batch of labor is hours), so
-                 `yl` is a UNITLESS label stem and there is no `conv` — `paint_overtime`
-                 pools every series that will share the axis, resolves the unit once,
-                 and composes the axis label from what came back.
-      otherwise  `conv` maps raw series values into fixed presentation units and `yl`
-                 is the complete axis label.
+    Each spec carries its `Quantity` under `q`.  Prefer reading that over the flattened
+    keys, which exist so `paint_overtime` and its two callers did not have to change in
+    the same commit:
+
+      x/y/blo/bhi  series columns (`Source.series`)
+      f            figure-basename stem (`Quantity.stem`)
+      t            panel title (`Quantity.series_title`)
+      time         True for a duration, whose unit is resolved from the data
+      conv         raw -> presentation multiplier, or None for a metric needing none
+      yl           the axis label WITHOUT the resolved time unit — `paint_overtime`
+                   appends it for a time metric, because the divisor is chosen from every
+                   arm's values pooled, which only the painter has
     """
-    per_h = 3.6e6            # raw rates are items per sim-millisecond
-    return [
-        dict(x='task_batch', y='task_median', blo='task_p25', bhi='task_p75',
-             f='task_duration', t='Task duration (median + IQR)',
-             time=True, yl='task duration', lower_is_better=True),
-        dict(x='task_batch', y='task_mean', blo=None, bhi=None,
-             f='avg_task_duration', t='Average task duration',
-             time=True, yl='mean task duration', lower_is_better=True),
-        dict(x='batch', y='thr', blo=None, bhi=None,
-             f='throughput', t='Throughput',
-             conv=lambda v: np.asarray(v, dtype=float) * per_h,
-             yl='throughput (items / hour)', lower_is_better=False),
-        dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
-             f='production_time', t='Production time per batch',
-             time=True, yl='total task time per batch', lower_is_better=True),
-        dict(x='batch', y='sigma_fd', blo=None, bhi=None,
-             f='layout_travel', t='Layout travel cost',
-             conv=None, yl='total f·D (lower = better)', lower_is_better=True),
-    ]
+    out = []
+    for key in _quantities.SERIES_ORDER:
+        q = _quantities.BY_KEY[key]
+        x, y, blo, bhi = q.source.series
+        is_time = q.unit.kind == 'duration_ms'
+        conv, label = present.for_metric(q.key)
+        # A time metric's converter is DELIBERATELY dropped: its divisor is chosen from
+        # every arm's values pooled, which only `_time_axis` can see, and a spec-level
+        # converter resolved against no samples would silently claim seconds.
+        out.append(dict(q=q, x=x, y=y, blo=blo, bhi=bhi, f=q.stem, t=q.series_title,
+                        time=is_time, conv=None if is_time else conv,
+                        yl=q.axis_stem if is_time else label,
+                        lower_is_better=q.lower_is_better))
+    return out
 
 
 def top_tag(top_n, top_by):
