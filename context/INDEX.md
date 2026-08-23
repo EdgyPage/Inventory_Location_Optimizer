@@ -1,7 +1,7 @@
 # context/ — machine-parsable flow + artifact specs
 
-last-synced-commit: 526a5bcd49ca3c282294960511332daf6729b08e  <!-- updated by the context-maintainer agent after each sync -->
-arch-synced-commit: 48ee5a4581ede67b4483978c59f995991d9e9b26  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/) -->
+last-synced-commit: 1a7a668b15fa2b4347313ac5504216239eda07ee  <!-- updated by the context-maintainer agent after each sync -->
+arch-synced-commit: 8feeb064fc58df85c390155cb23c590900387083  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/) -->
 
 Verifiable documentation of the pipeline's code flow, designed for BOTH humans and
 downstream design programs (the MkDocs results site, Claude Design). Every

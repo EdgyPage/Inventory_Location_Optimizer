@@ -10,7 +10,7 @@ summary: >
   plot suite replicates per channel with no plot changes. run_channel_rollup then
   combines each channel's best plan into the whole-warehouse saving.
 entry:
-  command: "python Optimization/run_analysis.py <base_dir> [--preset BY_INITIAL] [--workers N] [--granularity config|graph]"
+  command: "python Optimization/run_analysis.py <base_dir> [--preset BY_INITIAL] [--workers N] [--granularity config|graph] [--only KEY ...]"
   file: Optimization/run_analysis.py
   function: main
 
@@ -33,8 +33,10 @@ steps:
     summary: >
       Per channel-run: an EvalContext lazily loads each strategy's frames from its
       sim DB (db_path + run_id from sim_meta) and runs every config-scope evaluation
-      in the preset — per-strategy panels, comparison plots, stats suites — writing
-      the PNG trees and series.json.
+      in the preset — the chart-family suite (headline, trajectories, labor,
+      throughput, task_time, layout, significance, diagnostics) plus the tidy
+      tables/ CSVs — writing figures/<family>/ (view-prefixed filenames), tables/,
+      and series.json.
     functions:
       - {name: EvalContext, file: Optimization/Performance_Evaluations/core/context.py, kind: class}
       - {name: evaluation, file: Optimization/Performance_Evaluations/core/registry.py, kind: function}

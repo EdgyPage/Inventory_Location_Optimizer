@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_paint_levels · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_painters_py___paint_levels" data-id="Optimization/Performance_Evaluations/common/painters.py::_paint_levels">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a> <span class="sep">›</span> <span class="here"><code>_paint_levels</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_paint_levels</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a></p>
+
+<pre class="sig"><code>def _paint_levels(ax, strategies, S, m, baseline, div)</code></pre>
+<section class="doc">The absolute view&#x27;s body.  Returns how many series were drawn.
+
+Up to `_SPAGHETTI` arms, every arm is a line.  Beyond that they are not: 34 arms of
+the same warehouse trace the same demand curve within a few percent, so the overlay
+becomes one opaque ribbon in which no arm can be followed — an SME reading this very
+chart at 34 arms attributed a 6-12% gap to two arms whose sim databases are in fact
+byte-identical.  So the large case draws the SHAPE honestly: the cross-arm median,
+the interquartile band, and only the extreme arms named.  Which arm is which at this
+scale is the percent view&#x27;s question, and it answers it against a baseline.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__draw_ci.html"><code>draw_ci</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__strategy_color.html"><code>strategy_color</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__strategy_dash.html"><code>strategy_dash</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py___conv.html"><code>_conv</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py___label.html"><code>_label</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_painters_py__paint_overtime.html"><code>paint_overtime</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_painters_py___paint_levels">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/painters.py#:~:text=def%20_paint_levels">Source ↗</a></p>
+</article>
+</main>
+</body></html>

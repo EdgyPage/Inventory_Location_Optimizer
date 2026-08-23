@@ -20,8 +20,13 @@
 Returns (summary_rows, per_metric):
   summary_rows  list of {&#x27;strategy&#x27;, &#x27;metric&#x27;, **descriptives} — the CSV body,
                 including the travel/handling decomposition rows when provided;
-  per_metric    {metric_name: {&#x27;box_values&#x27;, &#x27;tests&#x27;, &#x27;lower&#x27;}} — everything the
-                merged effect panels need, in _METRICS order.</section>
+  per_metric    {metric_name: {&#x27;box_values&#x27;, &#x27;paired&#x27;, &#x27;tests&#x27;, &#x27;lower&#x27;}} —
+                everything the merged effect panels need, in _METRICS order.
+                `box_values` are each key&#x27;s own observations (what the boxes show);
+                `paired` is the aligned block × key matrix (what every paired
+                statistic and its resampled interval must be computed over).  They
+                are different objects on purpose: a key with a missing block belongs
+                in its own box but not in a pair.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py___aligned.html"><code>_aligned</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_frames_py___metric_series.html"><code>_metric_series</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___descriptives.html"><code>_descriptives</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___run_tests.html"><code>_run_tests</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_suite.html"><code>render_suite</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_stats_csv_py__render_stats.html"><code>render_stats</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/stats_csv.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_tables_stats_csv_py__compute_config_stats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/tables/stats_csv.py#:~:text=def%20compute_config_stats">Source ↗</a></p>
 </article>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_boot_ci · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_stats_core_py___boot_ci" data-id="Optimization/Performance_Evaluations/common/stats_core.py::_boot_ci">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a> <span class="sep">›</span> <span class="here"><code>_boot_ci</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_boot_ci</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a></p>
+
+<pre class="sig"><code>def _boot_ci(sample, stat=np.median, *, n_boot: int=_BOOT, seed: int=0, alpha: float=0.05) -&gt; tuple</code></pre>
+<section class="doc">(lo, hi) percentile-bootstrap interval for `stat` over a 1-D sample.
+
+Deterministic by construction: a seeded Generator, never the global RNG.  NaN pair
+when fewer than 3 finite observations survive — the same floor the paired tests use.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___table_figure.html"><code>_table_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___rows.html"><code>_rows</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_by_initial.html"><code>render_by_initial</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_vs_baseline_py__compute_vs_baseline.html"><code>compute_vs_baseline</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/vs_baseline.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_stats_core_py___boot_ci">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/stats_core.py#:~:text=def%20_boot_ci">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -15,9 +15,13 @@
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_macros_py.html"><code>docs/macros.py</code></a></p>
 
 <pre class="sig"><code>def _figs(kind)</code></pre>
-<section class="doc">[(filename, caption, width)] for kind in {&#x27;top3&#x27;,&#x27;full_suite&#x27;}: manifest names
-(captions from the registry) else the registry&#x27;s default entries for the section —
-which is byte-for-byte the old hardcoded list, per the registry golden test.</section>
+<section class="doc">[(filename, caption, width)] for kind in {&#x27;top3&#x27;,&#x27;full_suite&#x27;}.
+
+A manifest names its own figures.  WITHOUT one the experiment is a legacy
+snapshot, and it renders the registry&#x27;s `legacy` set — frozen to what that sweep
+actually produced — NOT the `default` starter set, which names the figures the
+CURRENT suite writes and which a 2026-06 run never had.  Conflating the two
+pointed Experiment 1 at chart names that postdate it by two months.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env__figs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20_figs">Source ↗</a></p>
 </article>

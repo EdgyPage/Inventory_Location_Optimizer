@@ -14,11 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>_rb_ci</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_significance_panels_py.html"><code>Optimization/Performance_Evaluations/significance/panels.py</code></a></p>
 
-<pre class="sig"><code>def _rb_ci(r, n)</code></pre>
-<section class="doc">Approximate 95% CI for a matched-pairs rank-biserial r: the signed-rank null
-variance 2(2n+1)/(3n(n+1)) as the SE — a whisker honest about paired-n, without a
-bootstrap&#x27;s runtime.  Clipped to the statistic&#x27;s [-1, 1] support.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_significance_panels_py__merged_effect_panel.html"><code>merged_effect_panel</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li></ul></section>
+<pre class="sig"><code>def _rb_ci(a, b)</code></pre>
+<section class="doc">95% CI for the matched-pairs rank-biserial of (a, b), resampling the PAIRS.
+
+Replaces a closed form that used the signed-rank NULL variance: that expression
+depends only on n, so every row of a panel got an identical whisker regardless of
+what the runs showed — widest, absurdly, where the effect was most decisive.  See
+stats_core._rank_biserial_ci.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___rank_biserial_ci.html"><code>_rank_biserial_ci</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_significance_panels_py__merged_effect_panel.html"><code>merged_effect_panel</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/panels.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_significance_panels_py___rb_ci">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/significance/panels.py#:~:text=def%20_rb_ci">Source ↗</a></p>
 </article>
 </main>

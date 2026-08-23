@@ -51,6 +51,15 @@ figures:
       The same comparison as a table — labor and throughput against FIFO, each with its
       paired effect size and 95% confidence interval, both measured over every batch the arm
       shares with the baseline.
+  - name: percent_both_levers.png
+    eval: headline.throughput_vs_labor
+    section: top3
+    default: true
+    caption: >-
+      Every arm placed by what it does to labor (across) and to throughput (up), both
+      against FIFO, which sits at the origin. The shaded corner is the only one where a
+      rule improves both; an arm outside it is trading one for the other, and the
+      direction it sits in says which. The named arms are those with no weak side.
   - name: delta_prodtime_top3_by_initial.png
     eval: labor.delta_topn
     section: top3

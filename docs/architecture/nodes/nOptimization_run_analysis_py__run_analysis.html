@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>run_analysis</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span></div>
-<pre class="sig"><code>def run_analysis(base_dir: str, log: logging.Logger, workers: int=1, preset: str=&#x27;BY_INITIAL&#x27;, granularity: str=&#x27;config&#x27;, cli_set: dict | None=None) -&gt; None</code></pre>
+<pre class="sig"><code>def run_analysis(base_dir: str, log: logging.Logger, workers: int=1, preset: str=&#x27;BY_INITIAL&#x27;, granularity: str=&#x27;config&#x27;, cli_set: dict | None=None, only=()) -&gt; None</code></pre>
 <section class="doc">Re-run analysis on all completed sims under *base_dir* via the registry.
 
 Two sequential flat-pool stages (config, then cross-profile aggregate); each stage is a

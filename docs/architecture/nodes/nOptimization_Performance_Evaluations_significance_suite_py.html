@@ -25,9 +25,11 @@ directory tree for the by-initial fork (~748 files); this pair replaces it with:
   * `sig.suite`      — ONE merged panel per metric (distribution + pairwise
                        rank-biserial ladder, Holm-p in the row labels);
   * `sig.by_initial` — the headline assignments × metrics improvement heatmap, plus one
-                       forest plot per assignment function (metrics as rows, mean paired
-                       % improvement with its 95% CI — the tables keep the median-based
-                       % companion; both are improvement-oriented, positive = better).
+                       forest plot per assignment function (metrics as rows, the MEDIAN
+                       paired % improvement with the bootstrap interval of that same
+                       median, so the dot and its whiskers estimate one quantity and the
+                       forest agrees with the heatmap cell above it; improvement-oriented,
+                       positive = better).
 
 Presentation units on distribution axes only: rates in items/hour, and every DURATION in
 the time unit resolved at render time from that metric&#x27;s own pooled distribution — a

@@ -28,10 +28,12 @@ Two figures in the headline family:
     paired effect vs FIFO: matched-pairs rank-biserial r plus a Holm-corrected
     Wilcoxon p.
   * the table view — one row per top arm: labor and throughput % vs FIFO, paired
-    Hedges g, the 95% t-interval of the paired per-batch % (labor), and the Wilcoxon
-    p LAST — demoted, because with n≈75 paired batches essentially every p is
-    three-star; the subtitle says exactly that and the effect columns carry the
-    discrimination.
+    Hedges g, a 95% interval for the labor figure, and the Wilcoxon p LAST — demoted,
+    because with n≈75 paired batches essentially every p is three-star; the subtitle
+    says exactly that and the effect columns carry the discrimination.  The labor
+    figure and its interval are the same estimator (the median of the per-batch
+    improvements, and the bootstrap of that median), so the interval always contains
+    the number it sits beside.
 
 Both figures pair each arm against FIFO over the batches the two runs share
 (`_paired`, ported verbatim from the retired compare module), so labor and

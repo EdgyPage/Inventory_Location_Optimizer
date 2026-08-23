@@ -34,18 +34,52 @@ files:
       - {name: "trace_strategy", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
       - {name: "main", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/aggregate/cross_profile.py":
-    purpose: "cross-profile roll-up for one pick-config: the same faceted/overlay/"
+  "Optimization/Performance_Evaluations/aggregate/sig.py":
+    purpose: "the cross-profile significance FIGURES, the aggregate mirror of the per-config significance suite over steady-state scalar metrics."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/cross_profile.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/sig.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/aggregate/stats.py":
-    purpose: "cross-profile significance suite (strategies paired"
+  "Optimization/Performance_Evaluations/aggregate/tables.py":
+    purpose: "the cross-profile significance DATA products: strategies paired by profile over the steady-state scalars, feeding both the CSV/test-doc tables and the aggregate significance figures."
     layer: "evaluations"
     key_symbols:
-      - {name: "render_stats", file: "Optimization/Performance_Evaluations/aggregate/stats.py", kind: "function"}
-      - {name: "render_stats_by_initial", file: "Optimization/Performance_Evaluations/aggregate/stats.py", kind: "function"}
+      - {name: "compute_aggregate_stats", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
+      - {name: "compute_aggregate_by_initial", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/aggregate/traj.py":
+    purpose: "cross-profile over-time trajectories, percent view only."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/common/chartkit.py":
+    purpose: "the one rendering contract every figure in the suite draws through."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "HOURS", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "const"}
+      - {name: "to_hours", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "time_units", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "to_time", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "improvement_pct", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "improvement_pct_series", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "BASELINE_STYLE", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "const"}
+      - {name: "strategy_color", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "strategy_dash", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "mark_baseline", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "baseline_handle", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "data_ylim", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "shared_ylim", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "annotate_unshared", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "pct_axis", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "stars", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "effect_label", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "draw_ci", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "make", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "Chart", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "class"}
+      - {name: "height_for_categories", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "width_for_categories", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/common/frames.py":
     purpose: "DataFrame builders + steady-state series alignment (verbatim from the monoliths)."
@@ -66,6 +100,7 @@ files:
     key_symbols:
       - {name: "overtime_metrics", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
       - {name: "top_tag", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
+      - {name: "paint_overtime", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/common/series.py":
     purpose: "Per-strategy time-series construction, the series.json dump, top-N selection, and the"
@@ -83,104 +118,11 @@ files:
     key_symbols:
       - {name: "legend_right", file: "Optimization/Performance_Evaluations/common/style.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/compare/delta_by_batch.py":
-    purpose: "per-batch production-time improvement (%) vs the FIFO baseline,"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/delta_by_batch.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/delta_over_time.py":
-    purpose: "production-time (\u03a3 task time / batch) improvement vs the FIFO"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/delta_over_time.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py":
-    purpose: "throughput \u0394% and duration-improvement% vs the baseline strategy."
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/delta_vs_baseline.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/faceted.py":
-    purpose: "over-time trajectories faceted by (initial \u00d7 reslot), colored by"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/faceted.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/labor_per_batch.py":
-    purpose: "labor cost of the scheduled tasks, batch by batch, and how it moves."
-    layer: "evaluations"
-    key_symbols:
-      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/compare/labor_per_batch.py", kind: "const"}
-      - {name: "HOURS_NOTE", file: "Optimization/Performance_Evaluations/compare/labor_per_batch.py", kind: "const"}
-      - {name: "labor_by_batch", file: "Optimization/Performance_Evaluations/compare/labor_per_batch.py", kind: "function"}
-      - {name: "trend_per_100", file: "Optimization/Performance_Evaluations/compare/labor_per_batch.py", kind: "function"}
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/labor_per_batch.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/overlay.py":
-    purpose: "all strategies overlaid on one axis per over-time metric: color ="
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/overlay.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/pick_vs_travel.py":
-    purpose: "horizontal stacked picking%/traveling% bar per strategy"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/pick_vs_travel.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py":
-    purpose: "box plot of steady-state task durations, one box per strategy"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/task_duration_by_strategy.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/task_time_breakdown.py":
-    purpose: "stacked travel-vs-handling picker-time bar per strategy,"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/task_time_breakdown.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py":
-    purpose: "the four success metrics on one figure  (no rerun, no DB touch)"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/throughput_vs_labor.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/top_metric.py":
-    purpose: "overlay only the top-N strategies (global, or top-N within each"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/top_metric.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/top_vs_baseline.py":
-    purpose: "how the best runs compare to the FIFO/random baseline."
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/top_vs_baseline.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/compare/volume_curve.py":
-    purpose: "cumulative pick volume against elapsed time: how much work each arm"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "const"}
-      - {name: "HOURS_NOTE", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "const"}
-      - {name: "cumulative_curve", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "function"}
-      - {name: "curve_metrics", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "function"}
-      - {name: "gain_vs_base", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "function"}
-      - {name: "render", file: "Optimization/Performance_Evaluations/compare/volume_curve.py", kind: "function"}
-    notes: ""
   "Optimization/Performance_Evaluations/config/series.py":
     purpose: "write series.json (per-strategy trajectories + steady-state scalars +"
     layer: "evaluations"
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/config/series.py", kind: "function"}
-    notes: ""
-  "Optimization/Performance_Evaluations/config/summary_csv.py":
-    purpose: "per-strategy mean/median/std summary tables for headline batch"
-    layer: "evaluations"
-    key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/config/summary_csv.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/core/artifact_map.py":
     purpose: "which directories each evaluation's outputs land in, derived, not retyped."
@@ -206,6 +148,14 @@ files:
     key_symbols:
       - {name: "import_all", file: "Optimization/Performance_Evaluations/core/discovery.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/core/families.py":
+    purpose: "which VIEWS each family of figures must and may carry."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "VIEWS", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
+      - {name: "check_view", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
+      - {name: "figures_subdir", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/core/registry.py":
     purpose: "The Evaluation descriptor + @evaluation decorator + module-level registry."
     layer: "evaluations"
@@ -228,6 +178,18 @@ files:
       - {name: "tally_snapshot", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "sql", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/diagnostics/metric_grids.py":
+    purpose: "small-multiple grids, one panel per arm."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/diagnostics/metric_grids.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/diagnostics/scorecards.py":
+    purpose: "one three-panel read-out per arm."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/diagnostics/scorecards.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/driver.py":
     purpose: "scope dispatch + output-dir preparation for the registry."
     layer: "evaluations"
@@ -241,51 +203,60 @@ files:
       - {name: "config_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "aggregate_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py":
-    purpose: "one panel per strategy: per-batch production-time \u0394% vs the"
+  "Optimization/Performance_Evaluations/headline/all_arms.py":
+    purpose: "every arm's % improvement vs the FIFO baseline, at a glance."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/delta_by_batch.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/headline/all_arms.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py":
-    purpose: "one panel per strategy: cumulative % production-time saved"
+  "Optimization/Performance_Evaluations/headline/rollup.py":
+    purpose: "production-time-first per-run rollups as sorted dot plots."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/delta_over_time.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/headline/rollup.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/metric_grids.py":
-    purpose: "five rectangular grids (one panel per strategy): batch"
+  "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py":
+    purpose: "the four success metrics on one figure."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/metric_grids.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/panels.py":
-    purpose: "Shared per-strategy panel painters (verbatim from the retired Comparison_Plots"
+  "Optimization/Performance_Evaluations/headline/top_vs_baseline.py":
+    purpose: "how the best arms compare to the FIFO baseline."
     layer: "evaluations"
     key_symbols:
-      - {name: "panel_duration", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
-      - {name: "panel_eff", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
-      - {name: "panel_churn", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
-      - {name: "panel_taskdur", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
-      - {name: "panel_task_overtime", file: "Optimization/Performance_Evaluations/per_strategy/panels.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/headline/top_vs_baseline.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/report_bars.py":
-    purpose: "production-time-first per-run rollups + the raw long-format"
+  "Optimization/Performance_Evaluations/labor/delta_grid.py":
+    purpose: "the task-time delta vs FIFO, one small panel per arm."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/report_bars.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/labor/delta_grid.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/scorecards.py":
-    purpose: "one 3-panel image per strategy (batch duration \u00b7 Sigma f*D \u00b7"
+  "Optimization/Performance_Evaluations/labor/delta_topn.py":
+    purpose: "the task-time delta story vs FIFO, told once, in one figure."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/scorecards.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/labor/delta_topn.py", kind: "function"}
     notes: ""
-  "Optimization/Performance_Evaluations/per_strategy/summary_bars.py":
-    purpose: "single rectangular summary: mean batch duration, mean"
+  "Optimization/Performance_Evaluations/labor/per_batch.py":
+    purpose: "labor cost of the scheduled tasks, batch by batch, in two views."
     layer: "evaluations"
     key_symbols:
-      - {name: "render", file: "Optimization/Performance_Evaluations/per_strategy/summary_bars.py", kind: "function"}
+      - {name: "labor_by_batch", file: "Optimization/Performance_Evaluations/labor/per_batch.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/labor/per_batch.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/layout/churn.py":
+    purpose: "inventory churn over time, all arms on ONE overlay."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/layout/churn.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/layout/travel.py":
+    purpose: "travel cost per arm against the baseline, the layout family's comparison view (delta and forest panels over demand-weighted distance)."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/layout/travel.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/presets.py":
     purpose: "the manifest that decides which graphs run and with what params."
@@ -293,17 +264,75 @@ files:
     key_symbols:
       - {name: "PRESETS", file: "Optimization/Performance_Evaluations/presets.py", kind: "const"}
     notes: ""
-  "Optimization/Performance_Evaluations/stats/plots.py":
-    purpose: "The four significance-suite plot primitives (verbatim from the retired Stats_Analysis):"
-    layer: "evaluations"
-    key_symbols: []
-    notes: ""
-  "Optimization/Performance_Evaluations/stats/suite.py":
-    purpose: "per-config significance suite (strategies paired by"
+  "Optimization/Performance_Evaluations/significance/panels.py":
+    purpose: "the three shared painters every significance eval renders through: merged effect panel, effect heatmap, forest panel."
     layer: "evaluations"
     key_symbols:
-      - {name: "render_suite", file: "Optimization/Performance_Evaluations/stats/suite.py", kind: "function"}
-      - {name: "render_by_initial", file: "Optimization/Performance_Evaluations/stats/suite.py", kind: "function"}
+      - {name: "merged_effect_panel", file: "Optimization/Performance_Evaluations/significance/panels.py", kind: "function"}
+      - {name: "effect_heatmap", file: "Optimization/Performance_Evaluations/significance/panels.py", kind: "function"}
+      - {name: "forest_panel", file: "Optimization/Performance_Evaluations/significance/panels.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/significance/suite.py":
+    purpose: "the per-config significance FIGURES."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render_suite", file: "Optimization/Performance_Evaluations/significance/suite.py", kind: "function"}
+      - {name: "render_by_initial", file: "Optimization/Performance_Evaluations/significance/suite.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/tables/per_run.py":
+    purpose: "the two per-run CSV data products (raw long-format per-batch table and per-run rollup), ported verbatim from the retired per-strategy report module."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/tables/per_run.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/tables/stats_csv.py":
+    purpose: "the per-config significance DATA products."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "compute_config_stats", file: "Optimization/Performance_Evaluations/tables/stats_csv.py", kind: "function"}
+      - {name: "compute_by_initial", file: "Optimization/Performance_Evaluations/tables/stats_csv.py", kind: "function"}
+      - {name: "by_initial_tests_doc", file: "Optimization/Performance_Evaluations/tables/stats_csv.py", kind: "function"}
+      - {name: "render_stats", file: "Optimization/Performance_Evaluations/tables/stats_csv.py", kind: "function"}
+      - {name: "render_by_initial", file: "Optimization/Performance_Evaluations/tables/stats_csv.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/tables/tidy.py":
+    purpose: "tidy long-format replacements for the retired 103-column MultiIndex summary pivots (per-batch and per-task documents)."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/tables/tidy.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/tables/vs_baseline.py":
+    purpose: "every arm against the baseline, as auditable numbers."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "compute_vs_baseline", file: "Optimization/Performance_Evaluations/tables/vs_baseline.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/tables/vs_baseline.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/task_time/breakdown.py":
+    purpose: "where picker time goes, in two complementary cuts."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/task_time/breakdown.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/task_time/duration.py":
+    purpose: "per-arm task-duration distributions, absolute and vs FIFO."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/task_time/duration.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/throughput/volume.py":
+    purpose: "cumulative pick volume against elapsed time, in two views."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "cumulative_curve", file: "Optimization/Performance_Evaluations/throughput/volume.py", kind: "function"}
+      - {name: "lead_pct_curve", file: "Optimization/Performance_Evaluations/throughput/volume.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/throughput/volume.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/trajectories/overtime.py":
+    purpose: "every over-time metric in both measurement stances."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "function"}
     notes: ""
   "Optimization/analyze_run.py":
     purpose: "Post-sim analysis hub \u2014 analyze_run() iterates every cell of a run (per-cell registry graphs + whole-warehouse rollup) then the cross-cell what-if summaries; run_simulation calls it in-process so one command runs sim + analysis, and `python -m Optimization.analyze_run` re-analyzes a finished run."
@@ -558,6 +587,7 @@ files:
     key_symbols:
       - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "REQUIRES", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "canonical_arm_order", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
     notes: ""
@@ -948,8 +978,8 @@ files:
     key_symbols:
       - {name: "test_out_subdir_declarations_agree_with_the_contract", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_every_attributed_evaluation_is_registered", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
-      - {name: "test_config_dirs_derive_exactly_the_historical_literals", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
-      - {name: "test_single_owner_subdirs_stay_out_of_the_prepare_list", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_config_dirs_derive_exactly_the_family_tree", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_no_config_eval_wipes_its_own_leaf", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_save_in_bounds_matches_subdir_segments_not_substrings", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_tuple_declaration_bounds_each_member_and_nothing_else", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_root_declaring_evaluations_make_no_checkable_claim", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
@@ -989,8 +1019,9 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_registry_parses_names_unique_sections_valid_captions_present", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
-      - {name: "test_default_lists_byte_equal_the_historical_literals", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
-      - {name: "test_ingest_derives_the_same_defaults", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_legacy_lists_byte_equal_the_historical_literals", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_ingest_derives_the_same_legacy_lists", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_the_starter_defaults_are_live_figures_only", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_every_eval_key_is_registered", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_every_figure_stem_appears_in_its_writer_source", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_every_committed_manifest_figure_is_in_the_registry", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
@@ -1078,6 +1109,7 @@ files:
       - {name: "test_evaluation_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_every_declared_pick_config_is_registered", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_pick_config_package_dirs_are_importable", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
+      - {name: "test_figure_evaluation_keys_carry_their_family", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_runtree_consumption.py":
@@ -1841,7 +1873,8 @@ files:
       - {name: "test_leaf_docs_render_the_old_literals_on_both_tree_shapes", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_aggregate_dir_store_only_group_key_is_byte_identical", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_aggregate_dir_slash_group_key_lands_in_the_old_directory", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
-      - {name: "test_aggregate_stats_pair_renders_the_render_stats_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_aggregate_stats_pair_renders_the_tables_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_leaf_tables_render_under_the_tables_folder", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_volume_outputs_render_on_a_run_predating_their_artifacts", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_runtime_png_dir_renders_the_old_literal", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
     notes: ""
@@ -1952,6 +1985,41 @@ files:
       - {name: "test_guard_rejects_a_forced_cross_regime_placement", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
       - {name: "test_opt_cohesion_stock_places_fulfillment_units", file: "Tests/unit/test_channel_strategy_subset.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_chartkit.py":
+    purpose: "the shared rendering contract keeps its geometric promises."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_gutter_legend_never_intersects_any_axes", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_stacked_second_legend_stays_in_the_gutter", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_a_many_series_legend_fits_inside_the_canvas", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_legend_deduplicates_identical_labels", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_figure_grows_with_panel_count", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_gutter_width_grows_with_label_length", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_category_sizing_helpers_are_monotone_and_capped", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_data_ylim_marks_truncation_iff_zero_excluded", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_shared_ylim_forces_one_scale", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_annotate_unshared_says_so", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_improvement_pct_positive_means_better_both_directions", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_an_undefined_comparison_is_nan_never_a_fabricated_tie", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_improvement_pct_series_drops_the_undefined_pairs", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_to_hours", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_to_time_picks_the_unit_that_keeps_numbers_readable", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_time_unit_is_chosen_from_the_median_not_an_outlier", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_time_units_degenerate_input_falls_back", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_effect_label_leads_with_magnitude", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_strategy_dash_is_the_only_initial_encoding", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_strategy_color_honours_upstream_hex", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_save_keeps_the_reserved_canvas_exactly", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_long_tick_labels_grow_the_canvas_instead_of_being_clipped", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_fit_keeps_the_gutter_legend_beside_the_data_after_growing", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_the_header_survives_the_canvas_growing", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_title_and_subtitle_stay_out_of_the_axes_at_any_height", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_save_rejects_a_filename_that_contradicts_its_view", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_view_grammar_enforced_inside_a_render", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_family_and_out_subdir_are_mutually_exclusive", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_family_grammar_rejects_undeclared_views_at_registration", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_every_family_view_set_is_within_the_grammar_vocabulary", file: "Tests/unit/test_chartkit.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
     layer: "tests"
@@ -2029,11 +2097,20 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_every_registered_evaluation_has_a_pinned_literal", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
-      - {name: "test_out_dir_renders_the_historical_literal", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
+      - {name: "test_out_dir_renders_the_pinned_literal", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
       - {name: "test_tuple_declaration_requires_a_declared_pick", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
       - {name: "test_single_declaration_rejects_pick", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
       - {name: "test_outside_a_render_out_dir_refuses", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
       - {name: "test_fresh_wipes_the_derived_dir", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_painters_levels.py":
+    purpose: "the absolute over-time view must stay readable at 34 arms."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_small_arm_set_still_draws_every_arm", file: "Tests/unit/test_painters_levels.py", kind: "function"}
+      - {name: "test_a_large_arm_set_draws_the_shape_not_the_spaghetti", file: "Tests/unit/test_painters_levels.py", kind: "function"}
+      - {name: "test_the_named_extremes_are_the_actual_extremes", file: "Tests/unit/test_painters_levels.py", kind: "function"}
+      - {name: "test_the_percent_view_still_shows_every_arm", file: "Tests/unit/test_painters_levels.py", kind: "function"}
     notes: ""
   "Tests/unit/test_palletizing.py":
     purpose: "Verify that initial orders go through the palletizing"
@@ -2076,6 +2153,17 @@ files:
       - {name: "test_load_aware_reorder_maintains_aisle_state_for_both_directions", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_a_sku_already_on_order_is_not_reordered_again", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_prune_stale_analysis.py":
+    purpose: "the stale-output pruner deletes orphans and nothing else."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_declared_dir_names_include_the_family_tree_and_exclude_levels", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+      - {name: "test_orphans_beside_live_output_are_stale", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+      - {name: "test_an_orphan_with_no_live_sibling_is_skipped_not_deleted", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+      - {name: "test_a_tree_with_no_current_output_refuses", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+      - {name: "test_reserved_subtrees_are_never_walked", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+      - {name: "test_dry_run_deletes_nothing_and_apply_deletes", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
     notes: ""
   "Tests/unit/test_regime_sizing.py":
     purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
@@ -2220,6 +2308,20 @@ files:
       - {name: "test_identity_membership_not_location_membership", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_duplicate_add_rejected", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_discard_absent_is_noop_and_empty_is_falsy", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_stats_intervals.py":
+    purpose: "a published interval must belong to the number beside it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_zero_baselines_do_not_dilute_the_paired_sample", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_rank_biserial_interval_narrows_when_the_effect_is_decisive", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_rank_biserial_interval_is_deterministic_and_brackets_the_estimate", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_interval_helpers_refuse_a_sample_too_small_to_resample", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_the_median_interval_contains_the_median_on_skewed_data", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_boot_ci_is_deterministic", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_vs_baseline_rows_are_auditable_and_self_consistent", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_vs_baseline_effect_sizes_point_the_same_way_as_the_percentage", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+      - {name: "test_aggregate_by_initial_pairs_profiles_and_drops_half_pairs", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
     notes: ""
   "Tests/unit/test_task_bin_selection_determinism.py":
     purpose: "test_task_bin_selection_determinism.py"
@@ -2719,6 +2821,14 @@ files:
     layer: "scripts"
     key_symbols:
       - {name: "main", file: "scripts/new_experiment.py", kind: "function"}
+    notes: ""
+  "scripts/prune_stale_analysis.py":
+    purpose: "delete analysis output the CURRENT contract cannot have written."
+    layer: "scripts"
+    key_symbols:
+      - {name: "declared_dir_names", file: "scripts/prune_stale_analysis.py", kind: "function"}
+      - {name: "find_stale", file: "scripts/prune_stale_analysis.py", kind: "function"}
+      - {name: "main", file: "scripts/prune_stale_analysis.py", kind: "function"}
     notes: ""
   "scripts/schema_report.py":
     purpose: "the CLI over `Schema/compat.py`, and the one place that knows every family."

@@ -14,9 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>_config_jobs</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None)</code></pre>
+<pre class="sig"><code>def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None, only=())</code></pre>
 <section class="doc">Parent pre-pass: build slim shared assets per pair, prepare each config&#x27;s output
-dirs once, and emit the flat config-stage job list.</section>
+dirs once, and emit the flat config-stage job list.
+
+`only` restricts the run to a subset of keys AND suppresses the directory pre-pass:
+a partial re-render replaces the artifacts it produces and must leave every other
+artifact where it is, so wiping the shared tops would be exactly wrong.</section>
 <section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py__config_keys.html"><code>config_keys</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li><li><a href="nOptimization_Performance_Evaluations_driver_py__prepare_config_dirs.html"><code>prepare_config_dirs</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li><li><a href="nOptimization_config_sim_config_py__regime_sizing_from_config.html"><code>regime_sizing_from_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_run_analysis_py___sim_result_from_meta.html"><code>_sim_result_from_meta</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_runschema_runlayout_py__iter_channel_runs.html"><code>iter_channel_runs</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py__run_analysis.html"><code>run_analysis</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_analysis_py___config_jobs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_analysis.py#:~:text=def%20_config_jobs">Source ↗</a></p>
 </article>

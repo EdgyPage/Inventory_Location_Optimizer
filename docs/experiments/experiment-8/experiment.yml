@@ -78,6 +78,7 @@ configs:
 # any more and stay only in the registry for the archived experiments that cite them.
 figures:
   top3:
+    - percent_both_levers.png
     - percent_volume_lead.png
     - absolute_volume_curve.png
     - delta_prodtime_top3_by_initial.png

@@ -357,25 +357,25 @@ ARTIFACTS = {
         'format': 'csv', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (DEFAULT/NO_STATS presets; BY_INITIAL runs the '
                      'by-initial fork instead).',
-        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
+        'writer': 'render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'stats_tests_json': {
         'evaluation': 'tables.stats',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/tables/tests.json',
         'format': 'json', 'scope': 'channel_run', 'optional': True,
         'condition': 'flat stats suite only (see stats_summary_csv).',
-        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
+        'writer': 'render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'by_initial_summary_csv': {
         'evaluation': 'tables.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'by_initial_tests_json': {
         'evaluation': 'tables.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/tables/by_initial_tests.json',
         'format': 'json', 'scope': 'channel_run',
         'note': 'ONE consolidated document keyed by assignment fn — replaces the retired '
                 'per-assignment subtree of test documents.',
-        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
+        'writer': 'render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py'},
 
     # ── derived sidecars: built by the VIEWER, never by a run ───────────────────
     # Declared here even though no simulation writes it.  This table is what `preflight.validate`
