@@ -17,9 +17,14 @@
 <pre class="sig"><code>def _rel_dir(template: str) -&gt; str</code></pre>
 <section class="doc">A template&#x27;s directory relative to its stage root — the segments after the tree levels
 (`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`
-aggregate).  Level placeholders are exactly the `{...}`-braced segments; `{initial_group}`
-is NOT a level (it is a subdir the eval creates), so braced segments only strip from the
-FRONT.</section>
+aggregate, `_dossier/...` run).  Level placeholders are exactly the `{...}`-braced
+segments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced
+segments only strip from the FRONT.
+
+A leading `_`-prefixed segment is a RESERVED STAGE ROOT, not an output subdir: the
+contract uses that prefix for exactly these (`_aggregate`, `_dossier`, `_frozen`) and
+the run tree reserves it, so matching the prefix is the rule rather than listing the
+names.  This read `parts[0] == &#x27;_aggregate&#x27;` when `_aggregate` was the only one.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_artifact_map_py__findings.html"><code>findings</code></a> <span class="dim">Optimization/Performance_Evaluations/core/artifact_map.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_artifact_map_py___rel_dir">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/artifact_map.py#:~:text=def%20_rel_dir">Source ↗</a></p>
 </article>

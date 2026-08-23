@@ -15,18 +15,20 @@
 <p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
 
 <pre class="sig"><code>def _stage_whatif(source, exp_dir, dry, log, rt=None)</code></pre>
-<section class="doc">Cross-cell what-if outputs from the RUN ROOT into data/ + images/.
+<section class="doc">Run-root outputs — the cross-cell what-if summaries AND the run dossier — into
+data/ + images/.
 
 whatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no
 producer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.
 Absent on a single-cell run, which is not an error.
 
-With a resolver the candidates come from the contract&#x27;s `whatif` group tag
-(`rt.whatif_outputs()` — a new group member surfaces here with no edit); what is STAGED is
-shape-based, never name-based: every group `.json` into data/ (the committed sources the
-prose quotes) and every group PNG into images/.  The literal joins below remain the
-pre-descriptor route.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___copy.html"><code>_copy</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
+With a resolver the candidates come from the contract&#x27;s GROUP TAGS (`_RUN_GROUPS`), so a
+new document its writers emit stages itself with no edit here; what is STAGED is
+shape-based, never name-based: every group data file into data/ (the committed sources
+the prose quotes) and every group PNG into images/.  That is why this function can serve
+two producers where `_stage_rollups` and `_stage_leaf_tables` name their artifacts one at
+a time and cost an edit each.  The literal joins below remain the pre-descriptor route.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___copy.html"><code>_copy</code></a> <span class="dim">docs/experiments/ingest.py</span></li><li><a href="ndocs_experiments_ingest_py___reader_tree.html"><code>_reader_tree</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___stage_whatif">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_stage_whatif">Source ↗</a></p>
 </article>
 </main>

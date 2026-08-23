@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objective · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_objectives_py__Objective" data-id="Optimization/config/objectives.py::Objective">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_objectives_py.html"><code>Optimization/config/objectives.py</code></a> <span class="sep">›</span> <span class="here"><code>Objective</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>Objective</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_objectives_py.html"><code>Optimization/config/objectives.py</code></a></p>
+
+<pre class="sig"><code>@dataclass(frozen=True)
+class Objective</code></pre>
+<section class="doc">One restock rule&#x27;s identity: what it is called, what code it is, what it optimises.
+
+rule       restock key, matching `Strategy.restock` and `_RESTOCKS[i][0]`
+label      display label, matching `_RESTOCKS[i][1]`
+family     which bracket it belongs to (see `FAMILIES` below)
+sense      &#x27;min&#x27; | &#x27;max&#x27; | &#x27;none&#x27; — the direction of its argument
+stage      &#x27;per_unit&#x27; | &#x27;ranked_wave&#x27; | &#x27;precomputed_map&#x27; — WHEN it decides
+symbol     the placement function the builder actually calls
+module     repo-relative file that DEFINES `symbol`
+builder    the `_build_*` in the strategy grid that wires it up
+precompute an offline build step run once per arm before the sim, or &#x27;&#x27; for none.
+           This is the field a WMS reader needs: a rule with a precompute has a job
+           to schedule; a rule without one is pure per-arrival scoring.
+latex      the objective, one expression, `$…$`-delimited
+notes      the mechanism prose that belongs with the formula rather than the page
+control    True for the deliberate worst-case bracket controls (designed to lose)</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_objectives_py___ENTRIES.html"><code>_ENTRIES</code></a> <span class="dim">Optimization/config/objectives.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_objectives_py__Objective">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/objectives.py#:~:text=class%20Objective">Source ↗</a></p>
+</article>
+</main>
+</body></html>

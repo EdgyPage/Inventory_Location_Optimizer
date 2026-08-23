@@ -54,6 +54,27 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/catalog/fixed.py":
+    purpose: "what this sweep VARIED, and what it held still."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "register", file: "Optimization/Performance_Evaluations/catalog/fixed.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/catalog/fixed.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/catalog/inventory.py":
+    purpose: "the inventory model the run PRODUCED, not the one its formula states."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "pair_model", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/catalog/rules.py":
+    purpose: "the rule catalogue, as the RUN executed it."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "catalog", file: "Optimization/Performance_Evaluations/catalog/rules.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/catalog/rules.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/common/chartkit.py":
     purpose: "the one rendering contract every figure in the suite draws through."
     layer: "evaluations"
@@ -111,7 +132,8 @@ files:
   "Optimization/Performance_Evaluations/common/stats_core.py":
     purpose: "Statistical machinery for the significance suite (verbatim from the retired"
     layer: "evaluations"
-    key_symbols: []
+    key_symbols:
+      - {name: "census", file: "Optimization/Performance_Evaluations/common/stats_core.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/common/style.py":
     purpose: "Styling + layout helpers shared across graphs (verbatim from the retired monoliths)."
@@ -134,6 +156,7 @@ files:
       - {name: "figure_subdir", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "save_in_bounds", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "config_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "run_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/core/context.py":
     purpose: "the per-config (and per-aggregate-group) data hub."
@@ -142,6 +165,7 @@ files:
       - {name: "REQUIRES", file: "Optimization/Performance_Evaluations/core/context.py", kind: "const"}
       - {name: "EvalContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
       - {name: "AggregateContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
+      - {name: "RunContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
     notes: ""
   "Optimization/Performance_Evaluations/core/discovery.py":
     purpose: "Auto-discovery: import every submodule so @evaluation decorators fire."
@@ -154,6 +178,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "VIEWS", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
+      - {name: "RUN_SCOPE_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "check_view", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
       - {name: "figures_subdir", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
     notes: ""
@@ -179,6 +204,21 @@ files:
       - {name: "tally_snapshot", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "sql", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/cost/compute.py":
+    purpose: "three views of what a placement rule costs to RUN."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/cost/compute.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/cost/rollup.py":
+    purpose: "the per-rule compute-cost table, and the two spans it must keep apart."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "BASE_RULE", file: "Optimization/Performance_Evaluations/cost/rollup.py", kind: "const"}
+      - {name: "units_placed", file: "Optimization/Performance_Evaluations/cost/rollup.py", kind: "function"}
+      - {name: "cost_rows", file: "Optimization/Performance_Evaluations/cost/rollup.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/cost/rollup.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/diagnostics/metric_grids.py":
     purpose: "small-multiple grids, one panel per arm."
     layer: "evaluations"
@@ -197,12 +237,15 @@ files:
     key_symbols:
       - {name: "prepare_config_dirs", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "prepare_aggregate_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "prepare_run_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "resolve_params", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_config", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_aggregate", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_at_root", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_one", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "config_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "aggregate_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_root_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/headline/all_arms.py":
     purpose: "every arm's % improvement vs the FIFO baseline, at a glance."
@@ -280,6 +323,14 @@ files:
       - {name: "render_suite", file: "Optimization/Performance_Evaluations/significance/suite.py", kind: "function"}
       - {name: "render_by_initial", file: "Optimization/Performance_Evaluations/significance/suite.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/tables/census.py":
+    purpose: "the count/span claims the pages keep making, computed instead of typed."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "comparisons", file: "Optimization/Performance_Evaluations/tables/census.py", kind: "function"}
+      - {name: "census_blocks", file: "Optimization/Performance_Evaluations/tables/census.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/tables/census.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/tables/per_run.py":
     purpose: "the two per-run CSV data products (raw long-format per-batch table and per-run rollup), ported verbatim from the retired per-strategy report module."
     layer: "evaluations"
@@ -353,6 +404,15 @@ files:
       - {name: "FF_BATCH_SEED_OFFSET", file: "Optimization/config/channels.py", kind: "const"}
       - {name: "build_channels", file: "Optimization/config/channels.py", kind: "function"}
       - {name: "wp_by_regime", file: "Optimization/config/channels.py", kind: "function"}
+    notes: ""
+  "Optimization/config/objectives.py":
+    purpose: "what each restock rule OPTIMISES, in one machine-readable place."
+    layer: "opt_config"
+    key_symbols:
+      - {name: "Objective", file: "Optimization/config/objectives.py", kind: "class"}
+      - {name: "FAMILIES", file: "Optimization/config/objectives.py", kind: "const"}
+      - {name: "objective_for", file: "Optimization/config/objectives.py", kind: "function"}
+      - {name: "as_dicts", file: "Optimization/config/objectives.py", kind: "function"}
     notes: ""
   "Optimization/config/sim_config.py":
     purpose: "the run's single source of tunable truth."
@@ -542,8 +602,10 @@ files:
       - {name: "PRE_STAMP_RUNTIME_SCHEMA_ID", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "RUNTIME_DB_FAMILY", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "SECTIONS", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
+      - {name: "OUTSIDE_TOTAL", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "runtime_db_path", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
       - {name: "record_arm", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
+      - {name: "record_precompute", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
       - {name: "load_rows", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
     notes: ""
   "Optimization/run_analysis.py":
@@ -560,12 +622,14 @@ files:
       - {name: "rollup", file: "Optimization/run_channel_rollup.py", kind: "function"}
       - {name: "main", file: "Optimization/run_channel_rollup.py", kind: "function"}
     notes: ""
-  "Optimization/run_runtime_graphs.py":
-    purpose: "Runtime (compute-cost) graphs from runtime_metrics.db \u2014 ranks slowest arms / assignment-fns / warehouses / cells and a per-section stacked breakdown surfacing hot-paths; part of the analysis hub (analyze_run)."
+  "Optimization/run_map_precompute.py":
+    purpose: "measure the map family's OFFLINE build on a finished run."
     layer: "optimization"
     key_symbols:
-      - {name: "run", file: "Optimization/run_runtime_graphs.py", kind: "function"}
-      - {name: "main", file: "Optimization/run_runtime_graphs.py", kind: "function"}
+      - {name: "MAP_RULES", file: "Optimization/run_map_precompute.py", kind: "const"}
+      - {name: "measure_pair", file: "Optimization/run_map_precompute.py", kind: "function"}
+      - {name: "run", file: "Optimization/run_map_precompute.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_map_precompute.py", kind: "function"}
     notes: ""
   "Optimization/run_simulation.py":
     purpose: "Warehouse assignment strategy simulation runner."
@@ -1113,6 +1177,22 @@ files:
       - {name: "test_figure_evaluation_keys_carry_their_family", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
       - {name: "test_registries_are_not_empty", file: "Tests/architecture/test_registry_discovery.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_rule_catalog.py":
+    purpose: "a published objective must belong to the code it names."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_restock_rule_has_exactly_one_objective", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_labels_match_the_grid", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_objective_for_resolves_a_strategy_and_a_bare_key", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_every_named_symbol_exists_in_the_module_it_names", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_every_builder_calls_the_symbol_its_entry_claims", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_the_map_family_names_its_precompute_and_nobody_else_does", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_every_grid_builder_is_reachable_from_exactly_one_entry", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_field_vocabulary_and_the_designed_to_lose_set", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_latex_is_present_where_there_is_an_objective_and_balanced", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_as_dicts_is_json_ready_and_ordered_like_the_declaration", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+      - {name: "test_generated_anchors_cover_every_rule_fragment_the_docs_link_to", file: "Tests/architecture/test_rule_catalog.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_runtree_consumption.py":
     purpose: "hand-written run-tree path knowledge may only SHRINK."
     layer: "tests"
@@ -1630,7 +1710,8 @@ files:
       - {name: "test_ingest_leaf_file_store_only_shape", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_ingest_run_spec_and_manifest_literals", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_ingest_sim_meta_lookup_contract_equals_walk", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
-      - {name: "test_ingest_whatif_staging_contract_equals_glob", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_ingest_run_root_staging_is_a_superset_of_the_legacy_route", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+      - {name: "test_run_root_staging_groups_are_declared_by_some_contract", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "macros", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_macros_verifier_is_silent_without_schema_id", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_macros_verifier_accepts_every_committed_contract", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
@@ -1765,10 +1846,14 @@ files:
     key_symbols:
       - {name: "test_record_and_load_roundtrip", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_missing_observability_keys_write_nulls_not_raises", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_setup_spans_are_nullable_and_stamped_with_their_provenance", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_a_measured_zero_survives_as_a_zero", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_backfill_updates_an_existing_arm_and_says_it_was_a_backfill", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_backfill_migrates_a_db_written_before_the_columns_existed", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_backfill_refuses_to_invent_a_row_or_an_unknown_source", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_the_setup_span_is_not_a_section", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_key_is_unique_and_overwrites", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_load_absent_is_empty", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_graphs_emitted", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
-      - {name: "test_graphs_skip_without_db", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
     notes: ""
   "Tests/integration/test_simconfig_registry.py":
     purpose: "Locks the simconfig registry \u2014 STORE/FULFILLMENT_CONFIGS rebuilt byte-identically from @pick_config modules, ordered, disabled variants excluded, legacy aliases intact."
@@ -1877,7 +1962,8 @@ files:
       - {name: "test_aggregate_stats_pair_renders_the_tables_literals", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_leaf_tables_render_under_the_tables_folder", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_volume_outputs_render_on_a_run_predating_their_artifacts", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
-      - {name: "test_runtime_png_dir_renders_the_old_literal", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_dossier_tree_renders_on_both_run_shapes", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
+      - {name: "test_dossier_documents_are_grouped_so_staging_needs_no_name_list", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
     notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"
@@ -1972,6 +2058,22 @@ files:
       - {name: "test_bell_build_is_reproducible_and_seed_sensitive", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
       - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
       - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_census.py":
+    purpose: "the count/span claim a page makes must be the one the data supports."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_lower_is_better_counts_negatives_as_wins", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_an_unknown_direction_is_refused", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_ties_leave_the_sign_test_but_stay_in_the_count_and_the_span", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_an_all_tie_group_reports_no_p_value_rather_than_one", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_nans_and_nones_are_dropped_and_counted_not_treated_as_ties", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_a_clean_sweep_is_significant_and_its_interval_reaches_one", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_a_coin_flip_is_not_significant", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_groups_plus_an_overall_row_all_carrying_every_column", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_a_derived_group_needs_a_name", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_ungrouped_returns_exactly_one_row", file: "Tests/unit/test_census.py", kind: "function"}
+      - {name: "test_value_may_be_a_callable_and_rows_may_be_objects", file: "Tests/unit/test_census.py", kind: "function"}
     notes: ""
   "Tests/unit/test_channel_strategy_subset.py":
     purpose: "test_channel_strategy_subset.py"
@@ -2084,6 +2186,18 @@ files:
       - {name: "test_guard_raises_when_armed_with_scan_fn", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
       - {name: "test_guard_raises_when_index_fn_without_arming", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
       - {name: "test_guard_silent_when_consistent", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_inventory_optimal_solver.py":
+    purpose: "the map says which branch it actually took."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_small_class_is_solved_exactly", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_the_unit_cap_and_the_product_cap_are_reported_separately", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_a_failed_solve_is_recorded_and_logged_not_silently_greedy", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_the_failure_path_returns_exactly_what_greedy_would_have", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_absent_scipy_reports_itself_distinctly", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+      - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
     notes: ""
   "Tests/unit/test_mixed_catalog_channels.py":
     purpose: "test_mixed_catalog_channels.py"
@@ -2635,6 +2749,7 @@ files:
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."
     layer: "wh_inventory"
     key_symbols:
+      - {name: "BRANCHES", file: "Warehouse/inventory/inventory_optimal.py", kind: "const"}
       - {name: "OptimalLayoutMixin", file: "Warehouse/inventory/inventory_optimal.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_planning.py":

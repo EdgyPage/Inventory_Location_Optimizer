@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>record_precompute · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_runtime_metrics_py__record_precompute" data-id="Optimization/persistence/runtime_metrics.py::record_precompute">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_runtime_metrics_py.html"><code>Optimization/persistence/runtime_metrics.py</code></a> <span class="sep">›</span> <span class="here"><code>record_precompute</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>record_precompute</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_runtime_metrics_py.html"><code>Optimization/persistence/runtime_metrics.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def record_precompute(run_root: str, cell: str, uid, seconds: float, source: str, map_lap_pct=None) -&gt; bool</code></pre>
+<section class="doc">Fill an existing arm&#x27;s setup-phase measurement; True when a row was updated.
+
+The inline path (`record_arm`) writes these at simulation time.  This is the other
+door: a finished run whose arms predate the columns can be measured afterwards by
+rebuilding the arm&#x27;s warehouse and timing the precompute alone, without re-simulating
+hundreds of GB.  `source` separates the two so nothing downstream has to guess —
+&#x27;inline&#x27; seconds are contended against the sweep&#x27;s whole worker pool, a &#x27;backfill&#x27;
+measurement is not, and the two are not comparable as ratios.
+
+Updates only; a missing row means the arm never ran, and inventing one here would put
+a measurement in the table with no simulation behind it.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py___migrate_setup_columns.html"><code>_migrate_setup_columns</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py__runtime_db_path.html"><code>runtime_db_path</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nSchema_connect_py__close.html"><code>close</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_map_precompute_py__measure_pair.html"><code>measure_pair</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_runtime_metrics_py__record_precompute">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/runtime_metrics.py#:~:text=def%20record_precompute">Source ↗</a></p>
+</article>
+</main>
+</body></html>

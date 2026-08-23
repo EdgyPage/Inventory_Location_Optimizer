@@ -16,7 +16,14 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@env.macro
 def reorder_formula(*args)</code></pre>
-<section class="doc">Equilibrium / reorder-point model with this config&#x27;s averages.</section>
+<section class="doc">This run&#x27;s realised inventory averages — deliberately NOT a closed form.
+
+It used to print one, and the formula it printed did not reproduce the catalogue:
+the planner&#x27;s equilibrium target is rescaled to fit the warehouse afterwards, so
+the stated form was out by an order of magnitude, and neither candidate
+reorder-point expression matched more than about half the stored values. A macro
+that prints an equation asserts the equation holds. This prints the averages the
+run recorded; `inventory_model()` publishes the distribution behind them.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_reorder_formula">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20reorder_formula">Source ↗</a></p>
 </article>

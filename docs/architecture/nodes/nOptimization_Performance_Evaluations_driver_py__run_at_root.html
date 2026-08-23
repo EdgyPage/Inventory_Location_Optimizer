@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>run_at_root · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_driver_py__run_at_root" data-id="Optimization/Performance_Evaluations/driver.py::run_at_root">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_driver_py.html"><code>Optimization/Performance_Evaluations/driver.py</code></a> <span class="sep">›</span> <span class="here"><code>run_at_root</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>run_at_root</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_driver_py.html"><code>Optimization/Performance_Evaluations/driver.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def run_at_root(ctx, keys, overrides, cli_set)</code></pre>
+<section class="doc">Run all run-scope evaluations named in `keys`, over the whole run root.
+
+Called by analyze_run AFTER every cell and after the cross-cell what-if writers: these
+evaluations read what those stages produced, so ordering is a data dependency, not a
+preference.  Serial in the parent — there are a handful of them and each one reads the
+entire run, so a pool would buy nothing and cost the wipe-race rule.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py___run_one.html"><code>_run_one</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_analyze_run_py___run_root_stage.html"><code>_run_root_stage</code></a> <span class="dim">Optimization/analyze_run.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_driver_py__run_at_root">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/driver.py#:~:text=def%20run_at_root">Source ↗</a></p>
+</article>
+</main>
+</body></html>

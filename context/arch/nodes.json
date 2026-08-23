@@ -544,6 +544,155 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/catalog/__init__.py": {
+      "decorators": [],
+      "doc": "catalog.* evaluations \u2014 what the run WAS, emitted from the run.\n\nNot results: identity.  Which rule is which Python symbol and what it optimises; what the\ninventory model actually produced as opposed to what its formula says; which factors were\nvaried and which were held fixed.  Every one of these was hand-written prose on the\npublished site, and every one of them was found drifting from the code or the data it\ndescribed.\n\nRun scope, because the answers are properties of the whole sweep rather than of a leaf,\nand because emitting them beside the results is what makes them versioned WITH the results\ninstead of maintained alongside them.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py": {
+      "decorators": [],
+      "doc": "catalog.fixed \u2014 what this sweep VARIED, and what it held still.\n\n\"Not tested\" is a finding, and it was the one part of the published methodology that had no\nartifact behind it.  A reader asking \"is this sensitive to safety stock?\" got silence, which\nreads as an oversight rather than as a scope boundary \u2014 and a reader asking \"what else did\nyou hold fixed?\" had to reconstruct the answer from four config files.\n\nThis derives both halves from the run itself.  A factor is VARIED when the run's own tree\ncarries more than one distinct value of it, and FIXED when it carries exactly one; the\nfixed list is therefore complete by construction rather than by an author remembering.  A\nfactor whose value never appears anywhere \u2014 safety stock on the plan builder, which has no\nsuch parameter \u2014 is reported as ABSENT, which is a third and different thing: not held at a\nvalue, but not a knob this model has.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_ABSENT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('safety_stock', 'The plan builder this run used derives the reorder point from lead time alone; it takes no safety-stock parameter, so there is no value to hold fixed. Varying it means changing t..."
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_CONFIG_FACTORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('n_batches', 'waves per run'), ('num_pickers', 'crew size'), ('total_aisles', 'aisles'), ('total_bins', 'bins'), ('n_skus', 'stocked SKUs'), ('sampler', 'demand sampler'), ('pick_intercept', 'per..."
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_PATH_KEYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('profiles_dir', 'base_dir', 'output_dir', 'inv_db', 'aff_db')"
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_levels": {
+      "decorators": [],
+      "doc": "{factor: sorted distinct values} across the whole run, from the tree and the leaves.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_levels.add": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name, value)"
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_publishable_spec": {
+      "decorators": [],
+      "doc": "The run's shaping scalars, with anything path-shaped removed.\n\nScalars only (a nested list is the sweep's own matrix, reported by `varied` instead),\nand no value that looks like a filesystem location \u2014 a key name is not enough to go\non, so the value is checked too.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec: dict) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::register": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::render": {
+      "decorators": [
+        "evaluation(key='catalog.fixed', label='What the sweep varied, and what it held fixed', scope='run', out_subdir='')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py": {
+      "decorators": [],
+      "doc": "catalog.inventory \u2014 the inventory model the run PRODUCED, not the one its formula states.\n\nWHY THIS EXISTS.  The published pages carried an equilibrium/reorder model in prose:\n`q_eq = round(coverage x dbar)` and `ROP = round(dbar x (lead + safety))`.  Checked against\nthe run's own frozen catalogue, the stated equilibrium is off by an order of magnitude\n(coverage 10 x mean demand ~= 39 against a realised mean of ~3.5) and neither ROP formula\nreproduces even 55 % of the stored values.  Nothing was wrong with the simulation; the\nprose described the planner's intent and the catalogue records what survived\n`sample_to_capacity`, which rescales both to fit the warehouse.  A page cannot state a\nformula for that \u2014 it has to publish the distribution.\n\nWHAT THIS EMITS.  Realised distributions for the four quantities the pages talk about, the\nper-SKU reproduction rate of each candidate formula (so \"neither one\" is a measurement\nrather than an assertion), and the implied rescale factor.  A page renders these instead of\nrestating a formula, and the next time the planner changes, the page changes with it.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_FIELDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('equilibrium_qty', 'reorder_point', 'lead_time_mean', 'expected_batch_demand')"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_ROP_FORMULAS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('ceil_lead_plus_1', 'ceil(dbar * (lead + 1)), clamped to [1, eq-1] \u2014 build_inventory_from_plan', lambda d, lead, eq: max(1, min(eq - 1, math.ceil(d * (lead + 1)))) if eq > 1 else 1), ('round_lead..."
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_dist": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals: list) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_dist.q": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(p)"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::pair_model": {
+      "decorators": [],
+      "doc": "Realised distributions + formula reproduction rates for one frozen catalogue.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db_path: str) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::render": {
+      "decorators": [
+        "evaluation(key='catalog.inventory', label='The inventory model this run actually produced', scope='run', needs=('catalogue',), out_subdir=('', 'tables'))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/catalog/rules.py": {
+      "decorators": [],
+      "doc": "catalog.rules \u2014 the rule catalogue, as the RUN executed it.\n\n`Optimization/config/objectives.py` is the registry; this emits it into the run, joined\nagainst what the run actually swept.  The join is the point: a catalogue printed straight\nfrom the registry describes the code at read time, and a page rendering it beside results\nwould silently list rules the sweep never ran, or omit that a rule ran on one channel only.\nEvery entry therefore carries `ran`, the arms that carried it, and the channels it appeared\non \u2014 read from the run's own per-arm rows.\n\nMap-family entries additionally carry the measured solver split.  The published site says\nthe Map target comes from \"the full linear assignment problem\"; the exact solver has a size\ngate, and at production catalogue scale the large BinKey classes are far past it.  Whatever\nthe split was, it is now a field rather than an adjective.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/catalog/rules.py::_observed": {
+      "decorators": [],
+      "doc": "{rule: {'arms': [...], 'channels': [...], 'map_lap_pct': float|None}} from the run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/rules.py::catalog": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows) -> dict"
+    },
+    "Optimization/Performance_Evaluations/catalog/rules.py::render": {
+      "decorators": [
+        "evaluation(key='catalog.rules', label='What each placement rule is, and whether it ran', scope='run', needs=('runtime',), out_subdir='')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/common/__init__.py": {
       "decorators": [],
       "doc": null,
@@ -669,6 +818,20 @@
       "signature": null,
       "value_preview": "0.165"
     },
+    "Optimization/Performance_Evaluations/common/chartkit.py::_PANEL_TITLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.3"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::_ROW_GAP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.42 * _PANEL_H"
+    },
     "Optimization/Performance_Evaluations/common/chartkit.py::_TIME_UNITS": {
       "decorators": [],
       "doc": null,
@@ -703,6 +866,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(labels, title, ncol=1)"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::_hspace": {
+      "decorators": [],
+      "doc": "Row gap as a CONSTANT physical distance, expressed in matplotlib's fraction units.\n\n`hspace` is a fraction of the mean axes height, so a tall panel gets a proportionally\ntaller gap: a 17-category ladder at ~6 in per panel opened a 2.5-inch band of white\nbetween rows, which reads as two unrelated figures stacked in one file.  The gap has\nto clear one x-label plus the next row's title, and that is a fixed number of inches\nno matter how tall the panels are.\n\nCapped at the historical 0.42 so nothing SHORTER than the default panel moves \u2014 this\nonly ever shrinks an oversized gap.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(panel_h: float) -> float"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::annotate_points": {
       "decorators": [],
@@ -769,10 +939,10 @@
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::make": {
       "decorators": [],
-      "doc": "Build a Chart whose geometry is computed from its content.\n\npanels     total data panels; laid out on `ncols` columns (default: all in one row\n           up to 3, then near-square).\npanel_w/h  per-panel inches; category-heavy charts pass the `for_categories` helpers.\nlegend     'gutter' reserves a right-hand strip sized to `legend_labels`;\n           'bottom' reserves a strip below the panels (wide categorical charts);\n           'none' reserves nothing.\nThe suptitle band and the provenance footer band are always part of the geometry, so\nneither can ever collide with data, ticks, or the legend.",
+      "doc": "Build a Chart whose geometry is computed from its content.\n\npanels     total data panels; laid out on `ncols` columns (default: all in one row\n           up to 3, then near-square).\npanel_w/h  per-panel inches; category-heavy charts pass the `for_categories` helpers.\nlegend     'gutter' reserves a right-hand strip sized to `legend_labels`;\n           'bottom' reserves a strip below the panels (wide categorical charts);\n           'none' reserves nothing.\npanel_titles  the caller will `ax.set_title` each panel \u2014 matplotlib draws those\n           ABOVE the axes, i.e. into the suptitle band, so the band grows to hold\n           them.  Without this a faceted chart's first-row titles overprint the\n           subtitle, which is legible enough in a thumbnail to ship and illegible\n           at full size.\nThe suptitle band and the provenance footer band are always part of the geometry, so\nneither can ever collide with data, ticks, or the legend.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H, legend='gutter', legend_labels=(), legend_title=None, sharex=False, sharey=False, footer=True)"
+      "signature": "(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H, legend='gutter', legend_labels=(), legend_title=None, sharex=False, sharey=False, footer=True, panel_titles=False)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::mark_baseline": {
       "decorators": [],
@@ -1119,6 +1289,13 @@
       "kind": "function",
       "signature": "(sample, stat=np.median, *, n_boot: int=_BOOT, seed: int=0, alpha: float=0.05, block: int | None=None) -> tuple"
     },
+    "Optimization/Performance_Evaluations/common/stats_core.py::_census_one": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(group: dict, values, sign: float, alpha: float) -> dict"
+    },
     "Optimization/Performance_Evaluations/common/stats_core.py::_clean": {
       "decorators": [],
       "doc": "Recursively replace NaN/Inf with None so the JSON is valid + portable.",
@@ -1196,6 +1373,13 @@
       "kind": "function",
       "signature": "(uni_med: float, opt_med: float, lower: bool) -> str"
     },
+    "Optimization/Performance_Evaluations/common/stats_core.py::_pluck": {
+      "decorators": [],
+      "doc": "Read `spec` off `row` \u2014 a mapping key, an attribute, or a callable applied to it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, spec)"
+    },
     "Optimization/Performance_Evaluations/common/stats_core.py::_rank_biserial": {
       "decorators": [],
       "doc": "Matched-pairs rank-biserial correlation in [-1, 1].\n>0 \u21d2 a tends to exceed b.  Derived from the signed-rank sums of (a-b).",
@@ -1216,6 +1400,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(M: np.ndarray, keys: list, lower_better: bool) -> dict"
+    },
+    "Optimization/Performance_Evaluations/common/stats_core.py::_sign_test": {
+      "decorators": [],
+      "doc": "(p, p_floor, ci_lo, ci_hi) for \"more comparisons land in the claimed direction\".\n\nExact binomial against p=0.5, one-sided (the claim is directional), with a\nClopper-Pearson interval on the win rate.  Ties are excluded from the denominator\nhere \u2014 the standard sign-test convention \u2014 and reported separately by the caller so\nthe exclusion is visible rather than assumed.\n\n`p_floor` is 0.5**n: the SMALLEST p this many comparisons can produce, reached only by\na clean sweep.  It is returned because without it a small group is silently\nunfalsifiable \u2014 at n=4 the floor is 0.0625, so a rule that went the claimed way in\nevery single comparison still prints \"not significant\" against a conventional\nthreshold, and a reader scanning the column would draw the opposite conclusion from\nthe one the data supports.  Publish the floor beside the p and the reader can see when\nthe test, rather than the effect, ran out of room.\n\n(nan, \u2026) when nothing is left to test: an all-ties group has no direction to have been\nright about, and reporting p=1 there would read as evidence of no effect.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n_pos: int, n_neg: int, alpha: float=0.05) -> tuple"
+    },
+    "Optimization/Performance_Evaluations/common/stats_core.py::census": {
+      "decorators": [],
+      "doc": "Count/span evidence for a directional claim, over any flat comparison row set.\n\nOne dict per group plus a trailing overall row (``group={}``), each carrying:\n\n    n n_pos n_neg n_zero n_nan     the population and how it splits\n    win_rate                       n_pos / (n_pos + n_neg), ties excluded\n    p_sign ci_lo ci_hi             exact one-sided sign test + Clopper-Pearson\n    p_floor                        the smallest p this n could ever reach (0.5**n) \u2014\n                                   read `p_sign` against it, not against 0.05\n    median q1 q3 iqr min max       the span, over the FINITE values\n\n`value` may be a mapping key, an attribute name, or a callable taking the row.  Each\nmember of `group_by` is a NAME (used as the ``group_<name>`` column) or a\n``(name, callable)`` pair when the group is derived rather than stored \u2014 a bare\ncallable is refused, because a group column with no name cannot be written to a CSV\nor looked up from a page.  `better` fixes the sign convention \u2014 with ``'lower'`` a\nnegative value counts as positive evidence \u2014 so `n_pos` always means \"in the claimed\ndirection\" no matter which way the underlying metric points.  That is the whole\nreason this takes a direction rather than leaving it to the caller: a census whose\nsign convention lives at the call site is exactly the hand-rolled count it replaces.\n\nNaNs are dropped from every statistic and counted in `n_nan`; zeros are counted in\n`n_zero`, kept in the span, and excluded from the sign test.  `n` is the finite\ncount, so ``n == n_pos + n_neg + n_zero``.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, *, value, group_by=(), better='higher', alpha: float=0.05) -> list"
     },
     "Optimization/Performance_Evaluations/common/style.py": {
       "decorators": [],
@@ -1363,7 +1561,7 @@
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir": {
       "decorators": [],
-      "doc": "A template's directory relative to its stage root \u2014 the segments after the tree levels\n(`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`\naggregate).  Level placeholders are exactly the `{...}`-braced segments; `{initial_group}`\nis NOT a level (it is a subdir the eval creates), so braced segments only strip from the\nFRONT.",
+      "doc": "A template's directory relative to its stage root \u2014 the segments after the tree levels\n(`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`\naggregate, `_dossier/...` run).  Level placeholders are exactly the `{...}`-braced\nsegments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced\nsegments only strip from the FRONT.\n\nA leading `_`-prefixed segment is a RESERVED STAGE ROOT, not an output subdir: the\ncontract uses that prefix for exactly these (`_aggregate`, `_dossier`, `_frozen`) and\nthe run tree reserves it, so matching the prefix is the rule rather than listing the\nnames.  This read `parts[0] == '_aggregate'` when `_aggregate` was the only one.",
       "is_async": false,
       "kind": "function",
       "signature": "(template: str) -> str"
@@ -1395,6 +1593,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::run_dirs": {
+      "decorators": [],
+      "doc": "Every declared out_subdir of a RUN-scope evaluation, deepest-safe creation order.\n\nThe config stage needs the shared-top/single-owner distinction because its evaluations\nrun in a worker pool and two owners must not race to wipe one directory.  Run scope has\nno such hazard \u2014 `analyze_run` executes these serially in the parent, after every cell\nis finished \u2014 so the whole `_dossier/` root is wiped once and every declared subdir is\nrecreated, with no ownership rule to get wrong.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::save_in_bounds": {
       "decorators": [],
@@ -1553,6 +1758,100 @@
       "signature": null,
       "value_preview": "_compat.Requires(family='sim_db', label='Performance_Evaluations analysis context', tables={'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', '..."
     },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext": {
+      "decorators": [],
+      "doc": "Whole-run context: the run ROOT and everything under it, across cells.\n\nThe third scope, and the one the other two structurally cannot be.  `EvalContext` sees\none channel-run leaf; `AggregateContext` sees the profiles of one cell x config x\nchannel.  Neither can see two cells, so every cross-cell question \u2014 the scheduler\ncomparison, the compute cost of a rule across the whole sweep, what the run held fixed\n\u2014 had to live outside the registry, in hand-written writers whose figures the family\ngrammar never checked and whose PNGs the site guard needs a hardcoded exemption for.\nThis is the scope those belong in.\n\nReads are memoised and lazy, in the same spirit as `EvalContext`: nothing is opened\nuntil an evaluation's `needs=` resolves it through the broker.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, run_root: str, out_dir: str, log: logging.Logger) -> None"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.catalogue_dbs": {
+      "decorators": [],
+      "doc": "[(pair, planned_inventory_db_path)] for the catalogues this run actually stocked.\n\n`planned_inventory` is a contract ALIAS: a multi-cell run freezes one catalogue per\npair under the run root, a single-cell run writes one per cell.  Both `cell` and\n`pair` are supplied so the alias can resolve either shape \u2014 which is the whole\nreason to go through the resolver instead of joining the frozen pair directory.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.footer": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.from_run_root": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, run_root: str, out_dir: str) -> 'RunContext'"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.leaf_rows": {
+      "decorators": [],
+      "doc": "Every channel-run leaf's copy of a per-leaf CSV, each row tagged with its leaf.\n\nThe tag is what makes a run-scope reduction possible at all: the per-leaf tables\ncarry no cell/pair/config/channel columns, because at leaf scope those are the\ndirectory.  Positional resolution through the resolver, never a name match \u2014 the\nstore CONFIG and the store CHANNEL are both called `store`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str) -> list"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.reader": {
+      "decorators": [],
+      "doc": "A resolver for an analysis-produced artifact \u2014 HEAD's contract, then the run's.\n\nRun-scope evaluations read what the SAME analysis pass just wrote, so they must\nlook where today's suite puts things.  `runschema.reader_for` carries the whole\nargument, including why an absence-only fallback silently loses a moved file.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.rt": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The run-tree resolver for this run \u2014 the ONLY way to reach a path under it.\n\nBound to the contract the RUN recorded, which is right for everything the\nsimulation wrote.  Artifacts the ANALYSIS writes go through `reader()` instead.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.run_spec": {
+      "decorators": [],
+      "doc": "The run's own recorded invocation spec, or {} when it has none.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.run_workers": {
+      "decorators": [],
+      "doc": "How many worker processes the sweep ran, or None if unrecorded.\n\nLoad-bearing provenance for anything quoting a wall time: these seconds were\nmeasured under that much contention, so they are an upper bound rather than a\nclean benchmark, and a ratio against an uncontended measurement is not a ratio.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.runtime_rows": {
+      "decorators": [],
+      "doc": "Per-arm compute-cost rows, or [] when the run predates the runtime DB.\n\nThese are REAL wall seconds, contended against whatever worker pool the sweep\nran \u2014 never the modeled warehouse seconds every other context serves.  Anything\nrendering them says which kind of second it means.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.whatif_doc": {
+      "decorators": [],
+      "doc": "A cross-cell what-if JSON summary, resolved through the contract ({} if absent).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str) -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::RunContext.whatif_rows": {
+      "decorators": [],
+      "doc": "A cross-cell what-if CSV as a list of dicts, resolved through the contract.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, artifact: str) -> list"
+    },
     "Optimization/Performance_Evaluations/core/context.py::_provenance_parts": {
       "decorators": [],
       "doc": "Directory names from the RUN ROOT down to `leaf_dir`, for a figure's provenance footer.\n\nThe run root is the dir holding run_layout.json (the run-tree descriptor).  Anchoring on that\nmarker keeps the label correct whether the leaf is `<cell>/<pair>/<config>` (store-only) or\n`<cell>/<pair>/<config>/<channel>` (mixed) \u2014 a fixed dirname-hop count cannot be right for both.\nFalls back to the last three components when no descriptor is found (e.g. an ad-hoc dir under\ntest), so this never raises inside a plotting call.",
@@ -1585,6 +1884,13 @@
       "doc": "The chart-family grammar \u2014 which VIEWS each family of figures must and may carry.\n\nA family is one folder under a leaf's figures/ tree (figures/<family>/) holding every\nfigure that answers one class of question.  A VIEW is the measurement stance of a single\nfigure, named by its filename prefix:\n\n    absolute_  raw quantities in honest units (hours, items, % of time)\n    percent_   improvement vs the baseline, positive = better (chartkit.improvement_pct)\n    delta_     paired per-batch / cumulative differences over time\n    effect_    effect sizes + significance (the discriminating stance at n=75, where\n               p-stars alone are all ***)\n    table_     a tabular summary rendered as a figure\n\nThe grammar exists so \"absolute counts, percent views, deltas and significance baked in\nas appropriate\" is a CHECKED property, not an editorial habit: every evaluation declares\nits family and views, `chartkit.Chart.save(view=...)` validates each file it writes, and\nthe writer-paths golden test asserts each family's `required` views actually exist on the\nfixture render.  `diagnostics` is the deliberate exemption \u2014 raw operational read-outs\n(grids, scorecards) whose job is inspection, not comparison.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/families.py::RUN_SCOPE_FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('cost',)"
     },
     "Optimization/Performance_Evaluations/core/families.py::VIEWS": {
       "decorators": [],
@@ -1717,6 +2023,33 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_run_catalogue": {
+      "decorators": [
+        "request('catalogue', 'run')"
+      ],
+      "doc": "The run's own frozen catalogue \u2014 what the inventory model REALLY produced.\n\nNot the generator's parameters and not the config's averages: the per-SKU rows the\nsimulation actually stocked, which is the only population a published distribution\nmay be computed over.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_run_runtime": {
+      "decorators": [
+        "request('runtime', 'run')"
+      ],
+      "doc": "Per-arm wall-clock compute rows from the run root's runtime metrics DB.\n\nDenied when the DB is absent \u2014 a re-analysis of a run made before it existed is a\nnormal thing to do, and the cost figures should be skipped with a reason rather than\nrendered empty.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_run_whatif": {
+      "decorators": [
+        "request('whatif', 'run')"
+      ],
+      "doc": "The cross-cell what-if comparison rows \u2014 the only place a scheduler pair is joined.\n\nDenied on a single-cell run, where there is no second cell to compare against and the\nwhat-if writers correctly emit nothing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::_series": {
       "decorators": [
         "request('series', 'config')"
@@ -1804,6 +2137,140 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/cost/__init__.py": {
+      "decorators": [],
+      "doc": "cost.* evaluations \u2014 what a placement rule costs to RUN, in real wall-clock seconds.\n\nThe only family that measures the SIMULATOR rather than the warehouse.  Every other\nfamily reports modeled seconds from the cost model \u2014 an effort figure for comparing\nplacement rules.  These report seconds a CPU actually spent, which is a different\nquestion with a different audience: a WMS engineer asking whether a rule is cheap enough\nto run per arriving unit, and whether it carries an offline job to schedule.\n\nRun scope, because the runtime metrics DB lives at the run root and spans every cell \u2014 no\nleaf and no per-cell aggregate can see it.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py": {
+      "decorators": [],
+      "doc": "cost.compute \u2014 three views of what a placement rule costs to RUN.\n\nTHE QUESTION THIS ANSWERS, and who asked it.  A WMS engineer reviewing the published\nexperiment could not tell whether the winning rules are cheap enough to run: the site\ndescribed the `Map` family's offline address-map build without a number, and nothing said\nwhat per-arrival scoring costs either.  Both were measured all along \u2014 the per-arrival\ncost sat in the run's runtime DB, unread by anything but a set of absolute-second bar\ncharts nobody staged; the offline build was outside every clock until the setup span was\nadded.\n\nWHY THE PRIMARY VIEW IS A MULTIPLE.  Absolute seconds do not survive leaving the machine\nthat produced them: they are contended against the sweep's worker pool, they scale with\ncatalogue size, and on a 210-second bar the difference between the best and second-best\nrule is invisible.  The FIFO floor is the right denominator because FIFO does the same\nreorder bookkeeping and then picks a slot at random \u2014 so the RATIO isolates the scoring.\n\nTHE ONE THING NOT TO DO.  `precomp_s` is not a slice of `total_s` (the batch loop's clock\nstarts after setup), so it must never be stacked onto the section breakdown.  Every view\nhere keeps the two spans visibly separate; `runtime_metrics.OUTSIDE_TOTAL` is the\ndeclaration that makes that checkable rather than remembered.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_CONTROL_HATCH": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'///'"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_absolute": {
+      "decorators": [],
+      "doc": "The cost in units a WMS reader can size against, INCLUDING the offline build.\n\nThree panels per channel, because the family's charter asks two questions and the old\ntwo-panel form answered one and a half.  Left: absolute milliseconds of placement per\narriving unit \u2014 absolute, not the delta over FIFO, which is a different quantity and\nwas previously drawn in an `absolute` view (FIFO showed a real per-wave bar beside a\nzero-width per-unit one, in the same figure).  Middle: seconds per wave.  Right: the\nOFFLINE build, the one span no view carried at all despite being the reason half this\nfamily exists \u2014 a rule with a bar there is a job somebody has to schedule.\n\nEvery bar carries its value, because the interesting rules are the cheap ones and a\nlinear axis scaled to the most expensive rule compresses them into a sliver.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, rows, out)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_bar_style": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(r)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_by_channel": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_delta": {
+      "decorators": [],
+      "doc": "Where the extra seconds go, as a DIFFERENCE from the floor rather than a stack.\n\nA stacked absolute breakdown is the natural chart here and the wrong one twice over:\nevery rule's stack is dominated by the sections it shares with FIFO, and the setup\nspan is not in the total the stack adds up to.  Differences against the floor show\nonly what the rule changed, and the setup span gets its own marker beside them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, rows, out)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_in_order": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sub, order, key)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_percent": {
+      "decorators": [],
+      "doc": "Scoring cost as a multiple of the do-nothing floor \u2014 the view that travels.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, rows, out)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::_rule_order": {
+      "decorators": [],
+      "doc": "One rule order for every panel of the family, cheapest-first by the FIFO multiple.\n\nSorting each panel by its own values scrambles cross-channel reading: a reader\nfollowing one rule has to hunt for it again in the next panel.  The multiple is the\nright key because it is the family's primary view and it is unit-free.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/Performance_Evaluations/cost/compute.py::render": {
+      "decorators": [
+        "evaluation(key='cost.compute', label='What each placement rule costs to run', scope='run', needs=('runtime',), family='cost', views=('percent', 'absolute', 'delta'))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py": {
+      "decorators": [],
+      "doc": "cost.rollup \u2014 the per-rule compute-cost table, and the two spans it must keep apart.\n\nWHAT IS BEING MEASURED.  Two disjoint wall-clock spans per arm:\n\n  * the SETUP span (`precomp_s`) \u2014 `strat.build()`, where the map family solves its\n    offline address map.  Once per arm, before the batch loop's clock starts.\n  * the LOOP sections (`reord_s`, `sim_s`, \u2026) \u2014 a strict partition of `total_s`.\n\n`reord_s` is the one that answers \"what does this rule cost to run\": it is the per-arrival\nplacement scoring, and FIFO's value is the floor every other rule is measured against,\nbecause FIFO does the same reorder bookkeeping and then picks a slot at random.  The\nDIFFERENCE over FIFO is the scoring itself.\n\nWHY NOT RAW SECONDS.  They are contended (the sweep ran a worker pool), machine-specific,\nand dominated by scale \u2014 the store and fulfillment channels differ by 3x on the same rule\nfor reasons that have nothing to do with the rule.  Two normalisations travel with every\nrow instead: the multiple of the FIFO floor, and milliseconds per unit placed, which is\nthe number a WMS engineer can compare against their own dock throughput.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::BASE_RULE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::_f": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, key)"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::_med": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::_ratio": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x, base)"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::cost_rows": {
+      "decorators": [],
+      "doc": "One row per (channel, rule), with both spans and both normalisations.\n\nGrouped by CHANNEL, not by leaf: a rule's compute cost is a property of the rule and\nthe catalogue it scores against, and the two channels have genuinely different\ncatalogues.  Cells and pairs collapse into the median, which is what makes `n_arms`\nworth printing beside it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx) -> list"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::render": {
+      "decorators": [
+        "evaluation(key='cost.rollup', label='Per-rule compute cost (real wall seconds)', scope='run', needs=('runtime',), out_subdir='tables')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/cost/rollup.py::units_placed": {
+      "decorators": [],
+      "doc": "{(cell, pair, config, channel): units put away per wave} from the per-run tables.\n\nThe denominator that turns seconds into an engineering number.  Read from the leaf\nsummaries rather than assumed, and averaged across arms within a leaf: every arm faces\nthe same demand, so they agree to rounding, and taking the mean makes a missing arm a\nsmall error rather than a wrong one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx) -> dict"
     },
     "Optimization/Performance_Evaluations/diagnostics/__init__.py": {
       "decorators": [],
@@ -1931,6 +2398,13 @@
       "kind": "function",
       "signature": "(run_dir)"
     },
+    "Optimization/Performance_Evaluations/driver.py::prepare_run_dir": {
+      "decorators": [],
+      "doc": "Wipe + recreate the run-root dossier root, then every declared run-scope subdir.\n\nNo shared-top/single-owner rule here, unlike `prepare_config_dirs`: run-scope\nevaluations execute serially in the parent after every cell has finished, so there is\nno worker to race.  One wipe of the root, then `artifact_map.run_dirs()`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir)"
+    },
     "Optimization/Performance_Evaluations/driver.py::resolve_params": {
       "decorators": [],
       "doc": null,
@@ -1941,6 +2415,13 @@
     "Optimization/Performance_Evaluations/driver.py::run_aggregate": {
       "decorators": [],
       "doc": "Run all aggregate evaluations named in `keys` (config granularity).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, keys, overrides, cli_set)"
+    },
+    "Optimization/Performance_Evaluations/driver.py::run_at_root": {
+      "decorators": [],
+      "doc": "Run all run-scope evaluations named in `keys`, over the whole run root.\n\nCalled by analyze_run AFTER every cell and after the cross-cell what-if writers: these\nevaluations read what those stages produced, so ordering is a data dependency, not a\npreference.  Serial in the parent \u2014 there are a handful of them and each one reads the\nentire run, so a pool would buy nothing and cost the wipe-race rule.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, keys, overrides, cli_set)"
@@ -1958,6 +2439,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key, overrides, cli_set)"
+    },
+    "Optimization/Performance_Evaluations/driver.py::run_root_keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(preset)"
     },
     "Optimization/Performance_Evaluations/headline/__init__.py": {
       "decorators": [],
@@ -2398,6 +2886,13 @@
       "signature": null,
       "value_preview": "['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup', 'headline.throughput_vs_labor']"
     },
+    "Optimization/Performance_Evaluations/presets.py::_RUN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['cost.compute', 'cost.rollup', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed']"
+    },
     "Optimization/Performance_Evaluations/presets.py::_TABLES": {
       "decorators": [],
       "doc": null,
@@ -2530,6 +3025,56 @@
       "doc": "tables.* evaluations \u2014 every per-config CSV/JSON data product (no figures).\n\nThe package name is the key namespace; all outputs land FLAT in the declared tables dir.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/tables/census.py": {
+      "decorators": [],
+      "doc": "tables.census \u2014 the count/span claims the pages keep making, computed instead of typed.\n\n\"Positive in all 68 same-rule comparisons per channel\", \"median +44.8 %, range 28.5\u201339.8 %\",\n\"positive in all 136 comparisons\".  Every one of those was hand-counted at authoring time\nand then RESTATED as prose, so the only way to check one was to re-derive it from the\nstaged what-if rows.  That is the shape of claim `stats_core.census` generalises, and this\nis where it gets emitted so a page can render the sentence from the artifact rather than\nassert it beside one.\n\nWHAT IS COUNTED.  Each row of the cross-cell what-if table is one same-rule comparison: an\narm under the treatment scheduler against the identical arm under the reference, on the\nsame catalogue and the same demand.  A census over those rows, grouped four ways, answers\n\"how broadly does this hold\" with an n, a win rate, an exact sign test and a span \u2014 the\nfour things a reader needs before quoting a median.\n\nWHY A SIGN TEST AND NOT THE PAIRED TEST THE LEAF TABLES USE.  Different question.  The leaf\ntables ask whether ONE arm beats the baseline, over 75 paired batches.  This asks how many\nARMS moved in the claimed direction, over 68 of them \u2014 the unit of observation is the arm,\nthe comparison is already a difference, and the only distributional assumption worth making\nabout a set of 68 arm-level deltas is which side of zero each one fell.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::_CLAIMS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('thr_gain_vs_ref_pct', 'higher', 'throughput uplift vs the reference scheduler'), ('auc_gain_vs_ref_pct', 'higher', 'area between the cumulative volume curves'), ('labor_delta_vs_ref_pct', 'highe..."
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::_GROUPINGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('channel', ('channel',)), ('channel_x_rule', ('channel', 'assignment')), ('scheduler', ('scheduler',)))"
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::_num": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, key)"
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::census_blocks": {
+      "decorators": [],
+      "doc": "[{metric, better, grouping, rows:[census...]}] over the what-if comparison rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows) -> list"
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::comparisons": {
+      "decorators": [],
+      "doc": "The rows that ARE comparisons \u2014 the reference cell's own are not.\n\nThe what-if table carries every arm in every cell, reference included, and a reference\narm's \"gain vs reference\" is exactly 0 because it is being compared with itself.  Left\nin, those rows double the count, halve the win rate, and drag the median toward zero:\nthe first render of this census reported 136 comparisons per channel with 68 ties and a\nstore median of +19.9 %, against a true 68 comparisons, no ties, and +44.8 %.  A tie in\na sign test means \"the two were equal\"; a row compared with itself means nothing at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, reference)"
+    },
+    "Optimization/Performance_Evaluations/tables/census.py::render": {
+      "decorators": [
+        "evaluation(key='tables.census', label='How broadly each comparison holds (counts + sign test)', scope='run', needs=('whatif',), out_subdir='tables')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
     },
     "Optimization/Performance_Evaluations/tables/per_run.py": {
       "decorators": [],
@@ -2854,9 +3399,16 @@
     },
     "Optimization/analyze_run.py": {
       "decorators": [],
-      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`,\n`run_whatif_volume.run`) at the run root.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
+      "doc": "analyze_run.py \u2014 one analysis hub for a whole run (every run is a cell matrix).\n\n`run_simulation` calls this in-process after the sim (unless ``--no-analyze``), so ONE command\nproduces the simulation AND every graph.  It can also be run standalone to (re)analyze a finished\nrun without re-simulating:\n\n    python -m Optimization.analyze_run <base_dir> [--reference k1_off_rr] [--workers 8]\n\nFor each cell under ``base_dir`` it runs the per-cell registry suite (`run_analysis.run_analysis`)\nand the whole-warehouse rollup (`run_channel_rollup.rollup`); when the run has >1 cell it also runs\nthe cross-cell what-if steps (`run_whatif_delta.run`, `run_whatif_labor.run`,\n`run_whatif_volume.run`) at the run root, and finally the RUN DOSSIER \u2014 the registry's\nrun-scope evaluations, over the whole tree.  The dossier goes last because it reads what\nevery earlier stage produced (the runtime DB, the what-if rows, the per-leaf tables): the\nordering is a data dependency, not a preference.  Each\nstep is isolated in try/except so one failure never sinks the rest \u2014 the sim's DBs are already safe\non disk, so analysis is best-effort.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/analyze_run.py::_run_root_stage": {
+      "decorators": [],
+      "doc": "Render the run-scope evaluations into the run root's dossier.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, log, preset_name)"
     },
     "Optimization/analyze_run.py::_step": {
       "decorators": [],
@@ -2948,6 +3500,78 @@
       "is_async": false,
       "kind": "function",
       "signature": "(channels: list[Channel]) -> dict"
+    },
+    "Optimization/config/objectives.py": {
+      "decorators": [],
+      "doc": "objectives.py \u2014 what each restock rule OPTIMISES, in one machine-readable place.\n\nWHY THIS EXISTS.  The objective of a placement rule used to live in three places that\ndrifted independently: the Python closure that implements it, a hand-written LaTeX table\nin `docs/macros.py::assignment_formulas` (top-3 only), and a second hand-written copy in\neach experiment's `formula-reference.md` (all 17).  The macro's own docstring named the\nfix \u2014 \"expose each builder's objective \u2026 so this macro can read it like the others\" \u2014\nand this module is it.  The catalog is emitted INTO each run, so the objective published\nbeside a result is the objective that ran, versioned with it.\n\nWHAT THIS CANNOT DO, stated plainly: the LaTeX is not derived from the Python.  No\ninspection recovers an objective from a closure.  What the registry buys is that the\ntranscription exists exactly ONCE and is machine-anchored \u2014 `Tests/architecture/\ntest_rule_catalog.py` asserts every rule has an entry, every named symbol exists, and\nevery builder actually calls the symbol its entry claims.  A rename or a re-pointed\nbuilder fails a test instead of silently making a published formula a lie.\n\nKEYED BY RESTOCK KEY, not by arm.  `Strategy.restock` already carries it, so the tie is\n`OBJECTIVES[s.restock]` and `Optimization/config/strategies.py` needs no edit \u2014 which\nalso keeps LaTeX out of the strategy grid's import path and keeps that file (a\nrun-contract SHAPE_SOURCE) out of unrelated diffs.\n\nThe shared machinery each objective is written against \u2014 the placement primitive\n`ell(b) = M(y_b)(t0 + h) + D_b`, the pick-effort priority that orders a ranked wave, and\nthe tie-breaking / full-aisle rules \u2014 is documented once on the experiment site's\nformula reference; the entries below state only what distinguishes them.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/objectives.py::FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'baseline': 'Baseline', 'ranked': 'Ranked (effort / labor)', 'map': 'Map (optimal-map score matching)', 'cluster_map': 'Cluster-map (map + cohesion)', 'travel': 'Travel bracket', 'affinity': 'Affi..."
+    },
+    "Optimization/config/objectives.py::Objective": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One restock rule's identity: what it is called, what code it is, what it optimises.\n\nrule       restock key, matching `Strategy.restock` and `_RESTOCKS[i][0]`\nlabel      display label, matching `_RESTOCKS[i][1]`\nfamily     which bracket it belongs to (see `FAMILIES` below)\nsense      'min' | 'max' | 'none' \u2014 the direction of its argument\nstage      'per_unit' | 'ranked_wave' | 'precomputed_map' \u2014 WHEN it decides\nsymbol     the placement function the builder actually calls\nmodule     repo-relative file that DEFINES `symbol`\nbuilder    the `_build_*` in the strategy grid that wires it up\nprecompute an offline build step run once per arm before the sim, or '' for none.\n           This is the field a WMS reader needs: a rule with a precompute has a job\n           to schedule; a rule without one is pure per-arrival scoring.\nlatex      the objective, one expression, `$\u2026$`-delimited\nnotes      the mechanism prose that belongs with the formula rather than the page\ncontrol    True for the deliberate worst-case bracket controls (designed to lose)",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/config/objectives.py::Objective.anchor": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The heading anchor the published rule section uses.\n\nLoad-bearing: `full-results.md` and `glossary.md` link to these fragments and\n`context/guards/docref_guard.py` checks them, so the generated section headings\nmust keep reproducing exactly this string.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/config/objectives.py::_AF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'Warehouse/placement/Assignment_Functions.py'"
+    },
+    "Optimization/config/objectives.py::_ENTRIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[Objective(rule='fifo', label='FIFO', family='baseline', sense='none', stage='per_unit', symbol='_uniform_assignment', module='Warehouse/inventory/inventory_common.py', builder=f'_build_uniform@{_S..."
+    },
+    "Optimization/config/objectives.py::_MAP_BUILD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'build_optimal_map@Warehouse/inventory/inventory_optimal.py'"
+    },
+    "Optimization/config/objectives.py::_STRAT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'Optimization/config/strategies.py'"
+    },
+    "Optimization/config/objectives.py::as_dicts": {
+      "decorators": [],
+      "doc": "The registry as plain dicts, in declaration order \u2014 the emitted catalog's body.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Optimization/config/objectives.py::objective_for": {
+      "decorators": [],
+      "doc": "The Objective behind a `Strategy` (or a bare restock key).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategy) -> Objective"
     },
     "Optimization/config/sim_config.py": {
       "decorators": [],
@@ -4789,9 +5413,16 @@
     },
     "Optimization/persistence/runtime_metrics.py": {
       "decorators": [],
-      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The runtime graphs (Optimization/run_runtime_graphs.py, part of the analysis hub) read\nit to rank the slowest arms / assignment-fns / warehouses / cells and show WHERE the time goes, so\nrecurring hot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are\nvisible.",
+      "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The `cost` chart family (Performance_Evaluations/cost/, a RUN-scope evaluation) reads it\nto rank rules by what they cost to run and to show WHERE the time goes, so recurring hot-paths (e.g.\na reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) stay visible \u2014 and so a WMS\nreader can be told what scoring one arriving unit costs.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/persistence/runtime_metrics.py::OUTSIDE_TOTAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[('precomp_s', 'map precompute (setup, once per arm)')]"
     },
     "Optimization/persistence/runtime_metrics.py::PRE_STAMP_RUNTIME_SCHEMA_ID": {
       "decorators": [],
@@ -4812,7 +5443,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=('c033ff9c85a5', PRE_STAMP_RUNTIME_SCHEMA_ID)))"
+      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=('397b7e750e1d', 'c033ff9c85a5', PRE_STAMP_RUNTIME_SCHEMA_I..."
     },
     "Optimization/persistence/runtime_metrics.py::SECTIONS": {
       "decorators": [],
@@ -4834,6 +5465,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\nCREATE TABLE IF NOT EXISTS runtime (\\n cell TEXT NOT NULL,\\n pair TEXT NOT NULL,\\n config TEXT NOT NULL,\\n channel TEXT NOT NULL,\\n arm TEXT NOT NULL,\\n initial TEXT NOT NULL,\\n assignment TEXT ..."
+    },
+    "Optimization/persistence/runtime_metrics.py::_SETUP_COLUMNS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'))"
+    },
+    "Optimization/persistence/runtime_metrics.py::_migrate_setup_columns": {
+      "decorators": [],
+      "doc": "Add the setup-phase columns to a DB written before they existed; True if it changed.\n\n`CREATE TABLE IF NOT EXISTS` cannot widen an existing table, so a finished run whose\narms predate these columns needs an explicit ALTER before a backfill can write to it.\nEvery added column is NULLABLE with no default, so existing rows read NULL \u2014 \"never\nmeasured\", which is exactly what they are.\n\nRe-stamping afterwards is not optional: the file's recorded schema id describes its\nold shape, and leaving the two disagreeing turns every later read into an unvetted\nwarning.  A migrated run legitimately IS the current shape.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con) -> bool"
     },
     "Optimization/persistence/runtime_metrics.py::_parse_arm": {
       "decorators": [],
@@ -4862,6 +5507,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
+    },
+    "Optimization/persistence/runtime_metrics.py::record_precompute": {
+      "decorators": [],
+      "doc": "Fill an existing arm's setup-phase measurement; True when a row was updated.\n\nThe inline path (`record_arm`) writes these at simulation time.  This is the other\ndoor: a finished run whose arms predate the columns can be measured afterwards by\nrebuilding the arm's warehouse and timing the precompute alone, without re-simulating\nhundreds of GB.  `source` separates the two so nothing downstream has to guess \u2014\n'inline' seconds are contended against the sweep's whole worker pool, a 'backfill'\nmeasurement is not, and the two are not comparable as ratios.\n\nUpdates only; a missing row means the arm never ran, and inventing one here would put\na measurement in the table with no simulation behind it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str, cell: str, uid, seconds: float, source: str, map_lap_pct=None) -> bool"
     },
     "Optimization/persistence/runtime_metrics.py::runtime_db_path": {
       "decorators": [],
@@ -5043,95 +5695,74 @@
       "kind": "function",
       "signature": "(base_dir: str, log=print) -> dict"
     },
-    "Optimization/run_runtime_graphs.py": {
+    "Optimization/run_map_precompute.py": {
       "decorators": [],
-      "doc": "run_runtime_graphs.py \u2014 RUNTIME (compute-cost) graphs from the runtime metrics DB.\n\nCross-cell analysis step (part of the analysis hub): reads the run root's runtime metrics DB (one row\nper arm, written parent-side by the supervisor) and emits PNGs to the run root's runtime dir \u2014 the\ncontract's ``runtime_pngs`` artifact, whose glob star sits in the filename segment, so the template's\ndirectory IS the output dir \u2014 ranking the slowest arms / assignment-fns / warehouses / cells and \u2014\ncritically \u2014 a per-SECTION stacked breakdown showing WHERE the wall time goes, so recurring\nhot-paths (e.g. a reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) are visible at\na glance.\n\nThis is RUNTIME (how long an arm took to COMPUTE), orthogonal to the sim-modeled batch_stats times.\n\n    python -m Optimization.run_runtime_graphs <run_root>",
+      "doc": "run_map_precompute.py \u2014 measure the map family's OFFLINE build on a finished run.\n\nWHY A SEPARATE CLI.  `strat.build()` now carries a timer, so every future run records its\nsetup span inline.  A run already on disk cannot be re-simulated to get one \u2014 that is\nhundreds of GB and hours \u2014 but it CAN be re-measured: the build is a pure function of the\nrun's own catalogue and warehouse shape, both of which the run kept.  This rebuilds those,\ntimes `build_optimal_map` alone, and writes the result back into the run's runtime table\nstamped `backfill` so nothing downstream mistakes it for an inline measurement.\n\n    python -m Optimization.run_map_precompute <run_root>\n\nRUN IT AFTER `analyze_run`, not before.  The measurements themselves go into the run's\nruntime table and survive anything, but the per-class detail lands under the dossier tree,\nand the dossier stage WIPES that tree on every analysis pass (it is a derived directory \u2014\na stale figure from a previous suite is worse than a missing one).  Backfill first and the\ncensus is silently gone by the time the site stages.\n\nTHE GATE, and why it is not optional.  A hand-rolled rebuild of the worker's setup phase is\na SECOND implementation of something the simulator already does \u2014 the exact drift class the\nrun dossier exists to end, reintroduced by the fix for it.  So the measurement is refused\nunless the reconstruction reproduces the warehouse identity the run itself recorded\n(`n_bins`, `regime_bins`, `n_aisles`, SKU count).  A number measured on a warehouse nobody\nchecked is an unfalsifiable claim, and this file would be where it entered.\n\nWHAT THE NUMBER IS AND IS NOT.  An UNCONTENDED, single-arm wall time: this process builds\none map at a time, where the sweep ran a 20-worker pool.  It is therefore not comparable as\na ratio against the loop seconds in the same table, which is why `precomp_src` exists and\nwhy every consumer must read it.  It also carries the per-class solver split \u2014 how much of\nthe assignment was solved exactly rather than greedily \u2014 which is the other thing the\npublished pages asserted without measuring.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/run_runtime_graphs.py::_REPO_ROOT": {
+    "Optimization/run_map_precompute.py::MAP_RULES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "tuple(sorted((k for k, o in OBJECTIVES.items() if o.precompute)))"
+    },
+    "Optimization/run_map_precompute.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
     },
-    "Optimization/run_runtime_graphs.py::_SECTION_COLORS": {
+    "Optimization/run_map_precompute.py::_identity_matches": {
       "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "plt.cm.tab10.colors"
-    },
-    "Optimization/run_runtime_graphs.py::_by_group": {
-      "decorators": [],
-      "doc": "Mean compute time per group (assignment / warehouse / cell), per channel subplots.",
+      "doc": "The gate: does the rebuild reproduce what the run recorded about its warehouse?\n\nA refusal here is the DESIGNED outcome, not a failure of this script.  It already\ncaught the real thing once: without the run's own shaping params applied first, the\nrebuild produced 5,814 aisles / 6.2 M bins against a run that recorded 384 / 398,500,\nand the timing taken on it would have been published as if it meant something.\n\n`regime_bins` is deliberately not checked: it is the per-CHANNEL slice, and the whole\nwarehouse is what the map is built over.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rows, key, title, out)"
+      "signature": "(log, rec, shared) -> bool"
     },
-    "Optimization/run_runtime_graphs.py::_channels": {
+    "Optimization/run_map_precompute.py::_metas_by_pair": {
       "decorators": [],
-      "doc": null,
+      "doc": "{pair: [(cell, ChannelRun, sim_meta), ...]} across the WHOLE run.\n\n`rt.channel_runs()` spans cells; the raw walker takes one cell directory, which is the\nshape the per-cell analysis uses and the wrong one here \u2014 it silently yields nothing\nwhen handed a run root.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rows)"
+      "signature": "(base_dir, rt) -> dict"
     },
-    "Optimization/run_runtime_graphs.py::_mean": {
+    "Optimization/run_map_precompute.py::_recorded": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(vals)"
+      "signature": "(rows, cell, pair, config, channel, arm) -> dict | None"
     },
-    "Optimization/run_runtime_graphs.py::_memory_graph": {
+    "Optimization/run_map_precompute.py::_workload_params": {
       "decorators": [],
-      "doc": "Per-arm peak RSS bars + GC pause overlay \u2014 the memory observability view.\n\nSkips silently when the run predates the 2026-08-19 columns (all values absent):\nold vintages keep rendering their other graphs untouched.",
+      "doc": "WorkloadParams from the leaf's own committed config, or None when it is absent.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rows, out)"
+      "signature": "(rt, cell, run)"
     },
-    "Optimization/run_runtime_graphs.py::_runtime_dir": {
-      "decorators": [],
-      "doc": "The run-root runtime-PNG directory, from the contract's `runtime_pngs` template.\n\nThe glob star sits in the FILENAME segment, so the template's dirname is the output dir \u2014\nthe underscore prefix it carries is what makes every tree walker (cells / iter_channel_runs /\nthe cross-cell whatif scans) skip it, the same reserved-dir convention as the frozen assets\nand the aggregate subtree.  A root with NO descriptor (ad-hoc trees) falls back to the HEAD\ncontract, which renders exactly the string the old literal join produced.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(run_root: str) -> str"
-    },
-    "Optimization/run_runtime_graphs.py::_save": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(fig, path)"
-    },
-    "Optimization/run_runtime_graphs.py::_section_breakdown": {
-      "decorators": [],
-      "doc": "Stacked per-SECTION mean time per assignment fn, per channel \u2014 WHERE the time goes.\nA tall `reorder` (or `pre-snapshot`) stack flags the recurring aisle-recompute hot-path.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rows, out)"
-    },
-    "Optimization/run_runtime_graphs.py::_slowest_arms": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rows, out, top=25)"
-    },
-    "Optimization/run_runtime_graphs.py::main": {
+    "Optimization/run_map_precompute.py::main": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(argv=None)"
     },
-    "Optimization/run_runtime_graphs.py::run": {
+    "Optimization/run_map_precompute.py::measure_pair": {
       "decorators": [],
-      "doc": "Emit the runtime graphs for a finished run to the contract's runtime PNG dir.  Returns the\nout dir (or None if there's no runtime metrics DB).  Importable so the analysis hub calls it\nin-process.",
+      "doc": "Time `build_optimal_map` once per (channel, map rule) for one inventory pair.",
       "is_async": false,
       "kind": "function",
-      "signature": "(run_root, log=None)"
+      "signature": "(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list"
+    },
+    "Optimization/run_map_precompute.py::run": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, log=None) -> None"
     },
     "Optimization/run_simulation.py": {
       "decorators": [],
@@ -5596,12 +6227,26 @@
       "kind": "function",
       "signature": "(base: str, doc: dict, layout: dict | None) -> RunTree"
     },
+    "Optimization/runschema/__init__.py::analysis_path": {
+      "decorators": [],
+      "doc": "Render an ANALYSIS artifact's path for `rt`'s run \u2014 HEAD contract first.\n\n`reader_for` in one call, because the two-step dance was written out at three separate\ncall sites and got forgotten at each of them in turn: the analysis writes into\ndirectories a finished run's own contract has never heard of, so `rt.path(...)` raises\n`KeyError` for a location that is perfectly legal to write.\n\nNone when no contract declares the name, so a caller can log that rather than crash a\nbest-effort analysis step.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt: RunTree, artifact: str, **parts) -> str | None"
+    },
     "Optimization/runschema/__init__.py::head": {
       "decorators": [],
       "doc": "The schema id a NEW run stamps (INDEX.json's `head`), or None if the store is empty.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> str | None"
+    },
+    "Optimization/runschema/__init__.py::reader_for": {
+      "decorators": [],
+      "doc": "A resolver for reading an ANALYSIS artifact out of `rt`'s run \u2014 HEAD contract first.\n\nA run is resolved through the contract it was written with, which is right for\neverything the SIMULATION produced: those bytes are on disk exactly where that era's\ndocument says.  It is wrong for anything the ANALYSIS produced, because the analysis\nthat wrote them is today's, and today's contract is where today's evaluations put\ntheir output.\n\nAn absence-only fallback is not enough, and the failure is silent.  When a name exists\nin BOTH documents but the artifact MOVED, the run's older document wins, the reader\nlooks in a directory the current suite no longer writes, `os.path.exists` says no, and\nnothing reports a problem \u2014 the file simply never appears.  That happened to the\nper-arm summary when the analysis suite grew its `tables/` layout, and only the\nexperiment guard noticed, one layer downstream.\n\nReturns None when neither document declares the name, so a caller can distinguish\n\"not in this vintage\" from \"declared but absent on disk\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt: RunTree, artifact: str) -> RunTree | None"
     },
     "Optimization/runschema/__init__.py::resolve_base_dir": {
       "decorators": [],
@@ -6151,6 +6796,13 @@
       "kind": "function",
       "signature": "(self, cell: str, pair: str, config: str) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree.dossier_dir": {
+      "decorators": [],
+      "doc": "<run>/_dossier \u2014 the run-scope stage root, the twin of `aggregate_dir`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
     "Optimization/runschema/resolver.py::RunTree.exists": {
       "decorators": [],
       "doc": "`os.path.exists` over `path(...)` \u2014 a convenience that reads as a contract question.",
@@ -6171,6 +6823,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, artifact: str, **parts) -> list[str]"
+    },
+    "Optimization/runschema/resolver.py::RunTree.group_outputs": {
+      "decorators": [],
+      "doc": "Every EXISTING file declared under a contract group tag, globs expanded.\n\nThe tag is the unit of discovery, so a producer that emits a new document gets it\nstaged and consumed with no edit at either end \u2014 which is what separates the\ngroup-driven stages from the ones that name their artifacts one at a time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, group: str) -> list[str]"
     },
     "Optimization/runschema/resolver.py::RunTree.is_sweep": {
       "decorators": [
@@ -6313,7 +6972,7 @@
     },
     "Optimization/runschema/resolver.py::RunTree.whatif_outputs": {
       "decorators": [],
-      "doc": "Existing cross-cell what-if artifacts at the run root (empty on a single-cell run).\n\nDriven by the `whatif` group tag, so adding a what-if output to the contract surfaces it\nhere automatically.",
+      "doc": "Existing cross-cell what-if artifacts at the run root (empty on a single-cell run).",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list[str]"
@@ -6906,6 +7565,13 @@
       "kind": "function",
       "signature": "(phase, info, _st=_GC_STATE)"
     },
+    "Optimization/simdriver/strategy_runner.py::_map_lap_pct": {
+      "decorators": [],
+      "doc": "Share of assigned UNITS the optimal map solved exactly, or None for a non-map arm.\n\nUnits rather than classes: at catalogue scale the classes small enough for the exact\nsolver hold a tiny slice of the inventory, so a class-weighted figure would read far\nmore favourably than the placement it produced.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr) -> float | None"
+    },
     "Optimization/simdriver/strategy_runner.py::_peak_rss_mib": {
       "decorators": [],
       "doc": "This process's peak working-set (high-water RSS) in MiB, or None if unreadable.\n\nStdlib-only by design \u2014 psutil is deliberately not a production dependency.  Peak (as\nopposed to current) RSS is only knowable from the OS: Windows tracks it in\nPROCESS_MEMORY_COUNTERS.PeakWorkingSetSize; POSIX reports it as ru_maxrss (KiB on\nLinux, bytes on macOS \u2014 normalised here).  One syscall, called once per arm.",
@@ -6939,6 +7605,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_timed_build": {
+      "decorators": [],
+      "doc": "Run the strategy's build hook and return its wall seconds.\n\nSETUP, not loop time.  The batch loop's clock (`t_loop` .. `elapsed`) starts long\nafter this, so every section column in runtime_metrics excludes it \u2014 which is why the\nMap family's offline address-map solve was, for a long time, an unmeasured cost that\nthe published pages could only describe qualitatively.  It is a real number now, and\n`runtime_metrics.OUTSIDE_TOTAL` is where it says it is not part of `total_s`.\n\nFor rules with no build step this is a few microseconds of function call; the number\nis still recorded, because \"measured, and it was nothing\" is a different statement\nfrom \"never measured\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strat, mgr, ctx) -> float"
     },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],
@@ -11105,6 +11778,13 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/inventory/inventory_optimal.py::BRANCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('lap', 'greedy_gate', 'greedy_error', 'greedy_empty')"
+    },
     "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin": {
       "decorators": [],
       "doc": null,
@@ -11157,7 +11837,7 @@
     },
     "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.build_optimal_map": {
       "decorators": [],
-      "doc": "Build the optimal map (the score-match basis) on this manager and return W*.\nSets `_bin_pref` (quantity-free location score for EVERY bin) and `_map_target`\n(each SKU's optimal preferred score).  Call once at warehouse build, after the\ninventory is assigned.",
+      "doc": "Build the optimal map (the score-match basis) on this manager and return W*.\nSets `_bin_pref` (quantity-free location score for EVERY bin) and `_map_target`\n(each SKU's optimal preferred score).  Call once at warehouse build, after the\ninventory is assigned.\n\nAlso leaves `_map_lap_stats` on the manager \u2014 how much of the assignment was\nactually solved exactly rather than greedily.  Read it rather than assuming: at\nproduction catalogue size the large BinKey classes are far past the exact-solve\ngate, so \"the optimal map\" is exact on a tail of small classes and near-optimal\non the bulk.  The return value stays W* alone; a second return would have to be\nunpacked at four call sites for a number only the analysis layer wants.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, orders: list[Order], freq_of: dict, qty_of: dict, wp) -> float"
@@ -11203,6 +11883,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> float"
+    },
+    "Warehouse/inventory/inventory_optimal.py::log": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "logging.getLogger(__name__)"
     },
     "Warehouse/inventory/inventory_planning.py": {
       "decorators": [],
@@ -13121,6 +13808,13 @@
       "signature": null,
       "value_preview": "('figures/diagnostics', 'figures/headline', 'figures/labor', 'figures/layout', 'figures/significance', 'figures/task_time', 'figures/throughput', 'figures/trajectories', 'tables')"
     },
+    "docs/experiments/ingest.py::_GROUP_PROBE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'whatif': ('whatif_delta_json',), 'dossier': ('dossier_dir',)}"
+    },
     "docs/experiments/ingest.py::_LEGACY": {
       "decorators": [],
       "doc": null,
@@ -13135,12 +13829,19 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))"
     },
-    "docs/experiments/ingest.py::_WHATIF_DATA_EXT": {
+    "docs/experiments/ingest.py::_RUN_DATA_EXT": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'.json'"
+      "value_preview": "('.json', '.csv')"
+    },
+    "docs/experiments/ingest.py::_RUN_GROUPS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('whatif', 'dossier')"
     },
     "docs/experiments/ingest.py::_cell_inventory_configs": {
       "decorators": [],
@@ -13193,7 +13894,7 @@
     },
     "docs/experiments/ingest.py::_reader_tree": {
       "decorators": [],
-      "doc": "A HEAD-contract resolver for an ANALYSIS artifact, falling back to `rt`.\n\nHead first, deliberately.  A re-analysed run is read through the contract it was\nwritten with \u2014 correct for everything the SIMULATION produced \u2014 but these files were\nproduced by today's evaluations, and the run's own document describes where the\nanalysis of ITS era put them.  Preferring the run's document silently resolved the\nper-arm summary to a directory the current suite no longer writes (and that the stale\n-output pruner had since removed): the name existed in both contracts, so an\nabsence-only fallback never fired, `os.path.isfile` said no, and the file simply did\nnot stage.  Returns None when neither document declares the name.",
+      "doc": "A HEAD-contract resolver for an ANALYSIS artifact, falling back to `rt`.\n\nThin alias for `runschema.reader_for`, which now owns the rule \u2014 contract SELECTION\nbelongs in the resolver layer, and the analysis suite's run-scope evaluations hit the\nidentical problem from the other side.  The argument (and the silent failure it\nprevents) lives in that docstring.",
       "is_async": false,
       "kind": "function",
       "signature": "(rt, artifact)"
@@ -13242,7 +13943,7 @@
     },
     "docs/experiments/ingest.py::_stage_whatif": {
       "decorators": [],
-      "doc": "Cross-cell what-if outputs from the RUN ROOT into data/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's `whatif` group tag\n(`rt.whatif_outputs()` \u2014 a new group member surfaces here with no edit); what is STAGED is\nshape-based, never name-based: every group `.json` into data/ (the committed sources the\nprose quotes) and every group PNG into images/.  The literal joins below remain the\npre-descriptor route.",
+      "doc": "Run-root outputs \u2014 the cross-cell what-if summaries AND the run dossier \u2014 into\ndata/ + images/.\n\nwhatif_delta.json is the file docs/macros.py:whatif_matrix() reads; before this it had no\nproducer and no ingest path, so it was hand-copied from whatif_labor.json under a new name.\nAbsent on a single-cell run, which is not an error.\n\nWith a resolver the candidates come from the contract's GROUP TAGS (`_RUN_GROUPS`), so a\nnew document its writers emit stages itself with no edit here; what is STAGED is\nshape-based, never name-based: every group data file into data/ (the committed sources\nthe prose quotes) and every group PNG into images/.  That is why this function can serve\ntwo producers where `_stage_rollups` and `_stage_leaf_tables` name their artifacts one at\na time and cost an edit each.  The literal joins below remain the pre-descriptor route.",
       "is_async": false,
       "kind": "function",
       "signature": "(source, exp_dir, dry, log, rt=None)"
@@ -13279,7 +13980,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'config_json': 'images/{run}/{inv}/{cfg}/config.json', 'figure_png': 'images/{run}/{inv}/{cfg}/{figure}', 'pair_params': 'data/{inv}/params.json', 'whatif_data': 'data/{fname}', 'whatif_delta': 'i..."
+      "value_preview": "{'config_json': 'images/{run}/{inv}/{cfg}/config.json', 'figure_png': 'images/{run}/{inv}/{cfg}/{figure}', 'pair_params': 'data/{inv}/params.json', 'run_data': 'data/{fname}', 'run_png': 'images/{f..."
     },
     "docs/experiments/site_tree.py::_REPO_ROOT": {
       "decorators": [],
@@ -13297,7 +13998,7 @@
     },
     "docs/macros.py": {
       "decorators": [],
-      "doc": "mkdocs-macros helpers: inject run parameters and formulas into the docs.\n\nValues are pulled from JSON snapshots committed per experiment under\n``docs/experiments/<exp>/`` (raw run outputs live on an external drive, gitignored;\nCI only has the repo). Each ``config.json`` sits next to its run's images under\n``images/<run>/<inv>/<cfg>/``; inventory ``params.json`` under ``data/<inv>/``.\n\nTwo modes, decided per page by its experiment folder:\n  * **manifest mode** \u2014 the experiment has an ``experiment.yml`` (single source of\n    truth for its run id, inventory keys\u2192ids, configs, figures). Pages call macros with\n    a short inventory key, e.g. ``setup_table('lt0')``; run/config/figures resolve from\n    the manifest. This is how new experiments (2+) are authored. See the ingest script\n    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.\n  * **legacy mode** \u2014 no ``experiment.yml`` (Experiment 1). Pages pass explicit\n    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.\n\nFormula *shapes* are fixed here from the code that defines them\n(``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);\nonly the *numbers* come from JSON, so pages never hard-code a value twice.\n\nException: ``assignment_formulas`` transcribes the top-3 assignment-function\n*equations* directly from ``Warehouse/placement/Assignment_Functions.py`` /\n``Warehouse/inventory/inventory_optimal.py``. Those objectives are not (yet) emitted to any\nJSON/DB snapshot, so \u2014 unlike every other macro here \u2014 there is no programmatic\nsource to read. A future refactor should expose each builder's objective (e.g. a\n``formula`` field on the builder or a small registry) so this macro can read it like\nthe others; until then the shapes are maintained by hand against the code.",
+      "doc": "mkdocs-macros helpers: inject run parameters and formulas into the docs.\n\nValues are pulled from JSON snapshots committed per experiment under\n``docs/experiments/<exp>/`` (raw run outputs live on an external drive, gitignored;\nCI only has the repo). Each ``config.json`` sits next to its run's images under\n``images/<run>/<inv>/<cfg>/``; inventory ``params.json`` under ``data/<inv>/``.\n\nTwo modes, decided per page by its experiment folder:\n  * **manifest mode** \u2014 the experiment has an ``experiment.yml`` (single source of\n    truth for its run id, inventory keys\u2192ids, configs, figures). Pages call macros with\n    a short inventory key, e.g. ``setup_table('lt0')``; run/config/figures resolve from\n    the manifest. This is how new experiments (2+) are authored. See the ingest script\n    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.\n  * **legacy mode** \u2014 no ``experiment.yml`` (Experiment 1). Pages pass explicit\n    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.\n\nFormula *shapes* are fixed here from the code that defines them\n(``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);\nonly the *numbers* come from JSON, so pages never hard-code a value twice.\n\nThe one long-standing exception is closed. ``assignment_formulas`` used to transcribe the\ntop-3 assignment-function *equations* by hand, because no snapshot emitted them; this\ndocstring asked for \"a small registry\" so the macro could read them like the others, and\n``Optimization/config/objectives.py`` is it. Every run now emits its rule catalogue, and\n``rule_catalog()`` renders it \u2014 with a test tying each objective to the symbol its builder\nactually calls, which is the part hand-maintenance could never offer.\n\n``assignment_formulas`` survives FROZEN, for the pre-dossier experiments whose pages call\nit and whose runs have no catalogue staged. Nothing new may use it: a new experiment reads\nthe artifact.",
       "kind": "module",
       "signature": null
     },
@@ -13321,6 +14022,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(env)"
+    },
+    "docs/macros.py::define_env._census_row": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(metric, grouping, group=None)"
     },
     "docs/macros.py::define_env._cfg_list": {
       "decorators": [],
@@ -13434,6 +14142,13 @@
       "kind": "function",
       "signature": "(x)"
     },
+    "docs/macros.py::define_env._pct": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(v, places=1)"
+    },
     "docs/macros.py::define_env._registry": {
       "decorators": [],
       "doc": "The figure registry (experiments/figures.yml) \u2014 THE caption/section/default\nsource.  This module once carried three hardcoded caption tables that drifted\nindependently of ingest's staging lists and every experiment.yml; now all three\nconsumers read one declaration, and Tests/architecture/test_figure_registry.py\nties it to the code that writes each figure.",
@@ -13455,14 +14170,39 @@
       "kind": "function",
       "signature": "(args)"
     },
+    "docs/macros.py::define_env._run_doc": {
+      "decorators": [],
+      "doc": "A staged dossier document by short name; raises when it is not staged.\n\nLoud on purpose, matching `_verify_manifest_schema`: under `--strict` a missing\ndocument must fail the build.  A macro that degraded to a blank sentence would put\nan EMPTY claim on a published page, which is worse than no page at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(kind)"
+    },
     "docs/macros.py::define_env.assignment_formulas": {
       "decorators": [
         "env.macro"
       ],
-      "doc": "Equations of the top-3 winning assignment functions (Rank_labor, Map,\nMap_rank), transcribed from the source that defines them. See the module\ndocstring: this is the one macro whose *formula* is hand-maintained against\ncode because no JSON/DB snapshot emits these objectives yet.\n\nSources: `_travel_balanced_impl` / `build_optmap_fn` in\nWarehouse/placement/Assignment_Functions.py; `build_optimal_map` in\nWarehouse/inventory/inventory_optimal.py; registry in Optimization/config/strategies.py.",
+      "doc": "FROZEN. Hand-transcribed equations for the top-3 assignment functions.\n\nSuperseded by `rule_catalog()`, which renders the catalogue the run itself emits\nfrom `Optimization/config/objectives.py` \u2014 all 17 rules, each tied by test to the\nsymbol its builder actually calls. This survives only for the experiments whose\nruns predate the dossier and whose pages still call it; those pages must keep\nbuilding, and their runs have no catalogue to read.\n\nNothing new may use it. A new experiment calls `rule_catalog()`.",
       "is_async": false,
       "kind": "function",
       "signature": "()"
+    },
+    "docs/macros.py::define_env.census_claim": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "One count/span claim, composed from the census artifact.\n\nRenders the sentence the pages used to type by hand beside a figure: how many\ncomparisons went the claimed way, the exact sign test and its interval, the median\nand the span.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(metric, grouping='channel', group=None, places=1)"
+    },
+    "docs/macros.py::define_env.census_table": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The full census grid for one metric \u2014 every group, plus the overall row.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(metric, grouping='channel', places=1)"
     },
     "docs/macros.py::define_env.experiment": {
       "decorators": [
@@ -13481,6 +14221,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.held_fixed_table": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "What the sweep varied, what it held fixed, and what it has no knob for.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "docs/macros.py::define_env.inv_distribution_table": {
       "decorators": [
@@ -13509,6 +14258,15 @@
       "kind": "function",
       "signature": "(*args)"
     },
+    "docs/macros.py::define_env.inventory_model": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The realised inventory model \u2014 distributions, not a formula.\n\nThe pages used to state an equilibrium formula that, measured against the run's own\ncatalogue, is off by an order of magnitude: the planner's figures are rescaled to\nfit the warehouse after they are computed.  A distribution is the only honest thing\nto publish for a quantity nothing closed-form reproduces.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_key=None)"
+    },
     "docs/macros.py::define_env.pick_calibration_table": {
       "decorators": [
         "env.macro"
@@ -13531,10 +14289,28 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "Equilibrium / reorder-point model with this config's averages.",
+      "doc": "This run's realised inventory averages \u2014 deliberately NOT a closed form.\n\nIt used to print one, and the formula it printed did not reproduce the catalogue:\nthe planner's equilibrium target is rescaled to fit the warehouse afterwards, so\nthe stated form was out by an order of magnitude, and neither candidate\nreorder-point expression matched more than about half the stored values. A macro\nthat prints an equation asserts the equation holds. This prints the averages the\nrun recorded; `inventory_model()` publishes the distribution behind them.",
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.rule_catalog": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The placement-rule catalogue, generated from the registry the run emitted.\n\nReplaces per-rule prose that existed in three places at once.  Anchors reproduce\nthe ones the docs already link to (`#rank-labor`, `#map`, \u2026) \u2014 `docref_guard`\nchecks a different reference form, so a renamed anchor here would be a silently\nbroken published link.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(only=None, family=None)"
+    },
+    "docs/macros.py::define_env.rule_cost_table": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "What each rule costs to RUN \u2014 real CPU seconds, not modeled warehouse labor.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channel='store', top=None)"
     },
     "docs/macros.py::define_env.run_commit": {
       "decorators": [

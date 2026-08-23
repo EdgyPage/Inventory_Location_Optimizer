@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>census · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_stats_core_py__census" data-id="Optimization/Performance_Evaluations/common/stats_core.py::census">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a> <span class="sep">›</span> <span class="here"><code>census</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>census</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def census(rows, *, value, group_by=(), better=&#x27;higher&#x27;, alpha: float=0.05) -&gt; list</code></pre>
+<section class="doc">Count/span evidence for a directional claim, over any flat comparison row set.
+
+One dict per group plus a trailing overall row (``group={}``), each carrying:
+
+    n n_pos n_neg n_zero n_nan     the population and how it splits
+    win_rate                       n_pos / (n_pos + n_neg), ties excluded
+    p_sign ci_lo ci_hi             exact one-sided sign test + Clopper-Pearson
+    p_floor                        the smallest p this n could ever reach (0.5**n) —
+                                   read `p_sign` against it, not against 0.05
+    median q1 q3 iqr min max       the span, over the FINITE values
+
+`value` may be a mapping key, an attribute name, or a callable taking the row.  Each
+member of `group_by` is a NAME (used as the ``group_&lt;name&gt;`` column) or a
+``(name, callable)`` pair when the group is derived rather than stored — a bare
+callable is refused, because a group column with no name cannot be written to a CSV
+or looked up from a page.  `better` fixes the sign convention — with ``&#x27;lower&#x27;`` a
+negative value counts as positive evidence — so `n_pos` always means &quot;in the claimed
+direction&quot; no matter which way the underlying metric points.  That is the whole
+reason this takes a direction rather than leaving it to the caller: a census whose
+sign convention lives at the call site is exactly the hand-rolled count it replaces.
+
+NaNs are dropped from every statistic and counted in `n_nan`; zeros are counted in
+`n_zero`, kept in the span, and excluded from the sign test.  `n` is the finite
+count, so ``n == n_pos + n_neg + n_zero``.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___census_one.html"><code>_census_one</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___pluck.html"><code>_pluck</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_tables_census_py__census_blocks.html"><code>census_blocks</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_run_whatif_labor_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_stats_core_py__census">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/stats_core.py#:~:text=def%20census">Source ↗</a></p>
+</article>
+</main>
+</body></html>

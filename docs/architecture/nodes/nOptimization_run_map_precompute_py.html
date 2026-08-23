@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.run_map_precompute · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_map_precompute_py" data-id="Optimization/run_map_precompute.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/run_map_precompute.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.run_map_precompute</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_map_precompute_py.html"><code>Optimization/run_map_precompute.py</code></a></p>
+
+<pre class="sig"><code>Optimization.run_map_precompute</code></pre>
+<section class="doc">run_map_precompute.py — measure the map family&#x27;s OFFLINE build on a finished run.
+
+WHY A SEPARATE CLI.  `strat.build()` now carries a timer, so every future run records its
+setup span inline.  A run already on disk cannot be re-simulated to get one — that is
+hundreds of GB and hours — but it CAN be re-measured: the build is a pure function of the
+run&#x27;s own catalogue and warehouse shape, both of which the run kept.  This rebuilds those,
+times `build_optimal_map` alone, and writes the result back into the run&#x27;s runtime table
+stamped `backfill` so nothing downstream mistakes it for an inline measurement.
+
+    python -m Optimization.run_map_precompute &lt;run_root&gt;
+
+RUN IT AFTER `analyze_run`, not before.  The measurements themselves go into the run&#x27;s
+runtime table and survive anything, but the per-class detail lands under the dossier tree,
+and the dossier stage WIPES that tree on every analysis pass (it is a derived directory —
+a stale figure from a previous suite is worse than a missing one).  Backfill first and the
+census is silently gone by the time the site stages.
+
+THE GATE, and why it is not optional.  A hand-rolled rebuild of the worker&#x27;s setup phase is
+a SECOND implementation of something the simulator already does — the exact drift class the
+run dossier exists to end, reintroduced by the fix for it.  So the measurement is refused
+unless the reconstruction reproduces the warehouse identity the run itself recorded
+(`n_bins`, `regime_bins`, `n_aisles`, SKU count).  A number measured on a warehouse nobody
+checked is an unfalsifiable claim, and this file would be where it entered.
+
+WHAT THE NUMBER IS AND IS NOT.  An UNCONTENDED, single-arm wall time: this process builds
+one map at a time, where the sweep ran a 20-worker pool.  It is therefore not comparable as
+a ratio against the loop seconds in the same table, which is why `precomp_src` exists and
+why every consumer must read it.  It also carries the per-class solver split — how much of
+the assignment was solved exactly rather than greedily — which is the other thing the
+published pages asserted without measuring.</section>
+<section class="rel"><h2>Imports <span class="count">(10)</span></h2><ul><li><a href="nOptimization_config_objectives_py.html"><code>Optimization.config.objectives</code></a> <span class="dim">Optimization/config/objectives.py</span></li><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_metrics_Workload_py.html"><code>Optimization.metrics.Workload</code></a> <span class="dim">Optimization/metrics/Workload.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py.html"><code>Optimization.persistence.runtime_metrics</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nOptimization_run_analysis_py.html"><code>Optimization.run_analysis</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py.html"><code>Optimization.simdriver.sim_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse.inventory.Inventory_Management</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_inventory_optimal_py.html"><code>Warehouse.inventory.inventory_optimal</code></a> <span class="dim">Warehouse/inventory/inventory_optimal.py</span></li><li><a href="nWarehouse_picking_Pick_py.html"><code>Warehouse.picking.Pick</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nOptimization_run_map_precompute_py__MAP_RULES.html"><code>MAP_RULES</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py___identity_matches.html"><code>_identity_matches</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py___metas_by_pair.html"><code>_metas_by_pair</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py___recorded.html"><code>_recorded</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py___workload_params.html"><code>_workload_params</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py__measure_pair.html"><code>measure_pair</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li><li><a href="nOptimization_run_map_precompute_py__run.html"><code>run</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_map_precompute_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_map_precompute.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

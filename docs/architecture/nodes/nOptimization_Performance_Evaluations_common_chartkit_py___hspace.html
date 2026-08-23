@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_hspace · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_chartkit_py___hspace" data-id="Optimization/Performance_Evaluations/common/chartkit.py::_hspace">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a> <span class="sep">›</span> <span class="here"><code>_hspace</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_hspace</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a></p>
+
+<pre class="sig"><code>def _hspace(panel_h: float) -&gt; float</code></pre>
+<section class="doc">Row gap as a CONSTANT physical distance, expressed in matplotlib&#x27;s fraction units.
+
+`hspace` is a fraction of the mean axes height, so a tall panel gets a proportionally
+taller gap: a 17-category ladder at ~6 in per panel opened a 2.5-inch band of white
+between rows, which reads as two unrelated figures stacked in one file.  The gap has
+to clear one x-label plus the next row&#x27;s title, and that is a fixed number of inches
+no matter how tall the panels are.
+
+Capped at the historical 0.42 so nothing SHORTER than the default panel moves — this
+only ever shrinks an oversized gap.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__make.html"><code>make</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_chartkit_py___hspace">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/chartkit.py#:~:text=def%20_hspace">Source ↗</a></p>
+</article>
+</main>
+</body></html>

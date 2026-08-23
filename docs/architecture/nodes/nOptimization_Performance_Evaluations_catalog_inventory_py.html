@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.catalog.inventory · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_catalog_inventory_py" data-id="Optimization/Performance_Evaluations/catalog/inventory.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/catalog/inventory.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.catalog.inventory</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_catalog_inventory_py.html"><code>Optimization/Performance_Evaluations/catalog/inventory.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.catalog.inventory</code></pre>
+<section class="doc">catalog.inventory — the inventory model the run PRODUCED, not the one its formula states.
+
+WHY THIS EXISTS.  The published pages carried an equilibrium/reorder model in prose:
+`q_eq = round(coverage x dbar)` and `ROP = round(dbar x (lead + safety))`.  Checked against
+the run&#x27;s own frozen catalogue, the stated equilibrium is off by an order of magnitude
+(coverage 10 x mean demand ~= 39 against a realised mean of ~3.5) and neither ROP formula
+reproduces even 55 % of the stored values.  Nothing was wrong with the simulation; the
+prose described the planner&#x27;s intent and the catalogue records what survived
+`sample_to_capacity`, which rescales both to fit the warehouse.  A page cannot state a
+formula for that — it has to publish the distribution.
+
+WHAT THIS EMITS.  Realised distributions for the four quantities the pages talk about, the
+per-SKU reproduction rate of each candidate formula (so &quot;neither one&quot; is a measurement
+rather than an assertion), and the implied rescale factor.  A page renders these instead of
+restating a formula, and the next time the planner changes, the page changes with it.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___FIELDS.html"><code>_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___ROP_FORMULAS.html"><code>_ROP_FORMULAS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist.html"><code>_dist</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__pair_model.html"><code>pair_model</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist_q.html"><code>q</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_catalog_inventory_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/catalog/inventory.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

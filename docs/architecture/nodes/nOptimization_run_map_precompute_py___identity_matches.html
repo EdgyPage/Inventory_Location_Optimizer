@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_identity_matches · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_map_precompute_py___identity_matches" data-id="Optimization/run_map_precompute.py::_identity_matches">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_map_precompute_py.html"><code>Optimization/run_map_precompute.py</code></a> <span class="sep">›</span> <span class="here"><code>_identity_matches</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_identity_matches</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_map_precompute_py.html"><code>Optimization/run_map_precompute.py</code></a></p>
+
+<pre class="sig"><code>def _identity_matches(log, rec, shared) -&gt; bool</code></pre>
+<section class="doc">The gate: does the rebuild reproduce what the run recorded about its warehouse?
+
+A refusal here is the DESIGNED outcome, not a failure of this script.  It already
+caught the real thing once: without the run&#x27;s own shaping params applied first, the
+rebuild produced 5,814 aisles / 6.2 M bins against a run that recorded 384 / 398,500,
+and the timing taken on it would have been published as if it meant something.
+
+`regime_bins` is deliberately not checked: it is the per-CHANNEL slice, and the whole
+warehouse is what the map is built over.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_map_precompute_py__measure_pair.html"><code>measure_pair</code></a> <span class="dim">Optimization/run_map_precompute.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_map_precompute_py___identity_matches">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_map_precompute.py#:~:text=def%20_identity_matches">Source ↗</a></p>
+</article>
+</main>
+</body></html>

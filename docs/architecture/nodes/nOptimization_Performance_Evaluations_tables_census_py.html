@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.tables.census · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_tables_census_py" data-id="Optimization/Performance_Evaluations/tables/census.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/tables/census.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.tables.census</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_tables_census_py.html"><code>Optimization/Performance_Evaluations/tables/census.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.tables.census</code></pre>
+<section class="doc">tables.census — the count/span claims the pages keep making, computed instead of typed.
+
+&quot;Positive in all 68 same-rule comparisons per channel&quot;, &quot;median +44.8 %, range 28.5–39.8 %&quot;,
+&quot;positive in all 136 comparisons&quot;.  Every one of those was hand-counted at authoring time
+and then RESTATED as prose, so the only way to check one was to re-derive it from the
+staged what-if rows.  That is the shape of claim `stats_core.census` generalises, and this
+is where it gets emitted so a page can render the sentence from the artifact rather than
+assert it beside one.
+
+WHAT IS COUNTED.  Each row of the cross-cell what-if table is one same-rule comparison: an
+arm under the treatment scheduler against the identical arm under the reference, on the
+same catalogue and the same demand.  A census over those rows, grouped four ways, answers
+&quot;how broadly does this hold&quot; with an n, a win rate, an exact sign test and a span — the
+four things a reader needs before quoting a median.
+
+WHY A SIGN TEST AND NOT THE PAIRED TEST THE LEAF TABLES USE.  Different question.  The leaf
+tables ask whether ONE arm beats the baseline, over 75 paired batches.  This asks how many
+ARMS moved in the claimed direction, over 68 of them — the unit of observation is the arm,
+the comparison is already a difference, and the only distributional assumption worth making
+about a set of 68 arm-level deltas is which side of zero each one fell.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_tables_census_py___CLAIMS.html"><code>_CLAIMS</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_census_py___GROUPINGS.html"><code>_GROUPINGS</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_census_py___num.html"><code>_num</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_census_py__census_blocks.html"><code>census_blocks</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_census_py__comparisons.html"><code>comparisons</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li><li><a href="nOptimization_Performance_Evaluations_tables_census_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/tables/census.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_tables_census_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/tables/census.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

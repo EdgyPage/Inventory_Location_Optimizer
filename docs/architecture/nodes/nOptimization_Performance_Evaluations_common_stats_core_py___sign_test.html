@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_sign_test · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_stats_core_py___sign_test" data-id="Optimization/Performance_Evaluations/common/stats_core.py::_sign_test">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a> <span class="sep">›</span> <span class="here"><code>_sign_test</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_sign_test</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization/Performance_Evaluations/common/stats_core.py</code></a></p>
+
+<pre class="sig"><code>def _sign_test(n_pos: int, n_neg: int, alpha: float=0.05) -&gt; tuple</code></pre>
+<section class="doc">(p, p_floor, ci_lo, ci_hi) for &quot;more comparisons land in the claimed direction&quot;.
+
+Exact binomial against p=0.5, one-sided (the claim is directional), with a
+Clopper-Pearson interval on the win rate.  Ties are excluded from the denominator
+here — the standard sign-test convention — and reported separately by the caller so
+the exclusion is visible rather than assumed.
+
+`p_floor` is 0.5**n: the SMALLEST p this many comparisons can produce, reached only by
+a clean sweep.  It is returned because without it a small group is silently
+unfalsifiable — at n=4 the floor is 0.0625, so a rule that went the claimed way in
+every single comparison still prints &quot;not significant&quot; against a conventional
+threshold, and a reader scanning the column would draw the opposite conclusion from
+the one the data supports.  Publish the floor beside the p and the reader can see when
+the test, rather than the effect, ran out of room.
+
+(nan, …) when nothing is left to test: an all-ties group has no direction to have been
+right about, and reporting p=1 there would read as evidence of no effect.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___census_one.html"><code>_census_one</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_stats_core_py___sign_test">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/stats_core.py#:~:text=def%20_sign_test">Source ↗</a></p>
+</article>
+</main>
+</body></html>

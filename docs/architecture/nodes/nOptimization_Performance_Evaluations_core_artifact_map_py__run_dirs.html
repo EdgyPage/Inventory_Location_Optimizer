@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>run_dirs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_artifact_map_py__run_dirs" data-id="Optimization/Performance_Evaluations/core/artifact_map.py::run_dirs">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_artifact_map_py.html"><code>Optimization/Performance_Evaluations/core/artifact_map.py</code></a> <span class="sep">›</span> <span class="here"><code>run_dirs</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>run_dirs</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_artifact_map_py.html"><code>Optimization/Performance_Evaluations/core/artifact_map.py</code></a></p>
+
+<pre class="sig"><code>def run_dirs() -&gt; tuple</code></pre>
+<section class="doc">Every declared out_subdir of a RUN-scope evaluation, deepest-safe creation order.
+
+The config stage needs the shared-top/single-owner distinction because its evaluations
+run in a worker pool and two owners must not race to wipe one directory.  Run scope has
+no such hazard — `analyze_run` executes these serially in the parent, after every cell
+is finished — so the whole `_dossier/` root is wiped once and every declared subdir is
+recreated, with no ownership rule to get wrong.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py__prepare_run_dir.html"><code>prepare_run_dir</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_artifact_map_py__run_dirs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/artifact_map.py#:~:text=def%20run_dirs">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -16,14 +16,15 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@env.macro
 def assignment_formulas()</code></pre>
-<section class="doc">Equations of the top-3 winning assignment functions (Rank_labor, Map,
-Map_rank), transcribed from the source that defines them. See the module
-docstring: this is the one macro whose *formula* is hand-maintained against
-code because no JSON/DB snapshot emits these objectives yet.
+<section class="doc">FROZEN. Hand-transcribed equations for the top-3 assignment functions.
 
-Sources: `_travel_balanced_impl` / `build_optmap_fn` in
-Warehouse/placement/Assignment_Functions.py; `build_optimal_map` in
-Warehouse/inventory/inventory_optimal.py; registry in Optimization/config/strategies.py.</section>
+Superseded by `rule_catalog()`, which renders the catalogue the run itself emits
+from `Optimization/config/objectives.py` — all 17 rules, each tied by test to the
+symbol its builder actually calls. This survives only for the experiments whose
+runs predate the dossier and whose pages still call it; those pages must keep
+building, and their runs have no catalogue to read.
+
+Nothing new may use it. A new experiment calls `rule_catalog()`.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_assignment_formulas">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20assignment_formulas">Source ↗</a></p>
 </article>

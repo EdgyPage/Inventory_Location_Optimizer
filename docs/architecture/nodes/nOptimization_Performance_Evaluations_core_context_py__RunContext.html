@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RunContext · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_context_py__RunContext" data-id="Optimization/Performance_Evaluations/core/context.py::RunContext">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a> <span class="sep">›</span> <span class="here"><code>RunContext</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>RunContext</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>class RunContext</code></pre>
+<section class="doc">Whole-run context: the run ROOT and everything under it, across cells.
+
+The third scope, and the one the other two structurally cannot be.  `EvalContext` sees
+one channel-run leaf; `AggregateContext` sees the profiles of one cell x config x
+channel.  Neither can see two cells, so every cross-cell question — the scheduler
+comparison, the compute cost of a rule across the whole sweep, what the run held fixed
+— had to live outside the registry, in hand-written writers whose figures the family
+grammar never checked and whose PNGs the site guard needs a hardcoded exemption for.
+This is the scope those belong in.
+
+Reads are memoised and lazy, in the same spirit as `EvalContext`: nothing is opened
+until an evaluation&#x27;s `needs=` resolves it through the broker.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_analyze_run_py___run_root_stage.html"><code>_run_root_stage</code></a> <span class="dim">Optimization/analyze_run.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py__RunContext">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=class%20RunContext">Source ↗</a></p>
+</article>
+</main>
+</body></html>
