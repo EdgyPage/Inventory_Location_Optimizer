@@ -222,6 +222,57 @@ def test_save_keeps_the_reserved_canvas_exactly(tmp_path):
         'tight-bbox cropping is back — the reserved footer/gutter bands were cut off')
 
 
+def test_long_tick_labels_grow_the_canvas_instead_of_being_clipped(tmp_path):
+    """chartkit cannot predict how wide a caller's own tick labels will be, and the old
+    answer — crop with a tight bbox — is what cut the provenance line off.  `fit` grows
+    the canvas around them and keeps the footer band clear."""
+    names = [f'Opt|Rank_something_long_{i:02d}|noRSL' for i in range(17)]
+    ch = chartkit.make(panels=1, legend='none')
+    ch.ax.bar(range(len(names)), range(len(names)))
+    ch.ax.set_xticks(range(len(names)))
+    ch.ax.set_xticklabels(names, rotation=45, ha='right')
+    ch.ax.set_yticks(range(0, 17, 4))
+    ch.ax.set_yticklabels([f'a-very-long-row-label-{i}' for i in range(0, 17, 4)])
+    before = ch.fig.get_size_inches().copy()
+    ch.fit()
+    after = ch.fig.get_size_inches()
+    assert after[0] > before[0] and after[1] > before[1], 'canvas did not grow'
+    ch.fig.canvas.draw()
+    bb = ch.fig.get_tightbbox(ch.fig.canvas.get_renderer())
+    assert bb.x0 >= -0.01 and bb.y0 >= -0.01, 'content still hangs off the canvas'
+    assert bb.y0 >= ch.fig._footer_band - 0.02, 'content intrudes on the footer band'
+
+
+def test_fit_keeps_the_gutter_legend_beside_the_data_after_growing(tmp_path):
+    labels = [f'Uni|Arm_{i:02d}|noRSL' for i in range(12)]
+    ch = chartkit.make(panels=1, legend='gutter', legend_labels=labels)
+    for lab in labels:
+        ch.ax.plot([0, 1], [0, 1], label=lab)
+    leg = ch.legend(title='strategy')
+    ch.ax.set_xticks([0, 1])
+    ch.ax.set_xticklabels(['an extremely long tick label here',
+                           'another extremely long one'], rotation=45, ha='right')
+    ch.fit()
+    ch.fig.canvas.draw()
+    assert _bbox_disjoint(leg.get_window_extent(), ch.ax.get_window_extent()), (
+        'the legend landed on the data after the canvas grew')
+
+
+@pytest.mark.parametrize('panel_h', [3.6, 16.0])
+def test_title_and_subtitle_stay_out_of_the_axes_at_any_height(panel_h):
+    """Both header lines sit a fixed distance from the top edge.  Positioned by
+    fraction, the subtitle of a tall figure (a 34-row ladder) lands inside the data."""
+    ch = chartkit.make(panels=1, panel_h=panel_h, legend='none')
+    ch.ax.plot([0, 1], [0, 1])
+    ch.title('A title', 'and its subtitle')
+    ch.fig.canvas.draw()
+    ax_top = ch.ax.get_window_extent().y1
+    for txt in ch.fig.texts:
+        if txt.get_text() in ('A title', 'and its subtitle'):
+            assert txt.get_window_extent().y0 >= ax_top - 1, (
+                f'{txt.get_text()!r} overlaps the axes at panel_h={panel_h}')
+
+
 def test_save_rejects_a_filename_that_contradicts_its_view(tmp_path):
     ch = chartkit.make(panels=1, legend='none')
     with pytest.raises(ValueError, match='view'):

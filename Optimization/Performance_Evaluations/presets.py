@@ -16,7 +16,8 @@ _HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
              'headline.throughput_vs_labor']
 _TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',
              'labor.delta_grid', 'throughput.volume']
-_DETAIL   = ['task_time.duration', 'task_time.breakdown', 'layout.churn',
+_DETAIL   = ['task_time.duration', 'task_time.breakdown',
+             'layout.travel', 'layout.churn',
              'diagnostics.metric_grids', 'diagnostics.scorecards']
 _AGG      = ['agg.traj', 'agg.tables', 'agg.sig']
 

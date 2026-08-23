@@ -147,6 +147,22 @@ def effect_heatmap(rows, cols, pct_matrix, effect_matrix, p_matrix, out_path, *,
     P = np.asarray(p_matrix, dtype=float)
     if pct.size == 0 or not np.any(np.isfinite(pct)):
         return None
+
+    # Drop rows and columns with no measurement anywhere and SAY which: a metric that is
+    # structurally undefined for this run (churn with reslotting off, put-away depth on a
+    # store-only leaf) otherwise renders as a blank stripe the reader has to diagnose.
+    keep_r = [i for i in range(pct.shape[0]) if np.any(np.isfinite(pct[i, :]))]
+    keep_c = [j for j in range(pct.shape[1]) if np.any(np.isfinite(pct[:, j]))]
+    dropped = [str(cols[j]) for j in range(pct.shape[1]) if j not in keep_c]
+    if not keep_r or not keep_c:
+        return None
+    if len(keep_r) != pct.shape[0] or len(keep_c) != pct.shape[1]:
+        pct = pct[np.ix_(keep_r, keep_c)]
+        eff = eff[np.ix_(keep_r, keep_c)]
+        P = P[np.ix_(keep_r, keep_c)]
+        rows = [rows[i] for i in keep_r]
+        cols = [cols[j] for j in keep_c]
+
     vmax = float(np.nanmax(np.abs(pct)))
     vmax = vmax if vmax > 0 else 1.0
 
@@ -181,7 +197,12 @@ def effect_heatmap(rows, cols, pct_matrix, effect_matrix, p_matrix, out_path, *,
     ax.set_yticklabels([_short(str(r)) for r in rows], fontsize=7)
     cb = ch.fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cb.set_label(cbar_label, fontsize=8)
-    ch.title(title)
+    n_sig = int(np.sum(np.isfinite(P) & (P < 0.05)))
+    n_cell = int(np.sum(np.isfinite(pct)))
+    note = f'{n_sig} of {n_cell} cells reach significance'
+    if dropped:
+        note += f' · not measured in this run: {", ".join(dropped)}'
+    ch.title(title, note)
     return ch.save(out_path, view='effect')
 
 

@@ -253,10 +253,22 @@ def _table_figure(ctx, selected, S, baseline, out):
     base_txt = ('' if base_prod is None or not np.isfinite(base_prod)
                 else f' · FIFO Σ task time / batch ≈ '
                      f'{float(chartkit.to_hours(base_prod)):,.1f} {chartkit.HOURS}')
+    # Say what THIS n does to the p column, measured — not what the design's n≈75 was
+    # expected to do.  A boilerplate "nearly every p is ***" printed above a table of
+    # `ns` rows is worse than no note at all: it tells the reader to discount exactly the
+    # column that, at this sample size, is the one carrying information.
+    n_sig = int(sum(1 for p in adj if np.isfinite(p) and p < 0.05))
+    if adj.size and n_sig == adj.size:
+        p_note = (f'n={nb} paired batches: every p clears significance at this n — '
+                  f'read g and the CI')
+    elif n_sig:
+        p_note = (f'n={nb} paired batches: {n_sig} of {adj.size} arms clear '
+                  f'significance — read g and the CI beside it')
+    else:
+        p_note = (f'n={nb} paired batches: no arm clears significance at this n — '
+                  f'the differences below are not yet separable from noise')
     ch.legend()
-    ch.title('Top arms vs FIFO — labor & throughput',
-             f'n={nb} paired batches: nearly every p is *** at this n — '
-             f'read g and the CI{base_txt}')
+    ch.title('Top arms vs FIFO — labor & throughput', p_note + base_txt)
     ch.save(os.path.join(out, 'table_top_vs_baseline.png'), view='table')
 
 

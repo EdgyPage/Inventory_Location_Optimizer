@@ -307,11 +307,14 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     content_h = max(nrows * panel_h, gut_h)
     fh = content_h + _TITLE_BAND + bot_leg + (_FOOTER_BAND if footer else 0.12)
     fig = plt.figure(figsize=(fw, fh))
-    left  = 0.75 / fw
-    right = 1.0 - (gut + 0.15) / fw
-    top   = 1.0 - _TITLE_BAND / fh
-    bottom = ((_FOOTER_BAND if footer else 0.12) + bot_leg + 0.42) / fh
-    gs = fig.add_gridspec(nrows, ncols, left=left, right=right, top=top, bottom=bottom,
+    # Margins are tracked in INCHES (not fractions) because `fit` may grow the canvas and
+    # must move the panels by an exact distance; a fraction of the old size would drift.
+    m_left = 0.75
+    m_right = fw - (gut + 0.15)
+    m_top = fh - _TITLE_BAND
+    m_bottom = (_FOOTER_BAND if footer else 0.12) + bot_leg + 0.42
+    gs = fig.add_gridspec(nrows, ncols, left=m_left / fw, right=m_right / fw,
+                          top=m_top / fh, bottom=m_bottom / fh,
                           hspace=0.42, wspace=0.28)
     axes = []
     for i in range(panels):
@@ -325,17 +328,21 @@ def make(*, panels=1, ncols=None, panel_w=_PANEL_W, panel_h=_PANEL_H,
     for ax in axes:
         ax.grid(alpha=0.3)
     fig._chartkit = True                        # io._save_close: no tight-bbox rescue
+    fig._footer_band = _FOOTER_BAND if footer else 0.06
     fig._footer_y = (0.5 * _FOOTER_BAND / fh) if footer else 0.004
     return Chart(fig, axes, gutter_frac=(1.0 - (gut + 0.05) / fw) if gut else None,
                  legend_mode=legend, legend_title=legend_title, footer=footer,
-                 gutter_cols=gut_cols)
+                 gutter_cols=gut_cols, gs=gs,
+                 margins=(m_left, m_right, m_bottom, m_top))
 
 
 class Chart:
     """A figure plus the reserved-geometry bookkeeping `make` computed for it."""
 
     def __init__(self, fig, axes, *, gutter_frac, legend_mode, legend_title, footer,
-                 gutter_cols=1):
+                 gutter_cols=1, gs=None, margins=None):
+        self._gs = gs
+        self._margins = margins             # (left, right, bottom, top) in inches
         self.fig, self.axes = fig, axes
         self._gutter_frac = gutter_frac
         self._legend_mode = legend_mode
@@ -343,6 +350,7 @@ class Chart:
         self._footer = footer
         self._gutter_cols = gutter_cols
         self._legend_slot = 0
+        self._legends = []
 
     @property
     def ax(self):
@@ -350,10 +358,17 @@ class Chart:
 
     def title(self, text, subtitle=None):
         """SHORT title policy: one clause.  Run keys/context belong to the footer —
-        anything longer than 60 chars is a caption trying to be a title."""
-        self.fig.suptitle(text[:80], fontsize=12, fontweight='bold', y=0.985, va='top')
+        anything longer than 60 chars is a caption trying to be a title.
+
+        Both lines are placed a fixed DISTANCE below the top edge, not at a fixed
+        fraction of the height: the title band is a constant number of inches, so on a
+        tall figure (a 34-row ladder runs past 16 in) a fractional offset walks the
+        subtitle straight down into the axes."""
+        h = self.fig.get_figheight()
+        self.fig.suptitle(text[:80], fontsize=12, fontweight='bold',
+                          y=1.0 - 0.13 / h, va='top')
         if subtitle:
-            self.fig.text(0.5, 0.985 - 0.30 / self.fig.get_figheight(), subtitle,
+            self.fig.text(0.5, 1.0 - 0.36 / h, subtitle,
                           ha='center', va='top', fontsize=8.5, color='#555555')
 
     def legend(self, handles=None, labels=None, *, title=None, ncol=None):
@@ -386,10 +401,58 @@ class Chart:
                                    fontsize=8, frameon=False)
         y = 0.96 - self._legend_slot * 0.34
         self._legend_slot += 1
-        return self.fig.legend(H, L, title=title or self._legend_title,
-                               loc='upper left', ncol=ncol or self._gutter_cols,
-                               bbox_to_anchor=(self._gutter_frac or 0.99, y),
-                               fontsize=8, frameon=True)
+        x = self._gutter_frac or 0.99
+        leg = self.fig.legend(H, L, title=title or self._legend_title,
+                              loc='upper left', ncol=ncol or self._gutter_cols,
+                              bbox_to_anchor=(x, y), fontsize=8, frameon=True)
+        # Remember the anchor in INCHES: `fit` may grow the canvas, and a fraction of
+        # the old width points somewhere else on the new one.
+        w, h = self.fig.get_size_inches()
+        self._legends.append((leg, x * w, y * h))
+        return leg
+
+    def fit(self):
+        """Grow the canvas until nothing is clipped, keeping the footer band clear.
+
+        Called automatically by `save`.  The reserved bands solve the collisions chartkit
+        can predict, but not the one it cannot: how wide a caller's own tick labels turn
+        out to be.  Seventeen rotated 20-character arm names need more left and bottom
+        margin than any fixed constant should promise, and the old answer — crop with a
+        tight bbox — is what cut the provenance line off in the first place.  So measure
+        after drawing, and EXPAND rather than crop: the panels keep the size they were
+        designed at, and the overflow gets canvas of its own.
+        """
+        fig = self.fig
+        band = getattr(fig, '_footer_band', _FOOTER_BAND)
+        # Growing moves the axes, which can change how far a rotated label reaches, so
+        # this is a fixed point rather than one subtraction.  Two passes settle every
+        # real figure; the third is the guard against a pathological one.
+        for _ in range(3):
+            fig.canvas.draw()
+            bb = fig.get_tightbbox(fig.canvas.get_renderer())
+            w, h = fig.get_size_inches()
+            dl = max(0.0, 0.06 - bb.x0)
+            dr = max(0.0, bb.x1 - (w - 0.06))
+            db = max(0.0, band - bb.y0)      # the footer band stays empty
+            dt = max(0.0, bb.y1 - (h - 0.04))
+            if dl + dr + db + dt < 0.02:
+                break
+            nw, nh = w + dl + dr, h + db + dt
+            m_l, m_r, m_b, m_t = self._margins
+            m_l, m_r, m_b, m_t = m_l + dl, m_r + dl, m_b + db, m_t + db
+            self._margins = (m_l, m_r, m_b, m_t)
+            fig.set_size_inches(nw, nh)
+            # The gridspec carries its OWN margins; fig.subplots_adjust does not reach
+            # axes created from one, which is why the panels used to stay put while the
+            # canvas grew around them.
+            self._gs.update(left=m_l / nw, right=m_r / nw,
+                            bottom=m_b / nh, top=m_t / nh)
+            self._legends = [(leg, x_in + dl, y_in + db)
+                             for leg, x_in, y_in in self._legends]
+            for leg, x_in, y_in in self._legends:
+                leg.set_bbox_to_anchor((x_in / nw, y_in / nh))
+            fig._footer_y = 0.5 * band / nh
+        return self
 
     def save(self, path, *, view=None):
         """Save through io._save_close.  `view` asserts the family-grammar filename
@@ -402,6 +465,7 @@ class Chart:
                 raise ValueError(f'view {view!r} requires a {view}_* filename, '
                                  f'got {base!r}')
             _assert_view_allowed(view)
+        self.fit()
         _io._save_close(self.fig, path)
         return path
 
