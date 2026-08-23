@@ -18,13 +18,16 @@ Formula *shapes* are fixed here from the code that defines them
 (``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);
 only the *numbers* come from JSON, so pages never hard-code a value twice.
 
-Exception: ``assignment_formulas`` transcribes the top-3 assignment-function
-*equations* directly from ``Warehouse/placement/Assignment_Functions.py`` /
-``Warehouse/inventory/inventory_optimal.py``. Those objectives are not (yet) emitted to any
-JSON/DB snapshot, so — unlike every other macro here — there is no programmatic
-source to read. A future refactor should expose each builder's objective (e.g. a
-``formula`` field on the builder or a small registry) so this macro can read it like
-the others; until then the shapes are maintained by hand against the code.
+The one long-standing exception is closed. ``assignment_formulas`` used to transcribe the
+top-3 assignment-function *equations* by hand, because no snapshot emitted them; this
+docstring asked for "a small registry" so the macro could read them like the others, and
+``Optimization/config/objectives.py`` is it. Every run now emits its rule catalogue, and
+``rule_catalog()`` renders it — with a test tying each objective to the symbol its builder
+actually calls, which is the part hand-maintenance could never offer.
+
+``assignment_formulas`` survives FROZEN, for the pre-dossier experiments whose pages call
+it and whose runs have no catalogue staged. Nothing new may use it: a new experiment reads
+the artifact.
 """
 
 import json
@@ -451,14 +454,15 @@ def define_env(env):
 
     @env.macro
     def assignment_formulas():
-        """Equations of the top-3 winning assignment functions (Rank_labor, Map,
-        Map_rank), transcribed from the source that defines them. See the module
-        docstring: this is the one macro whose *formula* is hand-maintained against
-        code because no JSON/DB snapshot emits these objectives yet.
+        """FROZEN. Hand-transcribed equations for the top-3 assignment functions.
 
-        Sources: `_travel_balanced_impl` / `build_optmap_fn` in
-        Warehouse/placement/Assignment_Functions.py; `build_optimal_map` in
-        Warehouse/inventory/inventory_optimal.py; registry in Optimization/config/strategies.py.
+        Superseded by `rule_catalog()`, which renders the catalogue the run itself emits
+        from `Optimization/config/objectives.py` — all 17 rules, each tied by test to the
+        symbol its builder actually calls. This survives only for the experiments whose
+        runs predate the dossier and whose pages still call it; those pages must keep
+        building, and their runs have no catalogue to read.
+
+        Nothing new may use it. A new experiment calls `rule_catalog()`.
         """
         return "\n".join([
             "All three share one **per-bin labor primitive** — the expected time to make one "
@@ -615,6 +619,15 @@ def define_env(env):
                 bits.append("with an **offline build step** "
                             f"(`{r['precompute'].split('@')[0]}`) run once per arm before "
                             "the simulation")
+            # How much of that build was solved EXACTLY, measured rather than described.
+            # The exact solver has a size gate; earlier pages called this "the full linear
+            # assignment problem", which at catalogue scale names a branch almost nothing
+            # takes.  The share is emitted per rule, so the sentence cannot go stale.
+            pct = r.get("map_lap_pct")
+            if pct is not None:
+                bits.append(f"whose assignment is solved exactly for **{pct * 100:.2f} %** "
+                            "of units and by a near-optimal greedy pass for the rest — the "
+                            "exact solver has a size limit the large bin classes exceed")
             if not r["ran"]:
                 bits.append("**not swept in this run**")
             out += [f"<small>{'; '.join(bits)}.</small>", ""]
@@ -706,15 +719,24 @@ def define_env(env):
 
     @env.macro
     def reorder_formula(*args):
-        """Equilibrium / reorder-point model with this config's averages."""
+        """This run's realised inventory averages — deliberately NOT a closed form.
+
+        It used to print one, and the formula it printed did not reproduce the catalogue:
+        the planner's equilibrium target is rescaled to fit the warehouse afterwards, so
+        the stated form was out by an order of magnitude, and neither candidate
+        reorder-point expression matched more than about half the stored values. A macro
+        that prints an equation asserts the equation holds. This prints the averages the
+        run recorded; `inventory_model()` publishes the distribution behind them.
+        """
         c = _load_cfg(*_ric(args))
         # Single paragraph with INLINE math ($…$) — this macro is rendered inside an
         # indented admonition, where a $$display$$ block (needing its own blank lines)
         # would break out of the call-out. Inline keeps it one logical line.
         return (
-            r"$q_{\text{eq}} = \operatorname{round}(\text{coverage}\times \bar d)$ and "
-            r"$\text{ROP} = \operatorname{round}(\bar d\,(\text{lead}+\text{safety}))$, "
-            r"where $\bar d$ is a SKU's expected per-batch demand. This run's averages: "
+            r"Each SKU carries an **equilibrium quantity** (its steady-state stock) and a "
+            r"**reorder point** (the level that triggers replenishment), both derived from "
+            r"its expected per-batch demand $\bar d$ and its lead time, then rescaled so "
+            r"the whole catalogue fits the warehouse. This run's averages: "
             f"equilibrium **{_num(c['avg_equilibrium_qty'])}**, "
             f"reorder point **{_num(c['avg_reorder_point'])}**, "
             f"lead time **{_num(c['avg_lead_time_mean'])}** batches, "

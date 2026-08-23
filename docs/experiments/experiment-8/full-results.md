@@ -68,6 +68,38 @@ consume even when their own scoring is fixed. Either way the scoring runs once p
 the dock, not in the pick path, so it is not a latency question — one score per arriving pallet,
 against a catalogue-sized table the WMS already keeps indexed.
 
+### Is it cheap enough to run? { #compute-cost }
+
+*The other feasibility question, and the one this experiment could not answer until now.* A
+rule that scores every arriving unit costs CPU time, and the `Map` family additionally builds
+an address map offline. Both are measured here, from the run's own compute records:
+
+{{ rule_cost_table('store') }}
+
+Read the middle column first. **Scoring one arriving unit costs well under a millisecond** for
+every rule on the board, and a few hundredths of a millisecond for the winners — against a dock
+that receives on the order of ten thousand units per wave. Placement scoring is not a capacity
+question, a latency question, or a licensing question; it is a rounding error against the
+put-away walk it is choosing.
+
+The offline build is the same story at a different cadence: the whole address map for a
+263,000-SKU catalogue is built in **under half a minute**, once per plan, on one core. That is
+a nightly cron job, not a service.
+
+Two honest qualifications. These are wall-clock seconds on the machine that ran the sweep, so
+the *multiple against the do-nothing rule* is the figure that travels between machines and the
+raw seconds are not. And the offline build was measured on its own, uncontended, while the
+per-wave figures were measured with the sweep's whole worker pool running — the two are not a
+ratio, which is why the table keeps them in separate columns.
+
+One thing the measurement changed. The `Map` family's address map is described as solving an
+assignment problem exactly; the exact solver has a size limit, and at this catalogue's scale
+the large bin classes are far past it, so **about a tenth of a percent of units get the exact
+solve and the rest get a near-optimal greedy pass**. The results on this page are what that
+produced. It is not a defect — the greedy pass is what earned the numbers — but "solved
+exactly" was the wrong description, and the
+[formula reference](formula-reference.md#map) now carries the measured share instead.
+
 **What the put-away side costs — the other half of the ledger, stated plainly.** The modeled
 labor on this page counts **pick time only**: the restocker's walk to the chosen slot is not
 modeled for *any* rule, FIFO included, so the 2.6 % is a pick-hours saving, not a
@@ -111,17 +143,16 @@ Three things read directly off that figure:
 ## The scheduler does not touch labor
 
 This is the claim the [throughput page](comparison.md) rests on, so it is stated with its bound
-rather than as a round number. Across **68 LPT arms per channel**:
+rather than as a round number, and the table below is **generated from the run's own
+comparison census** rather than transcribed — so it cannot drift from the data it describes:
 
-| channel | median labor delta vs round-robin | worst case across all arms |
-|---|---:|---:|
-| store | −0.004 % | −0.041 % … +0.068 % |
-| fulfillment | +0.000 % | −0.021 % … +0.017 % |
+{{ census_table('labor_delta_vs_ref_pct') }}
 
-<small>Column `labor_delta_vs_ref_pct`, [`data/whatif_volume.json`](data/whatif_volume.json).</small>
-
-A scheduler re-packs tasks across pickers; it cannot change how long those tasks take — and the
-data confirms it to under a tenth of a percent. These bounds are exact, not sampled: the simulator
+The last column is the part a median alone cannot give you. A scheduler re-packs tasks across
+pickers; it cannot change how long those tasks take, and the right way to state that is not
+"the median is small" but "the *direction* is a coin flip". It is: across every comparison,
+about as many arms move up as down, and the sign test cannot distinguish the result from
+chance. That is what no effect looks like, as opposed to a small one. These bounds are exact, not sampled: the simulator
 is deterministic, so each arm's two runs replay the identical day and the delta is a
 recomputation with no noise floor beneath it. Every throughput gain on the throughput page is
 therefore attributable to reduced idle time, not reduced work.

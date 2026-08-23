@@ -122,14 +122,23 @@ place well to hold the layout.
 ## Inventory control
 
 ### q_eq — equilibrium quantity { #q-eq }
-Target steady-state stock, `q_eq = round(coverage × d̄)` for expected per-batch demand *d̄*.
+Target steady-state stock per SKU. The planner sizes it as coverage × expected per-batch
+demand, but that is not what ends up in the catalogue: the whole inventory is then rescaled
+to fit the warehouse, so the stored values are far smaller than the formula asks for. The
+realised distribution is published on the
+[comparison overview](comparison-overview.md#the-inventory-model) — read that, not a formula.
 
 ### ROP — reorder point { #rop }
-Threshold that triggers replenishment: `ROP = round(d̄ × (lead + safety))`.
+Threshold that triggers replenishment, derived per SKU from its expected demand and lead
+time and then rescaled with `q_eq`. **No closed form reproduces the stored values** — the
+closest candidate matches about half of them — which is why the pages publish the
+distribution instead of an equation.
 
-### coverage / safety { #coverage-safety }
-`coverage` = batches of demand held at equilibrium (10 here); `safety` = extra batches of
-buffer folded into the ROP.
+### coverage { #coverage-safety }
+Batches of demand the planner *aims* to hold at equilibrium (10 here), before the
+warehouse-fit rescale. There is no separate *safety* parameter on the builder this run
+used: the reorder point is derived from lead time alone. Earlier pages described a
+`lead + safety` form, which belongs to a different builder and was never what ran here.
 
 ### Lead time { #lead-time }
 Batches between ordering and arrival. `lt0` = immediate (0); `ltrand0-5` = uniform 0–5.

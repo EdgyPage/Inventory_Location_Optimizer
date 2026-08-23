@@ -139,136 +139,16 @@ then singleton bins, else it waits in the restock queue and retries next batch. 
 scope notes (manual holds, damaged slots, cold-start SKUs) are on the
 [labor page](full-results.md#every-arm).
 
-## Baseline
+!!! note "The rule sections below are generated, not written"
+    Every heading, objective and implementation note from here to the statistics section
+    is rendered from `rule_catalog.json` — the catalogue **this run emitted**, listing what
+    each rule optimises, which Python symbol implements it, and whether the sweep actually
+    swept it. It used to be prose maintained in three places at once (this page, a macro,
+    and the code), and it had drifted. A test now ties each objective to the symbol its
+    builder really calls, so a renamed function fails CI instead of quietly making this
+    page wrong.
 
-### FIFO — `fifo` { #fifo }
-First-in-first-out: drop each arriving unit into a **uniform-random** bin of its
-[BinKey](glossary.md#binkey) pool. No ordering, no affinity, no demand awareness. The
-do-nothing control every other family is measured against.
-
-## Ranked (effort / labor)
-
-These order the wave by the pick-effort priority above, differing in *where* they place it.
-
-### Rank_random — `rank_random` { #rank-random }
-Rank by priority, then place each unit in a **uniform-random aisle** at its lowest-`D` (front)
-bin. Isolates the *ordering* effect from the *placement* effect — how much of the win is just
-sequencing hot units first.
-
-### Rank_popularity — `rank_popularity` { #rank-popularity }
-Rank by expected popularity (`f·q`), place each into the aisle with the **least** Σ popularity.
-Spreads demand mass evenly across aisles (a dispersal control).
-
-### Rank_labor — `rank_labor` { #rank-labor }
-**Travel-aware LPT (longest-processing-time) labor balance — the best store arm in this run.**
-Aisle $a$'s total expected labor is $L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$; each unit is placed
-where it least raises the busiest aisle, costliest SKU first:
-
-$$\arg\min_{(a,\,b)}\ \bigl(L_a + f_s\,q_s\,\ell(b)\bigr).$$
-
-### Rank_cartlabor — `rank_cartlabor` { #rank-cartlabor }
-**Rank_labor plus a cart-swap term — a top-3 winner, within 0.02 pp of Rank_labor on store.**
-Identical to Rank_labor except that the load being balanced also carries each aisle's *expected
-cart-swap* cost, so demand mass that would overflow a picker's cart gets dispersed rather than
-concentrated. Writing $V_a = \sum_{s\in a} f_s\,q_s\,v_s$ for the aisle's raw expected picked
-volume and $\hat{V}$ for the cart capacity rescaled to the same units
-($\hat{V} = \text{cart\_capacity}\cdot\sum_s f_s / k$, with $k$ the expected SKUs per batch):
-
-$$C_a = c_{\text{swap}} \cdot \max\!\left(0,\ \frac{V_a}{\hat{V}} - 1\right),
-\qquad
-\arg\min_{(a,\,b)}\ \bigl(L_a + C_a + f_s\,q_s\,\ell(b)\bigr).$$
-
-With the store's large cart $C_a$ is ≈ 0 — aisles rarely fill it — so store plans barely differ
-from Rank_labor, which is why the two sit adjacent at the top of the results table. With the small
-fulfillment cart the term bites. Setting the cart tuple to `None` makes this **byte-identical** to
-Rank_labor (`build_ranked_cartlabor_fn`, `Warehouse/placement/Assignment_Functions.py`).
-
-### Rank_minlabor — `rank_minlabor` { #rank-minlabor }
-**Greedy minimiser of expected total task labor — a top-3 winner in this run.** Fuses golden-zone
-height, effort-to-front, and affinity compaction into one marginal-cost score (consolidates rather
-than balances):
-
-$$\arg\min_{(a,\,b)}\ \Bigl[\,f_s\bigl(M(y_b)(t_0 + h) + D_b\bigr)
-\;-\; \lambda\!\!\sum_{p\,\in\,\text{aisle}}\!\!\bigl(\text{lift}(s,p)-1\bigr) f_p\,\Bigr].$$
-
-### Rank_maxlabor — `rank_maxlabor` { #rank-maxlabor }
-The exact **maximiser** mirror of `rank_minlabor` (high/far bins, scattered partners) — a
-worst-case control that should land *worst* on task labor. Designed to lose.
-
-## Map (optimal-map score matching)
-
-### Map — `map` { #map }
-**Optimal-map score matching.** Each bin has a quantity-free preferred score
-$\operatorname{pref}(b) = D_b + M(y_b)(t_0 + \bar h)$; each SKU's $\operatorname{target}(s)$ is
-the $\operatorname{pref}$ of its bin in the labor-minimising full linear assignment problem
-(LAP). Place at
-
-$$\arg\min_{b}\ \bigl|\operatorname{pref}(b) - \operatorname{target}(s)\bigr|.$$
-
-*Recompute cadence:* the LAP — and with it every $\operatorname{target}(s)$ — is solved **once
-per run at setup**, from the demand model; it is **not** re-solved as the run's realized demand
-drifts. As a WMS job that means a periodic offline re-slot computation (nightly/weekly), not a
-live service — and the variable-lead-time result on the [labor page](full-results.md) was earned
-with a map that never refreshed mid-run, so a refreshing implementation starts from at least
-this baseline.
-
-### Map_rank — `map_rank` { #map-rank }
-**The same map, upgrade-capped.** A SKU never reloads into a bin more prime than
-its optimal rank, reserving prime spots for higher-ranked SKUs future orders bring:
-
-$$\arg\min_{\,b\,:\,\operatorname{pref}(b)\,\ge\,\operatorname{target}(s)}\
-\bigl(\operatorname{pref}(b) - \operatorname{target}(s)\bigr).$$
-
-## Cluster-map (map + cohesion)
-
-### CluMap — `cluster_map` { #cluster-map }
-Mix `map` with clustering: choose the aisle **cohesion-first** (most demand-weighted affinity
-to existing members), anchor the unit at its favoured map location, and compact it toward the
-partners' column centroid.
-
-### CluMapRk — `cluster_map_rank` { #cluster-map-rank }
-Upgrade-capped `cluster_map` — same cohesion + compaction, but never settles more prime than
-its map target.
-
-## Travel bracket
-
-### TripMin — `tmin` { #tmin }
-Minimise the travel score $f_s\,D - \beta\,\text{co-occur}$: hot SKUs to low-$D$ (front) bins →
-less within-aisle walking.
-
-### TripMax — `tmax` { #tmax }
-Maximise the same score (hot items to the **back**). Worst-case travel control; brackets `tmin`.
-
-## Affinity bracket
-
-### MaxClu — `cmax` { #cmax }
-Maximise **cohesion** $\text{co-occur} = \sum_p \bigl(\text{lift}(s,p) - 1\bigr) f_p$: send each
-SKU to the aisle where its co-picked partners already sit → fewer aisle visits per batch.
-
-### MinClu — `cmin` { #cmin }
-Minimise cohesion (scatter partners across aisles). Anti-affinity control; brackets `cmax`.
-
-## Co-demand bracket
-
-Both place a SKU in the chosen aisle relative to the **demand-weighted column centroid** of its
-co-demanded partners already in that aisle:
-
-$$c_x \;=\; \frac{\sum_p \bigl(\text{lift}(s,p)-1\bigr)\,f_p\,x_p}{\sum_p \bigl(\text{lift}(s,p)-1\bigr)\,f_p}$$
-
-where $x_p$ are the partners' column positions.
-
-### Compact — `comp` { #comp }
-Minimise within-aisle **span** — place the SKU in the column **nearest** the partner centroid,
-shortening the sweep path:
-
-$$\arg\min_{b}\ \lvert x_b - c_x \rvert.$$
-
-### Expand — `expn` { #expn }
-Maximise within-aisle span — place it **farthest** from the centroid (counter control):
-
-$$\arg\max_{b}\ \lvert x_b - c_x \rvert.$$
-
-The `comp ↔ expn` gap measures how much the co-demand lever is worth.
+{{ rule_catalog() }}
 
 ## How the comparison statistics are computed { #comparison-statistics }
 

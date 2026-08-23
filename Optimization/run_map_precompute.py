@@ -222,8 +222,15 @@ def run(base_dir: str, log=None) -> None:
         log.warning('nothing measured (no map arms, or the gate refused every one)')
         return
     # The per-class detail lands under the dossier's tables glob, so it costs no new
-    # declaration and no new forbidden filename token.
-    tdir = os.path.join(rt.dossier_dir(), 'tables')
+    # declaration and no new forbidden filename token.  HEAD's contract, not the run's:
+    # this is an ANALYSIS output, and a finished run's own document predates the dossier
+    # — resolving through it raises for a directory that is perfectly legal to write.
+    from Optimization.runschema import reader_for
+    rd = reader_for(rt, 'dossier_dir')
+    if rd is None:
+        log.warning('  no contract declares the dossier tree — solver census not written')
+        return
+    tdir = os.path.join(rd.dossier_dir(), 'tables')
     os.makedirs(tdir, exist_ok=True)
     path = os.path.join(tdir, 'map_solver_census.csv')
     with open(path, 'w', newline='', encoding='utf-8') as fh:

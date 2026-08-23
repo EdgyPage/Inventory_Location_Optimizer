@@ -75,11 +75,31 @@ and — derived from that demand — an equilibrium quantity and a reorder point
 !!! abstract "Equilibrium / reorder model"
     {{ reorder_formula(inv0) }}
 
-    Coverage is **{{ inv_params(inv0)['equilibrium_coverage_batches'] }}**
-    batches of expected demand; the reorder point triggers replenishment `lead + safety`
-    batches ahead of stock-out. The full creation plan — shares, dimension, weight, handling,
-    and demand distributions — is on the [Inventory distributions](inventory.md) page,
-    generated from the same snapshot.
+    The full creation plan — shares, dimension, weight, handling, and demand distributions —
+    is on the [Inventory distributions](inventory.md) page, generated from the same snapshot.
+
+
+### What this sweep varied, and what it held still { #held-fixed }
+
+Derived from the run's own tree rather than written down: a factor counts as *varied* when
+more than one value of it appears in this run, and *fixed* when exactly one does — so the
+fixed list cannot be quietly incomplete. The third category is the one worth reading. Some
+knobs a reader will ask about are **not parameters of this model at all**, which is a
+different answer from "we held it constant" and the only one that implies changing code
+rather than changing a run spec.
+
+{{ held_fixed_table() }}
+
+### The inventory model, as the run actually stocked it { #the-inventory-model }
+
+The planner aims for **{{ inv_params(inv0)['equilibrium_coverage_batches'] }}** batches of
+expected demand per SKU, then the whole catalogue is rescaled to fit the warehouse — so the
+target and the stocked reality differ by roughly an order of magnitude, and no closed form
+reproduces the stored reorder points. Earlier versions of this page printed the target
+formula as though it described the catalogue. It did not. What the simulation actually
+stocked:
+
+{{ inventory_model(inv0) }}
 
 The catalogue lists {{ '{:,}'.format(inv_params(inv0)['num_skus']) }} SKUs; the shared build
 stocks the subset that fits its racking (the setup table's `n_skus` row below), which is why the

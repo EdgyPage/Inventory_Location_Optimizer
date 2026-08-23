@@ -428,7 +428,7 @@ with the blanks left honest:
   as revenue or as a later cutoff, and only your site can price those.
 
 Why trust the *selection*, even without trusting the exact percentages: the scheduler gain is
-positive in **all 136 same-rule comparisons** in this sweep — the third consecutive catalogue
+{{ census_claim('thr_gain_vs_ref_pct') }} across this sweep — the third consecutive catalogue
 stream where that holds ([Experiment 7](../experiment-7/index.md) and
 [Experiment 6](../experiment-6/index.md) before it). The placement ranking is more sensitive: it
 holds within a supply model but **flips between supply models** — which is exactly why the pilot,
