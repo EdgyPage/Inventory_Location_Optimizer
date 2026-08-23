@@ -189,43 +189,37 @@ ARTIFACTS = {
         'writer': '_aggregate_jobs@Optimization/run_analysis.py',
         'note': 'the group subtree; <config> alone on a store-only run, <config>/<channel> mixed.'},
     'aggregate_pngs': {
-        'path': '{cell}/_aggregate/{config}/{channel?}/**/*.png', 'format': 'png', 'scope': 'cell',
+        'path': '{cell}/_aggregate/{config}/{channel?}/figures/**/*.png',
+        'format': 'png', 'scope': 'cell', 'group': 'figures',
         'writer': 'run_aggregate@Optimization/Performance_Evaluations/driver.py',
-        'note': 'faceted/, overlay/, top/, breakdown/, stats_by_initial/<group>/.'},
+        'note': 'the aggregate stage mirrors the leaf families minimally: trajectories '
+                '(percent overlays of ×-baseline curves) and significance.'},
     'aggregate_by_initial_csv': {
-        'evaluation': 'agg.stats_by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
+        'evaluation': 'agg.tables',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/_aggregate/{config}/{channel?}/tables/by_initial_summary.csv',
         'format': 'csv', 'scope': 'cell',
-        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats.py'},
-    'aggregate_summary_csv': {
-        'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
-                'aggregate_summary.csv',
-        'format': 'csv', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
-        # Attribution CORRECTED: the by-initial variant is written by render_stats_by_initial
-        # (via _run_aggregate_stats); render_stats writes the flat stats/ pair declared below.
-        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats.py'},
-    'aggregate_tests_json': {
-        'path': '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/'
-                'aggregate_tests.json',
-        'format': 'json', 'scope': 'cell', 'evaluation': 'agg.stats_by_initial',
-        'writer': 'render_stats_by_initial@Optimization/Performance_Evaluations/aggregate/stats.py'},
-    # The FLAT aggregate-stats pair (same writer helper, different out_dir) was produced on every
-    # aggregate stats run and never declared — the audit's one genuine contract gap.
-    # OPTIONAL for the same reason as their per-config twins (stats_summary_csv /
-    # stats_tests_json): `agg.stats` runs only under the DEFAULT/NO_STATS presets, and the
-    # DEFAULT preset is BY_INITIAL, which runs `agg.stats_by_initial` and writes
-    # stats_by_initial/ instead.  Declared required, they made every BY_INITIAL run fail
-    # contract verification for artifacts that correctly do not exist.
+        'writer': 'render@Optimization/Performance_Evaluations/aggregate/tables.py'},
+    'aggregate_by_initial_tests_json': {
+        'evaluation': 'agg.tables',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/_aggregate/{config}/{channel?}/tables/by_initial_tests.json',
+        'format': 'json', 'scope': 'cell',
+        'note': 'one consolidated document keyed by assignment fn (same shape rule as the '
+                'per-leaf twin).',
+        'writer': 'render@Optimization/Performance_Evaluations/aggregate/tables.py'},
+    # The FLAT aggregate-stats pair stays OPTIONAL for the same reason as its per-leaf
+    # twins: the flat fork runs only under DEFAULT/NO_STATS, and the CLI default preset is
+    # BY_INITIAL.  Declared required, they made every BY_INITIAL run fail contract
+    # verification for artifacts that correctly do not exist.
     'aggregate_stats_summary_csv': {
-        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv',
-        'format': 'csv', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.stats',
-        'condition': 'flat aggregate stats suite only (agg.stats, i.e. not BY_INITIAL).',
-        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats.py'},
+        'path': '{cell}/_aggregate/{config}/{channel?}/tables/aggregate_summary.csv',
+        'format': 'csv', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.tables',
+        'condition': 'flat aggregate stats suite only (not BY_INITIAL).',
+        'writer': 'render@Optimization/Performance_Evaluations/aggregate/tables.py'},
     'aggregate_stats_tests_json': {
-        'path': '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json',
-        'format': 'json', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.stats',
-        'condition': 'flat aggregate stats suite only (agg.stats, i.e. not BY_INITIAL).',
-        'writer': 'render_stats@Optimization/Performance_Evaluations/aggregate/stats.py'},
+        'path': '{cell}/_aggregate/{config}/{channel?}/tables/aggregate_tests.json',
+        'format': 'json', 'scope': 'cell', 'optional': True, 'evaluation': 'agg.tables',
+        'condition': 'flat aggregate stats suite only (not BY_INITIAL).',
+        'writer': 'render@Optimization/Performance_Evaluations/aggregate/tables.py'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {
@@ -287,73 +281,93 @@ ARTIFACTS = {
         'format': 'json', 'scope': 'channel_run',
         'writer': '_dump_series@Optimization/Performance_Evaluations/common/series.py'},
     # ── analysis outputs at the channel-run leaf ────────────────────────────────
-    # `**/*.png` spans the graph subdirs (compare/ nests faceted/, overlay/, top/, breakdown/).
-    'per_strategy_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/**/*.png',
-        'format': 'png', 'scope': 'channel_run',
+    # The figures tree is one folder per chart family (core/families.py); filenames carry
+    # a `<view>_` prefix (absolute/percent/delta/effect/table) validated at save time.
+    # Family folders are created by the parent pre-pass; a glob per family keeps preflight
+    # able to name which family an undeclared file violated.
+    'figures_headline_pngs': {
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/headline/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
         'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'compare_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/compare/**/*.png',
-        'format': 'png', 'scope': 'channel_run',
+    'figures_trajectories_pngs': {
+        'evaluation': 'trajectories.overtime',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+        'writer': 'paint_overtime@Optimization/Performance_Evaluations/common/painters.py'},
+    'figures_labor_pngs': {
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/labor/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
         'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
-    'stats_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/stats/**/*.png',
-        'format': 'png', 'scope': 'channel_run', 'optional': True,
-        'condition': 'presets that run the flat stats suite; BY_INITIAL (the default) writes '
-                     'stats_by_initial/ instead.',
-        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/suite.py'},
-    'stats_by_initial_pngs': {
-        'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/**/*.png',
-        'format': 'png', 'scope': 'channel_run',
-        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/suite.py'},
+    'figures_throughput_pngs': {
+        'evaluation': 'throughput.volume',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/throughput/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+        'writer': 'render@Optimization/Performance_Evaluations/throughput/volume.py'},
+    'figures_task_time_pngs': {
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
+    'figures_layout_pngs': {
+        'evaluation': 'layout.churn',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/layout/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+        'writer': 'render@Optimization/Performance_Evaluations/layout/churn.py'},
+    'figures_significance_pngs': {
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/significance/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures', 'optional': True,
+        'condition': 'presets that run a stats fork; NO_STATS writes no significance figures.',
+        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
+    'figures_diagnostics_pngs': {
+        'path': '{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png',
+        'format': 'png', 'scope': 'channel_run', 'group': 'figures',
+        'writer': 'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'},
     'batches_long_csv': {
-        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'evaluation': 'tables.per_run',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/tables/per_run.py'},
     'per_run_summary_csv': {
-        'evaluation': 'per_strategy.report_bars',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv',
+        'evaluation': 'tables.per_run',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/per_run_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render@Optimization/Performance_Evaluations/per_strategy/report_bars.py'},
-    'summary_batch_csv': {
-        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/per_run.py'},
+    'batch_metrics_csv': {
+        'evaluation': 'tables.tidy',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/batch_metrics.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render@Optimization/Performance_Evaluations/config/summary_csv.py'},
-    'summary_task_csv': {
-        'evaluation': 'config.summary_csv',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv',
+        'note': 'tidy long (strategy, batch_id, metric, value, is_outlier) — replaces the '
+                'retired MultiIndex pivot pair.',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/tidy.py'},
+    'task_metrics_csv': {
+        'evaluation': 'tables.tidy',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render@Optimization/Performance_Evaluations/config/summary_csv.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/tables/tidy.py'},
     'stats_summary_csv': {
-        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv',
+        'evaluation': 'tables.stats',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv',
         'format': 'csv', 'scope': 'channel_run', 'optional': True,
-        'condition': 'flat stats suite only (see stats_pngs).',
-        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/suite.py'},
+        'condition': 'flat stats suite only (DEFAULT/NO_STATS presets; BY_INITIAL runs the '
+                     'by-initial fork instead).',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'stats_tests_json': {
-        'evaluation': 'stats.suite',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/stats/tests.json',
+        'evaluation': 'tables.stats',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/tests.json',
         'format': 'json', 'scope': 'channel_run', 'optional': True,
-        'condition': 'flat stats suite only (see stats_pngs).',
-        'writer': 'render_suite@Optimization/Performance_Evaluations/stats/suite.py'},
+        'condition': 'flat stats suite only (see stats_summary_csv).',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'by_initial_summary_csv': {
-        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv',
+        'evaluation': 'tables.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv',
         'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/suite.py'},
-    'by_initial_stats_summary_csv': {
-        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/'
-                'stats_summary.csv',
-        'format': 'csv', 'scope': 'channel_run',
-        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/suite.py'},
+        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
     'by_initial_tests_json': {
-        'evaluation': 'stats.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
-        'path': '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json',
+        'evaluation': 'tables.by_initial',   # unhashed attribution -> @evaluation key (see contract._shape_only)
+        'path': '{cell}/{pair}/{config}/{channel?}/tables/by_initial_tests.json',
         'format': 'json', 'scope': 'channel_run',
-        'writer': 'render_by_initial@Optimization/Performance_Evaluations/stats/suite.py'},
+        'note': 'ONE consolidated document keyed by assignment fn — replaces the retired '
+                'per-assignment subtree of test documents.',
+        'writer': 'render@Optimization/Performance_Evaluations/tables/stats_csv.py'},
 
     # ── derived sidecars: built by the VIEWER, never by a run ───────────────────
     # Declared here even though no simulation writes it.  This table is what `preflight.validate`

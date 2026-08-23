@@ -19,7 +19,7 @@ for maximum core utilization on sparse runs.
 Usage:
   python run_analysis.py <base_dir>                        # default preset BY_INITIAL
   python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)
-  python run_analysis.py <base_dir> --granularity graph --set compare.top_metric.top_n=3
+  python run_analysis.py <base_dir> --granularity graph --set labor.delta_topn.top_n=3
 
 The default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum
 (opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the
@@ -399,7 +399,7 @@ def main() -> None:
                              "its graphs) or 'graph' (one job per graph — max parallelism).")
     parser.add_argument('--set', action='append', default=[], dest='set',
                         metavar='KEY.PARAM=VALUE',
-                        help='Ad-hoc per-graph param override, e.g. compare.top_metric.top_n=3.')
+                        help='Ad-hoc per-graph param override, e.g. labor.delta_topn.top_n=3.')
     args = parser.parse_args()
 
     if args.base_dir is None:

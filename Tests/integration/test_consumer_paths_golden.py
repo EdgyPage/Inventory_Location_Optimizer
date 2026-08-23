@@ -245,14 +245,14 @@ def test_in_flight_is_empty_on_a_finalized_cell(mixed):
 # ── docs/experiments/ingest.py ───────────────────────────────────────────────────
 
 def _stage_figures(b):
-    """Curated-figure layout as run_analysis writes it, including the one DUPLICATED basename
-    (production_time_over_time.png under both compare/faceted/ and compare/overlay/)."""
+    """Curated-figure layout as run_analysis writes it post-redesign: one folder per chart
+    family, view-prefixed basenames unique across the whole leaf by construction."""
     leaf = (b, 'k1_off', 'pairA', 'store', 'store')
-    _touch(*leaf, 'compare', 'top', 'top3_by_initial_prodtime_cum_improvement.png')
-    _touch(*leaf, 'compare', 'top_vs_baseline.png')
-    _touch(*leaf, 'compare', 'faceted', 'production_time_over_time.png')
-    _touch(*leaf, 'compare', 'overlay', 'production_time_over_time.png')
-    _touch(*leaf, 'compare', 'breakdown', 'task_duration_by_strategy.png')
+    _touch(*leaf, 'figures', 'labor', 'delta_prodtime_top3_by_initial.png')
+    _touch(*leaf, 'figures', 'headline', 'percent_top_vs_baseline.png')
+    _touch(*leaf, 'figures', 'trajectories', 'absolute_production_time.png')
+    _touch(*leaf, 'figures', 'task_time', 'absolute_task_duration_ranked.png')
+    _touch(*leaf, 'figures', 'significance', 'effect_heatmap.png')
 
 
 def test_ingest_leaf_file_contract_equals_walk(mixed):
@@ -262,15 +262,14 @@ def test_ingest_leaf_file_contract_equals_walk(mixed):
     leaf = os.path.join(cfg_src, 'store')
     goldens = {
         'config.json': os.path.join(cfg_src, 'config.json'),
-        'top3_by_initial_prodtime_cum_improvement.png':
-            os.path.join(leaf, 'compare', 'top', 'top3_by_initial_prodtime_cum_improvement.png'),
-        'top_vs_baseline.png': os.path.join(leaf, 'compare', 'top_vs_baseline.png'),
-        # The duplicated basename: the walk met compare/faceted/ first (f < o), and every
-        # committed snapshot staged that copy — the contract route must keep choosing it.
-        'production_time_over_time.png':
-            os.path.join(leaf, 'compare', 'faceted', 'production_time_over_time.png'),
-        'task_duration_by_strategy.png':
-            os.path.join(leaf, 'compare', 'breakdown', 'task_duration_by_strategy.png'),
+        'delta_prodtime_top3_by_initial.png':
+            os.path.join(leaf, 'figures', 'labor', 'delta_prodtime_top3_by_initial.png'),
+        'percent_top_vs_baseline.png':
+            os.path.join(leaf, 'figures', 'headline', 'percent_top_vs_baseline.png'),
+        'absolute_production_time.png':
+            os.path.join(leaf, 'figures', 'trajectories', 'absolute_production_time.png'),
+        'effect_heatmap.png':
+            os.path.join(leaf, 'figures', 'significance', 'effect_heatmap.png'),
     }
     for name, golden in goldens.items():
         assert ingest._find(cfg_src, name) == golden, name            # the OLD walk, unchanged
@@ -282,12 +281,12 @@ def test_ingest_leaf_file_contract_equals_walk(mixed):
 
 def test_ingest_leaf_file_store_only_shape(store_only):
     b, rt = store_only
-    _touch(b, 'k1_off', 'pairA', 'store', 'compare', 'top', 'top_vs_baseline.png')
+    _touch(b, 'k1_off', 'pairA', 'store', 'figures', 'headline', 'percent_top_vs_baseline.png')
     cfg_src = os.path.join(b, 'k1_off', 'pairA', 'store')
-    golden = os.path.join(cfg_src, 'compare', 'top', 'top_vs_baseline.png')
-    assert ingest._find(cfg_src, 'top_vs_baseline.png') == golden
+    golden = os.path.join(cfg_src, 'figures', 'headline', 'percent_top_vs_baseline.png')
+    assert ingest._find(cfg_src, 'percent_top_vs_baseline.png') == golden
     assert ingest._leaf_file(rt, 'k1_off', 'pairA', 'store',
-                             'top_vs_baseline.png', cfg_src) == golden
+                             'percent_top_vs_baseline.png', cfg_src) == golden
     assert ingest._leaf_file(rt, 'k1_off', 'pairA', 'store',
                              'config.json', cfg_src) == os.path.join(cfg_src, 'config.json')
 

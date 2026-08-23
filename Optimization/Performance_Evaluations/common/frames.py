@@ -34,6 +34,9 @@ def _bdf(stats):
         'queue_depth'           : getattr(s, 'queue_depth', 0),
         'lead_queue_depth'      : getattr(s, 'lead_queue_depth', 0),
         'in_transit_qty'        : getattr(s, 'in_transit_qty', 0),
+        # upstream Tukey outlier flag, carried through so downstream tables can filter
+        # or report it (0 for legacy rows that predate the flag).
+        'is_outlier'            : getattr(s, 'is_outlier', 0),
     } for s in stats])
 
 
@@ -48,6 +51,8 @@ def _tdf(stats, aisle_unittype_map, aisle_handling_map):
         'total_items': s.total_items,
         'unit_type'  : aisle_unittype_map.get(s.aisle_id),
         'handling'   : aisle_handling_map.get(s.aisle_id),
+        # upstream Tukey outlier flag (see _bdf) — 0 when the source row predates it.
+        'is_outlier' : getattr(s, 'is_outlier', 0),
     } for s in stats])
 
 

@@ -71,9 +71,9 @@ def main(base=None):
             rs._finalize_config_run(sk)
 
     # analysis end-to-end, in-process (workers=1) -- exercises the Performance_Evaluations
-    # registry (per-config + cross-profile aggregate).  Two presets so both stats variants
-    # (stats.suite and stats.by_initial) are covered.
-    ra.run_analysis(base, log, workers=1, preset='E2E_PARITY')
+    # registry (per-config + cross-profile aggregate).  Two presets so both stats forks
+    # (the flat suite and the by-initial fork) are covered.
+    ra.run_analysis(base, log, workers=1, preset='DEFAULT')
     ra.run_analysis(base, log, workers=1, preset='BY_INITIAL')
     print('DONE', base)
     return base

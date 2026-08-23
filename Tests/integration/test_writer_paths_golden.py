@@ -180,28 +180,53 @@ def test_aggregate_dir_slash_group_key_lands_in_the_old_directory(tmp_path):
         assert got == old_literal
 
 
-def test_aggregate_stats_pair_renders_the_render_stats_literals(tmp_path):
-    """The 21e7a11ff40b adopt declared the previously-UNDECLARED aggregate-stats pair.  Its two
-    templates must render exactly what `render_stats` (stats_aggregate.py:116) has always
-    written — `os.path.join(ctx.out_dir, 'stats', <basename>)` with ctx.out_dir the aggregate
-    dir — on BOTH tree shapes, since {channel?} rides the group key."""
+def test_aggregate_stats_pair_renders_the_tables_literals(tmp_path):
+    """The family redesign moved every aggregate stats document into the aggregate tables
+    folder.  The two flat-fork templates must render exactly what the aggregate tables
+    eval writes — `os.path.join(ctx.out_dir, 'tables', <basename>)` with ctx.out_dir the
+    aggregate dir — on BOTH tree shapes, since {channel?} rides the group key."""
     mixed = _mixed_tree(tmp_path)
     rt = resolver_for(mixed)
     agg = rt.aggregate_dir('k1_off_rr', 'store/store')           # mixed group_key = cfg/channel
     assert rt.path('aggregate_stats_summary_csv', cell='k1_off_rr',
                    config='store', channel='store') == \
-        os.path.join(agg, 'stats', 'aggregate_summary.csv')
+        os.path.join(agg, 'tables', 'aggregate_summary.csv')
     assert rt.path('aggregate_stats_tests_json', cell='k1_off_rr',
                    config='store', channel='store') == \
-        os.path.join(agg, 'stats', 'aggregate_tests.json')
+        os.path.join(agg, 'tables', 'aggregate_tests.json')
+    assert rt.path('aggregate_by_initial_csv', cell='k1_off_rr',
+                   config='store', channel='store') == \
+        os.path.join(agg, 'tables', 'by_initial_summary.csv')
 
     store_only = _store_only_tree(tmp_path)
     rt2 = resolver_for(store_only)
     agg2 = rt2.aggregate_dir('k1_off', 'store')                  # store-only: no channel segment
     assert rt2.path('aggregate_stats_summary_csv', cell='k1_off', config='store') == \
-        os.path.join(agg2, 'stats', 'aggregate_summary.csv')
+        os.path.join(agg2, 'tables', 'aggregate_summary.csv')
     assert rt2.path('aggregate_stats_tests_json', cell='k1_off', config='store') == \
-        os.path.join(agg2, 'stats', 'aggregate_tests.json')
+        os.path.join(agg2, 'tables', 'aggregate_tests.json')
+
+
+def test_leaf_tables_render_under_the_tables_folder(tmp_path):
+    """The per-leaf CSV surface moved into one tidy-tables folder; only the long per-batch
+    CSV stays at the leaf root (it must survive the parent pre-wipe of the shared tops).
+    Pin both facts on both tree shapes."""
+    mixed = _mixed_tree(tmp_path)
+    rt = resolver_for(mixed)
+    cr = _leaf(mixed, 'k1_off_rr', 'pairA', 'store', 'store')
+    assert rt.leaf_path(cr, 'batches_long_csv') == os.path.join(cr.path, 'batches_long.csv')
+    for name, base in (('per_run_summary_csv', 'per_run_summary.csv'),
+                       ('batch_metrics_csv', 'batch_metrics.csv'),
+                       ('task_metrics_csv', 'task_metrics.csv'),
+                       ('by_initial_summary_csv', 'by_initial_summary.csv'),
+                       ('by_initial_tests_json', 'by_initial_tests.json')):
+        assert rt.leaf_path(cr, name) == os.path.join(cr.path, 'tables', base), name
+
+    store_only = _store_only_tree(tmp_path)
+    rt2 = resolver_for(store_only)
+    cr2 = _leaf(store_only, 'k1_off', 'pairA', 'store', None)
+    assert rt2.leaf_path(cr2, 'batch_metrics_csv') == \
+        os.path.join(cr2.path, 'tables', 'batch_metrics.csv')
 
 
 # ── a run whose OWN contract predates the volume artifacts ───────────────────────

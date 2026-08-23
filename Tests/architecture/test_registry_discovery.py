@@ -112,6 +112,23 @@ def test_pick_config_package_dirs_are_importable():
     assert not bad, f'directories with .py but no __init__.py (walk_packages skips them): {bad}'
 
 
+def test_figure_evaluation_keys_carry_their_family():
+    """A config-stage figure eval's key prefix names its chart family, so the registry
+    reads as the folder tree it produces.  'sig.' is the one blessed shorthand (for
+    'significance'); aggregate-scope evals live in the 'agg.' namespace instead."""
+    from Optimization import Performance_Evaluations  # noqa: F401 — populate the registry
+    from Optimization.Performance_Evaluations.core.registry import EVALUATIONS
+    alias = {'significance': 'sig'}
+    for ev in EVALUATIONS:
+        if ev.scope == 'aggregate':
+            assert ev.key.startswith('agg.'), ev.key
+            continue
+        if ev.family:
+            prefix = ev.key.split('.')[0]
+            assert prefix in (ev.family, alias.get(ev.family)), (
+                f'{ev.key} declares family {ev.family!r} — key prefix must match it')
+
+
 def test_registries_are_not_empty():
     """Non-vacuity: every assertion above passes trivially against an empty registry."""
     from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY

@@ -5,14 +5,20 @@ had all drifted apart, plus two evaluations consuming resources their `needs=` n
 declared.  The renames fixed the state; THIS file freezes the rules so it cannot re-rot:
 
   R1  an evaluation's key namespace == the package directory its module lives in
-      (one documented alias: the `agg.*` keys live in `aggregate/`);
+      (two documented aliases, both because the key is typed at the CLI while the directory
+      spells the concept out: `agg.*` -> aggregate/, `sig.*` -> significance/);
   R2  an evaluation's key tail == its module's basename, unless the key is in the
       documented-exception map (the *.by_initial twins, co-registered with their flat twin);
-  R3  keys whose primary OUTPUT stem cannot equal the key are enumerated with reasons —
-      deleting or renaming such a module retires its entry, so the map cannot go stale;
-  R4  a render may only touch broker resources its registration declares (the A4/A5 bug
+  R3  a render may only touch broker resources its registration declares (the A4/A5 bug
       class: needs=('task',) while calling ctx.series()).  One-directional on purpose —
       over-declaring is style, under-declaring makes the access log lie.
+
+The former R3 — an enumeration of keys whose output stem could not equal the key — retired
+with the chart-family redesign.  Output filenames are no longer named after their key at all:
+the family grammar composes them as `<view>_<stem>`, `chartkit.Chart.save` refuses a filename
+whose prefix contradicts the declared view, and the figure registry's stem-in-writer-source
+test ties every published name back to the module that mints it.  That is a positive check
+where the enumeration only ever asserted its own freshness.
 
 All checks are AST/text-based on the module sources (the registry pattern from
 test_registry_discovery), so this file needs no matplotlib import to run.
@@ -27,40 +33,23 @@ import os
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 _PKG = os.path.join(_ROOT, 'Optimization', 'Performance_Evaluations')
 
-#: key namespace -> package dir, where they differ.  Keep this to ONE entry: `agg` is kept
-#: short because the keys are typed at the CLI (--set agg.stats...) while the directory
-#: matches the scope name 'aggregate'.
-_NS_ALIAS = {'agg': 'aggregate'}
+#: key namespace -> package dir, where they differ.  Keep this SHORT: both entries exist for
+#: the same reason — the key is typed at the CLI (--set agg.tables..., --set sig.suite...)
+#: while the directory spells the concept out for a reader browsing the package.
+_NS_ALIAS = {'agg': 'aggregate', 'sig': 'significance'}
 
 #: R2 exceptions — keys whose tail deliberately differs from the module basename.
 _KEY_EXCEPTIONS = {
-    'stats.by_initial': 'the by-initial suite is a structural fork co-registered in its '
-                        'flat twin\'s module (stats/suite.py); splitting the file would '
-                        'duplicate _run_config_stats',
-    'agg.stats_by_initial': 'same pattern as stats.by_initial, in aggregate/stats.py',
+    'sig.by_initial': 'the by-initial fork is a structural twin co-registered in its flat '
+                      'twin\'s module (significance/suite.py); splitting the file would '
+                      'duplicate the panel-building helpers',
+    'tables.stats': 'the stats CSV writers share one module with their by-initial twin; the '
+                    'module is named for the artifact class it writes, not for either key',
+    'tables.by_initial': 'same module as tables.stats — the shared statistics computation '
+                         'feeds both forks and the significance panels',
 }
 
-#: R3 — keys whose output filenames cannot anchor the name, with the reason on record.
-_OUTPUT_STEM_EXCEPTIONS = {
-    'compare.faceted': 'emits the five shared over-time metric stems; the LAYOUT (faceted '
-                       'vs overlay) is the differentiator and lives in the directory name',
-    'compare.overlay': 'twin of compare.faceted — same five stems, different layout',
-    'compare.top_metric': 'metric-family module: {tag}_{metric}_over_time.png per metric',
-    'compare.delta_over_time': 'multi-output pair sharing the prodtime_ stem '
-                               '(cum_improvement + delta_trend), both committed',
-    'config.summary_csv': 'multi-output summary_ family (summary_batch/summary_task)',
-    'per_strategy.report_bars': 'multi-output + contract-attributed (batches_long, '
-                                'per_run_summary, *_per_run PNGs)',
-    'per_strategy.metric_grids': 'grid_ family module, one figure per metric',
-    'stats.suite': 'emits the {metric}_{dist,pmatrix,effect,rank}.png suite',
-    'stats.by_initial': 'nested per-fn copies of the stats.suite output set',
-    'agg.stats': 'aggregate twin of stats.suite',
-    'agg.stats_by_initial': 'aggregate twin of stats.by_initial',
-    'agg.cross_profile': 'suite-mirror: re-emits the compare basenames into the aggregate '
-                         'tree, where the _aggregate/ dir is the differentiator',
-}
-
-#: R4 — source tokens -> the broker resource they consume.  ctx.maxb/ss_lo are derived
+#: R3 — source tokens -> the broker resource they consume.  ctx.maxb/ss_lo are derived
 #: scalars over already-granted frames, and non-broker context fields (run_dir, strategies,
 #: optimal, ...) are free.
 _RESOURCE_TOKENS = {
@@ -130,8 +119,7 @@ def test_key_tail_matches_module_basename():
 
 
 def test_exception_maps_cannot_go_stale():
-    for name, table in (('_KEY_EXCEPTIONS', _KEY_EXCEPTIONS),
-                        ('_OUTPUT_STEM_EXCEPTIONS', _OUTPUT_STEM_EXCEPTIONS)):
+    for name, table in (('_KEY_EXCEPTIONS', _KEY_EXCEPTIONS),):
         stale = set(table) - _ALL_KEYS
         assert not stale, f'{name} names unregistered key(s): {sorted(stale)}'
         empty = [k for k, reason in table.items() if not reason.strip()]
@@ -139,8 +127,8 @@ def test_exception_maps_cannot_go_stale():
 
 
 def test_renders_touch_only_declared_resources():
-    """R4 — used ⊆ union of the module's declared needs.  Union, because two-eval modules
-    (stats/suite.py, aggregate/stats.py) share helpers within one file."""
+    """R3 — used ⊆ union of the module's declared needs.  Union, because two-eval modules
+    (the stats CSV pair, the significance pair) share helpers within one file."""
     bad = []
     for rel, src, regs in _MODULES:
         declared = {n for _key, needs in regs for n in needs}

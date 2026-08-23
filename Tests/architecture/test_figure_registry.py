@@ -45,6 +45,13 @@ def test_registry_parses_names_unique_sections_valid_captions_present():
             assert (f.get('caption') or '').strip(), f"{f['name']}: reader-facing figures " \
                                                      f"need a caption"
             assert f.get('eval'), f"{f['name']}: analysis figures need an owning eval key"
+            if f.get('retired'):
+                # a retired figure exists only for archived snapshots — it must never be
+                # offered to a new experiment as a default going forward, EXCEPT the frozen
+                # historical defaults that legacy-mode Experiment 1 still renders.
+                assert f['name'] in (_HISTORICAL['top3'] + _HISTORICAL['full_suite']) \
+                    or not f.get('default'), \
+                    f"{f['name']}: retired figures cannot join the default lists"
 
 
 # ── the migration golden pin: derived defaults == the historical literals ────────
@@ -86,14 +93,18 @@ def test_ingest_derives_the_same_defaults():
 # ── every eval key is registered; every stem traces to its writer ────────────────
 
 def test_every_eval_key_is_registered():
+    """Retired entries are exempt: their eval keys document the HISTORICAL owner (the
+    chart-family redesign removed those registrations), and the entries persist only so
+    archived experiment snapshots keep resolving."""
     from Optimization import Performance_Evaluations  # noqa: F401
     from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
     bad = [f['name'] for f in _registry()
-           if f.get('eval') and f['eval'] not in EVAL_BY_KEY]
+           if f.get('eval') and not f.get('retired') and f['eval'] not in EVAL_BY_KEY]
     assert not bad, f'registry names unregistered eval key(s) on: {bad}'
 
 
-_TAG_PREFIX = re.compile(r'^top\d+(_by_\w+)?_')
+_TAG_PREFIX = re.compile(r'^top\d+(_by_\w+)?_')          # legacy names: tag led the stem
+_TAG_SUFFIX = re.compile(r'_top\d+(_by_\w+)?$')          # family names: view leads, tag trails
 
 #: eval key -> module path; stems produced by the shared metric specs resolve via painters.
 _PAINTERS = 'Optimization/Performance_Evaluations/common/painters.py'
@@ -112,7 +123,9 @@ def test_every_figure_stem_appears_in_its_writer_source():
 
     misses = []
     for f in _registry():
-        stem = _TAG_PREFIX.sub('', f['name'])[:-len('.png')]
+        if f.get('retired'):
+            continue                    # the writer no longer exists, by declaration
+        stem = _TAG_SUFFIX.sub('', _TAG_PREFIX.sub('', f['name'])[:-len('.png')])
         if f.get('eval'):
             mod_src = inspect.getsource(inspect.getmodule(EVAL_BY_KEY[f['eval']].render))
             if stem not in mod_src and stem not in _src(_PAINTERS):

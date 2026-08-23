@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
-  "schema_short": "6d6c2bd0ba75",
+  "schema_id": "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722",
+  "schema_short": "7b14b788d59c",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -33,8 +33,14 @@
   ],
   "artifacts": {
     "aggregate_by_initial_csv": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv",
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/by_initial_summary.csv",
       "format": "csv",
+      "scope": "cell",
+      "optional": false
+    },
+    "aggregate_by_initial_tests_json": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/by_initial_tests.json",
+      "format": "json",
       "scope": "cell",
       "optional": false
     },
@@ -45,40 +51,34 @@
       "optional": false
     },
     "aggregate_pngs": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/**/*.png",
+      "path": "{cell}/_aggregate/{config}/{channel?}/figures/**/*.png",
       "format": "png",
       "scope": "cell",
       "optional": false
     },
     "aggregate_stats_summary_csv": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv",
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/aggregate_summary.csv",
       "format": "csv",
       "scope": "cell",
       "optional": true
     },
     "aggregate_stats_tests_json": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json",
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/aggregate_tests.json",
       "format": "json",
       "scope": "cell",
       "optional": true
-    },
-    "aggregate_summary_csv": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_summary.csv",
-      "format": "csv",
-      "scope": "cell",
-      "optional": false
-    },
-    "aggregate_tests_json": {
-      "path": "{cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_tests.json",
-      "format": "json",
-      "scope": "cell",
-      "optional": false
     },
     "analysis_log": {
       "path": "analysis.log",
       "format": "text",
       "scope": "run",
       "optional": true
+    },
+    "batch_metrics_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/batch_metrics.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": false
     },
     "batches_cache": {
       "path": "{cell}/{pair}/_batches_*.pkl",
@@ -92,20 +92,14 @@
       "scope": "channel_run",
       "optional": false
     },
-    "by_initial_stats_summary_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/stats_summary.csv",
-      "format": "csv",
-      "scope": "channel_run",
-      "optional": false
-    },
     "by_initial_summary_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv",
       "format": "csv",
       "scope": "channel_run",
       "optional": false
     },
     "by_initial_tests_json": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/by_initial_tests.json",
       "format": "json",
       "scope": "channel_run",
       "optional": false
@@ -134,16 +128,58 @@
       "scope": "channel_run",
       "optional": true
     },
-    "compare_pngs": {
-      "path": "{cell}/{pair}/{config}/{channel?}/compare/**/*.png",
-      "format": "png",
-      "scope": "channel_run",
-      "optional": false
-    },
     "config_json": {
       "path": "{cell}/{pair}/{config}/config.json",
       "format": "json",
       "scope": "config",
+      "optional": false
+    },
+    "figures_diagnostics_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_headline_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/headline/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_labor_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/labor/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_layout_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/layout/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_significance_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/significance/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": true
+    },
+    "figures_task_time_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_throughput_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/throughput/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": false
+    },
+    "figures_trajectories_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png",
+      "format": "png",
+      "scope": "channel_run",
       "optional": false
     },
     "frozen_inventory_db": {
@@ -165,14 +201,8 @@
       "optional": true
     },
     "per_run_summary_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/per_run_summary.csv",
       "format": "csv",
-      "scope": "channel_run",
-      "optional": false
-    },
-    "per_strategy_pngs": {
-      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/**/*.png",
-      "format": "png",
       "scope": "channel_run",
       "optional": false
     },
@@ -248,38 +278,20 @@
       "scope": "channel_run",
       "optional": false
     },
-    "stats_by_initial_pngs": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/**/*.png",
-      "format": "png",
-      "scope": "channel_run",
-      "optional": false
-    },
-    "stats_pngs": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats/**/*.png",
-      "format": "png",
-      "scope": "channel_run",
-      "optional": true
-    },
     "stats_summary_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv",
       "format": "csv",
       "scope": "channel_run",
       "optional": true
     },
     "stats_tests_json": {
-      "path": "{cell}/{pair}/{config}/{channel?}/stats/tests.json",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/tests.json",
       "format": "json",
       "scope": "channel_run",
       "optional": true
     },
-    "summary_batch_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv",
-      "format": "csv",
-      "scope": "channel_run",
-      "optional": false
-    },
-    "summary_task_csv": {
-      "path": "{cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv",
+    "task_metrics_csv": {
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv",
       "format": "csv",
       "scope": "channel_run",
       "optional": false

@@ -20,6 +20,10 @@
 #             (no-manifest) experiments; false = opt-in per experiment.yml only.
 #             The default sets are FROZEN to the historical lists — the registry
 #             golden test pins them byte-for-byte.
+#   retired   true = the producing evaluation no longer exists (the chart-family
+#             redesign superseded the figure); the entry stays so archived experiment
+#             snapshots keep resolving, but it may not be cited by a CURRENT
+#             experiment and the writer-tie tests skip it
 #   width     image width in the rendered section (omit = 820)
 #   caption   the reader-facing caption; null for inventory plots (rendered caption-less)
 #
@@ -29,24 +33,28 @@ figures:
   # ── top3 (the curated per-config comparison set) ────────────────────────────────
   - name: top3_by_initial_prodtime_cum_improvement.png
     eval: compare.delta_over_time
+    retired: true
     section: top3
     default: true
     caption: >-
       Cumulative production-time improvement vs FIFO — top 3 initial-placement strategies.
   - name: top3_by_initial_production_time_over_time.png
     eval: compare.top_metric
+    retired: true
     section: top3
     default: true
     caption: >-
       Production time per batch over the run.
   - name: top3_by_initial_prodtime_delta_trend.png
     eval: compare.delta_over_time
+    retired: true
     section: top3
     default: true
     caption: >-
       Production-time delta vs FIFO — smoothed trend.
   - name: top_vs_baseline_table.png
     eval: compare.top_vs_baseline
+    retired: true
     section: top3
     default: true
     caption: >-
@@ -54,6 +62,7 @@ figures:
       both paired over every batch the run shares with FIFO, with the task-time Wilcoxon p.
   - name: top_vs_baseline.png
     eval: compare.top_vs_baseline
+    retired: true
     section: top3
     default: true
     caption: >-
@@ -64,6 +73,7 @@ figures:
   # Experiment 1 never demands an image its sweep predates)
   - name: top3_by_initial_volume_curve.png
     eval: compare.volume_curve
+    retired: true
     section: top3
     default: false
     caption: >-
@@ -72,6 +82,7 @@ figures:
       elapsed time.
   - name: top3_by_initial_labor_per_batch.png
     eval: compare.labor_per_batch
+    retired: true
     section: top3
     default: false
     caption: >-
@@ -84,6 +95,7 @@ figures:
   # the suite grew from 16 families to 17 between Experiment 1 and Experiment 6.
   - name: task_duration_by_strategy.png
     eval: compare.task_duration_by_strategy
+    retired: true
     section: full_suite
     default: true
     caption: >-
@@ -91,6 +103,7 @@ figures:
       restock-family suite); diamond = mean. The full suite, ranked.
   - name: production_time_over_time.png
     eval: compare.faceted
+    retired: true
     section: full_suite
     default: true
     caption: >-

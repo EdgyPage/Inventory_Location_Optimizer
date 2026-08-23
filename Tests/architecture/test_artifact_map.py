@@ -1,9 +1,9 @@
-"""test_artifact_map.py — the output map stays derived, honest, and equal to history.
+"""test_artifact_map.py — the output map stays derived, honest, and equal to the design.
 
 core/artifact_map.py derives WHERE each evaluation writes from two declarations (`out_subdir=`
 on the registration, `evaluation:` attributions in the run-tree contract) instead of retyped
 literals.  These tests are the teeth: the two declarations may never contradict each other,
-the derived prepare-list may never drift from the directories the driver has always prepared,
+the derived prepare-list may never drift from the family-tree layout the redesign adopted,
 and ingest's explicit figure-pick preference may never fall out of step with the registry's
 subdir vocabulary it encodes.
 
@@ -16,7 +16,8 @@ import os
 
 from Optimization import Performance_Evaluations  # noqa: F401 — populate the registry
 from Optimization.Performance_Evaluations.core import artifact_map
-from Optimization.Performance_Evaluations.core.registry import EVALUATIONS
+from Optimization.Performance_Evaluations.core.registry import (
+    EVALUATIONS, EVAL_BY_KEY, evaluation)
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
@@ -34,51 +35,68 @@ def test_every_attributed_evaluation_is_registered():
     assert set(artifact_map.owned_artifacts()) <= keys
 
 
-# ── the derived prepare-list vs the historical literals ──────────────────────────
+# ── the derived prepare-list vs the adopted layout ───────────────────────────────
 
-def test_config_dirs_derive_exactly_the_historical_literals():
-    """prepare_config_dirs wiped per_strategy/ + compare/ and created the four compare
-    subdirs since the registry existed.  The shared-top rule must reproduce that set exactly —
-    a new value here means an output moved, which is an adoption decision, not a side effect."""
+def test_config_dirs_derive_exactly_the_family_tree():
+    """The clean-slate layout: two shared tops, one nested folder per chart family.  The
+    shared-top rule must reproduce this set exactly — a new value here means an output
+    moved, which is an adoption decision, not a side effect."""
     tops, nested = artifact_map.config_dirs()
-    assert set(tops) == {'compare', 'per_strategy'}
-    assert set(nested) == {'compare/breakdown', 'compare/faceted',
-                           'compare/overlay', 'compare/top'}
+    assert set(tops) == {'figures', 'tables'}
+    assert set(nested) == {'figures/diagnostics', 'figures/headline', 'figures/labor',
+                           'figures/layout', 'figures/significance', 'figures/task_time',
+                           'figures/throughput', 'figures/trajectories'}
 
 
-def test_single_owner_subdirs_stay_out_of_the_prepare_list():
-    """stats/ and stats_by_initial/ have exactly one config-stage owner each, which wipes its
-    own leaf (_fresh_dir in its render).  The parent pre-wiping them too would be a behavior
-    change the derivation must not smuggle in."""
+def test_no_config_eval_wipes_its_own_leaf():
+    """The single-owner self-wipe pattern is retired: the parent pre-pass owns every wipe.
+    Every config-stage output dir must therefore sit under a shared, pre-wiped top."""
     tops, _ = artifact_map.config_dirs()
-    assert 'stats' not in tops and 'stats_by_initial' not in tops
+    for ev in EVALUATIONS:
+        if ev.scope in ('per_strategy', 'config') and ev.out_subdir:
+            subs = (ev.out_subdir,) if isinstance(ev.out_subdir, str) else ev.out_subdir
+            for sub in subs:
+                assert sub.split('/')[0] in tops, (
+                    f'{ev.key} writes to {sub!r}, outside the pre-wiped tops {tops} — '
+                    f'either add a second owner or move it under figures/ or tables/')
 
 
 # ── save-time bounds (the _save_close warning's decision function) ───────────────
 
 def test_save_in_bounds_matches_subdir_segments_not_substrings():
-    assert artifact_map.save_in_bounds('compare.faceted',
-                                       os.path.join('C:', 'r', 'compare', 'faceted'))
-    assert not artifact_map.save_in_bounds('compare.faceted',
-                                           os.path.join('C:', 'r', 'compare', 'top'))
-    # segment-wise, not substring: .../notcompare/faceted must NOT satisfy compare/faceted
-    assert not artifact_map.save_in_bounds('compare.faceted',
-                                           os.path.join('C:', 'r', 'notcompare', 'faceted'))
+    assert artifact_map.save_in_bounds('trajectories.overtime',
+                                       os.path.join('C:', 'r', 'figures', 'trajectories'))
+    assert not artifact_map.save_in_bounds('trajectories.overtime',
+                                           os.path.join('C:', 'r', 'figures', 'labor'))
+    # segment-wise, not substring: .../notfigures/trajectories must NOT satisfy the claim
+    assert not artifact_map.save_in_bounds('trajectories.overtime',
+                                           os.path.join('C:', 'r', 'notfigures',
+                                                        'trajectories'))
 
 
 def test_tuple_declaration_bounds_each_member_and_nothing_else():
-    """agg.cross_profile declares FOUR dirs (the aggregate mirror of the compare tree) — a
-    save inside any member is in bounds, anywhere else is not.  Before the tuple form this
-    eval declared '' and its 17 figures escaped the check entirely."""
-    sub = artifact_map.figure_subdir('agg.cross_profile')
-    assert sub == ('breakdown', 'faceted', 'overlay', 'top')
-    for member in sub:
-        assert artifact_map.save_in_bounds('agg.cross_profile',
-                                           os.path.join('C:', 'agg', 'store', member))
-    assert not artifact_map.save_in_bounds('agg.cross_profile',
-                                           os.path.join('C:', 'agg', 'store', 'elsewhere'))
-    assert not artifact_map.save_in_bounds('agg.cross_profile',
-                                           os.path.join('C:', 'agg', 'store'))
+    """No production eval declares a tuple since the aggregate mirror collapsed to
+    single-family evals, but the multi-dir mechanism stays contract-tested for the next
+    owner: a save inside any member is in bounds, anywhere else is not."""
+    @evaluation(key='zz_probe.bounds', label='probe', scope='aggregate',
+                out_subdir=('alpha', 'beta'))
+    def _probe(ctx, params):  # pragma: no cover — never driven
+        pass
+    artifact_map._MEMO.pop('subdir', None)          # memo predates the probe registration
+    try:
+        sub = artifact_map.figure_subdir('zz_probe.bounds')
+        assert sub == ('alpha', 'beta')
+        for member in sub:
+            assert artifact_map.save_in_bounds('zz_probe.bounds',
+                                               os.path.join('C:', 'agg', 'store', member))
+        assert not artifact_map.save_in_bounds('zz_probe.bounds',
+                                               os.path.join('C:', 'agg', 'store', 'else'))
+        assert not artifact_map.save_in_bounds('zz_probe.bounds',
+                                               os.path.join('C:', 'agg', 'store'))
+    finally:
+        EVAL_BY_KEY.pop('zz_probe.bounds', None)
+        EVALUATIONS[:] = [e for e in EVALUATIONS if e.key != 'zz_probe.bounds']
+        artifact_map._MEMO.pop('subdir', None)      # do not leak the probe to later tests
 
 
 def test_root_declaring_evaluations_make_no_checkable_claim():
@@ -101,9 +119,8 @@ def test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order():
     """ingest._FIGURE_DIR_PREFERENCE is a literal (ingest must not import the matplotlib-heavy
     analysis package), so THIS is the tie: it must contain every non-root out_subdir a
     CONFIG-STAGE evaluation declares, in os.walk order (lexicographic, parents before
-    children) — the order whose alphabetical luck it exists to make explicit.  Aggregate-scope
-    declarations (including tuple members like cross_profile's faceted/overlay/top/breakdown)
-    are aggregate-TREE dirs and must never enter the config-leaf preference."""
+    children).  Aggregate-scope declarations are aggregate-TREE dirs and must never enter
+    the config-leaf preference."""
     ingest = _load_ingest()
     pref = ingest._FIGURE_DIR_PREFERENCE
     declared = set()

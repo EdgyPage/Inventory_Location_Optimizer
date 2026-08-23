@@ -65,23 +65,23 @@ def _provenance_parts(leaf_dir: str, max_up: int = 6) -> list[str]:
 # `Tests/architecture/test_schema_compatibility.py` fails if a schema change breaks that.
 #
 # Only three tables, because ALL of this package's DB access is the three Picking_Data loaders
-# the request broker (core/requests.py) calls — no graph module under comparison/, per_strategy/,
-# stats/, breakdown/ or aggregate/ opens a database itself.  Keep it that way: a graph that opens
+# the request broker (core/requests.py) calls — no chart-family module (headline/, labor/,
+# significance/, aggregate/, …) opens a database itself.  Keep it that way: a graph that opens
 # its own connection escapes this check AND the broker's access log.
 REQUIRES = _compat.Requires(
     family='sim_db',
     label='Performance_Evaluations analysis context',
     tables={
         # `sigma_fd`, `reload_moves`, `reorder_placements`, `queue_depth`, `lead_queue_depth` and
-        # `in_transit_qty` are GUARDED in the loader and published anyway (per_strategy/panels.py,
-        # report_bars.py, stats_core._METRICS), so losing one yields a plausible zero on a figure
-        # rather than an error.  They are declared for exactly that reason.
+        # `in_transit_qty` are GUARDED in the loader and published anyway (the diagnostics
+        # scorecards, the tables evals, stats_core._METRICS), so losing one yields a plausible
+        # zero on a figure rather than an error.  They are declared for exactly that reason.
         'batch_stats': ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                         'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                         'task_makespan', 'sigma_fd', 'reload_moves', 'reorder_placements',
                         'queue_depth', 'lead_queue_depth', 'in_transit_qty'),
-        # `W` is the objective_task_labor / objective_total_labor metric and a summary_task.csv
-        # column — guarded to 0.0, and published.
+        # `W` is the objective_task_labor / objective_total_labor metric, published through
+        # the task frame and the tidy tables — guarded to 0.0.
         'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
                        'task_end_time', 'duration', 'lift_sum', 'num_bins_visited', 'total_items',
                        'is_outlier', 'W'),

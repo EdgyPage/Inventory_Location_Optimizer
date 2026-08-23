@@ -1,6 +1,6 @@
 {
-  "head": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
-  "source_fingerprint": "sha256:c90f772ba330f25e6ec526bc6eb290ee60c8f2648f264346ba8b8bd47aab480f",
+  "head": "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722",
+  "source_fingerprint": "sha256:aa4addbce06faf04798d55ffd5093b0e8f0de04f2e533bf931e35bc61f867ebd",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -84,6 +84,45 @@
       "changes": [
         "artifact aggregate_stats_summary_csv.optional: False -> True",
         "artifact aggregate_stats_tests_json.optional: False -> True"
+      ]
+    },
+    "sha256:7b14b788d59cd35e454b78a75e1e83b14b89959b6099812fa961668c6facb722": {
+      "short": "7b14b788d59c",
+      "parent": "sha256:6d6c2bd0ba75e359823c60f179882e865e8156190f77e0e7e1d93d16f2fd00ed",
+      "created": "2026-08-22T21:22:42",
+      "commit": "154c234",
+      "label": "",
+      "changes": [
+        "artifact aggregate_by_initial_csv.path: '{cell}/_aggregate/{config}/{channel?}/stats_by_initial/by_initial_summary.csv' -> '{cell}/_aggregate/{config}/{channel?}/tables/by_initial_summary.csv'",
+        "artifact ADDED: aggregate_by_initial_tests_json -> {cell}/_aggregate/{config}/{channel?}/tables/by_initial_tests.json",
+        "artifact aggregate_pngs.path: '{cell}/_aggregate/{config}/{channel?}/**/*.png' -> '{cell}/_aggregate/{config}/{channel?}/figures/**/*.png'",
+        "artifact aggregate_pngs.group: None -> 'figures'",
+        "artifact aggregate_stats_summary_csv.path: '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_summary.csv' -> '{cell}/_aggregate/{config}/{channel?}/tables/aggregate_summary.csv'",
+        "artifact aggregate_stats_tests_json.path: '{cell}/_aggregate/{config}/{channel?}/stats/aggregate_tests.json' -> '{cell}/_aggregate/{config}/{channel?}/tables/aggregate_tests.json'",
+        "artifact REMOVED: aggregate_summary_csv (was {cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_summary.csv)",
+        "artifact REMOVED: aggregate_tests_json (was {cell}/_aggregate/{config}/{channel?}/stats_by_initial/{initial_group}/aggregate_tests.json)",
+        "artifact ADDED: batch_metrics_csv -> {cell}/{pair}/{config}/{channel?}/tables/batch_metrics.csv",
+        "artifact REMOVED: by_initial_stats_summary_csv (was {cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/stats_summary.csv)",
+        "artifact by_initial_summary_csv.path: '{cell}/{pair}/{config}/{channel?}/stats_by_initial/by_initial_summary.csv' -> '{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv'",
+        "artifact by_initial_tests_json.path: '{cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/tests.json' -> '{cell}/{pair}/{config}/{channel?}/tables/by_initial_tests.json'",
+        "artifact REMOVED: compare_pngs (was {cell}/{pair}/{config}/{channel?}/compare/**/*.png)",
+        "artifact ADDED: figures_diagnostics_pngs -> {cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png",
+        "artifact ADDED: figures_headline_pngs -> {cell}/{pair}/{config}/{channel?}/figures/headline/*.png",
+        "artifact ADDED: figures_labor_pngs -> {cell}/{pair}/{config}/{channel?}/figures/labor/*.png",
+        "artifact ADDED: figures_layout_pngs -> {cell}/{pair}/{config}/{channel?}/figures/layout/*.png",
+        "artifact ADDED: figures_significance_pngs -> {cell}/{pair}/{config}/{channel?}/figures/significance/*.png",
+        "artifact ADDED: figures_task_time_pngs -> {cell}/{pair}/{config}/{channel?}/figures/task_time/*.png",
+        "artifact ADDED: figures_throughput_pngs -> {cell}/{pair}/{config}/{channel?}/figures/throughput/*.png",
+        "artifact ADDED: figures_trajectories_pngs -> {cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png",
+        "artifact per_run_summary_csv.path: '{cell}/{pair}/{config}/{channel?}/per_strategy/per_run_summary.csv' -> '{cell}/{pair}/{config}/{channel?}/tables/per_run_summary.csv'",
+        "artifact REMOVED: per_strategy_pngs (was {cell}/{pair}/{config}/{channel?}/per_strategy/**/*.png)",
+        "artifact REMOVED: stats_by_initial_pngs (was {cell}/{pair}/{config}/{channel?}/stats_by_initial/{initial_group}/**/*.png)",
+        "artifact REMOVED: stats_pngs (was {cell}/{pair}/{config}/{channel?}/stats/**/*.png)",
+        "artifact stats_summary_csv.path: '{cell}/{pair}/{config}/{channel?}/stats/stats_summary.csv' -> '{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv'",
+        "artifact stats_tests_json.path: '{cell}/{pair}/{config}/{channel?}/stats/tests.json' -> '{cell}/{pair}/{config}/{channel?}/tables/tests.json'",
+        "artifact REMOVED: summary_batch_csv (was {cell}/{pair}/{config}/{channel?}/per_strategy/summary_batch.csv)",
+        "artifact REMOVED: summary_task_csv (was {cell}/{pair}/{config}/{channel?}/per_strategy/summary_task.csv)",
+        "artifact ADDED: task_metrics_csv -> {cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv"
       ]
     }
   }

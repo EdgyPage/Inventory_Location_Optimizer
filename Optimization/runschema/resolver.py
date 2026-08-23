@@ -46,6 +46,11 @@ SUPPORTED_FEATURES = frozenset({
 # contracts drift apart.  Re-exported here so every existing caller and anchor stays valid.
 from Schema.pathtpl import _capture_regex, render  # noqa: F401
 
+#: A TREE-LEVEL segment: a whole segment that is nothing but a placeholder ({cell}, {channel?}).
+#: A segment carrying literal text beside a placeholder (sim_{strategy}.db) is a FILENAME, and a
+#: bare literal segment (tables, figures) is a folder inside the leaf — neither is a level.
+_LEVEL_SEG = re.compile(r'\{\w+\??\}')
+
 
 class RunTree:
     """Resolver for one run directory.  Construct via ``runschema.resolver_for(base_dir)``.
@@ -126,16 +131,24 @@ class RunTree:
         """Absolute path of a channel-run-scoped artifact INSIDE `cr`'s own directory.
 
         For callers holding a `ChannelRun` but not its cell (the common shape in analysis code):
-        the template's basename is rendered with `extra` (e.g. `strategy=`) and joined to
-        `cr.path`, which already IS the leaf directory.  Only legal for artifacts whose template
-        bottoms out in the leaf — asserted, so a run-scoped artifact cannot be silently
-        mis-rooted."""
+        the template's tail BELOW the tree levels is rendered with `extra` (e.g. `strategy=`)
+        and joined to `cr.path`, which already IS the leaf directory.  Only legal for artifacts
+        whose template bottoms out in the leaf — asserted, so a run-scoped artifact cannot be
+        silently mis-rooted.
+
+        The tail is everything after the leading level placeholders, NOT merely the basename:
+        an artifact that lives in a subfolder of the leaf (the analysis tables and the per-family
+        figure folders) must keep that folder, or every consumer of it would resolve one
+        directory too high — silently, since the join would still look plausible."""
         spec = self.artifacts[artifact]
         if spec.get('scope') not in ('channel_run', 'config'):
             raise ValueError(f'{artifact!r} is {spec.get("scope")}-scoped; leaf_path serves only '
                              f'channel_run/config artifacts. Use path(**parts_of(cell, cr)).')
-        base = spec['path'].rsplit('/', 1)[-1]
-        return os.path.join(cr.path, render(base, **extra).replace('/', os.sep))
+        parts = spec['path'].split('/')
+        while len(parts) > 1 and _LEVEL_SEG.fullmatch(parts[0]):
+            parts = parts[1:]
+        tail = '/'.join(parts)
+        return os.path.join(cr.path, render(tail, **extra).replace('/', os.sep))
 
     def glob(self, artifact: str, **parts) -> list[str]:
         """Existing paths for an artifact, with UNSUPPLIED parts wildcarded.

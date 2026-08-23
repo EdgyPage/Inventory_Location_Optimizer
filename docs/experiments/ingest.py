@@ -146,15 +146,17 @@ def _find(root, name):
 
 # Which analysis subdir wins when the same figure basename exists in more than one — the
 # `@evaluation` out_subdir vocabulary in EXPLICIT preference order, replacing alphabetical
-# luck with reviewable data.  production_time_over_time.png exists under BOTH compare/faceted/
-# (eval compare.faceted) and compare/overlay/ (compare.overlay); every committed snapshot
-# staged the faceted copy because f < o in the walk, so faceted-first encodes exactly the
-# historical pick.  A figure in none of these dirs falls to the `_find` walk unchanged.
-# Cross-checked against the registry's declared out_subdirs by an architecture test — kept a
-# literal here so ingest does not import the matplotlib-heavy analysis package.
+# luck with reviewable data.  Post-redesign the leaf tree is one folder per chart family
+# plus the tidy-CSV folder, and every figure basename carries its view prefix, so basenames
+# are unique BY CONSTRUCTION (a golden test asserts it) — the ordering here only decides
+# walk priority, and stays lexicographic to match it.  A figure in none of these dirs
+# falls to the `_find` walk unchanged.  Cross-checked against the registry's declared
+# out_subdirs by an architecture test — kept a literal here so ingest does not import the
+# matplotlib-heavy analysis package.
 _FIGURE_DIR_PREFERENCE = (
-    'compare', 'compare/breakdown', 'compare/faceted', 'compare/overlay', 'compare/top',
-    'per_strategy', 'stats', 'stats_by_initial',
+    'figures/diagnostics', 'figures/headline', 'figures/labor', 'figures/layout',
+    'figures/significance', 'figures/task_time', 'figures/throughput',
+    'figures/trajectories', 'tables',
 )
 
 

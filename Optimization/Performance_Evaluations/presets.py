@@ -5,68 +5,55 @@ A preset bundles: `keys` (the enabled evaluation keys, in run order), `overrides
 strategy filter, 'uni' | 'opt' | 'all').  Toggle a graph by adding/removing its key;
 tune a graph via its `overrides` entry — no central argparse to grow.
 
-The old CLI combinations map to presets:
-  --focus uni  (default)            → DEFAULT
-  --no-stats                        → NO_STATS
-  --compare initial                 → BY_INITIAL  (focus='all', uni-vs-opt per fn)
-  coverage_e2e's top_n=2/top_by=initial → E2E_PARITY (used only for migration parity)
+Keys are grouped by chart family (core/families.py): the tables group writes the tidy
+CSV surface, the figure groups each own one folder of the leaf's figures tree.  The two
+stats flavours stay mutually exclusive per preset, exactly as before the redesign:
+'assignment' runs the flat suite, 'initial' the uni-vs-opt per-assignment fork.
 """
 
-_PER_STRATEGY = ['per_strategy.report_bars', 'per_strategy.metric_grids',
-                 'per_strategy.scorecards', 'per_strategy.summary_bars',
-                 'per_strategy.delta_over_time', 'per_strategy.delta_by_batch']
-_CONFIG = ['config.summary_csv', 'config.series']
-_COMPARE = ['compare.faceted', 'compare.overlay', 'compare.top_metric',
-            'compare.top_vs_baseline', 'compare.pick_vs_travel', 'compare.delta_vs_baseline',
-            'compare.throughput_vs_labor',
-            'compare.delta_over_time', 'compare.delta_by_batch',
-            'compare.volume_curve',
-            'compare.task_duration_by_strategy', 'compare.labor_per_batch', 'compare.task_time_breakdown']
-_AGG = ['agg.cross_profile']
+_TABLES   = ['config.series', 'tables.per_run', 'tables.tidy']
+_HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
+             'headline.throughput_vs_labor']
+_TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',
+             'labor.delta_grid', 'throughput.volume']
+_DETAIL   = ['task_time.duration', 'task_time.breakdown', 'layout.churn',
+             'diagnostics.metric_grids', 'diagnostics.scorecards']
+_AGG      = ['agg.traj', 'agg.tables', 'agg.sig']
 
 
 def _keys(stats):
-    """stats: 'assignment' (stats.suite) | 'initial' (stats.by_initial) | None."""
-    base = _PER_STRATEGY + _CONFIG + _COMPARE + _AGG
+    """stats: 'assignment' (flat suite) | 'initial' (uni-vs-opt per fn) | None."""
+    base = _TABLES + _HEADLINE + _TRENDS + _DETAIL + _AGG
     if stats == 'assignment':
-        return base + ['stats.suite', 'agg.stats']
+        return base + ['tables.stats', 'sig.suite']
     if stats == 'initial':
-        return base + ['stats.by_initial', 'agg.stats_by_initial']
+        return base + ['tables.by_initial', 'sig.by_initial']
     return base
 
 
-# The top-N delta graphs track compare.top_metric's selection, so they get the same
-# {top_n, top_by} override in every preset.
-_GLOBAL_TOP = {'compare.top_metric': {'top_n': 1, 'top_by': 'global'},
-               'compare.delta_over_time': {'top_n': 1, 'top_by': 'global'},
-               'compare.delta_by_batch': {'top_n': 1, 'top_by': 'global'},
-               'compare.volume_curve': {'top_n': 1, 'top_by': 'global'},
-               'compare.labor_per_batch': {'top_n': 1, 'top_by': 'global'},
-               'agg.cross_profile': {'top_n': 1, 'top_by': 'global'}}
-_INITIAL_TOP = {'compare.top_metric': {'top_n': 3, 'top_by': 'initial'},
-                'compare.delta_over_time': {'top_n': 3, 'top_by': 'initial'},
-                'compare.delta_by_batch': {'top_n': 3, 'top_by': 'initial'},
-                'compare.volume_curve': {'top_n': 3, 'top_by': 'initial'},
-                'compare.labor_per_batch': {'top_n': 3, 'top_by': 'initial'},
-                # The site pairs top_vs_baseline_table.png with volume_curve's figure, so the two
-                # must select the SAME arms.  Without this entry top_vs_baseline falls back to its
-                # own defaults (top_by='global') and shows a 3-arm subset of the curve's 6.
-                # Only BY_INITIAL gets it: _GLOBAL_TOP's top_n=1 would cut the table to one row.
-                'compare.top_vs_baseline': {'top_n': 3, 'top_by': 'initial'},
-                'agg.cross_profile': {'top_n': 3, 'top_by': 'initial'}}
-_E2E_TOP = {'compare.top_metric': {'top_n': 2, 'top_by': 'initial'},
-            'compare.delta_over_time': {'top_n': 2, 'top_by': 'initial'},
-            'compare.delta_by_batch': {'top_n': 2, 'top_by': 'initial'},
-            'compare.volume_curve': {'top_n': 2, 'top_by': 'initial'},
-            'compare.labor_per_batch': {'top_n': 2, 'top_by': 'initial'},
-            'agg.cross_profile': {'top_n': 2, 'top_by': 'initial'}}
+# Every top-N graph must select the SAME arms — the site pairs the headline table with
+# the labor/throughput figures, so a divergent selection shows a subset and reads as a
+# contradiction.  One helper, applied to every selecting key, keeps the invariant.
+_TOP_KEYS = ('labor.delta_topn', 'labor.per_batch', 'throughput.volume')
+
+
+def _top(n, by, *extra):
+    return {k: {'top_n': n, 'top_by': by} for k in (*_TOP_KEYS, *extra)}
+
+
+# The aggregate stats pair defaults to the by-initial fork (the CLI-default preset);
+# DEFAULT flips them to the flat suite so both stages agree on the stats flavour.
+_AGG_FLAT = {'agg.tables': {'by_initial': False}, 'agg.sig': {'by_initial': False}}
 
 
 PRESETS = {
-    'DEFAULT':    {'keys': _keys('assignment'), 'overrides': _GLOBAL_TOP,  'focus': 'uni'},
-    'NO_STATS':   {'keys': _keys(None),         'overrides': _GLOBAL_TOP,  'focus': 'uni'},
-    'BY_INITIAL': {'keys': _keys('initial'),    'overrides': _INITIAL_TOP, 'focus': 'all'},
-    # Reproduces coverage_e2e.py's old run_analysis(top_n=2, top_by='initial') call so the
-    # registry pipeline can be diffed byte-for-byte against the monolith during migration.
-    'E2E_PARITY': {'keys': _keys('assignment'), 'overrides': _E2E_TOP,     'focus': 'uni'},
+    # headline.top_vs_baseline keeps its own default selection here: a top_n=1 override
+    # would cut the summary table to a single row.
+    'DEFAULT':    {'keys': _keys('assignment'),
+                   'overrides': _top(1, 'global') | _AGG_FLAT, 'focus': 'uni'},
+    'NO_STATS':   {'keys': _keys(None),
+                   'overrides': _top(1, 'global') | _AGG_FLAT, 'focus': 'uni'},
+    'BY_INITIAL': {'keys': _keys('initial'),
+                   'overrides': _top(3, 'initial', 'headline.top_vs_baseline'),
+                   'focus': 'all'},
 }

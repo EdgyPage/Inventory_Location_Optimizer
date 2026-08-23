@@ -249,17 +249,18 @@ artifacts:
     match: "series.json"
     fields: [strategies, extra]
 
-  # The per-leaf graph bundles.  The authoritative, per-directory breakdown lives in the
+  # The per-leaf graph bundles.  The authoritative, per-family breakdown lives in the
   # content-addressed run-tree contract (Optimization/schemas/run_tree/<short>.json:
-  # per_strategy_pngs / compare_pngs / stats_by_initial_pngs / aggregate_pngs); this entry stays as
-  # the single catalog handle.
+  # figures_<family>_pngs / aggregate_pngs); this entry stays as the single catalog handle.
+  # One folder per chart family, filenames view-prefixed (see
+  # Optimization/Performance_Evaluations/core/families.py).
   analysis_pngs:
-    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/{per_strategy,compare,stats_by_initial}/**/*.png + comparison_<ts>/<cell>/_aggregate/<config>[/<channel>]/**/*.png"
+    path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/figures/<family>/*.png + comparison_<ts>/<cell>/_aggregate/<config>[/<channel>]/figures/**/*.png"
     format: png
     writer: {function: prepare_config_dirs, file: Optimization/Performance_Evaluations/driver.py}
     readers:
       - {function: main, file: docs/experiments/ingest.py}
-    match: "per_strategy"
+    match: "figures"
 
   channel_rollup_csv:
     path_pattern: "comparison_<ts>/<cell>/channel_rollup.csv"

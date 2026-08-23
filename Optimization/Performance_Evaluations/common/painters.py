@@ -1,46 +1,53 @@
 """Shared figure painters — the builders more than one evaluation draws with.
 
-Promoted here from the modules that first grew them so that aggregate/cross_profile (which
-re-renders the whole compare suite on cross-profile averages) imports a PUBLISHED shared
-surface instead of five private helpers across four compare modules — and so top_vs_baseline
-no longer reaches into stats/ for `_stars`.  Each painter keeps its original module as its
-primary consumer; the docstrings travel with the code.
+Post-redesign this module holds exactly three things:
 
-`overtime_metrics` / `top_tag` are the shared filename-stem vocabulary: every over-time
-figure basename and every `top{n}[_by_{dim}]_` prefix in the published site composes from
-these two functions, so THIS module is where those names are minted.
+  * `overtime_metrics` / `top_tag` — the shared filename-stem vocabulary.  Every
+    over-time figure basename and every `top{n}[_by_{dim}]` suffix in the published
+    site composes from these two functions, so THIS module is where those names are
+    minted (and where the figure-registry test looks for the stems).
+  * `paint_overtime` — the one over-time painter, drawn through chartkit for both its
+    views: 'absolute' (honest units — hours, items/hour, f·D) and 'percent'
+    (improvement vs the baseline strategy, positive = better).  The config-stage
+    trajectories family and the aggregate stage both render with it, which is what
+    keeps their charts visually identical.
+  * unit helpers binding the metric vocabulary to chartkit's unit policy.
+
+Everything else the old painters carried (facet grids, top-N line picks, breakdown and
+delta bars) either died in the redesign or moved into the single family module that owns
+it now.
 """
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 
-from Optimization.Performance_Evaluations.common.io import _save_close
-from Optimization.Performance_Evaluations.common.style import (
-    _TOP_DIMS, _LINESTYLES, _assign_color_map, _ir_style_map, _pct_delta, _stitle,
-    legend_right)
-from Optimization.Performance_Evaluations.common.series import _select_top
+from Optimization.Performance_Evaluations.common import chartkit
+from Optimization.Performance_Evaluations.common.style import _TOP_DIMS
 
 
-def overtime_metrics(agg=False):
-    unit = ' (× baseline)' if agg else ''
+def overtime_metrics():
+    """The five over-time metric specs — stem (`f`), short title (`t`), units, and
+    direction.  `conv` maps raw series values into presentation units; `yl` is the
+    absolute-view axis label; `lower_is_better` orients the percent view."""
+    per_h = 3.6e6            # raw rates are items per sim-millisecond
     return [
         dict(x='task_batch', y='task_median', blo='task_p25', bhi='task_p75',
-             f='task_duration_over_time', t='Task duration over time (median + IQR)',
-             yl='task duration' + unit),
+             f='task_duration', t='Task duration (median + IQR)',
+             conv=chartkit.to_hours, yl=f'task duration ({chartkit.HOURS})',
+             lower_is_better=True),
         dict(x='task_batch', y='task_mean', blo=None, bhi=None,
-             f='avg_task_duration_over_time', t='Average task duration over time',
-             yl='mean task duration' + unit),
+             f='avg_task_duration', t='Average task duration',
+             conv=chartkit.to_hours, yl=f'mean task duration ({chartkit.HOURS})',
+             lower_is_better=True),
         dict(x='batch', y='thr', blo=None, bhi=None,
-             f='throughput_over_time', t='Throughput over time (items / sim-time)',
-             yl='throughput' + unit),
+             f='throughput', t='Throughput',
+             conv=lambda v: np.asarray(v, dtype=float) * per_h,
+             yl='throughput (items / hour)', lower_is_better=False),
         dict(x='task_batch', y='prod_hours', blo=None, bhi=None,
-             f='production_time_over_time',
-             t='Production time (total task time per batch, sim units)',
-             yl='production time (sim units)' + unit),
+             f='production_time', t='Production time per batch',
+             conv=chartkit.to_hours,
+             yl=f'total task time per batch ({chartkit.HOURS})', lower_is_better=True),
         dict(x='batch', y='sigma_fd', blo=None, bhi=None,
-             f='layout_travel_over_time',
-             t='Layout travel cost over time (total f*D, lower=better)',
-             yl='total f*D' + unit),
+             f='layout_travel', t='Layout travel cost',
+             conv=None, yl='total f·D (lower = better)', lower_is_better=True),
     ]
 
 
@@ -48,137 +55,91 @@ def top_tag(top_n, top_by):
     return f"top{top_n}" + (f"_by_{top_by}" if top_by in _TOP_DIMS else "")
 
 
-def _stars(p: float) -> str:
-    if p is None or not np.isfinite(p):
-        return ''
-    return '***' if p < 1e-3 else '**' if p < 1e-2 else '*' if p < 5e-2 else 'ns'
+def _conv(m, vals):
+    return m['conv'](vals) if m.get('conv') else np.asarray(vals, dtype=float)
 
 
-def _facet_metric(strategies, S, m, title, path):
-    inits = sorted({s['initial'] for s in strategies})
-    resl  = sorted({s['reslot'] for s in strategies})
-    acmap = _assign_color_map(strategies)
-    nrow, ncol = max(1, len(inits)), max(1, len(resl))
-    fig, axes = plt.subplots(nrow, ncol, figsize=(5.0 * ncol, 3.4 * nrow),
-                             squeeze=False, sharex=True)
-    for s in strategies:
-        d = S.get(s['key'])
-        if d is None:
-            continue
-        ax = axes[inits.index(s['initial'])][resl.index(s['reslot'])]
-        ax.plot(d[m['x']], d[m['y']], color=acmap[s['assignment']], lw=1.3)
-        if m['blo'] and d.get(m['blo']) is not None:
-            ax.fill_between(d[m['x']], d[m['blo']], d[m['bhi']],
-                            color=acmap[s['assignment']], alpha=0.12)
-    for r, ini in enumerate(inits):
-        for c, rs in enumerate(resl):
-            ax = axes[r][c]
-            ax.set_title(f'{ini} | {rs}', fontsize=9)
-            ax.grid(alpha=0.3)
-            if r == nrow - 1:
-                ax.set_xlabel('batch')
-            if c == 0:
-                ax.set_ylabel(m['yl'], fontsize=8)
-    handles = [Line2D([], [], color=acmap[a], lw=2, label=a) for a in sorted(acmap)]
-    fig.legend(handles=handles, loc='center left', bbox_to_anchor=(1.0, 0.5),
-               fontsize=7, title='assignment')
-    fig.suptitle(title, fontsize=13, fontweight='bold')
-    plt.tight_layout(rect=(0, 0, 1, 0.97))
-    _save_close(fig, path)
+def paint_overtime(strategies, S, m, baseline, out_dir_path, *, view, agg=False):
+    """Render one over-time metric in one view and return the saved path (or None
+    when nothing could be drawn).
 
-
-def _overlay_metric(strategies, S, m, title, path):
-    acmap = _assign_color_map(strategies)
-    smap  = _ir_style_map(strategies)
-    fig, ax = plt.subplots(figsize=(11, 6))
-    for s in strategies:
-        d = S.get(s['key'])
-        if d is None:
-            continue
-        ax.plot(d[m['x']], d[m['y']], color=acmap[s['assignment']],
-                ls=smap[(s['initial'], s['reslot'])], lw=1.1, alpha=0.9)
+    view='absolute': every strategy in presentation units, baseline in BASELINE_STYLE.
+    view='percent' : per-batch % improvement vs the baseline strategy, aligned on the
+                     metric's own x — the baseline IS the zero line, so it is drawn as
+                     a reference line, not a series.
+    agg=True labels the aggregate stage (values are already ×-baseline normalized
+    upstream; the absolute view is skipped there by the caller).
+    """
+    import os
+    labels = [_label(s) for s in strategies] + ['FIFO baseline']
+    ch = chartkit.make(panels=1, panel_w=6.4, panel_h=4.2,
+                       legend='gutter', legend_labels=labels)
+    ax = ch.ax
+    db = S.get(baseline['key']) if baseline else None
+    drawn = 0
+    if view == 'absolute':
+        if db is not None:
+            chartkit.mark_baseline(ax, db[m['x']], _conv(m, db[m['y']]))
+        for s in strategies:
+            d = S.get(s['key'])
+            if d is None or (baseline and s['key'] == baseline['key']):
+                continue
+            ax.plot(d[m['x']], _conv(m, d[m['y']]),
+                    color=chartkit.strategy_color(s, strategies),
+                    ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
+            if m['blo'] and len(strategies) <= 3 and d.get(m['blo']) is not None:
+                chartkit.draw_ci(ax, d[m['x']], _conv(m, d[m['blo']]),
+                                 _conv(m, d[m['bhi']]),
+                                 color=chartkit.strategy_color(s, strategies))
+            drawn += 1
+        ax.set_ylabel(('× baseline' if agg else m['yl']))
+        vals = [_conv(m, S[s['key']][m['y']]) for s in strategies if S.get(s['key'])]
+        if vals:
+            chartkit.shared_ylim([ax], vals)
+        ch.title(m['t'])
+    else:                                              # percent view
+        if db is None:
+            import matplotlib.pyplot as plt
+            plt.close(ch.fig)
+            return None
+        bx = {int(b): v for b, v in zip(db[m['x']], np.asarray(db[m['y']], float))
+              if v == v and v != 0}
+        allv = []
+        for s in strategies:
+            d = S.get(s['key'])
+            if d is None or s['key'] == baseline['key']:
+                continue
+            xs, ys = [], []
+            for b, v in zip(d[m['x']], np.asarray(d[m['y']], float)):
+                bv = bx.get(int(b))
+                if bv is None or v != v:
+                    continue
+                xs.append(int(b))
+                ys.append(chartkit.improvement_pct(
+                    v, bv, lower_is_better=m['lower_is_better']))
+            if not xs:
+                continue
+            ax.plot(xs, ys, color=chartkit.strategy_color(s, strategies),
+                    ls=chartkit.strategy_dash(s), lw=1.4, label=_label(s))
+            allv.append(ys)
+            drawn += 1
+        ax.axhline(0, **{**chartkit.BASELINE_STYLE, 'lw': 1.2})
+        tag = chartkit.pct_axis(ax, better='up')
+        ax.set_ylabel(f'improvement vs FIFO {tag}')
+        if allv:
+            chartkit.shared_ylim([ax], allv, include=(0.0,))
+        ch.title(f"{m['t']} — % vs baseline")
+    if not drawn:
+        import matplotlib.pyplot as plt
+        plt.close(ch.fig)
+        return None
     ax.set_xlabel('batch')
-    ax.set_ylabel(m['yl'])
-    ax.grid(alpha=0.3)
-    ax.set_title(title, fontsize=13, fontweight='bold')
-    ch = [Line2D([], [], color=acmap[a], lw=2, label=a) for a in sorted(acmap)]
-    sh = [Line2D([], [], color='k', ls=smap[ir], lw=1.5, label=f'{ir[0]}|{ir[1]}')
-          for ir in sorted(smap)]
-    leg1 = legend_right(ax, ch, anchor=(1.02, 1.0), fontsize=8, title='assignment')
-    ax.add_artist(leg1)
-    legend_right(ax, sh, anchor=(1.02, 0.45), fontsize=8, title='initial|reslot')
-    plt.tight_layout()
-    _save_close(fig, path)
+    ch.legend(title='strategy')
+    path = os.path.join(out_dir_path, f"{view}_{m['f']}.png")
+    return ch.save(path, view=view)
 
 
-def _top_metric(strategies, S, top_n, m, title, baseline, path, top_by='global'):
-    selected, gof = _select_top(strategies, S, top_n, top_by)
-    # in grouped mode, linestyle encodes the group so the families are distinguishable
-    gstyle = {g: _LINESTYLES[i % len(_LINESTYLES)] for i, g in enumerate(sorted(set(gof.values())))}
-    fig, ax = plt.subplots(figsize=(11, 6))
-    db = S.get(baseline['key'])
-    if db is not None:
-        ax.plot(db[m['x']], db[m['y']], color='grey', lw=1.3, ls='--',
-                label=f"baseline · {_stitle(baseline)}")
-    solo = len(selected) <= 3
-    for s in selected:
-        d = S.get(s['key'])
-        if d is None:
-            continue
-        ls = gstyle.get(gof.get(s['key']), '-')
-        ax.plot(d[m['x']], d[m['y']], color=s['color'], lw=1.8, ls=ls, label=_stitle(s))
-        if m['blo'] and solo and d.get(m['blo']) is not None:
-            ax.fill_between(d[m['x']], d[m['blo']], d[m['bhi']], color=s['color'], alpha=0.12)
-    ax.set_xlabel('batch')
-    ax.set_ylabel(m['yl'])
-    ax.grid(alpha=0.3)
-    sub = f'  (top {top_n} per {top_by})' if top_by in _TOP_DIMS else f'  (top {top_n})'
-    ax.set_title(title + sub, fontsize=12, fontweight='bold')
-    legend_right(ax, fontsize=8)
-    plt.tight_layout()
-    _save_close(fig, path)
-
-
-def _pick_travel_bars(strategies, S, title, path):
-    avail = [s for s in strategies if S.get(s['key'])]
-    ypos  = np.arange(len(avail))
-    pk = [S[s['key']]['picking_pct']   for s in avail]
-    tv = [S[s['key']]['traveling_pct'] for s in avail]
-    fig, ax = plt.subplots(figsize=(10, max(6.0, len(avail) * 0.3)))
-    ax.barh(ypos, pk, color='#4c72b0', label='picking %')
-    ax.barh(ypos, tv, left=pk, color='#dd8452', label='traveling %')
-    ax.set_yticks(ypos)
-    ax.set_yticklabels([_stitle(s) for s in avail], fontsize=6)
-    ax.invert_yaxis()
-    ax.set_xlabel('% of aggregate picker-time')
-    ax.grid(axis='x', alpha=0.3)
-    legend_right(ax)
-    ax.set_title(title, fontsize=12, fontweight='bold')
-    plt.tight_layout()
-    _save_close(fig, path)
-
-
-def _delta_bars(strategies, S, baseline, title, path):
-    avail = [s for s in strategies if S.get(s['key'])]
-    base  = S.get(baseline['key'])
-    if base is None:
-        return
-    bt, bd = base['ss_thr'], base['ss_dur']
-    ypos = np.arange(len(avail))
-    dthr = [_pct_delta(S[s['key']]['ss_thr'], bt) for s in avail]            # ↑ better
-    ddur = [_pct_delta(bd, S[s['key']]['ss_dur']) for s in avail]            # ↑ better (improvement)
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, max(6.0, len(avail) * 0.3)), sharey=True)
-    a1.barh(ypos, dthr, color=['#55a868' if v >= 0 else '#c44e52' for v in dthr])
-    a1.set_title('Throughput Δ% vs baseline (↑ better)', fontsize=10)
-    a1.set_yticks(ypos)
-    a1.set_yticklabels([_stitle(s) for s in avail], fontsize=6)
-    a1.invert_yaxis()
-    a1.axvline(0, color='k', lw=0.8)
-    a1.grid(axis='x', alpha=0.3)
-    a2.barh(ypos, ddur, color=['#55a868' if v >= 0 else '#c44e52' for v in ddur])
-    a2.set_title('Duration improvement % vs baseline (↑ better)', fontsize=10)
-    a2.axvline(0, color='k', lw=0.8)
-    a2.grid(axis='x', alpha=0.3)
-    fig.suptitle(title, fontsize=12, fontweight='bold')
-    plt.tight_layout(rect=(0, 0, 1, 0.96))
-    _save_close(fig, path)
+def _label(s):
+    parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),
+                         s.get('reslot', '')) if p]
+    return '|'.join(parts) if parts else s.get('label', s.get('key', ''))

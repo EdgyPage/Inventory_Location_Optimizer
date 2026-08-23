@@ -367,12 +367,11 @@ _SWEEP_ONLY = ('frozen_inventory_db', 'frozen_warehouse_db', 'whatif_delta_csv',
                'whatif_delta_json', 'whatif_delta_png', 'whatif_labor_csv',
                'whatif_labor_json', 'whatif_labor_pngs', 'whatif_volume_csv',
                'whatif_volume_json')
-# Written by the flat stats suites; the default BY_INITIAL preset runs `stats.by_initial` /
-# `agg.stats_by_initial` and writes stats_by_initial/ instead, so NONE of these appear.
-# The aggregate pair was added to the contract with schema 21e7a11ff40b and belongs here for
-# the same reason as its per-config twins: `agg.stats` only runs under DEFAULT/NO_STATS.
-# (preflight already classifies all five as run-condition artifacts.)
-_FLAT_STATS_ONLY = ('stats_pngs', 'stats_summary_csv', 'stats_tests_json',
+# Written by the flat stats fork only; the default BY_INITIAL preset runs the by-initial
+# fork (`tables.by_initial` / `sig.by_initial` / the aggregate by-initial params) and
+# writes its own artifacts instead, so NONE of these appear.
+# (preflight already classifies all of these as run-condition artifacts.)
+_FLAT_STATS_ONLY = ('stats_summary_csv', 'stats_tests_json',
                     'aggregate_stats_summary_csv', 'aggregate_stats_tests_json')
 # Present only while an arm/config is in flight; removed on finalize.
 _IN_FLIGHT_ONLY = ('resume_pkl', 'checkpoint_pkl')
@@ -390,7 +389,11 @@ _NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory')
 #                   reporting "a freeze or a finalize did not happen", which would be false.
 #   viz_cache_db  — built on demand by the viewer under _viz/, never by a run. Absent until
 #                   someone opens the run in Visualization/, and deletable at any time.
-_EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db')
+#   figures_significance_pngs — written by EITHER stats fork (both forks render into the
+#                   significance family folder), absent only under NO_STATS; which preset
+#                   produced the tree is not knowable from the tree alone.
+_EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db',
+               'figures_significance_pngs')
 
 
 def _stage_verify_tree(ctx: _Ctx) -> StageResult:

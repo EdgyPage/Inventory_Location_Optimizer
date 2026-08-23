@@ -4,7 +4,8 @@ The flat-pool worker in run_analysis.py builds an EvalContext (config stage) or 
 AggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)
 or run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass
 (prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each
-evaluation only writes its own files (stats/aggregate graphs wipe their own private leaf).
+evaluation only writes its own files into the shared figures/ and tables/ tops (the old
+single-owner self-wipe pattern is retired — no render wipes anything).
 
 `_run_one` is the sole render entry, which makes it the access-control choke point: every
 evaluation's declared `needs=` is resolved through the request broker (core/requests.py)
