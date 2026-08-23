@@ -1,7 +1,7 @@
 """run_whatif_volume.py — cross-cell CUMULATIVE-VOLUME what-if: how much work each scheduler
 finishes per unit of elapsed time (re-analyze, no re-sim).
 
-The per-config `compare.volume_curve` graph can only see ONE channel-run leaf, so it compares
+The per-config `throughput.volume` graph can only see ONE channel-run leaf, so it compares
 assignment functions inside a single cell.  The scheduler axis lives only in the CELL directory name
 (k1_off_rr / k1_off_lpt), so the round-robin-vs-LPT comparison has to happen here, at the run root,
 alongside run_whatif_delta and run_whatif_labor.
@@ -47,9 +47,12 @@ import matplotlib.pyplot as plt
 
 from Schema import compat as _compat
 from Schema import connect
+from Optimization.Performance_Evaluations.common import chartkit as _ck
+from Optimization.Performance_Evaluations.common import io as _io
 from Optimization.run_whatif_delta import _channel_of
 from Optimization.run_whatif_labor import (
-    MS_PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _parse_arm, _scheduler_of)
+    MS_PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _data_xlim, _headroom, _ordered,
+    _panel_tag, _parse_arm, _scheduler_of, canonical_arm_order)
 
 log = logging.getLogger('analysis')
 
@@ -184,11 +187,15 @@ def _pick_best(rows, channel):
 
 
 def _curves_png(rows, scans, cells, out_path):
+    """The headline curves: cumulative items vs elapsed hours for ONE arm under both
+    schedulers, per channel.  Elapsed hours and item counts are commensurate across the
+    panels, so both axes share ONE honest scale; the per-scheduler rate/finish figures
+    live in the gutter legend, off the axes; the wall-clock caveat is the subtitle."""
     chans = _channels(rows)
-    fig, axes = plt.subplots(1, len(chans), figsize=(7.2 * len(chans), 5.6), squeeze=False)
-    for ax, ch in zip(axes[0], chans):
+    panels = []
+    for ch in chans:
         arm = _pick_best(rows, ch)
-        drew = False
+        series = []
         for cell in cells:
             for key, s in scans[cell].items():
                 _pair, _cfg, channel, a = key
@@ -197,57 +204,86 @@ def _curves_png(rows, scans, cells, out_path):
                 m = _metrics_of(s)
                 if not m:
                     continue
-                sched = _scheduler_of(cell)
-                ax.plot(s['hours'], s['items'], color=_SCHED_COLOR.get(sched, '#888888'), lw=2.0,
-                        label=f"{sched}  {m['mean_thr_items_hr']:,.0f} items/h · {m['elapsed_hours']:.2f} h")
-                ax.plot([s['hours'][-1]], [s['items'][-1]], 'o', ms=6,
-                        color=_SCHED_COLOR.get(sched, '#888888'))
-                drew = True
+                series.append((_scheduler_of(cell), s, m))
                 break
+        panels.append((ch, arm, series))
+    labels = [f"{sched}: {m['mean_thr_items_hr']:,.0f} items/h · {m['elapsed_hours']:.2f} h"
+              for _ch, _arm, series in panels for sched, _s, m in series]
+    chart = _ck.make(panels=len(chans), panel_w=5.6, panel_h=4.2,
+                     legend_labels=labels or ('round_robin',))
+    for ax, (ch, arm, series) in zip(chart.axes, panels):
+        lines = []
+        for sched, s, m in series:
+            ln, = ax.plot(s['hours'], s['items'], color=_SCHED_COLOR.get(sched, '#888888'),
+                          lw=2.0,
+                          label=f"{sched}: {m['mean_thr_items_hr']:,.0f} items/h · "
+                                f"{m['elapsed_hours']:.2f} h")
+            ax.plot([s['hours'][-1]], [s['items'][-1]], 'o', ms=6,
+                    color=_SCHED_COLOR.get(sched, '#888888'))
+            lines.append(ln)
         ax.set_xlabel('elapsed hours')
         ax.set_ylabel('cumulative items picked')
-        # "Same work" is only true because this is ONE arm under two schedulers — across DIFFERENT
-        # arms the volumes differ (measured ~6.8%), so the caption names the arm to keep the claim
-        # from being read more widely than the data supports.
-        ax.set_title(f'{ch}: {arm or "?"} — identical arm, two schedulers\n'
-                     f'same work, less elapsed time', fontsize=10)
-        ax.grid(alpha=0.3)
-        if drew:
-            ax.legend(fontsize=8, title='scheduler')
-    fig.suptitle('Cumulative volume vs elapsed time — round-robin vs LPT',
-                 fontsize=12, fontweight='bold')
-    fig.text(0.5, 0.005, f'elapsed hours = {_HOURS_NOTE}', ha='center', va='bottom',
-             fontsize=8, color='#555555')
-    plt.tight_layout(rect=(0, 0.04, 1, 0.92))
-    fig.savefig(out_path, dpi=150, bbox_inches='tight')
-    plt.close(fig)
+        if lines:
+            chart.legend(lines, title=ch)
+    xmax = max((float(s['hours'][-1]) for _ch, _arm, series in panels
+                for _sched, s, _m in series), default=1.0)
+    for ax in chart.axes:
+        ax.set_xlim(0.0, xmax * 1.05)
+    _ck.shared_ylim(chart.axes,
+                    [np.concatenate([s['items'] for _sched, s, _m in series])
+                     if series else np.array([0.0])
+                     for _ch, _arm, series in panels], include=(0.0,))
+    for ax, (ch, arm, _series) in zip(chart.axes, panels):
+        _headroom(ax, 0.14)                    # equal per panel — the scale stays shared
+        # "Same work" is only true because this is ONE arm under two schedulers — across
+        # DIFFERENT arms the volumes differ (measured ~6.8%), so the panel tag names the
+        # arm to keep the claim from being read more widely than the data supports.
+        _panel_tag(ax, f'{ch}: {arm or "?"}')
+    chart.title('Cumulative volume vs elapsed time',
+                subtitle='elapsed hours = modeled sim pick-time, not wall-clock · '
+                         'each panel: one arm under both schedulers')
+    chart.save(out_path)
 
 
-def _gain_png(rows, out_path):
-    chans = _channels(rows)
-    fig, axes = plt.subplots(1, len(chans), figsize=(7.6 * len(chans), 5.6), squeeze=False)
-    for ax, ch in zip(axes[0], chans):
-        sub = [r for r in rows if r['channel'] == ch and r['scheduler'] != 'round_robin'
-               and r['thr_gain_vs_ref_pct'] == r['thr_gain_vs_ref_pct']]
-        by_arm = {}
-        for r in sub:
-            by_arm.setdefault(r['assignment'], []).append(r['thr_gain_vs_ref_pct'])
-        if not by_arm:
-            ax.set_axis_off()
+def _gain_png(rows, out_path, order=()):
+    """Median LPT-over-RR gain in whole-run mean throughput (the chord slope), one
+    horizontal bar per arm in the canonical order, ONE shared x scale across panels."""
+    by_chan: dict = {}
+    for r in rows:
+        v = r['thr_gain_vs_ref_pct']
+        if r['scheduler'] == 'round_robin' or v != v:
             continue
-        names = sorted(by_arm, key=lambda a: float(np.median(by_arm[a])))
-        vals = [float(np.median(by_arm[a])) for a in names]
-        ax.barh(names, vals, color=_SCHED_COLOR['lpt'], alpha=0.85)
-        ax.axvline(0, color='grey', lw=1.0)
-        ax.set_xlabel('median throughput uplift, LPT vs round-robin (%)')
-        ax.set_title(f'{ch}', fontsize=10)
-        ax.grid(axis='x', alpha=0.3)
-        ax.tick_params(axis='y', labelsize=7)
-    fig.suptitle('LPT throughput uplift over round-robin, by assignment function',
-                 fontsize=12, fontweight='bold')
-    plt.tight_layout(rect=(0, 0, 1, 0.92))
-    fig.savefig(out_path, dpi=150, bbox_inches='tight')
-    plt.close(fig)
+        by_chan.setdefault(r['channel'], {}).setdefault(r['assignment'], []).append(v)
+    if not by_chan:
+        return
+    chans = sorted(by_chan)
+    n_max = max(len(d) for d in by_chan.values())
+    chart = _ck.make(panels=len(chans), panel_w=5.2,
+                     panel_h=_ck.height_for_categories(n_max), legend='none')
+    allmeds, drawn = [], []
+    for ax, ch in zip(chart.axes, chans):
+        d = by_chan[ch]
+        names = _ordered(sorted(d), order)
+        meds = [float(np.median(d[a])) for a in names]
+        ypos = [len(names) - 1 - i for i in range(len(names))]   # canonical order, top-down
+        ax.barh(ypos, meds, color=_SCHED_COLOR['lpt'], height=0.62, alpha=0.85)
+        ax.set_yticks(ypos)
+        ax.set_yticklabels(names, fontsize=8)
+        ax.set_ylim(-0.6, len(names) - 0.4)
+        ax.axvline(0, color='#222222', lw=0.9)
+        ax.set_xlabel('median throughput uplift, LPT vs round-robin % (→ better)',
+                      fontsize=9)
+        ax.grid(False, axis='y')
+        allmeds += meds
+        _headroom(ax, 1.4 / (len(names) + 1))
+        _panel_tag(ax, ch)
+        drawn.append(ax)
+    for ax in drawn:
+        _data_xlim(ax, allmeds, include=(0.0,))                  # ONE shared x scale
+    chart.title('LPT throughput uplift by assignment fn',
+                subtitle='median % gain in whole-run mean items/hour (chord slope) · '
+                         'same scale on every panel')
+    chart.save(out_path)
 
 
 _FIELDS = ['cell', 'scheduler', 'pair', 'pickcfg', 'channel', 'arm', 'initial', 'assignment',
@@ -306,8 +342,17 @@ def run(base_dir: str, reference: str | None = None, log=log) -> list:
     # The volume PNGs are covered by the whatif_labor_pngs glob (whatif_*.png); the star is in the
     # filename segment, so the template's directory is the contract-rendered home for them.
     png_dir = os.path.dirname(wt.path('whatif_labor_pngs'))
-    _curves_png(rows, scans, cells, os.path.join(png_dir, 'whatif_volume_curves.png'))
-    _gain_png(rows, os.path.join(png_dir, 'whatif_volume_uplift_bars.png'))
+    # The canonical arm ordering shared with the labor writer's figures, and the
+    # provenance footer stamped through the chartkit footer band.
+    arm_order = canonical_arm_order(rows, reference)
+    prev_footer = getattr(_io, '_FOOTER', None)
+    _io.set_footer(f'whatif volume re-analysis · {os.path.basename(os.path.normpath(base_dir))}'
+                   f' · reference={reference} · modeled sim pick-time hours, not wall-clock')
+    try:
+        _curves_png(rows, scans, cells, os.path.join(png_dir, 'whatif_volume_curves.png'))
+        _gain_png(rows, os.path.join(png_dir, 'whatif_volume_uplift_bars.png'), arm_order)
+    finally:
+        _io.set_footer(prev_footer)
     return rows
 
 

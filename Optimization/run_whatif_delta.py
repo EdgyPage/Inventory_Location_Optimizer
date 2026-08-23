@@ -39,9 +39,12 @@ if _REPO_ROOT not in sys.path:
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 from Schema import compat as _compat
 from Schema import connect
+from Optimization.Performance_Evaluations.common import chartkit as _ck
+from Optimization.Performance_Evaluations.common import io as _io
 
 WIN = 50   # steady-state window (batches), matching series.py
 
@@ -223,6 +226,37 @@ def _pct(a, b, higher_better):
     return (b - a) / a * 100 if higher_better else (a - b) / a * 100
 
 
+def _delta_scatter(rows, reference, out_path):
+    """The cross-cell picture: labor saving (x) vs throughput/batch gain (y), one point per
+    cell × channel × arm, drawn through the chartkit contract — gutter legend, reserved
+    footer band, short title with the reading aid demoted to the subtitle."""
+    cellset = sorted(set(r['cell'] for r in rows))
+    chanset = [c for c in ('fulfillment', 'store') if any(r['channel'] == c for r in rows)]
+    chart = _ck.make(panels=1, panel_w=7.0, panel_h=5.4,
+                     legend_labels=(*cellset, *chanset), legend_title='scenario / channel')
+    ax = chart.ax
+    cmap = plt.cm.tab10
+    colors = {c: cmap(i % 10) for i, c in enumerate(cellset)}
+    markers = {'store': 's', 'fulfillment': 'o'}
+    for r in rows:
+        ax.scatter(r['d_task_ms_pct'], r['d_thr_batch_pct'], color=colors[r['cell']],
+                   marker=markers.get(r['channel'], 'o'), s=70,
+                   edgecolors='white', linewidths=0.5, zorder=3)
+    ax.axhline(0, color='k', lw=0.8)
+    ax.axvline(0, color='k', lw=0.8)
+    ax.set_xlabel('task-makespan (labor) saving % vs reference (→ better)')
+    ax.set_ylabel('throughput / batch-makespan gain % vs reference (↑ better)')
+    handles = [Line2D([], [], marker='o', ls='none', color=colors[c], label=c)
+               for c in cellset]
+    handles += [Line2D([], [], marker=markers[c], ls='none', color='#888888', label=c)
+                for c in chanset]
+    chart.legend(handles)
+    chart.title(f'What-if deltas vs {reference}',
+                subtitle='one point per cell × channel × arm — up at flat x means shorter '
+                         'batch makespan at unchanged labor')
+    chart.save(out_path)
+
+
 def run(base_dir, reference=None, log=None):
     """Engine: diff every cell under base_dir vs the reference cell; write the whatif_delta CSV +
     the labor-vs-throughput scatter, and return the CSV path.  Importable so the analysis hub
@@ -284,30 +318,15 @@ def run(base_dir, reference=None, log=None):
     _say(f'wrote {json_path}')
 
     if rows:
-        fig, ax = plt.subplots(figsize=(10, 7))
-        cellset = sorted(set(r['cell'] for r in rows))
-        cmap = plt.cm.tab10
-        colors = {c: cmap(i % 10) for i, c in enumerate(cellset)}
-        markers = {'store': 's', 'fulfillment': 'o'}
-        for r in rows:
-            ax.scatter(r['d_task_ms_pct'], r['d_thr_batch_pct'], color=colors[r['cell']],
-                       marker=markers.get(r['channel'], 'o'), s=70,
-                       edgecolors='white', linewidths=0.5, zorder=3)
-        for c in cellset:
-            ax.scatter([], [], color=colors[c], label=c)
-        ax.scatter([], [], color='#888', marker='o', label='• fulfillment')
-        ax.scatter([], [], color='#888', marker='s', label='■ store')
-        ax.axhline(0, color='k', lw=0.8)
-        ax.axvline(0, color='k', lw=0.8)
-        ax.set_xlabel('Task-makespan (labor) saving % vs reference (→ better)')
-        ax.set_ylabel('Throughput / batch-makespan gain % vs reference (↑ better)')
-        ax.set_title(f'What-if scenarios vs "{reference}"  —  point = cell × channel × arm\n'
-                     f'up at flat x = a scheduling win (batch makespan ↓ at flat task makespan)')
-        ax.grid(alpha=0.3)
-        ax.legend(fontsize=8, title='scenario / channel')
         png = rt.path('whatif_delta_png')
-        fig.savefig(png, dpi=150, bbox_inches='tight')
-        plt.close(fig)
+        # Provenance rides the chartkit footer band, not ad-hoc figure text.
+        prev_footer = getattr(_io, '_FOOTER', None)
+        _io.set_footer(f'whatif delta re-analysis · {os.path.basename(os.path.normpath(base_dir))}'
+                       f' · reference={reference} · steady state: last {WIN} batches')
+        try:
+            _delta_scatter(rows, reference, png)
+        finally:
+            _io.set_footer(prev_footer)
         _say(f'wrote {png}')
 
         _say(f'\nMedian Δ vs "{reference}" by cell × channel  '
