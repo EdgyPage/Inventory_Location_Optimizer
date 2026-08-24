@@ -60,6 +60,14 @@ boundaries:
   - {forbid: [wh_layout, wh_picking],        why: "geometry must not depend on the pick simulation"}
   - {forbid: [wh_catalog, wh_inventory],     why: "what a SKU IS must not depend on where it is placed"}
   - {forbid: [wh_catalog, wh_placement],     why: "the catalogue must not depend on the assignment functions"}
+  # The `warehouse_core -> optimization` forbid above is nearly VACUOUS: every domain subtree
+  # has a longer `match`, so `warehouse_core` selects little more than Warehouse/__init__.py
+  # and the three packages that actually hold the engine were never fenced.  These three name
+  # them.  Asserted only after confirming the graph already satisfies each (no domain module
+  # imports Optimization today), which is what makes adding them free rather than aspirational.
+  - {forbid: [wh_picking, optimization],     why: "the pick simulation must not import the run harness — it is handed a PickConfig, never CONFIG"}
+  - {forbid: [wh_inventory, optimization],   why: "the placement engine must not import the run harness; a worker builds it from picklable values"}
+  - {forbid: [wh_placement, optimization],   why: "an assignment function must not import the run harness — it is a closure over its own inputs"}
   - {forbid: [opt_persistence, opt_config],  why: "persistence is a leaf: a worker saves results without dragging CONFIG into its process"}
   - {forbid: [opt_persistence, opt_simdriver], why: "storing results must not depend on orchestration"}
   - {forbid: [opt_persistence, opt_runschema], why: "DB IO must not depend on run-tree path resolution"}
