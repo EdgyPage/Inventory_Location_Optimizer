@@ -27,11 +27,24 @@ compared a declaration against another declaration and none of them ever saw a n
 and with an additional push: its family's allowed-view list had no `percent` in it, so the
 author had nowhere honest to put the figure.
 
-## Intervals convert with their values
+## An interval is the interval OF THE COMPARISON
 
-An interval is supplied RAW and converted by the same conversion as the values it belongs
-to.  Two of the retired implementations converted the point and left the whiskers in sim
-units, which draws an interval of the wrong width around the right dot.
+A comparison view takes the PAIRING — each arm's per-instance values beside the baseline's,
+in raw units — and derives both the dot and its whiskers from it.  Two things that costs
+nothing to get wrong otherwise:
+
+  * the dot and the whiskers estimate the SAME quantity.  Four paired-comparison sites in
+    the retired suite reported a median with a bootstrap of that median and a fifth
+    reported a mean with a t-interval, a split `stats_core` and `tables/vs_baseline` both
+    write comments forbidding;
+  * the interval is not the arm's own SPREAD wearing a percentage.  That is a much wider
+    statistic, and it makes the sentence published pages carry beside these charts false —
+    "where an interval crosses zero the arm has not been shown to move travel at all" is
+    only true of the bootstrap of the paired improvements.
+
+Two of the retired implementations also converted the point and left the whiskers in sim
+units, drawing an interval of the wrong width around the right dot.  Deriving both from
+one input is what makes that unrepresentable.
 
 ## What is NOT here
 
@@ -45,6 +58,7 @@ from __future__ import annotations
 import numpy as np
 
 from Optimization.Performance_Evaluations.common import chartkit, present
+from Optimization.Performance_Evaluations.common.stats_core import _boot_ci
 from Optimization.Performance_Evaluations.common.style import _stitle
 from Optimization.Performance_Evaluations.core import quantities as _q
 
@@ -113,23 +127,39 @@ def _view_values(quantity, raw, baseline_raw, view, samples):
         return vals, f'{quantity.label} vs baseline (%, higher = better)'
     if view == 'delta':
         conv, label = present.for_metric(quantity.key, samples)
-        diff = raw - base
-        return (conv(diff) if conv is not None else diff), f'{label}, difference vs baseline'
+        # ORIENTED, like every other comparison in the suite: positive = better. An
+        # unoriented difference means the reader has to remember this quantity's direction
+        # to know which end of the axis is the win, and half of them do not.
+        diff = (base - raw) if quantity.lower_is_better else (raw - base)
+        return ((conv(diff) if conv is not None else diff),
+                f'{label}, improvement vs baseline (higher = better)')
     raise ValueError(f'marks cannot draw view {view!r}')
 
 
 # ── the ranked-category mark ─────────────────────────────────────────────────────
 
-def ranked(ch, entries, *, quantity, view, baseline, strategies, intervals=None,
+def ranked(ch, entries, *, quantity, view, baseline, strategies, paired=None,
            annotate=None, ax=None):
     """One bar (absolute) or dot+interval (percent/delta) per arm, best first.
 
-    `entries`   [(strategy_dict, raw_value)] in the quantity's own units.
-    `intervals` optional [(lo, hi)] in the SAME raw units, converted with the values.
-    `baseline`  the baseline strategy dict; its raw value must be in `entries`.
+    `entries`  [(strategy_dict, raw_value)] in the quantity's own units — the arm's scalar.
+    `paired`   optional {strategy_key: (arm_values, baseline_values)}, both in the SAME raw
+               units, aligned instance for instance (batch i against batch i).
+    `baseline` the baseline strategy dict; its raw value must be in `entries`.
 
-    Returns the number of arms drawn — 0 when nothing could be, so the caller's exit is
-    `if not marks.ranked(...): return ch.abandon()`.
+    ## Why the interval takes a PAIRED input rather than an interval
+
+    A comparison view's interval has to be the interval OF THE COMPARISON. Bootstrapping
+    each arm's own spread and then expressing that as a percentage of the baseline is a
+    different — and much wider — statistic, and it makes the sentence published pages carry
+    beside these charts false: "where an interval crosses zero the arm has not been shown
+    to move travel at all" is only true of the bootstrap of the paired improvements.
+
+    So the caller hands over the pairing and the mark derives both the point and the
+    interval from it, in whatever stance `view` names. That keeps the rule this module
+    exists for — there is no parameter through which a pre-computed percentage can arrive —
+    while producing the statistic the caption claims. Without `paired`, a comparison view
+    draws points with no interval, which is honest about what it does not know.
     """
     ax = ax if ax is not None else ch.ax
     pairs = [(s, float(v)) for s, v in entries
@@ -150,6 +180,27 @@ def ranked(ch, entries, *, quantity, view, baseline, strategies, intervals=None,
     vals, axis_label = _view_values(quantity, raw,
                                     [base_v] * len(raw) if base_v is not None else [],
                                     view, samples)
+    lo_hi = None
+    if paired and view in ('percent', 'delta'):
+        # The point moves too: the median of the per-instance stance values is what the
+        # interval is an interval OF, and a dot estimating one quantity beside whiskers
+        # estimating another is the estimator split `stats_core` writes a comment
+        # forbidding.
+        points, los, his = [], [], []
+        for s, _v in pairs:
+            got = paired.get(s['key'])
+            series = _paired_series(quantity, got, view) if got else None
+            if series is None or not series.size:
+                points.append(float('nan'))
+                los.append(float('nan'))
+                his.append(float('nan'))
+                continue
+            lo, hi = _boot_ci(series)
+            points.append(float(np.median(series)))
+            los.append(lo)
+            his.append(hi)
+        vals = np.asarray(points, dtype=float)
+        lo_hi = (np.asarray(los, dtype=float), np.asarray(his, dtype=float))
 
     # Best first, ALWAYS — and for a comparison view "best" is the largest improvement,
     # not the largest number in the quantity's own direction.
@@ -157,10 +208,8 @@ def ranked(ch, entries, *, quantity, view, baseline, strategies, intervals=None,
     order = chartkit.rank(vals, lower_is_better=lower)
     pairs = [pairs[i] for i in order]
     vals = np.asarray(vals, dtype=float)[order]
-    ivals = None
-    if intervals is not None:
-        iv = {s['key']: lh for (s, _v), lh in zip(entries, intervals)}
-        ivals = [iv.get(s['key']) for s, _v in pairs]
+    if lo_hi is not None:
+        lo_hi = (lo_hi[0][order], lo_hi[1][order])
 
     labels = [_stitle(s) for s, _v in pairs]
     pos = chartkit.category_axis(ax, labels)
@@ -175,9 +224,8 @@ def ranked(ch, entries, *, quantity, view, baseline, strategies, intervals=None,
         # Bars are anchored at zero on purpose: a truncated value axis on a BAR chart
         # misstates the ratio between bars, which is the one thing bars are read for.
     else:
-        if ivals is not None:
-            lo, hi = _interval_arrays(quantity, ivals, base_v, view, samples)
-            chartkit.draw_ci(ax, pos, lo, hi, orient='h', color='#666666')
+        if lo_hi is not None:
+            chartkit.draw_ci(ax, pos, lo_hi[0], lo_hi[1], orient='h', color='#666666')
         ax.scatter(vals, pos, s=38, zorder=3, edgecolors='black', linewidths=0.5,
                    color=[chartkit.strategy_color(s, strategies) for s, _v in pairs])
         chartkit.reference_line(ax, 0.0, orient='x')
@@ -188,19 +236,23 @@ def ranked(ch, entries, *, quantity, view, baseline, strategies, intervals=None,
     return len(pairs)
 
 
-def _interval_arrays(quantity, ivals, base_v, view, samples):
-    """Interval ends put through the SAME conversion as the values they belong to.
+def _paired_series(quantity, got, view):
+    """The per-instance stance values for one arm: improvements, or raw differences.
 
-    Two retired implementations converted the point and left the whiskers raw, which draws
-    an interval of the wrong width around the right dot.
+    `got` is (arm_values, baseline_values) in the quantity's own units, already aligned.
+    `improvement_pct_series` drops the undefined pairs, which is the only honest sample to
+    take a median or a bootstrap over.
     """
-    lo_raw = [(lh[0] if lh else float('nan')) for lh in ivals]
-    hi_raw = [(lh[1] if lh else float('nan')) for lh in ivals]
-    base = [base_v] * len(lo_raw)
-    lo, _l = _view_values(quantity, lo_raw, base, view, samples)
-    hi, _h = _view_values(quantity, hi_raw, base, view, samples)
-    # A `lower_is_better` percent flips the sign, so the converted lo can exceed the hi.
-    return np.minimum(lo, hi), np.maximum(lo, hi)
+    arm, base = np.asarray(got[0], dtype=float), np.asarray(got[1], dtype=float)
+    if arm.size != base.size or not arm.size:
+        return np.array([])
+    if view == 'percent':
+        return chartkit.improvement_pct_series(
+            arm, base, lower_is_better=quantity.lower_is_better)
+    diff = arm - base
+    if quantity.lower_is_better:
+        diff = -diff                 # positive = better, the one sign convention
+    return diff[np.isfinite(diff)]
 
 
 def _hug_x(ax, vals, *, include_zero):

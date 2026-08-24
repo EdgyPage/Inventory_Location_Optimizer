@@ -16,8 +16,9 @@ the derivation gives no delta — the per-batch difference lives with the serial
             one, which turns a unitless objective into "how much of the achievable
             improvement did this rule capture".
   percent   per-arm improvement against the baseline, sorted, with the bootstrap interval
-            of the arm's own per-batch spread, so the ranking says which gaps are
-            separable and which are not.
+            of the PAIRED per-batch improvements, so the ranking says which gaps are
+            separable and which are not: where an interval crosses zero, the arm has not
+            been shown to move travel at all.
 
 **The percent view used to be called `delta`.**  It computed `improvement_pct_series`,
 labelled its axis through `pct_axis`, and saved as `delta_travel_vs_baseline.png` under
@@ -45,8 +46,8 @@ _TITLES = {
     'absolute': ('Travel cost per arm',
                  'steady-state demand-weighted distance; baseline shaded'),
     'percent':  ('Travel cost vs baseline',
-                 'per-arm improvement in Σ f·D, with the bootstrap interval of the '
-                 "arm's own per-batch spread"),
+                 'median of the per-batch improvements in Σ f·D, with the bootstrap '
+                 'interval of that same median'),
 }
 
 
@@ -64,16 +65,21 @@ def _per_batch(ctx, key):
     return d.set_index('batch_id')['sigma_fd'].astype(float)
 
 
-def _entries(ctx, S):
-    """[(strategy, steady-state Σ f·D)] and the matching raw intervals, in Σ f·D.
+def _entries(ctx, S, baseline):
+    """(entries, paired) — the absolute view's scalars, and the pairing for the rest.
 
-    The interval is the bootstrap of the arm's own per-batch values rather than of the
-    improvement, because `marks` derives the stance itself and therefore takes every input
-    in the quantity's own units — which is also what stops the retired failure of
-    converting the point and leaving the whiskers behind.  An arm with fewer than three
-    batches carries a value and no interval.
+    `entries`  [(strategy, steady-state Σ f·D)], for the absolute bars.
+    `paired`   {key: (arm per-batch Σ f·D, baseline per-batch Σ f·D)} over the batches the
+               two arms SHARE, in Σ f·D.  `marks` derives the comparison point and its
+               interval from this, both in the same stance, so the dot and the whiskers
+               estimate one quantity — and the interval is the interval of the comparison
+               rather than of the arm's own spread wearing a percentage.
+
+    An arm sharing fewer than three batches with the baseline appears in `entries` and not
+    in `paired`: it keeps its bar and loses its dot, which is the honest pair of answers.
     """
-    entries, intervals = [], []
+    pb = _per_batch(ctx, baseline['key']) if baseline else pd.Series(dtype=float)
+    entries, paired = [], {}
     for s in ctx.strategies:
         d = S.get(s['key'])
         if d is None:
@@ -82,18 +88,20 @@ def _entries(ctx, S):
         if val is None or not np.isfinite(float(val)):
             continue
         entries.append((s, float(val)))
-        pb = _per_batch(ctx, s['key'])
-        intervals.append(_boot_ci(pb.values) if pb.size >= 3 else None)
-    return entries, intervals
+        ps = _per_batch(ctx, s['key'])
+        common = sorted(set(pb.index) & set(ps.index))
+        if len(common) >= 3:
+            paired[s['key']] = (ps.loc[common].values, pb.loc[common].values)
+    return entries, paired
 
 
-def _figure(ctx, entries, intervals, baseline, view, out):
+def _figure(ctx, entries, paired, baseline, view, out):
     q = _q.BY_KEY[QUANTITY]
     ch = chartkit.make(
         panels=1, legend='none', panel_w=7.0,
         panel_h=chartkit.height_for_categories(len(entries), per=0.3, base=2.0))
     if not marks.ranked(ch, entries, quantity=q, view=view, baseline=baseline,
-                        strategies=ctx.strategies, intervals=intervals):
+                        strategies=ctx.strategies, paired=paired):
         return ch.abandon()
     if view == 'absolute':
         # `ctx.optimal` — NOT `optimal_sigma_fd`, which is the key inside `sim_result` and
@@ -121,12 +129,12 @@ def render(ctx, params):
     if S.get(baseline['key']) is None:
         ctx.log.warning('  layout travel: no baseline series; skipped')
         return
-    entries, intervals = _entries(ctx, S)
+    entries, paired = _entries(ctx, S, baseline)
     if not entries:
         ctx.log.warning('  layout travel: no arm published a steady-state Σ f·D')
         return
     out = io.out_dir(ctx)
     n = 0
     for view in EVAL_BY_KEY['layout.travel'].views:
-        n += bool(_figure(ctx, entries, intervals, baseline, view, out))
+        n += bool(_figure(ctx, entries, paired, baseline, view, out))
     ctx.log.info(f'  layout travel: {n} views over {len(entries)} arms -> {out}')
