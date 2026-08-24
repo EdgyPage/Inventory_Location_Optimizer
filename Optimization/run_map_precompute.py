@@ -73,8 +73,7 @@ def _metas_by_pair(base_dir, rt) -> dict:
 
 def _workload_params(rt, cell, run):
     """WorkloadParams from the leaf's own committed config, or None when it is absent."""
-    import dataclasses
-    from Optimization.config.sim_config import _CART_TYPES
+    from Optimization.config.sim_config import _CART_TYPES, _PICK_CONFIG_FIELDS
     from Optimization.metrics.Workload import WorkloadParams
     from Warehouse.picking.Pick import PickConfig, StoreCart
     try:
@@ -85,8 +84,10 @@ def _workload_params(rt, cell, run):
         return None
     with open(path, encoding='utf-8') as fh:
         cfg = json.load(fh)
-    fields = {f.name for f in dataclasses.fields(PickConfig)}
-    kw = {k: v for k, v in cfg.items() if k in fields}
+    # The same field set `_build_pick_cfg` filters on, imported rather than re-derived --
+    # so an archived config and a live one reconstruct through one definition, and a new
+    # PickConfig field cannot reach one path and miss the other.
+    kw = {k: v for k, v in cfg.items() if k in _PICK_CONFIG_FIELDS}
     # `cart` is serialised as its NAME; PickConfig wants the class.  The same registry the
     # sim resolves it through, so a store leaf gets the store cart and a fulfillment leaf
     # does not silently inherit it — the cart term is where the two channels diverge most.

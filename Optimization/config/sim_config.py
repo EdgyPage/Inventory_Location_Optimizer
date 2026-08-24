@@ -18,6 +18,7 @@ tunable reads it at call time.  See the block above `seed_world()`.
 import logging
 import os
 import sys
+from dataclasses import fields as _dataclass_fields
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 # NB two levels up: this module lives at Optimization/config/, not Optimization/.  _REPO_ROOT is
@@ -328,6 +329,12 @@ def _setup_logging(log_path: str) -> logging.Logger:
 # Cart types a config entry may name via a 'cart' key (default: the store cart).
 _CART_TYPES = {'StoreCart': StoreCart, 'FulfillmentCart': FulfillmentCart}
 
+#: The field names `PickConfig` accepts, so a config dict can be filtered rather than
+#: transcribed key-by-key.  Derived, never listed: a hand-written list is how
+#: `Diagnostics/bucket_fill` came to be missing `cart`, `one_way` and `scheduler`.
+#: `run_map_precompute` derives the same set for its archived-config rebuild.
+_PICK_CONFIG_FIELDS = frozenset(f.name for f in _dataclass_fields(PickConfig))
+
 
 def _config_name(cfg: dict) -> str:
     """A config's directory/identity name (explicit 'name', else a coeff fingerprint)."""
@@ -343,19 +350,21 @@ def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> P
     The one canonical dict→PickConfig conversion shared by both channels' sweeps.  Callers
     pass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and
     the channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.
+
+    A MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole
+    point of the shape here.  This function used to restate a fallback per key — a SECOND
+    default set, which had drifted from the first: `pick_weight_coef` 1.1 against the
+    dataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0
+    against 5.0 (2x).  Nothing caught it because every registered pick-config declares all
+    three, so neither set was ever exercised on the run path — and `run_map_precompute`
+    rebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always
+    taken the dataclass defaults.  Two default sets and two reconstruction paths is a silent
+    55x waiting for the first archive vintage that omits a key.
+
+    Keys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately
+    because the dict stores its NAME and the dataclass wants the class.
     """
-    return PickConfig(
-        num_pickers      = num_pickers,
-        x_speed          = cfg.get('x_speed',          4.0),   # ft/s (positions are inches)
-        y_speed          = cfg.get('y_speed',          2.0),   # ft/s
-        pick_intercept   = cfg.get('pick_intercept',   1.0),
-        pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
-        pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
-        pick_weight_fn   = cfg.get('pick_weight_fn',   'log'),  # base function per term
-        pick_volume_fn   = cfg.get('pick_volume_fn',   'log'),
-        cart_swap_coef   = cfg.get('cart_swap_coef',   10.0),
-        cart             = _CART_TYPES.get(cfg['cart'], default_cart) if 'cart' in cfg else default_cart,
-        height_brackets  = cfg.get('height_brackets',  DEFAULT_HEIGHT_BRACKETS),
-        one_way          = cfg.get('one_way',          False),   # one-way lanes; default off = today
-        scheduler        = cfg.get('scheduler',        'round_robin'),  # 'lpt' load-balances makespan
-    )
+    kw = {k: v for k, v in cfg.items() if k in _PICK_CONFIG_FIELDS}
+    kw['num_pickers'] = num_pickers
+    kw['cart'] = _CART_TYPES.get(cfg['cart'], default_cart) if 'cart' in cfg else default_cart
+    return PickConfig(**kw)

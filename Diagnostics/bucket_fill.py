@@ -135,21 +135,6 @@ def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, l
 
 # ── runtime view ─────────────────────────────────────────────────────────────────
 
-def _build_pick_cfg(cfg: dict) -> PickConfig:
-    return PickConfig(
-        num_pickers      = rs.k_pickers(),
-        x_speed          = cfg.get('x_speed', 4.0),
-        y_speed          = cfg.get('y_speed', 2.0),
-        pick_intercept   = cfg.get('pick_intercept', 1.0),
-        pick_weight_coef = cfg.get('pick_weight_coef', 1.1),
-        pick_volume_coef = cfg.get('pick_volume_coef', 1e-3),
-        pick_weight_fn   = cfg.get('pick_weight_fn', 'log'),
-        pick_volume_fn   = cfg.get('pick_volume_fn', 'log'),
-        cart_swap_coef   = cfg.get('cart_swap_coef', 10.0),
-        height_brackets  = cfg.get('height_brackets', DEFAULT_HEIGHT_BRACKETS),
-    )
-
-
 def _setup_strategy(mgr, strat, planned_inv, affinity, wp) -> None:
     """Mirror strategy_runner's uniform-stock arm: uniform initial stock, arm aisle
     state, then build() swaps in the strategy's (possibly ranked-wave) placement."""
@@ -227,7 +212,12 @@ def runtime_view(planned_inv, warehouse, affinity, batch_cfg, n_batches: int,
                  strategy: str | None, log) -> None:
     mgr = Inventory_Manager(warehouse)
     mgr._seed = rs.seed_world()
-    pick_cfg = _build_pick_cfg(rs.REGRESSION_CONFIGS[0] if getattr(rs, 'REGRESSION_CONFIGS', None) else {})
+    # The CANONICAL converter, not a local copy.  The copy that used to live here
+    # silently omitted `cart`, `one_way` and `scheduler`, so this probe modelled a
+    # StoreCart two-way round-robin picker whatever the config asked for.
+    pick_cfg = rs._build_pick_cfg(
+        rs.REGRESSION_CONFIGS[0] if getattr(rs, 'REGRESSION_CONFIGS', None) else {},
+        num_pickers=rs.k_pickers())
     strat = STRATEGY_BY_KEY.get(strategy) if strategy else None
     if strat is not None and strat.stock_mode == 'policy':
         log.warning(f'strategy {strategy} is policy-stocked; this probe only models uniform '
