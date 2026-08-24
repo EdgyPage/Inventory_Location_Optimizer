@@ -13,8 +13,8 @@ from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_s
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
-    CONFIG, seed_batches, seed_world, shift_seconds, _CART_TYPES, _build_pick_cfg,
-    _checkpoint_every,
+    CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, _CART_TYPES,
+    _build_pick_cfg, _checkpoint_every,
     _config_name,
 )
 from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
@@ -305,6 +305,10 @@ def _prepare_channel_run(
         # picklable; Mode.of() parses it back.
         pick_mode           = str(ch.picker.mode),
         shift_seconds       = shift_seconds(),
+        # The put crew, carried the same way and for the same reason.  Its speed comes
+        # from its MODE, not from the pick config: a crew labelled `foot` costed at the
+        # store's machine speed would write rows whose mode and duration disagree.
+        put_crew            = put_crew_spec(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )

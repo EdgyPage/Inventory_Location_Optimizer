@@ -180,3 +180,59 @@ def test_pick_config_coefficients_are_NOT_here():
     src = inspect.getsource(settings)
     for coef in ('pick_intercept', 'pick_weight_coef', 'cart_swap_coef', 'x_speed'):
         assert coef not in src, f'{coef} is a swept axis; it belongs in simconfig/configs/'
+
+
+# ── the (role x mode) speed table ─────────────────────────────────────────────────
+
+def test_the_put_crews_speed_comes_from_its_mode():
+    """A crew labelled `foot` must not be costed at the store's machine speed. It was:
+    the runner built the put crew with `speed=pick_cfg.speed`, so on a store run every
+    put row said mode='foot' while its duration had been computed at 3/2 ft/s."""
+    spec = sim_config.put_crew_spec()
+    assert spec['mode'] == settings.PUT_CREW_MODE
+    if spec['mode'] == 'foot':
+        assert (spec['x_speed'], spec['y_speed']) == (settings.PUT_FOOT_X, settings.PUT_FOOT_Y)
+    else:
+        assert (spec['x_speed'], spec['y_speed']) == (settings.PUT_MACHINE_X,
+                                                      settings.PUT_MACHINE_Y)
+
+
+def test_switching_the_put_mode_switches_the_speed():
+    import Optimization.config.settings as st
+    was = st.PUT_CREW_MODE
+    try:
+        st.PUT_CREW_MODE = 'machine'
+        s = sim_config.put_crew_spec()
+        assert (s['mode'], s['x_speed'], s['y_speed']) == (
+            'machine', st.PUT_MACHINE_X, st.PUT_MACHINE_Y)
+    finally:
+        st.PUT_CREW_MODE = was
+
+
+def test_the_crew_size_setting_is_actually_read():
+    """It was declared and unread — a setting nothing consumes is a lie about what is
+    configurable."""
+    assert sim_config.put_crew_spec()['size'] == settings.PUT_CREW_SIZE
+
+
+def test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config():
+    import inspect
+    import Optimization.simdriver.strategy_runner as sr
+    src = inspect.getsource(sr)
+    assert "args.get('put_crew')" in src
+    assert 'mode=_Mode.FOOT, speed=pick_cfg.speed' not in src, (
+        'the put crew is borrowing the pick crew\'s speed again')
+
+
+def test_the_worker_payload_carries_the_put_crew():
+    import inspect
+    import Optimization.simdriver.workunits as wu
+    assert 'put_crew            = put_crew_spec()' in inspect.getsource(wu)
+
+
+def test_the_pick_half_of_the_table_stays_in_the_swept_registry():
+    """Only the PUT speeds belong in settings. Duplicating the pick speeds here would
+    re-create the very duplication this module removed."""
+    src = inspect.getsource(settings)
+    assert 'PUT_FOOT_X' in src and 'PUT_MACHINE_X' in src
+    assert 'PICK_FOOT_X' not in src and 'PICK_MACHINE_X' not in src

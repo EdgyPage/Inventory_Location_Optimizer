@@ -18,12 +18,12 @@ Every value below is a DEFAULT. Three things override it, in order:
 
 1. a CLI flag (`--n-batches`, `--seed-world`, …) — see `run_simulation`
 2. a what-if cell, for the three axes it sweeps — see `simdriver.cells`
-3. a `--resume`, which restores whatever the original run recorded in `run_spec.json`
+3. a `--resume`, which restores whatever the original run recorded in its run spec
 
 Overrides are written into `CONFIG` and read back through the accessors in `sim_config`
 (`n_batches()`, `seed_world()`, …). **Never snapshot one of these at import**: a module
 scalar cannot see a CLI override, which is a bug this project has now shipped twice — once
-for `_INITIAL_FILL`, which made a run misreport its own sizing in `warehouse.db`, and once
+for `_INITIAL_FILL`, which made a run misreport its own sizing in its warehouse DB, and once
 for five more that were caught before they could.
 
 ## What does NOT live here
@@ -38,7 +38,7 @@ for five more that were caught before they could.
   things to keep in step.
 
 Adding a setting: declare it here, thread it into `CONFIG` below, and — if it changes
-results — give it a CLI flag, record it in `run_spec.json`, and restore it in both
+results — give it a CLI flag, record it in the run spec, and restore it in both
 `_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag
 is accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.
 """
@@ -50,7 +50,7 @@ from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS
 # The two values that decide whether two runs are COMPARABLE. Same world seed = same
 # warehouse and catalogue; same batch seed = same demand stream. Changing either makes a
 # run incomparable with every run before it, which is why both have CLI flags and both are
-# recorded in run_spec.json.
+# recorded in the run spec.
 
 SEED_WORLD = 42            # warehouse + catalogue construction
 SEED_BATCHES = 1337        # base of the batch stream; each channel adds its own offset
@@ -84,6 +84,22 @@ from Optimization.simconfig.constants import _FF_PICKERS, _STORE_PICKERS  # noqa
 STORE_PICKERS = _STORE_PICKERS         # machine order-picker pool
 FF_PICKERS = _FF_PICKERS               # human-walker pool
 PUT_CREW_SIZE = 1                      # one walker; put-away is not yet a swept axis
+PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below
+
+# Travel speeds are a (role x mode) table.  The PICK half lives in the pick-config
+# registry, correctly: those coefficients are a swept AXIS, and a number that varies
+# within one run is not a default.  The PUT half has no other home, so it is here.
+#
+# UNCALIBRATED.  Nothing has measured put-away travel separately, so each mode is set to
+# the magnitudes the pick side uses for the same mode -- a putter walks like a walker and
+# drives like an order-picker until someone measures otherwise.  Two consequences worth
+# knowing: put-away durations are a MODEL, not a measurement, and the foot profile
+# inherits the pick side's odd lift speed (see the note on the walker out-lifting the
+# machine in Warehouse/operations/README.md).
+PUT_FOOT_X = 2.0                       # ft/s along the aisle
+PUT_FOOT_Y = 4.0                       # ft/s vertical
+PUT_MACHINE_X = 3.0
+PUT_MACHINE_Y = 2.0
 
 # ── per-channel storage and demand ───────────────────────────────────────────────
 # Store and fulfillment are INDEPENDENT sections of one warehouse: each sweeps its own

@@ -287,6 +287,23 @@ def shift_seconds() -> float:
     return float(CONFIG['global'].get('shift_seconds') or _DEFAULT_SHIFT_SECONDS)
 
 
+def put_crew_spec() -> dict:
+    """The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.
+
+    Read at call time like every other tunable, and handed to the worker in its payload
+    rather than re-imported there -- a spawned worker re-imports this module and would get
+    pristine defaults.
+
+    The speed comes from the crew's MODE, which is the point of having a mode: a crew
+    labelled `foot` costed at the store's machine speed would write rows whose mode and
+    duration contradict each other.
+    """
+    mode = _s.PUT_CREW_MODE
+    x, y = ((_s.PUT_MACHINE_X, _s.PUT_MACHINE_Y) if mode == 'machine'
+            else (_s.PUT_FOOT_X, _s.PUT_FOOT_Y))
+    return {'size': _s.PUT_CREW_SIZE, 'mode': mode, 'x_speed': x, 'y_speed': y}
+
+
 def store_fill() -> float:
     """The store's sizing fill headroom, read from CONFIG at CALL time.
 
@@ -373,7 +390,7 @@ def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> P
     dataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0
     against 5.0 (2x).  Nothing caught it because every registered pick-config declares all
     three, so neither set was ever exercised on the run path — and `run_map_precompute`
-    rebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always
+    rebuilds a `PickConfig` from an ARCHIVED leaf config by field-filtering, which has always
     taken the dataclass defaults.  Two default sets and two reconstruction paths is a silent
     55x waiting for the first archive vintage that omits a key.
 

@@ -46,6 +46,7 @@ from Warehouse.generation.generate_inventory import load_inventory_from_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.placement.Capacity_Reloader import RELOADERS
 from Warehouse.operations import Crew as _Crew, Mode as _Mode, Role as _Role
+from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
 from Optimization.metrics import work_events as _work_events
 from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
@@ -541,7 +542,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # `picker_events.picker_id` for the single-crew case that every existing analysis assumes.
     _pick_crew = _Crew(role=_Role.PICK, mode=_pick_mode, speed=pick_cfg.speed, size=k_pickers)
     _pick_workers = _pick_crew.workers(0)
-    _put_crew = _Crew(role=_Role.PUT, mode=_Mode.FOOT, speed=pick_cfg.speed, size=1)
+    _pc = args.get('put_crew') or {'size': 1, 'mode': 'foot', 'x_speed': 2.0, 'y_speed': 4.0}
+    _put_crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
+                      speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
     _put_workers = _put_crew.workers(_pick_crew.next_uid(0))
     # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
