@@ -15,7 +15,10 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def tally_snapshot(reset: bool=False) -&gt; dict</code></pre>
-<section class="doc">A picklable copy of this process&#x27;s access tally; optionally reset (per-job snapshots).</section>
+<section class="doc">A picklable copy of this process&#x27;s access tally; optionally reset (per-job snapshots).
+
+The reset is load-bearing at `granularity=&#x27;graph&#x27;`: a worker is reused across jobs, so
+without it every later job re-reports the earlier jobs&#x27; counts.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py___run_job.html"><code>_run_job</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py__tally_snapshot">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20tally_snapshot">Source ↗</a></p>
 </article>

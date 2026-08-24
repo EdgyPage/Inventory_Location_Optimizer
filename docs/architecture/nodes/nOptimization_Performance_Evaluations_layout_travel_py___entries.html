@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_entries · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_layout_travel_py___entries" data-id="Optimization/Performance_Evaluations/layout/travel.py::_entries">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_layout_travel_py.html"><code>Optimization/Performance_Evaluations/layout/travel.py</code></a> <span class="sep">›</span> <span class="here"><code>_entries</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_entries</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_layout_travel_py.html"><code>Optimization/Performance_Evaluations/layout/travel.py</code></a></p>
+
+<pre class="sig"><code>def _entries(ctx, S, baseline)</code></pre>
+<section class="doc">(entries, paired) — the absolute view&#x27;s scalars, and the pairing for the rest.
+
+`entries`  [(strategy, steady-state Σ f·D)], for the absolute bars.
+`paired`   {key: (arm per-batch Σ f·D, baseline per-batch Σ f·D)} over the batches the
+           two arms SHARE, in Σ f·D.  `marks` derives the comparison point and its
+           interval from this, both in the same stance, so the dot and the whiskers
+           estimate one quantity — and the interval is the interval of the comparison
+           rather than of the arm&#x27;s own spread wearing a percentage.
+
+An arm sharing fewer than three batches with the baseline appears in `entries` and not
+in `paired`: it keeps its bar and loses its dot, which is the honest pair of answers.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___per_batch.html"><code>_per_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_layout_travel_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_layout_travel_py___entries">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/layout/travel.py#:~:text=def%20_entries">Source ↗</a></p>
+</article>
+</main>
+</body></html>

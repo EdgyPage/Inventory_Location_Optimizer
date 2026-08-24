@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.core.quantities · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_quantities_py" data-id="Optimization/Performance_Evaluations/core/quantities.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/core/quantities.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.core.quantities</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization/Performance_Evaluations/core/quantities.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.core.quantities</code></pre>
+<section class="doc">quantities — WHAT this suite measures, declared once.
+
+`stats_core._METRICS` already proved the pattern works: it declares
+`(name, source, column, direction)` and, because three consumers read it, adding a metric
+adds a CSV block, a `vs_baseline` row group and an `effect_*.png` with no other edit.
+
+It stops at presentation.  The three fields it lacks — **unit, label, stance** — were then
+re-typed in four competing tables:
+
+    significance/suite.py  `_PRESENT`            11 entries
+    aggregate/sig.py       `_PRESENT`             5 entries
+    common/painters.py     `overtime_metrics()`   5 entries
+    headline/top_vs_baseline.py `_METRIC_GROUPS`  5 entries  (a hand-join of
+                                                  `_METRICS` and `_AGG_METRICS`)
+
+`throughput`, `makespan` and `task_mean_duration` appear in ALL FOUR with independently
+maintained direction flags, and the tables had already drifted: the same quantity was
+labelled `Σ task time per batch` in one and `total task time per batch` in another, while
+`throughput` and `throughput_task` — different measurements — shared the single axis label
+`items / hour`.  Nothing could have caught either; there was no place the two statements
+met.
+
+This module is that place.  A `Quantity` says what a number IS (unit, direction, stance),
+where to read it at each scope (`Source`), what to call it, and what it may NOT be shown
+as (`views_suppressed`, with a mandatory reason).  Everything downstream is derived.
+
+## Why stdlib-only
+
+No numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:
+
+  * a test, `ingest.py`, or a schema tool can read this table without importing the
+    analysis package — which is what makes &quot;the emitted figure set equals the derived one&quot;
+    a checkable property rather than a convention;
+  * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion
+    cannot be spelled inline in one consumer and forgotten in the next.  That is exactly
+    how `3.6e6` came to be written out five times.
+
+## The view derivation
+
+`derive_views(q, shape)` replaces the per-evaluation `views=` declaration.  Coverage stops
+being editorial: `layout.churn` cannot ship absolute-only beside `layout.travel`&#x27;s
+delta+absolute because neither module gets a vote.  What CAN differ is the shape — a
+comparison needs a baseline to compare against, and a paired delta needs per-instance
+pairing — and those are properties of the mark, not opinions of the module.
+
+Suppression is the safety valve, and its reason is mandatory (validated in
+`__post_init__`, the idiom `Schema.capability.Capability` already uses for caveats).
+Without it the derivation manufactures charts that are structurally valid and
+meaningless — a percent-improvement of a quantity whose baseline is zero, a delta of a
+share in points labelled as percent — and a meaningless chart under a caption asserting
+meaning is worse than the drift it replaces.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_units_py.html"><code>Optimization.Performance_Evaluations.common.units</code></a> <span class="dim">Optimization/Performance_Evaluations/common/units.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(10)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_traj_py.html"><code>Optimization.Performance_Evaluations.aggregate.traj</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/traj.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py.html"><code>Optimization.Performance_Evaluations.common.marks</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization.Performance_Evaluations.common.painters</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_present_py.html"><code>Optimization.Performance_Evaluations.common.present</code></a> <span class="dim">Optimization/Performance_Evaluations/common/present.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_era_py.html"><code>Optimization.Performance_Evaluations.core.era</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li><li><a href="nOptimization_Performance_Evaluations_headline_top_vs_baseline_py.html"><code>Optimization.Performance_Evaluations.headline.top_vs_baseline</code></a> <span class="dim">Optimization/Performance_Evaluations/headline/top_vs_baseline.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py.html"><code>Optimization.Performance_Evaluations.layout.travel</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_trajectories_overtime_py.html"><code>Optimization.Performance_Evaluations.trajectories.overtime</code></a> <span class="dim">Optimization/Performance_Evaluations/trajectories/overtime.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(35)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__COMPOSITE.html"><code>COMPOSITE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__CURVE.html"><code>CURVE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__DIRECTIONS.html"><code>DIRECTIONS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__EFFECT.html"><code>EFFECT</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__FACET.html"><code>FACET</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__FRAME_TABLE.html"><code>FRAME_TABLE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__INSPECTION.html"><code>INSPECTION</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Quantity.html"><code>Quantity</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__RANKED.html"><code>RANKED</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__SCATTER.html"><code>SCATTER</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__SERIAL.html"><code>SERIAL</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__SHAPES.html"><code>SHAPES</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__STANCES.html"><code>STANCES</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Shape.html"><code>Shape</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Source.html"><code>Source</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__TABLE.html"><code>TABLE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___COUNT_UNITS.html"><code>_COUNT_UNITS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___LABOR_W.html"><code>_LABOR_W</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___SCORE.html"><code>_SCORE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___SHARE.html"><code>_SHARE</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Quantity___post_init__.html"><code>__post_init__</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___agg.html"><code>_agg</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___check_order.html"><code>_check_order</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py___missing.html"><code>_missing</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Source_agg_name.html"><code>agg_name</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__aggregate_specs.html"><code>aggregate_specs</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Quantity_axis_label.html"><code>axis_label</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Source_db_reads.html"><code>db_reads</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__derive_views.html"><code>derive_views</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Quantity_lower_is_better.html"><code>lower_is_better</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__metric_specs.html"><code>metric_specs</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__quantity_for.html"><code>quantity_for</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Source_readable.html"><code>readable</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__Shape_self_describing.html"><code>self_describing</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__suppression_reason.html"><code>suppression_reason</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_quantities_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/quantities.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

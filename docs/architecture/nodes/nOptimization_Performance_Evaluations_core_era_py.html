@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.core.era · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_era_py" data-id="Optimization/Performance_Evaluations/core/era.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/core/era.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.core.era</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_era_py.html"><code>Optimization/Performance_Evaluations/core/era.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.core.era</code></pre>
+<section class="doc">era — can this run&#x27;s data answer the quantities the suite declares?
+
+The publish loop has one route it cannot automate: a stakeholder asks for a number the
+simulation never wrote down.  That cannot be backfilled — schema identity is derived from
+shape and archived files are never rewritten — so the only honest answers are a new sweep
+on a vintage that records it, or a recorded caveat and the degraded form.
+
+What made that dangerous is that nothing said which route you were on.  A quantity reading
+a column only SOME vetted vintages carry produces a figure on the runs that have it, no
+figure at all on the ones that do not, and an INFO line either way.
+
+## The rule
+
+Straight out of `Schema/compat.py`&#x27;s own docstring, applied to the quantity table rather
+than reinvented beside it.  Every quantity must satisfy EITHER
+
+    compat.validate(requires) == []   inside `guaranteed_surface` -&gt; version-free, done
+    q.capability names a real key     outside it -&gt; a CAPABILITY, and it is SAID
+
+Neither is a failure.  Being NEITHER is: it means a figure will be silently absent, or
+silently wrong, on every archived run made before the column existed.
+
+## Why this is a separate module
+
+`core/quantities.py` is stdlib-only on purpose — that is what lets a test, `ingest.py` or a
+schema tool read the quantity table without importing the analysis package.  The gate needs
+`Schema.compat` and the sim-DB family registration, so it lives here and imports there.
+The layering also reads correctly: the quantity table describes MEASUREMENTS; whether a
+given archive can serve one is a schema question.
+
+## The runtime half, and why it is not here
+
+`EvalContext._verify_sim_dbs` already hard-fails on a sim DB whose schema is not vetted, so
+an archived run is either vetted — and every read below is inside the guaranteed surface,
+so it can answer — or the analysis refuses to start.  The gap a runtime probe would cover
+(a VETTED vintage missing a non-guaranteed column) opens the moment a quantity names a
+capability, and not before.  `Tests/architecture/test_data_era_gate.py` fails on that day
+with the design attached; a probe with no consumer is validated infrastructure nobody
+calls, and this repo already has one of those.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization.Performance_Evaluations.core.quantities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nSchema_compat_py.html"><code>Schema.compat</code></a> <span class="dim">Schema/compat.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_era_py__QUANTITY_READS.html"><code>QUANTITY_READS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_era_py___table_columns.html"><code>_table_columns</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_era_py__findings.html"><code>findings</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_era_py__requires_for.html"><code>requires_for</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_era_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/era.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

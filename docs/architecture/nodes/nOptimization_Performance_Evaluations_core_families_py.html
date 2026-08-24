@@ -15,7 +15,7 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_families_py.html"><code>Optimization/Performance_Evaluations/core/families.py</code></a></p>
 <div class="badges"><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>Optimization.Performance_Evaluations.core.families</code></pre>
-<section class="doc">The chart-family grammar — which VIEWS each family of figures must and may carry.
+<section class="doc">The chart-family grammar — which VIEWS a figure carries, and where the answer comes from.
 
 A family is one folder under a leaf&#x27;s figures/ tree (figures/&lt;family&gt;/) holding every
 figure that answers one class of question.  A VIEW is the measurement stance of a single
@@ -23,18 +23,39 @@ figure, named by its filename prefix:
 
     absolute_  raw quantities in honest units (hours, items, % of time)
     percent_   improvement vs the baseline, positive = better (chartkit.improvement_pct)
-    delta_     paired per-batch / cumulative differences over time
+    delta_     the same comparison in the quantity&#x27;s own units, not as a ratio
     effect_    effect sizes + significance (the discriminating stance at n=75, where
                p-stars alone are all ***)
     table_     a tabular summary rendered as a figure
 
-The grammar exists so &quot;absolute counts, percent views, deltas and significance baked in
-as appropriate&quot; is a CHECKED property, not an editorial habit: every evaluation declares
-its family and views, `chartkit.Chart.save(view=...)` validates each file it writes, and
-the writer-paths golden test asserts each family&#x27;s `required` views actually exist on the
-fixture render.  `diagnostics` is the deliberate exemption — raw operational read-outs
-(grids, scorecards) whose job is inspection, not comparison.</section>
-<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_families_py__RUN_SCOPE_FAMILIES.html"><code>RUN_SCOPE_FAMILIES</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__VIEWS.html"><code>VIEWS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__check_view.html"><code>check_view</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__figures_subdir.html"><code>figures_subdir</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li></ul></section>
+## Views are DERIVED, not declared
+
+Each family used to carry an editorial `views=` allow-list and each evaluation an
+editorial `views=` claim, and the result was exactly the drift you would predict:
+`throughput` structurally could not have a delta while `labor` had to; `layout.churn`
+shipped absolute-only beside `layout.travel`&#x27;s two views; `task_time.breakdown`
+absolute-only beside `task_time.duration`&#x27;s; `headline.all_arms` percent-only beside
+`headline.rollup`&#x27;s two.  `agg.traj` emitted `percent` while its family REQUIRED
+absolute+percent, and nothing noticed — the `required` field claimed a golden test
+asserted it and no such test existed.  `RUN_SCOPE_FAMILIES` was declared and read by
+nothing at all.
+
+Worse than any single gap: `layout`&#x27;s allow-list had no `percent` in it, so the author of
+`layout.travel`&#x27;s comparison figure had nowhere honest to put a percent view and saved one
+under `delta_travel_vs_baseline.png`.  An editorial allow-list does not merely permit
+drift; it manufactures mislabelling.
+
+So a family now declares only what a family IS — the question it answers and the scope its
+figures live at.  What views a figure carries comes from
+`core.quantities.derive_views(quantity, shape)`: a property of the thing being measured and
+of the mark drawing it, neither of which any single module gets a vote on.
+
+## The transition
+
+Evaluations still carrying a hand-written `views=` are listed in `LEGACY_VIEWS` with the
+reason they have not moved, and the count is capped.  An entry there is a debt with a name,
+not a permission.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_families_py__LEAF_FAMILIES.html"><code>LEAF_FAMILIES</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__LEGACY_VIEWS_CEILING.html"><code>LEGACY_VIEWS_CEILING</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__RUN_SCOPE_FAMILIES.html"><code>RUN_SCOPE_FAMILIES</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__VIEWS.html"><code>VIEWS</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__check_view.html"><code>check_view</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_families_py__figures_subdir.html"><code>figures_subdir</code></a> <span class="dim">Optimization/Performance_Evaluations/core/families.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_families_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/families.py">Source ↗</a></p>
 </article>
 </main>

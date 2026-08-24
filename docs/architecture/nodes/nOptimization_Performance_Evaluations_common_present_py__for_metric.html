@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>for_metric · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_present_py__for_metric" data-id="Optimization/Performance_Evaluations/common/present.py::for_metric">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_present_py.html"><code>Optimization/Performance_Evaluations/common/present.py</code></a> <span class="sep">›</span> <span class="here"><code>for_metric</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>for_metric</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_present_py.html"><code>Optimization/Performance_Evaluations/common/present.py</code></a></p>
+
+<pre class="sig"><code>def for_metric(name: str, samples=None) -&gt; tuple</code></pre>
+<section class="doc">(conv, axis_label) for one metric name against the samples that share its axis.
+
+Pool EVERY series that will land on the axis into `samples`: a duration&#x27;s unit is
+resolved from its own magnitude, and resolving it per-series is how two boxes on one
+panel end up in different units with one label between them.
+
+`name` may be either the per-batch key or the historical aggregate spelling —
+`production_time` and `productivity_hours` are the same quantity and resolve to the
+same declaration.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_present_py__Scale.html"><code>Scale</code></a> <span class="dim">Optimization/Performance_Evaluations/common/present.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_units_py__resolve.html"><code>resolve</code></a> <span class="dim">Optimization/Performance_Evaluations/common/units.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py__quantity_for.html"><code>quantity_for</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_sig_py___render_all.html"><code>_render_all</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/sig.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py___presented.html"><code>_presented</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py___view_values.html"><code>_view_values</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py__serial.html"><code>serial</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_painters_py__overtime_metrics.html"><code>overtime_metrics</code></a> <span class="dim">Optimization/Performance_Evaluations/common/painters.py</span></li><li><a href="nOptimization_Performance_Evaluations_significance_suite_py__render_suite.html"><code>render_suite</code></a> <span class="dim">Optimization/Performance_Evaluations/significance/suite.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_present_py__for_metric">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/present.py#:~:text=def%20for_metric">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -17,11 +17,12 @@
 <pre class="sig"><code>def _smooth(y, win=_SMOOTH)</code></pre>
 <section class="doc">Centred moving average over the window the over-time trajectories use.
 
-The ends average only the batches that exist, rather than being padded with zeros.
-`np.convolve(..., mode=&#x27;same&#x27;)` pads, so the smoothed line dived toward zero over the
-first and last couple of batches — a fabricated collapse at exactly the two places a
-reader looks for a trend to start or finish.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___absolute.html"><code>_absolute</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___percent.html"><code>_percent</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li></ul></section>
+Promoted to `chartkit.rolling_mean` — this module&#x27;s implementation was the only
+edge-correct one of the three in the package, and the primitive carries the reason
+(a `mode=&#x27;same&#x27;` convolution pads with zeros and fabricates a collapse at exactly the
+two places a reader looks for a trend to start or finish).  Kept as a named alias
+because `_SMOOTH` is this family&#x27;s window and the call sites read better for it.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py__rolling_mean.html"><code>rolling_mean</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___absolute.html"><code>_absolute</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___percent.html"><code>_percent</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_labor_per_batch_py___smooth">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/labor/per_batch.py#:~:text=def%20_smooth">Source ↗</a></p>
 </article>
 </main>

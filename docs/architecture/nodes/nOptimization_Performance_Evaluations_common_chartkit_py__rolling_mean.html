@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rolling_mean · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_chartkit_py__rolling_mean" data-id="Optimization/Performance_Evaluations/common/chartkit.py::rolling_mean">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a> <span class="sep">›</span> <span class="here"><code>rolling_mean</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>rolling_mean</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization/Performance_Evaluations/common/chartkit.py</code></a></p>
+
+<pre class="sig"><code>def rolling_mean(y, win, *, centred=True)</code></pre>
+<section class="doc">Moving average that does not fabricate a collapse at the ends.
+
+`np.convolve(..., mode=&#x27;same&#x27;)` pads with zeros, so a smoothed line dives toward zero
+over the first and last few points — at exactly the two places a reader looks for a
+trend to start or finish.  Here the ends average only the points that exist.
+
+NOTE the scope.  This is the CHART-time smoother, promoted from `labor/per_batch`,
+which was the only edge-correct implementation of the three.  The trailing pandas
+smoothing in `common/frames.py` and `common/series.py` is a different convention
+applied at a different layer (data preparation, not drawing) and is deliberately left
+alone: switching those to centred would move every published trajectory curve, which
+is a decision about the numbers rather than a cleanup.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_marks_py__serial.html"><code>serial</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_per_batch_py___smooth.html"><code>_smooth</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/per_batch.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_chartkit_py__rolling_mean">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/chartkit.py#:~:text=def%20rolling_mean">Source ↗</a></p>
+</article>
+</main>
+</body></html>

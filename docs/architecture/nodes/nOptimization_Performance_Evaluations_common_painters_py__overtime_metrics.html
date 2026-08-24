@@ -15,19 +15,29 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_painters_py.html"><code>Optimization/Performance_Evaluations/common/painters.py</code></a></p>
 
 <pre class="sig"><code>def overtime_metrics()</code></pre>
-<section class="doc">The five over-time metric specs — stem (`f`), short title (`t`), units, and
-direction.  `lower_is_better` orients the percent view.
+<section class="doc">The over-time metric specs, DERIVED from the quantity table.
 
-A spec is either a TIME metric or a fixed-unit one:
+Every over-time figure basename in the published site composes from `f` here, so this
+stays the place those names are minted (and where the figure-registry test looks for
+the stems) — but the names themselves, and the units, labels and directions beside
+them, now come from `core/quantities.py`.  They were a literal here, a literal in each
+of the two significance `_PRESENT` tables, and a literal in the headline module&#x27;s
+`_METRIC_GROUPS`, and the four had drifted: the same quantity was `Σ task time per
+batch` on one axis and `total task time per batch` on another.
 
-  time=True  the quantity is a sim-millisecond duration whose readable unit depends
-             on the data (a picker task is seconds, a batch of labor is hours), so
-             `yl` is a UNITLESS label stem and there is no `conv` — `paint_overtime`
-             pools every series that will share the axis, resolves the unit once,
-             and composes the axis label from what came back.
-  otherwise  `conv` maps raw series values into fixed presentation units and `yl`
-             is the complete axis label.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_traj_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/traj.py</span></li><li><a href="nOptimization_Performance_Evaluations_trajectories_overtime_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/trajectories/overtime.py</span></li></ul></section>
+Each spec carries its `Quantity` under `q`.  Prefer reading that over the flattened
+keys, which exist so `paint_overtime` and its two callers did not have to change in
+the same commit:
+
+  x/y/blo/bhi  series columns (`Source.series`)
+  f            figure-basename stem (`Quantity.stem`)
+  t            panel title (`Quantity.series_title`)
+  time         True for a duration, whose unit is resolved from the data
+  conv         raw -&gt; presentation multiplier, or None for a metric needing none
+  yl           the axis label WITHOUT the resolved time unit — `paint_overtime`
+               appends it for a time metric, because the divisor is chosen from every
+               arm&#x27;s values pooled, which only the painter has</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_present_py__for_metric.html"><code>for_metric</code></a> <span class="dim">Optimization/Performance_Evaluations/common/present.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_aggregate_traj_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/aggregate/traj.py</span></li><li><a href="nOptimization_Performance_Evaluations_trajectories_overtime_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/trajectories/overtime.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_painters_py__overtime_metrics">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/painters.py#:~:text=def%20overtime_metrics">Source ↗</a></p>
 </article>
 </main>

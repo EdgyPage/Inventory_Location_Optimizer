@@ -442,34 +442,6 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/aggregate/sig.py::_PER_HOUR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "3600000.0"
-    },
-    "Optimization/Performance_Evaluations/aggregate/sig.py::_PRESENT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'makespan': (_TIME, 'batch makespan'), 'throughput': (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'), 'throughput_task': (lambda v: np.asarray(v, float) * _PER_HOUR, 'items / hour'), ..."
-    },
-    "Optimization/Performance_Evaluations/aggregate/sig.py::_TIME": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'time'"
-    },
-    "Optimization/Performance_Evaluations/aggregate/sig.py::_present": {
-      "decorators": [],
-      "doc": "(conv, axis label) for one metric, resolved against the samples it will plot.\n\nA `_TIME` metric pools every key's box values \u2014 exactly what shares the panel's\naxis \u2014 into one `chartkit.time_units` call, so all boxes convert with the same\ndivisor and the label names the unit that came back.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(name, box_values)"
-    },
     "Optimization/Performance_Evaluations/aggregate/sig.py::_render_all": {
       "decorators": [],
       "doc": null,
@@ -486,7 +458,7 @@
     },
     "Optimization/Performance_Evaluations/aggregate/sig.py::render": {
       "decorators": [
-        "evaluation(key='agg.sig', label='Cross-profile significance figures', scope='aggregate', needs=('series',), family='significance', views=('effect',), defaults={'by_initial': True})"
+        "evaluation(key='agg.sig', label='Cross-profile significance figures', scope='aggregate', needs=('series',), family='significance', shape='effect', defaults={'by_initial': True})"
       ],
       "doc": null,
       "is_async": false,
@@ -498,6 +470,13 @@
       "doc": "agg.tables \u2014 the cross-profile significance DATA products (strategies paired by\nprofile over the steady-state scalars).\n\nThe aggregate mirror of the per-config tables evaluations: the numbers land flat in the\ndeclared tables dir under the aggregate root, the figures live in the aggregate\nsignificance eval, and BOTH are built from the shared computation in this module\n(`compute_aggregate_stats` / `compute_aggregate_by_initial`) so they cannot disagree.\nThe retired per-assignment-function directory tree is gone \u2014 the by-initial fork writes\none combined CSV (exact retired columns) plus ONE consolidated test document keyed by\nassignment function.\n\nValues are the RAW per-profile steady-state scalars from each profile's series\ndocument \u2014 not the \u00d7-baseline-normalized curves the trajectory painter draws \u2014 so the\ndescriptives keep honest units, exactly as the retired suite computed them.  The\n`by_initial` param picks the fork (default True, matching the by-initial preset).",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/aggregate/tables.py::MIN_PAIRED_PROFILES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3"
     },
     "Optimization/Performance_Evaluations/aggregate/tables.py::_finite": {
       "decorators": [],
@@ -520,6 +499,13 @@
       "kind": "function",
       "signature": "(profile_series_list)"
     },
+    "Optimization/Performance_Evaluations/aggregate/tables.py::paired_profile_diagnosis": {
+      "decorators": [],
+      "doc": "Why a by-initial contrast produced nothing \u2014 in the reader's terms, not a shrug.\n\nReturns '' when it should have produced something.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(profile_series_list) -> str"
+    },
     "Optimization/Performance_Evaluations/aggregate/tables.py::render": {
       "decorators": [
         "evaluation(key='agg.tables', label='Cross-profile significance tables', scope='aggregate', needs=('series',), out_subdir='tables', defaults={'by_initial': True})"
@@ -535,9 +521,16 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/aggregate/traj.py::SERIES_QUANTITIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "SERIES_ORDER"
+    },
     "Optimization/Performance_Evaluations/aggregate/traj.py::render": {
       "decorators": [
-        "evaluation(key='agg.traj', label='Cross-profile trajectories (% vs baseline)', scope='aggregate', needs=('series',), family='trajectories', views=('percent',))"
+        "evaluation(key='agg.traj', label='Cross-profile trajectories (% vs baseline)', scope='aggregate', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES, views_suppressed=(('absolute', 'the aggregate series are already x-baseline normalized per profile and averaged across profiles, so an absolute view would restate the normalization: every axis would read \"x baseline\" and every baseline curve would sit at 1.0'), ('delta', \"a difference of two already-normalized ratios is not in the quantity's units and is not in any other units either; the percent view is the honest one at this scope\")))"
       ],
       "doc": null,
       "is_async": false,
@@ -712,6 +705,13 @@
       "signature": null,
       "value_preview": "dict(color='#222222', lw=2.2, ls='-', zorder=10)"
     },
+    "Optimization/Performance_Evaluations/common/chartkit.py::BOUND_STYLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "dict(color='#1a7a4d', lw=1.6, ls='--', zorder=3)"
+    },
     "Optimization/Performance_Evaluations/common/chartkit.py::Chart": {
       "decorators": [],
       "doc": "A figure plus the reserved-geometry bookkeeping `make` computed for it.",
@@ -728,6 +728,13 @@
     "Optimization/Performance_Evaluations/common/chartkit.py::Chart._panel_center_x": {
       "decorators": [],
       "doc": "Figure-fraction centre of the PANEL area, not of the whole canvas.\n\nA header centred on the canvas drifts right into the legend gutter, and a long\nsubtitle runs underneath it \u2014 which is how five trajectory figures ended up with\ntheir explanatory line clipped by the legend box.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::Chart.abandon": {
+      "decorators": [],
+      "doc": "Close the figure and return None \u2014 the \"nothing could be drawn\" exit.\n\nEight renders reached for `import matplotlib.pyplot as plt; plt.close(ch.fig)`\nmid-function to do this, and a render that forgot the close leaked a figure per\narm per leaf across a 21-minute pass.  The idiom is\n`if not drawn: return ch.abandon()`.",
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
@@ -775,6 +782,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'hours'"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::REFERENCE_STYLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "dict(color=BASELINE_STYLE['color'], lw=1.2, ls='-', zorder=3)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::_CHAR_W_IN": {
       "decorators": [],
@@ -837,7 +851,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(('hours', 3600000.0), ('minutes', 60000.0), ('seconds', 1000.0))"
+      "value_preview": "_units.TIME_UNITS"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::_TITLE_BAND": {
       "decorators": [],
@@ -874,6 +888,13 @@
       "kind": "function",
       "signature": "(panel_h: float) -> float"
     },
+    "Optimization/Performance_Evaluations/common/chartkit.py::annotate_bars": {
+      "decorators": [],
+      "doc": "Print each bar's value just past its end, on the outside, in the bar's direction.\n\nFour modules did this with four offset conventions, two of which put the text INSIDE\na short bar where it collided with the axis.  The offset is a fraction of the axis\nrange, so it does not shrink when the data does.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ax, positions, values, *, orient='h', fmt='{:+.1f}', fontsize=6.5, gap=0.01)"
+    },
     "Optimization/Performance_Evaluations/common/chartkit.py::annotate_points": {
       "decorators": [],
       "doc": "Label scattered points without letting the labels overlap each other.\n\n`points` is [(x, y, text), ...].  Labels are placed to the right of their point and\npushed apart vertically to at least `min_gap_frac` of the axes height, with a leader\nline back to the point whenever one had to move.  Series that end up close together\nare exactly the ones a reader most needs told apart \u2014 on this suite the arms that\nfinish within a few tenths of a percent of each other are the podium \u2014 and a pile of\noverlapping labels there is worse than none, because it looks like information.",
@@ -895,6 +916,13 @@
       "kind": "function",
       "signature": "(label='FIFO baseline')"
     },
+    "Optimization/Performance_Evaluations/common/chartkit.py::category_axis": {
+      "decorators": [],
+      "doc": "Tick, label and bound one axis of categories, so N categories always look alike.\n\n`orient='h'` lays the categories down the y axis (horizontal bars/dots, first at the\nTOP); 'v' lays them along x.  Returns the positions, which is what the caller plots\nagainst.\n\nEight modules did this by hand with four different tick fontsizes and four different\nlimit paddings, so the same 34 arms occupied visibly different amounts of chart from\none family to the next.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ax, labels, *, orient='h', fontsize=7, pad=0.8)"
+    },
     "Optimization/Performance_Evaluations/common/chartkit.py::data_ylim": {
       "decorators": [],
       "doc": "Clip y to the data range (+pad fraction) instead of anchoring at zero.  When the\nresulting window excludes zero the axis is visibly TRUNCATED: a marker glyph on the\ny-axis spine plus a small corner note, so nobody mistakes a zoomed axis for the\nfull range.",
@@ -904,10 +932,10 @@
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::draw_ci": {
       "decorators": [],
-      "doc": "Draw the confidence interval the stats layer computes (and, until now, nothing\never rendered).  band=True fills between series; band=False draws error whiskers.",
+      "doc": "Draw the confidence interval the stats layer computes (and, until now, nothing\never rendered).  band=True fills between series; band=False draws error whiskers.\n\n`orient='h'` puts the interval along X with `x` as the row positions \u2014 the ranked\ncategory case, where three modules hand-drew a line plus two end caps in a loop\nbecause this function only knew how to draw vertically.",
       "is_async": false,
       "kind": "function",
-      "signature": "(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, **kw)"
+      "signature": "(ax, x, lo, hi, *, color='#555555', alpha=0.18, band=True, orient='v', **kw)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::effect_label": {
       "decorators": [],
@@ -951,12 +979,40 @@
       "kind": "function",
       "signature": "(ax, x, y, label='FIFO baseline')"
     },
+    "Optimization/Performance_Evaluations/common/chartkit.py::mark_baseline_row": {
+      "decorators": [],
+      "doc": "Shade the baseline's own row/column so it reads as the datum, not a competitor.\n\nFour modules marked it four incompatible ways \u2014 a black bar, a grey bar, an annotation\nwith no mark, and nothing at all \u2014 so on one chart the baseline was the darkest thing\nand on the next it was invisible.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ax, index, *, orient='h', label=None)"
+    },
     "Optimization/Performance_Evaluations/common/chartkit.py::pct_axis": {
       "decorators": [],
       "doc": "Format an improvement axis: % ticks + the direction cue in the label position.",
       "is_async": false,
       "kind": "function",
       "signature": "(ax, *, better='up', axis='y')"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::rank": {
+      "decorators": [],
+      "doc": "Sort indices best-first, with ONE convention for a value that is not a number.\n\nSix sites sorted a ranked chart and used three different infinities to push the\nundefined entries somewhere; two of them pushed them to the TOP, so a metric that\nfailed to compute for an arm presented that arm as the winner.  Undefined always\nsorts LAST here, whichever direction is better.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(values, *, lower_is_better)"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::reference_line": {
+      "decorators": [],
+      "doc": "Draw the datum a comparison is read against, in the one house style.\n\n`orient='y'` means the QUANTITY is on y, so the datum is a horizontal line; 'x' means\nthe quantity is on x (a ranked horizontal bar chart) and the datum is vertical.  That\nis deliberately named after the quantity rather than after the line's direction: at 16\ncall sites the axis the quantity lives on is the thing the author knows, and half the\n`axhline`/`axvline` confusion came from translating it by hand.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ax, value=0.0, *, orient='y', label=None, legend_label=None, style=None, **kw)"
+    },
+    "Optimization/Performance_Evaluations/common/chartkit.py::rolling_mean": {
+      "decorators": [],
+      "doc": "Moving average that does not fabricate a collapse at the ends.\n\n`np.convolve(..., mode='same')` pads with zeros, so a smoothed line dives toward zero\nover the first and last few points \u2014 at exactly the two places a reader looks for a\ntrend to start or finish.  Here the ends average only the points that exist.\n\nNOTE the scope.  This is the CHART-time smoother, promoted from `labor/per_batch`,\nwhich was the only edge-correct implementation of the three.  The trailing pandas\nsmoothing in `common/frames.py` and `common/series.py` is a different convention\napplied at a different layer (data preparation, not drawing) and is deliberately left\nalone: switching those to centred would move every published trajectory curve, which\nis a decision about the numbers rather than a cleanup.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(y, win, *, centred=True)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::shared_ylim": {
       "decorators": [],
@@ -988,10 +1044,10 @@
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::time_units": {
       "decorators": [],
-      "doc": "(divisor, unit_label) \u2014 the largest time unit keeping typical magnitudes >= 1.\n\nChosen from the pooled MEDIAN absolute magnitude so one outlier cannot drag the whole\naxis into a smaller unit.  Deterministic, so the same quantity picks the same unit on\nevery re-render; the unit always appears in the axis label, so no chart can be read in\nthe wrong one.  Falls back to seconds on empty/degenerate input.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(values)"
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_units.time_units"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::to_hours": {
       "decorators": [],
@@ -1110,9 +1166,71 @@
       "kind": "function",
       "signature": "(text)"
     },
+    "Optimization/Performance_Evaluations/common/marks.py": {
+      "decorators": [],
+      "doc": "marks \u2014 draw a quantity in a view, from RAW values, so a stance cannot be mislabelled.\n\nTwo shapes cover 25 of the suite's 31 figures: the RANKED CATEGORY (one bar or dot per\narm, sorted) and the SERIAL (one line per arm over batches).  Before this module they had\nten and seven independent implementations respectively, and the implementations disagreed\nabout the things a reader actually reads \u2014 which way \"best\" points, whether the baseline\nis a competitor or a datum, what an undefined value sorts as, how wide the zero line is.\n\nBut the reason this module exists is narrower and sharper than de-duplication.\n\n## A caller cannot hand in a percentage\n\nEvery entry point takes values **in the quantity's own raw units** and a `view`.  There is\nno parameter through which a pre-computed percentage, difference or ratio can be passed.\nThe renderer derives:\n\n    absolute   raw, scaled into presentation units by the quantity's own `Unit`\n    percent    `chartkit.improvement_pct_series(raw, baseline_raw, ...)` \u2014 the one sign\n               convention, oriented by the quantity's own direction\n    delta      a signed difference against the baseline, in presentation units\n\nso the `<view>_` prefix on the filename, the axis label, and the arithmetic that produced\nthe numbers all come from one decision.  `absolute_compute_cost.png` shipped for a day\nplotting a delta and passed all five of the save-time checks, because every one of them\ncompared a declaration against another declaration and none of them ever saw a number.\n`delta_travel_vs_baseline.png` shipped for longer plotting a percent, for the same reason\nand with an additional push: its family's allowed-view list had no `percent` in it, so the\nauthor had nowhere honest to put the figure.\n\n## An interval is the interval OF THE COMPARISON\n\nA comparison view takes the PAIRING \u2014 each arm's per-instance values beside the baseline's,\nin raw units \u2014 and derives both the dot and its whiskers from it.  Two things that costs\nnothing to get wrong otherwise:\n\n  * the dot and the whiskers estimate the SAME quantity.  Four paired-comparison sites in\n    the retired suite reported a median with a bootstrap of that median and a fifth\n    reported a mean with a t-interval, a split `stats_core` and `tables/vs_baseline` both\n    write comments forbidding;\n  * the interval is not the arm's own SPREAD wearing a percentage.  That is a much wider\n    statistic, and it makes the sentence published pages carry beside these charts false \u2014\n    \"where an interval crosses zero the arm has not been shown to move travel at all\" is\n    only true of the bootstrap of the paired improvements.\n\nTwo of the retired implementations also converted the point and left the whiskers in sim\nunits, drawing an interval of the wrong width around the right dot.  Deriving both from\none input is what makes that unrepresentable.\n\n## What is NOT here\n\nCumulative curves, scatter, facet grids, heatmaps and rendered tables stay bespoke \u2014 their\nmarks are not interchangeable and forcing them through one signature would produce a\nfunction with a mode switch per caller.  They are declared in `BESPOKE` with a reason, so\n\"bespoke\" stays a decision with a ceiling rather than a habit.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::BESPOKE_CEILING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "18"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::_hug_x": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ax, vals, *, include_zero)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::_paired_series": {
+      "decorators": [],
+      "doc": "The per-instance stance values for one arm: improvements, or raw differences.\n\n`got` is (arm_values, baseline_values) in the quantity's own units, already aligned.\n`improvement_pct_series` drops the undefined pairs, which is the only honest sample to\ntake a median or a bootstrap over.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(quantity, got, view)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::_presented": {
+      "decorators": [],
+      "doc": "Raw values -> presentation values, with the quantity's own conversion.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(quantity, raw, samples)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::_view_values": {
+      "decorators": [],
+      "doc": "(values, axis_label) for one view \u2014 the ONLY place a stance is computed.\n\n`raw` and `baseline_raw` are in the quantity's own units.  There is deliberately no\npath by which a caller supplies the answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(quantity, raw, baseline_raw, view, samples)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::ranked": {
+      "decorators": [],
+      "doc": "One bar (absolute) or dot+interval (percent/delta) per arm, best first.\n\n`entries`  [(strategy_dict, raw_value)] in the quantity's own units \u2014 the arm's scalar.\n`paired`   optional {strategy_key: (arm_values, baseline_values)}, both in the SAME raw\n           units, aligned instance for instance (batch i against batch i).\n`baseline` the baseline strategy dict; its raw value must be in `entries`.\n\n## Why the interval takes a PAIRED input rather than an interval\n\nA comparison view's interval has to be the interval OF THE COMPARISON. Bootstrapping\neach arm's own spread and then expressing that as a percentage of the baseline is a\ndifferent \u2014 and much wider \u2014 statistic, and it makes the sentence published pages carry\nbeside these charts false: \"where an interval crosses zero the arm has not been shown\nto move travel at all\" is only true of the bootstrap of the paired improvements.\n\nSo the caller hands over the pairing and the mark derives both the point and the\ninterval from it, in whatever stance `view` names. That keeps the rule this module\nexists for \u2014 there is no parameter through which a pre-computed percentage can arrive \u2014\nwhile producing the statistic the caption claims. Without `paired`, a comparison view\ndraws points with no interval, which is honest about what it does not know.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch, entries, *, quantity, view, baseline, strategies, paired=None, annotate=None, ax=None)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::serial": {
+      "decorators": [],
+      "doc": "One line per arm over batches, in one of the three views.\n\n`series`  {strategy_key: {x_key: [...], y_key: [...], ...}} in raw units.\n`band`    optional (lo_key, hi_key) drawn only in the absolute view, where a band in\n          raw units means something; against a baseline it would need its own paired\n          interval, which is a different computation and not this one.\n\nReturns the number of arms drawn.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch, series, *, quantity, view, baseline, strategies, x_key, y_key, band=None, smooth=0, ax=None)"
+    },
+    "Optimization/Performance_Evaluations/common/marks.py::views_for": {
+      "decorators": [],
+      "doc": "The views one evaluation must emit \u2014 the union over the quantities it draws.\n\nThin, but it is the seam: an evaluation asks what it must draw rather than declaring\nit, which is what stops `layout.churn` from shipping absolute-only beside\n`layout.travel`'s two views because two different authors made two different calls.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(eval_key: str, quantity_keys, shape) -> frozenset"
+    },
     "Optimization/Performance_Evaluations/common/painters.py": {
       "decorators": [],
-      "doc": "Shared figure painters \u2014 the builders more than one evaluation draws with.\n\nPost-redesign this module holds exactly three things:\n\n  * `overtime_metrics` / `top_tag` \u2014 the shared filename-stem vocabulary.  Every\n    over-time figure basename and every `top{n}[_by_{dim}]` suffix in the published\n    site composes from these two functions, so THIS module is where those names are\n    minted (and where the figure-registry test looks for the stems).\n  * `paint_overtime` \u2014 the one over-time painter, drawn through chartkit for both its\n    views: 'absolute' (honest units \u2014 a data-chosen time unit, items/hour, f\u00b7D) and\n    'percent' (improvement vs the baseline strategy, positive = better).  The config-stage\n    trajectories family and the aggregate stage both render with it, which is what\n    keeps their charts visually identical.\n  * unit helpers binding the metric vocabulary to chartkit's unit policy.\n\nEverything else the old painters carried (facet grids, top-N line picks, breakdown and\ndelta bars) either died in the redesign or moved into the single family module that owns\nit now.",
+      "doc": "Shared figure painters \u2014 the builders more than one evaluation draws with.\n\nPost-redesign this module holds exactly three things:\n\n  * `overtime_metrics` / `top_tag` \u2014 the shared filename-stem vocabulary.  Every\n    over-time figure basename and every `top{n}[_by_{dim}]` suffix in the published\n    site composes from these two functions, so THIS module is where those names are\n    minted (and where the figure-registry test looks for the stems).  What each name\n    MEANS \u2014 its unit, axis label and direction \u2014 comes from `core/quantities.py`;\n    `overtime_metrics` is a projection of that table, not a second copy of it.\n  * `paint_overtime` \u2014 the one over-time painter, drawn through chartkit for both its\n    views: 'absolute' (honest units \u2014 a data-chosen time unit, items/hour, f\u00b7D) and\n    'percent' (improvement vs the baseline strategy, positive = better).  The config-stage\n    trajectories family and the aggregate stage both render with it, which is what\n    keeps their charts visually identical.\n  * unit helpers binding the metric vocabulary to chartkit's unit policy.\n\nEverything else the old painters carried (facet grids, top-N line picks, breakdown and\ndelta bars) either died in the redesign or moved into the single family module that owns\nit now.",
       "kind": "module",
       "signature": null
     },
@@ -1160,7 +1278,7 @@
     },
     "Optimization/Performance_Evaluations/common/painters.py::overtime_metrics": {
       "decorators": [],
-      "doc": "The five over-time metric specs \u2014 stem (`f`), short title (`t`), units, and\ndirection.  `lower_is_better` orients the percent view.\n\nA spec is either a TIME metric or a fixed-unit one:\n\n  time=True  the quantity is a sim-millisecond duration whose readable unit depends\n             on the data (a picker task is seconds, a batch of labor is hours), so\n             `yl` is a UNITLESS label stem and there is no `conv` \u2014 `paint_overtime`\n             pools every series that will share the axis, resolves the unit once,\n             and composes the axis label from what came back.\n  otherwise  `conv` maps raw series values into fixed presentation units and `yl`\n             is the complete axis label.",
+      "doc": "The over-time metric specs, DERIVED from the quantity table.\n\nEvery over-time figure basename in the published site composes from `f` here, so this\nstays the place those names are minted (and where the figure-registry test looks for\nthe stems) \u2014 but the names themselves, and the units, labels and directions beside\nthem, now come from `core/quantities.py`.  They were a literal here, a literal in each\nof the two significance `_PRESENT` tables, and a literal in the headline module's\n`_METRIC_GROUPS`, and the four had drifted: the same quantity was `\u03a3 task time per\nbatch` on one axis and `total task time per batch` on another.\n\nEach spec carries its `Quantity` under `q`.  Prefer reading that over the flattened\nkeys, which exist so `paint_overtime` and its two callers did not have to change in\nthe same commit:\n\n  x/y/blo/bhi  series columns (`Source.series`)\n  f            figure-basename stem (`Quantity.stem`)\n  t            panel title (`Quantity.series_title`)\n  time         True for a duration, whose unit is resolved from the data\n  conv         raw -> presentation multiplier, or None for a metric needing none\n  yl           the axis label WITHOUT the resolved time unit \u2014 `paint_overtime`\n               appends it for a time metric, because the divisor is chosen from every\n               arm's values pooled, which only the painter has",
       "is_async": false,
       "kind": "function",
       "signature": "()"
@@ -1178,6 +1296,67 @@
       "is_async": false,
       "kind": "function",
       "signature": "(top_n, top_by)"
+    },
+    "Optimization/Performance_Evaluations/common/present.py": {
+      "decorators": [],
+      "doc": "present \u2014 raw sim values to presentation values, for every consumer, once.\n\n`core/quantities.py` declares what a number IS and `common/units.py` declares how a unit\nis named and scaled; both are stdlib-only on purpose.  This module is the thin numpy-aware\nlayer between them and the painters: it hands back the `(conv, axis_label)` pair the\ndistribution and over-time painters have always taken, so those call sites are unchanged\nwhile their four private lookup tables are gone.\n\n`conv` is `None` when a quantity needs no scaling.  That is not an optimisation \u2014 it is\nthe contract the painters already had, and returning an identity function instead would\nquietly change how `merged_effect_panel` decides whether values were converted.\n\nThe converter is a CLASS, not a closure or a lambda.  Two reasons: it is picklable, so a\nspec can cross into a spawned worker; and it prints as something a reader can identify in\na traceback rather than `<lambda>`.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale": {
+      "decorators": [],
+      "doc": "Multiply raw values into presentation units.  Picklable, and named in a repr.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale.__call__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, values)"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale.__eq__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, other)"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale.__hash__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mult: float, unit_noun: str='')"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::Scale.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::for_metric": {
+      "decorators": [],
+      "doc": "(conv, axis_label) for one metric name against the samples that share its axis.\n\nPool EVERY series that will land on the axis into `samples`: a duration's unit is\nresolved from its own magnitude, and resolving it per-series is how two boxes on one\npanel end up in different units with one label between them.\n\n`name` may be either the per-batch key or the historical aggregate spelling \u2014\n`production_time` and `productivity_hours` are the same quantity and resolve to the\nsame declaration.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, samples=None) -> tuple"
+    },
+    "Optimization/Performance_Evaluations/common/present.py::pooled": {
+      "decorators": [],
+      "doc": "Flatten an iterable of per-key sample arrays into one list for `for_metric`.\n\nExists so the callers stop each writing their own `[np.ravel(v) for v in ... if len]`\nguard; an empty pool is legal and resolves a duration to seconds.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(values_by_key) -> list"
     },
     "Optimization/Performance_Evaluations/common/series.py": {
       "decorators": [],
@@ -1245,7 +1424,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('makespan', 'ss_dur', True), ('throughput', 'ss_thr', False), ('throughput_task', 'ss_thr_task', False), ('task_mean_duration', 'ss_task_mean', True), ('productivity_hours', 'ss_prod_hours', True)]"
+      "value_preview": "_quantities.aggregate_specs()"
     },
     "Optimization/Performance_Evaluations/common/stats_core.py::_BOOT": {
       "decorators": [],
@@ -1259,7 +1438,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('production_time', 'task_sum', 'duration', True), ('objective_task_labor', 'task_mean', 'W', True), ('objective_total_labor', 'task_sum', 'W', True), ('task_mean_duration', 'task_mean', 'duration..."
+      "value_preview": "_quantities.metric_specs()"
     },
     "Optimization/Performance_Evaluations/common/stats_core.py::_assignment_fn": {
       "decorators": [],
@@ -1526,6 +1705,97 @@
       "kind": "function",
       "signature": "(ax, handles=None, *, anchor=(1.02, 1.0), **kw)"
     },
+    "Optimization/Performance_Evaluations/common/units.py": {
+      "decorators": [],
+      "doc": "units \u2014 the presentation-unit policy, in one place and with no third-party imports.\n\nEvery number this suite draws is in a SIM unit: durations are milliseconds, rates are\nitems per millisecond, and the objective is unitless.  Turning those into something a\nreader can hold is a two-part job \u2014 pick the scale, then name it \u2014 and the suite used to\ndo it in four places with four vocabularies (`chartkit.time_units`, two `_PRESENT` tables\nand `painters.overtime_metrics`).  The names disagreed: the same quantity was\n`\u03a3 task time per batch` on one axis and `total task time per batch` on another, and both\nthroughput metrics printed the identical `items / hour` while measuring different things.\n\nTwo rules, and they are the whole module:\n\n  1. A DURATION has no fixed unit.  Its readable unit depends on its own magnitude \u2014 one\n     picker task is seconds, one batch of labor is hours \u2014 so it is resolved at render\n     time from the pooled samples that will share the axis.  `resolve` is the only place\n     that choice is made.\n  2. An axis label is `stem` plus the resolved unit in parentheses, or just `stem` when\n     the quantity carries no unit noun.  One composition rule, so two charts of the same\n     quantity cannot disagree about what to call it.\n\n**Deliberately stdlib-only.**  `core/quantities.py` imports this, and the point of that\nmodule is that a test, `ingest.py` or a schema tool can read the quantity table without\ndragging matplotlib and the whole analysis package into the process.  `chartkit`\nre-exports `time_units` so the ~20 existing call sites keep working unchanged.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/units.py::DURATION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('duration_ms')"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::KINDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('duration_ms', 'rate_per_ms', 'count', 'share', 'score', 'dimensionless')"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::MS_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3600000.0"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::NONE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('dimensionless')"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::RATE_PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('rate_per_ms', 'items / hour', MS_PER_HOUR)"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::TIME_UNITS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('hours', 3600000.0), ('minutes', 60000.0), ('seconds', 1000.0))"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::Unit": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "How one quantity's raw values become presentation values, and what to call them.\n\n`suffix` is the parenthesised unit noun ('units', 'items / hour', 'W') or '' when the\nstem already reads as a complete axis label.  For `duration_ms` it is ignored \u2014 the\nunit comes from the data.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/common/units.py::Unit.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::_flat": {
+      "decorators": [],
+      "doc": "Every finite float in an arbitrarily nested iterable (numpy arrays included).\n\nWritten against the iterator protocol rather than `np.ravel` so this module keeps its\nno-third-party promise; numpy arrays and pandas Series both iterate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(values)"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::axis_label": {
+      "decorators": [],
+      "doc": "The one composition rule: `stem` + the unit in parentheses, when there is one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(stem: str, unit: Unit, samples=None) -> str"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::resolve": {
+      "decorators": [],
+      "doc": "(multiplier, unit_noun) for one unit against the samples that share its axis.\n\nMultiply raw values by the multiplier to get presentation values.  Pool EVERY series\nthat will share the axis into one call: resolving per-series is how two boxes on one\npanel end up in different units with one label between them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(unit: Unit, samples=None) -> tuple[float, str]"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::time_units": {
+      "decorators": [],
+      "doc": "(divisor, unit_label) \u2014 the largest time unit keeping typical magnitudes >= 1.\n\nChosen from the pooled MEDIAN absolute magnitude so one outlier cannot drag the whole\naxis into a smaller unit.  Deterministic, so the same quantity picks the same unit on\nevery re-render; the unit always appears in the axis label, so no chart can be read in\nthe wrong one.  Falls back to seconds on empty/degenerate input.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(values) -> tuple[float, str]"
+    },
     "Optimization/Performance_Evaluations/config/__init__.py": {
       "decorators": [],
       "doc": "config.* evaluations \u2014 the per-config DATA PRODUCTS (the series document, summary CSVs).\n\nSplit from the graph packages: these two renders emit the documents downstream stages read\n(the aggregate suite, run_channel_rollup, the docs ingest), not figures.  The package name is\nthe key namespace, per Tests/architecture/test_naming_alignment.py.",
@@ -1589,7 +1859,7 @@
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::owned_artifacts": {
       "decorators": [],
-      "doc": "{eval_key: ((artifact_name, path_template), ...)} from the HEAD run-tree contract's\nunhashed `evaluation:` attributions.  Artifacts with no attribution belong to no\nevaluation (sim writers, run-root docs) and do not appear.",
+      "doc": "{eval_key: ((artifact_name, path_template), ...)} from the HEAD run-tree contract's\nunhashed `evaluation:` attributions.  Artifacts with no attribution belong to no\nevaluation (sim writers, run-root docs) and do not appear.\n\nAn attribution is a STRING for an artifact one evaluation writes and a LIST for a glob\nseveral write into \u2014 a family's figure folder is filled by every evaluation in that\nfamily, and naming one of them made the entry read as if that one owned the folder.\nBoth shapes land here as one entry per (evaluation, artifact) pair.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -1607,6 +1877,41 @@
       "is_async": false,
       "kind": "function",
       "signature": "(eval_key: str, save_dir: str) -> bool"
+    },
+    "Optimization/Performance_Evaluations/core/baseline.py": {
+      "decorators": [],
+      "doc": "baseline \u2014 WHICH arm every comparison is quoted against, declared instead of counted.\n\n`EvalContext.base` was `self.strategies[0]`.  That is correct only because the strategy\nlist happens to be built baseline-first, which is a property of how the run harness\nassembles `sim_result['strategies']` \u2014 a fact no chart module can see and none of them\nstates.  Two things in this package already knew better and said so separately:\n`cost/rollup.BASE_RULE = 'fifo'`, and about ninety prose strings naming FIFO in titles and\naxis labels.\n\nSo the selection is declared here, once, and resolved by matching rather than by index.\nThe positional answer stays as an explicit FALLBACK with a log line, because two cases\nmake it the only available answer:\n\n  * `_focus_filter` runs BEFORE the baseline is taken.  Under `focus='opt'` the arm list\n    is restricted to `opt_*` and the FIFO arm may not be in it at all.\n  * an ad-hoc or synthetic strategy list (tests, notebooks) carries no `assignment` key.\n\nBoth are legitimate, and both must be visible when they happen \u2014 a comparison quietly\nre-baselined against a different arm changes every number on the page without changing\na filename.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/baseline.py::BASELINE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Baseline(field='assignment', value='fifo', label='FIFO baseline')"
+    },
+    "Optimization/Performance_Evaluations/core/baseline.py::Baseline": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The do-nothing arm: how to find it, and what to call it on a chart.\n\n`field`/`value` select it out of the strategy list.  `label` is the legend and\nreference-line text `chartkit.mark_baseline` and `baseline_handle` default to.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/baseline.py::Baseline.select": {
+      "decorators": [],
+      "doc": "The declared arm, or None when this strategy list does not contain it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, strategies) -> dict | None"
+    },
+    "Optimization/Performance_Evaluations/core/baseline.py::resolve": {
+      "decorators": [],
+      "doc": "The baseline arm for one strategy list, falling back positionally out loud.\n\nReturns None only for an empty list.  Every other path returns an arm and, when that\narm is not the declared one, says so at WARNING with the reason a reader would need\nto judge whether it matters.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, log=None, *, where: str='') -> dict | None"
     },
     "Optimization/Performance_Evaluations/core/context.py": {
       "decorators": [],
@@ -1879,18 +2184,66 @@
       "kind": "function",
       "signature": "() -> None"
     },
-    "Optimization/Performance_Evaluations/core/families.py": {
+    "Optimization/Performance_Evaluations/core/era.py": {
       "decorators": [],
-      "doc": "The chart-family grammar \u2014 which VIEWS each family of figures must and may carry.\n\nA family is one folder under a leaf's figures/ tree (figures/<family>/) holding every\nfigure that answers one class of question.  A VIEW is the measurement stance of a single\nfigure, named by its filename prefix:\n\n    absolute_  raw quantities in honest units (hours, items, % of time)\n    percent_   improvement vs the baseline, positive = better (chartkit.improvement_pct)\n    delta_     paired per-batch / cumulative differences over time\n    effect_    effect sizes + significance (the discriminating stance at n=75, where\n               p-stars alone are all ***)\n    table_     a tabular summary rendered as a figure\n\nThe grammar exists so \"absolute counts, percent views, deltas and significance baked in\nas appropriate\" is a CHECKED property, not an editorial habit: every evaluation declares\nits family and views, `chartkit.Chart.save(view=...)` validates each file it writes, and\nthe writer-paths golden test asserts each family's `required` views actually exist on the\nfixture render.  `diagnostics` is the deliberate exemption \u2014 raw operational read-outs\n(grids, scorecards) whose job is inspection, not comparison.",
+      "doc": "era \u2014 can this run's data answer the quantities the suite declares?\n\nThe publish loop has one route it cannot automate: a stakeholder asks for a number the\nsimulation never wrote down.  That cannot be backfilled \u2014 schema identity is derived from\nshape and archived files are never rewritten \u2014 so the only honest answers are a new sweep\non a vintage that records it, or a recorded caveat and the degraded form.\n\nWhat made that dangerous is that nothing said which route you were on.  A quantity reading\na column only SOME vetted vintages carry produces a figure on the runs that have it, no\nfigure at all on the ones that do not, and an INFO line either way.\n\n## The rule\n\nStraight out of `Schema/compat.py`'s own docstring, applied to the quantity table rather\nthan reinvented beside it.  Every quantity must satisfy EITHER\n\n    compat.validate(requires) == []   inside `guaranteed_surface` -> version-free, done\n    q.capability names a real key     outside it -> a CAPABILITY, and it is SAID\n\nNeither is a failure.  Being NEITHER is: it means a figure will be silently absent, or\nsilently wrong, on every archived run made before the column existed.\n\n## Why this is a separate module\n\n`core/quantities.py` is stdlib-only on purpose \u2014 that is what lets a test, `ingest.py` or a\nschema tool read the quantity table without importing the analysis package.  The gate needs\n`Schema.compat` and the sim-DB family registration, so it lives here and imports there.\nThe layering also reads correctly: the quantity table describes MEASUREMENTS; whether a\ngiven archive can serve one is a schema question.\n\n## The runtime half, and why it is not here\n\n`EvalContext._verify_sim_dbs` already hard-fails on a sim DB whose schema is not vetted, so\nan archived run is either vetted \u2014 and every read below is inside the guaranteed surface,\nso it can answer \u2014 or the analysis refuses to start.  The gap a runtime probe would cover\n(a VETTED vintage missing a non-guaranteed column) opens the moment a quantity names a\ncapability, and not before.  `Tests/architecture/test_data_era_gate.py` fails on that day\nwith the design attached; a probe with no consumer is validated infrastructure nobody\ncalls, and this repo already has one of those.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/era.py::QUANTITY_READS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "compat.Requires(family='sim_db', label='Performance_Evaluations quantity table', tables=_table_columns())"
+    },
+    "Optimization/Performance_Evaluations/core/era.py::_table_columns": {
+      "decorators": [],
+      "doc": "{table: (columns,)} \u2014 every sim-DB read the whole quantity table amounts to.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/era.py::findings": {
+      "decorators": [],
+      "doc": "Quantities that read something not every vetted sim vintage carries, unnamed.\n\nTHE STATIC RULE \u2014 no database, runnable in CI.  Empty when honest.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Optimization/Performance_Evaluations/core/era.py::requires_for": {
+      "decorators": [],
+      "doc": "The `Requires` one quantity's sim-DB read amounts to, or None for no read.\n\nDERIVED, not declared: the table comes from the frame builder the source names and the\ncolumns from the source itself, so a quantity cannot describe a read it does not make.\nA quantity with no per-batch source reads no database \u2014 its numbers come from a series\ndocument the analysis wrote, or from the run's own cost rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(q)"
+    },
+    "Optimization/Performance_Evaluations/core/families.py": {
+      "decorators": [],
+      "doc": "The chart-family grammar \u2014 which VIEWS a figure carries, and where the answer comes from.\n\nA family is one folder under a leaf's figures/ tree (figures/<family>/) holding every\nfigure that answers one class of question.  A VIEW is the measurement stance of a single\nfigure, named by its filename prefix:\n\n    absolute_  raw quantities in honest units (hours, items, % of time)\n    percent_   improvement vs the baseline, positive = better (chartkit.improvement_pct)\n    delta_     the same comparison in the quantity's own units, not as a ratio\n    effect_    effect sizes + significance (the discriminating stance at n=75, where\n               p-stars alone are all ***)\n    table_     a tabular summary rendered as a figure\n\n## Views are DERIVED, not declared\n\nEach family used to carry an editorial `views=` allow-list and each evaluation an\neditorial `views=` claim, and the result was exactly the drift you would predict:\n`throughput` structurally could not have a delta while `labor` had to; `layout.churn`\nshipped absolute-only beside `layout.travel`'s two views; `task_time.breakdown`\nabsolute-only beside `task_time.duration`'s; `headline.all_arms` percent-only beside\n`headline.rollup`'s two.  `agg.traj` emitted `percent` while its family REQUIRED\nabsolute+percent, and nothing noticed \u2014 the `required` field claimed a golden test\nasserted it and no such test existed.  `RUN_SCOPE_FAMILIES` was declared and read by\nnothing at all.\n\nWorse than any single gap: `layout`'s allow-list had no `percent` in it, so the author of\n`layout.travel`'s comparison figure had nowhere honest to put a percent view and saved one\nunder `delta_travel_vs_baseline.png`.  An editorial allow-list does not merely permit\ndrift; it manufactures mislabelling.\n\nSo a family now declares only what a family IS \u2014 the question it answers and the scope its\nfigures live at.  What views a figure carries comes from\n`core.quantities.derive_views(quantity, shape)`: a property of the thing being measured and\nof the mark drawing it, neither of which any single module gets a vote on.\n\n## The transition\n\nEvaluations still carrying a hand-written `views=` are listed in `LEGACY_VIEWS` with the\nreason they have not moved, and the count is capped.  An entry there is a debt with a name,\nnot a permission.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/families.py::LEAF_FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "tuple((f for f, d in FAMILIES.items() if d['scope'] == 'leaf'))"
+    },
+    "Optimization/Performance_Evaluations/core/families.py::LEGACY_VIEWS_CEILING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "12"
     },
     "Optimization/Performance_Evaluations/core/families.py::RUN_SCOPE_FAMILIES": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('cost',)"
+      "value_preview": "tuple((f for f, d in FAMILIES.items() if d['scope'] == 'run'))"
     },
     "Optimization/Performance_Evaluations/core/families.py::VIEWS": {
       "decorators": [],
@@ -1901,7 +2254,7 @@
     },
     "Optimization/Performance_Evaluations/core/families.py::check_view": {
       "decorators": [],
-      "doc": "Raise unless `view` is legal for the evaluation's declared family AND declared by\nthe evaluation itself.  Called from chartkit at save time, inside a render only.",
+      "doc": "Raise unless `view` is one the evaluation actually carries.\n\nCalled from chartkit at save time, inside a render only.  There is no family\nallow-list any more: the evaluation's own view set is derived from its quantities and\nits mark, so a view outside it is not a permissions problem \u2014 it is a figure whose\nstance nothing asked for.",
       "is_async": false,
       "kind": "function",
       "signature": "(eval_key: str, view: str) -> None"
@@ -1913,9 +2266,273 @@
       "kind": "function",
       "signature": "(family: str) -> str"
     },
+    "Optimization/Performance_Evaluations/core/quantities.py": {
+      "decorators": [],
+      "doc": "quantities \u2014 WHAT this suite measures, declared once.\n\n`stats_core._METRICS` already proved the pattern works: it declares\n`(name, source, column, direction)` and, because three consumers read it, adding a metric\nadds a CSV block, a `vs_baseline` row group and an `effect_*.png` with no other edit.\n\nIt stops at presentation.  The three fields it lacks \u2014 **unit, label, stance** \u2014 were then\nre-typed in four competing tables:\n\n    significance/suite.py  `_PRESENT`            11 entries\n    aggregate/sig.py       `_PRESENT`             5 entries\n    common/painters.py     `overtime_metrics()`   5 entries\n    headline/top_vs_baseline.py `_METRIC_GROUPS`  5 entries  (a hand-join of\n                                                  `_METRICS` and `_AGG_METRICS`)\n\n`throughput`, `makespan` and `task_mean_duration` appear in ALL FOUR with independently\nmaintained direction flags, and the tables had already drifted: the same quantity was\nlabelled `\u03a3 task time per batch` in one and `total task time per batch` in another, while\n`throughput` and `throughput_task` \u2014 different measurements \u2014 shared the single axis label\n`items / hour`.  Nothing could have caught either; there was no place the two statements\nmet.\n\nThis module is that place.  A `Quantity` says what a number IS (unit, direction, stance),\nwhere to read it at each scope (`Source`), what to call it, and what it may NOT be shown\nas (`views_suppressed`, with a mandatory reason).  Everything downstream is derived.\n\n## Why stdlib-only\n\nNo numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:\n\n  * a test, `ingest.py`, or a schema tool can read this table without importing the\n    analysis package \u2014 which is what makes \"the emitted figure set equals the derived one\"\n    a checkable property rather than a convention;\n  * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion\n    cannot be spelled inline in one consumer and forgotten in the next.  That is exactly\n    how `3.6e6` came to be written out five times.\n\n## The view derivation\n\n`derive_views(q, shape)` replaces the per-evaluation `views=` declaration.  Coverage stops\nbeing editorial: `layout.churn` cannot ship absolute-only beside `layout.travel`'s\ndelta+absolute because neither module gets a vote.  What CAN differ is the shape \u2014 a\ncomparison needs a baseline to compare against, and a paired delta needs per-instance\npairing \u2014 and those are properties of the mark, not opinions of the module.\n\nSuppression is the safety valve, and its reason is mandatory (validated in\n`__post_init__`, the idiom `Schema.capability.Capability` already uses for caveats).\nWithout it the derivation manufactures charts that are structurally valid and\nmeaningless \u2014 a percent-improvement of a quantity whose baseline is zero, a delta of a\nshare in points labelled as percent \u2014 and a meaningless chart under a caption asserting\nmeaning is worse than the drift it replaces.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::COMPOSITE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('composite', fixed=frozenset({'absolute'}))"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::CURVE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('curve', comparable=True)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::DIRECTIONS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('lower', 'higher')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::EFFECT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('effect', fixed=frozenset({'effect'}))"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::FACET": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('facet', comparable=True, paired=True)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::FRAME_TABLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats'}"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('inspection', fixed=frozenset({'absolute'}))"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Quantity": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One measurable thing, declared once for every consumer that shows it.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Quantity.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Quantity.axis_label": {
+      "decorators": [],
+      "doc": "The axis text: stem, unit, and \u2014 for a `score` \u2014 which way is good.\n\nA `score` is a model quantity with no physical unit (\u03a3 f\u00b7D, analytical labor W).\nWhen it also carries no unit noun, nothing on the axis tells a reader whether up\nor down is the win, so the direction is stated.  Every other kind names a unit\nthat already carries the answer ('items / hour', 'units', '% of time picking'),\nand appending a hint there is noise.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, samples=None) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Quantity.lower_is_better": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::RANKED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('ranked', comparable=True)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::SCATTER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('scatter', comparable=True)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::SERIAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('serial', comparable=True, paired=True)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::SHAPES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(RANKED, SERIAL, FACET, CURVE, SCATTER, COMPOSITE, INSPECTION, EFFECT, TABLE)"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::STANCES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('level', 'contrast')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Shape": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "A mark's structural capabilities \u2014 what it CAN show, never what it should.\n\n`comparable`  the mark can place an arm beside a baseline arm at all.\n`paired`      the mark's instances (batches, bins, tasks) line up 1:1 between two\n              arms, so a per-instance difference is defined.\n`fixed`       for a mark whose view is a property of the mark itself rather than of\n              anything it draws \u2014 an effect panel IS the contrast, a rendered table\n              IS its cells.  A fixed shape needs no quantity to know its views.\n\nThese live on the shape rather than the family because that is what lets `throughput`\ncarry a delta (it has a per-batch series) without forcing one onto a ranked churn\nchart whose categories are arms, not paired instances.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Shape.self_describing": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "True when the mark's views do not depend on what it draws.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source.agg_name": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The name this quantity carries in cross-profile products, or None if it has\nno steady-state scalar at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str | None"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source.db_reads": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "(table, columns) this quantity reads out of a sim database, or ().",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source.readable": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "True when SOMETHING can actually read this quantity.\n\nA declaration with no source at any scope is a declaration nothing can draw \u2014 and\nit would still satisfy the view derivation, which is why the check lives at\nconstruction rather than in a linter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::TABLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Shape('table', fixed=frozenset({'table'}))"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_COUNT_UNITS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('count', 'units')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_LABOR_W": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('score', 'W')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_SCORE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('score')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_SHARE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('share')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_agg": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_q.source.agg_name"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_check_order": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, keys: tuple, attr: str) -> None"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_missing": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[q.key for q in QUANTITIES if q.source.series is not None and q.key not in SERIES_ORDER and (q.key not in SERIES_ELSEWHERE)]"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::aggregate_specs": {
+      "decorators": [],
+      "doc": "`stats_core._AGG_METRICS` \u2014 (name, steady_state_field, lower_is_better).\n\nNames are the aggregate spellings, which is why `production_time` goes out as\n`productivity_hours`: those strings are the `metric` column of a published CSV.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::derive_views": {
+      "decorators": [],
+      "doc": "The views a quantity drawn with this shape MUST carry.\n\nNot \"may\".  This is the whole point: view coverage stops being a per-evaluation\neditorial decision and becomes a function of what the quantity is and what the mark\ncan structurally show.  Two figures of the same quantity through the same shape get\nthe same view set, in every family, or the derivation is wrong and gets fixed once.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(q: Quantity, shape: Shape) -> frozenset"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::metric_specs": {
+      "decorators": [],
+      "doc": "`stats_core._METRICS` \u2014 (name, source_kind, column, lower_is_better).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::quantity_for": {
+      "decorators": [],
+      "doc": "The declaration for a metric name, under either its per-batch or aggregate name.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> Quantity"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::suppression_reason": {
+      "decorators": [],
+      "doc": "Why `view` is withheld for `q`, or '' if it is not withheld.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(q: Quantity, view: str) -> str"
+    },
     "Optimization/Performance_Evaluations/core/registry.py": {
       "decorators": [],
-      "doc": "The Evaluation descriptor + @evaluation decorator + module-level registry.\n\nMirrors the registry style of Optimization/config/strategies.py (a dataclass per item, a flat\nlist, and a by-key dict), but populated by a decorator so a graph module self-registers\non import.  A graph's `render(ctx, params)` does the actual plotting; the descriptor\ncarries only the metadata the driver needs to schedule it.",
+      "doc": "The Evaluation descriptor + @evaluation decorator + module-level registry.\n\nMirrors the registry style of Optimization/config/strategies.py (a dataclass per item, a flat\nlist, and a by-key dict), but populated by a decorator so a graph module self-registers\non import.  A graph's `render(ctx, params)` does the actual plotting; the descriptor\ncarries only the metadata the driver needs to schedule it.\n\n**`views` is derived.**  A figure evaluation declares the QUANTITIES it draws and the MARK\nit draws them with, and its view set follows from `core.quantities.derive_views`.  It was\na free per-evaluation declaration, and the drift it produced is catalogued in\n`core/families.py`; the short version is that two figures of the same quantity through the\nsame mark carried different view sets because two authors made two different calls, and in\none case the family's allow-list left a percent view with nowhere honest to go, so it\nshipped under a `delta_` filename.",
       "kind": "module",
       "signature": null
     },
@@ -1927,12 +2544,26 @@
       "kind": "class",
       "signature": ""
     },
-    "Optimization/Performance_Evaluations/core/registry.py::evaluation": {
+    "Optimization/Performance_Evaluations/core/registry.py::_derive_views": {
       "decorators": [],
-      "doc": "Decorator: register the wrapped render fn as an Evaluation.\n\nA figure eval declares `family=` and its out_subdir is DERIVED (figures/<family>) \u2014\npassing both is an error, so a family's folder can never be retyped inconsistently.\nNon-figure evals declare out_subdir explicitly ('tables', or '' for the leaf root).\nReturns the plain function unchanged so it stays directly unit-testable.",
+      "doc": "The view set for one figure evaluation \u2014 quantities x mark, minus its suppressions.\n\nAn INSPECTION or EFFECT mark answers for itself: a scorecard has no baseline in it and\na distribution+effect panel IS the contrast, so neither needs a quantity declared to\nknow what it can show.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, key, label, scope, needs=(), defaults=None, out_subdir=None, family=None, views=(), by_initial=False)"
+      "signature": "(key, family, quantities, shape, suppressed, pending)"
+    },
+    "Optimization/Performance_Evaluations/core/registry.py::_reasons_are_real": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key, entries, field)"
+    },
+    "Optimization/Performance_Evaluations/core/registry.py::evaluation": {
+      "decorators": [],
+      "doc": "Decorator: register the wrapped render fn as an Evaluation.\n\nA figure eval declares `family=` and its out_subdir is DERIVED (figures/<family>) \u2014\npassing both is an error, so a family's folder can never be retyped inconsistently.\nNon-figure evals declare out_subdir explicitly ('tables', or '' for the leaf root).\n\nA figure eval also declares `shape=` (the mark) and `quantities=` (what it draws), and\nits `views` are derived from those.  `views=` may still be passed, but ONLY by an\nevaluation listed in `families.LEGACY_VIEWS` with the reason it has not moved \u2014 a debt\nwith a name, not a permission.\n\nReturns the plain function unchanged so it stays directly unit-testable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, key, label, scope, needs=(), defaults=None, out_subdir=None, family=None, quantities=(), shape=None, views_suppressed=(), views_pending=(), views=(), by_initial=False)"
     },
     "Optimization/Performance_Evaluations/core/registry.py::evaluation._wrap": {
       "decorators": [],
@@ -2089,6 +2720,13 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::record_error": {
+      "decorators": [],
+      "doc": "Record that an evaluation's render raised.  Called only by `driver._run_one`.\n\nStores `(count, last_repr)` so the run-end summary can name both how often and what.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(eval_key: str, exc: BaseException) -> None"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::request": {
       "decorators": [],
       "doc": "Decorator: register `fn` as the compose function for (scope, name).",
@@ -2126,7 +2764,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::tally_snapshot": {
       "decorators": [],
-      "doc": "A picklable copy of this process's access tally; optionally reset (per-job snapshots).",
+      "doc": "A picklable copy of this process's access tally; optionally reset (per-job snapshots).\n\nThe reset is load-bearing at `granularity='graph'`: a worker is reused across jobs, so\nwithout it every later job re-reports the earlier jobs' counts.",
       "is_async": false,
       "kind": "function",
       "signature": "(reset: bool=False) -> dict"
@@ -2208,7 +2846,7 @@
     },
     "Optimization/Performance_Evaluations/cost/compute.py::render": {
       "decorators": [
-        "evaluation(key='cost.compute', label='What each placement rule costs to run', scope='run', needs=('runtime',), family='cost', views=('percent', 'absolute', 'delta'))"
+        "evaluation(key='cost.compute', label='What each placement rule costs to run', scope='run', needs=('runtime',), family='cost', shape='ranked', quantities=('reord_ms_per_unit', 'scoring_ms_per_unit', 'x_reord_vs_fifo'))"
       ],
       "doc": null,
       "is_async": false,
@@ -2226,7 +2864,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'fifo'"
+      "value_preview": "_baseline.BASELINE.value"
     },
     "Optimization/Performance_Evaluations/cost/rollup.py::_f": {
       "decorators": [],
@@ -2314,7 +2952,7 @@
     },
     "Optimization/Performance_Evaluations/diagnostics/metric_grids.py::render": {
       "decorators": [
-        "evaluation(key='diagnostics.metric_grids', label='Per-arm metric grids (shared scales)', scope='per_strategy', needs=('batch', 'task', 'series'), family='diagnostics', views=('absolute',))"
+        "evaluation(key='diagnostics.metric_grids', label='Per-arm metric grids (shared scales)', scope='per_strategy', needs=('batch', 'task', 'series'), family='diagnostics', shape='inspection')"
       ],
       "doc": null,
       "is_async": false,
@@ -2343,7 +2981,7 @@
     },
     "Optimization/Performance_Evaluations/diagnostics/scorecards.py::render": {
       "decorators": [
-        "evaluation(key='diagnostics.scorecards', label='Per-arm scorecards', scope='per_strategy', needs=('batch',), family='diagnostics', views=('absolute',))"
+        "evaluation(key='diagnostics.scorecards', label='Per-arm scorecards', scope='per_strategy', needs=('batch',), family='diagnostics', shape='inspection')"
       ],
       "doc": null,
       "is_async": false,
@@ -2352,7 +2990,7 @@
     },
     "Optimization/Performance_Evaluations/driver.py": {
       "decorators": [],
-      "doc": "Driver \u2014 scope dispatch + output-dir preparation for the registry.\n\nThe flat-pool worker in run_analysis.py builds an EvalContext (config stage) or an\nAggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)\nor run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass\n(prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each\nevaluation only writes its own files into the shared figures/ and tables/ tops (the old\nsingle-owner self-wipe pattern is retired \u2014 no render wipes anything).\n\n`_run_one` is the sole render entry, which makes it the access-control choke point: every\nevaluation's declared `needs=` is resolved through the request broker (core/requests.py)\nBEFORE its render runs.  All granted -> render exactly as before (the resolution warmed the\ncontext caches the render reads).  Any denied -> the render is SKIPPED, gracefully, and the\n`[access]` log line carries the reason the broker actually hit \u2014 a missing resource is an\nanswerable event, never a crash and never a silent half-figure.",
+      "doc": "Driver \u2014 scope dispatch + output-dir preparation for the registry.\n\nThe flat-pool worker in run_analysis.py builds an EvalContext (config stage) or an\nAggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)\nor run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass\n(prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each\nevaluation only writes its own files into the shared figures/ and tables/ tops (the old\nsingle-owner self-wipe pattern is retired \u2014 no render wipes anything).\n\n`_run_one` is the sole render entry, which makes it the access-control choke point: every\nevaluation's declared `needs=` is resolved through the request broker (core/requests.py)\nBEFORE its render runs.  All granted -> render exactly as before (the resolution warmed the\ncontext caches the render reads).  Any denied -> the render is SKIPPED, gracefully, and the\n`[access]` log line carries the reason the broker actually hit \u2014 a missing resource is an\nanswerable event, never a crash and never a silent half-figure.\n\nIt also catches every render exception, so one broken evaluation cannot sink the rest.\nThat swallow is deliberate and it was also, for a long time, invisible: the only trace was\na log call from inside a worker whose logger reaches no file.  Every caught exception is\nnow recorded in the broker's tally and reported at the end of the run, because a grant is\na statement about an evaluation's INPUTS and says nothing about whether anything came out.",
       "kind": "module",
       "signature": null
     },
@@ -2468,7 +3106,7 @@
     },
     "Optimization/Performance_Evaluations/headline/all_arms.py::render": {
       "decorators": [
-        "evaluation(key='headline.all_arms', label='All arms vs FIFO (% improvement panels)', scope='config', needs=('series',), family='headline', views=('percent',))"
+        "evaluation(key='headline.all_arms', label='All arms vs FIFO (% improvement panels)', scope='config', needs=('series',), family='headline', shape='ranked', quantities=('throughput', 'makespan'), views_suppressed=(('absolute', \"this is the 34-bar wall headline/rollup.py retired: at full arm count the absolute values differ by a few percent, so every bar is the same length and the figure carries no information the rollup does not. The absolute level of these two quantities is headline.rollup's job, at top-N.\"),))"
       ],
       "doc": null,
       "is_async": false,
@@ -2497,7 +3135,7 @@
     },
     "Optimization/Performance_Evaluations/headline/rollup.py::render": {
       "decorators": [
-        "evaluation(key='headline.rollup', label='Per-run rollup dot plots', scope='per_strategy', needs=('batch', 'task'), family='headline', views=('percent', 'absolute'))"
+        "evaluation(key='headline.rollup', label='Per-run rollup dot plots', scope='per_strategy', needs=('batch', 'task'), family='headline', shape='ranked', quantities=('production_time', 'throughput'))"
       ],
       "doc": null,
       "is_async": false,
@@ -2554,7 +3192,7 @@
     },
     "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::render": {
       "decorators": [
-        "evaluation(key='headline.throughput_vs_labor', label='Throughput vs total labor (scatter + Spearman \u03c1)', scope='config', needs=('series',), family='headline', views=('absolute', 'percent'))"
+        "evaluation(key='headline.throughput_vs_labor', label='Throughput vs total labor (scatter + Spearman \u03c1)', scope='config', needs=('series',), family='headline', shape='scatter', quantities=('throughput', 'production_time'))"
       ],
       "doc": null,
       "is_async": false,
@@ -2572,7 +3210,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('Task makespan', 'ss_prod_hours', True, 'task_sum', 'duration'), ('Batch makespan', 'ss_dur', True, 'batch', 'duration'), ('Thr / batch makespan', 'ss_thr', False, 'batch', 'completion_rate'), ('..."
+      "value_preview": "[(q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch) for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)]"
     },
     "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_UNSHARED_RATIO": {
       "decorators": [],
@@ -2618,7 +3256,7 @@
     },
     "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::render": {
       "decorators": [
-        "evaluation(key='headline.top_vs_baseline', label='Top arms vs FIFO baseline (% bars + effect table)', scope='config', needs=('series', 'batch', 'task'), defaults={'top_n': 3, 'top_by': 'initial'}, family='headline', views=('percent', 'table'))"
+        "evaluation(key='headline.top_vs_baseline', label='Top arms vs FIFO baseline (% bars + effect table)', scope='config', needs=('series', 'batch', 'task'), defaults={'top_n': 3, 'top_by': 'initial'}, family='headline', shape=('ranked', 'table'), quantities=('production_time', 'makespan', 'throughput', 'throughput_task', 'sigma_fd'), views_pending=(('absolute', \"the top-N arms' own steady-state levels beside the baseline's, which is what a reader asks for after seeing a 2.6% bar and wanting to know 2.6% of what. The table view carries the numbers today; a bar of them is not written yet\"),))"
       ],
       "doc": null,
       "is_async": false,
@@ -2646,7 +3284,7 @@
     },
     "Optimization/Performance_Evaluations/labor/delta_grid.py::render": {
       "decorators": [
-        "evaluation(key='labor.delta_grid', label='Task-time delta vs FIFO, one panel per arm', scope='per_strategy', needs=('series',), family='labor', views=('delta',))"
+        "evaluation(key='labor.delta_grid', label='Task-time delta vs FIFO, one panel per arm', scope='per_strategy', needs=('series',), family='labor', shape='facet', quantities=('production_time',), views_pending=(('absolute', 'the level of each arm over batches, one panel per arm. trajectories.overtime already draws it overlaid; the facet version is worth having at 34 arms, where the overlay is one opaque ribbon, and is not written yet'), ('percent', 'the same facet expressed as improvement rather than as hours saved \u2014 the ratio a reader compares across arms of different absolute size; not written yet')))"
       ],
       "doc": null,
       "is_async": false,
@@ -2668,7 +3306,7 @@
     },
     "Optimization/Performance_Evaluations/labor/delta_topn.py::render": {
       "decorators": [
-        "evaluation(key='labor.delta_topn', label='Task-time saved vs FIFO \u2014 cumulative + per-batch (top-N)', scope='config', needs=('series',), defaults={'top_n': 3, 'top_by': 'initial'}, family='labor', views=('delta',))"
+        "evaluation(key='labor.delta_topn', label='Task-time saved vs FIFO \u2014 cumulative + per-batch (top-N)', scope='config', needs=('series',), defaults={'top_n': 3, 'top_by': 'initial'}, family='labor', shape='serial', quantities=('production_time',), views_pending=(('absolute', \"the top-N arms' own labor hours over batches, which labor.per_batch draws for the same arm selection; consolidating the two is the fix, not a third figure\"), ('percent', 'the cumulative saving as a fraction rather than in hours; not written yet')))"
       ],
       "doc": null,
       "is_async": false,
@@ -2725,7 +3363,7 @@
     },
     "Optimization/Performance_Evaluations/labor/per_batch.py::_smooth": {
       "decorators": [],
-      "doc": "Centred moving average over the window the over-time trajectories use.\n\nThe ends average only the batches that exist, rather than being padded with zeros.\n`np.convolve(..., mode='same')` pads, so the smoothed line dived toward zero over the\nfirst and last couple of batches \u2014 a fabricated collapse at exactly the two places a\nreader looks for a trend to start or finish.",
+      "doc": "Centred moving average over the window the over-time trajectories use.\n\nPromoted to `chartkit.rolling_mean` \u2014 this module's implementation was the only\nedge-correct one of the three in the package, and the primitive carries the reason\n(a `mode='same'` convolution pads with zeros and fabricates a collapse at exactly the\ntwo places a reader looks for a trend to start or finish).  Kept as a named alias\nbecause `_SMOOTH` is this family's window and the call sites read better for it.",
       "is_async": false,
       "kind": "function",
       "signature": "(y, win=_SMOOTH)"
@@ -2753,7 +3391,7 @@
     },
     "Optimization/Performance_Evaluations/labor/per_batch.py::render": {
       "decorators": [
-        "evaluation(key='labor.per_batch', label='Labor hours per batch + % saved vs FIFO, over batch order', scope='config', needs=('task', 'series'), defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN}, family='labor', views=('absolute', 'percent'))"
+        "evaluation(key='labor.per_batch', label='Labor hours per batch + % saved vs FIFO, over batch order', scope='config', needs=('task', 'series'), defaults={'top_n': 3, 'top_by': 'initial', 'win': _WIN}, family='labor', shape='serial', quantities=('production_time',), views_pending=(('delta', 'hours saved per batch against the baseline, in hours rather than as a percentage. labor.delta_topn draws this for the top N arms only; the full-arm version belongs here and is not written yet'),))"
       ],
       "doc": null,
       "is_async": false,
@@ -2795,7 +3433,7 @@
     },
     "Optimization/Performance_Evaluations/layout/churn.py::render": {
       "decorators": [
-        "evaluation(key='layout.churn', label='Inventory churn overlay (median + IQR + outliers)', scope='config', needs=('batch', 'series'), family='layout', views=('absolute',))"
+        "evaluation(key='layout.churn', label='Inventory churn overlay (median + IQR + outliers)', scope='config', needs=('batch', 'series'), family='layout', shape='ranked', quantities=('reorder_churn',), views_suppressed=(('percent', 'churn is exactly zero on every arm when reslotting is off, which is the common case, and an improvement percent against a zero baseline is NaN for every arm \u2014 a chart of thirty-four empty rows under a caption asserting a comparison'),))"
       ],
       "doc": null,
       "is_async": false,
@@ -2804,23 +3442,37 @@
     },
     "Optimization/Performance_Evaluations/layout/travel.py": {
       "decorators": [],
-      "doc": "layout.travel \u2014 travel cost per arm against the baseline, the layout family's\ncomparison view.\n\nThe layout family owned only the churn overlay, and churn is flat (often exactly zero\nwhen reslotting is off), so the family that should answer \"did this placement rule\nactually shorten the walking?\" answered nothing.  The quantity that does differentiate\narms \u2014 \u03a3 f\u00b7D, demand-weighted distance, the objective the assignment functions optimise \u2014\nwas reachable only through a diagnostics small-multiples grid, and diagnostics is the\nfamily explicitly exempted from comparison work.\n\nTwo views of one quantity, both against the FIFO baseline:\n\n  * delta   \u2014 per-arm % improvement in steady-state \u03a3 f\u00b7D, sorted, with the bootstrap\n              interval of the per-batch improvements, so the ranking says which gaps are\n              separable and which are not.\n  * absolute \u2014 the same arms' \u03a3 f\u00b7D beside the layout floor when the run publishes one\n              (`optimal_sigma_fd`), which turns a unitless objective into \"how much of\n              the achievable improvement did this rule capture\".",
+      "doc": "layout.travel \u2014 travel cost per arm against the baseline, the layout family's\ncomparison work.\n\nThe layout family owned only the churn overlay, and churn is flat (often exactly zero\nwhen reslotting is off), so the family that should answer \"did this placement rule\nactually shorten the walking?\" answered nothing.  The quantity that does differentiate\narms \u2014 \u03a3 f\u00b7D, demand-weighted distance, the objective the assignment functions optimise \u2014\nwas reachable only through a diagnostics small-multiples grid, and diagnostics is the\nfamily explicitly exempted from comparison work.\n\nTwo views of one quantity, and the set is DERIVED (`ranked` mark \u00d7 `sigma_fd`), not\nchosen here.  A ranked mark's categories are ARMS, which do not pair with themselves, so\nthe derivation gives no delta \u2014 the per-batch difference lives with the serial marks:\n\n  absolute  each arm's steady-state \u03a3 f\u00b7D beside the layout floor when the run publishes\n            one, which turns a unitless objective into \"how much of the achievable\n            improvement did this rule capture\".\n  percent   per-arm improvement against the baseline, sorted, with the bootstrap interval\n            of the PAIRED per-batch improvements, so the ranking says which gaps are\n            separable and which are not: where an interval crosses zero, the arm has not\n            been shown to move travel at all.\n\n**The percent view used to be called `delta`.**  It computed `improvement_pct_series`,\nlabelled its axis through `pct_axis`, and saved as `delta_travel_vs_baseline.png` under\n`view='delta'` \u2014 a percent under a delta's name, which five save-time checks passed\nbecause every one of them compared a declaration against another declaration and none of\nthem ever saw a number.  It was not carelessness: the `layout` family's allow-list had no\n`percent` in it, so there was nowhere honest to put the figure.  Both halves are fixed \u2014\nthe view set comes from the quantity and the mark, and `common/marks.py` computes the\nstance from raw values, so the filename and the arithmetic come from one decision.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/layout/travel.py::_absolute_figure": {
+    "Optimization/Performance_Evaluations/layout/travel.py::QUANTITY": {
       "decorators": [],
       "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, rows, baseline, S, out)"
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'sigma_fd'"
     },
-    "Optimization/Performance_Evaluations/layout/travel.py::_delta_figure": {
+    "Optimization/Performance_Evaluations/layout/travel.py::_TITLES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'absolute': ('Travel cost per arm', 'steady-state demand-weighted distance; baseline shaded'), 'percent': ('Travel cost vs baseline', 'median of the per-batch improvements in \u03a3 f\u00b7D, with the boots..."
+    },
+    "Optimization/Performance_Evaluations/layout/travel.py::_entries": {
+      "decorators": [],
+      "doc": "(entries, paired) \u2014 the absolute view's scalars, and the pairing for the rest.\n\n`entries`  [(strategy, steady-state \u03a3 f\u00b7D)], for the absolute bars.\n`paired`   {key: (arm per-batch \u03a3 f\u00b7D, baseline per-batch \u03a3 f\u00b7D)} over the batches the\n           two arms SHARE, in \u03a3 f\u00b7D.  `marks` derives the comparison point and its\n           interval from this, both in the same stance, so the dot and the whiskers\n           estimate one quantity \u2014 and the interval is the interval of the comparison\n           rather than of the arm's own spread wearing a percentage.\n\nAn arm sharing fewer than three batches with the baseline appears in `entries` and not\nin `paired`: it keeps its bar and loses its dot, which is the honest pair of answers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, S, baseline)"
+    },
+    "Optimization/Performance_Evaluations/layout/travel.py::_figure": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(ctx, rows, out)"
+      "signature": "(ctx, entries, paired, baseline, view, out)"
     },
     "Optimization/Performance_Evaluations/layout/travel.py::_per_batch": {
       "decorators": [],
@@ -2829,16 +3481,9 @@
       "kind": "function",
       "signature": "(ctx, key)"
     },
-    "Optimization/Performance_Evaluations/layout/travel.py::_rows": {
-      "decorators": [],
-      "doc": "[(strategy, pct improvement, lo, hi, ss_sigma)] against the baseline arm.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ctx, S, baseline)"
-    },
     "Optimization/Performance_Evaluations/layout/travel.py::render": {
       "decorators": [
-        "evaluation(key='layout.travel', label='Travel cost vs baseline (delta + absolute)', scope='config', needs=('batch', 'series'), family='layout', views=('delta', 'absolute'))"
+        "evaluation(key='layout.travel', label='Travel cost per arm vs the baseline', scope='config', needs=('batch', 'series'), family='layout', shape='ranked', quantities=(QUANTITY,))"
       ],
       "doc": null,
       "is_async": false,
@@ -2974,37 +3619,9 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/Performance_Evaluations/significance/suite.py::_PER_HOUR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "3600000.0"
-    },
-    "Optimization/Performance_Evaluations/significance/suite.py::_PRESENT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'production_time': (_TIME, '\u03a3 task time per batch'), 'objective_task_labor': (None, 'E[task labor] (W)'), 'objective_total_labor': (None, '\u03a3 task labor (W)'), 'task_mean_duration': (_TIME, 'mean t..."
-    },
-    "Optimization/Performance_Evaluations/significance/suite.py::_TIME": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'time'"
-    },
-    "Optimization/Performance_Evaluations/significance/suite.py::_present": {
-      "decorators": [],
-      "doc": "(conv, axis label) for one metric, resolved against the samples it will plot.\n\nA `_TIME` metric pools every key's box values \u2014 exactly what shares the panel's\naxis \u2014 into one `chartkit.time_units` call, so all boxes convert with the same\ndivisor and the label names the unit that came back.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(name, box_values)"
-    },
     "Optimization/Performance_Evaluations/significance/suite.py::render_by_initial": {
       "decorators": [
-        "evaluation(key='sig.by_initial', label='Opt-vs-uni heatmap + per-fn forests', scope='config', needs=('batch', 'task', 'breakdown'), family='significance', views=('effect',), by_initial=True)"
+        "evaluation(key='sig.by_initial', label='Opt-vs-uni heatmap + per-fn forests', scope='config', needs=('batch', 'task', 'breakdown'), family='significance', shape='effect', by_initial=True)"
       ],
       "doc": null,
       "is_async": false,
@@ -3013,7 +3630,7 @@
     },
     "Optimization/Performance_Evaluations/significance/suite.py::render_suite": {
       "decorators": [
-        "evaluation(key='sig.suite', label='Merged effect panels (all strategies)', scope='config', needs=('batch', 'task', 'breakdown'), family='significance', views=('effect',))"
+        "evaluation(key='sig.suite', label='Merged effect panels (all strategies)', scope='config', needs=('batch', 'task', 'breakdown'), family='significance', shape='effect')"
       ],
       "doc": null,
       "is_async": false,
@@ -3257,7 +3874,7 @@
     },
     "Optimization/Performance_Evaluations/task_time/breakdown.py::render": {
       "decorators": [
-        "evaluation(key='task_time.breakdown', label='Picker-time decomposition (two cuts)', scope='config', needs=('breakdown', 'series'), family='task_time', views=('absolute',))"
+        "evaluation(key='task_time.breakdown', label='Picker-time decomposition (two cuts)', scope='config', needs=('breakdown', 'series'), family='task_time', shape='composite')"
       ],
       "doc": null,
       "is_async": false,
@@ -3300,7 +3917,7 @@
     },
     "Optimization/Performance_Evaluations/task_time/duration.py::render": {
       "decorators": [
-        "evaluation(key='task_time.duration', label='Task duration: ranked boxes + paired deltas', scope='config', needs=('task',), defaults={'win': 50}, family='task_time', views=('absolute', 'delta'))"
+        "evaluation(key='task_time.duration', label='Task duration: ranked boxes + paired deltas', scope='config', needs=('task',), defaults={'win': 50}, family='task_time', shape=('ranked', 'serial'), quantities=('task_mean_duration',), views_pending=(('percent', 'the ranked improvement in mean task duration, which is the view a reader compares arms with when the absolute durations differ by a few percent; not written yet'),))"
       ],
       "doc": null,
       "is_async": false,
@@ -3363,7 +3980,7 @@
     },
     "Optimization/Performance_Evaluations/throughput/volume.py::render": {
       "decorators": [
-        "evaluation(key='throughput.volume', label='Cumulative pick volume vs elapsed time + % lead over FIFO', scope='config', needs=('batch', 'series'), defaults={'top_n': 3, 'top_by': 'initial'}, family='throughput', views=('percent', 'absolute'))"
+        "evaluation(key='throughput.volume', label='Cumulative pick volume vs elapsed time + % lead over FIFO', scope='config', needs=('batch', 'series'), defaults={'top_n': 3, 'top_by': 'initial'}, family='throughput', shape='curve', quantities=('pick_volume',))"
       ],
       "doc": null,
       "is_async": false,
@@ -3382,9 +3999,16 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/trajectories/overtime.py::SERIES_QUANTITIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "SERIES_ORDER"
+    },
     "Optimization/Performance_Evaluations/trajectories/overtime.py::render": {
       "decorators": [
-        "evaluation(key='trajectories.overtime', label='Over-time trajectories, absolute + % vs baseline', scope='config', needs=('series',), family='trajectories', views=('absolute', 'percent'))"
+        "evaluation(key='trajectories.overtime', label='Over-time trajectories, absolute + % vs baseline', scope='config', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES)"
       ],
       "doc": null,
       "is_async": false,
@@ -7110,6 +7734,27 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('comparison_', 'comparison_whatif_')"
+    },
+    "Optimization/runschema/schema.py::_FIGURE_DIR_WRITER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'prepare_config_dirs@Optimization/Performance_Evaluations/driver.py'"
+    },
+    "Optimization/runschema/schema.py::_LEAF_FIGURE_FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('headline', 'trajectories', 'labor', 'throughput', 'task_time', 'layout', 'significance', 'diagnostics')"
+    },
+    "Optimization/runschema/schema.py::_figure_globs": {
+      "decorators": [],
+      "doc": "`figures_<family>_pngs` for every family whose figures land in a per-leaf tree.\n\nOne glob per family rather than one for the whole tree, so preflight can name WHICH\nfamily an undeclared file violated.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Optimization/runschema/sim_manifest.py": {
       "decorators": [],
@@ -13787,6 +14432,13 @@
       "signature": null,
       "value_preview": "'whatif_*.png'"
     },
+    "docs/experiments/ingest.py::WHATIF_PNG_GLOB": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'whatif_*.png'"
+    },
     "docs/experiments/ingest.py::_DEFAULTS": {
       "decorators": [],
       "doc": null,
@@ -13864,6 +14516,13 @@
       "kind": "function",
       "signature": "(src, dst, dry, log)"
     },
+    "docs/experiments/ingest.py::_declared_png_names": {
+      "decorators": [],
+      "doc": "Every PNG basename figures.yml names, RETIRED ENTRIES INCLUDED.\n\nDeliberately the same set `context/guards/experiment_guard.py._registry_png_names`\nbuilds, because the prune pass below and that guard must not be able to disagree: one\ndeletes and the other reports, and a file one considers an orphan while the other does\nnot is a build that fails after the cleanup already ran.\n\nA `retired:` entry keeps protecting its staged copies on purpose \u2014 retired means the\nwriter is gone, not that the evidence a published page cites should vanish.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> set"
+    },
     "docs/experiments/ingest.py::_find": {
       "decorators": [],
       "doc": "First path matching `name` anywhere under `root` (run_analysis nests PNGs in\ncompare/top, compare/breakdown, compare/overlay, \u2026).\n\nThe NO-CONTRACT lookup: pre-descriptor runs and the profiles tree (which has no run-tree\ncontract at all) resolve through this walk.  Runs with a descriptor resolve through\n`_leaf_file` instead.",
@@ -13891,6 +14550,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str) -> None"
+    },
+    "docs/experiments/ingest.py::_prune_orphan_pngs": {
+      "decorators": [],
+      "doc": "Delete staged PNGs whose basename no live registry entry declares.\n\nStaging COPIES; it has never removed anything.  So when a figure is renamed \u2014 and\n`delta_travel_vs_baseline.png` became `percent_travel_per_arm.png` the day figure views\nstopped being editorial \u2014 the new file lands beside the old one, and the old one stays\ncommitted, staged, and reachable, describing a chart the suite no longer draws.\n\nNothing caught that except `context/guards/experiment_guard.py --scan`, which runs at\nthe END of the publish loop and reports it for a human to chase.  The guard's rule is\n\"a PNG with no declared producer\", so applying exactly that rule HERE means ingest and\nthe guard cannot disagree: the orphan is gone before the guard looks.\n\nConservative by construction \u2014 only under `images/`, only `.png`, and only a basename\nthe registry does not name at all.  What-if PNGs are exempt: their producer is a\nrunschema writer, which figures.yml never lists.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(exp_dir, dry, log)"
     },
     "docs/experiments/ingest.py::_reader_tree": {
       "decorators": [],

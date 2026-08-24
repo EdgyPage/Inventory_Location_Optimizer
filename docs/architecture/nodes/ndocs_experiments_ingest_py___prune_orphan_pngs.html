@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_prune_orphan_pngs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="ndocs_experiments_ingest_py___prune_orphan_pngs" data-id="docs/experiments/ingest.py::_prune_orphan_pngs">
+<nav class="crumbs"><a href="../layers.html">docs</a> <span class="sep">›</span> <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a> <span class="sep">›</span> <span class="here"><code>_prune_orphan_pngs</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_prune_orphan_pngs</code></h1>
+<p class="meta">layer <span class="chip">docs</span> · file <a href="../files/ndocs_experiments_ingest_py.html"><code>docs/experiments/ingest.py</code></a></p>
+
+<pre class="sig"><code>def _prune_orphan_pngs(exp_dir, dry, log)</code></pre>
+<section class="doc">Delete staged PNGs whose basename no live registry entry declares.
+
+Staging COPIES; it has never removed anything.  So when a figure is renamed — and
+`delta_travel_vs_baseline.png` became `percent_travel_per_arm.png` the day figure views
+stopped being editorial — the new file lands beside the old one, and the old one stays
+committed, staged, and reachable, describing a chart the suite no longer draws.
+
+Nothing caught that except `context/guards/experiment_guard.py --scan`, which runs at
+the END of the publish loop and reports it for a human to chase.  The guard&#x27;s rule is
+&quot;a PNG with no declared producer&quot;, so applying exactly that rule HERE means ingest and
+the guard cannot disagree: the orphan is gone before the guard looks.
+
+Conservative by construction — only under `images/`, only `.png`, and only a basename
+the registry does not name at all.  What-if PNGs are exempt: their producer is a
+runschema writer, which figures.yml never lists.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py___declared_png_names.html"><code>_declared_png_names</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="ndocs_experiments_ingest_py__main.html"><code>main</code></a> <span class="dim">docs/experiments/ingest.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_experiments_ingest_py___prune_orphan_pngs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/experiments/ingest.py#:~:text=def%20_prune_orphan_pngs">Source ↗</a></p>
+</article>
+</main>
+</body></html>

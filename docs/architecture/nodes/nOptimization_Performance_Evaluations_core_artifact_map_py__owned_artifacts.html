@@ -17,7 +17,12 @@
 <pre class="sig"><code>def owned_artifacts() -&gt; dict</code></pre>
 <section class="doc">{eval_key: ((artifact_name, path_template), ...)} from the HEAD run-tree contract&#x27;s
 unhashed `evaluation:` attributions.  Artifacts with no attribution belong to no
-evaluation (sim writers, run-root docs) and do not appear.</section>
+evaluation (sim writers, run-root docs) and do not appear.
+
+An attribution is a STRING for an artifact one evaluation writes and a LIST for a glob
+several write into — a family&#x27;s figure folder is filled by every evaluation in that
+family, and naming one of them made the entry read as if that one owned the folder.
+Both shapes land here as one entry per (evaluation, artifact) pair.</section>
 <section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__build.html"><code>build</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__head.html"><code>head</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_contract_py__load.html"><code>load</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_artifact_map_py__findings.html"><code>findings</code></a> <span class="dim">Optimization/Performance_Evaluations/core/artifact_map.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_artifact_map_py__owned_artifacts">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/artifact_map.py#:~:text=def%20owned_artifacts">Source ↗</a></p>
 </article>

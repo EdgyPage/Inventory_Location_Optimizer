@@ -16,7 +16,7 @@
 
 <pre class="sig"><code>Optimization.Performance_Evaluations.layout.travel</code></pre>
 <section class="doc">layout.travel — travel cost per arm against the baseline, the layout family&#x27;s
-comparison view.
+comparison work.
 
 The layout family owned only the churn overlay, and churn is flat (often exactly zero
 when reslotting is off), so the family that should answer &quot;did this placement rule
@@ -25,15 +25,27 @@ arms — Σ f·D, demand-weighted distance, the objective the assignment functio
 was reachable only through a diagnostics small-multiples grid, and diagnostics is the
 family explicitly exempted from comparison work.
 
-Two views of one quantity, both against the FIFO baseline:
+Two views of one quantity, and the set is DERIVED (`ranked` mark × `sigma_fd`), not
+chosen here.  A ranked mark&#x27;s categories are ARMS, which do not pair with themselves, so
+the derivation gives no delta — the per-batch difference lives with the serial marks:
 
-  * delta   — per-arm % improvement in steady-state Σ f·D, sorted, with the bootstrap
-              interval of the per-batch improvements, so the ranking says which gaps are
-              separable and which are not.
-  * absolute — the same arms&#x27; Σ f·D beside the layout floor when the run publishes one
-              (`optimal_sigma_fd`), which turns a unitless objective into &quot;how much of
-              the achievable improvement did this rule capture&quot;.</section>
-<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___absolute_figure.html"><code>_absolute_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___delta_figure.html"><code>_delta_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___per_batch.html"><code>_per_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___rows.html"><code>_rows</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li></ul></section>
+  absolute  each arm&#x27;s steady-state Σ f·D beside the layout floor when the run publishes
+            one, which turns a unitless objective into &quot;how much of the achievable
+            improvement did this rule capture&quot;.
+  percent   per-arm improvement against the baseline, sorted, with the bootstrap interval
+            of the PAIRED per-batch improvements, so the ranking says which gaps are
+            separable and which are not: where an interval crosses zero, the arm has not
+            been shown to move travel at all.
+
+**The percent view used to be called `delta`.**  It computed `improvement_pct_series`,
+labelled its axis through `pct_axis`, and saved as `delta_travel_vs_baseline.png` under
+`view=&#x27;delta&#x27;` — a percent under a delta&#x27;s name, which five save-time checks passed
+because every one of them compared a declaration against another declaration and none of
+them ever saw a number.  It was not carelessness: the `layout` family&#x27;s allow-list had no
+`percent` in it, so there was nowhere honest to put the figure.  Both halves are fixed —
+the view set comes from the quantity and the mark, and `common/marks.py` computes the
+stance from raw values, so the filename and the arithmetic come from one decision.</section>
+<section class="rel"><h2>Imports <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py.html"><code>Optimization.Performance_Evaluations.common.marks</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py.html"><code>Optimization.Performance_Evaluations.common.stats_core</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization.Performance_Evaluations.core.quantities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_layout_travel_py__QUANTITY.html"><code>QUANTITY</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___TITLES.html"><code>_TITLES</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___entries.html"><code>_entries</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___figure.html"><code>_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py___per_batch.html"><code>_per_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_travel_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/travel.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_layout_travel_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/layout/travel.py">Source ↗</a></p>
 </article>
 </main>

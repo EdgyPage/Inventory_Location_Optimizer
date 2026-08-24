@@ -45,6 +45,8 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "compute_aggregate_stats", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
+      - {name: "MIN_PAIRED_PROFILES", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "const"}
+      - {name: "paired_profile_diagnosis", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
       - {name: "compute_aggregate_by_initial", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/tables.py", kind: "function"}
     notes: ""
@@ -52,6 +54,7 @@ files:
     purpose: "cross-profile over-time trajectories, percent view only."
     layer: "evaluations"
     key_symbols:
+      - {name: "SERIES_QUANTITIES", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/catalog/fixed.py":
@@ -81,7 +84,6 @@ files:
     key_symbols:
       - {name: "HOURS", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "const"}
       - {name: "to_hours", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
-      - {name: "time_units", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "to_time", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "improvement_pct", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "improvement_pct_series", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
@@ -98,6 +100,14 @@ files:
       - {name: "effect_label", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "annotate_points", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "draw_ci", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "REFERENCE_STYLE", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "const"}
+      - {name: "BOUND_STYLE", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "const"}
+      - {name: "reference_line", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "category_axis", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "mark_baseline_row", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "annotate_bars", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "rank", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
+      - {name: "rolling_mean", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "make", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
       - {name: "Chart", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "class"}
       - {name: "height_for_categories", file: "Optimization/Performance_Evaluations/common/chartkit.py", kind: "function"}
@@ -116,6 +126,15 @@ files:
       - {name: "set_current_eval", file: "Optimization/Performance_Evaluations/common/io.py", kind: "function"}
       - {name: "out_dir", file: "Optimization/Performance_Evaluations/common/io.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/common/marks.py":
+    purpose: "draw a quantity in a view, from RAW values, so a stance cannot be mislabelled."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "BESPOKE_CEILING", file: "Optimization/Performance_Evaluations/common/marks.py", kind: "const"}
+      - {name: "ranked", file: "Optimization/Performance_Evaluations/common/marks.py", kind: "function"}
+      - {name: "serial", file: "Optimization/Performance_Evaluations/common/marks.py", kind: "function"}
+      - {name: "views_for", file: "Optimization/Performance_Evaluations/common/marks.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/common/painters.py":
     purpose: "the builders more than one evaluation draws with."
     layer: "evaluations"
@@ -123,6 +142,14 @@ files:
       - {name: "overtime_metrics", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
       - {name: "top_tag", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
       - {name: "paint_overtime", file: "Optimization/Performance_Evaluations/common/painters.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/common/present.py":
+    purpose: "raw sim values to presentation values, for every consumer, once."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "Scale", file: "Optimization/Performance_Evaluations/common/present.py", kind: "class"}
+      - {name: "for_metric", file: "Optimization/Performance_Evaluations/common/present.py", kind: "function"}
+      - {name: "pooled", file: "Optimization/Performance_Evaluations/common/present.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/common/series.py":
     purpose: "Per-strategy time-series construction, the series.json dump, top-N selection, and the"
@@ -141,6 +168,21 @@ files:
     key_symbols:
       - {name: "legend_right", file: "Optimization/Performance_Evaluations/common/style.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/common/units.py":
+    purpose: "the presentation-unit policy, in one place and with no third-party imports."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "TIME_UNITS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "KINDS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "Unit", file: "Optimization/Performance_Evaluations/common/units.py", kind: "class"}
+      - {name: "DURATION", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "RATE_PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "NONE", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "time_units", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
+      - {name: "resolve", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
+      - {name: "axis_label", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/config/series.py":
     purpose: "write series.json (per-strategy trajectories + steady-state scalars +"
     layer: "evaluations"
@@ -158,6 +200,14 @@ files:
       - {name: "config_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "run_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/core/baseline.py":
+    purpose: "WHICH arm every comparison is quoted against, declared instead of counted."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "Baseline", file: "Optimization/Performance_Evaluations/core/baseline.py", kind: "class"}
+      - {name: "BASELINE", file: "Optimization/Performance_Evaluations/core/baseline.py", kind: "const"}
+      - {name: "resolve", file: "Optimization/Performance_Evaluations/core/baseline.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/core/context.py":
     purpose: "the per-config (and per-aggregate-group) data hub."
     layer: "evaluations"
@@ -173,14 +223,50 @@ files:
     key_symbols:
       - {name: "import_all", file: "Optimization/Performance_Evaluations/core/discovery.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/core/era.py":
+    purpose: "can this run's data answer the quantities the suite declares?"
+    layer: "evaluations"
+    key_symbols:
+      - {name: "QUANTITY_READS", file: "Optimization/Performance_Evaluations/core/era.py", kind: "const"}
+      - {name: "requires_for", file: "Optimization/Performance_Evaluations/core/era.py", kind: "function"}
+      - {name: "findings", file: "Optimization/Performance_Evaluations/core/era.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/core/families.py":
     purpose: "which VIEWS each family of figures must and may carry."
     layer: "evaluations"
     key_symbols:
       - {name: "VIEWS", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "RUN_SCOPE_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
+      - {name: "LEAF_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
+      - {name: "LEGACY_VIEWS_CEILING", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "check_view", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
       - {name: "figures_subdir", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/core/quantities.py":
+    purpose: "WHAT this suite measures, declared once."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "STANCES", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "DIRECTIONS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "FRAME_TABLE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "Source", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
+      - {name: "Quantity", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
+      - {name: "quantity_for", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
+      - {name: "metric_specs", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
+      - {name: "aggregate_specs", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
+      - {name: "Shape", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
+      - {name: "RANKED", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "SERIAL", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "FACET", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "CURVE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "SCATTER", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "COMPOSITE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "INSPECTION", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "EFFECT", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "TABLE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "SHAPES", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "derive_views", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
+      - {name: "suppression_reason", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/core/registry.py":
     purpose: "The Evaluation descriptor + @evaluation decorator + module-level registry."
@@ -200,6 +286,7 @@ files:
       - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "record_error", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "resolve_needs", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "tally_snapshot", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "sql", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -300,6 +387,7 @@ files:
     purpose: "travel cost per arm against the baseline, the layout family's comparison view (delta and forest panels over demand-weighted distance)."
     layer: "evaluations"
     key_symbols:
+      - {name: "QUANTITY", file: "Optimization/Performance_Evaluations/layout/travel.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/layout/travel.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/presets.py":
@@ -384,6 +472,7 @@ files:
     purpose: "every over-time metric in both measurement stances."
     layer: "evaluations"
     key_symbols:
+      - {name: "SERIES_QUANTITIES", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "function"}
     notes: ""
   "Optimization/analyze_run.py":
@@ -1049,6 +1138,8 @@ files:
       - {name: "test_tuple_declaration_bounds_each_member_and_nothing_else", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_root_declaring_evaluations_make_no_checkable_claim", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
       - {name: "test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_ingest_prunes_exactly_what_the_guard_would_report", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
+      - {name: "test_the_declared_name_set_includes_retired_entries", file: "Tests/architecture/test_artifact_map.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_bin_mutation_sites.py":
     purpose: "the bin-mutation log is complete only while this list is."
@@ -1065,6 +1156,21 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_context_matches_code", file: "Tests/architecture/test_context_sync.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_data_era_gate.py":
+    purpose: "a quantity may not quietly need data some runs never recorded."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_quantity_reads_outside_the_guaranteed_surface_unnamed", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_the_module_level_declaration_is_the_union_of_every_quantity_read", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_the_gate_is_not_vacuous", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_a_capability_that_does_not_exist_is_refused", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_a_real_capability_satisfies_the_gate", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_a_derived_frame_column_declares_the_columns_it_is_built_from", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_every_declared_db_column_actually_exists_in_the_surface", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_a_quantity_with_no_database_source_asks_the_gate_nothing", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_the_frame_table_map_covers_every_source_kind_in_use", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_no_quantity_names_a_capability_yet_and_that_is_why_there_is_no_probe", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_docref_guard.py":
     purpose: "Locks the doc section-reference guard: every '<doc>.md section N' in the repo still resolves, the checker catches renumbered and retitled headings, and CLAUDE.md's numbering stays contiguous."
@@ -1089,8 +1195,10 @@ files:
       - {name: "test_the_starter_defaults_are_live_figures_only", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_every_eval_key_is_registered", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_every_figure_stem_appears_in_its_writer_source", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
-      - {name: "test_every_committed_manifest_figure_is_in_the_registry", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
-      - {name: "test_macros_no_longer_carries_caption_tables", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "UNREGISTERED_STEMS", file: "Tests/architecture/test_figure_registry.py", kind: "const"}
+      - {name: "UNREGISTERED_CEILING", file: "Tests/architecture/test_figure_registry.py", kind: "const"}
+      - {name: "test_every_minted_quantity_stem_is_registered_or_recorded_as_a_known_gap", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_the_unregistered_ledger_is_capped_and_not_stale", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_files_catalog_sync.py":
     purpose: "test_files_catalog_sync.py"
@@ -1295,6 +1403,23 @@ files:
       - {name: "test_missing_part_fails_by_name", file: "Tests/architecture/test_site_tree.py", kind: "function"}
       - {name: "test_macros_fstring_joins_equal_the_templates", file: "Tests/architecture/test_site_tree.py", kind: "function"}
       - {name: "test_ingest_renders_destinations_from_site_tree_only", file: "Tests/architecture/test_site_tree.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_view_coverage.py":
+    purpose: "the derived view set is BINDING, not advisory."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_module_writes_a_view_outside_its_derived_set", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_every_derived_view_is_emitted_or_recorded_as_pending", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_the_pending_ledger_is_capped_and_every_entry_says_why", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "PENDING_CEILING", file: "Tests/architecture/test_view_coverage.py", kind: "const"}
+      - {name: "test_the_pending_ledger_matches_what_is_actually_missing", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_every_figure_evaluation_declares_a_known_mark", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_a_comparison_mark_declares_the_quantities_it_draws", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_the_derived_views_are_reproducible_from_the_declaration", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_no_evaluation_still_hand_writes_its_views", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_every_bespoke_key_resolves_to_a_real_evaluation_and_view", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_the_bespoke_ledger_is_capped", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
+      - {name: "test_the_scan_actually_finds_figure_evaluations_and_their_saves", file: "Tests/architecture/test_view_coverage.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_viewer_broker_boundary.py":
     purpose: "producer-broker-consumer, ENFORCED in the viewer."
@@ -1839,6 +1964,11 @@ files:
       - {name: "test_id_changes_on_group_and_resolves_via_edits", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
       - {name: "test_axis_reordering_is_reported_not_just_hashed", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
       - {name: "test_feature_edits_change_the_id", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_the_schema_family_tuple_equals_the_declared_leaf_families", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_a_run_scope_family_has_no_per_leaf_glob", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_every_leaf_family_glob_is_generated_and_complete", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_the_evaluation_attribution_matches_the_registry_both_ways", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_the_attribution_field_is_unhashed_so_completing_it_moved_nothing", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
     notes: ""
   "Tests/integration/test_runtime_metrics.py":
     purpose: "Locks the runtime-metrics DB + graphs \u2014 record_arm/load round-trip, UNIQUE-key overwrite, arm parsing + rate, and the emitted ranked/breakdown PNGs."
@@ -2034,6 +2164,21 @@ files:
       - {name: "test_nonpositive_speed_is_rejected_at_the_config_boundary", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_travel_scores_stay_finite_for_every_valid_speed", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_baseline_declaration.py":
+    purpose: "the comparison baseline is selected, not counted."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_declared_arm_is_found_wherever_it_sits", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_the_match_is_case_insensitive", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_the_positional_fallback_still_answers_and_says_so", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_an_empty_strategy_list_resolves_to_nothing_rather_than_raising", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_a_strategy_list_with_no_assignment_key_falls_back_loudly", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_the_cost_family_shares_the_one_declaration", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_the_context_takes_its_baseline_from_the_declaration", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_the_chart_label_comes_from_the_same_declaration", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "inspect_default", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+      - {name: "test_logging_a_real_logger_does_not_raise", file: "Tests/unit/test_baseline_declaration.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_batch_sampler_v2.py":
     purpose: "gates the flag-gated Fenwick sampler v2 \u2014 v1 stays byte-identical (dispatch + fingerprint), v2 is deterministic, without-replacement, weight-faithful, and fingerprints apart from v1"
     layer: "tests"
@@ -2120,8 +2265,35 @@ files:
       - {name: "test_save_rejects_a_filename_that_contradicts_its_view", file: "Tests/unit/test_chartkit.py", kind: "function"}
       - {name: "test_view_grammar_enforced_inside_a_render", file: "Tests/unit/test_chartkit.py", kind: "function"}
       - {name: "test_family_and_out_subdir_are_mutually_exclusive", file: "Tests/unit/test_chartkit.py", kind: "function"}
-      - {name: "test_family_grammar_rejects_undeclared_views_at_registration", file: "Tests/unit/test_chartkit.py", kind: "function"}
-      - {name: "test_every_family_view_set_is_within_the_grammar_vocabulary", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_a_figure_evaluation_may_not_hand_write_its_views", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_a_comparison_mark_must_say_what_it_draws", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_a_stale_view_exception_is_refused", file: "Tests/unit/test_chartkit.py", kind: "function"}
+      - {name: "test_every_family_declares_a_charter_and_a_scope", file: "Tests/unit/test_chartkit.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_chartkit_primitives.py":
+    purpose: "the shapes that were re-typed per module, pinned once."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_rank_sorts_best_first_in_both_directions", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_an_undefined_value_always_sorts_last", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_rank_of_nothing_is_nothing", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_smoother_does_not_dive_at_the_ends", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_smoother_is_a_no_op_below_its_window", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_family_alias_is_the_promoted_primitive", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_datum_is_not_styled_like_a_series", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_orient_names_the_axis_the_quantity_is_on", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_on_chart_text_and_the_legend_entry_are_separate", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_no_family_module_hand_rolls_a_zero_line_any_more", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_first_category_is_at_the_top_for_horizontal_marks", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_a_vertical_category_axis_is_not_inverted", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_annotate_bars_skips_a_value_that_is_not_a_number", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_annotate_bars_puts_the_text_outside_the_bar_on_both_signs", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_baseline_row_is_marked_behind_the_data", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_a_horizontal_interval_puts_the_error_on_x", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_a_vertical_interval_is_unchanged", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_abandon_closes_the_figure_and_returns_nothing", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_no_family_module_closes_a_chart_figure_by_hand", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+      - {name: "test_the_module_guards_can_actually_see_the_package", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
     notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
@@ -2199,6 +2371,25 @@ files:
       - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_marks.py":
+    purpose: "a stance cannot be mislabelled, and an interval estimates the dot."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_entry_point_accepts_a_precomputed_stance", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_percent_view_is_the_one_sign_convention", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_delta_view_is_oriented_too", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_an_unknown_view_is_refused_rather_than_guessed", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_comparison_point_and_its_interval_come_from_one_sample", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_a_paired_series_drops_the_undefined_pairs_only", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_a_paired_series_is_empty_when_the_arms_do_not_line_up", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_paired_delta_is_oriented_like_the_paired_percent", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_a_comparison_view_without_a_pairing_draws_no_interval", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_a_pairing_produces_an_interval_per_arm", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_baseline_is_a_datum_in_the_absolute_view_and_absent_from_a_comparison", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_nothing_drawable_returns_zero_rather_than_an_empty_chart", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_every_bespoke_entry_names_a_real_evaluation_view_with_a_real_reason", file: "Tests/unit/test_marks.py", kind: "function"}
+      - {name: "test_the_bespoke_ledger_is_capped", file: "Tests/unit/test_marks.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_mixed_catalog_channels.py":
     purpose: "test_mixed_catalog_channels.py"
     layer: "tests"
@@ -2269,6 +2460,21 @@ files:
       - {name: "test_a_sku_already_on_order_is_not_reordered_again", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_present_collapse.py":
+    purpose: "four presentation tables became one, and the diff is named."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_significance_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_the_aggregate_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_the_overtime_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_every_recorded_move_is_still_a_move", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_every_recorded_move_carries_a_real_reason", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_the_headline_metric_groups_did_not_move_at_all", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_the_overtime_specs_still_carry_every_key_the_painter_reads", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_a_time_metric_hands_the_painter_no_converter", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_the_converter_is_picklable_and_names_itself", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_a_metric_with_no_scaling_gets_no_converter", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_prune_stale_analysis.py":
     purpose: "the stale-output pruner deletes orphans and nothing else."
     layer: "tests"
@@ -2279,6 +2485,29 @@ files:
       - {name: "test_a_tree_with_no_current_output_refuses", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
       - {name: "test_reserved_subtrees_are_never_walked", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
       - {name: "test_dry_run_deletes_nothing_and_apply_deletes", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_quantities.py":
+    purpose: "the quantity table is the ONE declaration, and it is faithful."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_derived_metric_table_is_the_literal_it_replaced", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_the_derived_aggregate_table_is_the_literal_it_replaced", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_production_time_and_productivity_hours_are_one_quantity", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_suppressed_view_must_carry_a_reason", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_every_declared_suppression_reason_is_substantive", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_two_throughput_quantities_no_longer_share_one_axis_label", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_duration_resolves_its_unit_from_its_own_samples", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_duration_unit_may_not_declare_a_suffix_it_would_ignore", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_views_come_from_the_quantity_and_the_shape_never_from_the_family", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_share_never_gets_a_percent_view", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_contrast_quantity_carries_the_delta_view_and_nothing_else", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_the_effect_view_comes_from_the_mark_not_from_any_quantity", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_every_quantity_derives_at_least_one_view_for_some_shape", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_every_quantity_is_readable_somewhere", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_sourceless_quantity_is_refused_at_construction", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_keys_and_stems_are_unique", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_a_series_quantity_declares_a_stem_and_a_title", file: "Tests/unit/test_quantities.py", kind: "function"}
+      - {name: "test_the_stdlib_promise_holds", file: "Tests/unit/test_quantities.py", kind: "function"}
     notes: ""
   "Tests/unit/test_regime_sizing.py":
     purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
@@ -2295,6 +2524,19 @@ files:
       - {name: "test_aisle_split_capacity_loss_drops_bins", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_store_branch", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_k_bounded", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_render_error_surfacing.py":
+    purpose: "a render that raises must not vanish."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_raising_render_is_recorded_with_its_exception", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_a_raising_render_does_not_stop_the_ones_after_it", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_a_grant_and_an_error_are_counted_separately", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_the_per_job_reset_clears_errors_too", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_the_tally_survives_the_trip_back_to_the_parent", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_aggregate_sig_can_reach_its_interval_helper", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_the_by_initial_absence_names_the_reason_that_actually_applies", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
+      - {name: "test_layout_travel_reads_the_floor_attribute_that_exists", file: "Tests/unit/test_render_error_surfacing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_reorder_accounting.py":
     purpose: "test_reorder_accounting.py"
@@ -2899,6 +3141,7 @@ files:
     purpose: "Pull a simulation run's curated files into a docs experiment folder."
     layer: "docs"
     key_symbols:
+      - {name: "WHATIF_PNG_GLOB", file: "docs/experiments/ingest.py", kind: "const"}
       - {name: "DEFAULT_WHATIF_DATA", file: "docs/experiments/ingest.py", kind: "const"}
       - {name: "DEFAULT_WHATIF_PNG_GLOB", file: "docs/experiments/ingest.py", kind: "const"}
       - {name: "main", file: "docs/experiments/ingest.py", kind: "function"}
