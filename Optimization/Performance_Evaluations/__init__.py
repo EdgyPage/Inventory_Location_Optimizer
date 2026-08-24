@@ -18,3 +18,11 @@ matplotlib.use('Agg')   # must precede any pyplot import in the graph modules
 from Optimization.Performance_Evaluations.core.discovery import import_all
 
 import_all()            # fire every @evaluation so the registry is populated on import
+
+# The registry is complete exactly HERE, and nowhere earlier: `presets` is itself one of
+# the modules the walk imports, so it cannot check itself.  A registered evaluation named
+# by no preset group renders nothing and says nothing about it — a preset naming a SUBSET
+# of the registry is exactly what a preset is, so nothing raises on its own.
+from Optimization.Performance_Evaluations.presets import check_groups  # noqa: E402
+
+check_groups()

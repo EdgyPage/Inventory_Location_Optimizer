@@ -169,17 +169,8 @@ def render(ctx, params):
         w.writerows(rows)
     ctx.log.info(f'  wrote {os.path.basename(path)} ({len(rows)} rows)')
 
-    # The dossier index: one document a page can load to reach every part of this layer,
-    # so no macro has to know the layout of the tree it is reading from.
-    idx_dir = os.path.dirname(out)
-    with open(os.path.join(idx_dir, 'dossier.json'), 'w', encoding='utf-8') as fh:
-        json.dump({
-            'run': os.path.basename(os.path.abspath(ctx.run_root)),
-            'workers': ctx.run_workers(),
-            'n_batches': rows[0]['n_batches'],
-            'baseline_rule': BASE_RULE,
-            'note': ('Wall-clock compute cost of the SIMULATOR, not modeled warehouse '
-                     'labor. Setup and loop spans are disjoint: precomp_s is measured '
-                     'before the batch loop starts and is not part of total_s.'),
-            'cost': rows,
-        }, fh, indent=2)
+    # The dossier INDEX is not written here.  It used to be, through
+    # `os.path.dirname(out)` — this evaluation declares `out_subdir='tables'`, so reaching
+    # its parent put the file outside its own declared bounds, where
+    # `artifact_map.save_in_bounds` cannot see it.  It has its own root-scope evaluation
+    # now (`dossier.index`), which reads these same rows from `cost_rows`.

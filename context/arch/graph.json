@@ -566,6 +566,16 @@
       "src": "Optimization/Performance_Evaluations/__init__.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/presets.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/__init__.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/presets.py::check_groups",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/__init__.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/aggregate/tables.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/aggregate/sig.py"
@@ -2428,6 +2438,51 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/cost/rollup.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/dossier/index.py::_head_basename",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py::_BASENAME"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::build",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py::_head_basename"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/cost/rollup.py::cost_rows",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/dossier/index.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
       "src": "Optimization/Performance_Evaluations/driver.py"
     },
     {
@@ -3459,6 +3514,11 @@
       "dst": "Optimization/Performance_Evaluations/layout/travel.py::_figure",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/layout/travel.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/presets.py"
     },
     {
       "dst": "Optimization/Performance_Evaluations/presets.py::_keys",
@@ -17580,6 +17640,62 @@
       "public": true
     },
     {
+      "file": "Optimization/Performance_Evaluations/dossier/__init__.py",
+      "id": "Optimization/Performance_Evaluations/dossier/__init__.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/dossier/__init__.py",
+      "name": "Optimization.Performance_Evaluations.dossier",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "Optimization.Performance_Evaluations.dossier.index",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py::_ARTIFACT",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "_ARTIFACT",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py::_BASENAME",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "_BASENAME",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py::_SPAN_NOTE",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "_SPAN_NOTE",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py::_head_basename",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "_head_basename",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/dossier/index.py",
+      "id": "Optimization/Performance_Evaluations/dossier/index.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/dossier/index.py",
+      "name": "render",
+      "public": true
+    },
+    {
       "file": "Optimization/Performance_Evaluations/driver.py",
       "id": "Optimization/Performance_Evaluations/driver.py",
       "kind": "module",
@@ -18189,6 +18305,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/presets.py",
+      "id": "Optimization/Performance_Evaluations/presets.py::_GROUPS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/presets.py",
+      "name": "_GROUPS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/presets.py",
       "id": "Optimization/Performance_Evaluations/presets.py::_HEADLINE",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/presets.py",
@@ -18201,6 +18325,14 @@
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/presets.py",
       "name": "_RUN",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/presets.py",
+      "id": "Optimization/Performance_Evaluations/presets.py::_STATS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/presets.py",
+      "name": "_STATS",
       "public": false
     },
     {
@@ -18242,6 +18374,14 @@
       "module": "Optimization/Performance_Evaluations/presets.py",
       "name": "_top",
       "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/presets.py",
+      "id": "Optimization/Performance_Evaluations/presets.py::check_groups",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/presets.py",
+      "name": "check_groups",
+      "public": true
     },
     {
       "file": "Optimization/Performance_Evaluations/significance/__init__.py",
@@ -31233,6 +31373,14 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "run_section",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.run_suite_section",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "run_suite_section",
       "public": true
     },
     {

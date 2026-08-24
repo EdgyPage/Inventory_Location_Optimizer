@@ -2988,6 +2988,55 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/dossier/__init__.py": {
+      "decorators": [],
+      "doc": "dossier \u2014 the run-root index a page loads first.\n\nOne evaluation, and it exists so that every output in the run tree has exactly ONE owner.\n\n`cost.rollup` declares `out_subdir='tables'` and wrote the run-root index to the parent of\nthat, through `os.path.dirname(out)`.  Nothing stopped it: `artifact_map.save_in_bounds`\nchecks a path against the evaluation's declared subdir, and an evaluation that writes\noutside its own bounds is invisible to a check keyed on those bounds.  So the index \u2014 the\ndocument every dossier macro loads before anything else \u2014 was written by an evaluation\nthat did not declare it, and `artifact_map.findings()` could not see the discrepancy.\n\nThe obvious fix is worse than this one: giving `cost.rollup` `out_subdir=('', 'tables')`\nmakes `save_in_bounds` unmatchable on the `''` member, which converts a silent gap into a\nsilent pass.  A root-scope evaluation of its own is what the `catalog.*` evaluations\nalready do, and it costs one module.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py": {
+      "decorators": [],
+      "doc": "dossier.index \u2014 the one document a page loads first.\n\nRun identity, the worker count the timings were taken under, and the cost rows: enough\nthat no macro has to know the layout of the tree it is reading from.\n\nIt used to be written by `cost.rollup`, which declares `out_subdir='tables'` and reached\nits parent with `os.path.dirname(out)` \u2014 see this package's docstring for why that made\nthe file invisible to `artifact_map`.  The rows come from the same shared `cost_rows`\nhelper `cost.rollup` uses, so the CSV and the index cannot disagree about a number; the\nbroker has already served the runtime metrics by the time the second of the two runs.\n\nThe basename comes from the HEAD run-tree contract rather than being spelled here, so the\ndeclaration and the writer cannot disagree and the filename appears in this module as no\ntext at all.\n\n**HEAD, not the run's own contract.**  `ctx.rt` resolves against the document the RUN was\nmade under, which is right for a CONSUMER and wrong for a writer: this run predates the\ndossier artifacts entirely, so `ctx.rt.path('dossier_json')` raises `KeyError` on it.  A\nwriter emits the tree the current code declares; the resolver exists to read a tree that\nwas already written.  (The failure was silent-shaped and only visible because the render\nerror tally now names an evaluation that raised.)",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py::_ARTIFACT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'dossier_json'"
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py::_BASENAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_head_basename(_ARTIFACT)"
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py::_SPAN_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'Wall-clock compute cost of the SIMULATOR, not modeled warehouse labor. Setup and loop spans are disjoint: precomp_s is measured before the batch loop starts and is not part of total_s.'"
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py::_head_basename": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(artifact: str) -> str"
+    },
+    "Optimization/Performance_Evaluations/dossier/index.py::render": {
+      "decorators": [
+        "evaluation(key='dossier.index', label='Run dossier index', scope='run', needs=('runtime',), out_subdir='')"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/driver.py": {
       "decorators": [],
       "doc": "Driver \u2014 scope dispatch + output-dir preparation for the registry.\n\nThe flat-pool worker in run_analysis.py builds an EvalContext (config stage) or an\nAggregateContext (aggregate stage) and calls run_config / run_aggregate (config granularity)\nor run_one (graph granularity).  Directory preparation is done ONCE by the parent pre-pass\n(prepare_config_dirs / prepare_aggregate_dir) so no worker races to wipe a shared dir; each\nevaluation only writes its own files into the shared figures/ and tables/ tops (the old\nsingle-owner self-wipe pattern is retired \u2014 no render wipes anything).\n\n`_run_one` is the sole render entry, which makes it the access-control choke point: every\nevaluation's declared `needs=` is resolved through the request broker (core/requests.py)\nBEFORE its render runs.  All granted -> render exactly as before (the resolution warmed the\ncontext caches the render reads).  Any denied -> the render is SKIPPED, gracefully, and the\n`[access]` log line carries the reason the broker actually hit \u2014 a missing resource is an\nanswerable event, never a crash and never a silent half-figure.\n\nIt also catches every render exception, so one broken evaluation cannot sink the rest.\nThat swallow is deliberate and it was also, for a long time, invisible: the only trace was\na log call from inside a worker whose logger reaches no file.  Every caught exception is\nnow recorded in the broker's tally and reported at the end of the run, because a grant is\na statement about an evaluation's INPUTS and says nothing about whether anything came out.",
@@ -3524,6 +3573,13 @@
       "signature": null,
       "value_preview": "['task_time.duration', 'task_time.breakdown', 'layout.travel', 'layout.churn', 'diagnostics.metric_grids', 'diagnostics.scorecards']"
     },
+    "Optimization/Performance_Evaluations/presets.py::_GROUPS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_TABLES, _HEADLINE, _TRENDS, _DETAIL, _AGG, _RUN)"
+    },
     "Optimization/Performance_Evaluations/presets.py::_HEADLINE": {
       "decorators": [],
       "doc": null,
@@ -3536,7 +3592,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['cost.compute', 'cost.rollup', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed']"
+      "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed']"
+    },
+    "Optimization/Performance_Evaluations/presets.py::_STATS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'assignment': ['tables.stats', 'sig.suite'], 'initial': ['tables.by_initial', 'sig.by_initial']}"
     },
     "Optimization/Performance_Evaluations/presets.py::_TABLES": {
       "decorators": [],
@@ -3572,6 +3635,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(n, by, *extra)"
+    },
+    "Optimization/Performance_Evaluations/presets.py::check_groups": {
+      "decorators": [],
+      "doc": "Every registered evaluation is named by exactly one group or one stats flavour.\n\nCalled from the PACKAGE `__init__`, immediately after `import_all()` \u2014 not at this\nmodule's own import, because `presets` is itself one of the modules that walk\ndiscovers, so at that moment the registry holds whatever happens to have been imported\nalphabetically before it.  Calling it there and not from a test is deliberate: a\nnewly registered evaluation must not be able to reach a run without someone deciding\nwhere it belongs, and the cost of finding out otherwise lands 21 minutes later as a\nfigure nobody notices is absent.\n\nThe message names the key and lists the groups, because \"add it somewhere\" is not\nactionable and \"which of these six\" is.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
     },
     "Optimization/Performance_Evaluations/significance/__init__.py": {
       "decorators": [],
@@ -14712,7 +14782,7 @@
     },
     "docs/macros.py::define_env._figs": {
       "decorators": [],
-      "doc": "[(filename, caption, width)] for kind in {'top3','full_suite'}.\n\nA manifest names its own figures.  WITHOUT one the experiment is a legacy\nsnapshot, and it renders the registry's `legacy` set \u2014 frozen to what that sweep\nactually produced \u2014 NOT the `default` starter set, which names the figures the\nCURRENT suite writes and which a 2026-06 run never had.  Conflating the two\npointed Experiment 1 at chart names that postdate it by two months.",
+      "doc": "[(filename, caption, width)] for kind in {'top3','full_suite','run_suite'}.\n\nA manifest names its own figures.  WITHOUT one the experiment is a legacy\nsnapshot, and it renders the registry's `legacy` set \u2014 frozen to what that sweep\nactually produced \u2014 NOT the `default` starter set, which names the figures the\nCURRENT suite writes and which a 2026-06 run never had.  Conflating the two\npointed Experiment 1 at chart names that postdate it by two months.",
       "is_async": false,
       "kind": "function",
       "signature": "(kind)"
@@ -15004,6 +15074,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.run_suite_section": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The RUN-scope figure blocks \u2014 one set per run, not one per config leaf.\n\n`full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}`, which is right for\nevery figure a channel-run leaf produces and wrong for one the run root produces.\nThe `cost` family renders at run scope and ingest stages it flat, so it gets its own\nsection and its own path here.  A registry test ties the section to the\nevaluation's declared scope in both directions, so neither can move alone.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "docs/macros.py::define_env.setup_table": {
       "decorators": [

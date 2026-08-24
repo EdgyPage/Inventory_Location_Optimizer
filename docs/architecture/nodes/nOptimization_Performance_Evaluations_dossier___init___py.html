@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.dossier · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_dossier___init___py" data-id="Optimization/Performance_Evaluations/dossier/__init__.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/dossier/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.dossier</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_dossier___init___py.html"><code>Optimization/Performance_Evaluations/dossier/__init__.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.dossier</code></pre>
+<section class="doc">dossier — the run-root index a page loads first.
+
+One evaluation, and it exists so that every output in the run tree has exactly ONE owner.
+
+`cost.rollup` declares `out_subdir=&#x27;tables&#x27;` and wrote the run-root index to the parent of
+that, through `os.path.dirname(out)`.  Nothing stopped it: `artifact_map.save_in_bounds`
+checks a path against the evaluation&#x27;s declared subdir, and an evaluation that writes
+outside its own bounds is invisible to a check keyed on those bounds.  So the index — the
+document every dossier macro loads before anything else — was written by an evaluation
+that did not declare it, and `artifact_map.findings()` could not see the discrepancy.
+
+The obvious fix is worse than this one: giving `cost.rollup` `out_subdir=(&#x27;&#x27;, &#x27;tables&#x27;)`
+makes `save_in_bounds` unmatchable on the `&#x27;&#x27;` member, which converts a silent gap into a
+silent pass.  A root-scope evaluation of its own is what the `catalog.*` evaluations
+already do, and it costs one module.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_dossier___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/dossier/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

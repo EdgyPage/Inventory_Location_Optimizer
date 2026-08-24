@@ -72,6 +72,12 @@ _LITERALS = {
     # learned all three.
     'cost.compute':                   ('figures', 'cost'),
     'cost.rollup':                    ('tables',),
+    # The dossier INDEX writes to the run root, not to tables/. It used to be written by
+    # cost.rollup through `os.path.dirname(out)` — outside that evaluation's own declared
+    # bounds, where `save_in_bounds` cannot see it. Its own root-scope evaluation is what
+    # gives every output exactly one owner; `out_subdir=('', 'tables')` on cost.rollup
+    # would have made save_in_bounds unmatchable on the '' member instead.
+    'dossier.index':                  (),
     'tables.census':                  ('tables',),
     'catalog.rules':                  (),
     'catalog.fixed':                  (),

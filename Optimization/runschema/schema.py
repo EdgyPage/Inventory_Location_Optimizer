@@ -216,9 +216,12 @@ ARTIFACTS = {
         'group': 'dossier',
         'path': '_dossier/dossier.json', 'format': 'json', 'scope': 'run', 'optional': True,
         'condition': 'needs the run root runtime metrics DB.',
-        'evaluation': 'cost.rollup',
-        'writer': 'render@Optimization/Performance_Evaluations/cost/rollup.py',
-        'note': 'the index a page loads first: run identity, contention, and the cost rows.'},
+        'evaluation': 'dossier.index',
+        'writer': 'render@Optimization/Performance_Evaluations/dossier/index.py',
+        'note': 'the index a page loads first: run identity, contention, and the cost '
+                'rows. Its own ROOT-scope evaluation: cost.rollup wrote it by reaching '
+                'the parent of its declared tables/ subdir, which put the file outside '
+                'the bounds artifact_map checks against.'},
     'rule_catalog_json': {
         'group': 'dossier',
         'path': '_dossier/rule_catalog.json', 'format': 'json', 'scope': 'run',

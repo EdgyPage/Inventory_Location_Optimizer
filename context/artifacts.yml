@@ -255,9 +255,13 @@ artifacts:
   dossier_json:
     path_pattern: "comparison_<ts>/_dossier/dossier.json"
     format: json
-    writer: {function: render, file: Optimization/Performance_Evaluations/cost/rollup.py}
+    writer: {function: render, file: Optimization/Performance_Evaluations/dossier/index.py}
     readers: []
-    match: "dossier.json"
+    # The writer does NOT spell the basename: it takes it from the HEAD contract's own
+    # declaration, so the anchor is the ARTIFACT NAME it resolves rather than the filename
+    # it happens to resolve to.  A writer that named the file would be the duplication the
+    # run-tree consumption ratchet counts.
+    match: "dossier_json"
   rule_catalog_json:
     path_pattern: "comparison_<ts>/_dossier/rule_catalog.json"
     format: json

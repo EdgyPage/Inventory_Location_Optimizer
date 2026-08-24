@@ -318,6 +318,12 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/diagnostics/scorecards.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/dossier/index.py":
+    purpose: "the one document a page loads first."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/dossier/index.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/driver.py":
     purpose: "scope dispatch + output-dir preparation for the registry."
     layer: "evaluations"
@@ -394,6 +400,7 @@ files:
     purpose: "the manifest that decides which graphs run and with what params."
     layer: "evaluations"
     key_symbols:
+      - {name: "check_groups", file: "Optimization/Performance_Evaluations/presets.py", kind: "function"}
       - {name: "PRESETS", file: "Optimization/Performance_Evaluations/presets.py", kind: "const"}
     notes: ""
   "Optimization/Performance_Evaluations/significance/panels.py":
@@ -1199,6 +1206,9 @@ files:
       - {name: "UNREGISTERED_CEILING", file: "Tests/architecture/test_figure_registry.py", kind: "const"}
       - {name: "test_every_minted_quantity_stem_is_registered_or_recorded_as_a_known_gap", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_the_unregistered_ledger_is_capped_and_not_stale", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_a_run_scope_figure_is_in_the_run_section_and_only_a_run_scope_one_is", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_the_run_section_is_not_empty", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_the_run_section_has_its_own_macro", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_files_catalog_sync.py":
     purpose: "test_files_catalog_sync.py"
