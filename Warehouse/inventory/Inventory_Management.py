@@ -704,10 +704,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return (self._sigma_freq.get(sku, 0.0)
                 * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
-    def _stock(self) -> None:
+    def _stock(self, budget: int | None = None) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
         policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
         used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
+
+        ``budget`` caps how many units may be PLACED in this call; whatever is left stays
+        queued for the next one, which is the deferral the queue already does for a unit
+        no bin can hold.  ``None`` (the default, and every caller today) means place
+        everything, exactly as before.
+
+        A budget is what a finite crew and a finite number of dock doors impose: the
+        parameter exists so that constraint has somewhere to go without the drain being
+        rewritten around it.
 
         Runs the coupling guard first — even on an empty queue — so an armed/fn
         mismatch fails loudly before any placement: when travel costs are armed,
@@ -725,11 +734,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if not self._stock_queue:
             return
         if self.placement.is_ranked:
-            self._stock_ranked()
+            self._stock_ranked(budget)
         else:
-            self._stock_per_unit()
+            self._stock_per_unit(budget)
 
-    def _stock_per_unit(self) -> None:
+    def _stock_per_unit(self, budget: int | None = None) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
 
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
@@ -739,9 +748,20 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
           1. Repack into a smaller pallet size tier (retried immediately via appendleft).
           2. Fall back to singleton bins of the same order type (same).
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
+
+        ``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and
+        pushes them back, and charging a budget for that would make the cap depend on how
+        badly the warehouse is packed rather than on how much the crew can move.
         """
         pending: deque[PutawayItem] = deque()
+        placed = 0
         while self._stock_queue:
+            if budget is not None and placed >= budget:
+                # Budget spent.  Everything still queued waits for the next call — the same
+                # deferral a unit gets when no bin fits it, so nothing new can be dropped.
+                pending.extend(self._stock_queue)
+                self._stock_queue.clear()
+                break
             item   = self._stock_queue.popleft()
             unit   = item.unit
             order = unit.order
@@ -763,6 +783,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
             if bin_ is not None:
                 self._execute_placement(unit, bin_, source=item.source)
+                placed += 1
             else:
                 # No bin fits this unit.  Attempt rescues in priority order:
                 #   1. Repack into smaller pallet size tier (existing logic).
@@ -835,7 +856,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._stock_queue = pending
 
 
-    def _stock_ranked(self) -> None:
+    def _stock_ranked(self, budget: int | None = None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
@@ -847,6 +868,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         Units the wave cannot place are handed to the per-unit path
         (_stock_per_unit), which re-fetches candidates per unit so they spill into
         other tiers / remaining bins exactly as FIFO does (see below).
+
+        ``budget`` is spent per GROUP here, not per unit, and that is not a simplification.
+        `place_wave` scores a whole group at once and mutates the manager's aisle running
+        balances as it decides, so each unit's bin depends on where the earlier units in
+        the same wave went.  Truncating a wave mid-way would place units under a balance
+        that assumed the rest landed too.  So the check happens BEFORE the wave is called:
+        a group that cannot be afforded is requeued untouched, having never influenced an
+        aisle balance.  A wave is the atom.
         """
         if not self._stock_queue:
             return
@@ -863,7 +892,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # first).  Group key is then (BinKey, band); OFF ⇒ insertion order (byte-identical).
         group_items = (sorted(groups.items(), key=lambda kv: kv[0][1])
                        if self._zoning_enabled else groups.items())
+        placed = 0
         for _key, items in group_items:
+            if budget is not None and placed >= budget:
+                # Cannot afford this wave: requeue it whole, WITHOUT scoring it, so no
+                # aisle balance moves for units that are not going to be placed.
+                self._stock_queue.extend(items)
+                continue
             # `place_wave` takes and returns bare units, so the envelope is re-attached by
             # object identity.  Safe HERE and nowhere else: every unit in `by_unit` is alive
             # for the whole call, so an id cannot be recycled underneath the lookup — which
@@ -876,6 +911,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 if bin_ is not None:
                     self._execute_placement(unit, bin_,
                                             source=by_unit[id(unit)].source)
+                    placed += 1
                 else:
                     # The wave couldn't place this unit: place_wave takes a single
                     # candidate snapshot for the whole wave (one tier, fetched once),
@@ -888,6 +924,6 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     self._stock_queue.append(by_unit[id(unit)])
 
         if self._stock_queue:
-            self._stock_per_unit()
+            self._stock_per_unit(None if budget is None else max(0, budget - placed))
 
 
