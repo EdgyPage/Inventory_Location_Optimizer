@@ -299,7 +299,12 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
                     'run). Aisle counts and ff aisle stats may not line up.')
         return None
     g = CONFIG['global']
-    for key in ('n_batches', 'keyframe_interval', 'checkpoint_frac'):
+    # seed_world is as load-bearing here as max_skus: sim_assets seeds the warehouse and
+    # catalogue build from it, so re-analysing with this checkout's seed rebuilds a
+    # DIFFERENT warehouse than the sim ran on -- the same silent wrong-warehouse bug this
+    # function exists to close.  seed_batches rides along so a rebuilt batch stream matches.
+    for key in ('n_batches', 'keyframe_interval', 'checkpoint_frac',
+                'seed_world', 'seed_batches'):
         if spec.get(key) is not None:
             g[key] = spec[key]
     # Batch-sampler era: a pre-field run_spec predates v2's adoption, so its absence

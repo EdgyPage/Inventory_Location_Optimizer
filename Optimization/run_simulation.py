@@ -110,7 +110,9 @@ def _apply_run_spec(args, spec, explicit):
               # load-bearing here as the bin caps beside them.
               'store_fill', 'ff_fill', 'checkpoint_frac',
               # Batch-sampler era: a resume MUST regenerate the same batch sequence.
-              'sampler'):
+              'sampler',
+              # ...and the seeds it is drawn from, plus the world it is drawn against.
+              'seed_world', 'seed_batches'):
         if f not in spec:
             continue
         if f in explicit:
@@ -198,6 +200,18 @@ def main():
     parser.add_argument('--n-batches', type=int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
+    # The two seeds decide whether two runs are COMPARABLE at all -- same world seed = same
+    # warehouse and catalogue, same batch seed = same demand stream -- and until now neither
+    # had a flag while --workers, which changes no result, did.  Changing one and not
+    # recording it is how an incomparable pair of runs gets published as a comparison.
+    parser.add_argument('--seed-world', type=int, default=None, metavar='S',
+                        help='Override the world seed: warehouse + catalogue construction '
+                             f'(default {CONFIG["global"]["seed_world"]}). Two runs with '
+                             'different world seeds are NOT comparable.')
+    parser.add_argument('--seed-batches', type=int, default=None, metavar='S',
+                        help='Override the base batch-stream seed (default '
+                             f'{CONFIG["global"]["seed_batches"]}). Each channel draws from '
+                             'this plus its own offset, so both streams move together.')
     # Defaulted FROM CONFIG (the --keyframe-interval precedent) so the assignment below is
     # unconditional and sim_config's era value stays the single source of truth.
     parser.add_argument('--sampler', choices=('v1', 'v2'),
@@ -283,6 +297,12 @@ def main():
     g = CONFIG['global']
     if args.n_batches:
         g['n_batches'] = args.n_batches
+    # Read at call time by sim_config.seed_world()/seed_batches(), so this reaches the
+    # warehouse build and every worker's batch stream.
+    if args.seed_world is not None:
+        g['seed_world'] = args.seed_world
+    if args.seed_batches is not None:
+        g['seed_batches'] = args.seed_batches
     if args.max_skus is not None:
         g['max_skus'] = args.max_skus
     g['workers']           = args.workers or 1
@@ -387,6 +407,8 @@ def main():
         _write_run_spec(base_dir, {
             'argv'         : sys.argv,
             'n_batches'    : g['n_batches'],  'max_skus'    : g['max_skus'],
+            # A resume MUST rebuild the same world and redraw the same demand.
+            'seed_world'   : g['seed_world'], 'seed_batches': g['seed_batches'],
             's_max_aisles' : args.s_max_aisles, 's_max_bins' : args.s_max_bins, 's_min_bins': args.s_min_bins,
             'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
             's_composition': _store_comp,
