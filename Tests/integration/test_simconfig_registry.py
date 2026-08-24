@@ -33,9 +33,31 @@ def test_active_sweeps_rebuilt_from_registry():
     assert sc.CONFIG['channels']['store']['configs'] is sc.STORE_CONFIGS  # CONFIG references it
 
 
+def test_config_holds_copies_of_the_registrys_dicts():
+    """The LIST aliases (asserted above); the DICTS inside must not.
+
+    `_apply_cell` writes `cfg['scheduler']` into every entry of
+    CONFIG['channels'][*]['configs'] once per what-if cell.  While those were the registry's
+    own dicts that write landed in `PICK_CONFIG_BY_KEY[…].cfg` permanently — a frozen
+    dataclass does not stop you mutating a dict it holds.  Registry = declaration,
+    CONFIG = run state, one copy between them.
+    """
+    assert sc.STORE_CONFIGS[0] == PICK_CONFIG_BY_KEY['store'].cfg
+    assert sc.STORE_CONFIGS[0] is not PICK_CONFIG_BY_KEY['store'].cfg
+    assert sc.FULFILLMENT_CONFIGS[0] is not PICK_CONFIG_BY_KEY['ful_calibrated'].cfg
+
+
 def test_pick_config_dicts_byte_identical():
-    assert sc.STORE_CONFIGS[0] == _EXP_STORE
-    assert sc.FULFILLMENT_CONFIGS[0] == _EXP_FF
+    """Asserted against the REGISTRY, not CONFIG.
+
+    Reading `sc.STORE_CONFIGS[0]` here made this test order-dependent: any earlier test in
+    the same process that ran a what-if cell added a `scheduler` key that is in neither
+    expected literal, and the failure would have looked like a config-module edit.  The
+    registry is what the author declared, so the registry is what a byte-identity check
+    should read.
+    """
+    assert PICK_CONFIG_BY_KEY['store'].cfg == _EXP_STORE
+    assert PICK_CONFIG_BY_KEY['ful_calibrated'].cfg == _EXP_FF
 
 
 def test_disabled_variants_registered_but_excluded():

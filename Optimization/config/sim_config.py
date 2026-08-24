@@ -115,10 +115,22 @@ _HANDLINGS  = ['conveyable', 'non-conveyable']
 # re-exports them; CONFIG['channels'][*]['configs'] references them; tests read rs.REGRESSION_CONFIGS)
 # but their VALUES are assembled from the registry.  The commented-out store variants are now
 # enabled=False modules (a discoverable menu); the fast-walker ff variant stays removed.
+#
+# The dicts here are COPIES of the registry's, and that is load-bearing.  A PickConfigSpec is
+# frozen, but `frozen` guards rebinding the field — not mutating the dict it points at, and
+# `cells._apply_cell` writes `cfg['scheduler']` into every entry of
+# CONFIG['channels'][*]['configs'] for each what-if cell.  While these were the registry's own
+# dicts, that write reached `PICK_CONFIG_BY_KEY['store'].cfg` and stayed there for the life of
+# the process: a key the config author never declared, materialised by whichever cell ran last.
+#
+# So the split is explicit.  The REGISTRY is the immutable declaration — what the author wrote.
+# CONFIG is the mutable run state — the declaration plus this run's overrides.  One copy at
+# build time is the whole boundary between them.  (The LIST objects still alias, so
+# `CONFIG['channels']['store']['configs'] is STORE_CONFIGS` holds as before.)
 _ACTIVE_PICK_CONFIGS = sorted((s for s in PICK_CONFIGS if s.enabled),
                               key=lambda s: (s.channel, s.order, s.name))
-STORE_CONFIGS       = [s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']
-FULFILLMENT_CONFIGS = [s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']
+STORE_CONFIGS       = [dict(s.cfg) for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']
+FULFILLMENT_CONFIGS = [dict(s.cfg) for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']
 REGRESSION_CONFIGS  = STORE_CONFIGS      # legacy alias: REGRESSION_CONFIGS IS the store set
 
 

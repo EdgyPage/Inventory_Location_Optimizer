@@ -2,7 +2,10 @@
 
 A cell = a fixed choice of aisle-split × zoning × scheduler over one frozen inventory.
 _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is
-seen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}]."""
+seen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].
+
+CONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to
+the former only.  Cell.overrides() reports the same values without applying them."""
 from __future__ import annotations
 
 import os
@@ -47,6 +50,20 @@ class Cell(NamedTuple):
         return (self.split is None and not self.zoning.get('enabled')
                 and self.scheduler == 'round_robin')
 
+    def overrides(self) -> dict:
+        """What this cell CHANGES about a channel, as a plain record.
+
+        The same three values `_apply_cell` writes, named rather than positional, so a
+        caller can see a cell's effect without applying it — which is what a resolution
+        pass needs, and what makes the effect diffable between two cells.
+
+        `scheduler` is a pick-config field (like `one_way`), so it lands on every one of a
+        channel's pick-config dicts; the other two are channel-level.
+        """
+        return {'aisle_split': self.split,
+                'velocity_zoning': dict(self.zoning),
+                'scheduler': self.scheduler}
+
 
 def reference_cell(cells, fallback: str | None = None) -> str:
     """The name of the reference cell, or `fallback`, or the first cell."""
@@ -80,7 +97,18 @@ def _build_cells(spec):
 def _apply_cell(aisle_split, zoning, scheduler='round_robin') -> None:
     """Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every
     channel.  The scheduler is a pick-config field (like one_way), so set it on each channel's
-    pick-config dicts."""
+    pick-config dicts.
+
+    Writes into CONFIG and ONLY into CONFIG.  Those pick-config dicts used to be the very
+    objects `PICK_CONFIG_BY_KEY[…].cfg` holds, so this loop permanently edited the registry:
+    `scheduler` is absent from every config module as written, and after one cell ran the
+    frozen spec carried whichever value that cell chose, for the life of the process.
+    `sim_config` now copies the dicts when it assembles CONFIG, which is where that boundary
+    lives — see the comment beside STORE_CONFIGS.  Do not reintroduce a path that hands the
+    registry's own dict to a mutator.
+
+    See `Cell.overrides()` for the same three values as a record, when you want to inspect a
+    cell's effect rather than apply it."""
     for ch in CONFIG['channels']:
         CONFIG['channels'][ch]['sizing']['aisle_split'] = aisle_split
         CONFIG['channels'][ch]['velocity_zoning'] = dict(zoning)
