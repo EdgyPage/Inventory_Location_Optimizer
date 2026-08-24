@@ -65,7 +65,9 @@ from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SE
 from Optimization.config.strategies import restocks_for
 from Optimization.config.channels import FF_BATCH_SEED_OFFSET
 from Optimization.simconfig import PICK_CONFIGS                          # fires the registry import_all()
+from copy import deepcopy as _deepcopy
 from Optimization.simconfig.constants import _STORE_PICKERS, _FF_PICKERS
+from Optimization.config import settings as _s
 
 # ── warehouse geometry (structural; shared by both channels) ────────────────────
 # Physical aisle dimensions: 50 pallet-width columns × 10 extra_large-height levels.
@@ -150,11 +152,11 @@ REGRESSION_CONFIGS  = STORE_CONFIGS      # legacy alias: REGRESSION_CONFIGS IS t
 # external read-only consumers (bucket_fill) keep working.
 CONFIG = {
     'global': {
-        'seed_world'      : 42,
-        'seed_batches'    : 1337,
-        'n_batches'       : 100,
-        'workers'         : 1,
-        'checkpoint_frac' : 0.1,     # checkpoint every ceil(n_batches * frac) batches
+        'seed_world'      : _s.SEED_WORLD,
+        'seed_batches'    : _s.SEED_BATCHES,
+        'n_batches'       : _s.N_BATCHES,
+        'workers'         : _s.WORKERS,
+        'checkpoint_frac' : _s.CHECKPOINT_FRAC,   # every ceil(n_batches * frac) batches
         # Keyframes are no longer how spatial state is RECONSTRUCTED — bin_placement +
         # bin_eviction + picks fold to exact bin state at every batch, with no keyframe
         # involved.  What a keyframe is now: an INDEPENDENT audit of that fold (the viewer
@@ -162,8 +164,8 @@ CONFIG = {
         # Neither job needs 5: that wrote 20 full-warehouse snapshots per 100-batch arm,
         # ~3.1M rows, to re-answer a question the log answers exactly.  25 keeps both roles
         # at a fifth of the cost.  0 still disables the sidecar entirely.
-        'keyframe_interval': 25,
-        'max_skus'        : None,    # global input-catalog cap (preserves the store/ff mix)
+        'keyframe_interval': _s.KEYFRAME_INTERVAL,
+        'max_skus'        : _s.MAX_SKUS,   # input-catalog cap (preserves the store/ff mix)
         # Batch-sampler VERSION — a results ERA, not a tuning knob.  'v2' (the Fenwick
         # sampler, introduced e7c9ed9, adopted as default 2026-08-20) draws the same
         # weight model as 'v1' in O((k·(1+partners))·log N) instead of O(k·N) — measured
@@ -172,23 +174,23 @@ CONFIG = {
         # with the pre-2026-08-20 archive.  `--sampler v1` reproduces that archive
         # exactly (byte-identical, digest-proven).  Batch caches are fingerprinted apart
         # per sampler, so the two eras can never contaminate each other.
-        'sampler'         : 'v2',
+        'sampler'         : _s.SAMPLER,
         # Shift length in SECONDS (the sim's own unit), 8 hours by default.  A REPORTING
         # FRAME over a continuous clock: it labels work_events.shift_index and nothing
         # dispatches against it -- work does not pause at the whistle and no task is split
         # at a boundary.  See Warehouse.kernel.timeline.shift_index.
-        'shift_seconds'   : 8 * 3600.0,
+        'shift_seconds'   : _s.SHIFT_SECONDS,
     },
     'channels': {
         'store': {
             'regime'     : STORE,
             'configs'    : STORE_CONFIGS,
-            'num_pickers': _STORE_PICKERS,
+            'num_pickers': _s.STORE_PICKERS,
             'restocks'   : restocks_for('store'),
-            'cart'       : 'StoreCart',
+            'cart'       : _s.STORE_CART,
             'seed_offset': 0,
-            'batch'      : {'mean': 0.15, 'std': 0.05},
-            'fill'       : 0.85,
+            'batch'      : {'mean': _s.STORE_BATCH_MEAN, 'std': _s.STORE_BATCH_STD},
+            'fill'       : _s.STORE_FILL,
             # aisle_split (optional): cut each aisle into k shorter segments (~depth/k) with a
             # capacity_loss modeling throughway construction.  None/{'k':1} = no split
             # (byte-identical).  e.g. {'k': 2, 'capacity_loss': 0.15}.
@@ -198,18 +200,17 @@ CONFIG = {
             # ("like-with-like"), composing with every arm.  enabled=False = byte-identical.
             # mode 'equal' (default, equal-count bands) | 'abc' (manual A/B/C by demand-mass
             # thresholds; aisles allocated by band footprint so the hot band is a small fraction).
-            'velocity_zoning': {'enabled': False, 'n_bands': 3, 'mode': 'equal',
-                                'abc': {'mass_thresholds': [0.7, 0.9]}},
+            'velocity_zoning': _deepcopy(_s.ZONING_OFF),
         },
         'fulfillment': {
             'regime'     : FULFILLMENT,
             'configs'    : FULFILLMENT_CONFIGS,
-            'num_pickers': _FF_PICKERS,
+            'num_pickers': _s.FF_PICKERS,
             'restocks'   : restocks_for('fulfillment'),
-            'cart'       : 'FulfillmentCart',
+            'cart'       : _s.FF_CART,
             'seed_offset': FF_BATCH_SEED_OFFSET,
-            'batch'      : {'mean': 0.20, 'std': 0.05},
-            'fill'       : 0.85,
+            'batch'      : {'mean': _s.FF_BATCH_MEAN, 'std': _s.FF_BATCH_STD},
+            'fill'       : _s.FF_FILL,
             # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
             # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
             # depth_classes (optional): split each ff size tier's aisles into shallow/deep
@@ -226,8 +227,7 @@ CONFIG = {
                             'max_aisles': None},
             # Velocity zoning is the fulfillment experiment axis (default off = byte-identical);
             # pairs with depth_classes/aisle_split so hot SKUs cluster into shallow aisles.
-            'velocity_zoning': {'enabled': False, 'n_bands': 3, 'mode': 'equal',
-                                'abc': {'mass_thresholds': [0.7, 0.9]}},
+            'velocity_zoning': _deepcopy(_s.ZONING_OFF),
         },
     },
 }

@@ -78,6 +78,11 @@ SHAPE_SOURCES = (
     'Optimization/config/whatif_config.py',
     'Optimization/config/strategies.py',
     'Optimization/config/sim_config.py',
+    # The flat authoring surface CONFIG is derived from.  Listed for the same reason
+    # sim_config is: editing a VALUE here moves the tree's source fingerprint, so
+    # preflight re-proves the shape.  Omitting it would make a config edit invisible --
+    # exactly the bug the run_whatif_volume note above records.
+    'Optimization/config/settings.py',
     'Optimization/Performance_Evaluations/driver.py',
     'Optimization/Performance_Evaluations/common/io.py',
     'Optimization/Performance_Evaluations/common/series.py',
