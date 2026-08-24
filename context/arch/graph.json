@@ -56,11 +56,6 @@
       "src": "Diagnostics/bucket_fill.py"
     },
     {
-      "dst": "Warehouse/picking/Pick.py::PickConfig",
-      "kind": "calls",
-      "src": "Diagnostics/bucket_fill.py::_build_pick_cfg"
-    },
-    {
       "dst": "Diagnostics/bucket_fill.py::_bin_bucket",
       "kind": "calls",
       "src": "Diagnostics/bucket_fill.py::_capacity_by_bucket"
@@ -134,11 +129,6 @@
       "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
       "kind": "calls",
       "src": "Diagnostics/bucket_fill.py::main"
-    },
-    {
-      "dst": "Diagnostics/bucket_fill.py::_build_pick_cfg",
-      "kind": "calls",
-      "src": "Diagnostics/bucket_fill.py::runtime_view"
     },
     {
       "dst": "Diagnostics/bucket_fill.py::_capacity_by_bucket",
@@ -6401,6 +6391,11 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/run_simulation.py::_positive_int",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/runschema/preflight.py::ensure",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -8426,6 +8421,11 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
+      "dst": "Optimization/config/sim_config.py::seed_world",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::store_fill",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
@@ -8997,6 +8997,16 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_config_name",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::seed_batches",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::seed_world",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -14394,14 +14404,6 @@
     },
     {
       "file": "Diagnostics/bucket_fill.py",
-      "id": "Diagnostics/bucket_fill.py::_build_pick_cfg",
-      "kind": "function",
-      "module": "Diagnostics/bucket_fill.py",
-      "name": "_build_pick_cfg",
-      "public": false
-    },
-    {
-      "file": "Diagnostics/bucket_fill.py",
       "id": "Diagnostics/bucket_fill.py::_capacity_by_bucket",
       "kind": "function",
       "module": "Diagnostics/bucket_fill.py",
@@ -19218,22 +19220,6 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::K_PICKERS",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "K_PICKERS",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::N_BATCHES",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "N_BATCHES",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::REGRESSION_CONFIGS",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
@@ -19242,34 +19228,10 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::SEED_BATCHES",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "SEED_BATCHES",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::SEED_WORLD",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "SEED_WORLD",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::STORE_CONFIGS",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
       "name": "STORE_CONFIGS",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::STORE_RESTOCKS",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "STORE_RESTOCKS",
       "public": true
     },
     {
@@ -19346,6 +19308,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::_PICK_CONFIG_FIELDS",
+      "kind": "const",
+      "module": "Optimization/config/sim_config.py",
+      "name": "_PICK_CONFIG_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_REPO_ROOT",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
@@ -19410,6 +19380,22 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::k_pickers",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "k_pickers",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::n_batches",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "n_batches",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::regime_sizing_from_config",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -19418,10 +19404,34 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::seed_batches",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "seed_batches",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::seed_world",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "seed_world",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::store_fill",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "store_fill",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::store_restocks",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "store_restocks",
       "public": true
     },
     {
@@ -21738,6 +21748,14 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_positive_int",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_positive_int",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::main",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
@@ -23662,6 +23680,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/cells.py",
       "name": "is_reference",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/cells.py",
+      "id": "Optimization/simdriver/cells.py::Cell.overrides",
+      "kind": "function",
+      "module": "Optimization/simdriver/cells.py",
+      "name": "overrides",
       "public": true
     },
     {

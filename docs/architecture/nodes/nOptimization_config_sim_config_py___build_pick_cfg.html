@@ -18,8 +18,21 @@
 <section class="doc">Turn a config dict (store or fulfillment) into a PickConfig.
 
 The one canonical dict→PickConfig conversion shared by both channels&#x27; sweeps.  Callers
-pass the config&#x27;s own &#x27;num_pickers&#x27; (store default K_PICKERS, fulfillment default 20) and
-the channel&#x27;s default_cart (StoreCart / FulfillmentCart); a &#x27;cart&#x27; key overrides it.</section>
+pass the config&#x27;s own &#x27;num_pickers&#x27; (store default k_pickers(), fulfillment default 20) and
+the channel&#x27;s default_cart (StoreCart / FulfillmentCart); a &#x27;cart&#x27; key overrides it.
+
+A MISSING key falls through to `PickConfig`&#x27;s own dataclass default, and that is the whole
+point of the shape here.  This function used to restate a fallback per key — a SECOND
+default set, which had drifted from the first: `pick_weight_coef` 1.1 against the
+dataclass&#x27;s 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0
+against 5.0 (2x).  Nothing caught it because every registered pick-config declares all
+three, so neither set was ever exercised on the run path — and `run_map_precompute`
+rebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always
+taken the dataclass defaults.  Two default sets and two reconstruction paths is a silent
+55x waiting for the first archive vintage that omits a key.
+
+Keys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately
+because the dict stores its NAME and the dataclass wants the class.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Pick_py__PickConfig.html"><code>PickConfig</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_channels_py__fulfillment_pick_config.html"><code>fulfillment_pick_config</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_simdriver_workunits_py___channel_runs_for.html"><code>_channel_runs_for</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py___build_pick_cfg">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20_build_pick_cfg">Source ↗</a></p>
 </article>

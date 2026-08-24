@@ -518,11 +518,11 @@ files:
       - {name: "FULFILLMENT_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
       - {name: "REGRESSION_CONFIGS", file: "Optimization/config/sim_config.py", kind: "const"}
       - {name: "CONFIG", file: "Optimization/config/sim_config.py", kind: "const"}
-      - {name: "SEED_WORLD", file: "Optimization/config/sim_config.py", kind: "const"}
-      - {name: "SEED_BATCHES", file: "Optimization/config/sim_config.py", kind: "const"}
-      - {name: "N_BATCHES", file: "Optimization/config/sim_config.py", kind: "const"}
-      - {name: "K_PICKERS", file: "Optimization/config/sim_config.py", kind: "const"}
-      - {name: "STORE_RESTOCKS", file: "Optimization/config/sim_config.py", kind: "const"}
+      - {name: "seed_world", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "seed_batches", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -2016,6 +2016,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_active_sweeps_rebuilt_from_registry", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+      - {name: "test_config_holds_copies_of_the_registrys_dicts", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
       - {name: "test_pick_config_dicts_byte_identical", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
       - {name: "test_disabled_variants_registered_but_excluded", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
       - {name: "test_duplicate_name_raises", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
@@ -2293,6 +2294,20 @@ files:
       - {name: "test_the_id_key_is_justified_by_bin_lifetime", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
       - {name: "test_nothing_reads_the_stamp_to_make_a_decision_yet", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_cell_overrides.py":
+    purpose: "a cell changes the run, not the declaration."
+    layer: "tests"
+    key_symbols:
+      - {name: "restore_config", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_the_registry_is_untouched_by_a_cell", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_two_cells_in_one_process_do_not_inherit_each_other", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_a_cell_still_reaches_every_channel", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_the_zoning_spec_is_copied_per_channel", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_overrides_reports_what_apply_would_write", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_overrides_does_not_apply_anything", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_overrides_hands_out_a_copy_of_the_zoning", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_every_built_cell_can_describe_itself", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_cell_record.py":
     purpose: "a what-if cell is a record, and its baseline predicate is one thing."
     layer: "tests"
@@ -2538,6 +2553,22 @@ files:
       - {name: "test_originals_hold_the_unflagged_template_a_reorder_is_copied_from", file: "Tests/unit/test_palletizing.py", kind: "function"}
       - {name: "test_reorder_copies_preserve_everything_the_palletizer_reads", file: "Tests/unit/test_palletizing.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_pick_config_conversion.py":
+    purpose: "one dict\u2192PickConfig conversion, one default set."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_an_empty_config_is_the_dataclass_defaults", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_the_three_that_drifted_now_agree", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_the_two_paths_agree_on_workload_params_too", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_the_fallbacks_were_dead_code_for_every_registered_config", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_a_declared_value_always_wins_over_the_default", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_a_non_field_key_is_dropped_rather_than_raising", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_the_cart_name_resolves_to_the_class", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_an_unknown_cart_name_falls_back_to_the_channel_default", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_every_registered_config_converts", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_the_field_set_is_derived_from_the_dataclass", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+      - {name: "test_no_module_builds_a_pickconfig_from_a_config_dict_on_its_own", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_placement_fastpath_equivalence.py":
     purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."
     layer: "tests"
@@ -2564,6 +2595,17 @@ files:
       - {name: "test_load_aware_reorder_maintains_aisle_state_for_both_directions", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_a_sku_already_on_order_is_not_reordered_again", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_positive_int_flags.py":
+    purpose: "a count that is meaningless at zero fails at the parser."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_real_count_passes_through", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
+      - {name: "test_zero_and_negatives_are_rejected", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
+      - {name: "test_a_non_integer_is_rejected_with_its_own_message", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
+      - {name: "test_n_batches_uses_the_validator", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
+      - {name: "test_the_apply_guard_is_not_truthiness", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
+      - {name: "test_the_parser_rejects_it_end_to_end", file: "Tests/unit/test_positive_int_flags.py", kind: "function"}
     notes: ""
   "Tests/unit/test_present_collapse.py":
     purpose: "four presentation tables became one, and the diff is named."
@@ -2751,6 +2793,21 @@ files:
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_run_shaping_accessors.py":
+    purpose: "a tunable is read at call time, never snapshotted."
+    layer: "tests"
+    key_symbols:
+      - {name: "ACCESSORS", file: "Tests/unit/test_run_shaping_accessors.py", kind: "const"}
+      - {name: "RETIRED", file: "Tests/unit/test_run_shaping_accessors.py", kind: "const"}
+      - {name: "restore_global", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_the_import_time_snapshot_is_gone", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_every_run_shaping_value_is_callable", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_a_global_override_reaches_the_accessor", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_a_channel_override_reaches_the_accessor", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_the_worker_payload_derives_its_seed_at_call_time", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_sim_assets_seeds_the_world_at_call_time", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+      - {name: "test_run_simulation_reexports_the_accessors_not_scalars", file: "Tests/unit/test_run_shaping_accessors.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_run_shaping_params.py":
     purpose: "run-shaping params flow sim -> run_spec.json -> analysis."
     layer: "tests"
@@ -2782,6 +2839,21 @@ files:
       - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_seed_flags.py":
+    purpose: "the two knobs that decide whether two runs are comparable."
+    layer: "tests"
+    key_symbols:
+      - {name: "SEEDS", file: "Tests/unit/test_seed_flags.py", kind: "const"}
+      - {name: "restore_global", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_flag_is_registered", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_parser_advertises_both_flags", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_flag_defaults_to_none_not_to_the_config_value", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_seed_is_written_to_run_spec_and_restored_on_resume", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_a_standalone_reanalysis_restores_both_seeds", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_a_spec_without_the_seeds_leaves_them_untouched", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_override_reaches_the_accessors", file: "Tests/unit/test_seed_flags.py", kind: "function"}
+      - {name: "test_the_channel_offset_rides_on_the_overridden_base", file: "Tests/unit/test_seed_flags.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."

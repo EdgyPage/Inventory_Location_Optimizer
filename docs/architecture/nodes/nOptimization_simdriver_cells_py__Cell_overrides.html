@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>overrides · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_cells_py__Cell_overrides" data-id="Optimization/simdriver/cells.py::Cell.overrides">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_cells_py__Cell.html"><code>Cell</code></a> <span class="sep">›</span> <span class="here"><code>overrides</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>overrides</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def overrides(self) -&gt; dict</code></pre>
+<section class="doc">What this cell CHANGES about a channel, as a plain record.
+
+The same three values `_apply_cell` writes, named rather than positional, so a
+caller can see a cell&#x27;s effect without applying it — which is what a resolution
+pass needs, and what makes the effect diffable between two cells.
+
+`scheduler` is a pick-config field (like `one_way`), so it lands on every one of a
+channel&#x27;s pick-config dicts; the other two are channel-level.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py__Cell_overrides">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20overrides">Source ↗</a></p>
+</article>
+</main>
+</body></html>

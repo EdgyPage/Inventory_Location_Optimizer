@@ -34,13 +34,6 @@
       "kind": "function",
       "signature": "(b) -> Bucket"
     },
-    "Diagnostics/bucket_fill.py::_build_pick_cfg": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cfg: dict) -> PickConfig"
-    },
     "Diagnostics/bucket_fill.py::_capacity_by_bucket": {
       "decorators": [],
       "doc": null,
@@ -4269,7 +4262,7 @@
     },
     "Optimization/config/sim_config.py": {
       "decorators": [],
-      "doc": "sim_config.py \u2014 the run's single source of tunable truth.\n\nEverything a run can be tuned by lives here: the .env-backed output/profile dirs,\nthe per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested\nCONFIG dict (global + per-channel sections), the derived read-only aliases, and the\nconfig\u2192PickConfig conversion.  run_simulation re-exports the public names so\n`rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)\nkeep working.\n\nCONFIG identity rule: the re-export binds the SAME dict object \u2014 tests mutate\n`rs.CONFIG['global'][...]` in place \u2014 so nobody may ever REBIND CONFIG (or the\nmutation would silently detach from internal readers).",
+      "doc": "sim_config.py \u2014 the run's single source of tunable truth.\n\nEverything a run can be tuned by lives here: the .env-backed output/profile dirs,\nthe per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested\nCONFIG dict (global + per-channel sections), the run-shaping accessors, and the\nconfig\u2192PickConfig conversion.  run_simulation re-exports the public names so\n`rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)\nkeep working.\n\nCONFIG identity rule: the re-export binds the SAME dict object \u2014 tests mutate\n`rs.CONFIG['global'][...]` in place \u2014 so nobody may ever REBIND CONFIG (or the\nmutation would silently detach from internal readers).\n\nCorollary, and the reason the run-shaping values are FUNCTIONS rather than module\nscalars: a value snapshotted at import cannot see that mutation.  Every consumer of a\ntunable reads it at call time.  See the block above `seed_world()`.",
       "kind": "module",
       "signature": null
     },
@@ -4285,21 +4278,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
-    },
-    "Optimization/config/sim_config.py::K_PICKERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['num_pickers']"
-    },
-    "Optimization/config/sim_config.py::N_BATCHES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['n_batches']"
+      "value_preview": "[dict(s.cfg) for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
     },
     "Optimization/config/sim_config.py::REGRESSION_CONFIGS": {
       "decorators": [],
@@ -4308,33 +4287,12 @@
       "signature": null,
       "value_preview": "STORE_CONFIGS"
     },
-    "Optimization/config/sim_config.py::SEED_BATCHES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['seed_batches']"
-    },
-    "Optimization/config/sim_config.py::SEED_WORLD": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['global']['seed_world']"
-    },
     "Optimization/config/sim_config.py::STORE_CONFIGS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[s.cfg for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
-    },
-    "Optimization/config/sim_config.py::STORE_RESTOCKS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "CONFIG['channels']['store']['restocks']"
+      "value_preview": "[dict(s.cfg) for s in _ACTIVE_PICK_CONFIGS if s.channel == 'store']"
     },
     "Optimization/config/sim_config.py::_ACTIVE_PICK_CONFIGS": {
       "decorators": [],
@@ -4399,6 +4357,13 @@
       "signature": null,
       "value_preview": "_clean_path(os.getenv('COMPARISON_OUTPUT_DIR', _HERE))"
     },
+    "Optimization/config/sim_config.py::_PICK_CONFIG_FIELDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset((f.name for f in _dataclass_fields(PickConfig)))"
+    },
     "Optimization/config/sim_config.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
@@ -4408,7 +4373,7 @@
     },
     "Optimization/config/sim_config.py::_build_pick_cfg": {
       "decorators": [],
-      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.",
+      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.\n\nA MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole\npoint of the shape here.  This function used to restate a fallback per key \u2014 a SECOND\ndefault set, which had drifted from the first: `pick_weight_coef` 1.1 against the\ndataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0\nagainst 5.0 (2x).  Nothing caught it because every registered pick-config declares all\nthree, so neither set was ever exercised on the run path \u2014 and `run_map_precompute`\nrebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always\ntaken the dataclass defaults.  Two default sets and two reconstruction paths is a silent\n55x waiting for the first archive vintage that omits a key.\n\nKeys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately\nbecause the dict stores its NAME and the dataclass wants the class.",
       "is_async": false,
       "kind": "function",
       "signature": "(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig"
@@ -4455,6 +4420,20 @@
       "kind": "function",
       "signature": "() -> float"
     },
+    "Optimization/config/sim_config.py::k_pickers": {
+      "decorators": [],
+      "doc": "The store channel's picker count, read at call time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
+    },
+    "Optimization/config/sim_config.py::n_batches": {
+      "decorators": [],
+      "doc": "The configured batch horizon, read at call time (`--n-batches` writes CONFIG).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
+    },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
       "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +\ncaps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
@@ -4462,12 +4441,33 @@
       "kind": "function",
       "signature": "() -> dict"
     },
+    "Optimization/config/sim_config.py::seed_batches": {
+      "decorators": [],
+      "doc": "The base batch-stream seed, read at call time.\n\nA CHANNEL's seed is this plus its `batch_seed_offset` (see `channels.Channel`), so\nstore and fulfillment draw independent streams from one configured base.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
+    },
+    "Optimization/config/sim_config.py::seed_world": {
+      "decorators": [],
+      "doc": "The world seed (warehouse + catalogue construction), read at call time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> int"
+    },
     "Optimization/config/sim_config.py::store_fill": {
       "decorators": [],
       "doc": "The store's sizing fill headroom, read from CONFIG at CALL time.\n\nWas `_INITIAL_FILL`, an import-time scalar \u2014 which quietly broke this module's own rule\nthat CONFIG is the single source of truth and is mutated in place: a runtime override\n(a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into\nthe warehouse DB as `target_fill`, so the run's own provenance recorded the stale\nnumber.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> float"
+    },
+    "Optimization/config/sim_config.py::store_restocks": {
+      "decorators": [],
+      "doc": "The store channel's restock-rule subset, read at call time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
     },
     "Optimization/config/strategies.py": {
       "decorators": [],
@@ -6485,6 +6485,13 @@
       "kind": "function",
       "signature": "(args, spec, explicit)"
     },
+    "Optimization/run_simulation.py::_positive_int": {
+      "decorators": [],
+      "doc": "An argparse `type=` that rejects zero and negatives.\n\n`--n-batches 0` was accepted, discarded by a truthiness guard, and the run went ahead\non CONFIG's value \u2014 so a smoke run asking for nothing quietly became a full one.  A\ncount that is meaningless at zero should fail at the parser, where argparse prints the\nflag name and exits 2, rather than three layers down or not at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str) -> int"
+    },
     "Optimization/run_simulation.py::main": {
       "decorators": [],
       "doc": null,
@@ -8004,7 +8011,7 @@
     },
     "Optimization/simconfig/constants.py": {
       "decorators": [],
-      "doc": "Leaf constants shared by the pick-config modules AND sim_config.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: the config\nmodules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config\nwould cycle \u2014 sim_config imports the simconfig registry, which import_all()s the config modules.\nsim_config re-imports these so `rs._STORE_PICKERS` / `K_PICKERS` and CONFIG['channels'][*]\n['num_pickers'] keep their single source of truth.",
+      "doc": "Leaf constants shared by the pick-config modules AND sim_config.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: the config\nmodules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config\nwould cycle \u2014 sim_config imports the simconfig registry, which import_all()s the config modules.\nsim_config re-imports these so `rs._STORE_PICKERS` / `sim_config.k_pickers()` and\nCONFIG['channels'][*]['num_pickers'] keep their single source of truth.",
       "kind": "module",
       "signature": null
     },
@@ -8146,7 +8153,7 @@
     },
     "Optimization/simdriver/cells.py": {
       "decorators": [],
-      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler over one frozen inventory.\n_apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is\nseen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].",
+      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler over one frozen inventory.\n_apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is\nseen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",
       "kind": "module",
       "signature": null
     },
@@ -8165,6 +8172,13 @@
       "kind": "function",
       "signature": "(self) -> bool"
     },
+    "Optimization/simdriver/cells.py::Cell.overrides": {
+      "decorators": [],
+      "doc": "What this cell CHANGES about a channel, as a plain record.\n\nThe same three values `_apply_cell` writes, named rather than positional, so a\ncaller can see a cell's effect without applying it \u2014 which is what a resolution\npass needs, and what makes the effect diffable between two cells.\n\n`scheduler` is a pick-config field (like `one_way`), so it lands on every one of a\nchannel's pick-config dicts; the other two are channel-level.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
     "Optimization/simdriver/cells.py::_SCHED_SHORT": {
       "decorators": [],
       "doc": null,
@@ -8174,7 +8188,7 @@
     },
     "Optimization/simdriver/cells.py::_apply_cell": {
       "decorators": [],
-      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.",
+      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.\n\nWrites into CONFIG and ONLY into CONFIG.  Those pick-config dicts used to be the very\nobjects `PICK_CONFIG_BY_KEY[\u2026].cfg` holds, so this loop permanently edited the registry:\n`scheduler` is absent from every config module as written, and after one cell ran the\nfrozen spec carried whichever value that cell chose, for the life of the process.\n`sim_config` now copies the dicts when it assembles CONFIG, which is where that boundary\nlives \u2014 see the comment beside STORE_CONFIGS.  Do not reintroduce a path that hands the\nregistry's own dict to a mutator.\n\nSee `Cell.overrides()` for the same three values as a record, when you want to inspect a\ncell's effect rather than apply it.",
       "is_async": false,
       "kind": "function",
       "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
