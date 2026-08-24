@@ -6,11 +6,51 @@ seen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}]."""
 from __future__ import annotations
 
 import os
+from typing import NamedTuple
 
 from Optimization.config.sim_config import CONFIG   # SAME object — _apply_cell mutates it in place
 
 
 _SCHED_SHORT = {'round_robin': 'rr', 'lpt': 'lpt'}
+
+
+class Cell(NamedTuple):
+    """One point in the what-if matrix: a fixed choice on every swept axis.
+
+    A NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked
+    positionally in five files — `cells.py`, `scenario.py`, `run_simulation.py`,
+    `sim_manifest.py` and `run_whatif_delta.py` — so `c[1]`, `c[3]` and
+    `(name, split, zoning, sched) = c` all had to keep working.  They do, which is why
+    this change cannot break a consumer by being half-applied; named access is simply
+    added beside them.
+
+    Adding a FIFTH axis (an inbound sorter policy) is now one field and one line in
+    `_build_cells` rather than five positional unpacks to find and renumber.  The names
+    here are the same ones `run_layout.json` records, so the descriptor and the producer
+    cannot drift apart.
+    """
+    name: str
+    split: dict | None          # {'k', 'capacity_loss'} or None for no aisle split
+    zoning: dict                # velocity_zoning spec; {'enabled': False} is off
+    scheduler: str              # 'round_robin' | 'lpt'
+
+    @property
+    def is_reference(self) -> bool:
+        """The natural baseline: no split, no zoning, the legacy scheduler.
+
+        This predicate was written out twice, verbatim, in `scenario.py` and
+        `run_simulation.py` — and those two MUST agree, because one picks the cell the
+        driver treats as the baseline and the other writes the reference name into
+        `run_layout.json` for every downstream what-if to diff against.  Two copies of a
+        predicate that must agree is a bug with a delay on it.
+        """
+        return (self.split is None and not self.zoning.get('enabled')
+                and self.scheduler == 'round_robin')
+
+
+def reference_cell(cells, fallback: str | None = None) -> str:
+    """The name of the reference cell, or `fallback`, or the first cell."""
+    return next((c.name for c in cells if c.is_reference), fallback or cells[0].name)
 
 
 def _build_cells(spec):
@@ -33,7 +73,7 @@ def _build_cells(spec):
                     if name in seen:
                         continue
                     seen.add(name)
-                    cells.append((name, split, dict(zspec), sched))
+                    cells.append(Cell(name, split, dict(zspec), sched))
     return cells
 
 
@@ -52,8 +92,9 @@ def _tightest_split(cells):
     """The split with the largest capacity_loss (fewest bins).  Freezing the sampled
     inventory to it guarantees every roomier cell can hold it (the frozen inventory
     always fits)."""
-    splits = [c[1] for c in cells
-              if c[1] and c[1].get('capacity_loss', 0.0) > 0 and int(c[1].get('k', 1)) > 1]
+    splits = [c.split for c in cells
+              if c.split and c.split.get('capacity_loss', 0.0) > 0
+              and int(c.split.get('k', 1)) > 1]
     return max(splits, key=lambda s: s.get('capacity_loss', 0.0), default=None)
 
 

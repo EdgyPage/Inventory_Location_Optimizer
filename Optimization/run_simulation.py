@@ -81,6 +81,7 @@ from Optimization.runschema.runlayout import discover_db_pairs, find_latest_db_p
 # _apply_cell / _run_whatif_matrix mutate it in place.
 from Optimization.simdriver.cells import (                # noqa: F401,E402
     _SCHED_SHORT, _build_cells, _apply_cell, _tightest_split, _cell_complete,
+    reference_cell,
 )
 from Optimization.simdriver.workunits import (            # noqa: F401,E402
     _plan_strategy_start, _prepare_channel_run, _channel_runs_for, _build_work_units,
@@ -450,8 +451,10 @@ def main():
     # INFER the tree instead of directory-guessing.  Written for a new run; a resumed LEGACY run
     # (no descriptor) gains one so it stays analyzable.  cell_tuples/reference match the driver's.
     cell_tuples = _build_cells(spec_dict)
-    reference   = next((c[0] for c in cell_tuples if c[1] is None and not c[2].get('enabled')
-                        and c[3] == 'round_robin'), spec_dict.get('reference') or cell_tuples[0][0])
+    # Same predicate the driver uses, from the same function — these two MUST agree: one
+    # picks the baseline cell, the other writes its name into run_layout.json for every
+    # downstream what-if to diff against.
+    reference   = reference_cell(cell_tuples, spec_dict.get('reference'))
     if (not args.resume) or (read_run_layout(base_dir) is None):
         write_run_layout(
             base_dir, spec=spec_name, reference=reference, cells=cell_tuples, pairs=pairs,

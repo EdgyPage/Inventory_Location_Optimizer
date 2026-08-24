@@ -16,7 +16,7 @@ from Optimization.runschema.sim_manifest import write_run_manifest
 from Optimization.config.strategies import STRATEGIES
 from Optimization.runschema.runlayout import iter_sim_dbs
 from Optimization.simdriver.cells import (
-    _apply_cell, _build_cells, _cell_complete, _tightest_split,
+    _apply_cell, _build_cells, _cell_complete, _tightest_split, reference_cell,
 )
 from Optimization.simdriver.supervisor import _run_workers_flat
 
@@ -93,8 +93,7 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     and samples fresh — bit-identical to the old flat run, just nested under its cell dir.  Returns
     {'cells': [names], 'reference': name}."""
     cells = _build_cells(spec)
-    reference = next((c[0] for c in cells if c[1] is None and not c[2].get('enabled')
-                      and c[3] == 'round_robin'), spec.get('reference') or cells[0][0])
+    reference = reference_cell(cells, spec.get('reference'))
     # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
     # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
     # snapshotted at import, so refresh it too.

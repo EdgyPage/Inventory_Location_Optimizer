@@ -128,7 +128,7 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
     or OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.
     Atomic (tmp + os.replace), same pattern as _write_run_spec.
 
-    cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
+    cells = the _build_cells() `Cell` records (name, split, zoning, scheduler); split is None or
     {'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.
 
     `schema_id` stamps which RUN-TREE CONTRACT this run's directory layout follows — the sha256 of
@@ -153,8 +153,12 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
         # FULL template from the run root — the cell level is part of the tree, not implied.
         'tree_template': '<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db',
         'channels'     : list(channels),
-        'cells'        : [{'name': name, 'split': split, 'zoning': zoning, 'scheduler': sched}
-                          for (name, split, zoning, sched) in cells],
+        # `Cell` is a NamedTuple whose field names ARE these keys, so `_asdict()` keeps the
+        # descriptor and the producer in step by construction.  A plain tuple is still
+        # accepted: a legacy resumed run reaches here with whatever it recorded.
+        'cells'        : [c._asdict() if hasattr(c, '_asdict')
+                          else dict(zip(('name', 'split', 'zoning', 'scheduler'), c))
+                          for c in cells],
         'pairs'        : [label for label, _inv, _aff in pairs],
         'pair_bindings': _pair_bindings(pairs),
         'configs'      : {'store'      : [c['name'] for c in store_cfgs],
