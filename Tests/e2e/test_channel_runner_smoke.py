@@ -221,7 +221,7 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
     assert [c['name'] for _, c in store_runs] == ['s1', 's2', 's3']
     assert [c['name'] for _, c in ff_runs] == ['f1', 'f2']
     for ch, _ in store_runs:
-        assert ch.regime == STORE and ch.picker.num_pickers == rs.K_PICKERS
+        assert ch.regime == STORE and ch.picker.num_pickers == rs.k_pickers()
     for ch, _ in ff_runs:
         assert ch.regime == FULFILLMENT and ch.picker.cost.cart is FulfillmentCart
     assert ff_runs[1][0].picker.num_pickers == 12               # per-config walker pool override

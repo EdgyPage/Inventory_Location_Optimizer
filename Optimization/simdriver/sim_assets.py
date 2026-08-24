@@ -23,7 +23,7 @@ from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
-    CONFIG, SEED_WORLD, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
+    CONFIG, seed_world, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
@@ -93,7 +93,7 @@ def build_shared_assets(
         # maps, so skip the expensive inventory re-stock in that path.  A frozen inventory is
         # already sampled, so we only need the SHAPE (sample=False) and keep the frozen orders.
         sample       = warehouse_db_path is not None and frozen_inventory_db is None,
-        rng          = random.Random(SEED_WORLD + 1),
+        rng          = random.Random(seed_world() + 1),
         log          = log,
     )
     if plan.sampled:                 # empty when sample=False (analysis / frozen path)
@@ -154,7 +154,7 @@ def build_shared_assets(
     # Build warehouse once in the main process only to extract aisle metadata maps
     # used by the analysis/plotting phase.  Workers rebuild from the same seed.
     Aisle.next_aisle_id = 1
-    random.seed(SEED_WORLD)
+    random.seed(seed_world())
     warehouse_meta = Warehouse_Builder().from_config(warehouse_cfg).build()
 
     # ── persist the PLANNED inventory (grown equilibrium_qty + multi-tier

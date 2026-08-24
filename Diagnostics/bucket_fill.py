@@ -137,7 +137,7 @@ def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, l
 
 def _build_pick_cfg(cfg: dict) -> PickConfig:
     return PickConfig(
-        num_pickers      = rs.K_PICKERS,
+        num_pickers      = rs.k_pickers(),
         x_speed          = cfg.get('x_speed', 4.0),
         y_speed          = cfg.get('y_speed', 2.0),
         pick_intercept   = cfg.get('pick_intercept', 1.0),
@@ -226,7 +226,7 @@ def _diagnose_unplaced(mgr, warehouse, log) -> None:
 def runtime_view(planned_inv, warehouse, affinity, batch_cfg, n_batches: int,
                  strategy: str | None, log) -> None:
     mgr = Inventory_Manager(warehouse)
-    mgr._seed = rs.SEED_WORLD
+    mgr._seed = rs.seed_world()
     pick_cfg = _build_pick_cfg(rs.REGRESSION_CONFIGS[0] if getattr(rs, 'REGRESSION_CONFIGS', None) else {})
     strat = STRATEGY_BY_KEY.get(strategy) if strategy else None
     if strat is not None and strat.stock_mode == 'policy':
@@ -248,7 +248,7 @@ def runtime_view(planned_inv, warehouse, affinity, batch_cfg, n_batches: int,
     for i in range(n_batches):
         triggered = mgr.check_reorders()
         batch = Batch(batch_cfg, planned_inv, affinity=affinity,
-                      rng=random.Random(rs.SEED_BATCHES + i))
+                      rng=random.Random(rs.seed_batches() + i))
         tasks = Task.from_batch(batch, warehouse, manager=mgr)
         if tasks:
             DeferredPickSimulation(tasks, pick_cfg, manager=mgr).run()
@@ -337,7 +337,7 @@ def main() -> None:
 
     planned_inv = load_inventory_from_db(shared['planned_inv_db'])
     Aisle.next_aisle_id = 1
-    random.seed(rs.SEED_WORLD)
+    random.seed(rs.seed_world())
     warehouse = Warehouse_Builder().from_config(shared['warehouse_cfg']).build()
 
     sizing_view(inv_db, shared.get('sku_allowlist') or set(),

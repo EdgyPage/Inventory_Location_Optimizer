@@ -40,7 +40,7 @@ if _REPO_ROOT not in sys.path:
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
 from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
-    SEED_WORLD, SEED_BATCHES, N_BATCHES, K_PICKERS, STORE_RESTOCKS, store_fill,
+    seed_world, seed_batches, n_batches, k_pickers, store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
     regime_sizing_from_config, _setup_logging, _checkpoint_every,

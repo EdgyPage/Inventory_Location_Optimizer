@@ -13,7 +13,7 @@ from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_s
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
-    CONFIG, SEED_BATCHES, SEED_WORLD, _CART_TYPES, _build_pick_cfg, _checkpoint_every,
+    CONFIG, seed_batches, seed_world, _CART_TYPES, _build_pick_cfg, _checkpoint_every,
     _config_name,
 )
 from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
@@ -147,8 +147,8 @@ def _prepare_channel_run(
         'batch_mean_frac' : channel.batch_mean_fraction,   # this channel's actual mean fraction
         'sampler'         : channel.sampler,               # batch-sampler era (v1 | v2)
         'n_batches'       : n_batches,
-        'seed_world'      : SEED_WORLD,
-        'seed_batches'    : SEED_BATCHES + channel.batch_seed_offset,   # this channel's actual seed
+        'seed_world'      : seed_world(),
+        'seed_batches'    : seed_batches() + channel.batch_seed_offset,  # this channel's actual seed
         'avg_equilibrium_qty': round(sum(getattr(c, 'equilibrium_qty', 1)
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 1),
         'avg_reorder_point'  : round(sum(getattr(c, 'reorder_point', 1)
@@ -180,7 +180,7 @@ def _prepare_channel_run(
         cart_swap_coef    = pick_cfg.cart_swap_coef,
         k_pickers         = channel.picker.num_pickers,
         n_batches         = n_batches,
-        seed_world        = SEED_WORLD,
+        seed_world        = seed_world(),
         keyframe_interval = keyframe_interval,
         # Placeholders — overridden PER CHANNEL below with that section's own yardsticks.
         optimal_sigma_fd  = 0.0,
@@ -225,13 +225,13 @@ def _prepare_channel_run(
         ch_wp.by_regime = None
         _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
         ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
-        ch_seed_batches = SEED_BATCHES + ch.batch_seed_offset
+        ch_seed_batches = seed_batches() + ch.batch_seed_offset
         ch_regime       = ch.regime
     else:
         # Store-only path: precomputed pair-level shared batch stream (whole catalog = store).
         ch_pick_cfg, ch_wp = pick_cfg, wp
         ch_batch_cfg    = batch_cfg
-        ch_seed_batches = SEED_BATCHES
+        ch_seed_batches = seed_batches()
         ch_regime       = None
     try:
         ch_batches_path, ch_batches_fp = ensure_batches(
@@ -285,7 +285,7 @@ def _prepare_channel_run(
         run_dir             = ch_run_dir,
         n_batches           = n_batches,
         k_pickers           = ch.picker.num_pickers,
-        seed_world          = SEED_WORLD,
+        seed_world          = seed_world(),
         seed_batches        = ch_seed_batches,
         checkpoint          = _checkpoint_every(n_batches),
         max_skus            = _worker_maxsk,

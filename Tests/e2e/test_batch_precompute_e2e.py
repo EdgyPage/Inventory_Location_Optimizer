@@ -75,8 +75,8 @@ def _store_channel_run(shared, pair_dir, cfg, log, workers=1):
     catalog is not mixed and the run collapses to the legacy <config>/ layout)."""
     from Optimization.config.channels import make_channel
     from Warehouse.kernel.regime import STORE
-    pc = rs._build_pick_cfg(cfg, num_pickers=rs.K_PICKERS)
-    ch = make_channel('store', STORE, pc, rs.K_PICKERS, restocks=rs.STORE_RESTOCKS)
+    pc = rs._build_pick_cfg(cfg, num_pickers=rs.k_pickers())
+    ch = make_channel('store', STORE, pc, rs.k_pickers(), restocks=rs.store_restocks())
     mixed, _ = rs._channel_runs_for(shared['inventory'])       # store-only → False
     return rs._prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log, workers=workers)
 

@@ -2,7 +2,7 @@
 
 Everything a run can be tuned by lives here: the .env-backed output/profile dirs,
 the per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested
-CONFIG dict (global + per-channel sections), the derived read-only aliases, and the
+CONFIG dict (global + per-channel sections), the run-shaping accessors, and the
 config→PickConfig conversion.  run_simulation re-exports the public names so
 `rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)
 keep working.
@@ -10,6 +10,10 @@ keep working.
 CONFIG identity rule: the re-export binds the SAME dict object — tests mutate
 `rs.CONFIG['global'][...]` in place — so nobody may ever REBIND CONFIG (or the
 mutation would silently detach from internal readers).
+
+Corollary, and the reason the run-shaping values are FUNCTIONS rather than module
+scalars: a value snapshotted at import cannot see that mutation.  Every consumer of a
+tunable reads it at call time.  See the block above `seed_world()`.
 """
 import logging
 import os
@@ -221,13 +225,49 @@ CONFIG = {
     },
 }
 
-# Derived read-only aliases for external consumers (bucket_fill.py, README) —
-# CONFIG is authoritative; internal code reads CONFIG, not these.
-SEED_WORLD     = CONFIG['global']['seed_world']
-SEED_BATCHES   = CONFIG['global']['seed_batches']
-N_BATCHES      = CONFIG['global']['n_batches']
-K_PICKERS      = CONFIG['channels']['store']['num_pickers']
-STORE_RESTOCKS = CONFIG['channels']['store']['restocks']
+# ── run-shaping accessors — read CONFIG at CALL time ────────────────────────────
+#
+# These were five import-time scalars (SEED_WORLD, SEED_BATCHES, N_BATCHES, K_PICKERS,
+# STORE_RESTOCKS) that captured CONFIG's values once, at import, while the module's own
+# docstring promised CONFIG was authoritative and mutated in place.  `_INITIAL_FILL` was
+# the sixth and it is already gone — it made a run misreport its own sizing, because
+# `run_simulation` writes the CLI override into CONFIG and the snapshot never saw it.
+#
+# The remaining five had the same defect and it had not bitten yet only because
+# `--n-batches` is the only one of them with a flag, and nothing read `N_BATCHES` on the
+# run path.  `seed_world` and `seed_batches` decide whether two runs are comparable at
+# all, and `workunits` derives every channel's batch seed from `SEED_BATCHES` — so the
+# first CLI flag for either would have been silently ignored by the worker payload.
+#
+# Same rule as store_fill(): read at call time, never snapshot.
+
+def seed_world() -> int:
+    """The world seed (warehouse + catalogue construction), read at call time."""
+    return CONFIG['global']['seed_world']
+
+
+def seed_batches() -> int:
+    """The base batch-stream seed, read at call time.
+
+    A CHANNEL's seed is this plus its `batch_seed_offset` (see `channels.Channel`), so
+    store and fulfillment draw independent streams from one configured base.
+    """
+    return CONFIG['global']['seed_batches']
+
+
+def n_batches() -> int:
+    """The configured batch horizon, read at call time (`--n-batches` writes CONFIG)."""
+    return CONFIG['global']['n_batches']
+
+
+def k_pickers() -> int:
+    """The store channel's picker count, read at call time."""
+    return CONFIG['channels']['store']['num_pickers']
+
+
+def store_restocks() -> tuple:
+    """The store channel's restock-rule subset, read at call time."""
+    return CONFIG['channels']['store']['restocks']
 
 
 def store_fill() -> float:
@@ -301,7 +341,7 @@ def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> P
     """Turn a config dict (store or fulfillment) into a PickConfig.
 
     The one canonical dict→PickConfig conversion shared by both channels' sweeps.  Callers
-    pass the config's own 'num_pickers' (store default K_PICKERS, fulfillment default 20) and
+    pass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and
     the channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.
     """
     return PickConfig(
