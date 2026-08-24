@@ -56,10 +56,19 @@ def avg_concurrent_pickers(events: list) -> float:
     ---------
     Build a (time, +1/-1) change-list, sort it, then sweep to integrate the
     concurrent-count curve.  Divide by total simulation span.
+
+    OFFSET-INVARIANT.  The integration window is `[t_start, t_end]` measured from the
+    batch's own first event, not from absolute zero — so a batch whose pickers start at
+    an absolute instant scores exactly what the same batch scores starting at zero.  It
+    used to anchor `prev_t` and the divisor at a literal `0.0`, which is the same number
+    only while every picker's clock is reborn each batch.
     """
     changes: list[tuple[float, int]] = []
-    t_end = 0.0
+    t_start = float('inf')
+    t_end   = 0.0
     for e in events:
+        if e.time < t_start:
+            t_start = e.time
         if e.event_type == 'arrive':
             changes.append((e.time, +1))
         elif e.event_type == 'pick':
@@ -72,14 +81,16 @@ def avg_concurrent_pickers(events: list) -> float:
         return 0.0
 
     changes.sort()
-    if t_end <= 0.0:
+    if t_start == float('inf'):
+        t_start = 0.0
+    if t_end <= t_start:
         t_end = changes[-1][0]
-    if t_end <= 0.0:
+    if t_end <= t_start:
         return 0.0
 
     weighted = 0.0
     count    = 0
-    prev_t   = 0.0
+    prev_t   = t_start
 
     for t, delta in changes:
         if t > prev_t:
@@ -91,7 +102,7 @@ def avg_concurrent_pickers(events: list) -> float:
     if count > 0 and prev_t < t_end:
         weighted += count * (t_end - prev_t)
 
-    return weighted / t_end
+    return weighted / (t_end - t_start)
 
 
 # ── picker utilisation ────────────────────────────────────────────────────────
@@ -111,15 +122,25 @@ def _group_events_by_picker(events: list, k_pickers: int) -> list[list]:
 
 
 def _picker_time_breakdown_grouped(grouped: list[list]) -> dict[str, float]:
-    """Compute picking/traveling breakdown from pre-grouped picker event lists."""
+    """Compute picking/traveling breakdown from pre-grouped picker event lists.
+
+    OFFSET-INVARIANT: a picker contributes the SPAN from its own first event to its
+    `done`, not the `done` timestamp.  The two are the same number only while every
+    picker's clock restarts at zero every batch.
+    """
     total_time   = 0.0
     picking_time = 0.0
 
     for picker_evs in grouped:
         done_t = picker_evs[-1].time if picker_evs and picker_evs[-1].event_type == 'done' else None
-        if done_t is None or done_t <= 0.0:
+        if done_t is None:
             continue
-        total_time += done_t
+        # A picker's first event fires at its clock start: `task_start` before any travel,
+        # or the `done` itself when it drew no tasks (span 0, skipped by the guard below).
+        span = done_t - picker_evs[0].time
+        if span <= 0.0:
+            continue
+        total_time += span
 
         last_arrive: float | None = None
         for e in picker_evs:
@@ -199,8 +220,8 @@ def extract_batch_stats(
 ) -> BatchStats:
     """Summarise one PickSimulation.run() result into a BatchStats record.
 
-    duration      : BATCH MAKESPAN — max done-event time across all pickers (parallel wall-clock)
-    task_makespan : Σ per-picker done-times = total labor (the serial / single-picker makespan)
+    duration      : BATCH MAKESPAN — first picker starting to last finishing (parallel wall-clock)
+    task_makespan : Σ per-picker spans = total labor (the serial / single-picker makespan)
     num_tasks     : unique aisles that received a task_start
     total_items   : sum of items_picked from each picker's done event
     thr_batch     : throughput / batch makespan = total_items / duration
@@ -208,14 +229,19 @@ def extract_batch_stats(
     avg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)
     picking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)
 
-    task_makespan == Σ task_stats.duration by construction: every picker's clock starts at 0 and
-    accrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the
-    sum of its task durations; summing over pickers gives the batch's total task time.
+    task_makespan == Σ task_stats.duration by construction: a picker accrues
+    travel+pick+cart-swap back-to-back with no idle gaps, so the span from its first event to
+    its done telescopes to the sum of its task durations; summing over pickers gives the
+    batch's total task time.
+
+    OFFSET-INVARIANT.  Both `duration` and `task_makespan` are SPANS measured from a start
+    instant, never raw timestamps.  They read the same while every picker's clock is reborn at
+    zero each batch — which is exactly the assumption a shared clock removes.
     """
     # Group once; reuse for total_items, task_makespan, and the picking/traveling split.
     grouped = _group_events_by_picker(events, k_pickers)
 
-    duration = 0.0
+    last_done: float | None = None
     num_tasks_set: set = set()
     total_items = 0
     task_makespan = 0.0
@@ -228,18 +254,21 @@ def extract_batch_stats(
         if e.time > t_max:
             t_max = e.time
         if e.event_type == 'done':
-            if e.time > duration:
-                duration = e.time
+            if last_done is None or e.time > last_done:
+                last_done = e.time
         elif e.event_type == 'task_start' and e.aisle_id is not None:
             num_tasks_set.add(e.aisle_id)
     num_tasks = len(num_tasks_set)
     batch_start_time = 0.0 if t_min == float('inf') else t_min
     batch_end_time   = t_max
+    # Batch makespan = the wall-clock span from the first picker starting to the last finishing.
+    duration = 0.0 if last_done is None else last_done - batch_start_time
 
     for picker_evs in grouped:
         if picker_evs and picker_evs[-1].event_type == 'done':
             total_items   += picker_evs[-1].items_picked
-            task_makespan += picker_evs[-1].time     # this picker's finish = Σ its task durations
+            # This picker's own span = Σ its task durations (see the docstring's invariant).
+            task_makespan += picker_evs[-1].time - picker_evs[0].time
 
     conc      = avg_concurrent_pickers(events)
     breakdown = _picker_time_breakdown_grouped(grouped)
