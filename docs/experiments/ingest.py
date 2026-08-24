@@ -118,7 +118,11 @@ def _registry_lists(flag: str):
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
     with open(path, encoding='utf-8') as fh:
         figs = (yaml.safe_load(fh) or {}).get('figures', [])
-    by = {'top3': [], 'full_suite': [], 'inventory': []}
+    # `run_suite` is the RUN-scope section: figures that live once per run rather than
+    # once per leaf.  They are staged flat (`run_png`) and rendered by
+    # `macros.run_suite_section`, so they must not join the per-leaf `full_suite` list —
+    # that list is composed into `images/{run}/{inv}/{cfg}/{fname}`.
+    by = {'top3': [], 'full_suite': [], 'run_suite': [], 'inventory': []}
     for f in figs:
         if f.get(flag):
             by[f['section']].append(f['name'])

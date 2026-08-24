@@ -170,7 +170,7 @@ def define_env(env):
         return _load_yaml("experiments/figures.yml").get("figures", [])
 
     def _figs(kind):
-        """[(filename, caption, width)] for kind in {'top3','full_suite'}.
+        """[(filename, caption, width)] for kind in {'top3','full_suite','run_suite'}.
 
         A manifest names its own figures.  WITHOUT one the experiment is a legacy
         snapshot, and it renders the registry's `legacy` set — frozen to what that sweep
@@ -808,6 +808,24 @@ def define_env(env):
                 out.append("")
                 out.append(f"    *{caption}*")
                 out.append("")
+        return "\n".join(out).rstrip()
+
+    @env.macro
+    def run_suite_section():
+        """The RUN-scope figure blocks — one set per run, not one per config leaf.
+
+        `full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}`, which is right for
+        every figure a channel-run leaf produces and wrong for one the run root produces.
+        The `cost` family renders at run scope and ingest stages it flat, so it gets its own
+        section and its own path here.  A registry test ties the section to the
+        evaluation's declared scope in both directions, so neither can move alone.
+        """
+        out = []
+        for fname, caption, width in _figs("run_suite"):
+            out.append(f'![{caption}](images/{fname}){{ width={width} }}')
+            out.append("")
+            out.append(f"*{caption}*")
+            out.append("")
         return "\n".join(out).rstrip()
 
     @env.macro

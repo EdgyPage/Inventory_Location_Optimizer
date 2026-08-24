@@ -167,7 +167,7 @@ figures:
   # them.
   - name: percent_cost_vs_fifo.png
     eval: cost.compute
-    section: full_suite
+    section: run_suite
     default: false
     width: 920
     caption: >-
@@ -177,7 +177,7 @@ figures:
       the deliberate worst-case controls.
   - name: absolute_compute_cost.png
     eval: cost.compute
-    section: full_suite
+    section: run_suite
     default: false
     width: 920
     caption: >-
@@ -186,7 +186,7 @@ figures:
       against their own dock throughput.
   - name: delta_cost_sections.png
     eval: cost.compute
-    section: full_suite
+    section: run_suite
     default: false
     width: 920
     caption: >-

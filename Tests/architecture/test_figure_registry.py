@@ -39,7 +39,8 @@ def test_registry_parses_names_unique_sections_valid_captions_present():
     figs = _registry()
     names = [f['name'] for f in figs]
     assert len(names) == len(set(names)), 'duplicate figure names'
-    assert {f['section'] for f in figs} <= {'top3', 'full_suite', 'inventory'}
+    assert {f['section'] for f in figs} <= {'top3', 'full_suite', 'run_suite',
+                                            'inventory'}
     for f in figs:
         if f['section'] != 'inventory':
             assert (f.get('caption') or '').strip(), f"{f['name']}: reader-facing figures " \
@@ -247,3 +248,52 @@ def test_the_unregistered_ledger_is_capped_and_not_stale():
         assert stem in minted, f'UNREGISTERED_STEMS names {stem!r}, which nothing mints'
         assert stem not in stems, f'{stem!r} IS registered now — delete the exception'
         assert len(reason.split()) >= 10, f'{stem}: the reason is too short to be one'
+
+
+# ── a figure's SECTION and its evaluation's SCOPE are one fact ───────────────────
+
+def test_a_run_scope_figure_is_in_the_run_section_and_only_a_run_scope_one_is():
+    """`full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}` — right for every
+    figure a channel-run leaf produces, wrong for one the run root produces.
+
+    The `cost` family renders at run scope and ingest stages it flat, and its three entries
+    sat in `full_suite` for as long as they existed.  Nothing broke, and only because two
+    conventions happened to hold: `default: false` kept them out of the scaffolded starter
+    manifest, and a human curated them out of the committed one.  Set `default: true`, or
+    add one to a manifest, and you get three broken images and no error anywhere — a
+    macro-composed path, which `experiment_guard` skips by design and `mkdocs --strict`
+    does not resolve.
+
+    So the section is tied to the scope, in BOTH directions: a run-scope evaluation's
+    figures must be in `run_suite`, and nothing else may be.
+    """
+    from Optimization import Performance_Evaluations  # noqa: F401
+    from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+    wrong = []
+    for f in _registry():
+        if f.get('retired'):
+            continue                    # its writer is gone; scope is unanswerable
+        ev = EVAL_BY_KEY.get(f.get('eval'))
+        if ev is None:
+            continue                    # generator-owned inventory plots
+        run_scope = ev.scope == 'run'
+        in_run_section = f['section'] == 'run_suite'
+        if run_scope != in_run_section:
+            wrong.append(
+                f"{f['name']}: eval {ev.key} is {ev.scope}-scope but section is "
+                f"{f['section']!r}")
+    assert not wrong, chr(10).join(wrong)
+
+
+def test_the_run_section_is_not_empty():
+    """The tie above passes vacuously if nothing is run-scope."""
+    runs = [f for f in _registry() if f['section'] == 'run_suite']
+    assert len(runs) >= 3, 'the cost family should be here'
+
+
+def test_the_run_section_has_its_own_macro():
+    """A section with no renderer is a declaration nothing reads."""
+    src = _src('docs/macros.py')
+    assert 'def run_suite_section(' in src
+    assert '_figs("run_suite")' in src
+    assert 'images/{fname}' in src, 'the run-scope path must be flat, not per-leaf'
