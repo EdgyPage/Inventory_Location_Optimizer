@@ -144,15 +144,17 @@ def attach_recorder(mgr) -> BinLog:
     orig_place = mgr._execute_placement
     orig_evict = mgr.requeue_bin
 
-    def _execute_placement(unit, bin_):
-        # A unit that was evicted earlier is being re-placed; that is a reslot move, not a
-        # fresh arrival. requeue_bin re-queues the identical object, so identity separates them.
+    def _execute_placement(unit, bin_, *, source=None):
+        # `source` is the PutawayItem origin the drain declares.  This harness keeps its own
+        # identity-based derivation as an INDEPENDENT witness: it is the oracle the replay
+        # test checks the recorder against, so deriving both the same way would make the
+        # comparison circular.
         tag = id(unit)
         cause = ('reslot' if tag in state['evicted_units']
                  else ('initial' if state['batch'] == 0 and not log.picks else 'reorder'))
         state['evicted_units'].discard(tag)
         loc, sku, qty = bin_.location, unit.order.sku, unit.quantity
-        orig_place(unit, bin_)
+        orig_place(unit, bin_, source=source)
         log.places.append(Place(state['batch'], state['place_seq'], loc, sku, qty, cause))
         state['place_seq'] += 1
 

@@ -13,7 +13,7 @@ import random
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
-from Warehouse.inventory.inventory_common import _equilibrium_qty
+from Warehouse.inventory.inventory_common import PutawayItem, _equilibrium_qty
 
 
 class ReorderMixin:
@@ -58,7 +58,7 @@ class ReorderMixin:
         self._current_quantities[sku] = max(0, self._current_quantities.get(sku, 0) - unit.quantity)
         self._queued_qty[sku]         = self._queued_qty.get(sku, 0) + unit.quantity
         self._queued_sku_counts[sku]  = self._queued_sku_counts.get(sku, 0) + 1
-        self._stock_queue.append(unit)
+        self._stock_queue.append(PutawayItem(unit, 'reslot'))
         self._reload_moves += 1
 
     def _drop_sku_from_aisle(self, sku: int, bin_: 'Aisle.Bin') -> None:
@@ -256,7 +256,7 @@ class ReorderMixin:
         if not units:
             return
         for unit in units:
-            self._stock_queue.append(unit)
+            self._stock_queue.append(PutawayItem(unit, 'reorder'))
         self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
         self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
 

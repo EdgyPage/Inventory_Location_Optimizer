@@ -282,13 +282,13 @@ def test_stock_per_unit_zoning_routes_each_unit_to_its_target_band():
     routed: list[tuple[int, int | None, bool, int]] = []
     orig_execute = mgr._execute_placement
 
-    def execute_spy(unit, bin_):
+    def execute_spy(unit, bin_, **kw):
         actual_band = mgr._aisle_band.get(bin_.location[0], 0)
         rec = picks.pop(id(unit), None)
         assert rec is not None, f'placed unit sku={unit.order.sku} bypassed the _band_pick fast path'
         target, chosen_band, target_free = rec
         routed.append((target, chosen_band, target_free, actual_band))
-        orig_execute(unit, bin_)
+        orig_execute(unit, bin_, **kw)
 
     mgr._execute_placement = execute_spy
 

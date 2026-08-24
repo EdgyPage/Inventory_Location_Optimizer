@@ -16,6 +16,7 @@ from Warehouse.kernel.regime import FULFILLMENT, regime_of
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from Warehouse.inventory.inventory_common import (
+    PutawayItem,
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
     BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for, UNIT_CLASSES,
     _equilibrium_qty, _max_qty_fitting_size,
@@ -88,7 +89,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Stock (restock) queue: pre-palletized StorageUnit objects ready for bin assignment.
         # Fed by initial intake (enqueue), evictions (requeue_bin), and arrived reorders
         # (released from the lead queue).  Placed into bins by _stock().
-        self._stock_queue: deque[StorageUnit] = deque()
+        self._stock_queue: deque[PutawayItem] = deque()
         # Count of queued units per SKU — O(1) alternative to rebuilding a set
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
@@ -215,7 +216,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         qty = quantity if quantity is not None else _equilibrium_qty(order)
         for unit in viable_storage_units(order, qty):
-            self._stock_queue.append(unit)
+            self._stock_queue.append(PutawayItem(unit, 'intake'))
         # Count intake units as on-order so a reorder fired before they all reach
         # a bin does not over-order (they decrement back as they place).
         self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
@@ -235,7 +236,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         for order in orders:
             qty = quantity if quantity is not None else _equilibrium_qty(order)
             for unit in viable_storage_units(order, qty):
-                self._stock_queue.append(unit)
+                self._stock_queue.append(PutawayItem(unit, 'intake'))
             # Count intake units as on-order so a reorder fired before they all
             # reach a bin does not over-order (decremented back as they place).
             self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
@@ -641,8 +642,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     return (key, bins)
         return (None, [])
 
-    def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin) -> None:
-        """Commit one unit→bin placement and update all manager state dicts."""
+    def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin,
+                           *, source: str | None = None) -> None:
+        """Commit one unit→bin placement and update all manager state dicts.
+
+        `source` is the `PutawayItem` origin the drain popped this unit from
+        (`intake` / `reorder` / `reslot`), passed through untouched: the manager does not
+        act on it, but this is the one call every put-away funnels through, so it is the
+        only place an observer can learn where a placement came from.  Optional and
+        ignored here, so a direct caller that does not know about the queue — a test, a
+        future inbound writer — is unaffected.
+        """
         # Invariant guard: a unit never lands in a bin of a different regime.  This holds
         # structurally today (bins are drawn by the unit's own BinKey), but asserting it here
         # turns the "store and fulfillment items never intersect each other's bins" contract
@@ -730,9 +740,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
           2. Fall back to singleton bins of the same order type (same).
           3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
         """
-        pending: deque[StorageUnit] = deque()
+        pending: deque[PutawayItem] = deque()
         while self._stock_queue:
-            unit   = self._stock_queue.popleft()
+            item   = self._stock_queue.popleft()
+            unit   = item.unit
             order = unit.order
             sku    = order.sku
 
@@ -751,7 +762,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             bin_       = self.placement.place_one(unit, candidates)
 
             if bin_ is not None:
-                self._execute_placement(unit, bin_)
+                self._execute_placement(unit, bin_, source=item.source)
             else:
                 # No bin fits this unit.  Attempt rescues in priority order:
                 #   1. Repack into smaller pallet size tier (existing logic).
@@ -793,7 +804,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._stock_queue.appendleft(u)
+                            self._stock_queue.appendleft(item.respawn(u))
                         repacked = True
                         break
 
@@ -815,12 +826,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._stock_queue.appendleft(u)
+                            self._stock_queue.appendleft(item.respawn(u))
                         repacked = True
 
                 # ── no bin available — hold in queue, retry next batch ────────
                 if not repacked:
-                    pending.append(unit)
+                    pending.append(item)
         self._stock_queue = pending
 
 
@@ -842,22 +853,29 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         # Snapshot queue and group by BinKey (or (BinKey, velocity band) when zoning is on, so
         # each sub-wave is a single band and the once-per-wave candidate fetch is band-correct).
-        groups: dict[tuple, list[StorageUnit]] = defaultdict(list)
+        groups: dict[tuple, list[PutawayItem]] = defaultdict(list)
         while self._stock_queue:
-            unit = self._stock_queue.popleft()
-            groups[self._group_key(unit)].append(unit)
+            item = self._stock_queue.popleft()
+            groups[self._group_key(item.unit)].append(item)
 
         # With zoning ON, process band sub-groups HOTTEST-FIRST (band 0 before 1 …) so hot items
         # claim their aisles before colder items can upgrade-spill into them (priority: place hot
         # first).  Group key is then (BinKey, band); OFF ⇒ insertion order (byte-identical).
         group_items = (sorted(groups.items(), key=lambda kv: kv[0][1])
                        if self._zoning_enabled else groups.items())
-        for _key, units in group_items:
+        for _key, items in group_items:
+            # `place_wave` takes and returns bare units, so the envelope is re-attached by
+            # object identity.  Safe HERE and nowhere else: every unit in `by_unit` is alive
+            # for the whole call, so an id cannot be recycled underneath the lookup — which
+            # is exactly the property `BinRecorder`'s cross-call `id()` set could not rely on.
+            units   = [it.unit for it in items]
+            by_unit = {id(it.unit): it for it in items}
             # Ranked assignments — high pick-effort units claim the best bins first.
             assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
             for unit, bin_ in assignments:
                 if bin_ is not None:
-                    self._execute_placement(unit, bin_)
+                    self._execute_placement(unit, bin_,
+                                            source=by_unit[id(unit)].source)
                 else:
                     # The wave couldn't place this unit: place_wave takes a single
                     # candidate snapshot for the whole wave (one tier, fetched once),
@@ -867,7 +885,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     # in the tier and spilling up to larger tiers — plus the
                     # smaller-tier/singleton rescues.  This is the same path that keeps
                     # FIFO's queue at zero; without it the ranked queue grows unbounded.
-                    self._stock_queue.append(unit)
+                    self._stock_queue.append(by_unit[id(unit)])
 
         if self._stock_queue:
             self._stock_per_unit()

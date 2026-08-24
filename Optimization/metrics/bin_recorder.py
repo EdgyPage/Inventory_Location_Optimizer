@@ -108,19 +108,25 @@ class BinRecorder:
         orig_place = mgr._execute_placement
         orig_evict = mgr.requeue_bin
 
-        def _execute_placement(unit, bin_):
-            # requeue_bin re-queues the IDENTICAL unit object, so identity is what separates a
-            # reslot re-placement from a fresh reorder arrival.
-            tag = id(unit)
-            if tag in self._evicted_units:
+        def _execute_placement(unit, bin_, *, source=None):
+            # `source` is DECLARED by the put-away queue (PutawayItem), not inferred here.
+            # It used to be recovered by holding a set of `id(unit)` and testing membership,
+            # which worked only because `requeue_bin` re-queues the identical object and it
+            # is still alive — a property nothing stated and nothing enforced.
+            #
+            # intake-vs-reorder still comes from `_in_batch_loop` rather than from the
+            # source, deliberately: initial stocking is 'intake' at the queue but the
+            # recorder's distinction is WHEN it was placed, and a batch-0 reorder must not
+            # be mislabelled 'initial'.  The two questions are different and stay separate.
+            if source == 'reslot':
                 cause = 'reslot'
-                self._evicted_units.discard(tag)
+                self._evicted_units.discard(id(unit))
             else:
                 cause = 'reorder' if self._in_batch_loop else 'initial'
             # Read before delegating: the call mutates the bin and the manager's queue counters.
             aisle_id, bay_x, bay_y = bin_.location
             sku, qty = unit.order.sku, unit.quantity
-            orig_place(unit, bin_)
+            orig_place(unit, bin_, source=source)
             self.placements.append(BinPlacementRecord(
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
                 aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause))

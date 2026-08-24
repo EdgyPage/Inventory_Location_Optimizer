@@ -98,9 +98,9 @@ def _install_hooks(mgr: Inventory_Manager, tr: Tracer) -> None:
     so a strategy swapping mgr.placement does not detach the hooks.
     """
     orig_exec = mgr._execute_placement
-    def _execute_placement(unit, bin_):
+    def _execute_placement(unit, bin_, **kw):
         t = time.perf_counter()
-        r = orig_exec(unit, bin_)
+        r = orig_exec(unit, bin_, **kw)
         f = tr.fn['_execute_placement']; f[0] += 1; f[1] += time.perf_counter() - t
         tr.placed += 1
         return r

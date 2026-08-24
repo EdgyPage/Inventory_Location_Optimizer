@@ -30,6 +30,49 @@ RankedAssignmentFn = Callable[
 ]
 
 
+#: Where a unit in the put-away queue came from.  Three today; a trailer is the fourth,
+#: and the reason this is a named vocabulary rather than a bool.
+PUTAWAY_SOURCES = ('intake', 'reorder', 'reslot')
+
+
+class PutawayItem:
+    """One unit waiting for a bin, and where it came from.
+
+    The queue used to hold bare `StorageUnit`s, fed identically by initial intake
+    (`enqueue`/`enqueue_all`), reorder arrivals (`_release_to_stock`) and reloader
+    evictions (`requeue_bin`).  Once a unit was in, its origin was unrecoverable — so
+    `BinRecorder` reconstructed 'reslot' by holding a set of `id(unit)` and testing
+    membership at placement time.  That works only because the evicted unit is the
+    IDENTICAL object and is still alive; it is not a property anything declares.
+
+    Carrying the source with the work item makes `bin_placement.cause` a fact the queue
+    knows rather than one the recorder infers, and it is the field a trailer id will
+    occupy when inbound loads become a source of their own.
+
+    Frozen because a queued item's origin must not be editable in flight; `respawn` is the
+    one legal derivation, used by the repack and singleton rescues, which split one unit
+    into several without changing where any of them came from.
+    """
+    __slots__ = ('unit', 'source')
+
+    def __init__(self, unit: StorageUnit, source: str = 'intake') -> None:
+        if source not in PUTAWAY_SOURCES:
+            raise ValueError(f'unknown put-away source {source!r} '
+                             f'(known: {PUTAWAY_SOURCES})')
+        object.__setattr__(self, 'unit', unit)
+        object.__setattr__(self, 'source', source)
+
+    def __setattr__(self, *_a):
+        raise AttributeError('PutawayItem is immutable; use respawn() to derive one')
+
+    def respawn(self, unit: StorageUnit) -> 'PutawayItem':
+        """A unit split out of this one during a rescue, keeping the origin."""
+        return PutawayItem(unit, self.source)
+
+    def __repr__(self) -> str:
+        return f'PutawayItem({self.unit!r}, {self.source!r})'
+
+
 class Placement:
     """One named placement policy — the single object a strategy hands the manager.
 
