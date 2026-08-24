@@ -6,13 +6,13 @@
 table, and `picker_events` is untouched — every existing analysis, figure and viewer route
 keeps working.
 
-The risk with a second table is that it drifts from the first and nobody notices, so the
-reconciliation is a test rather than a comment:
+These are IN-MEMORY checks on the row builders: given events and put records, do they
+produce the right tuples. They cannot catch a writer that drops, doubles or misorders rows
+on the way to disk, so they are not the reconciliation — an earlier version of this
+docstring called one of them "THE query", which it is not.
 
-    work_events.t_abs − batch_stats.batch_start_time == picker_events.time
-
-Both readings of the same instant, one absolute and one batch-relative. If the arm's epoch
-and the merged stream ever disagree, that equality is what fails.
+The reconciliation runs SQL against a real database and lives in
+`Tests/integration/test_work_events_reconciliation.py`.
 
 Run:  python -m pytest Tests/unit/test_work_events.py -q
 """
@@ -94,12 +94,13 @@ def test_t_local_is_t_abs_minus_the_batch_start():
         assert r[T_LOCAL] == pytest.approx(r[T_ABS] - START)
 
 
-def test_the_reconciliation_that_makes_one_clock_enforceable():
-    """THE query: work_events.t_abs - batch_start == picker_events.time.
+def test_a_pick_row_carries_the_events_own_absolute_instant():
+    """The row builder does not shift a pick event: the arm has already put `PickEvent.time`
+    on the absolute axis, so `t_abs` is that value and `t_local` is the offset.
 
-    `picker_events.time` is `PickEvent.time`, which the arm has already put on the absolute
-    axis, so the batch-relative reading is the difference. If the epoch and the merged
-    stream ever disagree, this is what fails.
+    NOT the reconciliation — this compares rows to the events they were built from, in one
+    process. The reconciliation is SQL over a real DB, in
+    Tests/integration/test_work_events_reconciliation.py.
     """
     rows = pick_rows(EVENTS, 1, START, PW)
     for row, e in zip(rows, EVENTS):
