@@ -297,8 +297,9 @@ def test_reorder_trigger_sets_the_flag_and_leaves_the_initial_baseline_alone():
     reorder_bins = [b for b in mgr.unavailable
                     if b.storage and b.storage.order.sku == 20
                     and getattr(b.storage.order, '_is_reorder', False)]
-    queued = [u for u in mgr._stock_queue
-              if u.order.sku == 20 and getattr(u.order, '_is_reorder', False)]
+    queued = [it for it in mgr._stock_queue
+              if it.unit.order.sku == 20
+              and getattr(it.unit.order, '_is_reorder', False)]
     assert reorder_bins or queued, (
         'a reorder fired but produced no unit — none placed, none queued')
 

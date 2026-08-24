@@ -58,6 +58,13 @@ def _bin_bucket(b) -> Bucket:
 
 
 def _unit_bucket(u) -> Bucket:
+    """Bucket for a StorageUnit **or** a queued PutawayItem.
+
+    `_stock_queue` holds PutawayItem (`.unit`, `.source`), so the three call sites that
+    walk the queue used to hand this function a wrapper and get AttributeError.  Accepting
+    both keeps those call sites reading naturally, and a bin-side caller is unaffected.
+    """
+    u = getattr(u, 'unit', u)
     shc = u.order.storage_handle_config
     return (shc.handling, shc.category, u.storage_size, u.unit_category)
 

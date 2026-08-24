@@ -728,7 +728,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         for _sku, _qty, _rem in mgr._lead_queue:
             _k = ('lead', _sku, _rem, None, None)
             _rq[_k] = _rq.get(_k, 0) + _qty
-        for _u in mgr._stock_queue:
+        # `_stock_queue` holds PutawayItem, not StorageUnit -- `.unit` is the unit.
+        # Reading the item directly raised AttributeError the moment the queue was
+        # non-empty here, which `_stock_per_unit` makes happen whenever a unit finds no
+        # bin (it ends `self._stock_queue = pending`).
+        for _it in mgr._stock_queue:
+            _u = _it.unit
             _k = ('stock', _u.order.sku, 0, _u.unit_category, _u.storage_size)
             _rq[_k] = _rq.get(_k, 0) + _u.quantity
         for (_kind, _sku, _rem, _ut, _ss), _qty in _rq.items():
