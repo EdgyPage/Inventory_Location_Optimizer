@@ -308,11 +308,38 @@ class ReorderMixin:
         """
         self._reclaim_empty_bins()
 
+    #: Lead time's unit, stated because the rest of the simulator now counts in seconds.
+    #:
+    #: THE INBOUND PIPELINE IS QUANTIZED TO BATCHES.  `lead_time_mean` is a count of
+    #: BATCHES, not seconds, and `_advance_lead_queue` ticks it once per `check_reorders`.
+    #: Everything else -- the pick clock, put-away, `work_events.t_abs` -- is in seconds on
+    #: a continuous axis, so an arrival lands on a batch boundary rather than at an instant.
+    #:
+    #: DELIBERATE, and this is the decision rather than an oversight:
+    #:
+    #:   * Converting to seconds moves EVERY restock result on EVERY arm -- a reorder that
+    #:     currently arrives at the top of batch N would arrive part-way through it -- and
+    #:     nothing consumes a finer-grained arrival today.  Paying for a whole-archive
+    #:     re-run to gain precision no reader uses is the wrong trade now.
+    #:   * Batch quantization is HONEST for a wave-picking model: replenishment lands
+    #:     between waves, which is when a real warehouse restocks a pick face.
+    #:   * The feature that makes it wrong is the trailer/dock work, where an arrival IS a
+    #:     scheduled instant and the sorter's whole job is choosing between them.  That
+    #:     feature should pick the representation with the trailer model in hand, not
+    #:     inherit one chosen here.
+    #:
+    #: Until then: a `work_events` row for an inbound arrival would sit at a batch
+    #: boundary, and anything reasoning about arrival TIMES must know that.
+    LEAD_TIME_UNIT = 'batches'
+
     def _advance_lead_queue(self) -> None:
         """One batch elapsed: decrement pre-existing in-transit orders only.
 
         Runs BEFORE `_fire_reorders`, which is what stops an order fired this batch from
         being decremented in the same batch it was placed.
+
+        The tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that
+        is a decision and what would change it.
         """
         for entry in self._lead_queue:
             entry[2] -= 1
