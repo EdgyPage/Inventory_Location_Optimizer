@@ -26,15 +26,38 @@ from Warehouse.layout.Storage_Primitive import FulfillmentCart
 from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.picking.Workload_Builder import BatchConfig
 from Warehouse.kernel.regime import STORE, FULFILLMENT
+from Warehouse.operations import Crew, Mode, Role
 
 
 @dataclass(frozen=True)
 class PickerProfile:
     """A pool of one kind of picker: a name, its pick-time cost regression (a PickConfig
-    carrying coefficients + travel speeds), and how many of them work concurrently."""
+    carrying coefficients + travel speeds), how many work concurrently, and what KIND of
+    actor they are.
+
+    `mode` is not a new idea here -- the two pools have been called `store_machine` and
+    `fulfillment_walker` for as long as they have existed, and `simconfig/constants.py`
+    comments them as "machine order-picker pool" and "human-walker pool".  Nothing read
+    either name.  The distinction was real, written down in prose, and inert; now it is a
+    value, and `crew()` turns this pool into the domain's own actor objects.
+
+    Both fields default to today's values (a picking crew on foot), so a construction that
+    does not care -- there are several in tests and Diagnostics -- is unchanged.
+    """
     name: str
     cost: PickConfig
     num_pickers: int
+    role: Role = Role.PICK
+    mode: Mode = Mode.FOOT
+
+    def crew(self) -> Crew:
+        """This pool as the domain's `Crew`, with the speeds its PickConfig carries.
+
+        The bridge from harness configuration to the actor model: `Warehouse/operations/`
+        may not import `Optimization/`, so the conversion belongs on this side.
+        """
+        return Crew(role=self.role, mode=self.mode,
+                    speed=self.cost.speed, size=self.num_pickers)
 
 
 @dataclass(frozen=True)
@@ -126,7 +149,8 @@ def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
     channels = [
         Channel(
             name='store', regime=STORE, batch_seed_offset=0,
-            picker=PickerProfile('store_machine', store_pick_cfg, store_num_pickers),
+            picker=PickerProfile('store_machine', store_pick_cfg, store_num_pickers,
+                                 role=Role.PICK, mode=Mode.MACHINE),
             restocks=store_restocks,
         )
     ]
@@ -137,7 +161,8 @@ def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
             batch_seed_offset=1_000_000,
             picker=PickerProfile('fulfillment_walker',
                                  ff_pick_cfg or fulfillment_pick_config(),
-                                 ff_num_pickers),
+                                 ff_num_pickers,
+                                 role=Role.PICK, mode=Mode.FOOT),
         ))
     return channels
 

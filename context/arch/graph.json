@@ -4601,6 +4601,11 @@
       "src": "Optimization/config/channels.py"
     },
     {
+      "dst": "Warehouse/operations/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/config/channels.py"
+    },
+    {
       "dst": "Warehouse/picking/Pick.py",
       "kind": "imports",
       "src": "Optimization/config/channels.py"
@@ -5196,6 +5201,11 @@
       "src": "Optimization/metrics/Workload.py::WorkloadParams.__post_init__"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Optimization/metrics/Workload.py::WorkloadParams.speed"
+    },
+    {
       "dst": "Optimization/metrics/Workload.py::aisle_workload_components",
       "kind": "calls",
       "src": "Optimization/metrics/Workload.py::aisle_workload"
@@ -5212,11 +5222,6 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
-      "kind": "calls",
-      "src": "Optimization/metrics/Workload.py::aisle_workload_components"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Optimization/metrics/Workload.py::aisle_workload_components"
     },
@@ -12731,6 +12736,16 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.requeue_bin"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
+      "kind": "calls",
+      "src": "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::validate_speeds",
+      "kind": "calls",
+      "src": "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::aisle_exit_cost",
       "kind": "calls",
       "src": "Warehouse/kernel/cost_model.py::aisle_traverse_cost"
@@ -12906,6 +12921,31 @@
       "src": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder.from_config"
     },
     {
+      "dst": "Warehouse/operations/roles.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/__init__.py"
+    },
+    {
+      "dst": "Warehouse/operations/worker.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/__init__.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/worker.py"
+    },
+    {
+      "dst": "Warehouse/operations/roles.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/worker.py"
+    },
+    {
+      "dst": "Warehouse/operations/worker.py::Worker",
+      "kind": "calls",
+      "src": "Warehouse/operations/worker.py::Crew.workers"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py",
       "kind": "imports",
       "src": "Warehouse/picking/Pick.py"
@@ -12941,6 +12981,11 @@
       "src": "Warehouse/picking/Pick.py::PickConfig.__post_init__"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/picking/Pick.py::PickConfig.speed"
+    },
+    {
       "dst": "Warehouse/picking/Pick.py::assign_tasks",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::PickSimulation.__init__"
@@ -12952,11 +12997,6 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::cart_step",
-      "kind": "calls",
-      "src": "Warehouse/picking/Pick.py::PickSimulation._simulate_picker"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::PickSimulation._simulate_picker"
     },
@@ -13012,11 +13052,6 @@
     },
     {
       "dst": "Warehouse/kernel/allocation.py::partition",
-      "kind": "calls",
-      "src": "Warehouse/picking/Pick.py::assign_tasks"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::assign_tasks"
     },
@@ -13157,11 +13192,6 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::cart_step",
-      "kind": "calls",
-      "src": "Warehouse/picking/fast_pick.py::_simulate_picker_deferred"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/picking/fast_pick.py::_simulate_picker_deferred"
     },
@@ -19084,6 +19114,14 @@
     },
     {
       "file": "Optimization/config/channels.py",
+      "id": "Optimization/config/channels.py::PickerProfile.crew",
+      "kind": "function",
+      "module": "Optimization/config/channels.py",
+      "name": "crew",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/channels.py",
       "id": "Optimization/config/channels.py::build_channels",
       "kind": "function",
       "module": "Optimization/config/channels.py",
@@ -20224,6 +20262,14 @@
       "kind": "function",
       "module": "Optimization/metrics/Workload.py",
       "name": "from_pick_config",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/Workload.py",
+      "id": "Optimization/metrics/Workload.py::WorkloadParams.speed",
+      "kind": "function",
+      "module": "Optimization/metrics/Workload.py",
+      "name": "speed",
       "public": true
     },
     {
@@ -29132,6 +29178,30 @@
     },
     {
       "file": "Warehouse/kernel/cost_model.py",
+      "id": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "class",
+      "module": "Warehouse/kernel/cost_model.py",
+      "name": "SpeedProfile",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/cost_model.py",
+      "id": "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/cost_model.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/cost_model.py",
+      "id": "Warehouse/kernel/cost_model.py::SpeedProfile.paces",
+      "kind": "function",
+      "module": "Warehouse/kernel/cost_model.py",
+      "name": "paces",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/cost_model.py",
       "id": "Warehouse/kernel/cost_model.py::TRANSFORMS",
       "kind": "const",
       "module": "Warehouse/kernel/cost_model.py",
@@ -29859,6 +29929,134 @@
       "public": true
     },
     {
+      "file": "Warehouse/operations/__init__.py",
+      "id": "Warehouse/operations/__init__.py",
+      "kind": "module",
+      "module": "Warehouse/operations/__init__.py",
+      "name": "Warehouse.operations",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/__init__.py",
+      "id": "Warehouse/operations/__init__.py::__all__",
+      "kind": "const",
+      "module": "Warehouse/operations/__init__.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py",
+      "kind": "module",
+      "module": "Warehouse/operations/roles.py",
+      "name": "Warehouse.operations.roles",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py::Mode",
+      "kind": "class",
+      "module": "Warehouse/operations/roles.py",
+      "name": "Mode",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py::Role",
+      "kind": "class",
+      "module": "Warehouse/operations/roles.py",
+      "name": "Role",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py::_Named",
+      "kind": "class",
+      "module": "Warehouse/operations/roles.py",
+      "name": "_Named",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py::_Named.__str__",
+      "kind": "function",
+      "module": "Warehouse/operations/roles.py",
+      "name": "__str__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/roles.py",
+      "id": "Warehouse/operations/roles.py::_Named.of",
+      "kind": "function",
+      "module": "Warehouse/operations/roles.py",
+      "name": "of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py",
+      "kind": "module",
+      "module": "Warehouse/operations/worker.py",
+      "name": "Warehouse.operations.worker",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Crew",
+      "kind": "class",
+      "module": "Warehouse/operations/worker.py",
+      "name": "Crew",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Crew.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/operations/worker.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Crew.next_uid",
+      "kind": "function",
+      "module": "Warehouse/operations/worker.py",
+      "name": "next_uid",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Crew.workers",
+      "kind": "function",
+      "module": "Warehouse/operations/worker.py",
+      "name": "workers",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Worker",
+      "kind": "class",
+      "module": "Warehouse/operations/worker.py",
+      "name": "Worker",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Worker.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/operations/worker.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/worker.py",
+      "id": "Warehouse/operations/worker.py::Worker.kind",
+      "kind": "function",
+      "module": "Warehouse/operations/worker.py",
+      "name": "kind",
+      "public": true
+    },
+    {
       "file": "Warehouse/physical.py",
       "id": "Warehouse/physical.py",
       "kind": "module",
@@ -29889,6 +30087,14 @@
       "module": "Warehouse/picking/Pick.py",
       "name": "__post_init__",
       "public": false
+    },
+    {
+      "file": "Warehouse/picking/Pick.py",
+      "id": "Warehouse/picking/Pick.py::PickConfig.speed",
+      "kind": "function",
+      "module": "Warehouse/picking/Pick.py",
+      "name": "speed",
+      "public": true
     },
     {
       "file": "Warehouse/picking/Pick.py",

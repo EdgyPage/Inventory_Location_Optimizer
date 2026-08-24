@@ -4156,9 +4156,16 @@
       "decorators": [
         "dataclass(frozen=True)"
       ],
-      "doc": "A pool of one kind of picker: a name, its pick-time cost regression (a PickConfig\ncarrying coefficients + travel speeds), and how many of them work concurrently.",
+      "doc": "A pool of one kind of picker: a name, its pick-time cost regression (a PickConfig\ncarrying coefficients + travel speeds), how many work concurrently, and what KIND of\nactor they are.\n\n`mode` is not a new idea here -- the two pools have been called `store_machine` and\n`fulfillment_walker` for as long as they have existed, and `simconfig/constants.py`\ncomments them as \"machine order-picker pool\" and \"human-walker pool\".  Nothing read\neither name.  The distinction was real, written down in prose, and inert; now it is a\nvalue, and `crew()` turns this pool into the domain's own actor objects.\n\nBoth fields default to today's values (a picking crew on foot), so a construction that\ndoes not care -- there are several in tests and Diagnostics -- is unchanged.",
       "kind": "class",
       "signature": ""
+    },
+    "Optimization/config/channels.py::PickerProfile.crew": {
+      "decorators": [],
+      "doc": "This pool as the domain's `Crew`, with the speeds its PickConfig carries.\n\nThe bridge from harness configuration to the actor model: `Warehouse/operations/`\nmay not import `Optimization/`, so the conversion belongs on this side.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> Crew"
     },
     "Optimization/config/channels.py::build_channels": {
       "decorators": [],
@@ -5157,6 +5164,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cls, cfg: object) -> WorkloadParams"
+    },
+    "Optimization/metrics/Workload.py::WorkloadParams.speed": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "These params' travel speeds as one value \u2014 the analytical mirror of\n`PickConfig.speed`, and equal to it whenever this was built `from_pick_config`.\n\nA property for the same reason: `x_speed`/`y_speed` stay fields because they are a\nserialization contract, and this is the derived view of them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> SpeedProfile"
     },
     "Optimization/metrics/Workload.py::aisle_workload": {
       "decorators": [],
@@ -12962,6 +12978,30 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/kernel/cost_model.py::SpeedProfile": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One actor's travel speeds: **ft/s in, s/inch out**, converted once.\n\nA speed is configured in ft/s and spent in s/inch, because bin positions are inches.\nNothing named that boundary, so every consumer crossed it by hand \u2014 47 separate\n`sec_per_inch` calls across the two pick simulations, the analytical workload, the\nassignment functions, the optimal-placement search and the strategy runner.\n\nThe discipline at those sites is already right: every one hoists the conversion to the\ntop of its function and passes `x_pace`/`y_pace` down, so the arithmetic is never\nper-bin.  What was missing is a NAME for the hoisted pair.  Two bare floats travelling\ntogether through a dozen signatures is the shape that lets an x pace reach a y slot, and\nit is also the shape that cannot be extended: a putter and an unloader need their own\nspeeds, and `(x_pace, y_pace)` has nowhere to record whose they are.\n\nLives HERE, in `cost_model`, rather than in a module of its own or in the operations\npackage that will own roles and modes.  `architecture.yml` forbids `wh_kernel -> *` and\nthe wildcard matches the kernel itself, so a separate `kernel/speed.py` importing\n`sec_per_inch` is a boundary violation \u2014 the kernel's modules stay independently\nimportable.  Beside the two functions it uses is also simply where it belongs.\n\nTHE AXES ARE NOT INTERCHANGEABLE.  `x` is horizontal travel ALONG an aisle\n(`aisle_width_for(50)` = 200 ft of run); `y` is VERTICAL lift (`aisle_height_for(10)` =\n40 ft of rack).  Separate DB columns record them (`pick_travel_x/y`,\n`non_pick_travel_x/y`) and `height_multiplier` brackets on the same `y_phys` this paces\n\u2014 so a machine that drives fast and lifts slowly is a DIFFERENT profile from a walker,\nnot a scaled one.\n\nFrozen and picklable, so it crosses the spawn boundary in a worker payload and can be\nshared rather than copied.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/kernel/cost_model.py::SpeedProfile.paces": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "`(x_pace, y_pace)` \u2014 for the call sites that still want the bare pair.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[float, float]"
+    },
     "Warehouse/kernel/cost_model.py::TRANSFORMS": {
       "decorators": [],
       "doc": null,
@@ -13621,6 +13661,118 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/operations/__init__.py": {
+      "decorators": [],
+      "doc": "operations \u2014 WHO does the work: roles, modes, workers, crews.\n\nThe domain's actor model, split out from the pick simulation so a second work stream can\nreuse it.  Imports `Warehouse/kernel/` and nothing else, so a future `Warehouse/inbound/`\nneeds no dependency inversion to build a crew of unloaders.\n\n    Role     pick | put\n    Mode     foot | machine          -- the axis that decides speed\n    Worker   uid + local_id + role + mode + SpeedProfile\n    Crew     a pool of identical workers, and the uid allocator across pools\n\nThe speed VALUE object (`SpeedProfile`) deliberately lives in `Warehouse/kernel/cost_model`,\nnot here: `cost_model` and the placement scorers consume speeds, and `architecture.yml`\nforbids `wh_kernel -> *`, so the kernel cannot import this package.  The value lives in the\nkernel; whose value it is lives here.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/operations/__init__.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['Mode', 'Role', 'Crew', 'Worker']"
+    },
+    "Warehouse/operations/roles.py": {
+      "decorators": [],
+      "doc": "roles \u2014 what an actor DOES and what it does it ON.\n\nTwo axes, deliberately separate, because they vary independently: a `pick` can be done on\n`foot` or on a `machine`, and so can a `put`.  Four combinations, each with its own travel\nspeed \u2014 which is the whole reason this file exists.\n\nThe mode axis is not new; it has just never been readable.  `Optimization/config/channels.py`\nhas named its two pools `'store_machine'` and `'fulfillment_walker'` for as long as they have\nexisted, and `simconfig/constants.py` comments them as \"machine order-picker pool\" and \"human\n-walker pool\".  Nothing anywhere reads either name: no forklift, machine, vehicle or equipment\nconcept existed in the repo.  The distinction was real, documented in prose, and inert.\n\n## Why `str` enums\n\nA role and a mode are written into a DB column and read back, and they appear in run\nmetadata.  `str`-valued members compare equal to their own text, so a stored `'machine'`\nround-trips without a conversion layer, and an f-string renders the value rather than\n`Mode.MACHINE`.  The cost is that any string comparison silently succeeds \u2014 hence\n`Role.of` / `Mode.of` below, which are the only sanctioned way to turn text back into a\nmember and which raise on anything unrecognised.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/operations/roles.py::Mode": {
+      "decorators": [],
+      "doc": "How the actor moves: on foot, or on a machine.\n\nThe axis that decides speed.  A machine drives faster along an aisle than a person\nwalks and lifts differently up a rack \u2014 and because x (horizontal run) and y (vertical\nlift) are separate quantities, a machine is a DIFFERENT `SpeedProfile` from a walker,\nnot a scaled one.",
+      "kind": "class",
+      "signature": "(_Named)"
+    },
+    "Warehouse/operations/roles.py::Role": {
+      "decorators": [],
+      "doc": "What the actor is doing with inventory: taking it out, or putting it away.",
+      "kind": "class",
+      "signature": "(_Named)"
+    },
+    "Warehouse/operations/roles.py::_Named": {
+      "decorators": [],
+      "doc": "Shared behaviour: render as the bare value, and parse strictly.",
+      "kind": "class",
+      "signature": "(str, Enum)"
+    },
+    "Warehouse/operations/roles.py::_Named.__str__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/operations/roles.py::_Named.of": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Parse `value` into a member, raising on anything unrecognised.\n\nThe strict counterpart to being a `str` enum.  Reading a role out of a DB gives you\ntext, and `'machien' == Role.PICK` is simply False rather than an error \u2014 so a typo\nin stored data would quietly route an actor nowhere.  Every text\u2192member conversion\ngoes through here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, value)"
+    },
+    "Warehouse/operations/worker.py": {
+      "decorators": [],
+      "doc": "worker \u2014 one actor, and a pool of them, with the two id spaces kept apart.\n\n## The two id spaces, and why there are two\n\nEvery existing reader assumes picker ids are **dense and per-crew**: `assign_tasks`\npartitions work into `num_pickers` buckets and the bucket index IS the id;\n`Simulation_Analytics._group_events_by_picker` allocates exactly `k_pickers` lists and now\nRAISES on anything outside `[0, k)`; `_ProgressAPIMixin.progress_at` enumerates\n`range(num_pickers)`; and the `picker_events` table and the viewer are built on the same\nassumption.\n\nA second crew breaks that the moment it shares an event stream \u2014 its actors carry ids from\na different space, and the old `0 <= pid < k_pickers` filter used to swallow them silently.\n\nSo a `Worker` carries both:\n\n  `local_id`  dense within its own crew, `0..size-1`.  This is what goes to `picker_events`\n              and to everything that predates a second crew.  It is NOT unique across crews.\n  `uid`       unique across every crew in the run.  This is what goes to the merged event\n              stream, beside a role and a mode, so a row can say WHO without ambiguity.\n\nKeeping them as two named fields rather than one clever encoding is the point: a `uid` that\nleaked into a `local_id` slot would land inside `[0, k)` and be accepted.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/operations/worker.py::Crew": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "A pool of identical workers: one role, one mode, one speed, a size.\n\nThis is what `Optimization/config/channels.PickerProfile` has always been -- a name, a\ncost profile carrying travel speeds, and a count -- with the two things it was missing\nmade explicit, and with no dependency on the run harness so a second stream can reuse it.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/operations/worker.py::Crew.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/operations/worker.py::Crew.next_uid": {
+      "decorators": [],
+      "doc": "The first uid a crew allocated AFTER this one may use.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, first_uid: int=0) -> int"
+    },
+    "Warehouse/operations/worker.py::Crew.workers": {
+      "decorators": [],
+      "doc": "This crew's workers, `local_id` 0..size-1 and `uid` running from `first_uid`.\n\nThe caller owns uid allocation across crews \u2014 pass the previous crew's\n`first_uid + size` \u2014 because only the caller knows how many crews there are.  See\n`next_uid`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, first_uid: int=0) -> tuple[Worker, ...]"
+    },
+    "Warehouse/operations/worker.py::Worker": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One actor: who it is, what it does, how it moves, and how fast.\n\nFrozen and picklable \u2014 a crew is built in the parent and crosses the spawn boundary in\nthe worker payload, like every other value object here.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/operations/worker.py::Worker.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/operations/worker.py::Worker.kind": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "`'pick/machine'` \u2014 the (role, mode) pair as one label, for an event row.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
     "Warehouse/physical.py": {
       "decorators": [],
       "doc": "physical.py \u2014 the two physical footprint constants (zero-dependency leaf).\n\nSingle source for the numbers that used to be repeated as literals across\nOrder (dim clamps), Storage_Primitive (unit footprints + tallest pallet tier),\nand the docs:\n\n  * PALLET_FOOTPRINT  \u2014 pallet max width/length AND the tallest pallet-tier\n    height (extra_large), in storage units (inches).\n  * COMPACT_FOOTPRINT \u2014 the small forward-pick footprint shared by the store\n    Singleton and the fulfillment bin.\n\nKept in a leaf module (imports nothing) so both Order and Storage_Primitive can\nread it without a cycle (Storage_Primitive imports Order).",
@@ -13647,6 +13799,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Warehouse/picking/Pick.py::PickConfig.speed": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "This picker's travel speeds as one value, ft/s converted to s/inch once.\n\nA PROPERTY, not a field, and deliberately: `x_speed`/`y_speed` are a public\nserialization contract.  `run_map_precompute` rebuilds a `PickConfig` from an\nARCHIVED `config.json` by filtering `dataclasses.fields`, and `docs/macros.py` reads\n`c[\"x_speed\"]` to render the published pick-time formula.  Both would fall back to\ndefaults SILENTLY if the fields were replaced \u2014 and no canary would catch it,\nbecause none of them reads an archived config.\n\nSo the pair stays exactly where it is and this is the derived view of it, for the\ncallers that want to hoist one object instead of two floats.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> SpeedProfile"
     },
     "Warehouse/picking/Pick.py::PickEvent": {
       "decorators": [

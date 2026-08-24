@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.operations.worker · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_worker_py" data-id="Warehouse/operations/worker.py">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <span class="here"><code>Warehouse/operations/worker.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.operations.worker</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_worker_py.html"><code>Warehouse/operations/worker.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.operations.worker</code></pre>
+<section class="doc">worker — one actor, and a pool of them, with the two id spaces kept apart.
+
+## The two id spaces, and why there are two
+
+Every existing reader assumes picker ids are **dense and per-crew**: `assign_tasks`
+partitions work into `num_pickers` buckets and the bucket index IS the id;
+`Simulation_Analytics._group_events_by_picker` allocates exactly `k_pickers` lists and now
+RAISES on anything outside `[0, k)`; `_ProgressAPIMixin.progress_at` enumerates
+`range(num_pickers)`; and the `picker_events` table and the viewer are built on the same
+assumption.
+
+A second crew breaks that the moment it shares an event stream — its actors carry ids from
+a different space, and the old `0 &lt;= pid &lt; k_pickers` filter used to swallow them silently.
+
+So a `Worker` carries both:
+
+  `local_id`  dense within its own crew, `0..size-1`.  This is what goes to `picker_events`
+              and to everything that predates a second crew.  It is NOT unique across crews.
+  `uid`       unique across every crew in the run.  This is what goes to the merged event
+              stream, beside a role and a mode, so a row can say WHO without ambiguity.
+
+Keeping them as two named fields rather than one clever encoding is the point: a `uid` that
+leaked into a `local_id` slot would land inside `[0, k)` and be accepted.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_operations_roles_py.html"><code>Warehouse.operations.roles</code></a> <span class="dim">Warehouse/operations/roles.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_operations___init___py.html"><code>Warehouse.operations</code></a> <span class="dim">Warehouse/operations/__init__.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nWarehouse_operations_worker_py__Crew.html"><code>Crew</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Worker.html"><code>Worker</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Crew___post_init__.html"><code>__post_init__</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Worker___post_init__.html"><code>__post_init__</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Worker_kind.html"><code>kind</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Crew_next_uid.html"><code>next_uid</code></a> <span class="dim">Warehouse/operations/worker.py</span></li><li><a href="nWarehouse_operations_worker_py__Crew_workers.html"><code>workers</code></a> <span class="dim">Warehouse/operations/worker.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_worker_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/worker.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

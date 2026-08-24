@@ -17,7 +17,17 @@
 <pre class="sig"><code>@dataclass(frozen=True)
 class PickerProfile</code></pre>
 <section class="doc">A pool of one kind of picker: a name, its pick-time cost regression (a PickConfig
-carrying coefficients + travel speeds), and how many of them work concurrently.</section>
+carrying coefficients + travel speeds), how many work concurrently, and what KIND of
+actor they are.
+
+`mode` is not a new idea here -- the two pools have been called `store_machine` and
+`fulfillment_walker` for as long as they have existed, and `simconfig/constants.py`
+comments them as &quot;machine order-picker pool&quot; and &quot;human-walker pool&quot;.  Nothing read
+either name.  The distinction was real, written down in prose, and inert; now it is a
+value, and `crew()` turns this pool into the domain&#x27;s own actor objects.
+
+Both fields default to today&#x27;s values (a picking crew on foot), so a construction that
+does not care -- there are several in tests and Diagnostics -- is unchanged.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_channels_py__build_channels.html"><code>build_channels</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__make_channel.html"><code>make_channel</code></a> <span class="dim">Optimization/config/channels.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_channels_py__PickerProfile">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/channels.py#:~:text=class%20PickerProfile">Source ↗</a></p>
 </article>

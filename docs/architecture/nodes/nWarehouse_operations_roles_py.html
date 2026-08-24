@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.operations.roles · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_roles_py" data-id="Warehouse/operations/roles.py">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <span class="here"><code>Warehouse/operations/roles.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.operations.roles</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_roles_py.html"><code>Warehouse/operations/roles.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.operations.roles</code></pre>
+<section class="doc">roles — what an actor DOES and what it does it ON.
+
+Two axes, deliberately separate, because they vary independently: a `pick` can be done on
+`foot` or on a `machine`, and so can a `put`.  Four combinations, each with its own travel
+speed — which is the whole reason this file exists.
+
+The mode axis is not new; it has just never been readable.  `Optimization/config/channels.py`
+has named its two pools `&#x27;store_machine&#x27;` and `&#x27;fulfillment_walker&#x27;` for as long as they have
+existed, and `simconfig/constants.py` comments them as &quot;machine order-picker pool&quot; and &quot;human
+-walker pool&quot;.  Nothing anywhere reads either name: no forklift, machine, vehicle or equipment
+concept existed in the repo.  The distinction was real, documented in prose, and inert.
+
+## Why `str` enums
+
+A role and a mode are written into a DB column and read back, and they appear in run
+metadata.  `str`-valued members compare equal to their own text, so a stored `&#x27;machine&#x27;`
+round-trips without a conversion layer, and an f-string renders the value rather than
+`Mode.MACHINE`.  The cost is that any string comparison silently succeeds — hence
+`Role.of` / `Mode.of` below, which are the only sanctioned way to turn text back into a
+member and which raise on anything unrecognised.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_operations___init___py.html"><code>Warehouse.operations</code></a> <span class="dim">Warehouse/operations/__init__.py</span></li><li><a href="nWarehouse_operations_worker_py.html"><code>Warehouse.operations.worker</code></a> <span class="dim">Warehouse/operations/worker.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nWarehouse_operations_roles_py__Mode.html"><code>Mode</code></a> <span class="dim">Warehouse/operations/roles.py</span></li><li><a href="nWarehouse_operations_roles_py__Role.html"><code>Role</code></a> <span class="dim">Warehouse/operations/roles.py</span></li><li><a href="nWarehouse_operations_roles_py___Named.html"><code>_Named</code></a> <span class="dim">Warehouse/operations/roles.py</span></li><li><a href="nWarehouse_operations_roles_py___Named___str__.html"><code>__str__</code></a> <span class="dim">Warehouse/operations/roles.py</span></li><li><a href="nWarehouse_operations_roles_py___Named_of.html"><code>of</code></a> <span class="dim">Warehouse/operations/roles.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_roles_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/roles.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

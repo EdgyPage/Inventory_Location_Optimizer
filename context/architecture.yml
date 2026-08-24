@@ -20,6 +20,7 @@ layers:
   - {name: wh_inventory,   match: "Warehouse/inventory/"}             # the placement engine
   - {name: wh_placement,   match: "Warehouse/placement/"}             # the assignment functions
   - {name: wh_picking,     match: "Warehouse/picking/"}               # the pick simulations
+  - {name: wh_operations,  match: "Warehouse/operations/"}            # roles/modes/workers/crews
   - {name: warehouse_core, match: "Warehouse/",
      except: ["Warehouse/generation/", "Warehouse/physical.py"]}      # the domain engine
   - {name: generation,     match: "Warehouse/generation/"}            # data-gen CLIs
@@ -68,6 +69,14 @@ boundaries:
   - {forbid: [wh_picking, optimization],     why: "the pick simulation must not import the run harness — it is handed a PickConfig, never CONFIG"}
   - {forbid: [wh_inventory, optimization],   why: "the placement engine must not import the run harness; a worker builds it from picklable values"}
   - {forbid: [wh_placement, optimization],   why: "an assignment function must not import the run harness — it is a closure over its own inputs"}
+  # wh_operations is the actor model (who does the work).  It may import wh_kernel and
+  # NOTHING else in the domain, so a future Warehouse/inbound/ can build a crew of
+  # unloaders without inverting a dependency — and so the pick simulation depends on it
+  # rather than the reverse.
+  - {forbid: [wh_operations, optimization], why: "a crew is built from picklable values handed to a worker, never from CONFIG"}
+  - {forbid: [wh_operations, wh_picking],   why: "who does the work must not depend on the pick simulation — the second stream is not a picker"}
+  - {forbid: [wh_operations, wh_inventory], why: "an actor must not depend on the placement engine"}
+  - {forbid: [wh_operations, wh_placement], why: "an actor must not depend on the assignment functions"}
   - {forbid: [opt_persistence, opt_config],  why: "persistence is a leaf: a worker saves results without dragging CONFIG into its process"}
   - {forbid: [opt_persistence, opt_simdriver], why: "storing results must not depend on orchestration"}
   - {forbid: [opt_persistence, opt_runschema], why: "DB IO must not depend on run-tree path resolution"}

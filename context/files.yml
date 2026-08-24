@@ -2518,6 +2518,31 @@ files:
       - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
       - {name: "test_per_channel_batches_and_simulation", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_operations_actors.py":
+    purpose: "who does the work, and the two id spaces."
+    layer: "tests"
+    key_symbols:
+      - {name: "FOOT", file: "Tests/unit/test_operations_actors.py", kind: "const"}
+      - {name: "MACHINE", file: "Tests/unit/test_operations_actors.py", kind: "const"}
+      - {name: "test_the_four_combinations_exist", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_member_renders_as_its_bare_value", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_of_parses_known_text", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_of_rejects_anything_else_and_lists_the_options", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_worker_carries_both_ids_separately", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_worker_is_frozen_and_picklable", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_negative_id_raises", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_crews_local_ids_are_dense_from_zero", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_uids_are_unique_across_two_crews", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_local_ids_of_two_crews_deliberately_COLLIDE", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_an_empty_crew_raises", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_crew_hands_out_its_own_speed", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_pool_names_finally_match_a_readable_mode", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_pool_converts_to_a_crew_carrying_its_own_speed", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_two_modes_have_genuinely_different_profiles", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_configured_speeds_are_physically_backwards_and_that_is_recorded", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_a_profile_that_does_not_care_still_builds", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_operations_imports_only_the_kernel", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_out_dir_derivation.py":
     purpose: "io.out_dir renders exactly the dirs the renders always joined."
     layer: "tests"
@@ -2890,6 +2915,25 @@ files:
       - {name: "test_identity_membership_not_location_membership", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_duplicate_add_rejected", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_discard_absent_is_noop_and_empty_is_falsy", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_speed_profile.py":
+    purpose: "one name for the ft/s \u2192 s/inch boundary."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_pace_is_exactly_sec_per_inch", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_the_axes_do_not_get_swapped", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_a_non_positive_speed_is_rejected_here_too", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_it_is_frozen", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_it_survives_the_spawn_boundary", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_equality_is_decided_by_the_configured_speeds", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_the_derived_paces_stay_out_of_the_constructor", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_pick_config_keeps_x_speed_and_y_speed_as_FIELDS", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_workload_params_keeps_them_too", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_the_sim_and_its_analytical_mirror_share_one_speed", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_the_hot_paths_hoist_the_profile_not_the_bare_function", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_neither_pick_simulation_converts_by_hand_any_more", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_the_hand_conversion_count_only_falls", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+      - {name: "test_cost_model_still_imports_nothing_from_the_repo", file: "Tests/unit/test_speed_profile.py", kind: "function"}
     notes: ""
   "Tests/unit/test_stats_intervals.py":
     purpose: "a published interval must belong to the number beside it."
@@ -3278,6 +3322,7 @@ files:
       - {name: "travel_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "aisle_exit_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "aisle_traverse_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "SpeedProfile", file: "Warehouse/kernel/cost_model.py", kind: "class"}
       - {name: "cart_step", file: "Warehouse/kernel/cost_model.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/regime.py":
@@ -3339,6 +3384,20 @@ files:
       - {name: "WarehouseConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse_Builder", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/operations/roles.py":
+    purpose: "what an actor DOES and what it does it ON."
+    layer: "wh_operations"
+    key_symbols:
+      - {name: "Role", file: "Warehouse/operations/roles.py", kind: "class"}
+      - {name: "Mode", file: "Warehouse/operations/roles.py", kind: "class"}
+    notes: ""
+  "Warehouse/operations/worker.py":
+    purpose: "one actor, and a pool of them, with the two id spaces kept apart."
+    layer: "wh_operations"
+    key_symbols:
+      - {name: "Worker", file: "Warehouse/operations/worker.py", kind: "class"}
+      - {name: "Crew", file: "Warehouse/operations/worker.py", kind: "class"}
     notes: ""
   "Warehouse/physical.py":
     purpose: "the two physical footprint constants (zero-dependency leaf)."
