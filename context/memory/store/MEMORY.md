@@ -30,3 +30,6 @@
 - [Map exact solver rarely fires](map-exact-solver-rarely-fires.md) — the exact-LAP gate admits 320/1,632 BinKey classes but only 0.09% of assigned units; greedy earns nearly all of every Map-family result at scale
 - [Run dossier map precompute](run-dossier-map-precompute.md) — ~18-19s per inventory pair (not per channel); inline vs backfill precomp_src don't form a ratio; run_map_precompute must run AFTER analyze_run or its census gets wiped
 - [Run-scope dossier](run-scope-dossier.md) — RunContext adds a 4th evaluation scope that sees the whole run tree across cells, rendering into `<run_root>/_dossier/` (contract 6c44b3ce7341); analyze_run's dossier stage wipes that tree first
+- [A grant is not an output](a-grant-is-not-an-output.md) — the [access] summary reports INPUTS; read the [render] run summary line to learn whether anything was actually written
+- [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
+- [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png

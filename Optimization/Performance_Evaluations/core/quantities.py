@@ -525,59 +525,9 @@ def suppression_reason(q: Quantity, view: str) -> str:
     return ''
 
 
-# ── the data-era gate ────────────────────────────────────────────────────────────
-
-def requires_for(q: Quantity):
-    """The `Schema.compat.Requires` this quantity's sim-DB read amounts to, or None.
-
-    DERIVED, not declared: the table comes from the frame builder the source names and the
-    columns from the source itself, so a quantity cannot describe a read it does not make.
-    A quantity with no per-batch source reads no database — its numbers come from a series
-    document the analysis wrote, or from the run's own cost rows.
-    """
-    from Schema import compat
-    reads = q.source.db_reads
-    if not reads:
-        return None
-    table, columns = reads
-    return compat.Requires(family='sim_db',
-                           label=f'quantity {q.key}',
-                           tables={table: tuple(columns)})
-
-
-def era_findings() -> list:
-    """Quantities that read something not every vetted sim vintage carries, unnamed.
-
-    THE STATIC RULE, no database, runnable in CI: every quantity must satisfy EITHER
-    `compat.validate(requires) == []` — inside the guaranteed surface, so version-free by
-    construction — OR name a real `SIM_CAPABILITIES` key.  Neither of those is a failure.
-    Being neither is: it means a figure will be silently absent, or silently wrong, on
-    every archived run made before the column existed, and nothing anywhere says so.
-
-    That split is `Schema/compat.py`'s own docstring, applied to the quantity table rather
-    than reinvented beside it.
-    """
-    from Schema import compat
-    import Optimization.persistence.Picking_Data as _pd  # registers the family
-
-    out = []
-    for q in QUANTITIES:
-        req = requires_for(q)
-        if req is None:
-            continue
-        gaps = compat.validate(req)
-        if not gaps:
-            continue
-        if q.capability and q.capability in _pd.SIM_CAPABILITIES:
-            continue
-        if q.capability:
-            out.append(f'{q.key} names capability {q.capability!r}, which is not in '
-                       f'SIM_CAPABILITIES')
-            continue
-        out.append(
-            f'{q.key} reads {"; ".join(gaps)} — outside the guaranteed sim_db surface, and '
-            f'it names no capability. Either the read is version-free and the surface '
-            f'needs re-deriving, or some vetted vintage cannot answer this quantity and '
-            f'that has to be said out loud: name a SIM_CAPABILITIES key, or declare the '
-            f'columns the frame actually builds it from in Source.db_columns.')
-    return out
+# ── the data-era gate lives in `core/era.py` ─────────────────────────────────────
+# It needs `Schema.compat` and the sim-DB family registration, and this module is
+# stdlib-only on purpose — that is what lets a test, `ingest.py` or a schema tool read the
+# quantity table without importing the analysis package.  The layering reads correctly
+# too: a Quantity describes a MEASUREMENT; whether a given archive can serve one is a
+# schema question.  `Source.db_reads` above is this module's whole half of the contract.

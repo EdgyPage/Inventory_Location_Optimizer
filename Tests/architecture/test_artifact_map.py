@@ -149,3 +149,42 @@ def test_ingest_preference_covers_every_declared_figure_subdir_in_walk_order():
     assert list(pref) == sorted(pref), (
         'preference must stay in lexicographic (walk) order so the pick matches every '
         'committed snapshot — reorder only with an ingest dry-run diff proving no figure moves')
+
+
+# ── ingest's prune and the guard's finding are ONE rule ──────────────────────────
+
+def test_ingest_prunes_exactly_what_the_guard_would_report():
+    """Staging copies and never removed anything, so a RENAMED figure left the old file
+    committed, staged and reachable — describing a chart the suite no longer draws.  The
+    only thing that noticed was `experiment_guard --scan`, at the END of the publish loop.
+
+    Ingest now applies the guard's own rule before the guard looks.  These two must be the
+    SAME rule: one deletes and the other reports, and a file one calls an orphan while the
+    other does not is a build that fails after the cleanup already ran.
+    """
+    import importlib.util
+    ingest = _load_ingest()
+    spec = importlib.util.spec_from_file_location(
+        'zz_experiment_guard', os.path.join(_ROOT, 'context', 'guards',
+                                            'experiment_guard.py'))
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+
+    assert ingest._declared_png_names() == guard._registry_png_names(), (
+        'ingest and the guard disagree about which PNG basenames the registry declares')
+    assert ingest.WHATIF_PNG_GLOB == 'whatif_*.png', (
+        "the guard exempts whatif_*.png from the ad-hoc-graph finding; ingest's prune "
+        'must exempt the same pattern or it deletes declared what-if artifacts')
+
+
+def test_the_declared_name_set_includes_retired_entries():
+    """A `retired:` entry keeps protecting its staged copies: retired means the WRITER is
+    gone, not that evidence a published page cites should vanish underneath it."""
+    ingest = _load_ingest()
+    import yaml
+    with open(os.path.join(_ROOT, 'docs', 'experiments', 'figures.yml'),
+              encoding='utf-8') as fh:
+        figs = yaml.safe_load(fh)['figures']
+    retired = {f['name'] for f in figs if f.get('retired')}
+    assert retired, 'no retired entries — this test would pass vacuously'
+    assert retired <= ingest._declared_png_names()

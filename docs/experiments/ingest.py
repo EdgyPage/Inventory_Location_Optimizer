@@ -125,6 +125,31 @@ def _registry_lists(flag: str):
     return by['top3'], by['full_suite'], by['inventory']
 
 
+#: A staged PNG matching this is a what-if artifact, not a registry figure — it has a
+#: declared producer (a runschema writer) that figures.yml never names.  The SAME pattern
+#: `context/guards/experiment_guard.py` exempts; see `_declared_png_names`.
+WHATIF_PNG_GLOB = 'whatif_*.png'
+
+
+def _declared_png_names() -> set:
+    """Every PNG basename figures.yml names, RETIRED ENTRIES INCLUDED.
+
+    Deliberately the same set `context/guards/experiment_guard.py._registry_png_names`
+    builds, because the prune pass below and that guard must not be able to disagree: one
+    deletes and the other reports, and a file one considers an orphan while the other does
+    not is a build that fails after the cleanup already ran.
+
+    A `retired:` entry keeps protecting its staged copies on purpose — retired means the
+    writer is gone, not that the evidence a published page cites should vanish.
+    """
+    if yaml is None:
+        return set()
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
+    with open(path, encoding='utf-8') as fh:
+        figs = (yaml.safe_load(fh) or {}).get('figures', [])
+    return {f['name'] for f in figs if isinstance(f, dict) and 'name' in f}
+
+
 _DEFAULTS = _registry_lists('default')
 DEFAULT_TOP3, DEFAULT_FULL_SUITE, DEFAULT_INVENTORY_PLOTS = _DEFAULTS or (None, None, None)
 _LEGACY = _registry_lists('legacy')
@@ -337,9 +362,50 @@ def main(argv=None):
                                 cells=[c for c, _d in cells], schema_id=schema_id,
                                 commit=commit, dirty=dirty)
 
+    dropped = _prune_orphan_pngs(exp_dir, args.dry_run, log)
+
     print("\n".join(log))
     print(f"\n{'[dry-run] would copy' if args.dry_run else 'copied'} {n} file(s) "
-          f"into {os.path.relpath(exp_dir, _DOCS)}")
+          f"into {os.path.relpath(exp_dir, _DOCS)}"
+          + (f"; removed {dropped} orphan PNG(s)" if dropped else ""))
+
+
+def _prune_orphan_pngs(exp_dir, dry, log):
+    """Delete staged PNGs whose basename no live registry entry declares.
+
+    Staging COPIES; it has never removed anything.  So when a figure is renamed — and
+    `delta_travel_vs_baseline.png` became `percent_travel_per_arm.png` the day figure views
+    stopped being editorial — the new file lands beside the old one, and the old one stays
+    committed, staged, and reachable, describing a chart the suite no longer draws.
+
+    Nothing caught that except `context/guards/experiment_guard.py --scan`, which runs at
+    the END of the publish loop and reports it for a human to chase.  The guard's rule is
+    "a PNG with no declared producer", so applying exactly that rule HERE means ingest and
+    the guard cannot disagree: the orphan is gone before the guard looks.
+
+    Conservative by construction — only under `images/`, only `.png`, and only a basename
+    the registry does not name at all.  What-if PNGs are exempt: their producer is a
+    runschema writer, which figures.yml never lists.
+    """
+    declared = _declared_png_names()
+    if not declared:
+        return 0                    # no registry (no pyyaml) -> no opinion, delete nothing
+    # Through the declaration, never a hand-join: `run_png` renders `images/{fname}`, so
+    # its dirname IS the images root and moving that template moves this sweep with it.
+    root = os.path.dirname(site_tree.path('run_png', exp_dir, fname='x.png'))
+    dropped = 0
+    for dirpath, _dirs, files in os.walk(root):
+        for base in sorted(files):
+            if (not base.endswith('.png') or base in declared
+                    or fnmatch.fnmatch(base, WHATIF_PNG_GLOB)):
+                continue
+            path = os.path.join(dirpath, base)
+            log.append(f"  {'would drop' if dry else 'drop'}     "
+                       f'{os.path.relpath(path, _DOCS)}  (no live registry entry)')
+            if not dry:
+                os.remove(path)
+            dropped += 1
+    return dropped
 
 
 def _cells_of(source, log):

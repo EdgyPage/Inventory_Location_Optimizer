@@ -72,6 +72,7 @@ import pytest
 # CLIs are here as CONSUMERS, for their `REQUIRES` declarations rather than for a family.
 from Optimization import run_whatif_delta, run_whatif_labor, run_whatif_volume  # noqa: F401
 from Optimization.Performance_Evaluations.core import context as eval_context
+from Optimization.Performance_Evaluations.core import era as eval_era
 from Visualization import precompute as viz_precompute  # noqa: F401 - consumer, for REQUIRES
 from Visualization import db_reader as viz_db_reader     # noqa: F401 - consumer, for REQUIRES
 from Visualization.readers import base as viz_base       # noqa: F401 - consumer, for REQUIRES
@@ -107,6 +108,12 @@ MULTI_VINTAGE = {'sim_db', 'runtime_metrics_db', 'warehouse_db'}
 DECLARED_CONSUMERS = {
     ('Optimization/persistence/Picking_Data.py', 'REQUIRES'): Picking_Data.REQUIRES,
     ('Optimization/Performance_Evaluations/core/context.py', 'REQUIRES'): eval_context.REQUIRES,
+    # The union of every declared QUANTITY's sim-DB read.  The context's REQUIRES above is
+    # what the LOADERS materialize; this is what the quantity table actually consumes out
+    # of those frames, and the two are different questions — a loader can pull a column no
+    # quantity reads, and a quantity can read a column the loader guards to a default.
+    ('Optimization/Performance_Evaluations/core/era.py', 'QUANTITY_READS'):
+        eval_era.QUANTITY_READS,
     ('Optimization/run_whatif_delta.py', 'REQUIRES'): run_whatif_delta.REQUIRES,
     ('Optimization/run_whatif_labor.py', 'REQUIRES'): run_whatif_labor.REQUIRES,
     ('Optimization/run_whatif_volume.py', 'REQUIRES'): run_whatif_volume.REQUIRES,

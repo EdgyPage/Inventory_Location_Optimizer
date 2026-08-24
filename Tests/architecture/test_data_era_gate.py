@@ -25,15 +25,34 @@ import pytest
 
 import Optimization.persistence.Picking_Data as picking_data
 from Optimization.Performance_Evaluations.common import units
-from Optimization.Performance_Evaluations.core import quantities as Q
+from Optimization.Performance_Evaluations.core import era, quantities as Q
 from Schema import compat
 
 
 # ── the gate itself ──────────────────────────────────────────────────────────────
 
 def test_no_quantity_reads_outside_the_guaranteed_surface_unnamed():
-    findings = Q.era_findings()
+    findings = era.findings()
     assert not findings, '\n'.join(findings)
+
+
+def test_the_module_level_declaration_is_the_union_of_every_quantity_read():
+    """`QUANTITY_READS` exists so the schema-compatibility sweep can SEE the declaration.
+
+    A `Requires` reached only through a factory is invisible to that sweep and therefore
+    never validated — the exact gap the sweep's own docstring describes. The union has to
+    actually be the union, or the object CI validates and the objects the gate checks are
+    different things.
+    """
+    union: dict = {}
+    for q in Q.QUANTITIES:
+        req = era.requires_for(q)
+        if req is None:
+            continue
+        for table, cols in req.tables.items():
+            union.setdefault(table, set()).update(cols)
+    assert {t: set(c) for t, c in era.QUANTITY_READS.tables.items()} == union
+    assert compat.validate(era.QUANTITY_READS) == []
 
 
 def test_the_gate_is_not_vacuous():
@@ -46,13 +65,13 @@ def test_the_gate_is_not_vacuous():
         key='zz_ghost', label='ghost', axis_stem='ghost', unit=units.NONE,
         direction='lower',
         source=Q.Source(per_batch=('batch', 'a_column_no_vintage_ever_wrote')))
-    req = Q.requires_for(ghost)
+    req = era.requires_for(ghost)
     gaps = compat.validate(req)
     assert gaps, 'compat.validate accepted a column that does not exist'
     original = Q.QUANTITIES
     try:
         Q.QUANTITIES = original + (ghost,)
-        findings = Q.era_findings()
+        findings = era.findings()
     finally:
         Q.QUANTITIES = original
     assert len(findings) == 1
@@ -72,7 +91,7 @@ def test_a_capability_that_does_not_exist_is_refused():
     original = Q.QUANTITIES
     try:
         Q.QUANTITIES = original + (ghost,)
-        findings = Q.era_findings()
+        findings = era.findings()
     finally:
         Q.QUANTITIES = original
     assert len(findings) == 1
@@ -88,7 +107,7 @@ def test_a_real_capability_satisfies_the_gate():
     original = Q.QUANTITIES
     try:
         Q.QUANTITIES = original + (ghost,)
-        assert Q.era_findings() == []
+        assert era.findings() == []
     finally:
         Q.QUANTITIES = original
 
@@ -129,7 +148,7 @@ def test_a_quantity_with_no_database_source_asks_the_gate_nothing():
     put every one of them behind a capability it does not need."""
     for key in ('reord_ms_per_unit', 'scoring_ms_per_unit', 'x_reord_vs_fifo',
                 'pick_volume', 'task_duration'):
-        assert Q.requires_for(Q.BY_KEY[key]) is None
+        assert era.requires_for(Q.BY_KEY[key]) is None
 
 
 def test_the_frame_table_map_covers_every_source_kind_in_use():
