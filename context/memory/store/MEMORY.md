@@ -34,5 +34,5 @@
 - [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
 - [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png
 - [Put-away seams for inbound](putaway-seams-for-inbound.md) — the nine seams built 2026-08-24 for a trailer/dock feature, and the four things still missing when it starts
-- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — the analysis layer divides by 3.6e6 as if milliseconds, so every published ABSOLUTE number is 1000x off; every ratio is fine
+- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24, but anything published before then still shows absolutes 1000x too large; every ratio was always fine
 - [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
