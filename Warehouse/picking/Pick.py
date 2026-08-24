@@ -163,6 +163,22 @@ class _ProgressAPIMixin:
     serves both.  NOT part of the numeric sim path - the picker loops stay
     deliberately separate (deferred-mutation contract).
     """
+    def _start_at(self, picker_id: int) -> float:
+        """Picker `picker_id`'s clock at the start of this batch.
+
+        `0.0` unless the caller supplied `start_times`, so every construction that does not
+        track clocks -- tests, Diagnostics, the calltree harness -- keeps the old model where
+        every picker is reborn at zero each batch.  The runner threads the previous batch's
+        finish times through instead, which is what puts a whole run's events on one axis.
+
+        A short list is tolerated and reads 0.0 past its end: a crew can grow between
+        batches, and a new picker starting at the origin is the honest answer.
+        """
+        st = getattr(self, '_start_times', None)
+        if not st or picker_id >= len(st):
+            return 0.0
+        return float(st[picker_id])
+
     def progress_at(self, t: float) -> list[PickerProgress]:
         """State of every picker at time t. run() must be called first.
 
@@ -336,7 +352,11 @@ class PickSimulation(_ProgressAPIMixin):
         tasks  : list[Task],
         config : PickConfig,
         manager: Inventory_Manager | None = None,
+        start_times: list[float] | None = None,
     ) -> None:
+        # start_times[p] = picker p's clock when this batch begins (see _start_at).
+        # None => every picker starts at 0.0, which is the pre-clock model exactly.
+        self._start_times = start_times
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
         self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)
         self._config  = config
@@ -350,7 +370,8 @@ class PickSimulation(_ProgressAPIMixin):
         all_empties: list = []
         for picker_id, tasks in enumerate(self._picker_tasks):
             all_events.extend(
-                self._simulate_picker(picker_id, tasks, all_picks, all_empties)
+                self._simulate_picker(picker_id, tasks, all_picks, all_empties,
+                                      self._start_at(picker_id))
             )
         all_events.sort()
         self._events = all_events
@@ -361,10 +382,13 @@ class PickSimulation(_ProgressAPIMixin):
     def _simulate_picker(
         self, picker_id: int, tasks: list[Task],
         picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
+        t0: float = 0.0,
     ) -> list[PickEvent]:
         cfg = self._config
         events: list[PickEvent] = []
-        time: float = 0.0
+        # See fast_pick._simulate_picker_deferred: the clock carries across batches, and
+        # t0=0.0 reproduces the pre-clock model exactly.  Kept in lockstep with that loop.
+        time: float = t0
         x: float = 0.0   # physical X position (starts at aisle entrance)
         y: float = 0.0   # physical Y position
         cart_cap: int = cfg.cart.capacity()   # this channel's cart volume (swap threshold)

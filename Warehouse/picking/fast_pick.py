@@ -58,6 +58,7 @@ def _simulate_picker_deferred(
     tasks:     list[Task],
     cfg:       PickConfig,
     bin_snap:  dict[int, int],   # id(bin_) -> qty at Phase-1 start; never written by threads
+    t0:        float = 0.0,      # this picker's clock at the START of this batch
 ) -> tuple[list[PickEvent], list[_PickMutation]]:
     """Phase 1 worker -- read-only picker simulation.
 
@@ -68,7 +69,11 @@ def _simulate_picker_deferred(
     events:    list[PickEvent]     = []
     mutations: list[_PickMutation] = []
 
-    t              = 0.0
+    # A picker's clock CARRIES.  t0 is where this picker finished the previous batch, so
+    # its events land on the run's absolute axis instead of restarting at zero every batch.
+    # t0=0.0 (the default, and every caller that does not track clocks) is today's model
+    # exactly -- which is what makes this parameter provable rather than merely plausible.
+    t              = t0
     x, y           = 0.0, 0.0   # physical position (starts at aisle entrance)
     cart_cap       = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
     cart_remaining = cart_cap
@@ -203,7 +208,11 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         tasks  : list[Task],
         config : PickConfig,
         manager: Inventory_Manager | None = None,
+        start_times: list[float] | None = None,
     ) -> None:
+        # start_times[p] = picker p's clock when this batch begins (see _start_at).
+        # None => every picker starts at 0.0, which is the pre-clock model exactly.
+        self._start_times = start_times
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
         self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)   # shared with Pick
         self._config   = config
@@ -233,7 +242,8 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         results: list[tuple[list[PickEvent], list[_PickMutation]]] = [None] * n  # type: ignore
         with ThreadPoolExecutor(max_workers=n) as pool:
             futs = {
-                pool.submit(_simulate_picker_deferred, pid, tasks, cfg, bin_snap): pid
+                pool.submit(_simulate_picker_deferred, pid, tasks, cfg, bin_snap,
+                            self._start_at(pid)): pid
                 for pid, tasks in enumerate(self._picker_tasks)
             }
             for fut in futs:
