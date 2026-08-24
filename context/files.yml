@@ -899,7 +899,9 @@ files:
   "Optimization/simdriver/cells.py":
     purpose: "What-if cell matrix \u2014 build/apply/inspect cells (aisle-split x zoning x scheduler over one frozen inventory); _apply_cell mutates the shared CONFIG in place."
     layer: "opt_simdriver"
-    key_symbols: []
+    key_symbols:
+      - {name: "Cell", file: "Optimization/simdriver/cells.py", kind: "class"}
+      - {name: "reference_cell", file: "Optimization/simdriver/cells.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/scenario.py":
     purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
@@ -1404,6 +1406,20 @@ files:
       - {name: "test_the_affinity_mirror_matches_the_family", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
       - {name: "test_a_dropped_column_is_rejected_by_name_through_a_real_consumer", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
       - {name: "test_check_or_warn_reports_once_and_returns_none", file: "Tests/architecture/test_schema_identity.py", kind: "function"}
+    notes: ""
+  "Tests/architecture/test_sim_inventory_boundary.py":
+    purpose: "everything the pick layer says to the inventory manager."
+    layer: "tests"
+    key_symbols:
+      - {name: "NOTIFICATIONS", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "const"}
+      - {name: "READS", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "const"}
+      - {name: "test_the_pick_layer_touches_no_manager_attribute_that_is_not_declared", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_every_declared_touch_is_still_real", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_the_scan_is_not_vacuous", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_every_notification_is_an_instance_attribute_an_observer_can_rebind", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_the_established_attach_pattern_is_still_the_one_in_use", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_no_listener_registry_was_added", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
+      - {name: "test_the_pick_layer_reads_only_the_two_bin_indexes", file: "Tests/architecture/test_sim_inventory_boundary.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_site_tree.py":
     purpose: "the staged docs tree declaration stays tied to both its sides."
@@ -2125,6 +2141,26 @@ files:
       - {name: "test_sidecar_never_crosses_between_dbs_in_one_directory", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
       - {name: "test_comparison_rejects_float64_impostor", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_allocation.py":
+    purpose: "splitting work across N workers, with picking taken out of it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_round_robin_is_index_modulo_and_preserves_order", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_round_robin_needs_no_cost_function", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_one_worker_gets_everything_whatever_the_policy", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_more_workers_than_items_leaves_empty_buckets_not_missing_ones", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_nothing_to_split_still_returns_one_bucket_per_worker", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_lpt_sends_the_heaviest_item_to_its_own_worker", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_lpt_restores_the_consumers_own_order_within_each_worker", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_the_equal_cost_tie_break_is_descending", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_lpt_conserves_every_item_exactly_once", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_lpt_accepts_unhashable_items", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_lpt_without_a_cost_function_is_an_error_not_a_silent_round_robin", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_an_unknown_policy_raises", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_assign_tasks_keeps_the_legacy_coercion_locally", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_assign_tasks_delegates_rather_than_reimplementing", file: "Tests/unit/test_allocation.py", kind: "function"}
+      - {name: "test_allocation_imports_nothing_but_the_standard_library", file: "Tests/unit/test_allocation.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_assignment_and_labor.py":
     purpose: "test_assignment_and_labor.py"
     layer: "tests"
@@ -2213,6 +2249,39 @@ files:
       - {name: "test_bell_build_is_reproducible_and_seed_sensitive", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
       - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
       - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_bin_empty_timing.py":
+    purpose: "the pick loop knows when a bin ran dry; now it says so."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_deferred_mutation_carries_the_pick_time", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_stamp_defaults_so_an_older_caller_still_constructs", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_fast_pick_stamps_the_mutation_with_the_picks_own_clock", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_phase_two_passes_the_stamp_to_the_manager", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_reference_sim_stamps_its_empties_too", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_notify_records_the_stamp_against_the_bin", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_a_caller_with_no_clock_is_still_accepted", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_batched_path_accepts_both_shapes", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_stamps_expire_with_the_bins_they_describe", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_reclaim_loop_still_iterates_bare_bins", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_the_id_key_is_justified_by_bin_lifetime", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_nothing_reads_the_stamp_to_make_a_decision_yet", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_cell_record.py":
+    purpose: "a what-if cell is a record, and its baseline predicate is one thing."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_cell_is_still_indexable_positionally", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_cell_still_unpacks_into_four_names", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_cell_is_still_a_tuple", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_reference_is_no_split_no_zoning_legacy_scheduler", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_fallback_is_used_only_when_no_cell_qualifies", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_neither_call_site_still_spells_the_predicate_itself", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_run_layout_cell_keys_are_the_record_field_names", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_descriptor_still_accepts_a_legacy_plain_tuple", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_cell_names_and_order_are_unchanged", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_single_scheduler_sweep_adds_no_suffix", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_scheduler_suffix_and_the_name_parser_share_one_vocabulary", file: "Tests/unit/test_cell_record.py", kind: "function"}
     notes: ""
   "Tests/unit/test_census.py":
     purpose: "the count/span claim a page makes must be the one the data supports."
@@ -2496,6 +2565,38 @@ files:
       - {name: "test_reserved_subtrees_are_never_walked", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
       - {name: "test_dry_run_deletes_nothing_and_apply_deletes", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_putaway_budget.py":
+    purpose: "the drain can be capped, and capping loses nothing."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_budget_drains_everything", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_the_budget_defaults_to_none_at_every_entry_point", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_a_budget_places_at_most_that_many_and_queues_the_rest", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_a_zero_budget_places_nothing_and_keeps_everything", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_a_budgeted_drain_resumes_where_it_stopped", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_a_budget_larger_than_the_queue_is_the_same_as_none", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_an_unaffordable_wave_is_never_scored", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_the_ranked_budget_is_spent_per_wave_not_per_unit", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_a_ranked_drain_with_no_budget_still_reaches_the_per_unit_fallback", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+      - {name: "test_the_budget_counts_placements_not_pops", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_putaway_provenance.py":
+    purpose: "where a queued unit came from is declared, not inferred."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_enqueue_site_pushes_a_bare_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_the_three_sources_are_all_used", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_an_unknown_source_is_refused_at_construction", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_the_default_is_intake", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_an_item_cannot_be_relabelled_in_flight", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_respawn_carries_the_origin_to_a_split_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_both_rescues_respawn_rather_than_pushing_a_bare_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_execute_placement_takes_the_source_as_an_ignorable_keyword", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_the_recorder_reads_the_declared_source_not_an_identity_set", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_the_recorder_still_separates_intake_from_reorder_by_the_loop_flag", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_the_recorder_forwards_the_source_to_the_real_method", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_every_wrapper_of_the_chokepoint_passes_the_keyword_through", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_quantities.py":
     purpose: "the quantity table is the ONE declaration, and it is faithful."
     layer: "tests"
@@ -2555,6 +2656,22 @@ files:
       - {name: "test_units_ordered_tracks_qty_and_resets", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
       - {name: "test_units_ordered_sums_across_skus", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
       - {name: "test_batch_stats_persists_reorder_counts", file: "Tests/unit/test_reorder_accounting.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_reorder_phases.py":
+    purpose: "`check_reorders` is six phases, and the ORDER is the behaviour."
+    layer: "tests"
+    key_symbols:
+      - {name: "PHASES", file: "Tests/unit/test_reorder_phases.py", kind: "const"}
+      - {name: "test_check_reorders_runs_every_phase_exactly_once_in_order", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_lead_tick_precedes_the_firing", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_release_follows_the_firing", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_drain_is_last", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_batch_calendar_advances_exactly_once_per_call", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_calendar_is_the_reorder_rng_key", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_reclaiming_bins_does_not_advance_the_calendar", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_draining_putaway_does_not_advance_the_calendar_or_order_anything", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_every_phase_is_callable_on_a_fresh_manager", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_phase_list_here_matches_the_composition", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
     notes: ""
   "Tests/unit/test_reorder_queue.py":
     purpose: "test_reorder_queue.py"
@@ -2702,6 +2819,29 @@ files:
       - {name: "test_singletons_still_drain_before_pallets", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_real_manager_matches_the_canonical_expectation", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_manager_and_fallback_branches_agree", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_timeline.py":
+    purpose: "what the simulation's clock counts in, and where batches sit on it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_sim_declares_its_unit", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_analysis_divisor_is_the_one_the_suite_actually_applies", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_discrepancy_is_exactly_a_thousandfold", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_record_disappears_when_the_two_readings_agree", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_sims_own_constants_read_as_seconds", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_first_batch_starts_at_zero", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_a_batch_starts_after_every_batch_before_it", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_a_negative_index_raises_rather_than_wrapping", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_epochs_are_the_starts_and_cumsum_gives_the_ends", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_epochs_tolerate_a_none_duration", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_whatif_uses_the_named_definition", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_timeline_imports_nothing_but_the_standard_library", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_one_way_exit_has_one_definition", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_traverse_function_delegates_rather_than_repeating_it", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_a_two_way_lane_has_no_exit_segment", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_both_sims_call_the_shared_exit_rather_than_inlining_it", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_lockstep_comment_names_a_test_that_actually_guards_it", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_named_guards_exist_and_cover_the_travel_math", file: "Tests/unit/test_timeline.py", kind: "function"}
     notes: ""
   "Tests/unit/test_travel_balanced_equivalence.py":
     purpose: "the SKU-run-cached `_travel_balanced_impl` selects the"
@@ -2991,6 +3131,8 @@ files:
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
     layer: "wh_inventory"
     key_symbols:
+      - {name: "PUTAWAY_SOURCES", file: "Warehouse/inventory/inventory_common.py", kind: "const"}
+      - {name: "PutawayItem", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "Placement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "LoadParams", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "WarehousePlan", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
@@ -3017,6 +3159,13 @@ files:
     key_symbols:
       - {name: "ReorderMixin", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
     notes: ""
+  "Warehouse/kernel/allocation.py":
+    purpose: "split a fixed set of work across N workers."
+    layer: "wh_kernel"
+    key_symbols:
+      - {name: "POLICIES", file: "Warehouse/kernel/allocation.py", kind: "const"}
+      - {name: "partition", file: "Warehouse/kernel/allocation.py", kind: "function"}
+    notes: ""
   "Warehouse/kernel/cost_model.py":
     purpose: "single source of truth for the pick-cost primitives."
     layer: "wh_kernel"
@@ -3029,6 +3178,7 @@ files:
       - {name: "sec_per_inch", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "validate_speeds", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "travel_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+      - {name: "aisle_exit_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "aisle_traverse_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "cart_step", file: "Warehouse/kernel/cost_model.py", kind: "function"}
     notes: ""
@@ -3037,6 +3187,17 @@ files:
     layer: "wh_kernel"
     key_symbols:
       - {name: "regime_of", file: "Warehouse/kernel/regime.py", kind: "function"}
+    notes: ""
+  "Warehouse/kernel/timeline.py":
+    purpose: "what the simulation's clock is made of, and how batches sit on one axis."
+    layer: "wh_kernel"
+    key_symbols:
+      - {name: "TIME_UNIT", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "SECONDS_PER_HOUR", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "ANALYSIS_DIVISOR", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "ANALYSIS_DIVISOR_DISCREPANCY", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "batch_epoch", file: "Warehouse/kernel/timeline.py", kind: "function"}
+      - {name: "epochs", file: "Warehouse/kernel/timeline.py", kind: "function"}
     notes: ""
   "Warehouse/layout/Aisle_Dimensions.py":
     purpose: "physical dimension helpers for warehouse aisle layout."

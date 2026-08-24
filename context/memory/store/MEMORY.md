@@ -4,7 +4,7 @@
 - [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (both full 34-arm suite as of 2026-07-08; arm subsets live in strategies.CHANNEL_RESTOCKS); combine best plans with run_channel_rollup.py
 - [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — perf_simulation._build_inventory orders lack reorder_point; set it to 0 to actually exercise reorder-time placement
 - [Results drive location](results-drive-location.md) — new runs write to COMPARISON_OUTPUT_DIR, but as of 2026-08-15 the archive lives on COLD_DRIVE (COMPARISON_OUTPUT_DIR has no sim_*.db); don't trust sim_meta.json's inv_db (stale)
-- [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — approved multi-phase plan (one-way travel model + velocity zoning toggle + throughput scatter); picker position persists across tasks (Pick.py); fast_pick.py is the production sim (four-way lockstep)
+- [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — approved multi-phase plan, all four deliverables landed 2026-08-14; fast_pick.py is the production sim (four-way lockstep, guarded by test_travel_decomposition + test_scheduler, NOT the name the code claimed)
 - [No \uXXXX in heredoc Python](no-unicode-escapes-in-heredoc-python.md) — escapes land as literal text in files.yml and break catalog idempotency; paste the real char or use Edit
 - [No machine-local paths](no-machine-local-paths.md) — never write a drive-letter, home-directory or username path into a memory or tracked file; name the .env key or use a ~/ form (blocked by context/guards/path_guard.py)
 - [AUC is degenerate on volume curves](auc-degenerate-on-volume-curves.md) — cumulative pick-volume curves are straight (shape index 0.987–1.025), so raw AUC restates items×hours/2; report chord slope and area-between-curves instead
@@ -33,3 +33,5 @@
 - [A grant is not an output](a-grant-is-not-an-output.md) — the [access] summary reports INPUTS; read the [render] run summary line to learn whether anything was actually written
 - [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
 - [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png
+- [Put-away seams for inbound](putaway-seams-for-inbound.md) — the nine seams built 2026-08-24 for a trailer/dock feature, and the four things still missing when it starts
+- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — the analysis layer divides by 3.6e6 as if milliseconds, so every published ABSOLUTE number is 1000x off; every ratio is fine

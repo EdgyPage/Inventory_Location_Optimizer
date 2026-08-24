@@ -16,8 +16,18 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def aisle_traverse_cost(first_x: float, first_y: float, last_x: float, last_y: float, aisle_length: float, x_pace: float, y_pace: float, one_way: bool, entrance_x: float=0.0) -&gt; tuple[float, float, float, float]</code></pre>
 <section class="doc">Non-pick aisle-traversal time (s) for ONE aisle visit, split into ENTRY and EXIT
-per axis — the single definition shared by the sim (Pick / fast_pick), the analytical
-workload (Workload), and the travel decomposition so they can never drift.
+per axis.
+
+NOT called by the pick simulations, and the docstring here claimed otherwise for as
+long as it existed: it said it was &quot;the single definition shared by the sim (Pick /
+fast_pick), the analytical workload (Workload), and the travel decomposition so they
+can never drift&quot; while having zero callers, and both sims inlined the arithmetic.  A
+seam that lies about being one is worse than an absent seam, because it stops anyone
+looking for the real duplication.
+
+The half the sims DO share is `aisle_exit_cost`, which this now delegates to.  The
+entry half is folded into their generic bin-to-bin travel loop, so there is nothing
+here for them to call.
 
 ENTRY = aisle entrance → first pick:
     entry_x = |first_x - entrance_x| * x_pace ;  entry_y = first_y * y_pace  (raise from ground)
@@ -27,7 +37,7 @@ TWO-WAY (default): no exit — the picker leaves the way it came, reproducing to
 
 `x_pace`/`y_pace` are per-inch paces (sec_per_inch of the regime&#x27;s speed).  Returns
 (entry_x, entry_y, exit_x, exit_y) in seconds; sum them for the total non-pick travel.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__aisle_exit_cost.html"><code>aisle_exit_cost</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_cost_model_py__aisle_traverse_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/cost_model.py#:~:text=def%20aisle_traverse_cost">Source ↗</a></p>
 </article>
 </main>

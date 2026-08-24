@@ -18,7 +18,8 @@
 <section class="doc">Order-Up-To replenishment through an explicit, deterministic lead queue.
 
 Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
-lead 0.  Per call (one completed batch):
+lead 0.  Per call (one completed batch), in this order and no other:
+  0. Advance the batch calendar and reclaim bins the picks emptied.
   1. Advance every pre-existing in-transit order: remaining_lead -= 1.
   2. Fire OUP reorders for depleted SKUs → append new records (remaining_lead =
      round(lead_time_mean) ≥ 0); reorder qty ~ Normal(ideal, ideal·supply_cv)
@@ -28,8 +29,13 @@ lead 0.  Per call (one completed batch):
   4. Place the stock queue into bins via _stock().
 
 Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
-SKU with an order already in flight is not reordered again.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__reclaim_empty_bins.html"><code>_reclaim_empty_bins</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_to_stock.html"><code>_release_to_stock</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+SKU with an order already in flight is not reordered again.
+
+THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
+drive them separately, but reordering them changes results: firing before the lead
+tick would decrement an order in the batch it was placed, and releasing before
+firing would delay every lead-0 arrival by a batch.</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__advance_lead_queue.html"><code>_advance_lead_queue</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__drain_putaway.html"><code>_drain_putaway</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__fire_reorders.html"><code>_fire_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals.html"><code>_release_arrivals</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__tick_batch.html"><code>_tick_batch</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_reclaim_emptied_bins.html"><code>reclaim_emptied_bins</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20check_reorders">Source ↗</a></p>
 </article>
 </main>

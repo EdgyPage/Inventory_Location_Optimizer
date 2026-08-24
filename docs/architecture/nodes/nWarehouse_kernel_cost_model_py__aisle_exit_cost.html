@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aisle_exit_cost · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_kernel_cost_model_py__aisle_exit_cost" data-id="Warehouse/kernel/cost_model.py::aisle_exit_cost">
+<nav class="crumbs"><a href="../layers.html">wh_kernel</a> <span class="sep">›</span> <a href="../files/nWarehouse_kernel_cost_model_py.html"><code>Warehouse/kernel/cost_model.py</code></a> <span class="sep">›</span> <span class="here"><code>aisle_exit_cost</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>aisle_exit_cost</code></h1>
+<p class="meta">layer <span class="chip">wh_kernel</span> · file <a href="../files/nWarehouse_kernel_cost_model_py.html"><code>Warehouse/kernel/cost_model.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def aisle_exit_cost(last_x: float, last_y: float, aisle_length: float, x_pace: float, y_pace: float) -&gt; tuple[float, float]</code></pre>
+<section class="doc">One-way lane EXIT (s): traverse from the last pick to the aisle far end, then
+descend to the ground.  Returns `(exit_x, exit_y)`.
+
+THE definition both pick simulations use, and the reason it exists separately from
+`aisle_traverse_cost`: the sims never compute an aisle ENTRY as such — their first
+bin-to-bin segment already covers it, and they do not track a &quot;first pick&quot; position to
+pass.  What they genuinely share is this half, so this half is what is shared.
+
+Charged to NON-PICK travel: the picker is walking to leave, not to pick.  A two-way
+lane has no exit segment at all, which is the caller&#x27;s `if cfg.one_way` — kept there
+because the caller also has to decide whether to accumulate the result.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__aisle_traverse_cost.html"><code>aisle_traverse_cost</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_picking_Pick_py__PickSimulation__simulate_picker.html"><code>_simulate_picker</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li><li><a href="nWarehouse_picking_fast_pick_py___simulate_picker_deferred.html"><code>_simulate_picker_deferred</code></a> <span class="dim">Warehouse/picking/fast_pick.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_cost_model_py__aisle_exit_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/cost_model.py#:~:text=def%20aisle_exit_cost">Source ↗</a></p>
+</article>
+</main>
+</body></html>

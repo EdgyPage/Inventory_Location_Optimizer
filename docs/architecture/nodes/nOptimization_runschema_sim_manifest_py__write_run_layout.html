@@ -21,7 +21,7 @@ reference, configs, pairs) instead of directory-guessing, and lets analysis of a
 or OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.
 Atomic (tmp + os.replace), same pattern as _write_run_spec.
 
-cells = the _build_cells() tuples [(name, split, zoning, scheduler), …]; split is None or
+cells = the _build_cells() `Cell` records (name, split, zoning, scheduler); split is None or
 {&#x27;k&#x27;,&#x27;capacity_loss&#x27;}.  `created` (ISO-8601) is passed in so the caller owns the clock.
 
 `schema_id` stamps which RUN-TREE CONTRACT this run&#x27;s directory layout follows — the sha256 of

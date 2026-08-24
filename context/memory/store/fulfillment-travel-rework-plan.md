@@ -13,11 +13,16 @@ Approved 2026-07-08. Full plan: `~/.claude/plans/i-want-to-create-elegant-adlema
 Four deliverables, phased: **A** throughput-vs-labor scatter (as of 2026-08-23 living at
 `Optimization/Performance_Evaluations/headline/throughput_vs_labor.py` — the `compare/` package it
 originally shipped in was deleted wholesale by the analysis-suite rebuild (commits 0389da8,
-e73158b, 429a9ee); DONE — no rerun); **B** one-way travel-model rework (pick/non_pick decomposition, aisle entry/exit, cart-swap→non_pick, per-task position reset, shared `aisle_traverse_cost` helper); **C** velocity zoning as a per-regime candidate-layer TOGGLE (not an arm) + optional per-band aisle depth geometry.
+e73158b, 429a9ee); DONE — no rerun); **B** one-way travel-model rework (pick/non_pick decomposition, aisle entry/exit, cart-swap→non_pick, per-task position reset, shared `aisle_traverse_cost` helper — which was DECLARED and never
+called by anything until 2026-08-24, when the half the sims actually share became
+`cost_model.aisle_exit_cost`); **C** velocity zoning as a per-regime candidate-layer TOGGLE (not an arm) + optional per-band aisle depth geometry.
 
 Decisions taken (adjustable): one-way is **fulfillment-only** (store two-way, flag-gated); cart-swap stays **flat/position-independent**, reclassified to non_pick_travel; scorer rewrites (`_D_map`, tmin, Compact→aisle-consolidation, rank_labor, rank_minlabor) land **together**, gated on `one_way`; **fresh-rerun DBs** + `col in row.keys()` guards (no ALTER TABLE); aisle far-end `L = aisle.aisle_width`.
 
-**Two corrected facts, as they stood 2026-07-08** (I asserted the opposite earlier; verified against code at that date): (1) the picker's `(x,y)` **persisted across aisle-tasks** — init once, never reset per task → an inter-task travel term existed in `ss_prod_hours` (local-frame artifact, a latent bug the plan's per-task reset was meant to remove). (2) `Warehouse/picking/fast_pick.py` (`DeferredPickSimulation`) is the **production** sim runner (`strategy_runner.py`), so travel changes are a **four-way lockstep** (Pick.py + fast_pick.py + Workload.py/Workload_Builder + task decomposition), guarded by `test_placement_fastpath_equivalence`.
+**Two corrected facts, as they stood 2026-07-08** (I asserted the opposite earlier; verified against code at that date): (1) the picker's `(x,y)` **persisted across aisle-tasks** — init once, never reset per task → an inter-task travel term existed in `ss_prod_hours` (local-frame artifact, a latent bug the plan's per-task reset was meant to remove). (2) `Warehouse/picking/fast_pick.py` (`DeferredPickSimulation`) is the **production** sim runner (`strategy_runner.py`), so travel changes are a **four-way lockstep** (Pick.py + fast_pick.py + Workload.py/Workload_Builder + task decomposition), guarded — as the code's own comment claimed until 2026-08-24 — by
+`test_placement_fastpath_equivalence`. **That was wrong.** That test is about `_PrefPool` map
+placement and touches neither sim's travel math. The real guards are
+`Tests/unit/test_travel_decomposition.py` and `Tests/unit/test_scheduler.py`.
 
 **As of 2026-08-14, all four deliverables have landed** — this is no longer "in flight." Confirmed
 in code: `Warehouse/picking/Pick.py::PickSimulation._simulate_picker` now resets `x = y = 0.0` at

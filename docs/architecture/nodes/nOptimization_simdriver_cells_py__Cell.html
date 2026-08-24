@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cell · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_cells_py__Cell" data-id="Optimization/simdriver/cells.py::Cell">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a> <span class="sep">›</span> <span class="here"><code>Cell</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>Cell</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
+
+<pre class="sig"><code>class Cell(NamedTuple)</code></pre>
+<section class="doc">One point in the what-if matrix: a fixed choice on every swept axis.
+
+A NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked
+positionally in five files — `cells.py`, `scenario.py`, `run_simulation.py`,
+`sim_manifest.py` and `run_whatif_delta.py` — so `c[1]`, `c[3]` and
+`(name, split, zoning, sched) = c` all had to keep working.  They do, which is why
+this change cannot break a consumer by being half-applied; named access is simply
+added beside them.
+
+Adding a FIFTH axis (an inbound sorter policy) is now one field and one line in
+`_build_cells` rather than five positional unpacks to find and renumber.  The names
+here are the same ones `run_layout.json` records, so the descriptor and the producer
+cannot drift apart.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_cells_py___build_cells.html"><code>_build_cells</code></a> <span class="dim">Optimization/simdriver/cells.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py__Cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=class%20Cell">Source ↗</a></p>
+</article>
+</main>
+</body></html>

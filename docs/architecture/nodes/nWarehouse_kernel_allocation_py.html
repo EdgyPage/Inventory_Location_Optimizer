@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.kernel.allocation · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_kernel_allocation_py" data-id="Warehouse/kernel/allocation.py">
+<nav class="crumbs"><a href="../layers.html">wh_kernel</a> <span class="sep">›</span> <span class="here"><code>Warehouse/kernel/allocation.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.kernel.allocation</code></h1>
+<p class="meta">layer <span class="chip">wh_kernel</span> · file <a href="../files/nWarehouse_kernel_allocation_py.html"><code>Warehouse/kernel/allocation.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.kernel.allocation</code></pre>
+<section class="doc">allocation — split a fixed set of work across N workers.
+
+Extracted from `Pick.assign_tasks`, which was and remains the ONE task→picker partition
+both pick simulations call, so they cannot drift.  What is here is the part that has
+nothing to do with picking: given some items, a cost for each, and a tie-break order, hand
+them out to N workers under a named policy.
+
+A second work stream — an inbound crew unloading trailers — needs exactly this and nothing
+else from the scheduler.  Keeping the policies in one place means round-robin and LPT get
+implemented once rather than reimplemented next to the dock, and it means the two streams
+cannot quietly disagree about what &quot;balanced&quot; means.
+
+`Warehouse/kernel/` may import NOTHING (see `architecture.yml`&#x27;s `wh_kernel -&gt; *` forbid),
+which is exactly why this module is a good home: both the domain engine and any future
+inbound package can reach it, and it can reach neither.
+
+## The two policies, and why LPT balances a proxy
+
+`round_robin` is `i % n` — the legacy assignment, byte-identical, and the default.
+
+`lpt` visits items HEAVIEST-FIRST and appends each to the LEAST-LOADED worker.  That is a
+standard makespan heuristic; it is NOT a guaranteed bound on a realized step-function
+makespan and on adverse inputs can do no better than round-robin.  It never yields an
+invalid partition and total work is unchanged, so results stay correct either way.
+
+The caller supplies `cost_of`, and in the pick case it is deliberately a *continuous* proxy
+rather than the exact cost: a cart-swap step function can be fooled by a light item that
+happens to look free on a cart-favourable worker.  Balancing on a smooth monotone
+approximation and then MEASURING the real thing is the split that keeps the scheduler
+honest — see `Pick.count_cart_swaps`, the exact-makespan predictor the proxy is checked
+against.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Pick_py.html"><code>Warehouse.picking.Pick</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_allocation_py__POLICIES.html"><code>POLICIES</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li><li><a href="nWarehouse_kernel_allocation_py__partition.html"><code>partition</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_allocation_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/allocation.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -452,7 +452,7 @@ def main():
     # (no descriptor) gains one so it stays analyzable.  cell_tuples/reference match the driver's.
     cell_tuples = _build_cells(spec_dict)
     # Same predicate the driver uses, from the same function — these two MUST agree: one
-    # picks the baseline cell, the other writes its name into run_layout.json for every
+    # picks the baseline cell, the other writes its name into the descriptor for every
     # downstream what-if to diff against.
     reference   = reference_cell(cell_tuples, spec_dict.get('reference'))
     if (not args.resume) or (read_run_layout(base_dir) is None):

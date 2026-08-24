@@ -26,7 +26,7 @@ class Cell(NamedTuple):
 
     Adding a FIFTH axis (an inbound sorter policy) is now one field and one line in
     `_build_cells` rather than five positional unpacks to find and renumber.  The names
-    here are the same ones `run_layout.json` records, so the descriptor and the producer
+    here are the same ones the run-tree descriptor records, so it and the producer
     cannot drift apart.
     """
     name: str
@@ -41,7 +41,7 @@ class Cell(NamedTuple):
         This predicate was written out twice, verbatim, in `scenario.py` and
         `run_simulation.py` — and those two MUST agree, because one picks the cell the
         driver treats as the baseline and the other writes the reference name into
-        `run_layout.json` for every downstream what-if to diff against.  Two copies of a
+        the run-tree descriptor for every downstream what-if to diff against.  Two copies of a
         predicate that must agree is a bug with a delay on it.
         """
         return (self.split is None and not self.zoning.get('enabled')
