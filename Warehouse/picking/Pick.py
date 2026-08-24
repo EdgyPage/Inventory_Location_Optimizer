@@ -8,6 +8,7 @@ from Warehouse.layout.Storage_Primitive import StorageCart, StoreCart
 from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
+from Warehouse.kernel.allocation import partition
 from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds
 
 if TYPE_CHECKING:
@@ -278,28 +279,26 @@ def assign_tasks(sorted_tasks: list, cfg: PickConfig) -> list:
       order — exactly the order the sim picks them — so the **realized** makespan (and the cart swaps
       that dominate it) is computed exactly by the shared next-fit; only the *balancing decisions* use
       the smooth proxy.  Runs once per batch in ``__init__`` at O(total_picks + tasks·pickers)."""
-    n = cfg.num_pickers
-    picker_tasks: list = [[] for _ in range(n)]
-    if getattr(cfg, 'scheduler', 'round_robin') != 'lpt' or n <= 1:
-        for i, task in enumerate(sorted_tasks):
-            picker_tasks[i % n].append(task)
-        return picker_tasks
+    policy = getattr(cfg, 'scheduler', 'round_robin')
+    if policy != 'lpt':
+        # Anything that is not 'lpt' has always meant round-robin here, and `partition`
+        # rejects an unknown policy rather than falling through — so the coercion stays in
+        # THIS function, where the legacy contract lives, and does not leak into the
+        # generic splitter.
+        return partition(sorted_tasks, cfg.num_pickers, policy='round_robin')
+
     cap = cfg.cart.capacity()
     coef = cfg.cart_swap_coef
     x_pace, y_pace = sec_per_inch(cfg.x_speed), sec_per_inch(cfg.y_speed)
-    # Per-task balancing cost: static (travel+handling) + a continuous cart proxy (volume/cap).
-    est = {}
-    for t in sorted_tasks:
+
+    def _est(t):
+        # Per-task balancing cost: static (travel+handling) + a continuous cart proxy
+        # (volume/cap).  The proxy is the point — see allocation.partition's docstring.
         st, vols = _task_static(t, cfg, x_pace, y_pace)
-        est[id(t)] = st + coef * (sum(vols) / cap if cap else 0.0)
-    load = [0.0] * n
-    for task in sorted(sorted_tasks, key=lambda t: (est[id(t)], t.aisle_id), reverse=True):
-        p = min(range(n), key=lambda i: (load[i], i))   # least-loaded; tie ⇒ lowest picker id
-        load[p] += est[id(task)]
-        picker_tasks[p].append(task)
-    for pt in picker_tasks:                             # sim processes each picker in aisle_id order
-        pt.sort(key=lambda t: t.aisle_id)
-    return picker_tasks
+        return st + coef * (sum(vols) / cap if cap else 0.0)
+
+    return partition(sorted_tasks, cfg.num_pickers, policy='lpt',
+                     cost_of=_est, order_key=lambda t: t.aisle_id)
 
 
 class PickSimulation(_ProgressAPIMixin):
