@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 from Warehouse.picking.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin, assign_tasks
 from Warehouse.layout.Storage_Primitive import StoreCart
 from Warehouse.picking.Workload_Builder import Task
-from Warehouse.kernel.cost_model import sec_per_inch, cart_step
+from Warehouse.kernel.cost_model import aisle_exit_cost, sec_per_inch, cart_step
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -87,8 +87,10 @@ def _simulate_picker_deferred(
         # Per-task position reset to the aisle entrance (lockstep with Pick.py).
         x = 0.0
         y = 0.0
-        # Travel decomposition — kept byte-for-byte in lockstep with Pick.py._simulate_picker
-        # (guarded by test_placement_fastpath_equivalence).  Phase flips at the first picked
+        # Travel decomposition — kept byte-for-byte in lockstep with Pick.py._simulate_picker.
+        # The guards are Tests/unit/test_travel_decomposition.py and test_scheduler.py; this
+        # comment named test_placement_fastpath_equivalence for years, which is about
+        # _PrefPool map placement and touches neither sim's travel math.  Phase flips at the first picked
         # stop: before = aisle ENTRY (non_pick), after = INTER-PICK (pick).
         first_pick_seen = False
         acc_px = acc_py = acc_npx = acc_npy = 0.0
@@ -169,8 +171,7 @@ def _simulate_picker_deferred(
             L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
             if L is None:
                 L = max((b.x_phys for b in task.path), default=0.0)
-            exit_x = abs(L - x) * x_pace
-            exit_y = y * y_pace
+            exit_x, exit_y = aisle_exit_cost(x, y, L, x_pace, y_pace)
             t      += exit_x + exit_y
             acc_npx += exit_x; acc_npy += exit_y
 

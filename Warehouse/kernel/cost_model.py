@@ -127,6 +127,23 @@ def travel_cost(x_phys: float, y_phys: float,
     return x_phys * sec_per_inch(x_speed) + y_phys * sec_per_inch(y_speed)
 
 
+def aisle_exit_cost(last_x: float, last_y: float, aisle_length: float,
+                    x_pace: float, y_pace: float) -> tuple[float, float]:
+    """One-way lane EXIT (s): traverse from the last pick to the aisle far end, then
+    descend to the ground.  Returns `(exit_x, exit_y)`.
+
+    THE definition both pick simulations use, and the reason it exists separately from
+    `aisle_traverse_cost`: the sims never compute an aisle ENTRY as such — their first
+    bin-to-bin segment already covers it, and they do not track a "first pick" position to
+    pass.  What they genuinely share is this half, so this half is what is shared.
+
+    Charged to NON-PICK travel: the picker is walking to leave, not to pick.  A two-way
+    lane has no exit segment at all, which is the caller's `if cfg.one_way` — kept there
+    because the caller also has to decide whether to accumulate the result.
+    """
+    return abs(aisle_length - last_x) * x_pace, last_y * y_pace
+
+
 def aisle_traverse_cost(first_x: float, first_y: float,
                         last_x: float, last_y: float,
                         aisle_length: float,
@@ -134,8 +151,18 @@ def aisle_traverse_cost(first_x: float, first_y: float,
                         one_way: bool,
                         entrance_x: float = 0.0) -> tuple[float, float, float, float]:
     """Non-pick aisle-traversal time (s) for ONE aisle visit, split into ENTRY and EXIT
-    per axis — the single definition shared by the sim (Pick / fast_pick), the analytical
-    workload (Workload), and the travel decomposition so they can never drift.
+    per axis.
+
+    NOT called by the pick simulations, and the docstring here claimed otherwise for as
+    long as it existed: it said it was "the single definition shared by the sim (Pick /
+    fast_pick), the analytical workload (Workload), and the travel decomposition so they
+    can never drift" while having zero callers, and both sims inlined the arithmetic.  A
+    seam that lies about being one is worse than an absent seam, because it stops anyone
+    looking for the real duplication.
+
+    The half the sims DO share is `aisle_exit_cost`, which this now delegates to.  The
+    entry half is folded into their generic bin-to-bin travel loop, so there is nothing
+    here for them to call.
 
     ENTRY = aisle entrance → first pick:
         entry_x = |first_x - entrance_x| * x_pace ;  entry_y = first_y * y_pace  (raise from ground)
@@ -147,12 +174,8 @@ def aisle_traverse_cost(first_x: float, first_y: float,
     (entry_x, entry_y, exit_x, exit_y) in seconds; sum them for the total non-pick travel."""
     entry_x = abs(first_x - entrance_x) * x_pace
     entry_y = first_y * y_pace
-    if one_way:
-        exit_x = abs(aisle_length - last_x) * x_pace
-        exit_y = last_y * y_pace
-    else:
-        exit_x = 0.0
-        exit_y = 0.0
+    exit_x, exit_y = (aisle_exit_cost(last_x, last_y, aisle_length, x_pace, y_pace)
+                      if one_way else (0.0, 0.0))
     return entry_x, entry_y, exit_x, exit_y
 
 

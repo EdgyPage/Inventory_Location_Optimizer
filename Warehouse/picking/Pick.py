@@ -9,7 +9,7 @@ from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
 from Warehouse.kernel.allocation import partition
-from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds
+from Warehouse.kernel.cost_model import aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -461,8 +461,7 @@ class PickSimulation(_ProgressAPIMixin):
                 L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
                 if L is None:
                     L = max((b.x_phys for b in task.path), default=0.0)
-                exit_x = abs(L - x) * x_pace
-                exit_y = y * y_pace
+                exit_x, exit_y = aisle_exit_cost(x, y, L, x_pace, y_pace)
                 time   += exit_x + exit_y
                 acc_npx += exit_x; acc_npy += exit_y
 

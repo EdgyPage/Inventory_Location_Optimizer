@@ -41,6 +41,8 @@ if _REPO_ROOT not in sys.path:
 
 import numpy as np
 
+from Warehouse.kernel.timeline import epochs as batch_epochs
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -99,7 +101,13 @@ def _series(db: str):
     dur = np.array([r[0] or 0.0 for r in rows], dtype=float)
     items = np.array([r[1] or 0 for r in rows], dtype=float)
     task = np.array([r[2] or 0.0 for r in rows], dtype=float)
-    return {'hours': np.cumsum(dur) / MS_PER_HOUR,
+    # `epochs` gives each batch's START; cumsum gives each batch's END, which is what a
+    # cumulative curve plots — so the series here is `epoch + duration`, i.e. the same
+    # numbers, from the one named definition of a cross-batch timeline rather than an
+    # anonymous cumsum in an analysis module.  See Warehouse/kernel/timeline.py, which also
+    # records why MS_PER_HOUR is the divisor it is.
+    ends = np.array(batch_epochs(dur), dtype=float) + dur
+    return {'hours': ends / MS_PER_HOUR,
             'items': np.cumsum(items),
             'labor_hours': float(task.sum()) / MS_PER_HOUR}
 
