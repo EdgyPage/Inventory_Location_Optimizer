@@ -54,7 +54,7 @@ def overtime_metrics():
     for key in _quantities.SERIES_ORDER:
         q = _quantities.BY_KEY[key]
         x, y, blo, bhi = q.source.series
-        is_time = q.unit.kind == 'duration_ms'
+        is_time = q.unit.kind == 'duration_s'
         conv, label = present.for_metric(q.key)
         # A time metric's converter is DELIBERATELY dropped: its divisor is chosen from
         # every arm's values pooled, which only `_time_axis` can see, and a spec-level

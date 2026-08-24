@@ -18,6 +18,7 @@ import pandas as pd
 
 from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import io
+from Optimization.Performance_Evaluations.common.units import PER_HOUR
 
 
 # ── the data build (verbatim schemas from the retired report module) ────────────────
@@ -74,7 +75,7 @@ def _per_run_rows(strategies, df_b, df_t, title):
             # the argument checkable in a file small enough to commit.
             mean_reorder_placements=float(bb['reorder_placements'].mean())
             if 'reorder_placements' in bb else float('nan'),
-            mean_batch_prod_hours=float(tot_prod / len(bb) / 3.6e6) if len(bb) else float('nan'),
+            mean_batch_prod_hours=float(tot_prod / len(bb) / PER_HOUR) if len(bb) else float('nan'),
         ))
     return rows, summ
 

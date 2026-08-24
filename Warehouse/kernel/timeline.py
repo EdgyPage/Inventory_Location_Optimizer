@@ -14,15 +14,13 @@ documented as s/inch.  The constants added to the same accumulator read the same
 `pick_intercept: 15`, `cart_swap_coef: 300` are 15 seconds a pick and five minutes a cart
 swap, which are warehouse numbers; at 15 ms and 0.3 s they are not physical.
 
-The ANALYSIS layer declares the opposite.  `Performance_Evaluations/common/units.py` says
-"durations are milliseconds" and divides by `3.6e6` for hours.  Both cannot be right, and
-`3.6e6` seconds is 1000 hours.
+The ANALYSIS layer used to declare the opposite: `Performance_Evaluations/common/units.py`
+said "durations are milliseconds" and divided by `3.6e6` for hours.  3.6e6 SECONDS is 1000
+hours, so every ABSOLUTE figure the suite published was 1000x out — and every RATIO was
+right, which is exactly why nothing caught it for the life of the project.
 
-`ANALYSIS_DIVISOR_DISCREPANCY` below records that, with the arithmetic, because a shared
-clock has to know what it is counting in.  It is NOT fixed here: correcting the label moves
-every absolute number on a published site and is its own piece of work with its own review.
-Every RATIO — every percentage, effect size and improvement in the suite — is unaffected,
-which is exactly why nothing caught it.
+That is fixed.  `units.py` now IMPORTS `SECONDS_PER_HOUR` from here instead of restating a
+literal, so the sim's unit and the analysis layer's divisor cannot disagree again.
 
 ## 2. The epoch
 
@@ -42,20 +40,6 @@ TIME_UNIT = 'seconds'
 
 #: Seconds per hour, for a consumer converting the sim's own unit honestly.
 SECONDS_PER_HOUR = 3600.0
-
-#: The divisor `Performance_Evaluations/common/units.py` applies to a sim duration to get
-#: "hours".  3.6e6 is milliseconds per hour; the sim emits seconds.
-ANALYSIS_DIVISOR = 3.6e6
-
-#: How far apart the two readings are.  1000x — so a published "1.68 hours of labor per
-#: batch" is 1,680 hours, and a published "450,000 items/hour" is 450.
-#:
-#: DELIBERATELY NOT FIXED HERE.  Recorded so the discrepancy is a counted decision rather
-#: than a silent one, and so a clock shared with a second work stream starts from a stated
-#: unit.  Fixing it relabels every absolute number on a live site; every ratio is
-#: unaffected.  `Tests/unit/test_timeline.py` fails if the two constants ever agree, which
-#: is the day this entry should be deleted along with the note above.
-ANALYSIS_DIVISOR_DISCREPANCY = ANALYSIS_DIVISOR / SECONDS_PER_HOUR
 
 
 def batch_epoch(durations: Sequence[float], index: int) -> float:

@@ -53,7 +53,7 @@ from Optimization.Performance_Evaluations.common import chartkit as _ck
 from Optimization.Performance_Evaluations.common import io as _io
 from Optimization.run_whatif_delta import _channel_of
 from Optimization.run_whatif_labor import (
-    MS_PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _data_xlim, _headroom, _ordered,
+    PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _data_xlim, _headroom, _ordered,
     _panel_tag, _parse_arm, _scheduler_of, canonical_arm_order)
 
 log = logging.getLogger('analysis')
@@ -107,9 +107,9 @@ def _series(db: str):
     # anonymous cumsum in an analysis module.  See Warehouse/kernel/timeline.py, which also
     # records why MS_PER_HOUR is the divisor it is.
     ends = np.array(batch_epochs(dur), dtype=float) + dur
-    return {'hours': ends / MS_PER_HOUR,
+    return {'hours': ends / PER_HOUR,
             'items': np.cumsum(items),
-            'labor_hours': float(task.sum()) / MS_PER_HOUR}
+            'labor_hours': float(task.sum()) / PER_HOUR}
 
 
 def _metrics_of(s):

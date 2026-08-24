@@ -109,13 +109,13 @@ def test_a_duration_resolves_its_unit_from_its_own_samples():
     """One picker task is seconds, one batch of labor is hours — a fixed axis prints
     `0.0008` for half the suite."""
     q = Q.BY_KEY['task_mean_duration']
-    assert q.axis_label([2.0e3, 3.0e3]).endswith('(seconds)')
-    assert q.axis_label([2.0e7, 3.0e7]).endswith('(hours)')
+    assert q.axis_label([2.0, 3.0]).endswith('(seconds)')
+    assert q.axis_label([2.0e4, 3.0e4]).endswith('(hours)')
 
 
 def test_a_duration_unit_may_not_declare_a_suffix_it_would_ignore():
     with pytest.raises(ValueError, match='silently'):
-        units.Unit('duration_ms', 'hours')
+        units.Unit('duration_s', 'hours')
 
 
 # ── 3. the view derivation ───────────────────────────────────────────────────────

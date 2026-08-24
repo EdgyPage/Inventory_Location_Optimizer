@@ -2,7 +2,9 @@
 
 Locks Optimization/run_whatif_labor.py — the cross-cell throughput / labor-HOURS what-if:
 
-  - _hours(): full-run SUMS convert ms -> modeled hours (Σ task_makespan / 3.6e6), plus items/batches.
+  - _hours(): full-run SUMS convert SECONDS -> modeled hours (Σ task_makespan / 3600), plus
+    items/batches.  These read 3.6e6 while the suite believed sim durations were
+    milliseconds; the sim emits seconds, so every absolute figure was 1000x out.
   - _scheduler_of(): the picker scheduler is decoded from the CELL suffix (k1_off_lpt -> lpt).
   - _parse_arm(): 'uni_rank_labor_norsl' -> ('uni','rank_labor','norsl'); assignment may carry '_'.
   - _pct(): signed % where + is always better.
@@ -40,7 +42,7 @@ def _descriptor(root, cells, channels, reference=None):
 
 
 def _make_db(path, per_batch):
-    """Write a minimal batch_stats DB. per_batch = list of (task_makespan_ms, duration_ms, items)."""
+    """Write a minimal batch_stats DB. per_batch = list of (task_makespan_s, duration_s, items)."""
     con = sqlite3.connect(path)
     con.execute('CREATE TABLE batch_stats (id INTEGER PRIMARY KEY, batch_id INTEGER, '
                 'duration REAL, total_items INTEGER, task_makespan REAL, '
@@ -56,8 +58,8 @@ def _make_db(path, per_batch):
 
 def test_hours_ms_to_modeled_hours(tmp_path):
     db = str(tmp_path / 'sim_uni_fifo_norsl.db')
-    # two batches summing to exactly 3.6e6 ms labor and 1.8e6 ms makespan -> 1.0 h / 0.5 h
-    _make_db(db, [(1.8e6, 0.9e6, 100), (1.8e6, 0.9e6, 100)])
+    # two batches summing to exactly 3600 s labor and 1800 s makespan -> 1.0 h / 0.5 h
+    _make_db(db, [(1800.0, 900.0, 100), (1800.0, 900.0, 100)])
     h = rwl._hours(db)
     assert h['labor_hours'] == 1.0
     assert h['batch_hours'] == 0.5
@@ -123,8 +125,8 @@ def test_main_labor_saved_and_json(tmp_path, monkeypatch):
     root.mkdir()
     # fifo = 1.0 h labor; map = 0.5 h labor  -> saved(map) = +0.5 h.  lpt gets more throughput.
     for cell, thr in (('k1_off_rr', 1.0), ('k1_off_lpt', 1.4)):
-        _arm_tree(root, cell, 'uni_fifo_norsl', [(3.6e4, 3.6e4, 10)] * 100)   # 100*3.6e4 = 3.6e6 ms = 1.0 h
-        _arm_tree(root, cell, 'uni_map_norsl', [(1.8e4, 1.8e4, 10 * thr)] * 100)  # 1.8e6 ms = 0.5 h
+        _arm_tree(root, cell, 'uni_fifo_norsl', [(36.0, 36.0, 10)] * 100)   # 100*36 s = 3600 s = 1.0 h
+        _arm_tree(root, cell, 'uni_map_norsl', [(18.0, 18.0, 10 * thr)] * 100)  # 1800 s = 0.5 h
     _descriptor(root, ['k1_off_rr', 'k1_off_lpt'], ['store', 'fulfillment'], reference='k1_off_rr')
     monkeypatch.setattr('sys.argv',
                         ['run_whatif_labor', str(root), '--baseline', 'fifo', '--reference', 'k1_off_rr'])

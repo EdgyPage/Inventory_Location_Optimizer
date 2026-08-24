@@ -159,23 +159,25 @@ def test_improvement_pct_series_drops_the_undefined_pairs():
 
 
 def test_to_hours():
-    assert chartkit.to_hours(3.6e6) == pytest.approx(1.0)
-    assert list(chartkit.to_hours([3.6e6, 7.2e6])) == pytest.approx([1.0, 2.0])
+    # SECONDS per hour.  These read 3.6e6 while the suite believed sim durations were
+    # milliseconds; the sim emits seconds, so every absolute figure was 1000x out.
+    assert chartkit.to_hours(3600.0) == pytest.approx(1.0)
+    assert list(chartkit.to_hours([3600.0, 7200.0])) == pytest.approx([1.0, 2.0])
 
 
 def test_to_time_picks_the_unit_that_keeps_numbers_readable():
     # a picker task of ~3 seconds must not render as 0.0008 hours
-    vals, unit = chartkit.to_time([3000.0, 2800.0, 3200.0])
+    vals, unit = chartkit.to_time([3.0, 2.8, 3.2])
     assert unit == 'seconds' and vals[0] == pytest.approx(3.0)
-    vals, unit = chartkit.to_time([5.4e6, 7.2e6])
+    vals, unit = chartkit.to_time([5400.0, 7200.0])
     assert unit == 'hours' and vals[0] == pytest.approx(1.5)
-    vals, unit = chartkit.to_time([1.2e5, 1.8e5])
+    vals, unit = chartkit.to_time([120.0, 180.0])
     assert unit == 'minutes' and vals[0] == pytest.approx(2.0)
 
 
 def test_time_unit_is_chosen_from_the_median_not_an_outlier():
     # one 4-hour straggler among second-scale tasks must not drag the axis into hours
-    _vals, unit = chartkit.to_time([3000.0] * 20 + [1.44e7])
+    _vals, unit = chartkit.to_time([3.0] * 20 + [14400.0])
     assert unit == 'seconds'
 
 

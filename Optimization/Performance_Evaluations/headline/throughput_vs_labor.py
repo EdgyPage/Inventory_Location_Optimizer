@@ -41,7 +41,9 @@ from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import chartkit, io
 from Optimization.Performance_Evaluations.common.style import _stitle
 
-_PER_HOUR = 3.6e6            # raw throughput scalars are items per sim-millisecond
+# Raw throughput scalars are items per sim-SECOND.  Imported, not restated: this line
+# was one of five independent copies of a divisor that was wrong by 1000x.
+from Optimization.Performance_Evaluations.common.units import PER_HOUR as _PER_HOUR
 
 
 def _f(v):

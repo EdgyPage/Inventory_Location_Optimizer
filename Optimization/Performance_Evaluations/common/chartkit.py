@@ -74,7 +74,7 @@ def to_hours(sim_ms):
     seconds, a batch of labor is hours), and a fixed unit turns half the suite into
     columns of `0.0008`.
     """
-    return np.asarray(sim_ms, dtype=float) / 3.6e6
+    return np.asarray(sim_ms, dtype=float) / _units.PER_HOUR
 
 
 def to_time(sim_ms):

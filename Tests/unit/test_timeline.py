@@ -3,12 +3,12 @@
 Two facts a second work stream has to settle before it can share the clock, and neither
 was written down anywhere.
 
-**The unit.** `cost_model` produces SECONDS and says so; the analysis layer declares
-milliseconds and divides by `3.6e6`. Both cannot be right, and `3.6e6` seconds is 1000
-hours. That discrepancy is RECORDED here, not fixed — correcting the label moves every
-absolute number on a published site. Every ratio is unaffected, which is why nothing
-caught it. The test below fails on the day the two agree, which is the day the record
-should be deleted.
+**The unit.** `cost_model` produces SECONDS. The analysis layer used to declare
+milliseconds and divide by `3.6e6`, so every ABSOLUTE figure it published was 1000x out
+while every ratio was right — which is why nothing caught it. Fixed: `units.py` now
+imports `SECONDS_PER_HOUR` from the kernel rather than restating a literal, so the two
+cannot disagree again. The tests below pin the IMPORT, not an equality, because an
+equality would pass the day someone edited the literal back.
 
 **The epoch.** A batch's picker clocks start at zero, so `t` alone cannot order two events
 from different batches. The absolute axis was being invented in an analysis module by a
@@ -35,24 +35,70 @@ def test_the_sim_declares_its_unit():
     assert timeline.SECONDS_PER_HOUR == 3600.0
 
 
-def test_the_analysis_divisor_is_the_one_the_suite_actually_applies():
-    """Read from the analysis layer, not restated — a record of a discrepancy that quoted
-    a stale number would be worse than none."""
+def test_the_analysis_layer_divides_by_the_kernels_own_declaration():
+    """Not "equal to 3600" — IMPORTED from here.  The two disagreed by 1000x for the life
+    of the project because each restated the number in its own words; an equality test
+    would have passed the day someone edited one back."""
+    import inspect
+
     from Optimization.Performance_Evaluations.common import units
-    assert timeline.ANALYSIS_DIVISOR == units.MS_PER_HOUR
+    assert units.PER_HOUR == timeline.SECONDS_PER_HOUR
+    assert units.SECONDS_PER_HOUR is timeline.SECONDS_PER_HOUR
+    src = inspect.getsource(units)
+    assert 'from Warehouse.kernel.timeline import SECONDS_PER_HOUR' in src
+    # No assertion that '3.6e6' is absent from the TEXT: the comment beside PER_HOUR quotes
+    # the old number to explain the 1000x history, and a check that forbade the literal in
+    # prose would push people to delete the explanation.  The code itself is covered by
+    # test_no_module_carries_its_own_copy_of_the_divisor, which strips docstrings first.
 
 
-def test_the_discrepancy_is_exactly_a_thousandfold():
-    assert timeline.ANALYSIS_DIVISOR_DISCREPANCY == pytest.approx(1000.0)
+def test_no_module_carries_its_own_copy_of_the_divisor():
+    """FIVE modules restated it. Fixing one would have left the others wrong and the
+    writers disagreeing with each other as well as with the sim.
+
+    Checked against CODE, not prose: the comments that explain the 1000x history quote the
+    old number on purpose, and a ratchet that counted them would push people to delete the
+    explanation. The AST is unparsed with docstrings stripped, so only a real literal or a
+    real name counts.
+    """
+    import pathlib
+    root = pathlib.Path(inspect.getfile(timeline)).parents[2]
+    offenders = []
+    for sub in ('Optimization', 'Warehouse'):
+        for path in sorted((root / sub).rglob('*.py')):
+            try:
+                tree = ast.parse(path.read_text(encoding='utf-8'))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                     ast.AsyncFunctionDef)):
+                    body = node.body
+                    if (body and isinstance(body[0], ast.Expr)
+                            and isinstance(body[0].value, ast.Constant)
+                            and isinstance(body[0].value.value, str)):
+                        node.body = body[1:] or [ast.Pass()]
+            code = ast.unparse(ast.fix_missing_locations(tree))
+            if 'MS_PER_HOUR' in code or '3600000' in code or '3.6e6' in code:
+                offenders.append(path.relative_to(root).as_posix())
+    assert not offenders, f'{offenders} still carry the milliseconds-per-hour divisor'
 
 
-def test_the_record_disappears_when_the_two_readings_agree():
-    """This is the test that should FAIL on the day someone fixes the label, so the
-    record and its explanatory note get deleted with the fix rather than surviving it."""
-    if timeline.ANALYSIS_DIVISOR == timeline.SECONDS_PER_HOUR:
-        pytest.fail('the analysis layer now divides by seconds-per-hour. The unit '
-                    'discrepancy is resolved — delete ANALYSIS_DIVISOR_DISCREPANCY, its '
-                    'note in timeline.py, and this test.')
+def test_the_suites_time_units_are_seconds_based():
+    """TIME_UNITS chooses the axis unit by comparing a magnitude against these scales; on
+    the ms table a 3600-second batch rendered as "seconds"."""
+    from Optimization.Performance_Evaluations.common import units
+    assert dict(units.TIME_UNITS) == {'hours': 3600.0, 'minutes': 60.0, 'seconds': 1.0}
+    div, noun = units.time_units([7200.0, 7300.0])      # two hours of work
+    assert (div, noun) == (3600.0, 'hours')
+    div, noun = units.time_units([30.0, 40.0])          # half a minute
+    assert (div, noun) == (1.0, 'seconds')
+
+
+def test_the_unit_kinds_no_longer_claim_milliseconds():
+    from Optimization.Performance_Evaluations.common import units
+    assert 'duration_s' in units.KINDS and 'rate_per_s' in units.KINDS
+    assert 'duration_ms' not in units.KINDS and 'rate_per_ms' not in units.KINDS
 
 
 def test_the_sims_own_constants_read_as_seconds():

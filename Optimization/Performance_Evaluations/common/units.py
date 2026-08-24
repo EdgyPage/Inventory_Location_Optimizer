@@ -1,7 +1,7 @@
 """units — the presentation-unit policy, in one place and with no third-party imports.
 
-Every number this suite draws is in a SIM unit: durations are milliseconds, rates are
-items per millisecond, and the objective is unitless.  Turning those into something a
+Every number this suite draws is in a SIM unit: durations are SECONDS, rates are items
+per second, and the objective is unitless.  Turning those into something a
 reader can hold is a two-part job — pick the scale, then name it — and the suite used to
 do it in four places with four vocabularies (`chartkit.time_units`, two `_PRESENT` tables
 and `painters.overtime_metrics`).  The names disagreed: the same quantity was
@@ -28,17 +28,25 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-#: (label, milliseconds per unit), largest first.  A duration renders in the largest unit
-#: that keeps its typical magnitude at or above 1.
-TIME_UNITS = (('hours', 3.6e6), ('minutes', 6.0e4), ('seconds', 1.0e3))
+# The one declaration of what the simulator counts in.  `timeline` is stdlib-only, so
+# importing it keeps this module's no-heavy-imports promise intact.
+from Warehouse.kernel.timeline import SECONDS_PER_HOUR
 
-#: milliseconds per hour — the fixed scale for a per-millisecond RATE.  Declared once;
-#: it was spelled `3.6e6` as a bare literal in five modules.
-MS_PER_HOUR = 3.6e6
+#: (label, SECONDS per unit), largest first.  A duration renders in the largest unit
+#: that keeps its typical magnitude at or above 1.
+TIME_UNITS = (('hours', SECONDS_PER_HOUR), ('minutes', 60.0), ('seconds', 1.0))
+
+#: The fixed scale for a per-second RATE.  IMPORTED from the kernel's own declaration
+#: rather than restated, so the sim's unit and the analysis layer's divisor cannot
+#: disagree again — which they did, by a factor of 1000, for the life of the project:
+#: this module declared milliseconds and divided by 3.6e6 while `cost_model.sec_per_inch`
+#: produced seconds.  Every ABSOLUTE published figure was 1000x out; every ratio was
+#: right, which is exactly why nothing caught it.
+PER_HOUR = SECONDS_PER_HOUR
 
 #: The unit kinds a quantity may declare.
-#:   duration_ms    sim milliseconds; unit resolved from the data (rule 1)
-#:   rate_per_ms    items per sim millisecond; fixed scale into items/hour
+#:   duration_s     sim seconds; unit resolved from the data (rule 1)
+#:   rate_per_s     items per sim second; fixed scale into items/hour
 #:   count          a whole-number tally in its own noun ("units", "placements")
 #:   share          already a percentage or a fraction of a whole — see the note below
 #:   score          a model quantity with no physical unit (Σ f·D, analytical labor W)
@@ -47,7 +55,7 @@ MS_PER_HOUR = 3.6e6
 #: `share` is load-bearing, not decorative: a percent-improvement view of a quantity that
 #: is ITSELF a percentage is a percent of a percent, which no reader parses correctly.
 #: `core.quantities.derive_views` reads this kind and withholds that view.
-KINDS = ('duration_ms', 'rate_per_ms', 'count', 'share', 'score', 'dimensionless')
+KINDS = ('duration_s', 'rate_per_s', 'count', 'share', 'score', 'dimensionless')
 
 
 @dataclass(frozen=True)
@@ -55,7 +63,7 @@ class Unit:
     """How one quantity's raw values become presentation values, and what to call them.
 
     `suffix` is the parenthesised unit noun ('units', 'items / hour', 'W') or '' when the
-    stem already reads as a complete axis label.  For `duration_ms` it is ignored — the
+    stem already reads as a complete axis label.  For `duration_s` it is ignored — the
     unit comes from the data.
     """
     kind: str
@@ -65,14 +73,14 @@ class Unit:
     def __post_init__(self):
         if self.kind not in KINDS:
             raise ValueError(f'unknown unit kind {self.kind!r} (known: {KINDS})')
-        if self.kind == 'duration_ms' and self.suffix:
-            raise ValueError('a duration_ms unit resolves its own suffix from the data; '
+        if self.kind == 'duration_s' and self.suffix:
+            raise ValueError('a duration_s unit resolves its own suffix from the data; '
                              f'declaring {self.suffix!r} would be ignored, silently')
 
 
 # ── the named units, so a quantity declares a unit rather than re-typing one ──────
-DURATION = Unit('duration_ms')
-RATE_PER_HOUR = Unit('rate_per_ms', 'items / hour', MS_PER_HOUR)
+DURATION = Unit('duration_s')
+RATE_PER_HOUR = Unit('rate_per_s', 'items / hour', PER_HOUR)
 NONE = Unit('dimensionless')
 
 
@@ -127,7 +135,7 @@ def resolve(unit: Unit, samples=None) -> tuple[float, str]:
     that will share the axis into one call: resolving per-series is how two boxes on one
     panel end up in different units with one label between them.
     """
-    if unit.kind == 'duration_ms':
+    if unit.kind == 'duration_s':
         div, noun = time_units(samples if samples is not None else ())
         return 1.0 / div, noun
     return unit.scale, unit.suffix

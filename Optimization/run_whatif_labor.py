@@ -53,7 +53,9 @@ from Optimization.Performance_Evaluations.common import io as _io
 from Optimization.Performance_Evaluations.common.stats_core import census
 from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
 
-MS_PER_HOUR = 3.6e6
+# The suite's one divisor, imported rather than restated -- this module used to carry
+# its own `MS_PER_HOUR = 3.6e6`, a second copy of the same wrong number.
+from Optimization.Performance_Evaluations.common.units import PER_HOUR
 _SCHED = {'rr': 'round_robin', 'lpt': 'lpt'}
 
 #: Every table/column THIS module's own SQL reads out of a sim DB (`_hours`); the steady-state
@@ -93,7 +95,7 @@ def _hours(db: str):
                           'FROM batch_stats').fetchone()
         if not row or row[0] is None:
             return None
-        return {'labor_hours': row[0] / MS_PER_HOUR, 'batch_hours': row[1] / MS_PER_HOUR,
+        return {'labor_hours': row[0] / PER_HOUR, 'batch_hours': row[1] / PER_HOUR,
                 'items': int(row[2] or 0), 'n_batches': int(row[3] or 0)}
     finally:
         con.close()
@@ -133,7 +135,7 @@ def _med(vals):
 # sibling panel uses a different scale.
 _SCHED_COLOR = {'round_robin': '#4c78a8', 'lpt': '#f58518'}
 _ARM_HUE = '#5b7fa6'   # the one neutral hue for signed per-arm bars — sign is the zero line's job
-_HOURS_NOTE = 'modeled sim pick-time hours (batch_stats ms / 3.6e6) — not wall-clock'
+_HOURS_NOTE = ('modeled sim pick-time hours (batch_stats seconds / 3600) — not wall-clock')
 
 
 def canonical_arm_order(rows, reference, baseline='fifo'):
@@ -434,8 +436,8 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
                 'cell': cell, 'scheduler': sched, 'pair': pair, 'pickcfg': pickcfg,
                 'channel': channel, 'arm': arm, 'initial': initial, 'assignment': assignment,
                 'labor_hours': m['labor_hours'], 'batch_hours': m['batch_hours'],
-                'thr_items_hr': (m['thr_batch'] or 0) * MS_PER_HOUR,
-                'thr_task_items_hr': (m['thr_task'] or 0) * MS_PER_HOUR,
+                'thr_items_hr': (m['thr_batch'] or 0) * PER_HOUR,
+                'thr_task_items_hr': (m['thr_task'] or 0) * PER_HOUR,
                 'task_ms': m['task_ms'], 'batch_ms': m['batch_ms'],
                 'thr_batch': m['thr_batch'], 'items': m['items'], 'n_batches': m['n_batches'],
             })

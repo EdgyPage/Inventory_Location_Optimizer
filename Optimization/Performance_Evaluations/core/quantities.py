@@ -33,7 +33,8 @@ No numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:
     a checkable property rather than a convention;
   * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion
     cannot be spelled inline in one consumer and forgotten in the next.  That is exactly
-    how `3.6e6` came to be written out five times.
+    how the hours divisor came to be written out five times -- and, because each copy
+    restated it rather than importing it, how all five stayed wrong by 1000x.
 
 ## The view derivation
 
@@ -297,7 +298,7 @@ QUANTITIES: tuple = (
     # `Source.runtime` names.  These measure the optimiser, not the warehouse.
     Quantity(
         key='reord_ms_per_unit', label='Placement time per unit',
-        axis_stem='ms of placement per unit put away', unit=Unit('duration_ms'),
+        axis_stem='seconds of placement per unit put away', unit=Unit('duration_s'),
         direction='lower', source=Source(runtime='reord_ms_per_unit'),
         notes='Wall-clock milliseconds the reorder-time placement decision costs, per '
               'unit actually put away — the denominator that makes a 200-second rule '
@@ -305,7 +306,7 @@ QUANTITIES: tuple = (
     Quantity(
         key='scoring_ms_per_unit', label='Scoring cost over the do-nothing rule',
         axis_stem='ms of scoring per unit, over the do-nothing rule',
-        unit=Unit('duration_ms'), direction='lower', stance='contrast',
+        unit=Unit('duration_s'), direction='lower', stance='contrast',
         source=Source(runtime='scoring_ms_per_unit'),
         notes='(this rule - fifo) / units. A CONTRAST, not a level: it shipped for one '
               'day under an `absolute_` prefix and passed every save-time check, because '
