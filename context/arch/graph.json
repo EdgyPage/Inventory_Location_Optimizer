@@ -1426,6 +1426,11 @@
       "src": "Optimization/Performance_Evaluations/common/stats_core.py::census"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/common/units.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/units.py::Unit",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/common/units.py::DURATION"
@@ -2726,6 +2731,11 @@
       "src": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/units.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py"
@@ -3781,6 +3791,11 @@
       "src": "Optimization/Performance_Evaluations/tables/per_run.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/units.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/tables/per_run.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/tables/per_run.py"
@@ -4661,7 +4676,22 @@
       "src": "Optimization/config/objectives.py::_ENTRIES"
     },
     {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
       "dst": "Optimization/config/channels.py",
+      "kind": "imports",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/settings.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
     },
@@ -4691,6 +4721,11 @@
       "src": "Optimization/config/sim_config.py"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
       "dst": "Warehouse/layout/Aisle_Dimensions.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
@@ -4704,6 +4739,106 @@
       "dst": "Warehouse/picking/Pick.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/settings.py::CHECKPOINT_FRAC",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FF_BATCH_MEAN",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FF_BATCH_STD",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FF_CART",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FF_FILL",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FF_PICKERS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::MAX_SKUS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::N_BATCHES",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SAMPLER",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SEED_BATCHES",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SEED_WORLD",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SHIFT_SECONDS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::STORE_BATCH_MEAN",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::STORE_BATCH_STD",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::STORE_CART",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::STORE_FILL",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::STORE_PICKERS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::WORKERS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::ZONING_OFF",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
       "dst": "Optimization/config/strategies.py::restocks_for",
@@ -5241,6 +5376,21 @@
       "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Optimization/metrics/work_events.py"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::shift_index",
+      "kind": "calls",
+      "src": "Optimization/metrics/work_events.py::pick_rows"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::shift_index",
+      "kind": "calls",
+      "src": "Optimization/metrics/work_events.py::put_rows"
+    },
+    {
       "dst": "Schema/capability.py",
       "kind": "imports",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -5531,6 +5681,11 @@
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_work_events",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
@@ -5579,6 +5734,16 @@
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_task_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_work_events",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_work_events"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_work_events"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
@@ -6622,6 +6787,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "kind": "imports",
+      "src": "Optimization/run_whatif_labor.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/units.py",
       "kind": "imports",
       "src": "Optimization/run_whatif_labor.py"
     },
@@ -8516,6 +8686,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/metrics/work_events.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -8551,6 +8726,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/layout/Aisle_Storage.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -8562,6 +8742,11 @@
     },
     {
       "dst": "Warehouse/layout/Warehouse_Builder.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Warehouse/operations/__init__.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },
@@ -8627,6 +8812,16 @@
     },
     {
       "dst": "Optimization/metrics/bin_recorder.py::BinRecorder",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/metrics/work_events.py::pick_rows",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/metrics/work_events.py::put_rows",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -8712,6 +8907,16 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -9012,6 +9217,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::seed_world",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::shift_seconds",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -12046,6 +12256,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
+      "dst": "Warehouse/operations/putaway.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._index_add",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
@@ -12094,6 +12309,16 @@
       "dst": "Warehouse/inventory/inventory_common.py::tier_ranks_for",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates_raw"
+    },
+    {
+      "dst": "Warehouse/operations/putaway.py::put_cost",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._index_remove",
@@ -12244,6 +12469,11 @@
       "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning"
+    },
+    {
+      "dst": "Warehouse/operations/putaway.py::PutawayCost",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock",
@@ -12933,6 +13163,26 @@
     {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
+      "src": "Warehouse/operations/putaway.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::handle_var",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::put_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::put_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::put_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
       "src": "Warehouse/operations/worker.py"
     },
     {
@@ -13012,6 +13262,11 @@
     },
     {
       "dst": "Warehouse/picking/Pick.py::PickSimulation._simulate_picker",
+      "kind": "calls",
+      "src": "Warehouse/picking/Pick.py::PickSimulation.run"
+    },
+    {
+      "dst": "Warehouse/picking/Pick.py::_ProgressAPIMixin._start_at",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::PickSimulation.run"
     },
@@ -13177,6 +13432,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick",
+      "kind": "calls",
+      "src": "Warehouse/picking/fast_pick.py::DeferredPickSimulation.run"
+    },
+    {
+      "dst": "Warehouse/picking/Pick.py::_ProgressAPIMixin._start_at",
       "kind": "calls",
       "src": "Warehouse/picking/fast_pick.py::DeferredPickSimulation.run"
     },
@@ -16370,18 +16630,18 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/units.py",
-      "id": "Optimization/Performance_Evaluations/common/units.py::MS_PER_HOUR",
-      "kind": "const",
-      "module": "Optimization/Performance_Evaluations/common/units.py",
-      "name": "MS_PER_HOUR",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/common/units.py",
       "id": "Optimization/Performance_Evaluations/common/units.py::NONE",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/common/units.py",
       "name": "NONE",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/units.py",
+      "id": "Optimization/Performance_Evaluations/common/units.py::PER_HOUR",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/common/units.py",
+      "name": "PER_HOUR",
       "public": true
     },
     {
@@ -18018,14 +18278,6 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py",
-      "id": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_PER_HOUR",
-      "kind": "const",
-      "module": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py",
-      "name": "_PER_HOUR",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py",
       "id": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_both_levers",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py",
@@ -19233,6 +19485,182 @@
       "public": true
     },
     {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py",
+      "kind": "module",
+      "module": "Optimization/config/settings.py",
+      "name": "Optimization.config.settings",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::CHECKPOINT_FRAC",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "CHECKPOINT_FRAC",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_BATCH_MEAN",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_BATCH_MEAN",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_BATCH_STD",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_BATCH_STD",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_CART",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_CART",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_FILL",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_FILL",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_PICKERS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_PICKERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "KEYFRAME_INTERVAL",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::MAX_SKUS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "MAX_SKUS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::N_BATCHES",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "N_BATCHES",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_CREW_SIZE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_CREW_SIZE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SAMPLER",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SAMPLER",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SEED_BATCHES",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SEED_BATCHES",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SEED_WORLD",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SEED_WORLD",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SHIFT_SECONDS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SHIFT_SECONDS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_BATCH_MEAN",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_BATCH_MEAN",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_BATCH_STD",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_BATCH_STD",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_CART",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_CART",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_FILL",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_FILL",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_PICKERS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_PICKERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::WORKERS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "WORKERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::ZONING_OFF",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "ZONING_OFF",
+      "public": true
+    },
+    {
       "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py",
       "kind": "module",
@@ -19454,6 +19882,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "seed_world",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::shift_seconds",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "shift_seconds",
       "public": true
     },
     {
@@ -20361,6 +20797,46 @@
       "public": true
     },
     {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py",
+      "kind": "module",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "Optimization.metrics.work_events",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py::_QTY_EVENTS",
+      "kind": "const",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "_QTY_EVENTS",
+      "public": false
+    },
+    {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py::merged",
+      "kind": "function",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "merged",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py::pick_rows",
+      "kind": "function",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "pick_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py::put_rows",
+      "kind": "function",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "put_rows",
+      "public": true
+    },
+    {
       "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py",
       "kind": "module",
@@ -20470,6 +20946,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "CAP_VIZ_CACHE",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_WORK_EVENTS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_WORK_EVENTS",
       "public": true
     },
     {
@@ -20778,6 +21262,38 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_WORK_EVENTS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_IDX",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_WORK_EVENTS_IDX",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_MERGED",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_WORK_EVENTS_MERGED",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_TIME_IDX",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_WORK_EVENTS_TIME_IDX",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_EVENT_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -20858,6 +21374,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_WORK_EVENT_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_WORK_EVENT_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -20926,6 +21450,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_insert_task_stats",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_work_events",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_work_events",
       "public": false
     },
     {
@@ -21206,6 +21738,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_task_stats",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_work_events",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_work_events",
       "public": true
     },
     {
@@ -21942,14 +22482,6 @@
       "kind": "module",
       "module": "Optimization/run_whatif_labor.py",
       "name": "Optimization.run_whatif_labor",
-      "public": true
-    },
-    {
-      "file": "Optimization/run_whatif_labor.py",
-      "id": "Optimization/run_whatif_labor.py::MS_PER_HOUR",
-      "kind": "const",
-      "module": "Optimization/run_whatif_labor.py",
-      "name": "MS_PER_HOUR",
       "public": true
     },
     {
@@ -28250,6 +28782,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_cost_putaway",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -28362,10 +28902,26 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "drain_putaway_records",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.empty_bins",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "empty_bins",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "enable_putaway_timing",
       "public": true
     },
     {
@@ -28422,6 +28978,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "lead_queue_depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.putaway_seconds",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "putaway_seconds",
       "public": true
     },
     {
@@ -29314,18 +29878,10 @@
     },
     {
       "file": "Warehouse/kernel/timeline.py",
-      "id": "Warehouse/kernel/timeline.py::ANALYSIS_DIVISOR",
+      "id": "Warehouse/kernel/timeline.py::DEFAULT_SHIFT_SECONDS",
       "kind": "const",
       "module": "Warehouse/kernel/timeline.py",
-      "name": "ANALYSIS_DIVISOR",
-      "public": true
-    },
-    {
-      "file": "Warehouse/kernel/timeline.py",
-      "id": "Warehouse/kernel/timeline.py::ANALYSIS_DIVISOR_DISCREPANCY",
-      "kind": "const",
-      "module": "Warehouse/kernel/timeline.py",
-      "name": "ANALYSIS_DIVISOR_DISCREPANCY",
+      "name": "DEFAULT_SHIFT_SECONDS",
       "public": true
     },
     {
@@ -29358,6 +29914,22 @@
       "kind": "function",
       "module": "Warehouse/kernel/timeline.py",
       "name": "epochs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::shift_index",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "shift_index",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::shift_offset",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "shift_offset",
       "public": true
     },
     {
@@ -29945,6 +30517,30 @@
       "public": false
     },
     {
+      "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py",
+      "kind": "module",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "Warehouse.operations.putaway",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py::PutawayCost",
+      "kind": "class",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "PutawayCost",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py::put_cost",
+      "kind": "function",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "put_cost",
+      "public": true
+    },
+    {
       "file": "Warehouse/operations/roles.py",
       "id": "Warehouse/operations/roles.py",
       "kind": "module",
@@ -30166,6 +30762,14 @@
       "kind": "class",
       "module": "Warehouse/picking/Pick.py",
       "name": "_ProgressAPIMixin",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Pick.py",
+      "id": "Warehouse/picking/Pick.py::_ProgressAPIMixin._start_at",
+      "kind": "function",
+      "module": "Warehouse/picking/Pick.py",
+      "name": "_start_at",
       "public": false
     },
     {

@@ -1700,7 +1700,7 @@
     },
     "Optimization/Performance_Evaluations/common/units.py": {
       "decorators": [],
-      "doc": "units \u2014 the presentation-unit policy, in one place and with no third-party imports.\n\nEvery number this suite draws is in a SIM unit: durations are milliseconds, rates are\nitems per millisecond, and the objective is unitless.  Turning those into something a\nreader can hold is a two-part job \u2014 pick the scale, then name it \u2014 and the suite used to\ndo it in four places with four vocabularies (`chartkit.time_units`, two `_PRESENT` tables\nand `painters.overtime_metrics`).  The names disagreed: the same quantity was\n`\u03a3 task time per batch` on one axis and `total task time per batch` on another, and both\nthroughput metrics printed the identical `items / hour` while measuring different things.\n\nTwo rules, and they are the whole module:\n\n  1. A DURATION has no fixed unit.  Its readable unit depends on its own magnitude \u2014 one\n     picker task is seconds, one batch of labor is hours \u2014 so it is resolved at render\n     time from the pooled samples that will share the axis.  `resolve` is the only place\n     that choice is made.\n  2. An axis label is `stem` plus the resolved unit in parentheses, or just `stem` when\n     the quantity carries no unit noun.  One composition rule, so two charts of the same\n     quantity cannot disagree about what to call it.\n\n**Deliberately stdlib-only.**  `core/quantities.py` imports this, and the point of that\nmodule is that a test, `ingest.py` or a schema tool can read the quantity table without\ndragging matplotlib and the whole analysis package into the process.  `chartkit`\nre-exports `time_units` so the ~20 existing call sites keep working unchanged.",
+      "doc": "units \u2014 the presentation-unit policy, in one place and with no third-party imports.\n\nEvery number this suite draws is in a SIM unit: durations are SECONDS, rates are items\nper second, and the objective is unitless.  Turning those into something a\nreader can hold is a two-part job \u2014 pick the scale, then name it \u2014 and the suite used to\ndo it in four places with four vocabularies (`chartkit.time_units`, two `_PRESENT` tables\nand `painters.overtime_metrics`).  The names disagreed: the same quantity was\n`\u03a3 task time per batch` on one axis and `total task time per batch` on another, and both\nthroughput metrics printed the identical `items / hour` while measuring different things.\n\nTwo rules, and they are the whole module:\n\n  1. A DURATION has no fixed unit.  Its readable unit depends on its own magnitude \u2014 one\n     picker task is seconds, one batch of labor is hours \u2014 so it is resolved at render\n     time from the pooled samples that will share the axis.  `resolve` is the only place\n     that choice is made.\n  2. An axis label is `stem` plus the resolved unit in parentheses, or just `stem` when\n     the quantity carries no unit noun.  One composition rule, so two charts of the same\n     quantity cannot disagree about what to call it.\n\n**Deliberately stdlib-only.**  `core/quantities.py` imports this, and the point of that\nmodule is that a test, `ingest.py` or a schema tool can read the quantity table without\ndragging matplotlib and the whole analysis package into the process.  `chartkit`\nre-exports `time_units` so the ~20 existing call sites keep working unchanged.",
       "kind": "module",
       "signature": null
     },
@@ -1709,21 +1709,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "Unit('duration_ms')"
+      "value_preview": "Unit('duration_s')"
     },
     "Optimization/Performance_Evaluations/common/units.py::KINDS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('duration_ms', 'rate_per_ms', 'count', 'share', 'score', 'dimensionless')"
-    },
-    "Optimization/Performance_Evaluations/common/units.py::MS_PER_HOUR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "3600000.0"
+      "value_preview": "('duration_s', 'rate_per_s', 'count', 'share', 'score', 'dimensionless')"
     },
     "Optimization/Performance_Evaluations/common/units.py::NONE": {
       "decorators": [],
@@ -1732,25 +1725,32 @@
       "signature": null,
       "value_preview": "Unit('dimensionless')"
     },
+    "Optimization/Performance_Evaluations/common/units.py::PER_HOUR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "SECONDS_PER_HOUR"
+    },
     "Optimization/Performance_Evaluations/common/units.py::RATE_PER_HOUR": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "Unit('rate_per_ms', 'items / hour', MS_PER_HOUR)"
+      "value_preview": "Unit('rate_per_s', 'items / hour', PER_HOUR)"
     },
     "Optimization/Performance_Evaluations/common/units.py::TIME_UNITS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(('hours', 3600000.0), ('minutes', 60000.0), ('seconds', 1000.0))"
+      "value_preview": "(('hours', SECONDS_PER_HOUR), ('minutes', 60.0), ('seconds', 1.0))"
     },
     "Optimization/Performance_Evaluations/common/units.py::Unit": {
       "decorators": [
         "dataclass(frozen=True)"
       ],
-      "doc": "How one quantity's raw values become presentation values, and what to call them.\n\n`suffix` is the parenthesised unit noun ('units', 'items / hour', 'W') or '' when the\nstem already reads as a complete axis label.  For `duration_ms` it is ignored \u2014 the\nunit comes from the data.",
+      "doc": "How one quantity's raw values become presentation values, and what to call them.\n\n`suffix` is the parenthesised unit noun ('units', 'items / hour', 'W') or '' when the\nstem already reads as a complete axis label.  For `duration_s` it is ignored \u2014 the\nunit comes from the data.",
       "kind": "class",
       "signature": ""
     },
@@ -2261,7 +2261,7 @@
     },
     "Optimization/Performance_Evaluations/core/quantities.py": {
       "decorators": [],
-      "doc": "quantities \u2014 WHAT this suite measures, declared once.\n\n`stats_core._METRICS` already proved the pattern works: it declares\n`(name, source, column, direction)` and, because three consumers read it, adding a metric\nadds a CSV block, a `vs_baseline` row group and an `effect_*.png` with no other edit.\n\nIt stops at presentation.  The three fields it lacks \u2014 **unit, label, stance** \u2014 were then\nre-typed in four competing tables:\n\n    significance/suite.py  `_PRESENT`            11 entries\n    aggregate/sig.py       `_PRESENT`             5 entries\n    common/painters.py     `overtime_metrics()`   5 entries\n    headline/top_vs_baseline.py `_METRIC_GROUPS`  5 entries  (a hand-join of\n                                                  `_METRICS` and `_AGG_METRICS`)\n\n`throughput`, `makespan` and `task_mean_duration` appear in ALL FOUR with independently\nmaintained direction flags, and the tables had already drifted: the same quantity was\nlabelled `\u03a3 task time per batch` in one and `total task time per batch` in another, while\n`throughput` and `throughput_task` \u2014 different measurements \u2014 shared the single axis label\n`items / hour`.  Nothing could have caught either; there was no place the two statements\nmet.\n\nThis module is that place.  A `Quantity` says what a number IS (unit, direction, stance),\nwhere to read it at each scope (`Source`), what to call it, and what it may NOT be shown\nas (`views_suppressed`, with a mandatory reason).  Everything downstream is derived.\n\n## Why stdlib-only\n\nNo numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:\n\n  * a test, `ingest.py`, or a schema tool can read this table without importing the\n    analysis package \u2014 which is what makes \"the emitted figure set equals the derived one\"\n    a checkable property rather than a convention;\n  * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion\n    cannot be spelled inline in one consumer and forgotten in the next.  That is exactly\n    how `3.6e6` came to be written out five times.\n\n## The view derivation\n\n`derive_views(q, shape)` replaces the per-evaluation `views=` declaration.  Coverage stops\nbeing editorial: `layout.churn` cannot ship absolute-only beside `layout.travel`'s\ndelta+absolute because neither module gets a vote.  What CAN differ is the shape \u2014 a\ncomparison needs a baseline to compare against, and a paired delta needs per-instance\npairing \u2014 and those are properties of the mark, not opinions of the module.\n\nSuppression is the safety valve, and its reason is mandatory (validated in\n`__post_init__`, the idiom `Schema.capability.Capability` already uses for caveats).\nWithout it the derivation manufactures charts that are structurally valid and\nmeaningless \u2014 a percent-improvement of a quantity whose baseline is zero, a delta of a\nshare in points labelled as percent \u2014 and a meaningless chart under a caption asserting\nmeaning is worse than the drift it replaces.",
+      "doc": "quantities \u2014 WHAT this suite measures, declared once.\n\n`stats_core._METRICS` already proved the pattern works: it declares\n`(name, source, column, direction)` and, because three consumers read it, adding a metric\nadds a CSV block, a `vs_baseline` row group and an `effect_*.png` with no other edit.\n\nIt stops at presentation.  The three fields it lacks \u2014 **unit, label, stance** \u2014 were then\nre-typed in four competing tables:\n\n    significance/suite.py  `_PRESENT`            11 entries\n    aggregate/sig.py       `_PRESENT`             5 entries\n    common/painters.py     `overtime_metrics()`   5 entries\n    headline/top_vs_baseline.py `_METRIC_GROUPS`  5 entries  (a hand-join of\n                                                  `_METRICS` and `_AGG_METRICS`)\n\n`throughput`, `makespan` and `task_mean_duration` appear in ALL FOUR with independently\nmaintained direction flags, and the tables had already drifted: the same quantity was\nlabelled `\u03a3 task time per batch` in one and `total task time per batch` in another, while\n`throughput` and `throughput_task` \u2014 different measurements \u2014 shared the single axis label\n`items / hour`.  Nothing could have caught either; there was no place the two statements\nmet.\n\nThis module is that place.  A `Quantity` says what a number IS (unit, direction, stance),\nwhere to read it at each scope (`Source`), what to call it, and what it may NOT be shown\nas (`views_suppressed`, with a mandatory reason).  Everything downstream is derived.\n\n## Why stdlib-only\n\nNo numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:\n\n  * a test, `ingest.py`, or a schema tool can read this table without importing the\n    analysis package \u2014 which is what makes \"the emitted figure set equals the derived one\"\n    a checkable property rather than a convention;\n  * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion\n    cannot be spelled inline in one consumer and forgotten in the next.  That is exactly\n    how the hours divisor came to be written out five times -- and, because each copy\n    restated it rather than importing it, how all five stayed wrong by 1000x.\n\n## The view derivation\n\n`derive_views(q, shape)` replaces the per-evaluation `views=` declaration.  Coverage stops\nbeing editorial: `layout.churn` cannot ship absolute-only beside `layout.travel`'s\ndelta+absolute because neither module gets a vote.  What CAN differ is the shape \u2014 a\ncomparison needs a baseline to compare against, and a paired delta needs per-instance\npairing \u2014 and those are properties of the mark, not opinions of the module.\n\nSuppression is the safety valve, and its reason is mandatory (validated in\n`__post_init__`, the idiom `Schema.capability.Capability` already uses for caveats).\nWithout it the derivation manufactures charts that are structurally valid and\nmeaningless \u2014 a percent-improvement of a quantity whose baseline is zero, a delta of a\nshare in points labelled as percent \u2014 and a meaningless chart under a caption asserting\nmeaning is worse than the drift it replaces.",
       "kind": "module",
       "signature": null
     },
@@ -3189,13 +3189,6 @@
       "doc": "headline.throughput_vs_labor \u2014 the four success metrics, and the adoption question.\n\nThree scatter panels, one point per strategy arm, built from the per-arm series\nscalars.  Vocabulary: TASK makespan = \u03a3 task time = total labor (the serial makespan\na lone picker would incur); BATCH makespan = last-picker finish (parallel wall-clock).\nThe two throughputs are items \u00f7 each makespan.\n\n  * Panel A: x = task makespan  vs  y = throughput / batch makespan.  Marker size \u221d\n    batch makespan.  Best corner is UP-LEFT.\n  * Panel B: x = batch makespan  vs  y = throughput / batch makespan \u2014 the\n    mechanistic link.\n  * Panel C: x = throughput / task makespan  vs  y = throughput / batch makespan.\n    Separates the two win types: a pure SCHEDULING win (batch makespan \u2193 at flat task\n    makespan) moves a point straight UP; a LABOR win (less task time per item) moves\n    it RIGHT.\n\nThe thesis stays: throughput does NOT track task makespan (total labor) \u2014 a placement\nthat lowers \u03a3 task labor can pile work onto the busiest picker, raising batch\nmakespan and lowering throughput.  So throughput tracks 1/batch-makespan (Panel B,\ntight) \u2014 not task makespan (Panel A, a scattered cloud).  The Spearman \u03c1 triplet in\nthe subtitle quantifies it.\n\nA fourth figure, the PERCENT view, answers the question the three scatter panels set up\nbut do not close: which arm to adopt.  Labor gain against throughput gain, both against\nthe baseline, so the corner where an arm beats FIFO on both is a place on the chart\nrather than a comparison the reader has to carry between two other figures.\n\nUNITS.  Throughput is items/hour on its face.  The two makespan axes are not: a makespan\nis whatever the run makes it (a small cell's batch finishes in seconds, a full run's in\nhours), so both resolve ONE shared time unit from their pooled magnitudes and name it in\nthe axis label \u2014 panels A and B measure the same kind of quantity and must never be read\nin different units.  The \u03c1 triplet is rank-based, hence unit-invariant.",
       "kind": "module",
       "signature": null
-    },
-    "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_PER_HOUR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "3600000.0"
     },
     "Optimization/Performance_Evaluations/headline/throughput_vs_labor.py::_both_levers": {
       "decorators": [],
@@ -4267,6 +4260,159 @@
       "kind": "function",
       "signature": "(strategy) -> Objective"
     },
+    "Optimization/config/settings.py": {
+      "decorators": [],
+      "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in `run_spec.json`\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in `warehouse.db`, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in `run_spec.json`, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag\nis accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/settings.py::CHECKPOINT_FRAC": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.1"
+    },
+    "Optimization/config/settings.py::FF_BATCH_MEAN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.2"
+    },
+    "Optimization/config/settings.py::FF_BATCH_STD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.05"
+    },
+    "Optimization/config/settings.py::FF_CART": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'FulfillmentCart'"
+    },
+    "Optimization/config/settings.py::FF_FILL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.85"
+    },
+    "Optimization/config/settings.py::FF_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_FF_PICKERS"
+    },
+    "Optimization/config/settings.py::KEYFRAME_INTERVAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "25"
+    },
+    "Optimization/config/settings.py::MAX_SKUS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::N_BATCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "100"
+    },
+    "Optimization/config/settings.py::PUT_CREW_SIZE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/config/settings.py::SAMPLER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'v2'"
+    },
+    "Optimization/config/settings.py::SEED_BATCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1337"
+    },
+    "Optimization/config/settings.py::SEED_WORLD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "42"
+    },
+    "Optimization/config/settings.py::SHIFT_SECONDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "DEFAULT_SHIFT_SECONDS"
+    },
+    "Optimization/config/settings.py::STORE_BATCH_MEAN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.15"
+    },
+    "Optimization/config/settings.py::STORE_BATCH_STD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.05"
+    },
+    "Optimization/config/settings.py::STORE_CART": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'StoreCart'"
+    },
+    "Optimization/config/settings.py::STORE_FILL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.85"
+    },
+    "Optimization/config/settings.py::STORE_PICKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_STORE_PICKERS"
+    },
+    "Optimization/config/settings.py::WORKERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/config/settings.py::ZONING_OFF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'enabled': False, 'n_bands': 3, 'mode': 'equal', 'abc': {'mass_thresholds': [0.7, 0.9]}}"
+    },
     "Optimization/config/sim_config.py": {
       "decorators": [],
       "doc": "sim_config.py \u2014 the run's single source of tunable truth.\n\nEverything a run can be tuned by lives here: the .env-backed output/profile dirs,\nthe per-channel pick-config sweeps (STORE_CONFIGS / FULFILLMENT_CONFIGS), the nested\nCONFIG dict (global + per-channel sections), the run-shaping accessors, and the\nconfig\u2192PickConfig conversion.  run_simulation re-exports the public names so\n`rs.CONFIG` / `rs.REGRESSION_CONFIGS` consumers (tests, Diagnostics/bucket_fill)\nkeep working.\n\nCONFIG identity rule: the re-export binds the SAME dict object \u2014 tests mutate\n`rs.CONFIG['global'][...]` in place \u2014 so nobody may ever REBIND CONFIG (or the\nmutation would silently detach from internal readers).\n\nCorollary, and the reason the run-shaping values are FUNCTIONS rather than module\nscalars: a value snapshotted at import cannot see that mutation.  Every consumer of a\ntunable reads it at call time.  See the block above `seed_world()`.",
@@ -4278,7 +4424,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'global': {'seed_world': 42, 'seed_batches': 1337, 'n_batches': 100, 'workers': 1, 'checkpoint_frac': 0.1, 'keyframe_interval': 25, 'max_skus': None, 'sampler': 'v2'}, 'channels': {'store': {'regi..."
+      "value_preview": "{'global': {'seed_world': _s.SEED_WORLD, 'seed_batches': _s.SEED_BATCHES, 'n_batches': _s.N_BATCHES, 'workers': _s.WORKERS, 'checkpoint_frac': _s.CHECKPOINT_FRAC, 'keyframe_interval': _s.KEYFRAME_I..."
     },
     "Optimization/config/sim_config.py::FULFILLMENT_CONFIGS": {
       "decorators": [],
@@ -4461,6 +4607,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> int"
+    },
+    "Optimization/config/sim_config.py::shift_seconds": {
+      "decorators": [],
+      "doc": "Shift length in seconds, read at call time.  Default: an eight-hour day.\n\nA REPORTING FRAME, not a scheduler.  It labels `work_events.shift_index`; nothing\ndispatches against it, work does not pause at the whistle, and no task is split at a\nboundary -- see `Warehouse.kernel.timeline.shift_index`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> float"
     },
     "Optimization/config/sim_config.py::store_fill": {
       "decorators": [],
@@ -5248,6 +5401,40 @@
       "kind": "function",
       "signature": "(self) -> tuple[list, list]"
     },
+    "Optimization/metrics/work_events.py": {
+      "decorators": [],
+      "doc": "work_events \u2014 both work streams, as rows on one absolute axis.\n\nThe pick simulation and the put-away crew are simulated INDEPENDENTLY and merged\nafterwards. That is the model the user specified \u2014 *\"assume non-intersection or\nnon-interference among physical objects, so simulated on merge similar to fast_pick\nsimulating sequential inventory access\"* \u2014 and it is the same shape `fast_pick` already\nuses across its own pickers: phase 1 runs each actor against a snapshot, phase 2 reconciles.\nOne level up, the actors are crews rather than pickers.\n\nSo this module does not schedule anything. It takes what each stream produced and stamps\nboth onto one timeline:\n\n    pick rows   from the batch's `PickEvent`s, whose `.time` is already absolute\n                (the arm hands every picker the batch epoch as its start)\n    put rows    from `Inventory_Manager.drain_putaway_records()`, whose clock is the put\n                crew's own and is offset onto the axis here\n\n## Two things that are decisions, not details\n\n**`qty` is signed.** A pick removes inventory and a put adds it, so one row shape reads in\nboth directions and `SUM(qty)` over a bin is its net movement. A pick with no quantity (a\n`task_start`, a `done`) carries NULL, not 0 \u2014 absent and zero are different.\n\n**The put crew's clock starts at the batch epoch, not at zero.** The crew works through the\nbatch's placements back to back; nothing in this model makes it wait for a picker, and\nnothing makes a picker wait for it.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/metrics/work_events.py::_QTY_EVENTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset({'pick'})"
+    },
+    "Optimization/metrics/work_events.py::merged": {
+      "decorators": [],
+      "doc": "The rows in the order `work_events_merged` declares.\n\nKept here as well as in the view so an in-memory caller and a SQL caller cannot\ndisagree about what \"merged\" means. Instant, then role, then mode, then actor, then\nemission order within that actor \u2014 `PickEvent.__lt__` compares time alone, and with two\nstreams that undeclared tie-break decides whether a pick or a put is read first.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
+    },
+    "Optimization/metrics/work_events.py::pick_rows": {
+      "decorators": [],
+      "doc": "Merged-stream rows for one batch's pick events.\n\n`events` carry ABSOLUTE times already \u2014 the arm hands every picker the batch epoch as\nits start \u2014 so `t_abs` is `e.time` and `t_local` is the offset from `batch_start`.\n\n`crew` supplies the role, the mode and the uid space; `e.picker_id` is the dense\nper-crew id and becomes `actor_local`, with `actor_uid` its crew-offset twin.  A picker\nid outside the crew raises rather than being written under someone else's uid.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(events, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)"
+    },
+    "Optimization/metrics/work_events.py::put_rows": {
+      "decorators": [],
+      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on\nthe put crew's OWN clock from 0. `batch_start` offsets them onto the arm's axis.\n\nPut-away is one crew working its queue back to back, so the records are laid out over\nthe crew's workers round-robin: with a crew of one \u2014 today's default \u2014 every row is\nthat worker's. The event type is `put`, and `qty` is positive.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)"
+    },
     "Optimization/persistence/Picking_Data.py": {
       "decorators": [],
       "doc": null,
@@ -5350,6 +5537,13 @@
       "signature": null,
       "value_preview": "'viz_cache'"
     },
+    "Optimization/persistence/Picking_Data.py::CAP_WORK_EVENTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'work_events'"
+    },
     "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS": {
       "decorators": [],
       "doc": null,
@@ -5406,14 +5600,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{c.name: c for c in (_capability.Capability(name=CAP_BIN_LOG, table='bin_placement', exact=True, phase=\"end-of-batch (after this batch's picks)\", caveat='', columns=('run_id', 'batch_id', 'seq', 'a..."
+      "value_preview": "{c.name: c for c in (_capability.Capability(name=CAP_WORK_EVENTS, table='work_events', exact=True, phase='per-batch, appended at each checkpoint flush', caveat=\"PER-ARM TIMELINE. A work unit is (pa..."
     },
     "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5e..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('6ad0b34af9f1', PRE_STAMP_SIM_SCHEMA_ID, '2b79..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -5619,6 +5813,34 @@
       "signature": null,
       "value_preview": "'\\n CREATE TABLE IF NOT EXISTS task_stats (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n aisle_id INTEGER NOT..."
     },
+    "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS work_events (\\n id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NUL..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_we_run_batch\\n ON work_events (run_id, batch_id)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_MERGED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE VIEW IF NOT EXISTS work_events_merged AS\\n SELECT * FROM work_events\\n ORDER BY t_abs, role, mode, actor_uid, seq\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_TIME_IDX": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_we_run_tabs\\n ON work_events (run_id, t_abs)\\n'"
+    },
     "Optimization/persistence/Picking_Data.py::_EVENT_COLS": {
       "decorators": [],
       "doc": null,
@@ -5689,6 +5911,13 @@
       "signature": null,
       "value_preview": "('batch_id', 'duration', 'num_tasks', 'total_items', 'reorder_placements')"
     },
+    "Optimization/persistence/Picking_Data.py::_WORK_EVENT_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'seq', 't_abs', 't_local', 'shift_index', 'actor_uid', 'actor_local', 'role', 'mode', 'event_type', 'aisle_id', 'sku', 'qty', 'duration', 'source')"
+    },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
       "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.",
@@ -5751,6 +5980,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_work_events": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, rows: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::_migrate_run_columns": {
       "decorators": [],
@@ -5957,10 +6193,10 @@
     },
     "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
       "decorators": [],
-      "doc": "All eight per-checkpoint writers on ONE connection with ONE commit.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events` is the merged cross-stream timeline and is keyword-OPTIONAL, so a caller\nthat predates it -- a test, a Diagnostics harness -- is unchanged and writes no rows.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list) -> None"
+      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_picker_events": {
       "decorators": [],
@@ -5996,6 +6232,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[TaskStats]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_work_events": {
+      "decorators": [],
+      "doc": "Append merged-stream rows.  Each row is `_WORK_EVENT_COLS` in order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, rows: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::sim_schema_id": {
       "decorators": [],
@@ -6632,13 +6875,6 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/run_whatif_labor.py::MS_PER_HOUR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "3600000.0"
-    },
     "Optimization/run_whatif_labor.py::REQUIRES": {
       "decorators": [],
       "doc": null,
@@ -6658,7 +6894,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'modeled sim pick-time hours (batch_stats ms / 3.6e6) \u2014 not wall-clock'"
+      "value_preview": "'modeled sim pick-time hours (batch_stats seconds / 3600) \u2014 not wall-clock'"
     },
     "Optimization/run_whatif_labor.py::_REPO_ROOT": {
       "decorators": [],
@@ -12152,6 +12388,13 @@
       "kind": "function",
       "signature": "(self, unit: StorageUnit) -> tuple"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway": {
+      "decorators": [],
+      "doc": "Charge one placement to the put crew's clock and record it.\n\nCalled from `_execute_placement` only, which the bin-mutation allowlist already\nnames as the single put-away commit point -- so this adds no new bin writer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, bin_: Aisle.Bin, source) -> None"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement": {
       "decorators": [],
       "doc": "Commit one unit\u2192bin placement and update all manager state dicts.\n\n`source` is the `PutawayItem` origin the drain popped this unit from\n(`intake` / `reorder` / `reslot`), passed through untouched: the manager does not\nact on it, but this is the one call every put-away funnels through, so it is the\nonly place an observer can learn where a placement came from.  Optional and\nignored here, so a direct caller that does not know about the queue \u2014 a test, a\nfuture inbound writer \u2014 is unaffected.",
@@ -12254,6 +12497,13 @@
       "kind": "function",
       "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records": {
+      "decorators": [],
+      "doc": "Hand over the put-away event records and clear the buffer.\n\nDrained rather than read so the caller (the batch loop) takes ownership once per\nbatch and the manager does not accumulate a run's worth of rows in memory.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.empty_bins": {
       "decorators": [
         "property"
@@ -12262,6 +12512,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list[Aisle.Bin]"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing": {
+      "decorators": [],
+      "doc": "Bind a put crew's travel speed + cost model, so every placement costs seconds.\n\nFollows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put\ncrew's own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.\n\nADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not\ncontend for an aisle, and does not change which unit lands in which bin -- the same\nitems are picked, in the same order, at the same instants.  It records a duration\nand a row.  Contention is the inbound feature, not this seam.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, speed, cost=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue": {
       "decorators": [],
@@ -12315,6 +12572,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.putaway_seconds": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Total put-away labor recorded so far, in seconds.  0.0 when timing is off.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_depth": {
       "decorators": [
@@ -12843,7 +13109,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._advance_lead_queue": {
       "decorators": [],
-      "doc": "One batch elapsed: decrement pre-existing in-transit orders only.\n\nRuns BEFORE `_fire_reorders`, which is what stops an order fired this batch from\nbeing decremented in the same batch it was placed.",
+      "doc": "One batch elapsed: decrement pre-existing in-transit orders only.\n\nRuns BEFORE `_fire_reorders`, which is what stops an order fired this batch from\nbeing decremented in the same batch it was placed.\n\nThe tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that\nis a decision and what would change it.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -13096,23 +13362,16 @@
     },
     "Warehouse/kernel/timeline.py": {
       "decorators": [],
-      "doc": "timeline \u2014 what the simulation's clock is made of, and how batches sit on one axis.\n\nThere is no clock object in this simulator, and this module does not add one.  Simulated\ntime is a per-picker `float` that is reborn at `0.0` at the start of every batch\n(`fast_pick._simulate_picker_deferred`, `Pick.PickSimulation._simulate_picker`), advanced\nby accumulation at three sites \u2014 travel, cart swap, handling \u2014 and merged across pickers\nby sorting events on `.time`.  A second work stream putting away inbound loads will need\nto sit on the same axis, and two facts have to be settled before it can.\n\n## 1. The unit\n\n`cost_model` produces SECONDS and says so: `sec_per_inch` is `1/(12\u00b7ft_per_s)` and is\ndocumented as s/inch.  The constants added to the same accumulator read the same way \u2014\n`pick_intercept: 15`, `cart_swap_coef: 300` are 15 seconds a pick and five minutes a cart\nswap, which are warehouse numbers; at 15 ms and 0.3 s they are not physical.\n\nThe ANALYSIS layer declares the opposite.  `Performance_Evaluations/common/units.py` says\n\"durations are milliseconds\" and divides by `3.6e6` for hours.  Both cannot be right, and\n`3.6e6` seconds is 1000 hours.\n\n`ANALYSIS_DIVISOR_DISCREPANCY` below records that, with the arithmetic, because a shared\nclock has to know what it is counting in.  It is NOT fixed here: correcting the label moves\nevery absolute number on a published site and is its own piece of work with its own review.\nEvery RATIO \u2014 every percentage, effect size and improvement in the suite \u2014 is unaffected,\nwhich is exactly why nothing caught it.\n\n## 2. The epoch\n\nA batch's picker clocks start at zero, so `t` alone cannot order two events from different\nbatches.  The absolute axis is the running sum of the batch durations before it, and that\nsum is currently computed in the ANALYSIS layer with a bare `np.cumsum` \u2014 a cross-batch\ntimeline invented after the fact, in a what-if module, with no name.  `batch_epoch` is that\nsame arithmetic, named, in a module both the domain and the harness can import.",
+      "doc": "timeline \u2014 what the simulation's clock is made of, and how batches sit on one axis.\n\nThere is no clock object in this simulator, and this module does not add one.  Simulated\ntime is a per-picker `float` that is reborn at `0.0` at the start of every batch\n(`fast_pick._simulate_picker_deferred`, `Pick.PickSimulation._simulate_picker`), advanced\nby accumulation at three sites \u2014 travel, cart swap, handling \u2014 and merged across pickers\nby sorting events on `.time`.  A second work stream putting away inbound loads will need\nto sit on the same axis, and two facts have to be settled before it can.\n\n## 1. The unit\n\n`cost_model` produces SECONDS and says so: `sec_per_inch` is `1/(12\u00b7ft_per_s)` and is\ndocumented as s/inch.  The constants added to the same accumulator read the same way \u2014\n`pick_intercept: 15`, `cart_swap_coef: 300` are 15 seconds a pick and five minutes a cart\nswap, which are warehouse numbers; at 15 ms and 0.3 s they are not physical.\n\nThe ANALYSIS layer used to declare the opposite: `Performance_Evaluations/common/units.py`\nsaid \"durations are milliseconds\" and divided by `3.6e6` for hours.  3.6e6 SECONDS is 1000\nhours, so every ABSOLUTE figure the suite published was 1000x out \u2014 and every RATIO was\nright, which is exactly why nothing caught it for the life of the project.\n\nThat is fixed.  `units.py` now IMPORTS `SECONDS_PER_HOUR` from here instead of restating a\nliteral, so the sim's unit and the analysis layer's divisor cannot disagree again.\n\n## 2. The epoch\n\nA batch's picker clocks start at zero, so `t` alone cannot order two events from different\nbatches.  The absolute axis is the running sum of the batch durations before it, and that\nsum is currently computed in the ANALYSIS layer with a bare `np.cumsum` \u2014 a cross-batch\ntimeline invented after the fact, in a what-if module, with no name.  `batch_epoch` is that\nsame arithmetic, named, in a module both the domain and the harness can import.",
       "kind": "module",
       "signature": null
     },
-    "Warehouse/kernel/timeline.py::ANALYSIS_DIVISOR": {
+    "Warehouse/kernel/timeline.py::DEFAULT_SHIFT_SECONDS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "3600000.0"
-    },
-    "Warehouse/kernel/timeline.py::ANALYSIS_DIVISOR_DISCREPANCY": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "ANALYSIS_DIVISOR / SECONDS_PER_HOUR"
+      "value_preview": "8 * SECONDS_PER_HOUR"
     },
     "Warehouse/kernel/timeline.py::SECONDS_PER_HOUR": {
       "decorators": [],
@@ -13141,6 +13400,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(durations: Iterable[float]) -> list[float]"
+    },
+    "Warehouse/kernel/timeline.py::shift_index": {
+      "decorators": [],
+      "doc": "Which fixed-length shift the absolute instant `t_abs` falls in.  0-based.\n\nA REPORTING FRAME OVER A CONTINUOUS CLOCK, and that is the whole contract: fixed-length\nshifts label the timeline, they do not schedule against it.  Work never pauses at the\nwhistle and no task is split at a boundary \u2014 a task that spans one is recorded once,\nunder the shift it STARTED in, because that is where the actor picked it up.\n\nThis is what \"work carries over\" means in a model whose scheduling atom is a whole\ntask: the second shift picks up mid-aisle exactly where the first left off.  Making a\nboundary dispatch-affecting \u2014 deferring a task that would cross it \u2014 is a different\nmodel, and the seam for it already exists (`_stock(budget=)` defers a whole wave and\nnever truncates one; `allocation.partition` re-partitions whatever is left).\n\nRaises on a non-positive shift, which would otherwise divide by zero or label every\ninstant shift 0 with no warning.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(t_abs: float, shift_seconds: float=DEFAULT_SHIFT_SECONDS) -> int"
+    },
+    "Warehouse/kernel/timeline.py::shift_offset": {
+      "decorators": [],
+      "doc": "How far into its own shift the absolute instant `t_abs` is, in seconds.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(t_abs: float, shift_seconds: float=DEFAULT_SHIFT_SECONDS) -> float"
     },
     "Warehouse/layout/Aisle_Dimensions.py": {
       "decorators": [],
@@ -13674,6 +13947,27 @@
       "signature": null,
       "value_preview": "['Mode', 'Role', 'Crew', 'Worker']"
     },
+    "Warehouse/operations/putaway.py": {
+      "decorators": [],
+      "doc": "putaway \u2014 what a put-away COSTS, in the same seconds the pick clock counts.\n\nPut-away has been a zero-duration phase for the life of the project: `check_reorders` \u2192\n`_stock` \u2192 `_execute_placement` move inventory and produce no time value anywhere. So a\nstrategy that defers placement looked free, and a second crew had nothing to be measured\nin.\n\nThis gives it a cost, deliberately mirroring the PICK model rather than inventing a second\none \u2014 travel to the location plus the same height-bracketed handling expression, through\nthe same `cost_model` primitives. That is the honest starting point: put-away and picking\nare the same physical act with the inventory moving the other way, and a model that shares\nits shape is one that can be re-tuned against the pick model rather than drifting from it.\n\n## What this deliberately does NOT model\n\nThe user's own framing for this phase: *\"do what you can to align puts stream but I didn't\nreally model out that intended behavior yet\u2026 it will be changing.\"* So:\n\n- **No contention.** A putter and a picker never wait for each other, an aisle holds any\n  number of actors, and put-away time does not move the pick clock by one second. The two\n  streams are simulated independently and merged, which is the same assumption\n  `fast_pick` already makes across its own pickers.\n- **No travel between placements.** Each put is costed from the aisle mouth, exactly as a\n  pick's aisle-entry travel is. A real putter carries a pallet down a lane and drops\n  several; that is a routing problem, and routing put-away is the feature, not the seam.\n- **No dock, no trailer, no unload.** `_stock(budget=)` bounds how much a crew places in a\n  tick and is where those will attach.\n\nBecause it adds a measurement without perturbing anything, turning it on changes no pick\nresult: the same items are picked, in the same order, at the same instants. It adds rows\nand a number.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/operations/putaway.py::PutawayCost": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The put-away time model's coefficients \u2014 the put-side twin of `PickConfig`'s.\n\nDefaults mirror `PickConfig`'s own dataclass defaults, so a caller that supplies\nnothing gets the pick model's shape at the pick model's scale rather than a second set\nof magic numbers to reconcile later (this project has already paid for two default sets\nthat drifted 55x apart).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/operations/putaway.py::put_cost": {
+      "decorators": [],
+      "doc": "Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.\n\nTravel from the aisle mouth plus height-bracketed handling \u2014 the same two terms, in the\nsame order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int, speed: SpeedProfile, cost: PutawayCost) -> float"
+    },
     "Warehouse/operations/roles.py": {
       "decorators": [],
       "doc": "roles \u2014 what an actor DOES and what it does it ON.\n\nTwo axes, deliberately separate, because they vary independently: a `pick` can be done on\n`foot` or on a `machine`, and so can a `put`.  Four combinations, each with its own travel\nspeed \u2014 which is the whole reason this file exists.\n\nThe mode axis is not new; it has just never been readable.  `Optimization/config/channels.py`\nhas named its two pools `'store_machine'` and `'fulfillment_walker'` for as long as they have\nexisted, and `simconfig/constants.py` comments them as \"machine order-picker pool\" and \"human\n-walker pool\".  Nothing anywhere reads either name: no forklift, machine, vehicle or equipment\nconcept existed in the repo.  The distinction was real, documented in prose, and inert.\n\n## Why `str` enums\n\nA role and a mode are written into a DB column and read back, and they appear in run\nmetadata.  `str`-valued members compare equal to their own text, so a stored `'machine'`\nround-trips without a conversion layer, and an f-string renders the value rather than\n`Mode.MACHINE`.  The cost is that any string comparison silently succeeds \u2014 hence\n`Role.of` / `Mode.of` below, which are the only sanctioned way to turn text back into a\nmember and which raise on anything unrecognised.",
@@ -13835,14 +14129,14 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, tasks: list[Task], config: PickConfig, manager: Inventory_Manager | None=None) -> None"
+      "signature": "(self, tasks: list[Task], config: PickConfig, manager: Inventory_Manager | None=None, start_times: list[float] | None=None) -> None"
     },
     "Warehouse/picking/Pick.py::PickSimulation._simulate_picker": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, picker_id: int, tasks: list[Task], picks: list[tuple[int, int]], empties: list['Aisle.Bin']) -> list[PickEvent]"
+      "signature": "(self, picker_id: int, tasks: list[Task], picks: list[tuple[int, int]], empties: list['Aisle.Bin'], t0: float=0.0) -> list[PickEvent]"
     },
     "Warehouse/picking/Pick.py::PickSimulation.run": {
       "decorators": [],
@@ -13871,6 +14165,13 @@
       "doc": "Post-run progress inspection shared by BOTH pick simulations.\n\nprogress_at/step_table/_state_at were verbatim duplicates in PickSimulation\nand DeferredPickSimulation (cosmetic drift only).  They read nothing but\nself._events (set by run()) and self._config.num_pickers, so one mixin\nserves both.  NOT part of the numeric sim path - the picker loops stay\ndeliberately separate (deferred-mutation contract).",
       "kind": "class",
       "signature": ""
+    },
+    "Warehouse/picking/Pick.py::_ProgressAPIMixin._start_at": {
+      "decorators": [],
+      "doc": "Picker `picker_id`'s clock at the start of this batch.\n\n`0.0` unless the caller supplied `start_times`, so every construction that does not\ntrack clocks -- tests, Diagnostics, the calltree harness -- keeps the old model where\nevery picker is reborn at zero each batch.  The runner threads the previous batch's\nfinish times through instead, which is what puts a whole run's events on one axis.\n\nA short list is tolerated and reads 0.0 past its end: a crew can grow between\nbatches, and a new picker starting at the origin is the honest answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, picker_id: int) -> float"
     },
     "Warehouse/picking/Pick.py::_ProgressAPIMixin._state_at": {
       "decorators": [],
@@ -14076,7 +14377,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, tasks: list[Task], config: PickConfig, manager: Inventory_Manager | None=None) -> None"
+      "signature": "(self, tasks: list[Task], config: PickConfig, manager: Inventory_Manager | None=None, start_times: list[float] | None=None) -> None"
     },
     "Warehouse/picking/fast_pick.py::DeferredPickSimulation.run": {
       "decorators": [],
@@ -14098,7 +14399,7 @@
       "doc": "Phase 1 worker -- read-only picker simulation.\n\nUses bin_snap so no bin_.storage.quantity reads/writes happen on the\nshared bin objects.  bin_.storage.order is read (sku, weight, volume)\nbut never mutated, so it is safe across all concurrent threads.",
       "is_async": false,
       "kind": "function",
-      "signature": "(picker_id: int, tasks: list[Task], cfg: PickConfig, bin_snap: dict[int, int]) -> tuple[list[PickEvent], list[_PickMutation]]"
+      "signature": "(picker_id: int, tasks: list[Task], cfg: PickConfig, bin_snap: dict[int, int], t0: float=0.0) -> tuple[list[PickEvent], list[_PickMutation]]"
     },
     "Warehouse/placement/Assignment_Functions.py": {
       "decorators": [],

@@ -36,3 +36,4 @@
 - [Put-away seams for inbound](putaway-seams-for-inbound.md) — the nine seams built 2026-08-24 for a trailer/dock feature, and the four things still missing when it starts
 - [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24, but anything published before then still shows absolutes 1000x too large; every ratio was always fine
 - [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
+- [One clock, one speed, one config](one-clock-one-speed-one-config.md) — the 2026-08-24 refactor: absolute clock, role x mode actors, timed put-away, derived CONFIG; and what stays provisional

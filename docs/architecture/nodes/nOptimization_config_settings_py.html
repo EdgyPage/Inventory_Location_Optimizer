@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.config.settings · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_settings_py" data-id="Optimization/config/settings.py">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <span class="here"><code>Optimization/config/settings.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.config.settings</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_settings_py.html"><code>Optimization/config/settings.py</code></a></p>
+
+<pre class="sig"><code>Optimization.config.settings</code></pre>
+<section class="doc">settings — every tunable a run has, as a flat list of named values.
+
+The authoring surface. One name per knob, at module level, grouped by what it governs and
+annotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so
+this is the one place a value is written down and the nested dict is a view of it.
+
+    settings.py          you edit this                        (declaration)
+        |
+        v
+    sim_config.CONFIG    the nested dict every reader knows   (run state)
+        |
+        v
+    resolve at run time  + CLI flags + the what-if cell       (this run)
+
+## Reading this file
+
+Every value below is a DEFAULT. Three things override it, in order:
+
+1. a CLI flag (`--n-batches`, `--seed-world`, …) — see `run_simulation`
+2. a what-if cell, for the three axes it sweeps — see `simdriver.cells`
+3. a `--resume`, which restores whatever the original run recorded in `run_spec.json`
+
+Overrides are written into `CONFIG` and read back through the accessors in `sim_config`
+(`n_batches()`, `seed_world()`, …). **Never snapshot one of these at import**: a module
+scalar cannot see a CLI override, which is a bug this project has now shipped twice — once
+for `_INITIAL_FILL`, which made a run misreport its own sizing in `warehouse.db`, and once
+for five more that were caught before they could.
+
+## What does NOT live here
+
+- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a
+  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of
+  them. A number that varies within one run is not a default.
+- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.
+- **Restock-rule membership.** `Optimization/config/strategies`.
+- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift&#x27;s
+  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two
+  things to keep in step.
+
+Adding a setting: declare it here, thread it into `CONFIG` below, and — if it changes
+results — give it a CLI flag, record it in `run_spec.json`, and restore it in both
+`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag
+is accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_constants_py.html"><code>Optimization.simconfig.constants</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li><li><a href="nWarehouse_kernel_timeline_py.html"><code>Warehouse.kernel.timeline</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(21)</span></h2><ul><li><a href="nOptimization_config_settings_py__CHECKPOINT_FRAC.html"><code>CHECKPOINT_FRAC</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__FF_BATCH_MEAN.html"><code>FF_BATCH_MEAN</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__FF_BATCH_STD.html"><code>FF_BATCH_STD</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__FF_CART.html"><code>FF_CART</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__FF_FILL.html"><code>FF_FILL</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__FF_PICKERS.html"><code>FF_PICKERS</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__KEYFRAME_INTERVAL.html"><code>KEYFRAME_INTERVAL</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__MAX_SKUS.html"><code>MAX_SKUS</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__N_BATCHES.html"><code>N_BATCHES</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_CREW_SIZE.html"><code>PUT_CREW_SIZE</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__SAMPLER.html"><code>SAMPLER</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__SEED_BATCHES.html"><code>SEED_BATCHES</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__SEED_WORLD.html"><code>SEED_WORLD</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__SHIFT_SECONDS.html"><code>SHIFT_SECONDS</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__STORE_BATCH_MEAN.html"><code>STORE_BATCH_MEAN</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__STORE_BATCH_STD.html"><code>STORE_BATCH_STD</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__STORE_CART.html"><code>STORE_CART</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__STORE_FILL.html"><code>STORE_FILL</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__STORE_PICKERS.html"><code>STORE_PICKERS</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__WORKERS.html"><code>WORKERS</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__ZONING_OFF.html"><code>ZONING_OFF</code></a> <span class="dim">Optimization/config/settings.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_settings_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/settings.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

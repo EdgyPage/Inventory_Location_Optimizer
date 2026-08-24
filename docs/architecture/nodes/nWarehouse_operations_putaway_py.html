@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.operations.putaway · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_putaway_py" data-id="Warehouse/operations/putaway.py">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <span class="here"><code>Warehouse/operations/putaway.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.operations.putaway</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.operations.putaway</code></pre>
+<section class="doc">putaway — what a put-away COSTS, in the same seconds the pick clock counts.
+
+Put-away has been a zero-duration phase for the life of the project: `check_reorders` →
+`_stock` → `_execute_placement` move inventory and produce no time value anywhere. So a
+strategy that defers placement looked free, and a second crew had nothing to be measured
+in.
+
+This gives it a cost, deliberately mirroring the PICK model rather than inventing a second
+one — travel to the location plus the same height-bracketed handling expression, through
+the same `cost_model` primitives. That is the honest starting point: put-away and picking
+are the same physical act with the inventory moving the other way, and a model that shares
+its shape is one that can be re-tuned against the pick model rather than drifting from it.
+
+## What this deliberately does NOT model
+
+The user&#x27;s own framing for this phase: *&quot;do what you can to align puts stream but I didn&#x27;t
+really model out that intended behavior yet… it will be changing.&quot;* So:
+
+- **No contention.** A putter and a picker never wait for each other, an aisle holds any
+  number of actors, and put-away time does not move the pick clock by one second. The two
+  streams are simulated independently and merged, which is the same assumption
+  `fast_pick` already makes across its own pickers.
+- **No travel between placements.** Each put is costed from the aisle mouth, exactly as a
+  pick&#x27;s aisle-entry travel is. A real putter carries a pallet down a lane and drops
+  several; that is a routing problem, and routing put-away is the feature, not the seam.
+- **No dock, no trailer, no unload.** `_stock(budget=)` bounds how much a crew places in a
+  tick and is where those will attach.
+
+Because it adds a measurement without perturbing anything, turning it on changes no pick
+result: the same items are picked, in the same order, at the same instants. It adds rows
+and a number.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse.inventory.Inventory_Management</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_operations_putaway_py__PutawayCost.html"><code>PutawayCost</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li><li><a href="nWarehouse_operations_putaway_py__put_cost.html"><code>put_cost</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_putaway_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/putaway.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

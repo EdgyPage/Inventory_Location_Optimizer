@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.metrics.work_events · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_work_events_py" data-id="Optimization/metrics/work_events.py">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <span class="here"><code>Optimization/metrics/work_events.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.metrics.work_events</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
+
+<pre class="sig"><code>Optimization.metrics.work_events</code></pre>
+<section class="doc">work_events — both work streams, as rows on one absolute axis.
+
+The pick simulation and the put-away crew are simulated INDEPENDENTLY and merged
+afterwards. That is the model the user specified — *&quot;assume non-intersection or
+non-interference among physical objects, so simulated on merge similar to fast_pick
+simulating sequential inventory access&quot;* — and it is the same shape `fast_pick` already
+uses across its own pickers: phase 1 runs each actor against a snapshot, phase 2 reconciles.
+One level up, the actors are crews rather than pickers.
+
+So this module does not schedule anything. It takes what each stream produced and stamps
+both onto one timeline:
+
+    pick rows   from the batch&#x27;s `PickEvent`s, whose `.time` is already absolute
+                (the arm hands every picker the batch epoch as its start)
+    put rows    from `Inventory_Manager.drain_putaway_records()`, whose clock is the put
+                crew&#x27;s own and is offset onto the axis here
+
+## Two things that are decisions, not details
+
+**`qty` is signed.** A pick removes inventory and a put adds it, so one row shape reads in
+both directions and `SUM(qty)` over a bin is its net movement. A pick with no quantity (a
+`task_start`, a `done`) carries NULL, not 0 — absent and zero are different.
+
+**The put crew&#x27;s clock starts at the batch epoch, not at zero.** The crew works through the
+batch&#x27;s placements back to back; nothing in this model makes it wait for a picker, and
+nothing makes a picker wait for it.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py.html"><code>Warehouse.kernel.timeline</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py___QTY_EVENTS.html"><code>_QTY_EVENTS</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_metrics_work_events_py__merged.html"><code>merged</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_metrics_work_events_py__pick_rows.html"><code>pick_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_metrics_work_events_py__put_rows.html"><code>put_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

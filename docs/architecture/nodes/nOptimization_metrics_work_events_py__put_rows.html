@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>put_rows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_work_events_py__put_rows" data-id="Optimization/metrics/work_events.py::put_rows">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a> <span class="sep">›</span> <span class="here"><code>put_rows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>put_rows</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def put_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)</code></pre>
+<section class="doc">Merged-stream rows for one batch&#x27;s put-away.
+
+`records` are `Inventory_Manager.drain_putaway_records()` tuples
+`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on
+the put crew&#x27;s OWN clock from 0. `batch_start` offsets them onto the arm&#x27;s axis.
+
+Put-away is one crew working its queue back to back, so the records are laid out over
+the crew&#x27;s workers round-robin: with a crew of one — today&#x27;s default — every row is
+that worker&#x27;s. The event type is `put`, and `qty` is positive.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__put_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20put_rows">Source ↗</a></p>
+</article>
+</main>
+</body></html>

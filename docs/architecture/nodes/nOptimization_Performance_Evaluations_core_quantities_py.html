@@ -50,7 +50,8 @@ No numpy, no matplotlib, no lambdas.  Two reasons, both load-bearing:
     a checkable property rather than a convention;
   * a converter that cannot be a lambda has to be a declared `Unit`, so a conversion
     cannot be spelled inline in one consumer and forgotten in the next.  That is exactly
-    how `3.6e6` came to be written out five times.
+    how the hours divisor came to be written out five times -- and, because each copy
+    restated it rather than importing it, how all five stayed wrong by 1000x.
 
 ## The view derivation
 

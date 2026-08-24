@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>enable_putaway_timing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enable_putaway_timing" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>enable_putaway_timing</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>enable_putaway_timing</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def enable_putaway_timing(self, speed, cost=None) -&gt; None</code></pre>
+<section class="doc">Bind a put crew&#x27;s travel speed + cost model, so every placement costs seconds.
+
+Follows `enable_sigma_fd`&#x27;s precedent: a binder the harness calls, so the domain
+never reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put
+crew&#x27;s own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.
+
+ADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not
+contend for an aisle, and does not change which unit lands in which bin -- the same
+items are picked, in the same order, at the same instants.  It records a duration
+and a row.  Contention is the inbound feature, not this seam.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_operations_putaway_py__PutawayCost.html"><code>PutawayCost</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enable_putaway_timing">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20enable_putaway_timing">Source ↗</a></p>
+</article>
+</main>
+</body></html>

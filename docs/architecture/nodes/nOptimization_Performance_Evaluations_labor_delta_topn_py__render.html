@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_labor_delta_topn_py.html"><code>Optimization/Performance_Evaluations/labor/delta_topn.py</code></a> <span class="sep">›</span> <span class="here"><code>render</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>render</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_labor_delta_topn_py.html"><code>Optimization/Performance_Evaluations/labor/delta_topn.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span><span class="badge fanout">high fan-out</span></div>
+<div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@evaluation(key=&amp;#x27;labor.delta_topn&amp;#x27;, label=&amp;#x27;Task-time saved vs FIFO — cumulative + per-batch (top-N)&amp;#x27;, scope=&amp;#x27;config&amp;#x27;, needs=(&amp;#x27;series&amp;#x27;,), defaults={&amp;#x27;top_n&amp;#x27;: 3, &amp;#x27;top_by&amp;#x27;: &amp;#x27;initial&amp;#x27;}, family=&amp;#x27;labor&amp;#x27;, shape=&amp;#x27;serial&amp;#x27;, quantities=(&amp;#x27;production_time&amp;#x27;,), views_pending=((&amp;#x27;absolute&amp;#x27;, &amp;quot;the top-N arms&amp;#x27; own labor hours over batches, which labor.per_batch draws for the same arm selection; consolidating the two is the fix, not a third figure&amp;quot;), (&amp;#x27;percent&amp;#x27;, &amp;#x27;the cumulative saving as a fraction rather than in hours; not written yet&amp;#x27;)))
 def render(ctx, params)</code></pre>
 <section class="doc empty">No docstring.</section>

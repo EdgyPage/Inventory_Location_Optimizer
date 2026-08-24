@@ -173,7 +173,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "TIME_UNITS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
-      - {name: "MS_PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "KINDS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "Unit", file: "Optimization/Performance_Evaluations/common/units.py", kind: "class"}
       - {name: "DURATION", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
@@ -510,6 +510,32 @@ files:
       - {name: "objective_for", file: "Optimization/config/objectives.py", kind: "function"}
       - {name: "as_dicts", file: "Optimization/config/objectives.py", kind: "function"}
     notes: ""
+  "Optimization/config/settings.py":
+    purpose: "every tunable a run has, as a flat list of named values."
+    layer: "opt_config"
+    key_symbols:
+      - {name: "SEED_WORLD", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "SEED_BATCHES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "N_BATCHES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "WORKERS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "MAX_SKUS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "CHECKPOINT_FRAC", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "KEYFRAME_INTERVAL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "SAMPLER", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "SHIFT_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_CART", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_CART", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_FILL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_FILL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_BATCH_MEAN", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_BATCH_STD", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_BATCH_MEAN", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_BATCH_STD", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "ZONING_OFF", file: "Optimization/config/settings.py", kind: "const"}
+    notes: ""
   "Optimization/config/sim_config.py":
     purpose: "the run's single source of tunable truth."
     layer: "opt_config"
@@ -523,6 +549,7 @@ files:
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -616,6 +643,14 @@ files:
     key_symbols:
       - {name: "BinRecorder", file: "Optimization/metrics/bin_recorder.py", kind: "class"}
     notes: ""
+  "Optimization/metrics/work_events.py":
+    purpose: "both work streams, as rows on one absolute axis."
+    layer: "opt_metrics"
+    key_symbols:
+      - {name: "pick_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
+      - {name: "put_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
+      - {name: "merged", file: "Optimization/metrics/work_events.py", kind: "function"}
+    notes: ""
   "Optimization/persistence/Picking_Data.py":
     purpose: "CSV + SQLite persistence for a run's picks, batch/task stats, keyframes, and scores."
     layer: "opt_persistence"
@@ -641,6 +676,7 @@ files:
       - {name: "CAP_BIN_SCORES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_SKU_SCORES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_REORDER_QUEUE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_WORK_EVENTS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_KEYFRAMES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_VIZ_CACHE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
@@ -662,6 +698,7 @@ files:
       - {name: "load_sku_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_work_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_picks", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -746,7 +783,6 @@ files:
     purpose: "Cross-cell what-if analysis in modeled labor-HOURS \u2014 converts batch_stats ms to hours (\u03a3 task_makespan/3.6e6), adds the picker-scheduler axis decoded from the cell-name suffix (rr/lpt) and labor-hours-saved-vs-FIFO, emitting whatif_labor.csv/json plus throughput-vs-labor, labor-saved, batch-hours rr-vs-lpt, and scheduler-uplift charts."
     layer: "optimization"
     key_symbols:
-      - {name: "MS_PER_HOUR", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "REQUIRES", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "canonical_arm_order", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
@@ -2175,6 +2211,18 @@ files:
       - {name: "test_assign_tasks_delegates_rather_than_reimplementing", file: "Tests/unit/test_allocation.py", kind: "function"}
       - {name: "test_allocation_imports_nothing_but_the_standard_library", file: "Tests/unit/test_allocation.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_arm_clock.py":
+    purpose: "an arm's batches sit on one absolute axis."
+    layer: "tests"
+    key_symbols:
+      - {name: "SPANS", file: "Tests/unit/test_arm_clock.py", kind: "const"}
+      - {name: "test_each_batch_starts_where_the_previous_ended", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_axis_matches_the_named_epoch_definition", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_batch_scores_the_same_wherever_it_sits_on_the_axis", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_makespan_is_the_slowest_picker_not_the_absolute_end", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_runner_carries_one_uniform_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_skipped_batch_cannot_advance_the_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_assignment_and_labor.py":
     purpose: "test_assignment_and_labor.py"
     layer: "tests"
@@ -2491,6 +2539,16 @@ files:
       - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_lead_time_unit.py":
+    purpose: "the one stream still quantized to batches, on purpose."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_unit_is_declared_and_is_not_the_simulators", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+      - {name: "test_the_tick_is_one_batch", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+      - {name: "test_one_check_reorders_advances_every_in_transit_order_by_exactly_one", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+      - {name: "test_an_order_can_go_past_zero_rather_than_clamping", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+      - {name: "test_the_decision_is_written_down_where_the_tick_is", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_marks.py":
     purpose: "a stance cannot be mislabelled, and an interval estimates the dot."
     layer: "tests"
@@ -2594,6 +2652,21 @@ files:
       - {name: "test_the_field_set_is_derived_from_the_dataclass", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
       - {name: "test_no_module_builds_a_pickconfig_from_a_config_dict_on_its_own", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_picker_clock_carry.py":
+    purpose: "a picker's clock does not have to restart at every batch."
+    layer: "tests"
+    key_symbols:
+      - {name: "tasks_2_aisles", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_omitting_start_times_starts_every_picker_at_zero", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_an_all_zero_start_is_the_same_as_no_start", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_a_started_picker_is_shifted_by_exactly_its_own_offset", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_the_work_done_is_unchanged_by_when_it_starts", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_both_simulations_agree", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_a_short_start_list_reads_zero_past_its_end", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_an_empty_start_list_is_treated_as_absent", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_both_simulations_use_the_same_start_accessor", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+      - {name: "test_neither_loop_hardcodes_a_zero_start", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_placement_fastpath_equivalence.py":
     purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."
     layer: "tests"
@@ -2689,6 +2762,27 @@ files:
       - {name: "test_the_recorder_still_separates_intake_from_reorder_by_the_loop_flag", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_recorder_forwards_the_source_to_the_real_method", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_every_wrapper_of_the_chokepoint_passes_the_keyword_through", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_putaway_timing.py":
+    purpose: "put-away costs seconds, and costs nothing else."
+    layer: "tests"
+    key_symbols:
+      - {name: "FOOT", file: "Tests/unit/test_putaway_timing.py", kind: "const"}
+      - {name: "MACHINE", file: "Tests/unit/test_putaway_timing.py", kind: "const"}
+      - {name: "test_it_is_travel_plus_the_pick_handling_expression", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_higher_bin_costs_more_to_reach_and_more_to_handle", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_faster_crew_puts_away_faster", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_two_modes_give_different_costs", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_more_units_cost_more_but_the_travel_is_paid_once", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_defaults_mirror_the_pick_models", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_timing_is_off_until_it_is_bound", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_binding_it_makes_a_placement_cost_seconds", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_crews_clock_runs_forward_without_gaps", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_record_carries_where_the_unit_came_from", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_draining_hands_over_ownership", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_costing_a_put_does_not_write_a_bin", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_charge_happens_after_the_placement_is_committed", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_binder_follows_the_existing_opt_in_precedent", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_quantities.py":
     purpose: "the quantity table is the ONE declaration, and it is faithful."
@@ -2880,6 +2974,22 @@ files:
       - {name: "test_the_override_reaches_the_accessors", file: "Tests/unit/test_seed_flags.py", kind: "function"}
       - {name: "test_the_channel_offset_rides_on_the_overridden_base", file: "Tests/unit/test_seed_flags.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_settings_module.py":
+    purpose: "one place a tunable is written down."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_global_setting_is_the_source_of_its_config_key", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_a_channel_setting_is_the_source_of_its_config_key", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_batch_shape_comes_from_settings_on_both_channels", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_no_tunable_in_config_is_still_a_bare_literal", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_two_channels_do_not_share_a_zoning_dict", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_editing_one_channels_zoning_leaves_the_other_alone", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_settings_declares_values_and_does_not_compute_them", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_it_moves_the_run_trees_source_fingerprint", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_picker_counts_have_one_source", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_shift_length_comes_from_the_kernels_declaration", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_pick_config_coefficients_are_NOT_here", file: "Tests/unit/test_settings_module.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."
     layer: "tests"
@@ -2967,9 +3077,10 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_the_sim_declares_its_unit", file: "Tests/unit/test_timeline.py", kind: "function"}
-      - {name: "test_the_analysis_divisor_is_the_one_the_suite_actually_applies", file: "Tests/unit/test_timeline.py", kind: "function"}
-      - {name: "test_the_discrepancy_is_exactly_a_thousandfold", file: "Tests/unit/test_timeline.py", kind: "function"}
-      - {name: "test_the_record_disappears_when_the_two_readings_agree", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_analysis_layer_divides_by_the_kernels_own_declaration", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_no_module_carries_its_own_copy_of_the_divisor", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_suites_time_units_are_seconds_based", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_unit_kinds_no_longer_claim_milliseconds", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_sims_own_constants_read_as_seconds", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_first_batch_starts_at_zero", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_a_batch_starts_after_every_batch_before_it", file: "Tests/unit/test_timeline.py", kind: "function"}
@@ -3074,6 +3185,35 @@ files:
       - {name: "test_requeue_bin_frees_the_bin_without_losing_the_inventory_position", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_incremental_sigma_fd_tracks_the_full_recompute_through_every_mutation", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_work_events.py":
+    purpose: "two streams, one axis, and the reconciliation that keeps them there."
+    layer: "tests"
+    key_symbols:
+      - {name: "PICKERS", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "PUTTERS", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "PW", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "TW", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "EVENTS", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "RECORDS", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "START", file: "Tests/unit/test_work_events.py", kind: "const"}
+      - {name: "test_the_two_crews_never_share_a_uid", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_local_ids_deliberately_collide_across_crews", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_an_actor_outside_the_crew_raises_rather_than_borrowing_a_uid", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_a_pick_is_negative_and_a_put_is_positive", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_a_state_change_carries_no_quantity_not_a_zero", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_t_local_is_t_abs_minus_the_batch_start", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_reconciliation_that_makes_one_clock_enforceable", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_every_pick_event_becomes_exactly_one_row", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_put_crews_clock_is_offset_onto_the_arms_axis", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_put_source_survives_onto_the_row", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_shift_index_labels_the_absolute_instant", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_a_task_spanning_a_boundary_is_recorded_once_under_its_start", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_a_shorter_shift_relabels_without_moving_an_instant", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_merged_order_is_total_and_declared", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_merge_is_stable_whichever_stream_is_appended_first", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_tie_at_one_instant_is_broken_by_role_not_by_arrival", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_view_and_the_in_memory_merge_declare_the_same_order", file: "Tests/unit/test_work_events.py", kind: "function"}
     notes: ""
   "Visualization/cache_schema.py":
     purpose: "DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`)."
@@ -3337,8 +3477,9 @@ files:
     key_symbols:
       - {name: "TIME_UNIT", file: "Warehouse/kernel/timeline.py", kind: "const"}
       - {name: "SECONDS_PER_HOUR", file: "Warehouse/kernel/timeline.py", kind: "const"}
-      - {name: "ANALYSIS_DIVISOR", file: "Warehouse/kernel/timeline.py", kind: "const"}
-      - {name: "ANALYSIS_DIVISOR_DISCREPANCY", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "DEFAULT_SHIFT_SECONDS", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "shift_index", file: "Warehouse/kernel/timeline.py", kind: "function"}
+      - {name: "shift_offset", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "batch_epoch", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "epochs", file: "Warehouse/kernel/timeline.py", kind: "function"}
     notes: ""
@@ -3384,6 +3525,13 @@ files:
       - {name: "WarehouseConfig", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse_Builder", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
+    notes: ""
+  "Warehouse/operations/putaway.py":
+    purpose: "what a put-away COSTS, in the same seconds the pick clock counts."
+    layer: "wh_operations"
+    key_symbols:
+      - {name: "PutawayCost", file: "Warehouse/operations/putaway.py", kind: "class"}
+      - {name: "put_cost", file: "Warehouse/operations/putaway.py", kind: "function"}
     notes: ""
   "Warehouse/operations/roles.py":
     purpose: "what an actor DOES and what it does it ON."

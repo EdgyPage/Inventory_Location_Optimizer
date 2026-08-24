@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pick_rows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_work_events_py__pick_rows" data-id="Optimization/metrics/work_events.py::pick_rows">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a> <span class="sep">›</span> <span class="here"><code>pick_rows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>pick_rows</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def pick_rows(events, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)</code></pre>
+<section class="doc">Merged-stream rows for one batch&#x27;s pick events.
+
+`events` carry ABSOLUTE times already — the arm hands every picker the batch epoch as
+its start — so `t_abs` is `e.time` and `t_local` is the offset from `batch_start`.
+
+`crew` supplies the role, the mode and the uid space; `e.picker_id` is the dense
+per-crew id and becomes `actor_local`, with `actor_uid` its crew-offset twin.  A picker
+id outside the crew raises rather than being written under someone else&#x27;s uid.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__pick_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20pick_rows">Source ↗</a></p>
+</article>
+</main>
+</body></html>

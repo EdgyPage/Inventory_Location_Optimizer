@@ -31,15 +31,13 @@ documented as s/inch.  The constants added to the same accumulator read the same
 `pick_intercept: 15`, `cart_swap_coef: 300` are 15 seconds a pick and five minutes a cart
 swap, which are warehouse numbers; at 15 ms and 0.3 s they are not physical.
 
-The ANALYSIS layer declares the opposite.  `Performance_Evaluations/common/units.py` says
-&quot;durations are milliseconds&quot; and divides by `3.6e6` for hours.  Both cannot be right, and
-`3.6e6` seconds is 1000 hours.
+The ANALYSIS layer used to declare the opposite: `Performance_Evaluations/common/units.py`
+said &quot;durations are milliseconds&quot; and divided by `3.6e6` for hours.  3.6e6 SECONDS is 1000
+hours, so every ABSOLUTE figure the suite published was 1000x out — and every RATIO was
+right, which is exactly why nothing caught it for the life of the project.
 
-`ANALYSIS_DIVISOR_DISCREPANCY` below records that, with the arithmetic, because a shared
-clock has to know what it is counting in.  It is NOT fixed here: correcting the label moves
-every absolute number on a published site and is its own piece of work with its own review.
-Every RATIO — every percentage, effect size and improvement in the suite — is unaffected,
-which is exactly why nothing caught it.
+That is fixed.  `units.py` now IMPORTS `SECONDS_PER_HOUR` from here instead of restating a
+literal, so the sim&#x27;s unit and the analysis layer&#x27;s divisor cannot disagree again.
 
 ## 2. The epoch
 
@@ -48,7 +46,7 @@ batches.  The absolute axis is the running sum of the batch durations before it,
 sum is currently computed in the ANALYSIS layer with a bare `np.cumsum` — a cross-batch
 timeline invented after the fact, in a what-if module, with no name.  `batch_epoch` is that
 same arithmetic, named, in a module both the domain and the harness can import.</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_volume_py.html"><code>Optimization.run_whatif_volume</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__ANALYSIS_DIVISOR.html"><code>ANALYSIS_DIVISOR</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__ANALYSIS_DIVISOR_DISCREPANCY.html"><code>ANALYSIS_DIVISOR_DISCREPANCY</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__SECONDS_PER_HOUR.html"><code>SECONDS_PER_HOUR</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__TIME_UNIT.html"><code>TIME_UNIT</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__batch_epoch.html"><code>batch_epoch</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__epochs.html"><code>epochs</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(6)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_units_py.html"><code>Optimization.Performance_Evaluations.common.units</code></a> <span class="dim">Optimization/Performance_Evaluations/common/units.py</span></li><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_metrics_work_events_py.html"><code>Optimization.metrics.work_events</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_run_whatif_volume_py.html"><code>Optimization.run_whatif_volume</code></a> <span class="dim">Optimization/run_whatif_volume.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__DEFAULT_SHIFT_SECONDS.html"><code>DEFAULT_SHIFT_SECONDS</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__SECONDS_PER_HOUR.html"><code>SECONDS_PER_HOUR</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__TIME_UNIT.html"><code>TIME_UNIT</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__batch_epoch.html"><code>batch_epoch</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__epochs.html"><code>epochs</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li><li><a href="nWarehouse_kernel_timeline_py__shift_offset.html"><code>shift_offset</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_timeline_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/timeline.py">Source ↗</a></p>
 </article>
 </main>

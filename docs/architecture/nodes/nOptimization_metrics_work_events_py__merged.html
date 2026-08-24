@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>merged · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_work_events_py__merged" data-id="Optimization/metrics/work_events.py::merged">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a> <span class="sep">›</span> <span class="here"><code>merged</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>merged</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def merged(rows)</code></pre>
+<section class="doc">The rows in the order `work_events_merged` declares.
+
+Kept here as well as in the view so an in-memory caller and a SQL caller cannot
+disagree about what &quot;merged&quot; means. Instant, then role, then mode, then actor, then
+emission order within that actor — `PickEvent.__lt__` compares time alone, and with two
+streams that undeclared tie-break decides whether a pick or a put is read first.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__merged">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20merged">Source ↗</a></p>
+</article>
+</main>
+</body></html>

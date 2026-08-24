@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_simulate_picker_deferred</code></h1>
 <p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_fast_pick_py.html"><code>Warehouse/picking/fast_pick.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _simulate_picker_deferred(picker_id: int, tasks: list[Task], cfg: PickConfig, bin_snap: dict[int, int]) -&gt; tuple[list[PickEvent], list[_PickMutation]]</code></pre>
+<pre class="sig"><code>def _simulate_picker_deferred(picker_id: int, tasks: list[Task], cfg: PickConfig, bin_snap: dict[int, int], t0: float=0.0) -&gt; tuple[list[PickEvent], list[_PickMutation]]</code></pre>
 <section class="doc">Phase 1 worker -- read-only picker simulation.
 
 Uses bin_snap so no bin_.storage.quantity reads/writes happen on the
