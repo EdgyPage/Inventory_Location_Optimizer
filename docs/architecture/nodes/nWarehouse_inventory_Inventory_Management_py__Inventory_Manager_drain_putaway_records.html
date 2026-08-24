@@ -15,10 +15,25 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def drain_putaway_records(self) -&gt; list</code></pre>
-<section class="doc">Hand over the put-away event records and clear the buffer.
+<section class="doc">Hand over this batch&#x27;s put-away records, and start the crew&#x27;s clock over.
 
-Drained rather than read so the caller (the batch loop) takes ownership once per
-batch and the manager does not accumulate a run&#x27;s worth of rows in memory.</section>
+A DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew&#x27;s own clock
+measured from the start of the batch, because the consumer
+(`Optimization.metrics.work_events.put_rows`) offsets them onto the arm&#x27;s absolute
+axis by adding the batch epoch -- and the batch epoch is not known until after the
+batch&#x27;s picks have been simulated, so the manager cannot stamp absolute times
+itself.
+
+Resetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`
+accumulates across the whole arm while `put_rows` still adds the epoch, so every
+put row after batch 0 is stamped too late by the total put-away seconds of every
+preceding batch, and the error grows without bound: measured on an eight-batch
+store arm, batch 7&#x27;s puts landed at `t_local` 53,769-64,152 s against a 17,906 s
+batch, and batch 6&#x27;s puts overran batch 7&#x27;s picks so the merged view interleaved
+batches.
+
+Drained rather than read so the caller takes ownership once per batch and the
+manager never holds a run&#x27;s worth of rows.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_drain_putaway_records">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20drain_putaway_records">Source ↗</a></p>
 </article>

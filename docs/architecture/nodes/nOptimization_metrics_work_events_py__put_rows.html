@@ -14,16 +14,34 @@
 <h1><span class="kind kind-function">function</span> <code>put_rows</code></h1>
 <p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def put_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)</code></pre>
+<pre class="sig"><code>def put_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)</code></pre>
 <section class="doc">Merged-stream rows for one batch&#x27;s put-away.
 
 `records` are `Inventory_Manager.drain_putaway_records()` tuples
 `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on
-the put crew&#x27;s OWN clock from 0. `batch_start` offsets them onto the arm&#x27;s axis.
+the put crew&#x27;s own clock from 0 within this batch (the drain restarts it).
 
-Put-away is one crew working its queue back to back, so the records are laid out over
-the crew&#x27;s workers round-robin: with a crew of one — today&#x27;s default — every row is
-that worker&#x27;s. The event type is `put`, and `qty` is positive.</section>
+TWO ORIGINS, and they are not the same instant:
+
+  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured
+                from. The crew is CONTINUOUS: it cannot start batch i&#x27;s queue before
+                the wave is released, and it cannot start before it finished batch
+                i-1&#x27;s, so the caller passes `max(batch_start, previous_finish)`.
+                Defaults to `batch_start` for a caller with no carry.
+  `batch_start` the wave&#x27;s release, and what `t_local` is measured from — so `t_local`
+                on a put row reads as &quot;how far into this wave the crew got to it&quot;,
+                and EXCEEDS the batch&#x27;s duration exactly when the crew is running
+                behind. That is information, not an error.
+
+Why the crew must carry: one putter placing a whole wave&#x27;s restock takes longer than
+the parallel pick crew takes to pick it, so batch i&#x27;s put-away genuinely overruns batch
+i+1&#x27;s release. Restarting at each wave would have the same single worker doing two
+batches at the same instant — measured on a store arm before this carry existed, 16-33
+rows per DB overlapped.
+
+The records are laid out over the crew&#x27;s workers round-robin; with a crew of one —
+today&#x27;s default — every row is that worker&#x27;s. The event type is `put` and `qty` is
+positive.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__put_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20put_rows">Source ↗</a></p>
 </article>

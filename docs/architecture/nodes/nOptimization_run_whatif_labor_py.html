@@ -21,16 +21,19 @@ Reads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MOD
 adds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).
 
   per (channel, scheduler, assignment-fn, initial):
-    labor_hours  = Σ task_makespan / 3.6e6     total serial labor over the run (all batches)
-    batch_hours  = Σ duration      / 3.6e6     parallel wall-clock makespan
-    thr_items_hr = mean thr_batch  × 3.6e6     items per hour
+    labor_hours  = Σ task_makespan / 3600      total serial labor over the run (all batches)
+    batch_hours  = Σ duration      / 3600      parallel wall-clock makespan
+    thr_items_hr = mean thr_batch  × 3600      items per hour
     labor_saved  = labor(fifo) − labor(arm)    absolute hours a better assignment fn saves vs FIFO
 
 Two levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER
 converts leftover picker imbalance into throughput at ~flat labor (batch_hours ↓, labor flat).
 
-*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms ÷ 3.6e6), NOT wall-clock or
-    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***
+*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats SECONDS ÷ 3600), NOT wall-clock
+    or staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule.
+    This text is the module docstring AND the `--help` description, so a stale formula here
+    is printed to users; it read `/ 3.6e6` while the code divided by 3600, because the sim
+    emits seconds and the analysis layer had declared milliseconds. ***
 
 Reuses run_whatif_delta&#x27;s engine (resolver-driven scan + _metrics steady-state means); adds full-run
 sums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON

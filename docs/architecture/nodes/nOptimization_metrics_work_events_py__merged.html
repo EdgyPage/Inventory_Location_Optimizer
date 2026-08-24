@@ -18,9 +18,17 @@
 <section class="doc">The rows in the order `work_events_merged` declares.
 
 Kept here as well as in the view so an in-memory caller and a SQL caller cannot
-disagree about what &quot;merged&quot; means. Instant, then role, then mode, then actor, then
-emission order within that actor — `PickEvent.__lt__` compares time alone, and with two
-streams that undeclared tie-break decides whether a pick or a put is read first.</section>
+disagree about what &quot;merged&quot; means. Instant, then BATCH, then role, then mode, then
+actor, then emission order within that actor — `PickEvent.__lt__` compares time alone,
+and with two streams that undeclared tie-break decides whether a pick or a put is read
+first at the same instant.
+
+`batch_id` is in the key because `seq` restarts at 0 every batch, and consecutive
+batches genuinely TOUCH: the arm advances to `batch_start + duration`, which is exactly
+the last `done` instant, so batch i&#x27;s final `done` and batch i+1&#x27;s first `task_start`
+for the same picker share a t_abs, a role, a mode and an actor. Without the batch the
+tie fell through to `seq` — large for the `done`, near 0 for the `task_start` — and
+ordered them backwards, the reverse of the emission order this key promises.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__merged">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20merged">Source ↗</a></p>
 </article>

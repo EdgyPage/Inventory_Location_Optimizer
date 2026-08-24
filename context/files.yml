@@ -525,7 +525,14 @@ files:
       - {name: "SHIFT_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_CREW_MODE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_FOOT_X", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_FOOT_Y", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_MACHINE_X", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_MACHINE_Y", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_CART", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_CART", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_FILL", file: "Optimization/config/settings.py", kind: "const"}
@@ -550,6 +557,7 @@ files:
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -2783,6 +2791,9 @@ files:
       - {name: "test_costing_a_put_does_not_write_a_bin", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_the_charge_happens_after_the_placement_is_committed", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_the_binder_follows_the_existing_opt_in_precedent", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_draining_restarts_the_crews_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_every_batch_starts_its_records_at_zero", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_labor_total_still_accumulates_across_batches", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_quantities.py":
     purpose: "the quantity table is the ONE declaration, and it is faithful."
@@ -2989,6 +3000,12 @@ files:
       - {name: "test_the_picker_counts_have_one_source", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_shift_length_comes_from_the_kernels_declaration", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_pick_config_coefficients_are_NOT_here", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_put_crews_speed_comes_from_its_mode", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_switching_the_put_mode_switches_the_speed", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_crew_size_setting_is_actually_read", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_worker_payload_carries_the_put_crew", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_pick_half_of_the_table_stays_in_the_swept_registry", file: "Tests/unit/test_settings_module.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."
@@ -3214,6 +3231,7 @@ files:
       - {name: "test_the_merge_is_stable_whichever_stream_is_appended_first", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_tie_at_one_instant_is_broken_by_role_not_by_arrival", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_view_and_the_in_memory_merge_declare_the_same_order", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_the_merge_orders_a_batch_boundary_by_emission_not_backwards", file: "Tests/unit/test_work_events.py", kind: "function"}
     notes: ""
   "Visualization/cache_schema.py":
     purpose: "DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`)."

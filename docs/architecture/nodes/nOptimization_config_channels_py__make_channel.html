@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>make_channel</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_channels_py.html"><code>Optimization/config/channels.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str=&#x27;v1&#x27;) -&gt; Channel</code></pre>
+<pre class="sig"><code>def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str=&#x27;v1&#x27;, mode: str | Mode=Mode.FOOT) -&gt; Channel</code></pre>
 <section class="doc">Build a single Channel from a picker cost + pool size.
 
 The one-channel primitive the runner uses to sweep each section&#x27;s configs
@@ -22,7 +22,13 @@ independently; build_channels() composes the standard store+fulfillment pair on
 top of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream
 (store uses 0; fulfillment a large offset so its stream never overlaps store&#x27;s).
 ``batch_mean_fraction``/``batch_std_fraction`` set the channel&#x27;s batch-stream shape
-(each channel may differ; the runner sources these from CONFIG).</section>
+(each channel may differ; the runner sources these from CONFIG).
+
+``mode`` is the pick crew&#x27;s travel MODE and the runner must pass it.  This is the ONLY
+channel builder the run path uses -- `build_channels` below is reached from tests only
+-- so a default here is what every real run gets.  It defaulted silently to `foot`
+while the store pool ran at the machine speed (3, 2), which put `mode=&#x27;foot&#x27;` on every
+store `work_events` row beside a machine-speed duration.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_channels_py__Channel.html"><code>Channel</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_channels_py__PickerProfile.html"><code>PickerProfile</code></a> <span class="dim">Optimization/config/channels.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___channel_runs_for.html"><code>_channel_runs_for</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_channels_py__make_channel">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/channels.py#:~:text=def%20make_channel">Source ↗</a></p>
 </article>

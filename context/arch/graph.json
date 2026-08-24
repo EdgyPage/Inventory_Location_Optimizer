@@ -4771,6 +4771,11 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::FF_PICK_MODE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -4831,6 +4836,11 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::STORE_PICK_MODE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::WORKERS",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -4869,6 +4879,31 @@
       "dst": "Warehouse/picking/Pick.py::PickConfig",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::_build_pick_cfg"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_CREW_SIZE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::put_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_FOOT_X",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::put_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_FOOT_Y",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::put_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_MACHINE_X",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::put_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_MACHINE_Y",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::put_crew_spec"
     },
     {
       "dst": "Optimization/config/strategies.py::Strategy",
@@ -8956,6 +8991,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -9207,6 +9247,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_config_name",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::put_crew_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -19542,6 +19587,14 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FF_PICK_MODE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FF_PICK_MODE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -19566,10 +19619,50 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_CREW_MODE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_CREW_MODE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::PUT_CREW_SIZE",
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "PUT_CREW_SIZE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_FOOT_X",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_FOOT_X",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_FOOT_Y",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_FOOT_Y",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_MACHINE_X",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_MACHINE_X",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_MACHINE_Y",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_MACHINE_Y",
       "public": true
     },
     {
@@ -19642,6 +19735,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "STORE_PICKERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::STORE_PICK_MODE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "STORE_PICK_MODE",
       "public": true
     },
     {
@@ -19858,6 +19959,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "n_batches",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::put_crew_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "put_crew_spec",
       "public": true
     },
     {

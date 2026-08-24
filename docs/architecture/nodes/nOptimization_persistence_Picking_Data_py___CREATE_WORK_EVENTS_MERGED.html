@@ -14,7 +14,7 @@
 <h1><span class="kind kind-const">const</span> <code>_CREATE_WORK_EVENTS_MERGED</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 
-<pre class="sig"><code>_CREATE_WORK_EVENTS_MERGED = &#x27;\n CREATE VIEW IF NOT EXISTS work_events_merged AS\n SELECT * FROM work_events\n ORDER BY t_abs, role, mode, actor_uid, seq\n&#x27;</code></pre>
+<pre class="sig"><code>_CREATE_WORK_EVENTS_MERGED = &#x27;\n CREATE VIEW IF NOT EXISTS work_events_merged AS\n SELECT * FROM work_events\n ORDER BY t_abs, batch_id, role, mode, actor_uid, seq\n&#x27;</code></pre>
 <section class="doc empty">No docstring.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___CREATE_WORK_EVENTS_MERGED">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=_CREATE_WORK_EVENTS_MERGED">Source ↗</a></p>

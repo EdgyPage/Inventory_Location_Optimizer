@@ -27,7 +27,7 @@ default set, which had drifted from the first: `pick_weight_coef` 1.1 against th
 dataclass&#x27;s 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0
 against 5.0 (2x).  Nothing caught it because every registered pick-config declares all
 three, so neither set was ever exercised on the run path — and `run_map_precompute`
-rebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always
+rebuilds a `PickConfig` from an ARCHIVED leaf config by field-filtering, which has always
 taken the dataclass defaults.  Two default sets and two reconstruction paths is a silent
 55x waiting for the first archive vintage that omits a key.
 

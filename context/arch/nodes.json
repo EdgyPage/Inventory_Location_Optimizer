@@ -1044,17 +1044,17 @@
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::to_hours": {
       "decorators": [],
-      "doc": "Duration sim values are milliseconds; render an HOURS axis.\n\nUse this only where hours is the right unit on its face \u2014 a run's elapsed time, a\nbatch's labor total.  For anything whose magnitude depends on the data, use\n`to_time`: durations in this model span five orders of magnitude (one picker task is\nseconds, a batch of labor is hours), and a fixed unit turns half the suite into\ncolumns of `0.0008`.",
+      "doc": "Duration sim values are SECONDS; render an HOURS axis.\n\nUse this only where hours is the right unit on its face \u2014 a run's elapsed time, a\nbatch's labor total.  For anything whose magnitude depends on the data, use\n`to_time`: durations in this model span five orders of magnitude (one picker task is\nseconds, a batch of labor is hours), and a fixed unit turns half the suite into\ncolumns of `0.0008`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_ms)"
+      "signature": "(sim_seconds)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::to_time": {
       "decorators": [],
-      "doc": "(converted_values, unit_label) for a set of sim-millisecond durations.\n\nPool everything that shares an axis into ONE call so every series on it lands in the\nsame unit.",
+      "doc": "(converted_values, unit_label) for a set of sim-SECOND durations.\n\nPool everything that shares an axis into ONE call so every series on it lands in the\nsame unit.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sim_ms)"
+      "signature": "(sim_seconds)"
     },
     "Optimization/Performance_Evaluations/common/chartkit.py::width_for_categories": {
       "decorators": [],
@@ -4176,10 +4176,10 @@
     },
     "Optimization/config/channels.py::make_channel": {
       "decorators": [],
-      "doc": "Build a single Channel from a picker cost + pool size.\n\nThe one-channel primitive the runner uses to sweep each section's configs\nindependently; build_channels() composes the standard store+fulfillment pair on\ntop of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream\n(store uses 0; fulfillment a large offset so its stream never overlaps store's).\n``batch_mean_fraction``/``batch_std_fraction`` set the channel's batch-stream shape\n(each channel may differ; the runner sources these from CONFIG).",
+      "doc": "Build a single Channel from a picker cost + pool size.\n\nThe one-channel primitive the runner uses to sweep each section's configs\nindependently; build_channels() composes the standard store+fulfillment pair on\ntop of it.  ``batch_seed_offset`` gives a channel an INDEPENDENT batch stream\n(store uses 0; fulfillment a large offset so its stream never overlaps store's).\n``batch_mean_fraction``/``batch_std_fraction`` set the channel's batch-stream shape\n(each channel may differ; the runner sources these from CONFIG).\n\n``mode`` is the pick crew's travel MODE and the runner must pass it.  This is the ONLY\nchannel builder the run path uses -- `build_channels` below is reached from tests only\n-- so a default here is what every real run gets.  It defaulted silently to `foot`\nwhile the store pool ran at the machine speed (3, 2), which put `mode='foot'` on every\nstore `work_events` row beside a machine-speed duration.",
       "is_async": false,
       "kind": "function",
-      "signature": "(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str='v1') -> Channel"
+      "signature": "(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int, *, restocks: tuple[str, ...] | None=None, batch_seed_offset: int=0, batch_mean_fraction: float=0.2, batch_std_fraction: float=0.05, sampler: str='v1', mode: str | Mode=Mode.FOOT) -> Channel"
     },
     "Optimization/config/channels.py::wp_by_regime": {
       "decorators": [],
@@ -4262,7 +4262,7 @@
     },
     "Optimization/config/settings.py": {
       "decorators": [],
-      "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in `run_spec.json`\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in `warehouse.db`, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in `run_spec.json`, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag\nis accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.",
+      "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in its run spec\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in its warehouse DB, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in the run spec, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag\nis accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.",
       "kind": "module",
       "signature": null
     },
@@ -4308,6 +4308,13 @@
       "signature": null,
       "value_preview": "_FF_PICKERS"
     },
+    "Optimization/config/settings.py::FF_PICK_MODE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'foot'"
+    },
     "Optimization/config/settings.py::KEYFRAME_INTERVAL": {
       "decorators": [],
       "doc": null,
@@ -4329,12 +4336,47 @@
       "signature": null,
       "value_preview": "100"
     },
+    "Optimization/config/settings.py::PUT_CREW_MODE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'foot'"
+    },
     "Optimization/config/settings.py::PUT_CREW_SIZE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "1"
+    },
+    "Optimization/config/settings.py::PUT_FOOT_X": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "2.0"
+    },
+    "Optimization/config/settings.py::PUT_FOOT_Y": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4.0"
+    },
+    "Optimization/config/settings.py::PUT_MACHINE_X": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3.0"
+    },
+    "Optimization/config/settings.py::PUT_MACHINE_Y": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "2.0"
     },
     "Optimization/config/settings.py::SAMPLER": {
       "decorators": [],
@@ -4398,6 +4440,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_STORE_PICKERS"
+    },
+    "Optimization/config/settings.py::STORE_PICK_MODE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'machine'"
     },
     "Optimization/config/settings.py::WORKERS": {
       "decorators": [],
@@ -4526,7 +4575,7 @@
     },
     "Optimization/config/sim_config.py::_build_pick_cfg": {
       "decorators": [],
-      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.\n\nA MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole\npoint of the shape here.  This function used to restate a fallback per key \u2014 a SECOND\ndefault set, which had drifted from the first: `pick_weight_coef` 1.1 against the\ndataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0\nagainst 5.0 (2x).  Nothing caught it because every registered pick-config declares all\nthree, so neither set was ever exercised on the run path \u2014 and `run_map_precompute`\nrebuilds a `PickConfig` from an ARCHIVED config.json by field-filtering, which has always\ntaken the dataclass defaults.  Two default sets and two reconstruction paths is a silent\n55x waiting for the first archive vintage that omits a key.\n\nKeys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately\nbecause the dict stores its NAME and the dataclass wants the class.",
+      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.\n\nA MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole\npoint of the shape here.  This function used to restate a fallback per key \u2014 a SECOND\ndefault set, which had drifted from the first: `pick_weight_coef` 1.1 against the\ndataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0\nagainst 5.0 (2x).  Nothing caught it because every registered pick-config declares all\nthree, so neither set was ever exercised on the run path \u2014 and `run_map_precompute`\nrebuilds a `PickConfig` from an ARCHIVED leaf config by field-filtering, which has always\ntaken the dataclass defaults.  Two default sets and two reconstruction paths is a silent\n55x waiting for the first archive vintage that omits a key.\n\nKeys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately\nbecause the dict stores its NAME and the dataclass wants the class.",
       "is_async": false,
       "kind": "function",
       "signature": "(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig"
@@ -4586,6 +4635,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> int"
+    },
+    "Optimization/config/sim_config.py::put_crew_spec": {
+      "decorators": [],
+      "doc": "The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.\n\nRead at call time like every other tunable, and handed to the worker in its payload\nrather than re-imported there -- a spawned worker re-imports this module and would get\npristine defaults.\n\nThe speed comes from the crew's MODE, which is the point of having a mode: a crew\nlabelled `foot` costed at the store's machine speed would write rows whose mode and\nduration contradict each other.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
@@ -5416,7 +5472,7 @@
     },
     "Optimization/metrics/work_events.py::merged": {
       "decorators": [],
-      "doc": "The rows in the order `work_events_merged` declares.\n\nKept here as well as in the view so an in-memory caller and a SQL caller cannot\ndisagree about what \"merged\" means. Instant, then role, then mode, then actor, then\nemission order within that actor \u2014 `PickEvent.__lt__` compares time alone, and with two\nstreams that undeclared tie-break decides whether a pick or a put is read first.",
+      "doc": "The rows in the order `work_events_merged` declares.\n\nKept here as well as in the view so an in-memory caller and a SQL caller cannot\ndisagree about what \"merged\" means. Instant, then BATCH, then role, then mode, then\nactor, then emission order within that actor \u2014 `PickEvent.__lt__` compares time alone,\nand with two streams that undeclared tie-break decides whether a pick or a put is read\nfirst at the same instant.\n\n`batch_id` is in the key because `seq` restarts at 0 every batch, and consecutive\nbatches genuinely TOUCH: the arm advances to `batch_start + duration`, which is exactly\nthe last `done` instant, so batch i's final `done` and batch i+1's first `task_start`\nfor the same picker share a t_abs, a role, a mode and an actor. Without the batch the\ntie fell through to `seq` \u2014 large for the `done`, near 0 for the `task_start` \u2014 and\nordered them backwards, the reverse of the emission order this key promises.",
       "is_async": false,
       "kind": "function",
       "signature": "(rows)"
@@ -5430,10 +5486,10 @@
     },
     "Optimization/metrics/work_events.py::put_rows": {
       "decorators": [],
-      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on\nthe put crew's OWN clock from 0. `batch_start` offsets them onto the arm's axis.\n\nPut-away is one crew working its queue back to back, so the records are laid out over\nthe crew's workers round-robin: with a crew of one \u2014 today's default \u2014 every row is\nthat worker's. The event type is `put`, and `qty` is positive.",
+      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on\nthe put crew's own clock from 0 within this batch (the drain restarts it).\n\nTWO ORIGINS, and they are not the same instant:\n\n  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured\n                from. The crew is CONTINUOUS: it cannot start batch i's queue before\n                the wave is released, and it cannot start before it finished batch\n                i-1's, so the caller passes `max(batch_start, previous_finish)`.\n                Defaults to `batch_start` for a caller with no carry.\n  `batch_start` the wave's release, and what `t_local` is measured from \u2014 so `t_local`\n                on a put row reads as \"how far into this wave the crew got to it\",\n                and EXCEEDS the batch's duration exactly when the crew is running\n                behind. That is information, not an error.\n\nWhy the crew must carry: one putter placing a whole wave's restock takes longer than\nthe parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch\ni+1's release. Restarting at each wave would have the same single worker doing two\nbatches at the same instant \u2014 measured on a store arm before this carry existed, 16-33\nrows per DB overlapped.\n\nThe records are laid out over the crew's workers round-robin; with a crew of one \u2014\ntoday's default \u2014 every row is that worker's. The event type is `put` and `qty` is\npositive.",
       "is_async": false,
       "kind": "function",
-      "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0)"
+      "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)"
     },
     "Optimization/persistence/Picking_Data.py": {
       "decorators": [],
@@ -5832,7 +5888,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'\\n CREATE VIEW IF NOT EXISTS work_events_merged AS\\n SELECT * FROM work_events\\n ORDER BY t_abs, role, mode, actor_uid, seq\\n'"
+      "value_preview": "'\\n CREATE VIEW IF NOT EXISTS work_events_merged AS\\n SELECT * FROM work_events\\n ORDER BY t_abs, batch_id, role, mode, actor_uid, seq\\n'"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_WORK_EVENTS_TIME_IDX": {
       "decorators": [],
@@ -6871,7 +6927,7 @@
     },
     "Optimization/run_whatif_labor.py": {
       "decorators": [],
-      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3.6e6     total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3.6e6     parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3.6e6     items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms \u00f7 3.6e6), NOT wall-clock or\n    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***\n\nReuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON\n(whatif_matrix()-compatible), and four PNGs.  All output paths render through the run-tree\ncontract (`rt.path(...)` / the whatif PNG glob's directory) \u2014 this module is the declared writer\nof those artifacts, and Tests/integration/test_writer_paths_golden.py pins the rendered strings\nto the literals the old hand-joins produced.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
+      "doc": "run_whatif_labor.py \u2014 cross-cell THROUGHPUT / LABOR-HOURS what-if (re-analyze, no re-sim).\n\nReads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MODELED HOURS and\nadds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).\n\n  per (channel, scheduler, assignment-fn, initial):\n    labor_hours  = \u03a3 task_makespan / 3600      total serial labor over the run (all batches)\n    batch_hours  = \u03a3 duration      / 3600      parallel wall-clock makespan\n    thr_items_hr = mean thr_batch  \u00d7 3600      items per hour\n    labor_saved  = labor(fifo) \u2212 labor(arm)    absolute hours a better assignment fn saves vs FIFO\n\nTwo levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER\nconverts leftover picker imbalance into throughput at ~flat labor (batch_hours \u2193, labor flat).\n\n*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats SECONDS \u00f7 3600), NOT wall-clock\n    or staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule.\n    This text is the module docstring AND the `--help` description, so a stale formula here\n    is printed to users; it read `/ 3.6e6` while the code divided by 3600, because the sim\n    emits seconds and the analysis layer had declared milliseconds. ***\n\nReuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run\nsums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON\n(whatif_matrix()-compatible), and four PNGs.  All output paths render through the run-tree\ncontract (`rt.path(...)` / the whatif PNG glob's directory) \u2014 this module is the declared writer\nof those artifacts, and Tests/integration/test_writer_paths_golden.py pins the rendered strings\nto the literals the old hand-joins produced.\n\n  python -m Optimization.run_whatif_labor <comparison_whatif_...> [--baseline fifo]\n         [--baseline-initial match|uni|opt] [--reference k1_off_rr] [--pairs sum|median]",
       "kind": "module",
       "signature": null
     },
@@ -7052,7 +7108,7 @@
     },
     "Optimization/run_whatif_volume.py": {
       "decorators": [],
-      "doc": "run_whatif_volume.py \u2014 cross-cell CUMULATIVE-VOLUME what-if: how much work each scheduler\nfinishes per unit of elapsed time (re-analyze, no re-sim).\n\nThe per-config `throughput.volume` graph can only see ONE channel-run leaf, so it compares\nassignment functions inside a single cell.  The scheduler axis lives only in the CELL directory name\n(k1_off_rr / k1_off_lpt), so the round-robin-vs-LPT comparison has to happen here, at the run root,\nalongside run_whatif_delta and run_whatif_labor.\n\n  per (channel, scheduler, assignment-fn, initial):\n    elapsed_hours      = \u03a3 duration      / 3.6e6    running wall-clock the work took\n    labor_hours        = \u03a3 task_makespan / 3.6e6    running serial labor (what the work COST)\n    mean_thr_items_hr  = items / elapsed_hours      the chord slope of the cumulative curve\n    auc_gain_vs_rr_pct area between this cell's cumulative curve and the reference cell's,\n                       over the reference's own area, on a shared hour grid\n\nWHY THIS SEPARATES THE TWO LEVERS.  The assignment function changes labor_hours (less work).  The\nscheduler does not \u2014 it changes elapsed_hours (the same work, less picker idle time).  Plotting\ncumulative volume against elapsed hours makes that visible as a steeper line reaching the same\nvolume sooner, which is the honest picture of \"more throughput at flat labor\".\n\n*** CAVEAT: hours are SIM-MODELED pick-time (batch_stats ms / 3.6e6), NOT wall-clock or staffing\n    hours.  A modeled-effort figure for comparing arms, not a schedule. ***\n\n  python -m Optimization.run_whatif_volume <comparison_whatif_...> [--reference k1_off_rr]",
+      "doc": "run_whatif_volume.py \u2014 cross-cell CUMULATIVE-VOLUME what-if: how much work each scheduler\nfinishes per unit of elapsed time (re-analyze, no re-sim).\n\nThe per-config `throughput.volume` graph can only see ONE channel-run leaf, so it compares\nassignment functions inside a single cell.  The scheduler axis lives only in the CELL directory name\n(k1_off_rr / k1_off_lpt), so the round-robin-vs-LPT comparison has to happen here, at the run root,\nalongside run_whatif_delta and run_whatif_labor.\n\n  per (channel, scheduler, assignment-fn, initial):\n    elapsed_hours      = \u03a3 duration      / 3600     running wall-clock the work took\n    labor_hours        = \u03a3 task_makespan / 3600     running serial labor (what the work COST)\n    mean_thr_items_hr  = items / elapsed_hours      the chord slope of the cumulative curve\n    auc_gain_vs_rr_pct area between this cell's cumulative curve and the reference cell's,\n                       over the reference's own area, on a shared hour grid\n\nWHY THIS SEPARATES THE TWO LEVERS.  The assignment function changes labor_hours (less work).  The\nscheduler does not \u2014 it changes elapsed_hours (the same work, less picker idle time).  Plotting\ncumulative volume against elapsed hours makes that visible as a steeper line reaching the same\nvolume sooner, which is the honest picture of \"more throughput at flat labor\".\n\n*** CAVEAT: hours are SIM-MODELED pick-time (batch_stats SECONDS / 3600), NOT wall-clock or\n    staffing hours.  A modeled-effort figure for comparing arms, not a schedule. ***\n\n  python -m Optimization.run_whatif_volume <comparison_whatif_...> [--reference k1_off_rr]",
       "kind": "module",
       "signature": null
     },
@@ -12499,7 +12555,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records": {
       "decorators": [],
-      "doc": "Hand over the put-away event records and clear the buffer.\n\nDrained rather than read so the caller (the batch loop) takes ownership once per\nbatch and the manager does not accumulate a run's worth of rows in memory.",
+      "doc": "Hand over this batch's put-away records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock\nmeasured from the start of the batch, because the consumer\n(`Optimization.metrics.work_events.put_rows`) offsets them onto the arm's absolute\naxis by adding the batch epoch -- and the batch epoch is not known until after the\nbatch's picks have been simulated, so the manager cannot stamp absolute times\nitself.\n\nResetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`\naccumulates across the whole arm while `put_rows` still adds the epoch, so every\nput row after batch 0 is stamped too late by the total put-away seconds of every\npreceding batch, and the error grows without bound: measured on an eight-batch\nstore arm, batch 7's puts landed at `t_local` 53,769-64,152 s against a 17,906 s\nbatch, and batch 6's puts overran batch 7's picks so the merged view interleaved\nbatches.\n\nDrained rather than read so the caller takes ownership once per batch and the\nmanager never holds a run's worth of rows.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
