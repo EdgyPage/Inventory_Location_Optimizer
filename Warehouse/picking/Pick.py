@@ -148,7 +148,14 @@ class _ProgressAPIMixin:
     deliberately separate (deferred-mutation contract).
     """
     def progress_at(self, t: float) -> list[PickerProgress]:
-        """State of every picker at time t. run() must be called first."""
+        """State of every picker at time t. run() must be called first.
+
+        Enumerates `range(num_pickers)`, so it reports the PICK crew and only the pick
+        crew.  Any other actor sharing the event stream — a putter, an unloader — is
+        invisible here no matter what id it carries, which is the same per-crew, dense
+        id space `Simulation_Analytics._group_events_by_picker` enforces, and the reason
+        a second stream records to its own table rather than widening `picker_events`.
+        """
         if self._events is None:
             raise RuntimeError('Call run() before progress_at()')
         return [self._state_at(pid, t) for pid in range(self._config.num_pickers)]

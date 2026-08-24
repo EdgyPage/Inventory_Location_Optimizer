@@ -112,12 +112,36 @@ def _group_events_by_picker(events: list, k_pickers: int) -> list[list]:
 
     Pick.py generates events in time order within each picker's timeline so
     no sort is needed — the per-picker lists are already time-ordered.
+
+    An actor outside `[0, k_pickers)` RAISES.  It used to be dropped silently, and
+    every statistic downstream — `total_items`, `task_makespan`, the picking split —
+    would then report a smaller crew's numbers as if they were the whole batch's.
+    That is the precise failure a second work stream produces: a putter, an unloader
+    or any actor from another crew carries an id from a different space, and the
+    `0 <= pid < k_pickers` test is exactly the shape that swallows it.
+
+    This function's id space is DENSE and PER-CREW by contract — `assign_tasks`
+    partitions into `k_pickers` buckets and the bucket index is the id, so a
+    conforming pick run can never trip this.  A globally-unique actor id belongs on
+    the merged event stream, not here; see `_ProgressAPIMixin.progress_at`, which
+    enumerates the same `range(num_pickers)` and is the other half of the contract.
     """
     grouped: list[list] = [[] for _ in range(k_pickers)]
     for e in events:
         pid = e.picker_id
-        if pid is not None and 0 <= pid < k_pickers:
-            grouped[pid].append(e)
+        if pid is None:
+            raise ValueError(
+                f'event {e.event_type!r} at t={e.time} carries no picker_id; every '
+                f'PickEvent is constructed with one, so this event did not come from a '
+                f'pick simulation')
+        if not 0 <= pid < k_pickers:
+            raise ValueError(
+                f'picker_id {pid} is outside the crew of {k_pickers} '
+                f'(event {e.event_type!r} at t={e.time}). Either k_pickers does not match '
+                f'the run that produced these events, or an actor from another crew '
+                f'reached a per-crew reader — a second stream needs its own actor space, '
+                f'not a wider bound here')
+        grouped[pid].append(e)
     return grouped
 
 
