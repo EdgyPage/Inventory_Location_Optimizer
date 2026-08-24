@@ -260,30 +260,49 @@ class ReorderMixin:
         self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
         self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
 
-    def check_reorders(self) -> list[int]:
-        """Order-Up-To replenishment through an explicit, deterministic lead queue.
+    # ── the six phases of a completed batch ──────────────────────────────────────
+    # `check_reorders` used to be all six inline, which meant there was no way to reclaim
+    # bins without also ordering, or to place the stock queue without also advancing the
+    # calendar.  They are separated so a caller can drive them independently — a second
+    # work stream (inbound put-away against the same clock) needs to interleave these, not
+    # replay them as a block.  The composition below is the ONLY caller today and runs them
+    # in exactly the order they always ran in.
 
-        Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
-        lead 0.  Per call (one completed batch):
-          1. Advance every pre-existing in-transit order: remaining_lead -= 1.
-          2. Fire OUP reorders for depleted SKUs → append new records (remaining_lead =
-             round(lead_time_mean) ≥ 0); reorder qty ~ Normal(ideal, ideal·supply_cv)
-             centred on the equilibrium fill (supply_cv set at generation).
-          3. Release every arrived order (remaining_lead ≤ 0) into the stock queue — this
-             catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).
-          4. Place the stock queue into bins via _stock().
+    def _tick_batch(self) -> None:
+        """Advance the replenishment calendar by one batch.
 
-        Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
-        SKU with an order already in flight is not reordered again.
+        This is the simulation's only calendar: lead time is denominated in BATCHES, not
+        seconds, and `_batch_num` is also the per-reorder RNG key, so calling this twice
+        would silently redraw every reorder quantity.
         """
         self._batch_num += 1
+
+    def reclaim_emptied_bins(self) -> None:
+        """Return bins the pick loop emptied to the free index.
+
+        Public because the pick side FILLS `_pending_reclaim` (`_notify_bin_emptied`) while
+        the reorder side DRAINS it, and the drain currently happens once, at the top of the
+        next batch — so a slot freed mid-batch is invisible until then.  Naming it is the
+        first step to letting that change.
+        """
         self._reclaim_empty_bins()
 
-        # ── 1. one batch elapsed: decrement pre-existing in-transit orders only ──
+    def _advance_lead_queue(self) -> None:
+        """One batch elapsed: decrement pre-existing in-transit orders only.
+
+        Runs BEFORE `_fire_reorders`, which is what stops an order fired this batch from
+        being decremented in the same batch it was placed.
+        """
         for entry in self._lead_queue:
             entry[2] -= 1
 
-        # ── 2. fire OUP reorders for depleted SKUs → enter the lead queue ────────
+    def _fire_reorders(self) -> list[int]:
+        """Fire Order-Up-To reorders for depleted SKUs into the lead queue.
+
+        Returns the SKUs triggered and sets `_units_ordered` for the batch.  Inventory
+        POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a SKU with an
+        order already in flight is not reordered again.
+        """
         triggered: list[int] = []
         self._units_ordered = 0          # units ordered THIS batch (Σ reorder qty below)
         for sku in self._depleted_skus:
@@ -325,19 +344,56 @@ class ReorderMixin:
             self._units_ordered += qty
             triggered.append(sku)
         self._depleted_skus.clear()
+        return triggered
 
-        # ── 3. release arrived orders (remaining_lead ≤ 0) into the stock queue ──
-        if self._lead_queue:
-            still: list[list] = []
-            for sku, qty, rem in self._lead_queue:
-                if rem <= 0:
-                    self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
-                    self._release_to_stock(sku, qty)
-                else:
-                    still.append([sku, qty, rem])
-            self._lead_queue = still
+    def _release_arrivals(self) -> None:
+        """Release arrived orders (remaining_lead ≤ 0) into the stock queue.
 
-        # ── 4. place the stock queue into bins (retries prior-batch stragglers too) ──
+        Catches both decremented-to-0 olds AND fresh lead-0 newcomers in the same batch,
+        which is why it runs after `_fire_reorders` rather than before.
+        """
+        if not self._lead_queue:
+            return
+        still: list[list] = []
+        for sku, qty, rem in self._lead_queue:
+            if rem <= 0:
+                self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
+                self._release_to_stock(sku, qty)
+            else:
+                still.append([sku, qty, rem])
+        self._lead_queue = still
+
+    def _drain_putaway(self) -> None:
+        """Place the stock queue into bins (retries prior-batch stragglers too)."""
         if self._stock_queue:
             self._stock()
+
+    def check_reorders(self) -> list[int]:
+        """Order-Up-To replenishment through an explicit, deterministic lead queue.
+
+        Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
+        lead 0.  Per call (one completed batch), in this order and no other:
+          0. Advance the batch calendar and reclaim bins the picks emptied.
+          1. Advance every pre-existing in-transit order: remaining_lead -= 1.
+          2. Fire OUP reorders for depleted SKUs → append new records (remaining_lead =
+             round(lead_time_mean) ≥ 0); reorder qty ~ Normal(ideal, ideal·supply_cv)
+             centred on the equilibrium fill (supply_cv set at generation).
+          3. Release every arrived order (remaining_lead ≤ 0) into the stock queue — this
+             catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).
+          4. Place the stock queue into bins via _stock().
+
+        Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
+        SKU with an order already in flight is not reordered again.
+
+        THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
+        drive them separately, but reordering them changes results: firing before the lead
+        tick would decrement an order in the batch it was placed, and releasing before
+        firing would delay every lead-0 arrival by a batch.
+        """
+        self._tick_batch()
+        self.reclaim_emptied_bins()
+        self._advance_lead_queue()
+        triggered = self._fire_reorders()
+        self._release_arrivals()
+        self._drain_putaway()
         return triggered

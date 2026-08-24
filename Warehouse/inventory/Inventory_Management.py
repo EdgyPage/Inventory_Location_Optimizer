@@ -756,9 +756,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 # No bin fits this unit.  Attempt rescues in priority order:
                 #   1. Repack into smaller pallet size tier (existing logic).
                 #   2. Fall back to singleton bins of the same order type.
-                #   3. If all else fails, track consecutive failures; after
-                #      _MAX_DRAIN_RETRIES the unit is abandoned and the queued-
-                #      count is decremented so a fresh reorder can fire next batch.
+                #   3. If all else fails, the unit goes to a local `pending` deque
+                #      that becomes the new _stock_queue, and it retries next batch.
+                #      There is NO expiry: a unit no bin can ever hold retries forever,
+                #      and `mgr.queue_depth` is the only signal it is happening.  (An
+                #      earlier version of this comment described a `_MAX_DRAIN_RETRIES`
+                #      abandonment cap; no such constant has ever existed in the repo.)
                 repacked = False
                 shc = order.storage_handle_config
 
