@@ -2150,6 +2150,31 @@ files:
       - {name: "test_scan_labor_finds_store_only_runs", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
       - {name: "test_main_labor_saved_and_json", file: "Tests/integration/test_whatif_labor.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_work_events_reconciliation.py":
+    purpose: "the merged timeline, checked against a real DB."
+    layer: "tests"
+    key_symbols:
+      - {name: "K", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "PICKERS", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "PUTTERS", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "PW", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "TW", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "BATCHES", file: "Tests/integration/test_work_events_reconciliation.py", kind: "const"}
+      - {name: "db", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "con", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_the_database_actually_has_both_streams", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_one_work_event_per_picker_event", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_every_pick_instant_equals_picker_events_time", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_t_local_is_t_abs_minus_the_batch_epoch", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_no_put_starts_before_its_wave_is_released", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_one_worker_is_never_in_two_places_at_once", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_the_put_crew_does_overrun_a_wave_here", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_the_merged_view_is_totally_ordered", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_a_batch_boundary_is_ordered_by_emission", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_the_view_and_the_table_hold_the_same_rows", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_picks_are_negative_and_puts_positive_in_the_file", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+      - {name: "test_a_state_change_stores_NULL_not_zero", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_writer_paths_golden.py":
     purpose: "the analysis writers' contract-rendered paths, pinned to the literals their old hand-joins produced."
     layer: "tests"
@@ -3220,7 +3245,7 @@ files:
       - {name: "test_a_pick_is_negative_and_a_put_is_positive", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_a_state_change_carries_no_quantity_not_a_zero", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_t_local_is_t_abs_minus_the_batch_start", file: "Tests/unit/test_work_events.py", kind: "function"}
-      - {name: "test_the_reconciliation_that_makes_one_clock_enforceable", file: "Tests/unit/test_work_events.py", kind: "function"}
+      - {name: "test_a_pick_row_carries_the_events_own_absolute_instant", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_every_pick_event_becomes_exactly_one_row", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_put_crews_clock_is_offset_onto_the_arms_axis", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_put_source_survives_onto_the_row", file: "Tests/unit/test_work_events.py", kind: "function"}
