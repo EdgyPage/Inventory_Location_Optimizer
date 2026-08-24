@@ -42,6 +42,39 @@ TIME_UNIT = 'seconds'
 SECONDS_PER_HOUR = 3600.0
 
 
+#: Default shift length: an eight-hour day, in the sim's own unit.
+DEFAULT_SHIFT_SECONDS = 8 * SECONDS_PER_HOUR
+
+
+def shift_index(t_abs: float, shift_seconds: float = DEFAULT_SHIFT_SECONDS) -> int:
+    """Which fixed-length shift the absolute instant `t_abs` falls in.  0-based.
+
+    A REPORTING FRAME OVER A CONTINUOUS CLOCK, and that is the whole contract: fixed-length
+    shifts label the timeline, they do not schedule against it.  Work never pauses at the
+    whistle and no task is split at a boundary — a task that spans one is recorded once,
+    under the shift it STARTED in, because that is where the actor picked it up.
+
+    This is what "work carries over" means in a model whose scheduling atom is a whole
+    task: the second shift picks up mid-aisle exactly where the first left off.  Making a
+    boundary dispatch-affecting — deferring a task that would cross it — is a different
+    model, and the seam for it already exists (`_stock(budget=)` defers a whole wave and
+    never truncates one; `allocation.partition` re-partitions whatever is left).
+
+    Raises on a non-positive shift, which would otherwise divide by zero or label every
+    instant shift 0 with no warning.
+    """
+    if shift_seconds <= 0:
+        raise ValueError(f'shift_seconds must be positive, got {shift_seconds}')
+    return int(t_abs // shift_seconds)
+
+
+def shift_offset(t_abs: float, shift_seconds: float = DEFAULT_SHIFT_SECONDS) -> float:
+    """How far into its own shift the absolute instant `t_abs` is, in seconds."""
+    if shift_seconds <= 0:
+        raise ValueError(f'shift_seconds must be positive, got {shift_seconds}')
+    return float(t_abs % shift_seconds)
+
+
 def batch_epoch(durations: Sequence[float], index: int) -> float:
     """Absolute start time of batch `index`: the sum of every batch before it.
 

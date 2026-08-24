@@ -13,7 +13,8 @@ from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_s
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
-    CONFIG, seed_batches, seed_world, _CART_TYPES, _build_pick_cfg, _checkpoint_every,
+    CONFIG, seed_batches, seed_world, shift_seconds, _CART_TYPES, _build_pick_cfg,
+    _checkpoint_every,
     _config_name,
 )
 from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
@@ -298,6 +299,12 @@ def _prepare_channel_run(
         batch_cfg           = ch_batch_cfg,
         channel_regime      = ch_regime,      # worker filters inventory to this regime
         channel_name        = ch.name,
+        # The pick crew's MODE, carried rather than re-derived: the worker re-imports
+        # sim_config and would get pristine defaults, and 'store_machine' is a name the
+        # worker has no way to interpret.  A plain str so the payload stays trivially
+        # picklable; Mode.of() parses it back.
+        pick_mode           = str(ch.picker.mode),
+        shift_seconds       = shift_seconds(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )

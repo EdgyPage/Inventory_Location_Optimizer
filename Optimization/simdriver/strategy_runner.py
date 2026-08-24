@@ -45,6 +45,9 @@ from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.placement.Capacity_Reloader import RELOADERS
+from Warehouse.operations import Crew as _Crew, Mode as _Mode, Role as _Role
+from Optimization.metrics import work_events as _work_events
+from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
@@ -325,6 +328,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     max_skus      = args.get('max_skus')
     sku_allowlist = args.get('sku_allowlist')
     keyframe_interval = args.get('keyframe_interval') or 0
+    # Defaulted so a caller that predates the actor model (a test, a bench harness)
+    # still runs: a crew on foot, an eight-hour shift.
+    _pick_mode     = _Mode.of(args.get('pick_mode') or 'foot')
+    _shift_seconds = args.get('shift_seconds') or _DEFAULT_SHIFT_SECONDS
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -525,6 +532,21 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
     mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
 
+    # ── the two crews, and the axis they share ─────────────────────────────────
+    # The pick crew's mode comes from the channel's PickerProfile ('store_machine' is a
+    # machine pool, 'fulfillment_walker' is on foot).  The put crew is ONE walker: put-away
+    # is not yet a swept axis, and a size nothing varies should be a stated default rather
+    # than a knob nobody turns.  uids are allocated pick-crew first, so a picker's uid and
+    # its dense picker_id coincide -- which keeps `work_events.actor_uid` readable against
+    # `picker_events.picker_id` for the single-crew case that every existing analysis assumes.
+    _pick_crew = _Crew(role=_Role.PICK, mode=_pick_mode, speed=pick_cfg.speed, size=k_pickers)
+    _pick_workers = _pick_crew.workers(0)
+    _put_crew = _Crew(role=_Role.PUT, mode=_Mode.FOOT, speed=pick_cfg.speed, size=1)
+    _put_workers = _put_crew.workers(_pick_crew.next_uid(0))
+    # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
+    # order, same instants); it records durations and rows.  See enable_putaway_timing.
+    mgr.enable_putaway_timing(_put_crew.speed)
+
     # ── static per-run scores (saved once, before the loop) ────────────────────
     # Geometry/config-fixed scores the assignment functions compute: the viewer reads
     # these instead of recomputing.  bin layout score = travel D + golden-zone height;
@@ -578,6 +600,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     pb: list = []
     pt: list = []
     pe: list = []
+    we: list = []   # merged cross-stream rows (picks + put-away) on the absolute axis
     pk: list = []   # individual pick records
     pm: list = []   # aisle metrics snapshots
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
@@ -817,6 +840,17 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
+        # Both streams onto ONE axis.  Pick events already carry absolute times (the arm
+        # handed every picker the batch epoch); the put crew's records run on its own clock
+        # from 0 and are offset here.  Neither stream waits for the other -- they are
+        # simulated independently and merged, which is this model's stated assumption.
+        we.extend(_work_events.pick_rows(
+            events, batch_id=i, batch_start=bs.batch_start_time, crew=_pick_workers,
+            shift_seconds=_shift_seconds))
+        if _put_workers is not None:
+            we.extend(_work_events.put_rows(
+                mgr.drain_putaway_records(), batch_id=i, batch_start=bs.batch_start_time,
+                crew=_put_workers, shift_seconds=_shift_seconds))
         pk.extend(picks_b)
         pm.extend(am)
         last_dur        = bs.duration
@@ -830,7 +864,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 db_path, run_id,
                 batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
                 bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=pm, reorder_queue=pq)
+                aisle_metrics=pm, reorder_queue=pq, work_events=we)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -880,6 +914,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             p2_run        += p2_sum_ckpt
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
+            we.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
             placed_ckpt        = 0
@@ -918,7 +953,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             db_path, run_id,
             batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
             bin_placements=_bp, bin_evictions=_be,
-            aisle_metrics=pm, reorder_queue=pq)
+            aisle_metrics=pm, reorder_queue=pq, work_events=we)
         t_save_run += time.perf_counter() - _ts_final
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint

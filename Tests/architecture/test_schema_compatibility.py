@@ -1513,17 +1513,26 @@ def test_the_read_sweep_attributes_all_but_a_recorded_number_of_constructs():
 
     # NON-VACUITY, the other direction: no loader may escape the sweep by moving into a class or a
     # nested helper. Every SELECT literal in the file must be reachable from a TOP-LEVEL function,
-    # because that is the only thing `_sweep_reads` walks — EXCEPT literals inside a
-    # `register_query(Query(...))` / `override(...)` registration: those are not hidden consumer
-    # reads but the named-query DECLARATIONS themselves, i.e. the attribution mechanism this
-    # sweep exists to funnel reads into.  Their column contracts are validated by
-    # `Dataset.query` and the viewer's golden tests, not by the guard-sweep.
+    # because that is the only thing `_sweep_reads` walks — EXCEPT two categories that are not
+    # consumer reads at all:
+    #
+    #   1. literals inside a `register_query(Query(...))` / `override(...)` registration — the
+    #      named-query DECLARATIONS themselves, i.e. the attribution mechanism this sweep exists
+    #      to funnel reads into.  Validated by `Dataset.query` and the viewer's golden tests.
+    #   2. literals inside a `_CREATE_*` DDL constant.  A `CREATE VIEW ... AS SELECT` declares
+    #      SHAPE, not a read: it is part of the schema whose id every vetted vintage is derived
+    #      from, so it is checked by the shape store rather than by a column guard.  Reading
+    #      THROUGH such a view still goes through a loader, and that loader is swept normally.
     tree = _source_tree(COMPLETENESS_TARGET)
     registered = {id(n) for node in ast.walk(tree)
                   if isinstance(node, ast.Call)
                   and getattr(node.func, 'attr', getattr(node.func, 'id', ''))
                   in ('register_query', 'Query', 'override')
                   for n in _sql_literals(node)}
+    registered |= {id(n) for node in tree.body
+                   if isinstance(node, ast.Assign)
+                   and any(getattr(t, 'id', '').startswith('_CREATE_') for t in node.targets)
+                   for n in _sql_literals(node)}
     everywhere = {id(n) for n in _sql_literals(tree)} - registered
     swept = {id(n) for node in tree.body
              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))

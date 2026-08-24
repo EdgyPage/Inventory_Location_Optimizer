@@ -306,6 +306,71 @@ _CREATE_PICKER_EVENTS = """
     )
 """
 
+#: ONE row per event from ANY work stream, on the run's absolute axis.
+#:
+#: Separate from `picker_events` rather than an extension of it, and the reason is that
+#: table's nine pick-specific `NOT NULL DEFAULT 0` columns: a put-away row would be nine
+#: zeros with no way to tell "this actor carries no cart" from "cart_move was 0.0".
+#: `picker_events` stays exactly as it is -- batch-relative, pick-only, dense picker_id --
+#: so every existing analysis, figure and viewer route keeps working untouched.
+#:
+#: TWO ID SPACES, deliberately (see Warehouse/operations/worker.py).  `actor_local` is dense
+#: within one crew and is the id `picker_events` carries; `actor_uid` is unique across every
+#: crew in the run.  A uid leaking into a local slot lands inside [0, k) and is accepted, so
+#: they are two named columns rather than one encoding.
+#:
+#: `qty` is SIGNED -- negative for a pick, positive for a put -- so both streams are one row
+#: shape read in opposite directions, and SUM(qty) over a bin is its net movement.
+#:
+#: SCOPE: a work unit is (pair, config, channel, strategy) and each is a separate process
+#: writing its own sim_<strategy>.db.  Store and fulfillment run INDEPENDENT batch streams
+#: with different counts and makespans, so this timeline is per-ARM.  Two arms' t_abs values
+#: are not comparable and a cross-channel Gantt built from them would be fiction.
+_CREATE_WORK_EVENTS = """
+    CREATE TABLE IF NOT EXISTS work_events (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id      INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id    INTEGER NOT NULL,
+        seq         INTEGER NOT NULL,           -- order within one instant; see the view
+        t_abs       REAL    NOT NULL,           -- seconds since the arm's start
+        t_local     REAL    NOT NULL,           -- seconds since this batch's start
+        shift_index INTEGER NOT NULL,           -- floor(t_abs / shift_seconds); a LABEL
+        actor_uid   INTEGER NOT NULL,           -- unique across every crew in the run
+        actor_local INTEGER NOT NULL,           -- dense within this actor's own crew
+        role        TEXT    NOT NULL,           -- 'pick' | 'put'
+        mode        TEXT    NOT NULL,           -- 'foot' | 'machine'
+        event_type  TEXT    NOT NULL,
+        aisle_id    INTEGER,
+        sku         INTEGER,
+        qty         INTEGER,                    -- SIGNED: pick < 0, put > 0
+        duration    REAL    NOT NULL DEFAULT 0,
+        source      TEXT                        -- put-away origin: intake|reorder|reslot
+    )
+"""
+
+_CREATE_WORK_EVENTS_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_we_run_batch
+    ON work_events (run_id, batch_id)
+"""
+
+_CREATE_WORK_EVENTS_TIME_IDX = """
+    CREATE INDEX IF NOT EXISTS ix_we_run_tabs
+    ON work_events (run_id, t_abs)
+"""
+
+#: The merged stream, with its order DECLARED.
+#:
+#: `PickEvent.__lt__` compares time alone, so ties have always fallen through to a stable
+#: sort into phase-1 picker order -- correct and reproducible, and nowhere written down.
+#: One stream could live with that; two cannot, because the tie-break then decides whether a
+#: pick or a put is read first at the same instant.  So it is stated: instant, then role,
+#: then mode, then actor, then emission order within that actor.
+_CREATE_WORK_EVENTS_MERGED = """
+    CREATE VIEW IF NOT EXISTS work_events_merged AS
+    SELECT * FROM work_events
+    ORDER BY t_abs, role, mode, actor_uid, seq
+"""
+
 _CREATE_PICKER_EVENTS_IDX = """
     CREATE INDEX IF NOT EXISTS ix_pe_run_batch
     ON picker_events (run_id, batch_id)
@@ -529,6 +594,10 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_PICKER_EVENTS)
     con.execute(_CREATE_PICKER_EVENTS_IDX)
     con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
+    con.execute(_CREATE_WORK_EVENTS)
+    con.execute(_CREATE_WORK_EVENTS_IDX)
+    con.execute(_CREATE_WORK_EVENTS_TIME_IDX)
+    con.execute(_CREATE_WORK_EVENTS_MERGED)
     con.execute(_CREATE_AISLE_METRICS)
     con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
     con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
@@ -651,7 +720,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   ee5ebabe74fb  the log ADDED, bin_inventory still written (the overlap window)
     # Both surviving vintages of the live archive re-derive to entries in this list: the
     # 2026-07-29 runs to PRE_STAMP_SIM_SCHEMA_ID and the 2026-08-13 runs to ee5ebabe74fb.
-    known_ids=(PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
+    #   6ad0b34af9f1  the bin-mutation log + dossier era, before `work_events`: every run
+    #                 from the log's arrival through 2026-08-24.  This is the shape the
+    #                 whole published archive was written with.
+    known_ids=('6ad0b34af9f1',
+               PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
 ))
 
 #: Three shapes that ALSO exist in the cold archive and are DELIBERATELY NOT vetted.  Derived
@@ -754,10 +827,27 @@ CAP_BIN_INVENTORY = 'bin_inventory'
 CAP_BIN_SCORES = 'bin_scores'
 CAP_SKU_SCORES = 'sku_scores'
 CAP_REORDER_QUEUE = 'reorder_queue'
+CAP_WORK_EVENTS = 'work_events'      # the merged cross-stream timeline
 CAP_KEYFRAMES = 'keyframes'          # a sibling .keyframes.db — not table-probed
 CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-probed
 
 SIM_CAPABILITIES = {c.name: c for c in (
+    _capability.Capability(
+        name=CAP_WORK_EVENTS, table='work_events', exact=True,
+        phase='per-batch, appended at each checkpoint flush',
+        caveat='PER-ARM TIMELINE. A work unit is (pair, config, channel, strategy) and each '
+               'is a separate process writing its own DB; store and fulfillment run '
+               'INDEPENDENT batch streams with different counts and makespans. t_abs is '
+               "seconds since THIS arm's start, so two arms' values are not comparable and a "
+               'cross-channel Gantt built from them is fiction. shift_index is a LABEL over a '
+               'continuous clock -- nothing dispatches against it, work does not pause at a '
+               'boundary, and a task spanning one is recorded under the shift it STARTED in. '
+               'qty is SIGNED (pick < 0, put > 0). The put-away cost model is PROVISIONAL: it '
+               'mirrors the pick model, charges every put from the aisle mouth, and models no '
+               'contention between the two crews.',
+        columns=('run_id', 'batch_id', 'seq', 't_abs', 't_local', 'shift_index',
+                 'actor_uid', 'actor_local', 'role', 'mode', 'event_type', 'aisle_id',
+                 'sku', 'qty', 'duration', 'source')),
     _capability.Capability(
         name=CAP_BIN_LOG, table='bin_placement', exact=True,
         phase="end-of-batch (after this batch's picks)",
@@ -1490,6 +1580,30 @@ def _insert_picker_events(con: sqlite3.Connection, run_id: int, records: list) -
     )
 
 
+_WORK_EVENT_COLS = ('batch_id', 'seq', 't_abs', 't_local', 'shift_index', 'actor_uid',
+                    'actor_local', 'role', 'mode', 'event_type', 'aisle_id', 'sku', 'qty',
+                    'duration', 'source')
+
+
+def _insert_work_events(con: sqlite3.Connection, run_id: int, rows: list) -> None:
+    con.executemany(
+        'INSERT INTO work_events (run_id,' + ','.join(_WORK_EVENT_COLS) + ') '
+        'VALUES (?' + ',?' * len(_WORK_EVENT_COLS) + ')',
+        [(run_id, *r) for r in rows])
+
+
+def save_work_events(path: str, run_id: int, rows: list) -> None:
+    """Append merged-stream rows.  Each row is `_WORK_EVENT_COLS` in order."""
+    if not rows:
+        return
+    con = _open_db(path)
+    try:
+        _insert_work_events(con, run_id, rows)
+        con.commit()
+    finally:
+        con.close()
+
+
 def save_picker_events(path: str, run_id: int, records: list) -> None:
     con = _open_db(path)
     try:
@@ -1802,8 +1916,12 @@ def save_checkpoint_bundle(
     bin_evictions  : list,
     aisle_metrics  : list,
     reorder_queue  : list,
+    work_events    : list | None = None,
 ) -> None:
-    """All eight per-checkpoint writers on ONE connection with ONE commit.
+    """All per-checkpoint writers on ONE connection with ONE commit.
+
+    `work_events` is the merged cross-stream timeline and is keyword-OPTIONAL, so a caller
+    that predates it -- a test, a Diagnostics harness -- is unchanged and writes no rows.
 
     strategy_runner's checkpoint flush used to call the eight `save_*` writers back to
     back, each paying its own open + commit + close against a ~1 GB WAL DB — measured
@@ -1826,6 +1944,8 @@ def save_checkpoint_bundle(
         if bin_evictions:
             _insert_bin_evictions(con, run_id, bin_evictions)
         _insert_aisle_metrics(con, run_id, aisle_metrics)
+        if work_events:
+            _insert_work_events(con, run_id, work_events)
         if reorder_queue:
             _insert_reorder_queue(con, run_id, reorder_queue)
         con.commit()

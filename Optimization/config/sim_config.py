@@ -61,6 +61,7 @@ from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Warehouse.picking.Pick import PickConfig, DEFAULT_HEIGHT_BRACKETS
 from Warehouse.layout.Storage_Primitive import StoreCart, FulfillmentCart
 from Warehouse.kernel.regime import STORE, FULFILLMENT
+from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS
 from Optimization.config.strategies import restocks_for
 from Optimization.config.channels import FF_BATCH_SEED_OFFSET
 from Optimization.simconfig import PICK_CONFIGS                          # fires the registry import_all()
@@ -172,6 +173,11 @@ CONFIG = {
         # exactly (byte-identical, digest-proven).  Batch caches are fingerprinted apart
         # per sampler, so the two eras can never contaminate each other.
         'sampler'         : 'v2',
+        # Shift length in SECONDS (the sim's own unit), 8 hours by default.  A REPORTING
+        # FRAME over a continuous clock: it labels work_events.shift_index and nothing
+        # dispatches against it -- work does not pause at the whistle and no task is split
+        # at a boundary.  See Warehouse.kernel.timeline.shift_index.
+        'shift_seconds'   : 8 * 3600.0,
     },
     'channels': {
         'store': {
@@ -269,6 +275,16 @@ def k_pickers() -> int:
 def store_restocks() -> tuple:
     """The store channel's restock-rule subset, read at call time."""
     return CONFIG['channels']['store']['restocks']
+
+
+def shift_seconds() -> float:
+    """Shift length in seconds, read at call time.  Default: an eight-hour day.
+
+    A REPORTING FRAME, not a scheduler.  It labels `work_events.shift_index`; nothing
+    dispatches against it, work does not pause at the whistle, and no task is split at a
+    boundary -- see `Warehouse.kernel.timeline.shift_index`.
+    """
+    return float(CONFIG['global'].get('shift_seconds') or _DEFAULT_SHIFT_SECONDS)
 
 
 def store_fill() -> float:
