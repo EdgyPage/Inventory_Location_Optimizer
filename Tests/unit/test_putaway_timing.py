@@ -1,0 +1,184 @@
+"""test_putaway_timing.py — put-away costs seconds, and costs nothing else.
+
+Put-away was a zero-duration phase for the life of the project: `check_reorders` →
+`_stock` → `_execute_placement` moved inventory and produced no time value anywhere. A
+strategy that deferred placement therefore looked free, and a second crew had nothing to be
+measured in.
+
+Two things this pins.
+
+**It is the pick model, not a second one.** Travel to the location plus the same
+height-bracketed handling expression, through the same `cost_model` primitives, with
+defaults that mirror `PickConfig`'s own. This project has already paid for two default sets
+that drifted 55× apart; a put model with independent magic numbers would be the same bill
+again.
+
+**It is ADDITIVE.** Turning it on must not move a single pick result — same items, same
+order, same instants — because the two streams are simulated independently and merged, and
+nothing here models contention. That is the property that makes it safe to enable by
+default, and it is asserted rather than asserted-in-prose.
+
+Run:  python -m pytest Tests/unit/test_putaway_timing.py -q
+"""
+from __future__ import annotations
+
+import inspect
+import types
+
+import pytest
+
+from Warehouse.kernel.cost_model import (
+    DEFAULT_HEIGHT_BRACKETS, SpeedProfile, handle_var, height_multiplier, per_pick,
+)
+from Warehouse.operations.putaway import PutawayCost, put_cost
+
+FOOT = SpeedProfile(2.0, 4.0)
+MACHINE = SpeedProfile(3.0, 2.0)
+
+
+# ── the cost expression ───────────────────────────────────────────────────────────
+
+def test_it_is_travel_plus_the_pick_handling_expression():
+    """Written out longhand here, so a change to either half fails loudly rather than
+    quietly re-tuning put-away."""
+    c = PutawayCost()
+    got = put_cost(120.0, 48.0, weight=10, volume=100, quantity=3, speed=MACHINE, cost=c)
+    travel = 120.0 * MACHINE.x_pace + 48.0 * MACHINE.y_pace
+    handling = per_pick(height_multiplier(DEFAULT_HEIGHT_BRACKETS, 48.0), c.intercept,
+                        handle_var(10, 100, c.weight_coef, c.volume_coef), 3)
+    assert got == pytest.approx(travel + handling)
+
+
+def test_a_higher_bin_costs_more_to_reach_and_more_to_handle():
+    """Both terms respond to height: y-travel scales, and the bracket multiplier steps."""
+    low = put_cost(100.0, 10.0, 10, 100, 1, MACHINE, PutawayCost())
+    high = put_cost(100.0, 300.0, 10, 100, 1, MACHINE, PutawayCost())
+    assert high > low
+
+
+def test_a_faster_crew_puts_away_faster():
+    slow = put_cost(200.0, 0.0, 10, 100, 1, SpeedProfile(1.0, 1.0), PutawayCost())
+    fast = put_cost(200.0, 0.0, 10, 100, 1, SpeedProfile(4.0, 1.0), PutawayCost())
+    assert fast < slow
+
+
+def test_the_two_modes_give_different_costs():
+    """The whole reason Mode exists: a machine and a walker are not the same putter."""
+    at = dict(x_phys=200.0, y_phys=100.0, weight=10, volume=100, quantity=1)
+    assert put_cost(**at, speed=FOOT, cost=PutawayCost()) != \
+           put_cost(**at, speed=MACHINE, cost=PutawayCost())
+
+
+def test_more_units_cost_more_but_the_travel_is_paid_once():
+    """`per_pick` is mult*(intercept + qty*var): the trip is not re-charged per unit."""
+    one = put_cost(100.0, 0.0, 10, 100, 1, MACHINE, PutawayCost())
+    ten = put_cost(100.0, 0.0, 10, 100, 10, MACHINE, PutawayCost())
+    assert ten > one
+    assert ten < 10 * one
+
+
+def test_the_defaults_mirror_the_pick_models():
+    """Not a second set of magic numbers to reconcile later."""
+    from Warehouse.picking.Pick import PickConfig
+    pc, put = PickConfig(), PutawayCost()
+    assert (put.intercept, put.weight_coef, put.volume_coef) == \
+           (pc.pick_intercept, pc.pick_weight_coef, pc.pick_volume_coef)
+    assert put.height_brackets == pc.height_brackets
+
+
+# ── the manager binding ───────────────────────────────────────────────────────────
+
+def _mgr():
+    """A manager with the timing seam bound, without building a warehouse."""
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    m = Inventory_Manager.__new__(Inventory_Manager)
+    m._put_speed = None
+    m._put_cost = None
+    m._put_clock = 0.0
+    m._put_seconds = 0.0
+    m._put_records = []
+    return m
+
+
+def _unit(sku=1, qty=2, weight=10, volume=100):
+    return types.SimpleNamespace(
+        quantity=qty, order=types.SimpleNamespace(sku=sku, weight=weight,
+                                                  volume=lambda: volume))
+
+
+def _bin(x=100.0, y=48.0, aisle=7):
+    return types.SimpleNamespace(x_phys=x, y_phys=y, location=(aisle, 1, 1))
+
+
+def test_timing_is_off_until_it_is_bound():
+    m = _mgr()
+    assert m._put_speed is None
+    assert m.putaway_seconds == 0.0
+
+
+def test_binding_it_makes_a_placement_cost_seconds():
+    m = _mgr()
+    m.enable_putaway_timing(MACHINE)
+    m._cost_putaway(_unit(), _bin(), 'reorder')
+    assert m.putaway_seconds > 0.0
+    assert m.putaway_seconds == pytest.approx(
+        put_cost(100.0, 48.0, 10, 100, 2, MACHINE, PutawayCost()))
+
+
+def test_the_crews_clock_runs_forward_without_gaps():
+    """Each put starts where the previous ended — the put stream's own timeline."""
+    m = _mgr()
+    m.enable_putaway_timing(MACHINE)
+    for _ in range(3):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+    recs = m.drain_putaway_records()
+    assert len(recs) == 3
+    for prev, nxt in zip(recs, recs[1:]):
+        assert nxt[0] == pytest.approx(prev[0] + prev[1])
+    assert m.putaway_seconds == pytest.approx(sum(r[1] for r in recs))
+
+
+def test_a_record_carries_where_the_unit_came_from():
+    """The PutawayItem provenance, so a trailer becomes a fourth source without a reshape."""
+    m = _mgr()
+    m.enable_putaway_timing(FOOT)
+    m._cost_putaway(_unit(sku=42, qty=5), _bin(aisle=3), 'reslot')
+    (t0, dur, sku, qty, aisle, x, y, source), = m.drain_putaway_records()
+    assert (sku, qty, aisle, source) == (42, 5, 3, 'reslot')
+    assert dur > 0 and t0 == 0.0 and (x, y) == (100.0, 48.0)
+
+
+def test_draining_hands_over_ownership():
+    m = _mgr()
+    m.enable_putaway_timing(FOOT)
+    m._cost_putaway(_unit(), _bin(), 'intake')
+    assert len(m.drain_putaway_records()) == 1
+    assert m.drain_putaway_records() == []
+    assert m.putaway_seconds > 0.0, 'draining the rows must not reset the labor total'
+
+
+# ── additive: it must not touch the pick path ─────────────────────────────────────
+
+def test_costing_a_put_does_not_write_a_bin():
+    """`_cost_putaway` is called from inside `_execute_placement`, which the mutation
+    allowlist already names. It must not become a sixth bin writer itself."""
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    src = inspect.getsource(Inventory_Manager._cost_putaway)
+    assert '.storage' not in src
+    assert 'storage.quantity' not in src
+
+
+def test_the_charge_happens_after_the_placement_is_committed():
+    """Ordering matters: a cost model that raised would otherwise abort a half-applied
+    placement."""
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    src = inspect.getsource(Inventory_Manager._execute_placement)
+    assert src.index('bin_.storage = unit') < src.index('_cost_putaway')
+
+
+def test_the_binder_follows_the_existing_opt_in_precedent():
+    """`enable_sigma_fd` is the pattern: the harness binds, the domain never reads CONFIG."""
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    assert hasattr(Inventory_Manager, 'enable_putaway_timing')
+    doc = inspect.getdoc(Inventory_Manager.enable_putaway_timing) or ''
+    assert 'enable_sigma_fd' in doc

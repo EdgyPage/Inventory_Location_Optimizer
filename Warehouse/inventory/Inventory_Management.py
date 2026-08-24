@@ -149,6 +149,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._sigma_y: float = 0.0   # per-inch PACE (sec_per_inch of the ft/s y_speed)
         self._sigma_fd: float = 0.0
 
+        # Put-away timing.  None until enable_putaway_timing() binds a crew speed + cost
+        # model; then every _execute_placement costs seconds and appends a record.
+        # OFF by default so a test, a Diagnostics probe or any direct caller that has no
+        # crew is unaffected -- and because put-away was a zero-duration phase for the whole
+        # life of the project, so nothing downstream expects the field to exist.
+        self._put_speed = None                       # SpeedProfile | None
+        self._put_cost = None                        # PutawayCost | None
+        self._put_clock: float = 0.0                 # this crew's running clock (seconds)
+        self._put_seconds: float = 0.0               # total put-away labor this run
+        self._put_records: list = []                 # (t_start, dur, sku, qty, aisle, x, y, source)
+
         # Optimal-map basis (populated by build_optimal_map):
         #   _bin_pref[id(bin)] = quantity-free preferred score of a bin (D + M*v_ref) — a
         #     stable location basis over ALL bins, independent of pick quantity.
@@ -699,6 +710,56 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._reorder_placements += 1
         if self._sigma_freq is not None:
             self._sigma_fd += self._sigma_delta(sku, bin_)
+        # Costs the put; changes nothing about it.  See enable_putaway_timing.
+        if self._put_speed is not None:
+            self._cost_putaway(unit, bin_, source)
+
+    def enable_putaway_timing(self, speed, cost=None) -> None:
+        """Bind a put crew's travel speed + cost model, so every placement costs seconds.
+
+        Follows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain
+        never reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put
+        crew's own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.
+
+        ADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not
+        contend for an aisle, and does not change which unit lands in which bin -- the same
+        items are picked, in the same order, at the same instants.  It records a duration
+        and a row.  Contention is the inbound feature, not this seam.
+        """
+        from Warehouse.operations.putaway import PutawayCost
+        self._put_speed = speed
+        self._put_cost = cost if cost is not None else PutawayCost()
+
+    @property
+    def putaway_seconds(self) -> float:
+        """Total put-away labor recorded so far, in seconds.  0.0 when timing is off."""
+        return self._put_seconds
+
+    def drain_putaway_records(self) -> list:
+        """Hand over the put-away event records and clear the buffer.
+
+        Drained rather than read so the caller (the batch loop) takes ownership once per
+        batch and the manager does not accumulate a run's worth of rows in memory.
+        """
+        recs, self._put_records = self._put_records, []
+        return recs
+
+    def _cost_putaway(self, unit: StorageUnit, bin_: Aisle.Bin, source) -> None:
+        """Charge one placement to the put crew's clock and record it.
+
+        Called from `_execute_placement` only, which the bin-mutation allowlist already
+        names as the single put-away commit point -- so this adds no new bin writer.
+        """
+        from Warehouse.operations.putaway import put_cost
+        order = unit.order
+        dur = put_cost(bin_.x_phys, bin_.y_phys, order.weight, order.volume(),
+                       unit.quantity, self._put_speed, self._put_cost)
+        t0 = self._put_clock
+        self._put_clock += dur
+        self._put_seconds += dur
+        self._put_records.append(
+            (t0, dur, order.sku, unit.quantity, bin_.location[0],
+             bin_.x_phys, bin_.y_phys, source or 'intake'))
 
     def _sigma_delta(self, sku: int, bin_: Aisle.Bin) -> float:
         """f_s · D(bin) increment for the incremental Σ f·D tracker.
