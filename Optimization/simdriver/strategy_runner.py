@@ -583,6 +583,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
+    # This arm's absolute clock: where the NEXT batch begins.  Batches are sequential
+    # waves -- batch i+1's work is released when batch i completes -- so the whole crew
+    # starts a batch together, at `arm_clock`, and the axis is the running sum of the batch
+    # makespans (exactly Warehouse.kernel.timeline.epochs).
+    #
+    # Deliberately uniform rather than per-picker.  A per-picker carry, where whoever
+    # finishes early starts the next wave early, is a MODELLING change (it removes the
+    # barrier) and it has a failure mode: a picker who draws no task keeps its clock
+    # frozen while the others advance, so the crew's clocks drift apart without bound and
+    # `batch_start_time` sticks at 0 forever.  The `start_times` seam supports it when
+    # someone wants it; this is not that commit.
+    #
+    # A resumed arm restarts at 0.0 -- the finish times before the resume boundary are not
+    # in the checkpoint.  Durations and labor are unaffected (both are spans); the absolute
+    # axis of a resumed run starts over mid-run.
+    arm_clock: float = 0.0
     reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
     units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
     placed_ckpt        = 0   # units placed this window (P = reorder placements)
@@ -759,7 +775,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             skipped += 1
             continue
 
-        sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr)
+        # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
+        # so the arm's events sit on one absolute axis instead of every batch restarting at
+        # zero.  Because the offset is uniform, every batch statistic is a span measured
+        # from it and is UNCHANGED -- which is what the offset-invariance work in
+        # extract_batch_stats bought.
+        sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
+                                                 start_times=[arm_clock] * k_pickers)
         events          = sim.run()
         p1_sum_ckpt    += sim.phase1_time
         p2_sum_ckpt    += sim.phase2_time
@@ -773,6 +795,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         bs.units_ordered      = batch_uo                 # units ORDERED this batch (U)
         # Put-away honesty: standing backlog + in-transit pipeline after this batch's
         # reorder/restock pass (a strategy that defers placement carries a high queue).
+        # Next wave begins when this one completes: arm_clock += this batch's makespan.
+        # A SKIPPED (empty) batch never reaches here and so does not advance it -- which is
+        # also why the epoch cannot be recovered downstream by a cumsum over batch_stats
+        # rows: a skipped batch writes no row at all.
+        arm_clock             = bs.batch_start_time + bs.duration
         bs.queue_depth        = mgr.queue_depth
         bs.lead_queue_depth   = mgr.lead_queue_depth
         bs.in_transit_qty     = mgr.in_transit_qty
