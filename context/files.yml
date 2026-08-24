@@ -2121,6 +2121,19 @@ files:
       - {name: "test_dossier_tree_renders_on_both_run_shapes", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
       - {name: "test_dossier_documents_are_grouped_so_staging_needs_no_name_list", file: "Tests/integration/test_writer_paths_golden.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_actor_space.py":
+    purpose: "who is allowed to appear in a per-crew reader."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_conforming_crew_groups_unchanged", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_an_idle_picker_gets_an_empty_list_not_a_missing_slot", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_an_id_past_the_crew_raises_instead_of_vanishing", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_a_negative_id_raises_rather_than_indexing_from_the_end", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_a_missing_id_raises", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_the_error_says_what_to_do_about_it", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_the_batch_reader_surfaces_it_rather_than_reporting_a_short_batch", file: "Tests/unit/test_actor_space.py", kind: "function"}
+      - {name: "test_progress_reports_the_pick_crew_and_says_so", file: "Tests/unit/test_actor_space.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"
     layer: "tests"
@@ -2236,6 +2249,19 @@ files:
       - {name: "test_fenwick_matches_linear_reference_exactly", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_config_sampler_reaches_both_production_construction_sites", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_batch_stat_invariance.py":
+    purpose: "a batch statistic measures a SPAN, not a timestamp."
+    layer: "tests"
+    key_symbols:
+      - {name: "K", file: "Tests/unit/test_batch_stat_invariance.py", kind: "const"}
+      - {name: "test_batch_stats_are_unchanged_by_a_constant_shift", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_the_start_and_end_stamps_are_the_only_things_that_move", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_pickers_starting_at_different_instants_score_their_own_spans", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_the_picking_split_is_unchanged_by_a_shift", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_concurrency_is_unchanged_by_a_shift", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_a_picker_that_drew_no_tasks_contributes_no_span", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+      - {name: "test_an_empty_batch_is_still_all_zeros", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
     notes: ""
   "Tests/unit/test_bell_freq_profile.py":
     purpose: "test_bell_freq_profile.py"

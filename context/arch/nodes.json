@@ -4997,7 +4997,7 @@
     },
     "Optimization/metrics/Simulation_Analytics.py::_group_events_by_picker": {
       "decorators": [],
-      "doc": "Partition events into per-picker lists in a single O(N) pass.\n\nPick.py generates events in time order within each picker's timeline so\nno sort is needed \u2014 the per-picker lists are already time-ordered.",
+      "doc": "Partition events into per-picker lists in a single O(N) pass.\n\nPick.py generates events in time order within each picker's timeline so\nno sort is needed \u2014 the per-picker lists are already time-ordered.\n\nAn actor outside `[0, k_pickers)` RAISES.  It used to be dropped silently, and\nevery statistic downstream \u2014 `total_items`, `task_makespan`, the picking split \u2014\nwould then report a smaller crew's numbers as if they were the whole batch's.\nThat is the precise failure a second work stream produces: a putter, an unloader\nor any actor from another crew carries an id from a different space, and the\n`0 <= pid < k_pickers` test is exactly the shape that swallows it.\n\nThis function's id space is DENSE and PER-CREW by contract \u2014 `assign_tasks`\npartitions into `k_pickers` buckets and the bucket index is the id, so a\nconforming pick run can never trip this.  A globally-unique actor id belongs on\nthe merged event stream, not here; see `_ProgressAPIMixin.progress_at`, which\nenumerates the same `range(num_pickers)` and is the other half of the contract.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list, k_pickers: int) -> list[list]"
@@ -5011,14 +5011,14 @@
     },
     "Optimization/metrics/Simulation_Analytics.py::_picker_time_breakdown_grouped": {
       "decorators": [],
-      "doc": "Compute picking/traveling breakdown from pre-grouped picker event lists.",
+      "doc": "Compute picking/traveling breakdown from pre-grouped picker event lists.\n\nOFFSET-INVARIANT: a picker contributes the SPAN from its own first event to its\n`done`, not the `done` timestamp.  The two are the same number only while every\npicker's clock restarts at zero every batch.",
       "is_async": false,
       "kind": "function",
       "signature": "(grouped: list[list]) -> dict[str, float]"
     },
     "Optimization/metrics/Simulation_Analytics.py::avg_concurrent_pickers": {
       "decorators": [],
-      "doc": "Time-weighted average number of pickers simultaneously in 'picking' state.\n\nA picker is \"picking\" from the moment they arrive at a bin (arrive event)\nuntil they finish handling it (pick event).  Cart-swap overhead is folded\ninto that interval because both arrive and pick share the same pick_time span.\n\nAlgorithm\n---------\nBuild a (time, +1/-1) change-list, sort it, then sweep to integrate the\nconcurrent-count curve.  Divide by total simulation span.",
+      "doc": "Time-weighted average number of pickers simultaneously in 'picking' state.\n\nA picker is \"picking\" from the moment they arrive at a bin (arrive event)\nuntil they finish handling it (pick event).  Cart-swap overhead is folded\ninto that interval because both arrive and pick share the same pick_time span.\n\nAlgorithm\n---------\nBuild a (time, +1/-1) change-list, sort it, then sweep to integrate the\nconcurrent-count curve.  Divide by total simulation span.\n\nOFFSET-INVARIANT.  The integration window is `[t_start, t_end]` measured from the\nbatch's own first event, not from absolute zero \u2014 so a batch whose pickers start at\nan absolute instant scores exactly what the same batch scores starting at zero.  It\nused to anchor `prev_t` and the divisor at a literal `0.0`, which is the same number\nonly while every picker's clock is reborn each batch.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list) -> float"
@@ -5046,7 +5046,7 @@
     },
     "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats": {
       "decorators": [],
-      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 max done-event time across all pickers (parallel wall-clock)\ntask_makespan : \u03a3 per-picker done-times = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)\n\ntask_makespan == \u03a3 task_stats.duration by construction: every picker's clock starts at 0 and\naccrues travel+pick+cart-swap back-to-back with no idle gaps, so its done-time telescopes to the\nsum of its task durations; summing over pickers gives the batch's total task time.",
+      "doc": "Summarise one PickSimulation.run() result into a BatchStats record.\n\nduration      : BATCH MAKESPAN \u2014 first picker starting to last finishing (parallel wall-clock)\ntask_makespan : \u03a3 per-picker spans = total labor (the serial / single-picker makespan)\nnum_tasks     : unique aisles that received a task_start\ntotal_items   : sum of items_picked from each picker's done event\nthr_batch     : throughput / batch makespan = total_items / duration\nthr_task      : throughput / task makespan  = total_items / task_makespan\navg_concurrent_pickers : time-weighted mean (see avg_concurrent_pickers)\npicking/traveling pct  : aggregate fractions (see _picker_time_breakdown_grouped)\n\ntask_makespan == \u03a3 task_stats.duration by construction: a picker accrues\ntravel+pick+cart-swap back-to-back with no idle gaps, so the span from its first event to\nits done telescopes to the sum of its task durations; summing over pickers gives the\nbatch's total task time.\n\nOFFSET-INVARIANT.  Both `duration` and `task_makespan` are SPANS measured from a start\ninstant, never raw timestamps.  They read the same while every picker's clock is reborn at\nzero each batch \u2014 which is exactly the assumption a shared clock removes.",
       "is_async": false,
       "kind": "function",
       "signature": "(events: list, batch_id: int, k_pickers: int, run_id: int=0) -> BatchStats"
@@ -8152,7 +8152,7 @@
     },
     "Optimization/simdriver/cells.py::Cell": {
       "decorators": [],
-      "doc": "One point in the what-if matrix: a fixed choice on every swept axis.\n\nA NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked\npositionally in five files \u2014 `cells.py`, `scenario.py`, `run_simulation.py`,\n`sim_manifest.py` and `run_whatif_delta.py` \u2014 so `c[1]`, `c[3]` and\n`(name, split, zoning, sched) = c` all had to keep working.  They do, which is why\nthis change cannot break a consumer by being half-applied; named access is simply\nadded beside them.\n\nAdding a FIFTH axis (an inbound sorter policy) is now one field and one line in\n`_build_cells` rather than five positional unpacks to find and renumber.  The names\nhere are the same ones `run_layout.json` records, so the descriptor and the producer\ncannot drift apart.",
+      "doc": "One point in the what-if matrix: a fixed choice on every swept axis.\n\nA NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked\npositionally in five files \u2014 `cells.py`, `scenario.py`, `run_simulation.py`,\n`sim_manifest.py` and `run_whatif_delta.py` \u2014 so `c[1]`, `c[3]` and\n`(name, split, zoning, sched) = c` all had to keep working.  They do, which is why\nthis change cannot break a consumer by being half-applied; named access is simply\nadded beside them.\n\nAdding a FIFTH axis (an inbound sorter policy) is now one field and one line in\n`_build_cells` rather than five positional unpacks to find and renumber.  The names\nhere are the same ones the run-tree descriptor records, so it and the producer\ncannot drift apart.",
       "kind": "class",
       "signature": "(NamedTuple)"
     },
@@ -8160,7 +8160,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "The natural baseline: no split, no zoning, the legacy scheduler.\n\nThis predicate was written out twice, verbatim, in `scenario.py` and\n`run_simulation.py` \u2014 and those two MUST agree, because one picks the cell the\ndriver treats as the baseline and the other writes the reference name into\n`run_layout.json` for every downstream what-if to diff against.  Two copies of a\npredicate that must agree is a bug with a delay on it.",
+      "doc": "The natural baseline: no split, no zoning, the legacy scheduler.\n\nThis predicate was written out twice, verbatim, in `scenario.py` and\n`run_simulation.py` \u2014 and those two MUST agree, because one picks the cell the\ndriver treats as the baseline and the other writes the reference name into\nthe run-tree descriptor for every downstream what-if to diff against.  Two copies of a\npredicate that must agree is a bug with a delay on it.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> bool"
@@ -13706,7 +13706,7 @@
     },
     "Warehouse/picking/Pick.py::_ProgressAPIMixin.progress_at": {
       "decorators": [],
-      "doc": "State of every picker at time t. run() must be called first.",
+      "doc": "State of every picker at time t. run() must be called first.\n\nEnumerates `range(num_pickers)`, so it reports the PICK crew and only the pick\ncrew.  Any other actor sharing the event stream \u2014 a putter, an unloader \u2014 is\ninvisible here no matter what id it carries, which is the same per-crew, dense\nid space `Simulation_Analytics._group_events_by_picker` enforces, and the reason\na second stream records to its own table rather than widening `picker_events`.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, t: float) -> list[PickerProgress]"

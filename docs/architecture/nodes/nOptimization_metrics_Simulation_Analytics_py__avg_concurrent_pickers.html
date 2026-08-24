@@ -24,7 +24,13 @@ into that interval because both arrive and pick share the same pick_time span.
 Algorithm
 ---------
 Build a (time, +1/-1) change-list, sort it, then sweep to integrate the
-concurrent-count curve.  Divide by total simulation span.</section>
+concurrent-count curve.  Divide by total simulation span.
+
+OFFSET-INVARIANT.  The integration window is `[t_start, t_end]` measured from the
+batch&#x27;s own first event, not from absolute zero — so a batch whose pickers start at
+an absolute instant scores exactly what the same batch scores starting at zero.  It
+used to anchor `prev_t` and the divisor at a literal `0.0`, which is the same number
+only while every picker&#x27;s clock is reborn each batch.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__extract_batch_stats.html"><code>extract_batch_stats</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py__avg_concurrent_pickers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20avg_concurrent_pickers">Source ↗</a></p>
 </article>

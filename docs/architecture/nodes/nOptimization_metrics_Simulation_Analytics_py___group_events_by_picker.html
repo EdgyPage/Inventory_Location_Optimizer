@@ -18,7 +18,20 @@
 <section class="doc">Partition events into per-picker lists in a single O(N) pass.
 
 Pick.py generates events in time order within each picker&#x27;s timeline so
-no sort is needed — the per-picker lists are already time-ordered.</section>
+no sort is needed — the per-picker lists are already time-ordered.
+
+An actor outside `[0, k_pickers)` RAISES.  It used to be dropped silently, and
+every statistic downstream — `total_items`, `task_makespan`, the picking split —
+would then report a smaller crew&#x27;s numbers as if they were the whole batch&#x27;s.
+That is the precise failure a second work stream produces: a putter, an unloader
+or any actor from another crew carries an id from a different space, and the
+`0 &lt;= pid &lt; k_pickers` test is exactly the shape that swallows it.
+
+This function&#x27;s id space is DENSE and PER-CREW by contract — `assign_tasks`
+partitions into `k_pickers` buckets and the bucket index is the id, so a
+conforming pick run can never trip this.  A globally-unique actor id belongs on
+the merged event stream, not here; see `_ProgressAPIMixin.progress_at`, which
+enumerates the same `range(num_pickers)` and is the other half of the contract.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__extract_batch_stats.html"><code>extract_batch_stats</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Simulation_Analytics_py___group_events_by_picker">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Simulation_Analytics.py#:~:text=def%20_group_events_by_picker">Source ↗</a></p>
 </article>

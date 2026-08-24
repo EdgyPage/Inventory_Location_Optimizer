@@ -15,7 +15,13 @@
 <p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a></p>
 
 <pre class="sig"><code>def progress_at(self, t: float) -&gt; list[PickerProgress]</code></pre>
-<section class="doc">State of every picker at time t. run() must be called first.</section>
+<section class="doc">State of every picker at time t. run() must be called first.
+
+Enumerates `range(num_pickers)`, so it reports the PICK crew and only the pick
+crew.  Any other actor sharing the event stream — a putter, an unloader — is
+invisible here no matter what id it carries, which is the same per-crew, dense
+id space `Simulation_Analytics._group_events_by_picker` enforces, and the reason
+a second stream records to its own table rather than widening `picker_events`.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Pick_py___ProgressAPIMixin__state_at.html"><code>_state_at</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Pick_py___ProgressAPIMixin_step_table.html"><code>step_table</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Pick_py___ProgressAPIMixin_progress_at">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py#:~:text=def%20progress_at">Source ↗</a></p>
 </article>
