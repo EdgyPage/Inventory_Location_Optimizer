@@ -182,3 +182,55 @@ def test_the_binder_follows_the_existing_opt_in_precedent():
     assert hasattr(Inventory_Manager, 'enable_putaway_timing')
     doc = inspect.getdoc(Inventory_Manager.enable_putaway_timing) or ''
     assert 'enable_sigma_fd' in doc
+
+
+# ── the drain is a batch boundary ─────────────────────────────────────────────────
+
+def test_draining_restarts_the_crews_clock():
+    """The bug this closes, and it was measured on a real eight-batch arm.
+
+    Records carry `t_start` on the crew's clock measured from the START OF THE BATCH,
+    because `work_events.put_rows` offsets them onto the arm's absolute axis by adding the
+    batch epoch — and the epoch is not known until after the batch's picks are simulated,
+    so the manager cannot stamp absolute times itself.
+
+    Without the reset, `_put_clock` accumulated across the whole arm while `put_rows` still
+    added the epoch, so every put after batch 0 was stamped too late by the total put-away
+    seconds of every preceding batch. On a store arm: batch 7's puts landed at `t_local`
+    53,769–64,152 s against a 17,906 s batch, and batch 6's puts overran batch 7's picks.
+    """
+    m = _mgr()
+    m.enable_putaway_timing(MACHINE)
+
+    m._cost_putaway(_unit(), _bin(), 'reorder')
+    first = m.drain_putaway_records()
+    assert first[0][0] == 0.0
+
+    m._cost_putaway(_unit(), _bin(), 'reorder')
+    second = m.drain_putaway_records()
+    assert second[0][0] == 0.0, (
+        'the put crew\'s clock carried across a batch boundary; put_rows adds the batch '
+        'epoch on top, so every later put row would be stamped too late')
+
+
+def test_every_batch_starts_its_records_at_zero():
+    m = _mgr()
+    m.enable_putaway_timing(FOOT)
+    for _batch in range(4):
+        for _ in range(3):
+            m._cost_putaway(_unit(), _bin(), 'reorder')
+        recs = m.drain_putaway_records()
+        assert recs[0][0] == 0.0
+        for prev, nxt in zip(recs, recs[1:]):
+            assert nxt[0] == pytest.approx(prev[0] + prev[1])
+
+
+def test_the_labor_total_still_accumulates_across_batches():
+    """The clock restarts; the LABOR does not. They are different questions."""
+    m = _mgr()
+    m.enable_putaway_timing(FOOT)
+    m._cost_putaway(_unit(), _bin(), 'reorder')
+    one = m.putaway_seconds
+    m.drain_putaway_records()
+    m._cost_putaway(_unit(), _bin(), 'reorder')
+    assert m.putaway_seconds == pytest.approx(2 * one)

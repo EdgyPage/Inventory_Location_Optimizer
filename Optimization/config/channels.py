@@ -108,7 +108,8 @@ def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
                  batch_seed_offset: int = 0,
                  batch_mean_fraction: float = 0.20,
                  batch_std_fraction: float = 0.05,
-                 sampler: str = 'v1') -> Channel:
+                 sampler: str = 'v1',
+                 mode: str | Mode = Mode.FOOT) -> Channel:
     """Build a single Channel from a picker cost + pool size.
 
     The one-channel primitive the runner uses to sweep each section's configs
@@ -117,10 +118,17 @@ def make_channel(name: str, regime: str, pick_cfg: PickConfig, num_pickers: int,
     (store uses 0; fulfillment a large offset so its stream never overlaps store's).
     ``batch_mean_fraction``/``batch_std_fraction`` set the channel's batch-stream shape
     (each channel may differ; the runner sources these from CONFIG).
+
+    ``mode`` is the pick crew's travel MODE and the runner must pass it.  This is the ONLY
+    channel builder the run path uses -- `build_channels` below is reached from tests only
+    -- so a default here is what every real run gets.  It defaulted silently to `foot`
+    while the store pool ran at the machine speed (3, 2), which put `mode='foot'` on every
+    store `work_events` row beside a machine-speed duration.
     """
     return Channel(
         name=name, regime=regime, batch_seed_offset=batch_seed_offset,
-        picker=PickerProfile(f'{name}_picker', pick_cfg, num_pickers),
+        picker=PickerProfile(f'{name}_picker', pick_cfg, num_pickers,
+                             role=Role.PICK, mode=Mode.of(mode)),
         restocks=restocks,
         batch_mean_fraction=batch_mean_fraction,
         batch_std_fraction=batch_std_fraction,

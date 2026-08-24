@@ -24,7 +24,7 @@
 - [v2 sampler era](v2-sampler-era.md) — since 2026-08-20 (21f3b3c) new runs default to the v2 Fenwick sampler; v2 runs are not row-comparable with the pre-flip archive, --sampler v1 is the escape hatch
 - [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie; FIFO's uniform-random aisle pick has no ranking for an optimal initial placement to exploit
 - [Per-batch series are autocorrelated](per-batch-series-are-autocorrelated.md) — lag-1..3 all outside the white-noise band, so an iid bootstrap under-reports every CI; use stats_core._boot_ci's moving-block form
-- [Put-away break-even is ~0.5 s per trip](putaway-break-even-is-half-a-second-per-trip.md) — the 2.6% placement gain buys only 0.014 s/unit of extra restock walk; quote that number and insist it be measured
+- [Put-away break-even is ~9 min per trip](putaway-break-even-is-nine-minutes-per-trip.md) — ~14 s/unit, NOT the old 0.5 s: that figure was the 1000x unit bug and its "margin is razor thin" conclusion inverted
 - [Ingest must prefer the HEAD contract](ingest-must-prefer-head-contract.md) — hit at three call sites before being hoisted into runschema.reader_for/analysis_path; analysis reads resolve HEAD-first, simulation reads use the run's own contract
 - [Heredoc Python breaks the spawn pool](heredoc-python-breaks-the-spawn-pool.md) — a pool launched from `python - <<EOF` hangs silently (workers die re-importing `<stdin>`); run pool CLIs as `-m` modules, and COMPARISON_OUTPUT_DIR is not in the shell
 - [Map exact solver rarely fires](map-exact-solver-rarely-fires.md) — the exact-LAP gate admits 320/1,632 BinKey classes but only 0.09% of assigned units; greedy earns nearly all of every Map-family result at scale
@@ -34,6 +34,6 @@
 - [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
 - [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png
 - [Put-away seams for inbound](putaway-seams-for-inbound.md) — the nine seams built 2026-08-24 for a trailer/dock feature, and the four things still missing when it starts
-- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24, but anything published before then still shows absolutes 1000x too large; every ratio was always fine
+- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24; correcting a pre-fix number goes OPPOSITE ways: durations x1000, rates /1000
 - [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
 - [One clock, one speed, one config](one-clock-one-speed-one-config.md) — the 2026-08-24 refactor: absolute clock, role x mode actors, timed put-away, derived CONFIG; and what stays provisional

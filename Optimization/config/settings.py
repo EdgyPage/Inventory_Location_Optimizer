@@ -83,6 +83,12 @@ from Optimization.simconfig.constants import _FF_PICKERS, _STORE_PICKERS  # noqa
 
 STORE_PICKERS = _STORE_PICKERS         # machine order-picker pool
 FF_PICKERS = _FF_PICKERS               # human-walker pool
+
+# The MODE each pick pool works in.  These were implicit in the pool names
+# ('store_machine', 'fulfillment_walker') and in constants.py's comments for years
+# before anything read them; declaring them here is what finally makes them reach a run.
+STORE_PICK_MODE = 'machine'            # order-picker
+FF_PICK_MODE = 'foot'                  # walker
 PUT_CREW_SIZE = 1                      # one walker; put-away is not yet a swept axis
 PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below
 

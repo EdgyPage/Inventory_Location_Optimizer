@@ -4,16 +4,19 @@ Reads the SAME per-cell sim_*.db as run_whatif_delta, but tells the story in MOD
 adds the picker-scheduler axis that lives only in the CELL directory name (k1_off_rr / k1_off_lpt).
 
   per (channel, scheduler, assignment-fn, initial):
-    labor_hours  = Σ task_makespan / 3.6e6     total serial labor over the run (all batches)
-    batch_hours  = Σ duration      / 3.6e6     parallel wall-clock makespan
-    thr_items_hr = mean thr_batch  × 3.6e6     items per hour
+    labor_hours  = Σ task_makespan / 3600      total serial labor over the run (all batches)
+    batch_hours  = Σ duration      / 3600      parallel wall-clock makespan
+    thr_items_hr = mean thr_batch  × 3600      items per hour
     labor_saved  = labor(fifo) − labor(arm)    absolute hours a better assignment fn saves vs FIFO
 
 Two levers: the ASSIGNMENT FUNCTION sets total labor (labor_saved vs FIFO); the LPT SCHEDULER
 converts leftover picker imbalance into throughput at ~flat labor (batch_hours ↓, labor flat).
 
-*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats ms ÷ 3.6e6), NOT wall-clock or
-    staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule. ***
+*** CAVEAT: hours here are SIM-MODELED pick-time (batch_stats SECONDS ÷ 3600), NOT wall-clock
+    or staffing hours.  They are a modeled-effort figure for comparing arms, not a schedule.
+    This text is the module docstring AND the `--help` description, so a stale formula here
+    is printed to users; it read `/ 3.6e6` while the code divided by 3600, because the sim
+    emits seconds and the analysis layer had declared milliseconds. ***
 
 Reuses run_whatif_delta's engine (resolver-driven scan + _metrics steady-state means); adds full-run
 sums for the true total labor.  Outputs to the run root: the whatif_labor CSV + JSON
@@ -274,7 +277,10 @@ def _labor_saved_bars(rows, baseline, out_path, order=()):
     ns = sorted({len(groups[a]) for a in names})
     n_txt = str(ns[0]) if len(ns) == 1 else f'{ns[0]}–{ns[-1]}'
     others = [c for c in sorted(groups_by_chan) if c != ch]
-    omitted = (f" · omitted: {', '.join(others)} (minutes-scale)" if others else '')
+    # No magnitude adjective.  This said "(minutes-scale)", a claim calibrated against
+     # labor_hours produced by the 3.6e6 divisor -- with the corrected /3600 the same
+     # spreads are 1000x larger, and the subtitle is RENDERED onto a published figure.
+    omitted = (f" · omitted: {', '.join(others)}" if others else '')
     chart = _ck.make(panels=1, panel_w=6.4,
                      panel_h=_ck.height_for_categories(len(names)), legend='none')
     ax = chart.ax
@@ -567,6 +573,15 @@ def run(base_dir, baseline='fifo', baseline_initial='match', reference=None, pai
 
 
 def main():
+    # This module's docstring IS the --help description and it contains Sigma (U+03A3),
+    # which has no cp1252 mapping — so `--help` on a legacy Windows console died with
+    # UnicodeEncodeError before printing anything.  PRE-EXISTING, surfaced while checking
+    # that the corrected divisor reached the help text.  Same one-line fix run_simulation
+    # already carries for U+2192.
+    try:
+        sys.stdout.reconfigure(errors='replace')
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('base_dir')
     ap.add_argument('--baseline', default='fifo',

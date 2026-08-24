@@ -65,8 +65,8 @@ _TIME_UNITS = _units.TIME_UNITS
 time_units = _units.time_units
 
 
-def to_hours(sim_ms):
-    """Duration sim values are milliseconds; render an HOURS axis.
+def to_hours(sim_seconds):
+    """Duration sim values are SECONDS; render an HOURS axis.
 
     Use this only where hours is the right unit on its face — a run's elapsed time, a
     batch's labor total.  For anything whose magnitude depends on the data, use
@@ -74,17 +74,17 @@ def to_hours(sim_ms):
     seconds, a batch of labor is hours), and a fixed unit turns half the suite into
     columns of `0.0008`.
     """
-    return np.asarray(sim_ms, dtype=float) / _units.PER_HOUR
+    return np.asarray(sim_seconds, dtype=float) / _units.PER_HOUR
 
 
-def to_time(sim_ms):
-    """(converted_values, unit_label) for a set of sim-millisecond durations.
+def to_time(sim_seconds):
+    """(converted_values, unit_label) for a set of sim-SECOND durations.
 
     Pool everything that shares an axis into ONE call so every series on it lands in the
     same unit.
     """
-    div, label = time_units(sim_ms)
-    return np.asarray(sim_ms, dtype=float) / div, label
+    div, label = time_units(sim_seconds)
+    return np.asarray(sim_seconds, dtype=float) / div, label
 
 
 # ── the single sign convention ──────────────────────────────────────────────────

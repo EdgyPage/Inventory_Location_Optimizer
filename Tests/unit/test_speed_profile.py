@@ -127,10 +127,17 @@ def test_neither_pick_simulation_converts_by_hand_any_more():
 
 
 def test_the_hand_conversion_count_only_falls():
-    """A ratchet. 47 sites crossed ft/s → s/inch by hand when SpeedProfile was introduced;
-    five are now the profile. Lower this number when you convert more; never raise it."""
+    """A ratchet on hand-written ft/s → s/inch conversions.
+
+    The budget is the CURRENT count under this test's own counting rule, not a round
+    number above it. It was first written as 42 against an actual 21 — 100% headroom, a
+    ratchet that could not fail, and a docstring quoting 47 because that figure came from
+    a different counting rule (raw occurrences including cost_model.py and Tests/).
+    Twenty-eight lines matched at the base commit and seven became the profile, so 21 is
+    where it stands. Lower it when you convert more; never raise it.
+    """
     root = pathlib.Path(__file__).resolve().parents[2]
-    budget = 42
+    budget = 21
     n = 0
     for sub in ('Warehouse', 'Optimization'):
         for path in sorted((root / sub).rglob('*.py')):

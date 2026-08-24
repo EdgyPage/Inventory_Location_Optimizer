@@ -178,6 +178,43 @@ def test_the_tie_at_one_instant_is_broken_by_role_not_by_arrival():
 
 
 def test_the_view_and_the_in_memory_merge_declare_the_same_order():
-    """Two definitions of "merged" that disagree is the drift this table invites."""
+    """Two definitions of "merged" that disagree is the drift this table invites.
+
+    Compared BEHAVIOURALLY, not by matching a literal: the view's ORDER BY is parsed into
+    column names, mapped to row offsets, and used to sort the same rows.  A string match
+    passes happily while the two keys diverge, which is what let `batch_id` reach one of
+    them and not the other.
+    """
+    import re
+
     from Optimization.persistence import Picking_Data as pd
-    assert 'ORDER BY t_abs, role, mode, actor_uid, seq' in pd._CREATE_WORK_EVENTS_MERGED
+
+    order = re.search(r"ORDER BY (.+)", pd._CREATE_WORK_EVENTS_MERGED).group(1)
+    cols = [c.strip() for c in order.split(",")]
+    idx = {name: i for i, name in enumerate(pd._WORK_EVENT_COLS)}
+    assert all(c in idx for c in cols), f"the view orders by a column no row carries: {cols}"
+
+    rows = pick_rows(EVENTS, 0, START, PW) + put_rows(RECORDS, 0, START, TW)
+    by_view = sorted(rows, key=lambda r: tuple(r[idx[c]] for c in cols))
+    assert merged(rows) == by_view
+
+
+def test_the_merge_orders_a_batch_boundary_by_emission_not_backwards():
+    """The tie that occurs in EVERY run, and the reason `batch_id` is in the key.
+
+    The arm advances to `batch_start + duration`, which is exactly the last `done` instant,
+    so batch i's final `done` and batch i+1's first `task_start` for the same picker share
+    a t_abs, a role, a mode and an actor.  `seq` restarts at 0 each batch, so without the
+    batch in the key the tie fell to `seq` -- large for the `done`, near 0 for the
+    `task_start` -- placing the next batch's start BEFORE the previous batch's end.
+    """
+    boundary = 500.0
+    last = [PickEvent(time=boundary - 9, picker_id=0, event_type="pick", sku=1, quantity=1),
+            PickEvent(time=boundary, picker_id=0, event_type="done", items_picked=1)]
+    nxt = [PickEvent(time=boundary, picker_id=0, event_type="task_start", aisle_id=4),
+           PickEvent(time=boundary + 9, picker_id=0, event_type="pick", sku=2, quantity=1)]
+
+    rows = merged(pick_rows(last, 7, boundary - 40, PW) + pick_rows(nxt, 8, boundary, PW))
+    at_tie = [(r[BATCH], r[TYPE]) for r in rows if r[T_ABS] == boundary]
+    assert at_tie == [(7, "done"), (8, "task_start")], (
+        f"the batch boundary is ordered backwards: {at_tie}")

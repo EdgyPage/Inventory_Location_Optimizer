@@ -625,6 +625,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # in the checkpoint.  Durations and labor are unaffected (both are spans); the absolute
     # axis of a resumed run starts over mid-run.
     arm_clock: float = 0.0
+    # Where the PUT crew finished.  It is continuous and independent of the pick
+    # crew's waves: one putter placing a wave's restock takes longer than 25 pickers
+    # take to pick it, so its work overruns the next wave's release and must resume
+    # where it stopped rather than restarting.  Without this the same worker is doing
+    # two batches at the same instant.
+    put_clock: float = 0.0
     reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
     units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
     placed_ckpt        = 0   # units placed this window (P = reorder placements)
@@ -851,9 +857,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             events, batch_id=i, batch_start=bs.batch_start_time, crew=_pick_workers,
             shift_seconds=_shift_seconds))
         if _put_workers is not None:
+            _put_recs = mgr.drain_putaway_records()
+            # The crew picks this wave's queue up when the wave is released OR when it
+            # finishes the last one, whichever is later.
+            _put_base = max(bs.batch_start_time, put_clock)
             we.extend(_work_events.put_rows(
-                mgr.drain_putaway_records(), batch_id=i, batch_start=bs.batch_start_time,
-                crew=_put_workers, shift_seconds=_shift_seconds))
+                _put_recs, batch_id=i, batch_start=bs.batch_start_time,
+                crew=_put_workers, shift_seconds=_shift_seconds, crew_start=_put_base))
+            if _put_recs:
+                put_clock = _put_base + _put_recs[-1][0] + _put_recs[-1][1]
         pk.extend(picks_b)
         pm.extend(am)
         last_dur        = bs.duration

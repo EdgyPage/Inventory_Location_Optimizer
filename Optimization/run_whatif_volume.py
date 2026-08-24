@@ -7,8 +7,8 @@ assignment functions inside a single cell.  The scheduler axis lives only in the
 alongside run_whatif_delta and run_whatif_labor.
 
   per (channel, scheduler, assignment-fn, initial):
-    elapsed_hours      = Σ duration      / 3.6e6    running wall-clock the work took
-    labor_hours        = Σ task_makespan / 3.6e6    running serial labor (what the work COST)
+    elapsed_hours      = Σ duration      / 3600     running wall-clock the work took
+    labor_hours        = Σ task_makespan / 3600     running serial labor (what the work COST)
     mean_thr_items_hr  = items / elapsed_hours      the chord slope of the cumulative curve
     auc_gain_vs_rr_pct area between this cell's cumulative curve and the reference cell's,
                        over the reference's own area, on a shared hour grid
@@ -18,8 +18,8 @@ scheduler does not — it changes elapsed_hours (the same work, less picker idle
 cumulative volume against elapsed hours makes that visible as a steeper line reaching the same
 volume sooner, which is the honest picture of "more throughput at flat labor".
 
-*** CAVEAT: hours are SIM-MODELED pick-time (batch_stats ms / 3.6e6), NOT wall-clock or staffing
-    hours.  A modeled-effort figure for comparing arms, not a schedule. ***
+*** CAVEAT: hours are SIM-MODELED pick-time (batch_stats SECONDS / 3600), NOT wall-clock or
+    staffing hours.  A modeled-effort figure for comparing arms, not a schedule. ***
 
   python -m Optimization.run_whatif_volume <comparison_whatif_...> [--reference k1_off_rr]
 """

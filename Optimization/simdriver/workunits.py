@@ -365,6 +365,10 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
             n  = int(cfg.get('num_pickers', chan['num_pickers']))
             pc = _build_pick_cfg(cfg, num_pickers=n, default_cart=default_cart)
             ch = make_channel(name, chan['regime'], pc, n,
+                              # The crew's MODE.  Without it both channels silently took
+                              # make_channel's `foot` default while the store pool ran at
+                              # the machine speed.
+                              mode=chan['pick_mode'],
                               restocks=chan['restocks'],
                               batch_seed_offset=chan['seed_offset'],
                               batch_mean_fraction=chan['batch']['mean'],

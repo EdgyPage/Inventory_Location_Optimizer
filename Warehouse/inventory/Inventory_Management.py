@@ -736,12 +736,28 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return self._put_seconds
 
     def drain_putaway_records(self) -> list:
-        """Hand over the put-away event records and clear the buffer.
+        """Hand over this batch's put-away records, and start the crew's clock over.
 
-        Drained rather than read so the caller (the batch loop) takes ownership once per
-        batch and the manager does not accumulate a run's worth of rows in memory.
+        A DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock
+        measured from the start of the batch, because the consumer
+        (`Optimization.metrics.work_events.put_rows`) offsets them onto the arm's absolute
+        axis by adding the batch epoch -- and the batch epoch is not known until after the
+        batch's picks have been simulated, so the manager cannot stamp absolute times
+        itself.
+
+        Resetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`
+        accumulates across the whole arm while `put_rows` still adds the epoch, so every
+        put row after batch 0 is stamped too late by the total put-away seconds of every
+        preceding batch, and the error grows without bound: measured on an eight-batch
+        store arm, batch 7's puts landed at `t_local` 53,769-64,152 s against a 17,906 s
+        batch, and batch 6's puts overran batch 7's picks so the merged view interleaved
+        batches.
+
+        Drained rather than read so the caller takes ownership once per batch and the
+        manager never holds a run's worth of rows.
         """
         recs, self._put_records = self._put_records, []
+        self._put_clock = 0.0
         return recs
 
     def _cost_putaway(self, unit: StorageUnit, bin_: Aisle.Bin, source) -> None:

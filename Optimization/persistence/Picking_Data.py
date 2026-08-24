@@ -364,11 +364,18 @@ _CREATE_WORK_EVENTS_TIME_IDX = """
 #: sort into phase-1 picker order -- correct and reproducible, and nowhere written down.
 #: One stream could live with that; two cannot, because the tie-break then decides whether a
 #: pick or a put is read first at the same instant.  So it is stated: instant, then role,
-#: then mode, then actor, then emission order within that actor.
+#: then BATCH, then role, then mode, then actor, then emission order within that actor.
+#:
+#: `batch_id` is in the key because `seq` restarts at 0 every batch, and consecutive
+#: batches genuinely touch: the arm advances by `batch_start + duration`, which IS the last
+#: `done` instant, so batch i's final `done` and batch i+1's first `task_start` for the same
+#: picker share a `t_abs`, a role, a mode and an actor.  Without `batch_id` the tie fell to
+#: `seq` -- large for the `done`, near 0 for the `task_start` -- and ordered them backwards,
+#: which is the exact opposite of the "emission order" this key claims to deliver.
 _CREATE_WORK_EVENTS_MERGED = """
     CREATE VIEW IF NOT EXISTS work_events_merged AS
     SELECT * FROM work_events
-    ORDER BY t_abs, role, mode, actor_uid, seq
+    ORDER BY t_abs, batch_id, role, mode, actor_uid, seq
 """
 
 _CREATE_PICKER_EVENTS_IDX = """

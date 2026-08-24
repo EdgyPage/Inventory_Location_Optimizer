@@ -63,17 +63,38 @@ def pick_rows(events, batch_id, batch_start, crew, *,
 
 
 def put_rows(records, batch_id, batch_start, crew, *,
-             shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0):
+             shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0,
+             crew_start=None):
     """Merged-stream rows for one batch's put-away.
 
     `records` are `Inventory_Manager.drain_putaway_records()` tuples
     `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on
-    the put crew's OWN clock from 0. `batch_start` offsets them onto the arm's axis.
+    the put crew's own clock from 0 within this batch (the drain restarts it).
 
-    Put-away is one crew working its queue back to back, so the records are laid out over
-    the crew's workers round-robin: with a crew of one — today's default — every row is
-    that worker's. The event type is `put`, and `qty` is positive.
+    TWO ORIGINS, and they are not the same instant:
+
+      `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured
+                    from. The crew is CONTINUOUS: it cannot start batch i's queue before
+                    the wave is released, and it cannot start before it finished batch
+                    i-1's, so the caller passes `max(batch_start, previous_finish)`.
+                    Defaults to `batch_start` for a caller with no carry.
+      `batch_start` the wave's release, and what `t_local` is measured from — so `t_local`
+                    on a put row reads as "how far into this wave the crew got to it",
+                    and EXCEEDS the batch's duration exactly when the crew is running
+                    behind. That is information, not an error.
+
+    Why the crew must carry: one putter placing a whole wave's restock takes longer than
+    the parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch
+    i+1's release. Restarting at each wave would have the same single worker doing two
+    batches at the same instant — measured on a store arm before this carry existed, 16-33
+    rows per DB overlapped.
+
+    The records are laid out over the crew's workers round-robin; with a crew of one —
+    today's default — every row is that worker's. The event type is `put` and `qty` is
+    positive.
     """
+    if crew_start is None:
+        crew_start = batch_start
     workers = crew.workers() if hasattr(crew, 'workers') else crew
     if not workers:
         raise ValueError('a put crew of zero workers cannot have put anything away')
@@ -81,7 +102,7 @@ def put_rows(records, batch_id, batch_start, crew, *,
     for seq, rec in enumerate(records, start=first_seq):
         t_start, dur, sku, qty, aisle_id, _x, _y, source = rec
         w = workers[seq % len(workers)]
-        t_abs = batch_start + t_start
+        t_abs = crew_start + t_start
         rows.append((batch_id, seq, t_abs, t_abs - batch_start,
                      shift_index(t_abs, shift_seconds), w.uid, w.local_id,
                      str(w.role), str(w.mode), 'put', aisle_id, sku, abs(int(qty)),
@@ -93,10 +114,19 @@ def merged(rows):
     """The rows in the order `work_events_merged` declares.
 
     Kept here as well as in the view so an in-memory caller and a SQL caller cannot
-    disagree about what "merged" means. Instant, then role, then mode, then actor, then
-    emission order within that actor — `PickEvent.__lt__` compares time alone, and with two
-    streams that undeclared tie-break decides whether a pick or a put is read first.
+    disagree about what "merged" means. Instant, then BATCH, then role, then mode, then
+    actor, then emission order within that actor — `PickEvent.__lt__` compares time alone,
+    and with two streams that undeclared tie-break decides whether a pick or a put is read
+    first at the same instant.
+
+    `batch_id` is in the key because `seq` restarts at 0 every batch, and consecutive
+    batches genuinely TOUCH: the arm advances to `batch_start + duration`, which is exactly
+    the last `done` instant, so batch i's final `done` and batch i+1's first `task_start`
+    for the same picker share a t_abs, a role, a mode and an actor. Without the batch the
+    tie fell through to `seq` — large for the `done`, near 0 for the `task_start` — and
+    ordered them backwards, the reverse of the emission order this key promises.
     """
     # Column offsets into a row tuple; see Picking_Data._WORK_EVENT_COLS.
-    T_ABS, SEQ, UID, ROLE, MODE = 2, 1, 5, 7, 8
-    return sorted(rows, key=lambda r: (r[T_ABS], r[ROLE], r[MODE], r[UID], r[SEQ]))
+    BATCH, SEQ, T_ABS, UID, ROLE, MODE = 0, 1, 2, 5, 7, 8
+    return sorted(rows, key=lambda r: (r[T_ABS], r[BATCH], r[ROLE], r[MODE],
+                                       r[UID], r[SEQ]))
