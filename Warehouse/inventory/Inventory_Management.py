@@ -120,6 +120,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
+        # id(bin) -> the picker-local second it ran dry, for the bins in _pending_reclaim.
+        # Keyed by id because a Bin is owned by the Warehouse for the whole run and is never
+        # collected, so the key is stable — the property a StorageUnit does NOT have, which
+        # is why put-away provenance rides in a PutawayItem instead of a map like this.
+        # Cleared wholesale by _reclaim_empty_bins, which drains _pending_reclaim wholesale.
+        self._emptied_at: dict[int, float] = {}
 
         # SKUs whose current quantity has dropped to or below the reorder threshold
         # since the last check_reorders call.  Maintained by _notify_pick so

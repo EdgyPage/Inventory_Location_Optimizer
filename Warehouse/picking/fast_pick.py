@@ -44,6 +44,13 @@ class _PickMutation:
     bin_ref: object   # Aisle.Bin -- stable object ref; only .storage is written in Phase 2
     sku:     int
     qty:     int      # quantity as seen by this picker in the Phase-1 snapshot
+    time:    float = 0.0
+    """Picker-local seconds at which this pick completed.
+
+    Phase 2 applies mutations in PICKER order, not time order, so without this the instant
+    a bin ran dry is unrecoverable from the mutation alone.  Carried so
+    `_notify_bin_emptied` can say WHEN, which is what a forecast of upcoming bin slots is
+    built from.  Recorded and not yet read by anything that changes an outcome."""
 
 
 def _simulate_picker_deferred(
@@ -154,7 +161,8 @@ def _simulate_picker_deferred(
                 items_picked=session_items, total_items=total_items,
             ))
 
-            mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty))
+            mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty,
+                                           time=t))
 
         # One-way lane EXIT (lockstep with Pick.py): traverse to the aisle far end + descend.
         if cfg.one_way and task.path:
@@ -250,7 +258,7 @@ class DeferredPickSimulation(_ProgressAPIMixin):
                 if bin_.storage.quantity == 0:
                     bin_.storage = None
                     if mgr is not None:
-                        mgr._notify_bin_emptied(bin_)
+                        mgr._notify_bin_emptied(bin_, at=mut.time)
 
         self.phase2_time = _time.perf_counter() - t0
 

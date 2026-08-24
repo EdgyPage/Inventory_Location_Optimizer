@@ -136,36 +136,54 @@ class ReorderMixin:
             if new_qty + on_order <= rp:
                 self._depleted_skus.add(sku)
 
-    def _notify_bin_emptied(self, bin_: Aisle.Bin) -> None:
+    def _notify_bin_emptied(self, bin_: Aisle.Bin, at: float | None = None) -> None:
         """Queue an emptied bin for reclaim at the next check_reorders call.
 
         Called by PickSimulation immediately after bin_.storage is set to
         None — must be O(1).  The bin stays in _unavailable until
         _reclaim_empty_bins processes _pending_reclaim.
+
+        ``at`` is the picker-local second the bin ran dry.  Recorded in `_emptied_at` and
+        read by nothing yet: the drain still happens once, at the top of the next batch, so
+        a slot freed mid-batch is invisible until then.  Knowing WHEN is what a forecast of
+        upcoming bin slots needs, and the pick loop is the only place that knows it.
+        ``None`` from a caller that has no clock (a test, the legacy notification path).
         """
         if self._sigma_freq is not None:
             sku = self._bin_sku.get(id(bin_))      # still set until reclaim pops it
             if sku is not None:
                 self._sigma_fd -= self._sigma_delta(sku, bin_)
         self._pending_reclaim.append(bin_)
+        if at is not None:
+            self._emptied_at[id(bin_)] = at
 
     def _apply_picks_batch(
         self,
         picks: list[tuple[int, int]],
-        empties: list[Aisle.Bin],
+        empties: 'list[tuple[Aisle.Bin, float]] | list[Aisle.Bin]',
     ) -> None:
         """Apply all pick notifications accumulated during one simulation run.
 
         Aggregates quantity by SKU before calling _notify_pick so the body
         executes once per unique SKU rather than once per pick event,
         cutting ~430k individual function calls down to ~5k.
+
+        `empties` is `(bin, when)` from `PickSimulation`.  Bare bins are still accepted
+        because this is a public-ish notification hook and a caller with no clock is a
+        legitimate one — the stamp is metadata, not a precondition.
         """
         agg: dict[int, int] = {}
         for sku, qty in picks:
             agg[sku] = agg.get(sku, 0) + qty
         for sku, qty in agg.items():
             self._notify_pick(sku, qty)
-        self._pending_reclaim.extend(empties)
+        for e in empties:
+            if isinstance(e, tuple):
+                bin_, at = e
+                self._pending_reclaim.append(bin_)
+                self._emptied_at[id(bin_)] = at
+            else:
+                self._pending_reclaim.append(e)
 
     # ── reorder logic ────────────────────────────────────────────────────────
 
@@ -246,6 +264,9 @@ class ReorderMixin:
             unavailable.pop(bin_id, None)
 
         self._pending_reclaim.clear()
+        # The stamps describe exactly the bins just reclaimed, so they expire with them —
+        # otherwise this grows by one entry per emptied bin for the length of the run.
+        self._emptied_at.clear()
 
     def _release_to_stock(self, sku: int, qty: int) -> None:
         """Convert an arrived (sku, qty) order into storage units and append them to the

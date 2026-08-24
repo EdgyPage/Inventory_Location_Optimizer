@@ -451,7 +451,9 @@ class PickSimulation(_ProgressAPIMixin):
                 if bin_.storage.quantity == 0:
                     bin_.storage = None
                     if has_manager:
-                        empties.append(bin_)
+                        # (bin, when) — the same stamp fast_pick carries on its deferred
+                        # mutation, so the two sims report bin-empty times identically.
+                        empties.append((bin_, time))
 
             # One-way lane EXIT: the picker must traverse to the aisle far end (aisle_width) to
             # leave, then descend to the ground, so aisle DEPTH (not within-aisle span) drives
