@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 from Warehouse.picking.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin, assign_tasks
 from Warehouse.layout.Storage_Primitive import StoreCart
 from Warehouse.picking.Workload_Builder import Task
-from Warehouse.kernel.cost_model import aisle_exit_cost, sec_per_inch, cart_step
+from Warehouse.kernel.cost_model import aisle_exit_cost, cart_step
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -73,9 +73,8 @@ def _simulate_picker_deferred(
     cart_cap       = cfg.cart.capacity()   # this channel's cart volume (swap threshold)
     cart_remaining = cart_cap
     session_items  = 0
-    # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
-    x_pace         = sec_per_inch(cfg.x_speed)
-    y_pace         = sec_per_inch(cfg.y_speed)
+    # ft/s → s/inch, once, through the ONE named conversion (cost_model.SpeedProfile).
+    x_pace, y_pace = cfg.speed.paces
     # Tracks intra-picker depletion so picking twice from the same bin
     # within one picker's session is handled correctly.
     local_qty: dict[int, int] = {}

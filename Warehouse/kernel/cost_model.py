@@ -9,6 +9,7 @@ Depends only on `math` + `functools`, so every layer (Warehouse + Optimization) 
 without introducing a cycle or a layer violation.
 """
 import math
+from dataclasses import dataclass, field
 from functools import lru_cache
 
 # (upper_y_phys_exclusive, handling_multiplier) brackets — a bin's bracket is the first
@@ -177,6 +178,60 @@ def aisle_traverse_cost(first_x: float, first_y: float,
     exit_x, exit_y = (aisle_exit_cost(last_x, last_y, aisle_length, x_pace, y_pace)
                       if one_way else (0.0, 0.0))
     return entry_x, entry_y, exit_x, exit_y
+
+
+# ── a travel speed as one named value ────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class SpeedProfile:
+    """One actor's travel speeds: **ft/s in, s/inch out**, converted once.
+
+    A speed is configured in ft/s and spent in s/inch, because bin positions are inches.
+    Nothing named that boundary, so every consumer crossed it by hand — 47 separate
+    `sec_per_inch` calls across the two pick simulations, the analytical workload, the
+    assignment functions, the optimal-placement search and the strategy runner.
+
+    The discipline at those sites is already right: every one hoists the conversion to the
+    top of its function and passes `x_pace`/`y_pace` down, so the arithmetic is never
+    per-bin.  What was missing is a NAME for the hoisted pair.  Two bare floats travelling
+    together through a dozen signatures is the shape that lets an x pace reach a y slot, and
+    it is also the shape that cannot be extended: a putter and an unloader need their own
+    speeds, and `(x_pace, y_pace)` has nowhere to record whose they are.
+
+    Lives HERE, in `cost_model`, rather than in a module of its own or in the operations
+    package that will own roles and modes.  `architecture.yml` forbids `wh_kernel -> *` and
+    the wildcard matches the kernel itself, so a separate `kernel/speed.py` importing
+    `sec_per_inch` is a boundary violation — the kernel's modules stay independently
+    importable.  Beside the two functions it uses is also simply where it belongs.
+
+    THE AXES ARE NOT INTERCHANGEABLE.  `x` is horizontal travel ALONG an aisle
+    (`aisle_width_for(50)` = 200 ft of run); `y` is VERTICAL lift (`aisle_height_for(10)` =
+    40 ft of rack).  Separate DB columns record them (`pick_travel_x/y`,
+    `non_pick_travel_x/y`) and `height_multiplier` brackets on the same `y_phys` this paces
+    — so a machine that drives fast and lifts slowly is a DIFFERENT profile from a walker,
+    not a scaled one.
+
+    Frozen and picklable, so it crosses the spawn boundary in a worker payload and can be
+    shared rather than copied.
+    """
+    x_ft_s: float
+    y_ft_s: float
+
+    # Derived, s/inch.  init=False keeps them out of the constructor (not something a caller
+    # supplies) and out of __eq__ (they add nothing the ft/s pair does not already decide).
+    x_pace: float = field(init=False, compare=False, repr=False)
+    y_pace: float = field(init=False, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # A non-positive speed is NaN-poison, not a slow actor — see validate_speeds.
+        validate_speeds(self.x_ft_s, self.y_ft_s, source='SpeedProfile')
+        object.__setattr__(self, 'x_pace', sec_per_inch(self.x_ft_s))
+        object.__setattr__(self, 'y_pace', sec_per_inch(self.y_ft_s))
+
+    @property
+    def paces(self) -> tuple[float, float]:
+        """`(x_pace, y_pace)` — for the call sites that still want the bare pair."""
+        return self.x_pace, self.y_pace
 
 
 def cart_step(needed_vol: float, cart_remaining: float, cart_cap: float) -> tuple[bool, float]:

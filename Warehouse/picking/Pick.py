@@ -9,7 +9,7 @@ from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
 from Warehouse.kernel.allocation import partition
-from Warehouse.kernel.cost_model import aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds
+from Warehouse.kernel.cost_model import aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds, SpeedProfile
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -50,6 +50,22 @@ class PickConfig:
     def __post_init__(self):
         # A non-positive speed is NaN-poison, not a slow picker — see validate_speeds().
         validate_speeds(self.x_speed, self.y_speed, source='PickConfig')
+
+    @property
+    def speed(self) -> SpeedProfile:
+        """This picker's travel speeds as one value, ft/s converted to s/inch once.
+
+        A PROPERTY, not a field, and deliberately: `x_speed`/`y_speed` are a public
+        serialization contract.  `run_map_precompute` rebuilds a `PickConfig` from an
+        ARCHIVED `config.json` by filtering `dataclasses.fields`, and `docs/macros.py` reads
+        `c["x_speed"]` to render the published pick-time formula.  Both would fall back to
+        defaults SILENTLY if the fields were replaced — and no canary would catch it,
+        because none of them reads an archived config.
+
+        So the pair stays exactly where it is and this is the derived view of it, for the
+        callers that want to hoist one object instead of two floats.
+        """
+        return SpeedProfile(self.x_speed, self.y_speed)
 
 
 # ── events ───────────────────────────────────────────────────────────────────
@@ -296,7 +312,7 @@ def assign_tasks(sorted_tasks: list, cfg: PickConfig) -> list:
 
     cap = cfg.cart.capacity()
     coef = cfg.cart_swap_coef
-    x_pace, y_pace = sec_per_inch(cfg.x_speed), sec_per_inch(cfg.y_speed)
+    x_pace, y_pace = cfg.speed.paces
 
     def _est(t):
         # Per-task balancing cost: static (travel+handling) + a continuous cart proxy
@@ -357,8 +373,7 @@ class PickSimulation(_ProgressAPIMixin):
         session_items: int = 0   # cumulative items picked across all tasks
         has_manager: bool = self._manager is not None
         # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
-        x_pace: float = sec_per_inch(cfg.x_speed)
-        y_pace: float = sec_per_inch(cfg.y_speed)
+        x_pace, y_pace = cfg.speed.paces
 
         for task in tasks:
             total_bins  = len(task.path)

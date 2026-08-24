@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 # Single source of truth for the cost primitives (Warehouse/kernel/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
-from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch, validate_speeds
+from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch, validate_speeds, SpeedProfile
 from Warehouse.layout.Storage_Primitive import StoreCart   # default cart for the capacity field
 
 
@@ -52,6 +52,16 @@ class WorkloadParams:
         # never per bin, so the check is free.
         validate_speeds(self.x_speed, self.y_speed, source='WorkloadParams')
 
+    @property
+    def speed(self) -> SpeedProfile:
+        """These params' travel speeds as one value — the analytical mirror of
+        `PickConfig.speed`, and equal to it whenever this was built `from_pick_config`.
+
+        A property for the same reason: `x_speed`/`y_speed` stay fields because they are a
+        serialization contract, and this is the derived view of them.
+        """
+        return SpeedProfile(self.x_speed, self.y_speed)
+
     @classmethod
     def from_pick_config(cls, cfg: object) -> WorkloadParams:
         """Build WorkloadParams from a PickConfig instance (duck-typed)."""
@@ -97,8 +107,8 @@ def aisle_workload_components(
     pick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop
     params         : WorkloadParams coefficients
     """
-    D: float = (x_traversed * sec_per_inch(params.x_speed)
-                + y_traversed * sec_per_inch(params.y_speed))
+    _sp = params.speed
+    D: float = x_traversed * _sp.x_pace + y_traversed * _sp.y_pace
     P = 0.0
     for line in pick_lines:
         weight, volume, qty = line[0], line[1], line[2]
