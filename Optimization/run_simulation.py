@@ -96,6 +96,23 @@ from Optimization.simdriver.scenario import (             # noqa: F401,E402
 
 # ── entry point ────────────────────────────────────────────────────────────────
 
+def _positive_int(text: str) -> int:
+    """An argparse `type=` that rejects zero and negatives.
+
+    `--n-batches 0` was accepted, discarded by a truthiness guard, and the run went ahead
+    on CONFIG's value — so a smoke run asking for nothing quietly became a full one.  A
+    count that is meaningless at zero should fail at the parser, where argparse prints the
+    flag name and exits 2, rather than three layers down or not at all.
+    """
+    try:
+        n = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not an integer')
+    if n < 1:
+        raise argparse.ArgumentTypeError(f'must be 1 or more, got {n}')
+    return n
+
+
 def _apply_run_spec(args, spec, explicit):
     """Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the
     user explicitly typed on the resume command overrides it (with a warning).  Returns
@@ -197,7 +214,7 @@ def main():
                              'INDEPENDENT audit of that fold plus a quantity anchor. Lower K '
                              'buys more audit points, not more accuracy. Default '
                              f'{CONFIG["global"]["keyframe_interval"]}.')
-    parser.add_argument('--n-batches', type=int, default=None, metavar='N',
+    parser.add_argument('--n-batches', type=_positive_int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
     # The two seeds decide whether two runs are COMPARABLE at all -- same world seed = same
@@ -295,7 +312,9 @@ def main():
 
     # ── apply CLI overrides onto CONFIG (the single source of truth; reconciled w/ run_spec) ──
     g = CONFIG['global']
-    if args.n_batches:
+    # `is not None`, not truthiness: `--n-batches 0` used to be silently discarded here and
+    # the run proceeded on CONFIG's value.  It is rejected at parse time now (_positive_int).
+    if args.n_batches is not None:
         g['n_batches'] = args.n_batches
     # Read at call time by sim_config.seed_world()/seed_batches(), so this reaches the
     # warehouse build and every worker's batch stream.
