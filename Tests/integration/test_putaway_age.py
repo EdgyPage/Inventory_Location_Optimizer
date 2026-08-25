@@ -84,7 +84,7 @@ def test_the_queue_is_age_ordered_whenever_the_drain_reads_it(strategy):
     orig = mgr._stock_ranked if mgr.placement.is_ranked else None
     orig_serve = type(mgr)._serve_order
 
-    def spy(self, pool, units, k, _o=orig_serve):
+    def spy(self, pool, units, k, put_key=None, _o=orig_serve):
         nonlocal groups, n_real, n_unknown
         groups += 1
         ages = [self._age_of.get(id(u), -1) for u in units]
@@ -92,7 +92,7 @@ def test_the_queue_is_age_ordered_whenever_the_drain_reads_it(strategy):
         n_unknown += sum(1 for a in ages if a < 0)
         if ages != sorted(ages):
             violations.append(ages[:12])
-        return _o(self, pool, units, k)
+        return _o(self, pool, units, k, put_key)
 
     # The drain hands `_serve_order` bare units, so map unit -> age at admission time.
     mgr._age_of = {}

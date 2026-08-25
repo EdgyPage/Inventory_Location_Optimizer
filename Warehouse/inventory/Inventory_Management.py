@@ -16,6 +16,7 @@ from Warehouse.kernel.regime import FULFILLMENT, regime_of
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
+from Warehouse.inventory.put_policy import key_for as _put_key_for
 from Warehouse.inventory.put_queue import (
     PutQueueSet, single_queue, store_and_fulfillment)
 from Warehouse.inventory.inventory_common import (
@@ -86,6 +87,36 @@ class _MultiQueueView:
 #: granted in full.  This is the pre-Phase-2 behaviour and stays the default so that turning
 #: the window on is always an explicit act.  See Inventory_Manager._serve_order.
 DEFAULT_PUTAWAY_WINDOW: int | None = None
+
+
+def _windowed(units: list, keys: list, k: int) -> list:
+    """Serve `units` best-first, but only ever choosing from the K oldest still waiting.
+
+    Ranked ONCE from a stable descending sort, then windowed on the rank.  The rank detour
+    is not indirection for its own sake: the first version negated each key for a min-heap,
+    which silently required every key to be a number, and `sku_batched` needs a two-level
+    key.  Ranking also puts the tie rule in one place -- `sorted` is stable, so units the
+    key cannot separate keep their arrival order, which is what a FIFO queue should do
+    anyway.
+
+    Keys are computed once by the caller and reused across every window an item appears in,
+    which is what keeps this O(n log n) rather than O(n*k) key evaluations.
+    """
+    n = len(units)
+    rank = [0] * n
+    for pos, i in enumerate(sorted(range(n), key=lambda j: keys[j], reverse=True)):
+        rank[i] = pos
+    heap = [(rank[i], i) for i in range(k)]
+    heapq.heapify(heap)
+    nxt = k
+    out = []
+    while heap:
+        _r, i = heapq.heappop(heap)
+        out.append(units[i])
+        if nxt < n:                          # the window slides by exactly one placement
+            heapq.heappush(heap, (rank[nxt], nxt))
+            nxt += 1
+    return out
 
 
 def _ranked_by_score(taken: list, prefers_low: bool) -> list:
@@ -1210,7 +1241,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         k = queue.spec.k_cap if queue is not None else None
         return self.putaway_window if k is None else k
 
-    def _serve_order(self, pool, units: list, k: int | None) -> list:
+    def _serve_order(self, pool, units: list, k: int | None, put_key=None) -> list:
         """WHO is served first, out of one BinKey group.  The drain's decision.
 
         `putaway_window` is the tolerance, in units:
@@ -1239,9 +1270,20 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         all of it, which is why everything is still byte-identical -- the seam is real but
         not yet load-bearing.  A finite K-oldest window lands here, and only here.
 
+        `put_key` is the QUEUE's own precedence, from `put_policy`.  When present it
+        replaces the pool's `sort_key` entirely -- the pool still chooses every bin, it just
+        stops choosing who goes first.  `k` then bounds the result exactly as it bounds the
+        pool's own order, so the two knobs compose rather than override each other.
+
         `units` arrives in queue order (the group's insertion order into `_stock_queue`), so
         the FIFO answer is already in hand and needs no extra bookkeeping to recover.
         """
+        if put_key is not None:
+            # The queue has an opinion, so the pool's does not apply. Sorted stably, so
+            # units the key cannot separate keep their arrival order.
+            if k is None or k >= len(units) or len(units) < 2:
+                return sorted(units, key=put_key, reverse=True)
+            return _windowed(units, [put_key(u) for u in units], k)
         if k is None:
             return pool.order(units)
         if k < 1:
@@ -1253,21 +1295,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         keys = [pool.sort_key(u) for u in units]
         if keys[0] is None:                  # no precedence at all: queue order already is
             return units                     # the answer, and the window cannot change it
-
-        # Negate for a min-heap so the policy's HIGHEST key pops first, and carry the
-        # arrival index so a tie goes to the older unit -- the same rule the stable sort in
-        # `order` applies, and the one a FIFO queue should apply anyway.
-        heap = [(-keys[i], i) for i in range(k)]
-        heapq.heapify(heap)
-        nxt = k
-        out = []
-        while heap:
-            _neg, i = heapq.heappop(heap)
-            out.append(units[i])
-            if nxt < n:                      # the window slides by exactly one placement
-                heapq.heappush(heap, (-keys[nxt], nxt))
-                nxt += 1
-        return out
+        return _windowed(units, keys, k)
 
     def _stock_ranked(self, budget: int | None = None, queue=None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
@@ -1321,13 +1349,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             # is exactly the property `BinRecorder`'s cross-call `id()` set could not rely on.
             units   = [it.unit for it in items]
             by_unit = {id(it.unit): it for it in items}
+            # The queue's own precedence, if it has one. Resolved per group because
+            # `sku_batched` is scoped to the waiting set; `by_unit` bridges the drain's bare
+            # units back to the items the policy reads (`age`, `quantity`).
+            _pk = _put_key_for(queue.spec.policy, items)
+            put_key = None if _pk is None else (lambda u: _pk(by_unit[id(u)]))
             if self.placement.is_pooled:
                 # POOLED: the DRAIN owns the order, the pool owns the choice.  One snapshot
                 # per group, exactly as the wave took -- the candidate set never depended on
                 # the order, because every unit in a group shares a BinKey.
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
                 taken = []
-                for unit in self._serve_order(pool, units, window):
+                for unit in self._serve_order(pool, units, window, put_key):
                     bin_, score = pool.take(unit)
                     taken.append((unit, bin_, score))
                 assignments = _ranked_by_score(taken, pool.prefers_low)

@@ -26,6 +26,10 @@ rather than a new mechanism.
 `staging`   how many items may wait at once. None = unbounded. A full queue REFUSES
             admission and the producer holds; it never drops. This is the modelling of
             floor space, and it is what makes pallet FIFO physical rather than stipulated.
+`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`
+            narrows the placement pool's freedom, this REPLACES its opinion with the floor's
+            own — "finish one SKU before starting the next" is a real rule that no placement
+            objective expresses. The two compose.
 `crew`      who does the work — role, mode and speeds. Carried here so a queue's throughput
             is a property of the queue and not a global.
 
@@ -45,6 +49,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from Warehouse.inventory.inventory_common import PutawayItem
+from Warehouse.inventory.put_policy import PUT_POLICIES
 
 #: Unit categories, as `binkey_of(unit)[3]` reports them.
 PALLET = 'pallet'
@@ -69,8 +74,10 @@ class PutQueueSpec:
     k_cap: int | None = None
     #: Maximum items held. None = unbounded.
     staging: int | None = None
-    #: Put-away assignment policy key; None = whatever the manager's placement is. The
-    #: registry that resolves this lands with the put assignment functions.
+    #: Which waiting item to work next -- a key in `put_policy.PUT_POLICIES`.  None or
+    #: 'inherit' means the placement pool's own precedence stands, which is the default.
+    #: Composes with `k_cap`: the policy proposes an order, `k_cap` bounds how far that
+    #: order may depart from arrival order.
     policy: str | None = None
     #: The crew that works this queue. None = the manager's single put crew, i.e. today.
     crew: object | None = field(default=None, compare=False)
@@ -85,6 +92,11 @@ class PutQueueSpec:
         if self.staging is not None and self.staging < 1:
             raise ValueError(f'{self.name}: staging must be >= 1 or None, '
                              f'got {self.staging!r}')
+        # Validated HERE, at construction, so a typo in a swept configuration fails when
+        # the sweep is defined rather than producing a run that looks like a legitimate arm.
+        if self.policy is not None and self.policy not in PUT_POLICIES:
+            raise ValueError(f'{self.name}: unknown put policy {self.policy!r}; '
+                             f'known: {sorted(PUT_POLICIES)}')
 
     def takes(self, category: str | None) -> bool:
         return '*' in self.accepts or category in self.accepts
