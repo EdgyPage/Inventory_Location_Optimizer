@@ -30,9 +30,10 @@ cost quadratic, which is the reason the pool states a `sort_key` rather than sor
 
 # ── what is NOT here yet ──────────────────────────────────────────────────────────
 
-Anything that reads a clock. A "finish what fits before the whistle" rule needs `WorkDay`,
-which does not exist yet; when it does it lands here as one more entry rather than as a
-change to any of these.
+Anything that reads a clock. `Warehouse.kernel.timeline` now has the `WorkDay` such a rule
+would need, but nothing schedules against it yet — a "finish what fits before the whistle"
+policy lands here as one more registry entry once the runner does, rather than as a change
+to any of these.
 """
 from __future__ import annotations
 
