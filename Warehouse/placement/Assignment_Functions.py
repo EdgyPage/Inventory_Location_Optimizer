@@ -565,6 +565,13 @@ class _Pool:
 
     __slots__ = ()
 
+    #: Is a LOWER score better?  Every policy here optimises in one direction, and three of
+    #: them flip it by flag (tmax, rank_maxlabor, expn).  Recording the direction is what
+    #: lets `bin_placement.score_rank` mean one thing across arms: rank 0 is the best choice
+    #: that was available, never "the smallest number".  Without it a consumer would have to
+    #: hard-code which arms maximise, which is exactly the knowledge that rots.
+    prefers_low = True
+
     def order(self, units):
         return units
 
@@ -881,6 +888,10 @@ class _CoDemandPool(_Pool):
     def __len__(self):
         return sum(len(lst) for lst in self._by_aisle.values())
 
+    @property
+    def prefers_low(self):
+        return self._compact           # expansion maximises the distance instead
+
     def order(self, units):
         """Pick-effort priority with the co-occurrence term, descending -- the same key
         `_ranked_assign_impl` uses. `all_idx` is frozen for the whole sort, so a SKU's co
@@ -1108,6 +1119,10 @@ class _RankedAssignPool(_Pool):
         co_occur = self._beta * _demand_weighted_delta_lift(
             self._aff, c.sku, self._all_idx, self._fbi)
         return c.demand.relative_frequency * c.labor_cost + co_occur
+
+    @property
+    def prefers_low(self):
+        return self._minimize          # tmax maximises D on purpose
 
     def order(self, units):
         """Descending pick-effort priority: the highest-effort unit claims the extremal-D
@@ -2039,6 +2054,10 @@ class _MinLaborPool(_Pool):
 
     def __len__(self):
         return sum(len(dq) for g in self._by_aisle_brkt.values() for dq in g.values())
+
+    @property
+    def prefers_low(self):
+        return not self._maximize      # rank_maxlabor is a worst-case control
 
     def order(self, units):
         """Costliest SKUs claim the best (or, for maxlabor, the worst) slots first."""

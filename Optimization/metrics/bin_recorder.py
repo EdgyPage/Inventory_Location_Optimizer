@@ -108,7 +108,8 @@ class BinRecorder:
         orig_place = mgr._execute_placement
         orig_evict = mgr.requeue_bin
 
-        def _execute_placement(unit, bin_, *, source=None):
+        def _execute_placement(unit, bin_, *, source=None,
+                               score=None, score_rank=None, policy=None):
             # `source` is DECLARED by the put-away queue (PutawayItem), not inferred here.
             # It used to be recovered by holding a set of `id(unit)` and testing membership,
             # which worked only because `requeue_bin` re-queues the identical object and it
@@ -129,7 +130,8 @@ class BinRecorder:
             orig_place(unit, bin_, source=source)
             self.placements.append(BinPlacementRecord(
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
-                aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause))
+                aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause,
+                score=score, score_rank=score_rank, policy=policy))
             self._place_seq += 1
             self.units_placed += qty
 

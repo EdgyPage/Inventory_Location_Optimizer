@@ -46,6 +46,27 @@ def _apportion(m: int, weights: list, n: int) -> list:
     return [1 + add[j] for j in range(n)]
 
 
+def _ranked_by_score(taken: list, prefers_low: bool) -> list:
+    """Attach each placement's 0-based rank within its group, best first.
+
+    `prefers_low` comes from the pool, so rank 0 always means "the best choice available"
+    rather than "the smallest number" -- three arms (tmax, rank_maxlabor, expn) optimise
+    upward on purpose, and a consumer should not have to know which.
+
+    Unscored placements (a policy with nothing to report for that unit, or a `None` bin)
+    rank NULL rather than last: they were not worse, they were not measured.  Equal scores
+    share the LOWEST rank, competition-style, so a tie never implies an ordering the policy
+    did not make -- the tie was broken by candidate order, not by the objective.
+    """
+    scored = sorted((t[2] for t in taken if t[1] is not None and t[2] is not None),
+                    reverse=not prefers_low)
+    rank_of: dict = {}
+    for i, sc in enumerate(scored):
+        rank_of.setdefault(sc, i)
+    return [(u, b, sc, (rank_of.get(sc) if (b is not None and sc is not None) else None))
+            for u, b, sc in taken]
+
+
 class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
 
@@ -662,8 +683,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return (None, [])
 
     def _execute_placement(self, unit: StorageUnit, bin_: Aisle.Bin,
-                           *, source: str | None = None) -> None:
+                           *, source: str | None = None,
+                           score: float | None = None,
+                           score_rank: int | None = None,
+                           policy: str | None = None) -> None:
         """Commit one unit→bin placement and update all manager state dicts.
+
+        `score` / `score_rank` / `policy` are what the assignment policy chose on, when
+        there was a policy that computed anything.  Like `source`, the manager does not act
+        on them; they pass through to `BinRecorder`, because this is the one call every
+        put-away funnels through and there is nowhere later to recover them from -- the
+        pools return the number as they decide, and nothing recomputes it.
 
         `source` is the `PutawayItem` origin the drain popped this unit from
         (`intake` / `reorder` / `reslot`), passed through untouched: the manager does not
@@ -1008,20 +1038,27 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 # depended on the order, because every unit in a group shares a BinKey.
                 # Queue order here, which is what the pooled policies already served in.
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
-                assignments = []
+                taken = []
                 # `pool.order` is what the policy WOULD LIKE. Honoured in full while the
                 # window is unbounded; a finite K-oldest window will narrow what it is
                 # allowed to reorder, which is the point of asking rather than obeying.
                 for unit in pool.order(units):
-                    bin_, _score = pool.take(unit)
-                    assignments.append((unit, bin_))
+                    bin_, score = pool.take(unit)
+                    taken.append((unit, bin_, score))
+                assignments = _ranked_by_score(taken, pool.prefers_low)
             else:
                 # Ranked assignments — high pick-effort units claim the best bins first.
-                assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
-            for unit, bin_ in assignments:
+                # A wave has no score to report: it returns bins, and there is no
+                # "score this bin for this unit" step to call afterwards. That absence is
+                # the whole reason the pool returns one.
+                assignments = [(u, b, None, None) for u, b in
+                               self.placement.place_wave(units, self._candidates)]  # type: ignore[misc]
+            for unit, bin_, score, rank in assignments:
                 if bin_ is not None:
                     self._execute_placement(unit, bin_,
-                                            source=by_unit[id(unit)].source)
+                                            source=by_unit[id(unit)].source,
+                                            score=score, score_rank=rank,
+                                            policy=self.placement.name)
                     placed += 1
                 else:
                     # The wave couldn't place this unit: place_wave takes a single

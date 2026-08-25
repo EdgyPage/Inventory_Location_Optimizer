@@ -565,6 +565,28 @@ _CREATE_BIN_PLACEMENT = """
         sku      INTEGER NOT NULL,
         qty      INTEGER NOT NULL,   -- units placed into this bin
         cause    TEXT    NOT NULL,   -- 'initial'|'reorder'|'reslot'
+        -- The number the assignment policy MINIMISED (or maximised) to choose this bin,
+        -- captured at the moment of choice.  Units differ by policy and are not comparable
+        -- across arms: seconds of anchor gap for the map policies, seconds of marginal
+        -- labor for the balancers, seconds of column distance for compaction.  `policy`
+        -- says which.  NULL means no score was available, which happens three ways: a
+        -- non-scoring policy (uniform/FIFO), the per-unit straggler path taken when a
+        -- group's snapshot is exhausted, or a policy with nothing to report for that unit
+        -- (an unmapped SKU, a cold start with no partner placed yet, a capped least-prime
+        -- fallback chosen on a different rule).  A zero would claim a perfect placement.
+        score      REAL,
+        -- 0-based rank of `score` among the scored placements of the same GROUP, best
+        -- first in that policy's own direction — so rank 0 is always the best choice
+        -- available at that moment, whether the policy minimises or maximises.  This is
+        -- the only record of group membership: `bin_placement` has no group column, so a
+        -- consumer cannot recover the ranking from `score` alone.  It is also the column
+        -- the FIFO work is aimed at — under ranked ordering, rank correlates with queue
+        -- position; under a FIFO window it should not.
+        score_rank INTEGER,
+        -- Which assignment policy chose it.  Constant per run today (simulation_runs
+        -- already names the strategy) and deliberately on the row anyway: put-away queues
+        -- get their own policies next, at which point one run writes several.
+        policy     TEXT,
         PRIMARY KEY (run_id, batch_id, seq)
     ) WITHOUT ROWID
 """
@@ -741,7 +763,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 whole published archive was written with.
     #   1a594605a10e  work_events arrived; batch_stats still had no demand side.  A
     #                 short window (2026-08-24) -- no published run used it.
-    known_ids=('1a594605a10e',
+    #   96b8e37f158d  batch_stats gained items_demanded, before bin_placement carried the
+    #                 placement score.  A short window (2026-08-22 .. 2026-08-24) -- no
+    #                 published run used it.
+    known_ids=('96b8e37f158d',
+              '1a594605a10e',
               '6ad0b34af9f1',
                PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
 ))
@@ -1873,6 +1899,11 @@ class BinPlacementRecord:
     sku:      int
     qty:      int
     cause:    str    # 'initial' | 'reorder' | 'reslot'
+    # Defaulted, so every existing construction site keeps working and an unscored path
+    # says so by omission rather than by inventing a number.  See the DDL comment.
+    score:      float | None = None
+    score_rank: int   | None = None
+    policy:     str   | None = None
 
 
 @dataclass
@@ -1902,9 +1933,11 @@ def save_bin_placements(path: str, run_id: int, records: list) -> None:
 def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT OR REPLACE INTO bin_placement '
-        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
-        [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause)
+        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, '
+        ' score, score_rank, policy) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause,
+          r.score, r.score_rank, r.policy)
          for r in records])
 
 
