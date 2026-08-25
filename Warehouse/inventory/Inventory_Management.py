@@ -18,7 +18,8 @@ from Warehouse.kernel.regime import FULFILLMENT, regime_of
 from Warehouse.inventory.inventory_common import (
     PutawayItem,
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
-    BinKey, binkey_of, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for, UNIT_CLASSES,
+    BinKey, binkey_of, is_forward_pick, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
+    UNIT_CLASSES,
     _equilibrium_qty, _max_qty_fitting_size,
     _uniform_assignment, _wp_for, _SortedBins,
 )
@@ -300,7 +301,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 if idx is not None:
                     self._aisle_idx_sets[aid].add(idx)
                     self._aisle_member_pos[aid][idx].append(bin_.x_phys)
-                if bin_.unit_type == 'singleton':
+                if is_forward_pick(bin_):
                     self._sku_singleton_bins[sku].add(bin_)
                 else:
                     self._sku_pallet_bins[sku].add(bin_)
@@ -699,7 +700,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._current_quantities[sku] = (
             self._current_quantities.get(sku, 0) + unit.quantity
         )
-        if isinstance(unit, Singleton):
+        if is_forward_pick(unit):
             self._sku_singleton_bins[sku].add(bin_)
         else:
             self._sku_pallet_bins[sku].add(bin_)

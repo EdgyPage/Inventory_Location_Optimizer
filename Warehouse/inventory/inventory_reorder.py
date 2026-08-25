@@ -13,7 +13,8 @@ import random
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
-from Warehouse.inventory.inventory_common import PutawayItem, _equilibrium_qty
+from Warehouse.inventory.inventory_common import (
+    PutawayItem, is_forward_pick, _equilibrium_qty)
 
 
 class ReorderMixin:
@@ -48,7 +49,7 @@ class ReorderMixin:
         bin_.storage = None
         self._unavailable.pop(id(bin_), None)
         self._bin_sku.pop(id(bin_), None)
-        (self._sku_singleton_bins if bin_.unit_type == 'singleton'
+        (self._sku_singleton_bins if is_forward_pick(bin_)
          else self._sku_pallet_bins)[sku].discard(bin_)
         self._index_add(bin_)
 
@@ -224,7 +225,7 @@ class ReorderMixin:
             bin_id = id(bin_)
             sku    = bin_sku.pop(bin_id, None)
             if sku is not None:
-                lst = (sku_singleton if bin_.unit_type == 'singleton' else sku_pallet).get(sku)
+                lst = (sku_singleton if is_forward_pick(bin_) else sku_pallet).get(sku)
                 if lst:
                     lst.discard(bin_)
                 if has_affinity:

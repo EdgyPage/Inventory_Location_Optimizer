@@ -258,6 +258,33 @@ def binkey_of(obj) -> BinKey:
     return (obj.handling_type, obj.storage_type, obj.storage_size, obj.unit_type)
 
 
+#: The unit family whose bins are FORWARD-PICK locations.  Everything else is reserve.
+FORWARD_PICK_FAMILY = 'singleton'
+
+
+def is_forward_pick(obj) -> bool:
+    """Whether a unit or a bin belongs to the FORWARD-PICK index rather than reserve.
+
+    `Task.from_batch` drains `_sku_singleton_bins` before `_sku_pallet_bins` "so that
+    forward-pick locations are always preferred over reserve locations" -- this is the
+    predicate that decides which of those two a bin is filed under.
+
+    Duck-typed through `binkey_of`, which is what lets ONE expression serve both sides.
+    It replaced three: `isinstance(unit, Singleton)` on the unit side and
+    `bin_.unit_type == 'singleton'` twice on the bin side.  Those agreed, but only because
+    `_candidates_raw` matches `unit_type` EXACTLY in every branch, so a unit never reaches
+    a bin of another family -- an invariant nothing stated and nothing checked.  Three
+    spellings of one concept, two of them on the opposite object from the third, is a
+    disagreement with a delay on it.
+
+    FULFILLMENT IS NOT FORWARD-PICK, and that is deliberate rather than overlooked: a
+    fulfillment SKU has exactly one bin family, so the two-phase drain is a no-op for it
+    and everything lands in the reserve index.  If fulfillment ever grows a forward/reserve
+    split, this is the one place that decides it.
+    """
+    return binkey_of(obj)[3] == FORWARD_PICK_FAMILY
+
+
 def _equilibrium_qty(order: Order) -> int:
     """Return the Order-Up-To target for *order*.
 
