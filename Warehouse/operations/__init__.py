@@ -1,8 +1,12 @@
 """operations — WHO does the work: roles, modes, workers, crews.
 
-The domain's actor model, split out from the pick simulation so a second work stream can
-reuse it.  Imports `Warehouse/kernel/` and nothing else, so a future `Warehouse/inbound/`
-needs no dependency inversion to build a crew of unloaders.
+The domain's actor model plus the operations themselves, split out from the pick simulation
+so a second work stream can reuse it.  Imports the kernel and the VALUE layers (`wh_layout`,
+`wh_catalog`) but none of the machinery that consumes them -- not the pick simulation, the
+placement engine, the assignment functions or the run harness -- so a future
+`Warehouse/inbound/` needs no dependency inversion to build a crew of unloaders.  (An older
+version of this line said "kernel and nothing else", which no rule enforced and which
+`inbound.receive`'s call to `viable_storage_units` already contradicted.)
 
     Role     pick | put
     Mode     foot | machine          -- the axis that decides speed

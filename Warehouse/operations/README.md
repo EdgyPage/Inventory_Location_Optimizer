@@ -20,10 +20,17 @@ instead of reimplementing it.
   forbids `wh_kernel → *` — so the kernel cannot import this package, and putting the value
   here would force an inversion. The value lives in the kernel; *whose* value it is lives
   here.
-- **Anything that reads the run harness.** This package imports `Warehouse/kernel/` and
-  nothing else. `wh_operations → optimization` is forbidden in `architecture.yml` for the
-  same reason it is forbidden for `wh_picking`: a crew is built from picklable values handed
-  to a worker, never from `CONFIG`.
+- **Anything that reads the run harness.** `wh_operations → optimization` is forbidden in
+  `architecture.yml` for the same reason it is forbidden for `wh_picking`: a crew is built
+  from picklable values handed to a worker, never from `CONFIG`. Three more edges are
+  forbidden alongside it — `wh_picking`, `wh_inventory`, `wh_placement` — so an operation
+  never depends on the machinery that consumes it.
+
+  What IS allowed, and what an older version of this sentence wrongly denied: the **value**
+  layers. `wh_kernel` for the cost primitives, and `wh_layout` / `wh_catalog` because an
+  operation on merchandise has to know what a pallet and an `Order` are — `inbound.receive`
+  calls `viable_storage_units`. The rule is *values in, machinery out*, and the four `forbid`
+  entries are its whole enforcement.
 - **Scheduling.** Which worker gets which task is `Warehouse/kernel/allocation.partition`
   plus `Pick.assign_tasks`. This package says who exists, not who does what.
 - **Event records.** A `PickEvent` stays in `Warehouse/picking/`; the merged cross-stream

@@ -69,10 +69,18 @@ boundaries:
   - {forbid: [wh_picking, optimization],     why: "the pick simulation must not import the run harness — it is handed a PickConfig, never CONFIG"}
   - {forbid: [wh_inventory, optimization],   why: "the placement engine must not import the run harness; a worker builds it from picklable values"}
   - {forbid: [wh_placement, optimization],   why: "an assignment function must not import the run harness — it is a closure over its own inputs"}
-  # wh_operations is the actor model (who does the work).  It may import wh_kernel and
-  # NOTHING else in the domain, so a future Warehouse/inbound/ can build a crew of
-  # unloaders without inverting a dependency — and so the pick simulation depends on it
-  # rather than the reverse.
+  # wh_operations is the actor model (who does the work) plus the OPERATIONS themselves
+  # (putaway.put_cost, inbound.receive).  It may import wh_kernel and the VALUE layers
+  # (wh_layout, wh_catalog) — an operation on merchandise has to know what a pallet and an
+  # Order are — but not the MACHINERY that consumes those values: not the pick simulation,
+  # not the placement engine, not the assignment functions, and never the run harness.  So
+  # a future Warehouse/inbound/ can build a crew of unloaders without inverting a
+  # dependency, and the pick simulation depends on this package rather than the reverse.
+  #
+  # An earlier version of this comment said "wh_kernel and NOTHING else in the domain",
+  # which four `forbid` rules never enforced and `inbound.py` already contradicted by
+  # importing `Warehouse.layout.Storage_Primitive`.  The four rules below are the real
+  # contract; the prose now describes them instead of a stricter one nobody checked.
   - {forbid: [wh_operations, optimization], why: "a crew is built from picklable values handed to a worker, never from CONFIG"}
   - {forbid: [wh_operations, wh_picking],   why: "who does the work must not depend on the pick simulation — the second stream is not a picker"}
   - {forbid: [wh_operations, wh_inventory], why: "an actor must not depend on the placement engine"}
