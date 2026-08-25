@@ -1,4 +1,5 @@
 import bisect
+import logging
 import heapq
 from collections import defaultdict, deque
 from typing import Any
@@ -13,6 +14,10 @@ from Warehouse.layout.Storage_Primitive import (
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.kernel.cost_model import sec_per_inch
 from Warehouse.kernel.regime import FULFILLMENT, regime_of
+
+# Matches inventory_optimal.py's `log`; the refill cap in _stock is the only site, and a
+# NameError there would fire ONLY in the pathological case it exists to report.
+log = logging.getLogger(__name__)
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
@@ -82,6 +87,12 @@ class _MultiQueueView:
     def __repr__(self):
         return f'<put-away: {self._qs.depth} waiting across {len(self._qs)} queues>'
 
+
+#: Backstop on the admit/drain refill loop in `_stock`.  Not a modelling parameter: the loop
+#: already terminates when a pass places nothing, so reaching this means something pathological
+#: (a staging limit far below the arrival rate).  It logs loudly rather than spinning, because
+#: a hung worker in a 272-arm sweep is the most expensive failure mode there is.
+_MAX_REFILL_PASSES = 10_000
 
 #: Default put-away tolerance: unbounded, i.e. the assignment policy's requested order is
 #: granted in full.  This is the pre-Phase-2 behaviour and stays the default so that turning
@@ -967,25 +978,53 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # One queue at a time, in spec order.  A shared budget spends down across them:
         # it models a finite crew-hour allowance for the call, and splitting it per queue
         # would make the cap depend on how the streams happen to be configured.
-        # Anything the floor refused earlier gets first claim on the space that just
-        # freed up -- before this call places anything, so a held item cannot be overtaken
-        # by whatever arrives during it.
-        self._admit_held()
+        #
+        # The outer pass exists because STAGING BOUNDS THE BACKLOG, NOT THE THROUGHPUT.  A
+        # dock with room for eight pallets still moves hundreds in a day: you put one away
+        # and another comes off the truck into the space it left.  Admitting the held items
+        # once and draining once made `staging` a per-call quota -- measured at exactly
+        # `staging` placements per call, for every value of it.  So: admit, drain, and go
+        # round again while the floor is still holding work AND the last pass actually
+        # moved something.
+        #
+        # `_admit_held` runs FIRST, before anything is placed, so a held item cannot be
+        # overtaken by whatever arrives during the call.
         self._placed_this_call = 0
-        for queue in self.put_queues:
+        _passes = 0
+        while True:
+            _passes += 1
+            self._admit_held()
+            _before_pass = self._placed_this_call
+            for queue in self.put_queues:
+                if budget is not None and budget <= 0:
+                    break
+                if not queue.items:
+                    continue
+                before = self._placed_this_call
+                if self.placement.is_ranked:
+                    self._stock_ranked(budget, queue)
+                else:
+                    self._stock_per_unit(budget, queue)
+                spent = self._placed_this_call - before
+                queue.placed += spent
+                if budget is not None:
+                    budget -= spent
+            # Stop when the floor is empty of held work, when the budget is gone, or when a
+            # whole pass placed nothing -- the last is the termination guarantee: without it
+            # a queue whose units no bin can hold would spin forever.
+            if not self._held:
+                break
             if budget is not None and budget <= 0:
                 break
-            if not queue.items:
-                continue
-            before = self._placed_this_call
-            if self.placement.is_ranked:
-                self._stock_ranked(budget, queue)
-            else:
-                self._stock_per_unit(budget, queue)
-            spent = self._placed_this_call - before
-            queue.placed += spent
-            if budget is not None:
-                budget -= spent
+            if self._placed_this_call == _before_pass:
+                break
+            if _passes >= _MAX_REFILL_PASSES:
+                log.error(
+                    'put-away refill hit the %d-pass cap with %d item(s) still held; '
+                    'staging is so tight relative to the arrival rate that the drain '
+                    'cannot clear it, and this call is giving up rather than spinning',
+                    _MAX_REFILL_PASSES, len(self._held))
+                break
 
     def _stock_per_unit(self, budget: int | None = None, queue=None) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
