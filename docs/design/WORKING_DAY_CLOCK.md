@@ -186,7 +186,12 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 6 | Put-away rollover: the whistle is a START gate on the put crews, and `put_queue_state.cut` says what it left standing. | Cut OFF: byte-identical (1027/1164 digests; the rest are the two new columns and the two timestamp tables). | **done** `90cd7a8` |
 | 7 | Resume: batch granularity REFUSES while the carry is on, because `_pending` is in no checkpoint and resuming would drop demand. Strategy granularity — the default — replays from batch 0 and needed nothing. | Default path untouched. | **done** `d410ac0` |
 | 8 | Analysis: `throughput_elapsed`, measured against the elapsed day rather than the batch makespan. | Identical to `throughput` under the continuous default, bit for bit. | **done** |
-| 6b | Inbound HOURS — does the receiving dock have a day of its own? | n/a — needs a decision first. | **blocked on §8's question** |
+| 6b | Inbound HOURS — does the receiving dock have a day of its own? | n/a | **deferred: out of the approved plan's scope** |
+
+**The sequence is complete.** 6b is listed so the question is not lost, not because it is
+owed: the approved plan's own "Deliberately not in scope" section defers inbound, trailers,
+docks and a sorter, and 6b is that feature. It needs a decision before it needs code, and §8
+states the decision.
 
 **Step 7 shrank to one guard, and the reason is worth keeping.** The step listed five pieces
 of state to carry across a resume (day clock, pending demand, held items, queue depths, the
@@ -214,10 +219,11 @@ an arrival a full floor cannot take is already `_held` and already retried by th
 drain's `_admit_held`, with `blocked` counting the refusals — that *is* rollover, built with
 the staging limit in step 13. What was genuinely missing on the inbound side was a *name* for
 the arrival, so that a shipment split across trailers packs per delivery rather than as one
-lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`). Step 6b is now
-only the question the day clock actually raises: whether the receiving dock has hours of its
-own, distinct from the put crews'. **It needs a decision before it needs code — see §8, and
-it is the only step of this sequence still open.**
+lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`). What is left of
+the row is only the question the day clock actually raises — whether the receiving dock has
+hours of its own, distinct from the put crews' — and that is the inbound feature the approved
+plan deferred, not a step of this sequence. It is listed as 6b so the question is not lost;
+§8 states the decision it needs.
 
 **The put cut is a START gate, and that asymmetry with the pick cut is deliberate.** A pick
 path is long and divisible, so it truncates mid-bin. A put is one unit into one bin. A
