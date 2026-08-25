@@ -70,6 +70,13 @@ class BatchStats:
     # `frames.py` divides by what was PICKED, which makes failing to pick look cheap.
     # 0 on a pre-column vintage; `items_demanded >= total_items` always.
     items_demanded: int = 0
+    # ── the receiving dock ───────────────────────────────────────────────────────
+    # 0 on every run with no receiving crew, which is what a pre-dock vintage also reads --
+    # correctly, because such a run genuinely received nothing as labour.
+    recv_depth: int = 0        # LEVEL: storage units still on the dock (see `queue_depth`)
+    recv_unloaded: int = 0     # FLOW: storage units taken off a trailer this batch
+    recv_cut: int = 0          # FLOW: storage units the receiving whistle left standing
+    recv_seconds: float = 0.0  # FLOW: receiving labour, seconds (never in `putaway_seconds`)
     # Which working day this batch was released into, and by how many seconds it missed its
     # slot.  Both 0 under the continuous default, which has no day structure and no slots.
     work_day: int = 0
@@ -289,6 +296,26 @@ _CREATE_BATCH_STATS = """
         -- the model has no picker contention, so a batch cannot begin while the crew is
         -- busy -- and that clamp ERASES the miss.  This is the only record of it.
         released_late          REAL    NOT NULL DEFAULT 0,
+        -- ── the receiving dock ───────────────────────────────────────────────────
+        -- All four are 0 on a run with no receiving crew, which is every run before
+        -- 2026-08-25 and every run that does not ask for one.  Counted in STORAGE UNITS
+        -- (packs), never merchandise units, exactly like `queue_depth`.
+        --
+        -- LEVEL: storage units standing on the dock after this batch's receiving pass.
+        -- DISJOINT from `queue_depth`, which counts the put queues and the held items: a
+        -- unit is on the dock or past it, never both.  A reader wanting the whole unbinned
+        -- backlog therefore SUMS the two rather than picking one.
+        recv_depth             INTEGER NOT NULL DEFAULT 0,
+        -- FLOW: storage units the receiving crew took off a trailer this batch.
+        recv_unloaded          INTEGER NOT NULL DEFAULT 0,
+        -- FLOW: storage units the crew's whistle left standing.  The twin of
+        -- `put_queue_state.cut`, and the only record that the day bounded receiving at all
+        -- -- `recv_depth` alone cannot separate "a deep dock nobody reached" from "a shallow
+        -- one the day cut hard".
+        recv_cut               INTEGER NOT NULL DEFAULT 0,
+        -- FLOW: seconds of receiving labour.  NOT included in any put-away total; folding
+        -- them together would silently widen an already-published figure.
+        recv_seconds           REAL    NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -871,7 +898,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   0ab75b4fabc2  task_stats separated realized from planned, before put_queue_state
     #                 recorded the cart swaps and the day's cut.  A short window
     #                 (2026-08-25) -- no published run used it.
-    known_ids=('8af17e7d417e',
+    #   8af17e7d417e  put_queue_state gained cart_swaps + cut, before batch_stats recorded
+    #                 what the receiving dock did.  A short window (2026-08-25) -- no
+    #                 published run used it.
+    known_ids=('31cb7d1b1199',
+              '8af17e7d417e',
               '0ab75b4fabc2',
               'c33feeed3975',
               'f43d8b5931a4',
@@ -1084,7 +1115,9 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    # the query below is built from these names, so a missing one is simply
                    # never selected.  These two shipped that way and reported 0 for a run
                    # that recorded a real working day.
-                   'work_day': 0, 'released_late': 0.0}
+                   'work_day': 0, 'released_late': 0.0,
+                   'recv_depth': 0, 'recv_unloaded': 0, 'recv_cut': 0,
+                   'recv_seconds': 0.0}
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
@@ -1454,8 +1487,9 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
         'batch_start_time,batch_end_time,'
         'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
         'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,'
-        'work_day,released_late,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'work_day,released_late,'
+        'recv_depth,recv_unloaded,recv_cut,recv_seconds,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
              r.task_makespan, r.thr_task, r.thr_batch,
@@ -1464,6 +1498,8 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
              r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
              r.queue_depth, r.lead_queue_depth, r.in_transit_qty, r.items_demanded,
              getattr(r, 'work_day', 0), getattr(r, 'released_late', 0.0),
+             getattr(r, 'recv_depth', 0), getattr(r, 'recv_unloaded', 0),
+             getattr(r, 'recv_cut', 0), getattr(r, 'recv_seconds', 0.0),
              int(r.is_outlier))
             for r in records
         ],

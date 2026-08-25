@@ -884,6 +884,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # real numbers via INSERT OR REPLACE.
         pqs.extend(mgr.queue_state_rows(i))
         cov.extend(mgr.carryover_rows(i))
+        # The dock's four numbers, snapshotted HERE for the same reason and with the same
+        # discipline: `receiving_snapshot` resets its three flows, so exactly one call per
+        # batch, above the skip guard so both paths get it.  `(0, 0, 0, 0.0)` when there is
+        # no receiving crew, which keeps the row shape identical either way rather than
+        # leaving a NULL every consumer has to special-case.
+        _rcv = mgr.receiving_snapshot()
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
@@ -998,6 +1004,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 put_workers=_put_workers, put_crews=_put_crews,
                 shift_seconds=_shift_seconds)
             _bs.work_day      = _release.day_of(i)
+            (_bs.recv_depth, _bs.recv_unloaded,
+             _bs.recv_cut, _bs.recv_seconds) = _rcv
             _bs.released_late = _late
             pb.append(_bs)
             we.extend(_we_skip)
@@ -1046,6 +1054,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # over-picking against a demand that never included it.
         bs.items_demanded     = sum(_eff_batch.items.values())
         bs.work_day           = _release.day_of(i)
+        (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
         bs.released_late      = _late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
         # number comes from the place that knows it -- none is re-derived as a residual,
