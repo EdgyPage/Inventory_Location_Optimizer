@@ -163,10 +163,10 @@ a consumer — extends to this: no defect without its fix in the same step.
 |---|---|
 | **Put-away and inbound never roll over.** The requirement says "if the work from pick or puts or inbound does not complete"; only picking was addressed. | step 6 |
 | **Nothing records which working day a batch belongs to**, so no analysis can group by day. | step 3 — **done**, `batch_stats.work_day` |
-| **The run params cannot say what day length a run used**, so two runs are not comparable. | step 3's debt, closed in step 4 |
-| **No end-to-end run with the cut on**, anywhere in the verification. | step 4 |
-| **Every cut task reports its full planned workload against partial time**, so a truncated task reads as artificially efficient. No realized-items field exists to fix it with. | step 4 |
-| **No bound on the carry, and no test that it is bounded.** A carry that grows every batch is a runaway that looks like demand. | step 5 |
+| **The run params cannot say what day length a run used**, so two runs are not comparable. | step 4c |
+| **No end-to-end run with the cut on**, anywhere in the verification. | step 4b — **done** |
+| **Every cut task reports its full planned workload against partial time.** | step 4a — **done** |
+| **No bound on the carry, and no test that it is bounded.** | step 4b — **done**, and the answer is that it is NOT bounded, deliberately. At a 1,000 s day the backlog never clears. That is a warehouse which cannot keep up, and the carry exists to make it visible rather than to cap it; a test asserts the backlog stays reported. |
 | **The analysis layer's time axis is never widened**, so published throughput figures go wrong under any schedule with gaps in it. | step 8 |
 
 ## 5. The sequence that replaces it
@@ -179,8 +179,10 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 2 | `WorkDay` + `ReleaseSchedule` as pure kernel values, fully tested, **not wired**. | Yes — nothing imports them, and a ratchet enforces it. | **done** `3c19dc0` |
 | 3 | Wire the schedule to the release instant; record which day a batch is in and whether its slot was missed. | Only `batch_stats`' two new columns move; its pre-existing columns are 68/68 identical. | **done** `cf2446b` |
 | 3b | The **event-by-event** lockstep test, written against UNCHANGED loops and passing on them. | n/a — a test only. Passes today across both schedulers, both lane models, 1 and 3 pickers, four start-time epochs, five fixtures and twelve randomized workloads. | **done** `c68770e` |
-| 4 | **next** — the day cut in both loops **and** the call site that passes `day_end`, in ONE commit. Plus: realized items on `TaskStats`, the day length in run params, and an end-to-end run with the cut on. | No, by design. | |
-| 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover, a bound on the carry, and a test that the bound holds. | No, by design. | |
+| 4a | Realized items and bins on `TaskStats`, so a truncated task cannot report a full workload against partial time. | Only `task_stats`' two new columns move. | **done** `de1ee6e` |
+| 4b | The day cut in both loops, the call site that passes `day_end`, and the carry re-picked next batch — one commit, so no half is dead. Includes the end-to-end run. | Cut OFF: byte-identical. Cut ON: different by design. | **done** `4e6b3c6` |
+| 4c | The day length and release cadence in the run params, so two runs with different days are distinguishable. | Adds run metadata only. | **next** |
+| 5 | Rollover for the OTHER cause — the live-stock clamp, `unpicked_unavailable` — merged with the cut's carry under one reason column. | No, by design. | |
 | 6 | Put-away and inbound rollover. | No. | |
 | 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
 | 8 | Analysis: widen the time axis so a schedule with gaps does not corrupt published throughput. | No — it corrects figures that are currently wrong under a paced schedule. | |
@@ -242,3 +244,23 @@ Two naming constraints carry through all of it:
   cumulative sum; the runner computes it directly.
 - `Warehouse/kernel/README.md`'s module table omits two modules that have been in the kernel for
   some time. Nothing verifies that table, so it will keep drifting.
+
+## 7. What the cut actually costs, measured
+
+A 300-SKU arm over ten batches, per-batch conservation asserted on every batch of every run.
+
+| day length | picked | cuts | backlog |
+|---|---|---|---|
+| none / 100,000 s / 20,000 s | 4,000 | 0 | never carries |
+| 5,000 s | 3,983 | 20 | spikes to 345, clears |
+| 2,000 s | 3,954 | 43 | oscillates, clears |
+| 1,000 s | 3,477 | 88 | never clears — **growing** |
+
+The last row is the honest answer to "is the carry bounded": it is not, and it should not be.
+A day too short for the demand leaves work behind every batch, and the carry's job is to make
+that visible rather than to cap it.
+
+One accounting trap, recorded because the first measurement produced a scary and meaningless
+"LOST 345": summing SCHEDULED work across batches is not a conservation quantity. A batch's
+scheduled work includes the previous batch's carry, so the sum double-counts every carried
+unit. The invariant is per batch — `picked_i + carried_i == scheduled_i` — and it holds.
