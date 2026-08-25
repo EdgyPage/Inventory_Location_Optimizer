@@ -155,15 +155,19 @@ would be wrong the day it shipped.
 
 ## 4. What the plan does not cover at all
 
-- **Put-away and inbound never roll over.** The requirement says "if the work from pick or puts
-  or inbound does not complete" — only picking is addressed.
-- **Nothing records which working day a batch belongs to**, so no analysis can group by day.
-- **The run params cannot say what day length a run used**, so two runs are not comparable.
-- **No end-to-end run with the cut on**, anywhere in the plan's verification.
-- **Every cut task reports its full planned workload against partial time**, so a truncated task
-  reads as artificially efficient. There is no realized-items field to fix it with.
-- **The analysis layer's time axis is never widened**, so published throughput figures go wrong
-  under any schedule with gaps in it.
+Each of these is now folded into the §5 step that CREATES the problem it describes, rather
+than left as a trailing wish-list. The rule that made the sequence work — no producer without
+a consumer — extends to this: no defect without its fix in the same step.
+
+| Gap | Where it lands |
+|---|---|
+| **Put-away and inbound never roll over.** The requirement says "if the work from pick or puts or inbound does not complete"; only picking was addressed. | step 6 |
+| **Nothing records which working day a batch belongs to**, so no analysis can group by day. | step 3 — **done**, `batch_stats.work_day` |
+| **The run params cannot say what day length a run used**, so two runs are not comparable. | step 3's debt, closed in step 4 |
+| **No end-to-end run with the cut on**, anywhere in the verification. | step 4 |
+| **Every cut task reports its full planned workload against partial time**, so a truncated task reads as artificially efficient. No realized-items field exists to fix it with. | step 4 |
+| **No bound on the carry, and no test that it is bounded.** A carry that grows every batch is a runaway that looks like demand. | step 5 |
+| **The analysis layer's time axis is never widened**, so published throughput figures go wrong under any schedule with gaps in it. | step 8 |
 
 ## 5. The sequence that replaces it
 
@@ -173,11 +177,21 @@ Each step is independently verifiable, and no step leaves a producer without a c
 |---|---|---|---|
 | 1 | A skipped batch closes its own books: drains its put-away records, writes a zero-duration row, and `thr_batch` goes NaN rather than 0.0. | Yes, but **vacuously** — no arm in the sweep skips a batch, so the changed path never runs. Five behavioural sabotages are the evidence instead. | **done** `6d48907` |
 | 2 | `WorkDay` + `ReleaseSchedule` as pure kernel values, fully tested, **not wired**. | Yes — nothing imports them, and a ratchet enforces it. | **done** `3c19dc0` |
-| 3 | Wire the schedule to the release instant; record which day a batch is in and whether its slot was missed. | Default (continuous) reproduces step 2. | next |
-| 4 | The day cut in both loops **and** the call site that passes `day_end`, in ONE commit. | No, by design. | |
-| 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover. | No, by design. | |
+| 3 | Wire the schedule to the release instant; record which day a batch is in and whether its slot was missed. | Only `batch_stats`' two new columns move; its pre-existing columns are 68/68 identical. | **done** `cf2446b` |
+| 3b | The **event-by-event** lockstep test, written against UNCHANGED loops and passing on them. | n/a — a test only. | **next** |
+| 4 | The day cut in both loops **and** the call site that passes `day_end`, in ONE commit. Plus: realized items on `TaskStats`, the day length in run params, and an end-to-end run with the cut on. | No, by design. | |
+| 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover, a bound on the carry, and a test that the bound holds. | No, by design. | |
 | 6 | Put-away and inbound rollover. | No. | |
 | 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
+| 8 | Analysis: widen the time axis so a schedule with gaps does not corrupt published throughput. | No — it corrects figures that are currently wrong under a paced schedule. | |
+
+**Step 3b is a precondition, not a nicety, and it has to come first for a reason that is easy
+to get backwards.** Every lockstep guard today compares an AGGREGATE, so two loops could stamp
+identical totals on differently-shaped event streams and pass all three — and a day cut is
+exactly the change most likely to reshape a stream while leaving its totals intact. Writing
+the event-by-event comparison AFTER the cut would leave no way to tell whether a divergence it
+reports is the cut or a difference that was always there. It has to pass on unchanged loops
+first; that run is the baseline.
 
 **Step 1 shipped narrower than this table first said, and the reason is worth keeping.** It was
 planned as "clock stall + drain leak, reverses a stated decision". It did not touch the clock:
@@ -192,6 +206,18 @@ model has no picker contention: a batch cannot begin while the crew is still wor
 previous one. So `release_at` clamps to the ready instant, the schedule is simply *missed*, and
 `missed_by` records by how much. The cut makes overruns less likely, not more, so the two
 compose. Step 3 states this where the wiring happens.
+
+**Step 3 left one debt, named here so it is not lost.** A run can now be given a non-default
+day length and release cadence, and nothing writes either into the run params — so two runs
+with different days are indistinguishable after the fact. It is small, it belongs with the
+first commit that makes a non-default schedule worth running, and that is step 4.
+
+### This supersedes the approved plan
+
+The four-commit plan this document corrects should not be worked from again; §2 and §3 say why.
+This §5 is the operative sequence, and it is kept current as steps land rather than being
+re-derived somewhere else. A second plan document would give one thing two homes, and the
+one that is not being edited is the one someone will read.
 
 Two naming constraints carry through all of it:
 
