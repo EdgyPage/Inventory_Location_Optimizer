@@ -70,6 +70,10 @@ class BatchStats:
     # `frames.py` divides by what was PICKED, which makes failing to pick look cheap.
     # 0 on a pre-column vintage; `items_demanded >= total_items` always.
     items_demanded: int = 0
+    # Which working day this batch was released into, and by how many seconds it missed its
+    # slot.  Both 0 under the continuous default, which has no day structure and no slots.
+    work_day: int = 0
+    released_late: float = 0.0
     is_outlier: bool = False
 
 
@@ -268,6 +272,16 @@ _CREATE_BATCH_STATS = """
         queue_depth            INTEGER NOT NULL DEFAULT 0,
         lead_queue_depth       INTEGER NOT NULL DEFAULT 0,
         in_transit_qty         INTEGER NOT NULL DEFAULT 0,
+        -- Which working day this batch was released into, 0-based.  Always 0 under the
+        -- continuous default: that schedule has no day structure to place a batch in.
+        -- Without this no analysis can group a result BY DAY, which is the unit the whole
+        -- working-day model is expressed in.
+        work_day               INTEGER NOT NULL DEFAULT 0,
+        -- Seconds by which this batch missed its scheduled slot, because the crew was still
+        -- working the previous one.  The release clamps to when the arm is actually free --
+        -- the model has no picker contention, so a batch cannot begin while the crew is
+        -- busy -- and that clamp ERASES the miss.  This is the only record of it.
+        released_late          REAL    NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -818,7 +832,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   8114cc4332eb  bin_placement carried the placement score, before the put-away
     #                 queues gained their own state and carryover tables.  A short
     #                 window (2026-08-24) -- no published run used it.
-    known_ids=('8114cc4332eb',
+    #   f43d8b5931a4  the put-away queue state and carryover tables, before batch_stats
+    #                 carried a working day.  A short window (2026-08-24 .. 2026-08-25)
+    #                 -- no published run used it.
+    known_ids=('f43d8b5931a4',
+              '8114cc4332eb',
               '96b8e37f158d',
               '1a594605a10e',
               '6ad0b34af9f1',
@@ -1390,8 +1408,9 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
         'avg_concurrent_pickers,picking_pct,traveling_pct,'
         'batch_start_time,batch_end_time,'
         'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
-        'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,'
+        'work_day,released_late,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
              r.task_makespan, r.thr_task, r.thr_batch,
@@ -1399,6 +1418,7 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
              r.batch_start_time, r.batch_end_time,
              r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
              r.queue_depth, r.lead_queue_depth, r.in_transit_qty, r.items_demanded,
+             getattr(r, 'work_day', 0), getattr(r, 'released_late', 0.0),
              int(r.is_outlier))
             for r in records
         ],

@@ -48,7 +48,10 @@ from Warehouse.placement.Capacity_Reloader import RELOADERS
 from Warehouse.operations import Crew as _Crew, Mode as _Mode, Role as _Role
 from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
 from Optimization.metrics import work_events as _work_events
-from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS
+from Warehouse.kernel.timeline import (
+    DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS,
+    ReleaseSchedule as _ReleaseSchedule,
+    WorkDay as _WorkDay)
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
@@ -395,6 +398,17 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # still runs: a crew on foot, an eight-hour shift.
     _pick_mode     = _Mode.of(args.get('pick_mode') or 'foot')
     _shift_seconds = args.get('shift_seconds') or _DEFAULT_SHIFT_SECONDS
+    # WHEN A BATCH MAY START.  `releases_per_day=None` (the default, and every shipped run)
+    # is the CONTINUOUS schedule: batch i starts when batch i-1 finished, which is exactly
+    # what this loop already did, so wiring it in changes nothing.  An integer cuts the day
+    # into that many slots and releases batch i at its slot -- and an EMPTY batch then still
+    # consumes one, which a clock driven by makespans cannot express.
+    #
+    # The day length is the shift length: one number, so a reporting frame and a dispatch
+    # boundary cannot drift apart by default.  A run that wants them different says so.
+    _release = _ReleaseSchedule(
+        _WorkDay(length=args.get('work_day_seconds') or _shift_seconds),
+        per_day=args.get('releases_per_day'))
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -902,6 +916,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # schedule exists, so the skip still precedes the advance and the contract in
             # Tests/unit/test_arm_clock.py stands.
             skipped += 1
+            # A skipped batch is RELEASED like any other -- that is the whole point of a
+            # schedule.  Its makespan is zero, so under the continuous default the clock
+            # does not move and the stall stands; under a paced schedule the slot advances
+            # it, which is what makes an empty batch cost a day-slot instead of nothing.
+            _late     = _release.missed_by(i, arm_clock)
+            arm_clock = _release.release_at(i, arm_clock)
             _bs, _we_skip, put_clock = close_skipped_batch(
                 batch_id=i, mgr=mgr, arm_clock=arm_clock, put_clock=put_clock,
                 k_pickers=k_pickers, run_id=run_id,
@@ -910,6 +930,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 skus_reordered=len(triggered), units_ordered=batch_uo,
                 put_workers=_put_workers, put_crews=_put_crews,
                 shift_seconds=_shift_seconds)
+            _bs.work_day      = _release.day_of(i)
+            _bs.released_late = _late
             pb.append(_bs)
             we.extend(_we_skip)
             pqs.extend(mgr.queue_state_rows(i))
@@ -921,6 +943,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # zero.  Because the offset is uniform, every batch statistic is a span measured
         # from it and is UNCHANGED -- which is what the offset-invariance work in
         # extract_batch_stats bought.
+        #
+        # THE SCHEDULE DECIDES, not the previous batch's makespan -- but it can only ever
+        # push the release LATER.  The model has no picker contention: a crew cannot begin
+        # batch i+1 while it is still working batch i, so `release_at` clamps to the instant
+        # the arm is actually free.  That clamp erases the fact that a slot was missed, so
+        # `missed_by` is recorded on the row.  Under the continuous default `release_at`
+        # returns `arm_clock` unchanged and `missed_by` is 0.0.
+        _late     = _release.missed_by(i, arm_clock)
+        arm_clock = _release.release_at(i, arm_clock)
         sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
                                                  start_times=[arm_clock] * k_pickers)
         events          = sim.run()
@@ -944,6 +975,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         arm_clock             = bs.batch_start_time + bs.duration
         # What this batch ASKED for, against `total_items` = what it got.
         bs.items_demanded     = sum(batch.items.values())
+        bs.work_day           = _release.day_of(i)
+        bs.released_late      = _late
         # ── demand ledger ────────────────────────────────────────────────────
         # A pick can never exceed the demand that asked for it.  Same discipline as the
         # conservation ledger below: LOGGED, never raised, and only on the first break, so

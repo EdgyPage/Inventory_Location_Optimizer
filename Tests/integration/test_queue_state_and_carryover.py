@@ -214,3 +214,42 @@ def test_queue_state_rows_drain_the_counters_exactly_once():
     second = mgr.queue_state_rows(4)
     assert second[0]['admitted'] == 0 and second[0]['blocked'] == 0
     assert second[0]['depth'] == 2, 'depth is a level and must not reset'
+
+
+# ── the working day reaches the database ──────────────────────────────────────────
+
+def test_batch_stats_round_trips_the_working_day_and_the_missed_slot(db):
+    """Two columns without which the feature is uninterpretable: no analysis can group a
+    result BY DAY, and a run cannot say whether its schedule was ever met.
+
+    `released_late` matters because `release_at` CLAMPS to the instant the arm is free —
+    the model has no picker contention, so a batch cannot begin while the crew is still
+    working the previous one. That clamp erases the miss; this column is the only record.
+    """
+    from Optimization.persistence.Picking_Data import BatchStats, save_batch_stats
+    path, rid = db
+    rows = [
+        BatchStats(run_id=rid, batch_id=0, duration=10.0, num_tasks=1, total_items=5,
+                   avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5),
+        BatchStats(run_id=rid, batch_id=1, duration=20.0, num_tasks=2, total_items=9,
+                   avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5),
+    ]
+    rows[0].work_day, rows[0].released_late = 0, 0.0
+    rows[1].work_day, rows[1].released_late = 3, 41.5
+    save_batch_stats(path, rid, rows)
+    got = _rows(path, 'SELECT batch_id, work_day, released_late FROM batch_stats '
+                      'WHERE run_id=? ORDER BY batch_id', (rid,))
+    assert got == [{'batch_id': 0, 'work_day': 0, 'released_late': 0.0},
+                   {'batch_id': 1, 'work_day': 3, 'released_late': 41.5}]
+
+
+def test_the_working_day_columns_default_to_zero(db):
+    """A continuous schedule has no day structure and no slots, so both are 0 — and an
+    older BatchStats that never sets them must still insert."""
+    from Optimization.persistence.Picking_Data import BatchStats, save_batch_stats
+    path, rid = db
+    save_batch_stats(path, rid, [
+        BatchStats(run_id=rid, batch_id=7, duration=1.0, num_tasks=1, total_items=1,
+                   avg_concurrent_pickers=1.0, picking_pct=0.0, traveling_pct=0.0)])
+    assert _rows(path, 'SELECT work_day, released_late FROM batch_stats WHERE run_id=?',
+                 (rid,)) == [{'work_day': 0, 'released_late': 0.0}]

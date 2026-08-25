@@ -192,38 +192,58 @@ def test_a_negative_batch_index_raises(idx):
         s.scheduled_at(idx)
 
 
-# ── the thing that must not happen ────────────────────────────────────────────────
+# ── what happens when a picker overruns its slot ──────────────────────────────────
+#
+# The ratchet that used to sit here asserted nothing imported these classes, and its failure
+# message said to delete it in the commit that wires them and state the overrun decision
+# here. This is that.
+#
+# THE DECISION IS FORCED BY THE MODEL, not chosen. There is no picker contention anywhere in
+# this simulator: a crew cannot begin batch i+1 while it is still working batch i, because
+# nothing represents two batches competing for the same picker. So a release can only ever be
+# pushed LATER — `release_at` clamps to the instant the arm is actually free, the slot is
+# simply missed, and `missed_by` is the only record that it was.
+#
+# That also dissolves what looked like a blocking conflict between a paced release and a
+# day-end cut: the cut STOPS pickers at the whistle, so it makes overruns less likely rather
+# than more. The two compose.
 
-def test_nothing_in_the_repo_imports_these_yet():
-    """Deliberately unwired. The commit that turns the schedule on has to say what a picker
-    overrunning its release does — a modelling decision — and shipping the wiring in the same
-    change as the value objects would bury it.
 
-    When that commit lands it deletes this test, and the deletion is the signal that the
-    decision was made somewhere.
-    """
+def test_an_overrun_pushes_the_release_later_and_records_the_miss():
+    s = ReleaseSchedule(WorkDay(length=100.0), per_day=4)
+    # Batch 2's slot is 50.0, but the crew is busy until 90.0.
+    assert s.release_at(2, 90.0) == 90.0
+    assert s.missed_by(2, 90.0) == 40.0
+    # And the next slot is unaffected: a schedule does not compound its own lateness.
+    assert s.scheduled_at(3) == 75.0
+
+
+def test_the_runner_reads_the_schedule_from_its_args():
+    """A WIRING check, and only that — the behaviour is covered above. It exists because the
+    default has to stay reachable: `releases_per_day` absent means continuous, which is the
+    shipped configuration and the reason this commit moves nothing."""
     import ast as _ast
-    import pathlib
-    root = pathlib.Path(__file__).resolve().parents[2]
-    hits = []
-    for sub in ('Warehouse', 'Optimization', 'Diagnostics', 'Visualization'):
-        for p in (root / sub).rglob('*.py'):
-            if p.name == 'timeline.py':
-                continue
-            try:
-                tree = _ast.parse(p.read_text(encoding='utf-8'))
-            except SyntaxError:                      # not ours to police
-                continue
-            # Strip docstrings before scanning: put_policy.py NAMES WorkDay in its prose to
-            # say a clock-aware rule will need one, and a plain substring search called that
-            # a usage. Comments vanish through unparse on their own.
-            for node in _ast.walk(tree):
-                if isinstance(node, (_ast.Module, _ast.ClassDef, _ast.FunctionDef,
-                                     _ast.AsyncFunctionDef)) and _ast.get_docstring(node):
-                    node.body = node.body[1:]
-            body = _ast.unparse(tree)
-            if 'WorkDay' in body or 'ReleaseSchedule' in body:
-                hits.append(str(p.relative_to(root)))
-    assert not hits, (
-        f'{hits} now use WorkDay/ReleaseSchedule — delete this test in the commit that '
-        f'wires them, and say there what an overrunning picker does')
+    import inspect
+
+    import Optimization.simdriver.strategy_runner as sr
+    tree = _ast.parse(inspect.getsource(sr))
+    for node in _ast.walk(tree):
+        if isinstance(node, (_ast.Module, _ast.ClassDef, _ast.FunctionDef,
+                             _ast.AsyncFunctionDef)) and _ast.get_docstring(node):
+            node.body = node.body[1:]
+    body = _ast.unparse(tree)
+    assert '_ReleaseSchedule(' in body, 'the runner no longer builds a schedule'
+    assert "args.get('releases_per_day')" in body, (
+        'the release cadence is not configurable, so the schedule can never be turned on')
+    assert '_release.release_at(' in body, 'the runner does not ask the schedule'
+    assert '_release.missed_by(' in body, 'a missed slot is not recorded anywhere'
+
+
+def test_the_default_configuration_is_continuous():
+    """The whole reason this commit is byte-identical: with no `releases_per_day`, the
+    schedule returns the ready instant it was handed, which is what the loop already did."""
+    s = ReleaseSchedule(WorkDay(length=28800.0), per_day=None)
+    assert s.is_continuous
+    for ready in (0.0, 1234.5, 99999.0):
+        assert s.release_at(7, ready) == ready
+        assert s.missed_by(7, ready) == 0.0
